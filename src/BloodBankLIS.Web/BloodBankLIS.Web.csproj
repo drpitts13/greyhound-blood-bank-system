@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The UI consumes the HTTP API but shares the API's contract types (DTOs, enums)
+         for compile-time safety, per the architecture's "shares C# models" decision. -->
+    <ProjectReference Include="..\BloodBankLIS.Application\BloodBankLIS.Application.csproj" />
+    <ProjectReference Include="..\BloodBankLIS.Domain\BloodBankLIS.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

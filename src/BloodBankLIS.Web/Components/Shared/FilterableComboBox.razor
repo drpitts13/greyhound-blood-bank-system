@@ -1,0 +1,203 @@
+@typeparam TItem
+@typeparam TValue
+
+<div class="bb-combobox @( _open ? "open" : null)" @onfocusout="OnFocusOutAsync">
+    <input type="text"
+           class="bb-combobox-input"
+           value="@_inputText"
+           placeholder="@Placeholder"
+           autocomplete="off"
+           @oninput="OnInput"
+           @onfocus="Open" />
+    @if (_open && (_showClearOption || Filtered.Any()))
+    {
+        <ul class="bb-combobox-menu" @onmousedown:preventDefault>
+            @if (_showClearOption)
+            {
+                <li class="bb-combobox-item bb-combobox-clear" @onmousedown="ClearAsync">@ClearLabel</li>
+            }
+            @foreach (var item in Filtered)
+            {
+                <li class="bb-combobox-item" @onmousedown="() => SelectItemAsync(item)">@DisplayText(item)</li>
+            }
+            @if (!Filtered.Any() && !_showClearOption)
+            {
+                <li class="bb-combobox-item bb-combobox-empty">No matches</li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    [Parameter] public TValue? Value { get; set; }
+    [Parameter] public EventCallback<TValue?> ValueChanged { get; set; }
+    [Parameter] public IEnumerable<TItem> Items { get; set; } = [];
+    [Parameter] public Func<TItem, string> DisplayText { get; set; } = _ => string.Empty;
+    [Parameter] public Func<TItem, TValue?> ItemValue { get; set; } = default!;
+    [Parameter] public Func<TItem, string>? SearchText { get; set; }
+    /// <summary>When true, the bound value follows typed text (for free-text fields such as provider location).</summary>
+    [Parameter] public bool AllowCustom { get; set; }
+    [Parameter] public bool Clearable { get; set; }
+    [Parameter] public string ClearLabel { get; set; } = "—";
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public int MaxSuggestions { get; set; } = 40;
+
+    private string _inputText = string.Empty;
+    private bool _open;
+    private bool _suppressSync;
+    private TValue? _lastSyncedValue;
+
+    private bool _showClearOption => Clearable;
+
+    private IEnumerable<TItem> Filtered
+    {
+        get
+        {
+            var term = _inputText?.Trim() ?? string.Empty;
+            IEnumerable<TItem> q = Items;
+            if (!string.IsNullOrWhiteSpace(term))
+            {
+                q = q.Where(i => Matches(i, term));
+            }
+
+            return q.Take(MaxSuggestions);
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (EqualityComparer<TValue?>.Default.Equals(Value, _lastSyncedValue))
+        {
+            return;
+        }
+
+        _lastSyncedValue = Value;
+        if (_suppressSync)
+        {
+            return;
+        }
+
+        _inputText = ResolveInputFromValue(Value);
+    }
+
+    private string ResolveInputFromValue(TValue? value)
+    {
+        if (value is null)
+        {
+            return string.Empty;
+        }
+
+        if (AllowCustom && IsStringValue && value is string s)
+        {
+            return s;
+        }
+
+        foreach (var item in Items)
+        {
+            if (ValuesEqual(ItemValue(item), value))
+            {
+                return DisplayText(item);
+            }
+        }
+
+        return value.ToString() ?? string.Empty;
+    }
+
+    private bool Matches(TItem item, string term) =>
+        (SearchText?.Invoke(item) ?? DisplayText(item))
+            .Contains(term, StringComparison.OrdinalIgnoreCase);
+
+    private void Open() => _open = true;
+
+    private void OnInput(ChangeEventArgs e)
+    {
+        _inputText = e.Value?.ToString() ?? string.Empty;
+        _open = true;
+
+        if (AllowCustom)
+        {
+            _ = CommitCustomAsync(_inputText);
+        }
+    }
+
+    private async Task SelectItemAsync(TItem item)
+    {
+        _suppressSync = true;
+        _inputText = DisplayText(item);
+        var value = ItemValue(item);
+        _lastSyncedValue = value;
+        await ValueChanged.InvokeAsync(value);
+        _suppressSync = false;
+        _open = false;
+    }
+
+    private async Task ClearAsync()
+    {
+        _suppressSync = true;
+        _inputText = string.Empty;
+        _lastSyncedValue = default;
+        await ValueChanged.InvokeAsync(default);
+        _suppressSync = false;
+        _open = false;
+    }
+
+    private async Task OnFocusOutAsync()
+    {
+        await Task.Delay(120);
+        _open = false;
+        await TryCommitTypedSelectionAsync();
+    }
+
+    private async Task TryCommitTypedSelectionAsync()
+    {
+        if (AllowCustom)
+        {
+            await CommitCustomAsync(_inputText);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_inputText))
+        {
+            if (Clearable)
+            {
+                await ClearAsync();
+            }
+
+            return;
+        }
+
+        var exact = Items.FirstOrDefault(i =>
+            DisplayText(i).Equals(_inputText, StringComparison.OrdinalIgnoreCase));
+        if (exact is not null)
+        {
+            await SelectItemAsync(exact);
+            return;
+        }
+
+        var partial = Items.Where(i => Matches(i, _inputText)).Take(2).ToList();
+        if (partial.Count == 1)
+        {
+            await SelectItemAsync(partial[0]);
+        }
+    }
+
+    private async Task CommitCustomAsync(string text)
+    {
+        if (!IsStringValue)
+        {
+            return;
+        }
+
+        var value = (TValue?)(object?)NullIfEmpty(text);
+        _lastSyncedValue = value;
+        await ValueChanged.InvokeAsync(value);
+    }
+
+    private bool IsStringValue =>
+        typeof(TValue) == typeof(string) || Nullable.GetUnderlyingType(typeof(TValue)) == typeof(string);
+
+    private static string? NullIfEmpty(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    private static bool ValuesEqual(TValue? a, TValue? b) =>
+        EqualityComparer<TValue?>.Default.Equals(a, b);
+}

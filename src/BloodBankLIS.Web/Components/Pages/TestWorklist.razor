@@ -1,0 +1,118 @@
+@page "/test-worklist"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Test Worklist &middot; Blood Bank LIS</PageTitle>
+
+<h1>Test Worklist</h1>
+<p class="muted">Pending test results across all patients. Expand a row to enter results.</p>
+
+<Outcome Value="_fb" />
+
+<div class="bb-card">
+    <div class="bb-card-title">
+        <h3>Pending tests</h3>
+        <button class="btn btn-secondary btn-sm" @onclick="LoadAsync">Refresh</button>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading worklist...</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="empty">No pending tests in the worklist.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead>
+                <tr>
+                    <th>Patient</th>
+                    <th>MRN</th>
+                    <th>Test</th>
+                    <th>Order #</th>
+                    <th>Accession</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Ordered</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _items)
+                {
+                    <tr class="@RowClass(item)">
+                        <td>@item.PatientName</td>
+                        <td class="mono">@item.Mrn</td>
+                        <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span></td>
+                        <td class="mono">@item.OrderNumber</td>
+                        <td class="mono">@(item.AccessionNumber ?? "—")</td>
+                        <td>
+                            @if (item.CurrentResultStatus is not null)
+                            {
+                                <span class="@Ui.Badge(item.CurrentResultStatus.Value)">@item.CurrentResultStatus</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-gray">Pending</span>
+                            }
+                        </td>
+                        <td>@item.Priority</td>
+                        <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick='() => Nav.NavigateTo($"/patients/{item.PatientId}")'>Patient</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ToggleEntry(item.OrderLineId)">
+                                @(_expandedLineId == item.OrderLineId ? "Hide" : "Enter")
+                            </button>
+                        </td>
+                    </tr>
+                    @if (_expandedLineId == item.OrderLineId)
+                    {
+                        <tr><td colspan="9">
+                            <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
+                        </td></tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<TestWorkItemDto> _items = new();
+    private bool _loading = true;
+    private long? _expandedLineId;
+    private Feedback? _fb;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetPendingTestWorklistAsync();
+        _loading = false;
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+            _items = new();
+            return;
+        }
+
+        _items = r.Value ?? new();
+    }
+
+    private void ToggleEntry(long orderLineId) =>
+        _expandedLineId = _expandedLineId == orderLineId ? null : orderLineId;
+
+    private async Task OnResultSaved()
+    {
+        _expandedLineId = null;
+        await LoadAsync();
+    }
+
+    private static string RowClass(TestWorkItemDto item) =>
+        item.Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease or OrderPriority.MassiveTransfusionProtocol
+            ? "row-urgent" : string.Empty;
+}

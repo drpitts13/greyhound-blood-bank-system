@@ -1,0 +1,234 @@
+using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Common;
+using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Enums;
+
+namespace BloodBankLIS.Application.Immunohematology;
+
+/// <summary>
+/// Patient immunohematology history: current/historical ABO/Rh, manual ABO/Rh edits
+/// (a dangerous action), and antibody history. Append-only; nothing is silently
+/// removed (see docs/safety-rules.md sections 5-7).
+/// </summary>
+public sealed class ImmunohematologyService
+{
+    private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
+    private readonly IRepository<AntibodyHistory> _antibodies;
+    private readonly IRepository<AntigenProfile> _antigenProfiles;
+    private readonly IRepository<BloodAttributeDefinition> _bloodAttributes;
+    private readonly IRepository<Patient> _patients;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IClock _clock;
+    private readonly ICurrentUser _currentUser;
+    private readonly IAuditWriter _audit;
+
+    public ImmunohematologyService(
+        IRepository<PatientBloodTypeHistory> bloodTypes,
+        IRepository<AntibodyHistory> antibodies,
+        IRepository<AntigenProfile> antigenProfiles,
+        IRepository<BloodAttributeDefinition> bloodAttributes,
+        IRepository<Patient> patients,
+        IUnitOfWork unitOfWork,
+        IClock clock,
+        ICurrentUser currentUser,
+        IAuditWriter audit)
+    {
+        _bloodTypes = bloodTypes;
+        _antibodies = antibodies;
+        _antigenProfiles = antigenProfiles;
+        _bloodAttributes = bloodAttributes;
+        _patients = patients;
+        _unitOfWork = unitOfWork;
+        _clock = clock;
+        _currentUser = currentUser;
+        _audit = audit;
+    }
+
+    public Task<PatientBloodTypeHistory?> GetCurrentBloodTypeAsync(long patientId, CancellationToken ct = default) =>
+        _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == patientId && h.IsCurrent, ct);
+
+    public Task<IReadOnlyList<PatientBloodTypeHistory>> GetBloodTypeHistoryAsync(long patientId, CancellationToken ct = default) =>
+        _bloodTypes.ListAsync(h => h.PatientId == patientId, ct);
+
+    public Task<IReadOnlyList<AntibodyHistory>> GetActiveAntibodiesAsync(long patientId, CancellationToken ct = default) =>
+        _antibodies.ListAsync(a => a.PatientId == patientId && a.IsActive, ct);
+
+    public Task<IReadOnlyList<AntibodyHistory>> GetAntibodyHistoryAsync(long patientId, CancellationToken ct = default) =>
+        _antibodies.ListAsync(a => a.PatientId == patientId, ct);
+
+    /// <summary>
+    /// Dangerous action: manually record/override the ABO/Rh. Requires a reason and
+    /// writes a named audit event in addition to appending append-only history.
+    /// </summary>
+    public async Task<OperationResult<PatientBloodTypeHistory>> RecordBloodTypeManualAsync(
+        long patientId, AboGroup abo, RhType rhD, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return OperationResult<PatientBloodTypeHistory>.Fail("A reason is required to manually record ABO/Rh.");
+        }
+
+        if (await _patients.GetByIdAsync(patientId, ct) is null)
+        {
+            return OperationResult<PatientBloodTypeHistory>.Fail("Patient not found.");
+        }
+
+        var current = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == patientId && h.IsCurrent, ct);
+        if (current is not null)
+        {
+            current.IsCurrent = false;
+            _bloodTypes.Update(current);
+        }
+
+        var entry = new PatientBloodTypeHistory
+        {
+            PatientId = patientId,
+            Abo = abo,
+            RhD = rhD,
+            Source = BloodTypeSource.ManualEntry,
+            IsCurrent = true,
+            Reason = reason
+        };
+        await _bloodTypes.AddAsync(entry, ct);
+
+        _audit.Record(
+            AuditEventType.Update,
+            nameof(PatientBloodTypeHistory),
+            patientId,
+            oldValue: current is null ? null : new { current.Abo, current.RhD },
+            newValue: new { entry.Abo, entry.RhD, entry.Source },
+            reason: reason);
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<PatientBloodTypeHistory>.Ok(entry);
+    }
+
+    public Task<IReadOnlyList<AntigenProfile>> GetAntigenProfilesAsync(long patientId, CancellationToken ct = default) =>
+        _antigenProfiles.ListAsync(p => p.PatientId == patientId, ct);
+
+    public async Task<OperationResult<AntigenProfile>> SaveAntigenProfileAsync(
+        long patientId, SaveAntigenProfileRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (await _patients.GetByIdAsync(patientId, ct) is null)
+        {
+            return OperationResult<AntigenProfile>.Fail("Patient not found.");
+        }
+
+        var definition = await _bloodAttributes.GetByIdAsync(request.BloodAttributeDefinitionId, ct);
+        if (definition is null || !definition.IsActive)
+        {
+            return OperationResult<AntigenProfile>.Fail("Blood attribute definition not found or inactive.");
+        }
+
+        var existing = await _antigenProfiles.FirstOrDefaultAsync(
+            p => p.PatientId == patientId && p.BloodAttributeDefinitionId == request.BloodAttributeDefinitionId, ct);
+
+        if (existing is null)
+        {
+            existing = new AntigenProfile
+            {
+                PatientId = patientId,
+                BloodAttributeDefinitionId = request.BloodAttributeDefinitionId,
+                Result = request.Result,
+                Method = request.Method,
+                TestedUtc = _clock.UtcNow,
+                TestedBy = _currentUser.UserName
+            };
+            await _antigenProfiles.AddAsync(existing, ct);
+        }
+        else
+        {
+            existing.Result = request.Result;
+            existing.Method = request.Method;
+            existing.TestedUtc = _clock.UtcNow;
+            existing.TestedBy = _currentUser.UserName;
+            _antigenProfiles.Update(existing);
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<AntigenProfile>.Ok(existing);
+    }
+
+    public async Task<OperationResult<AntibodyHistory>> AddAntibodyAsync(
+        long patientId, long? bloodAttributeDefinitionId, string? specificity, AntibodyStatus status, string? comment, CancellationToken ct = default)
+    {
+        if (await _patients.GetByIdAsync(patientId, ct) is null)
+        {
+            return OperationResult<AntibodyHistory>.Fail("Patient not found.");
+        }
+
+        string resolvedSpecificity;
+        long? definitionId = bloodAttributeDefinitionId;
+
+        if (bloodAttributeDefinitionId is long defId)
+        {
+            var definition = await _bloodAttributes.GetByIdAsync(defId, ct);
+            if (definition is null || !definition.IsActive)
+            {
+                return OperationResult<AntibodyHistory>.Fail("Blood attribute definition not found or inactive.");
+            }
+
+            resolvedSpecificity = definition.AntibodyName;
+        }
+        else if (!string.IsNullOrWhiteSpace(specificity))
+        {
+            resolvedSpecificity = specificity.Trim();
+        }
+        else
+        {
+            return OperationResult<AntibodyHistory>.Fail("A catalog antibody or free-text specificity is required.");
+        }
+
+        var antibody = new AntibodyHistory
+        {
+            PatientId = patientId,
+            BloodAttributeDefinitionId = definitionId,
+            AntibodySpecificity = resolvedSpecificity,
+            Status = status,
+            Comment = comment,
+            IsActive = true
+        };
+
+        await _antibodies.AddAsync(antibody, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<AntibodyHistory>.Ok(antibody);
+    }
+
+    /// <summary>Dangerous action: deactivate an antibody record. Requires a reason and is audited.</summary>
+    public async Task<OperationResult<AntibodyHistory>> DeactivateAntibodyAsync(long antibodyId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return OperationResult<AntibodyHistory>.Fail("A reason is required to deactivate an antibody record.");
+        }
+
+        var antibody = await _antibodies.GetByIdAsync(antibodyId, ct);
+        if (antibody is null)
+        {
+            return OperationResult<AntibodyHistory>.Fail("Antibody record not found.");
+        }
+
+        if (!antibody.IsActive)
+        {
+            return OperationResult<AntibodyHistory>.Fail("Antibody record is already inactive.");
+        }
+
+        antibody.IsActive = false;
+        antibody.DeactivationReason = reason;
+        _antibodies.Update(antibody);
+
+        _audit.Record(
+            AuditEventType.Update,
+            nameof(AntibodyHistory),
+            antibody.Id,
+            oldValue: new { IsActive = true },
+            newValue: new { IsActive = false },
+            reason: reason);
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<AntibodyHistory>.Ok(antibody);
+    }
+}

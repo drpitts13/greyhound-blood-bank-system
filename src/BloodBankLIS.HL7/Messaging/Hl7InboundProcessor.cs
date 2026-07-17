@@ -1,0 +1,314 @@
+using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.HL7.Parsing;
+
+namespace BloodBankLIS.HL7.Messaging;
+
+/// <summary>Outcome of processing one inbound message: the response to send and the persisted log.</summary>
+public sealed record Hl7ProcessResult(string AckMessage, string AckCode, Hl7MessageLog Log)
+{
+    public bool Accepted => AckCode == Parsing.AckCode.Accept;
+}
+
+/// <summary>
+/// The inbound HL7 pipeline (docs/hl7-design.md section 3): persist the raw message,
+/// parse, map, execute the matching Application action, and build an ACK/NAK — all in
+/// one transaction. Clinical actions run through the same domain logic as the API, so
+/// safety rules always apply. Idempotent on MSH-10 control id so replays do not
+/// duplicate patients or orders.
+/// </summary>
+public sealed class Hl7InboundProcessor
+{
+    private readonly IRepository<Hl7MessageLog> _logs;
+    private readonly IRepository<InterfaceErrorQueueItem> _errors;
+    private readonly IRepository<Patient> _patients;
+    private readonly IRepository<Order> _orders;
+    private readonly IRepository<OrderingLocation> _locationRepo;
+    private readonly EncounterService _encounters;
+    private readonly OrderService _ordersService;
+    private readonly OrderingProviderService _orderingProviders;
+    private readonly OrderingLocationService _orderingLocationCatalog;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IClock _clock;
+
+    public Hl7InboundProcessor(
+        IRepository<Hl7MessageLog> logs,
+        IRepository<InterfaceErrorQueueItem> errors,
+        IRepository<Patient> patients,
+        IRepository<Order> orders,
+        IRepository<OrderingLocation> locationRepo,
+        EncounterService encounters,
+        OrderService ordersService,
+        OrderingProviderService orderingProviders,
+        OrderingLocationService orderingLocationCatalog,
+        IUnitOfWork unitOfWork,
+        IClock clock)
+    {
+        _logs = logs;
+        _errors = errors;
+        _patients = patients;
+        _orders = orders;
+        _locationRepo = locationRepo;
+        _encounters = encounters;
+        _ordersService = ordersService;
+        _orderingProviders = orderingProviders;
+        _orderingLocationCatalog = orderingLocationCatalog;
+        _unitOfWork = unitOfWork;
+        _clock = clock;
+    }
+
+    /// <summary>
+    /// Re-submits a previously stored inbound message through the same pipeline. The
+    /// replay is recorded as a new <see cref="Hl7MessageLog"/> with status Replayed;
+    /// idempotency on the control id prevents duplicate clinical effects.
+    /// </summary>
+    public async Task<Hl7ProcessResult?> ReplayAsync(long messageId, CancellationToken ct = default)
+    {
+        var original = await _logs.GetByIdAsync(messageId, ct);
+        if (original is null || original.Direction != Hl7Direction.Inbound)
+        {
+            return null;
+        }
+
+        return await ProcessAsync(original.RawMessage, original.EndpointId, isReplay: true, ct);
+    }
+
+    public async Task<Hl7ProcessResult> ProcessAsync(string rawMessage, long? endpointId = null, bool isReplay = false, CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+        var ackControlId = now.ToString("yyyyMMddHHmmssfff");
+
+        if (!Hl7Parser.TryParse(rawMessage, out var message, out var parseError))
+        {
+            var errorLog = new Hl7MessageLog
+            {
+                EndpointId = endpointId,
+                Direction = Hl7Direction.Inbound,
+                MessageType = "UNKNOWN",
+                MessageControlId = string.Empty,
+                RawMessage = rawMessage ?? string.Empty,
+                Status = Hl7MessageStatus.Errored,
+                ReceivedUtc = now,
+                AckCode = AckCode.Reject,
+                ErrorDetail = parseError
+            };
+            await _logs.AddAsync(errorLog, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+
+            var nak = Hl7AckBuilder.BuildParseNak(null, parseError ?? "Parse error", ackControlId, now);
+            return new Hl7ProcessResult(nak, AckCode.Reject, errorLog);
+        }
+
+        var log = new Hl7MessageLog
+        {
+            EndpointId = endpointId,
+            Direction = Hl7Direction.Inbound,
+            MessageType = message!.MessageType,
+            TriggerEvent = message.TriggerEvent,
+            MessageControlId = message.MessageControlId,
+            RawMessage = rawMessage!,
+            Status = isReplay ? Hl7MessageStatus.Replayed : Hl7MessageStatus.Received,
+            ReceivedUtc = now
+        };
+        await _logs.AddAsync(log, ct);
+
+        var alreadyProcessed = await _logs.AnyAsync(
+            l => l.MessageControlId == message.MessageControlId
+                 && l.Direction == Hl7Direction.Inbound
+                 && l.Id != log.Id
+                 && (l.Status == Hl7MessageStatus.Processed || l.Status == Hl7MessageStatus.Acked), ct);
+
+        if (alreadyProcessed && !isReplay)
+        {
+            log.Status = Hl7MessageStatus.Processed;
+            log.AckCode = AckCode.Accept;
+            log.ProcessedUtc = now;
+            log.ErrorDetail = "Duplicate control id; acknowledged without reprocessing.";
+            await _unitOfWork.SaveChangesAsync(ct);
+            return new Hl7ProcessResult(
+                Hl7AckBuilder.BuildAck(message, AckCode.Accept, "Duplicate; not reprocessed.", ackControlId, now),
+                AckCode.Accept,
+                log);
+        }
+
+        try
+        {
+            var text = await DispatchAsync(message, ct);
+            log.Status = isReplay ? Hl7MessageStatus.Replayed : Hl7MessageStatus.Processed;
+            log.AckCode = AckCode.Accept;
+            log.ProcessedUtc = now;
+            await _unitOfWork.SaveChangesAsync(ct);
+            return new Hl7ProcessResult(
+                Hl7AckBuilder.BuildAck(message, AckCode.Accept, text, ackControlId, now),
+                AckCode.Accept,
+                log);
+        }
+        catch (Hl7MappingException ex)
+        {
+            log.Status = Hl7MessageStatus.Errored;
+            log.AckCode = AckCode.ApplicationError;
+            log.ErrorDetail = ex.Message;
+            log.ProcessedUtc = now;
+            await _errors.AddAsync(new InterfaceErrorQueueItem
+            {
+                Hl7Message = log,
+                ErrorType = "Mapping",
+                ErrorDetail = ex.Message,
+                NextRetryUtc = now.AddMinutes(5),
+                RetryCount = 0,
+                Resolved = false
+            }, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+            return new Hl7ProcessResult(
+                Hl7AckBuilder.BuildAck(message, AckCode.ApplicationError, ex.Message, ackControlId, now),
+                AckCode.ApplicationError,
+                log);
+        }
+    }
+
+    private async Task<string> DispatchAsync(Hl7Message message, CancellationToken ct) =>
+        message.MessageType switch
+        {
+            "ADT" => await HandleAdtAsync(message, ct),
+            "ORM" or "OML" => await HandleOrmAsync(message, ct),
+            _ => throw new Hl7MappingException($"Unsupported message type '{message.MessageType}'.")
+        };
+
+    private async Task<string> HandleAdtAsync(Hl7Message message, CancellationToken ct)
+    {
+        var data = Hl7AdtMapper.Map(message);
+        if (string.IsNullOrWhiteSpace(data.Mrn))
+        {
+            throw new Hl7MappingException("ADT message has no patient identifier (PID-3).");
+        }
+
+        var patient = await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == data.Mrn, ct);
+        var created = false;
+        if (patient is null)
+        {
+            patient = new Patient
+            {
+                MedicalRecordNumber = data.Mrn,
+                LastName = data.LastName,
+                FirstName = data.FirstName,
+                MiddleName = data.MiddleName,
+                DateOfBirth = data.DateOfBirth ?? default,
+                Sex = data.Sex
+            };
+            await _patients.AddAsync(patient, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+            created = true;
+        }
+        else
+        {
+            patient.LastName = data.LastName;
+            patient.FirstName = data.FirstName;
+            patient.MiddleName = data.MiddleName;
+            if (data.DateOfBirth is not null) patient.DateOfBirth = data.DateOfBirth.Value;
+            patient.Sex = data.Sex;
+            _patients.Update(patient);
+        }
+
+        var visitNote = await _encounters.UpsertVisitFromHl7Async(
+            patient.Id,
+            data.VisitNumber ?? string.Empty,
+            data.AccountNumber,
+            data.AdmitUtc,
+            data.DischargeUtc,
+            data.CurrentLocation,
+            data.AttendingProviderId,
+            data.AttendingProviderName,
+            data.TriggerEvent,
+            ct);
+
+        if (visitNote is not null)
+        {
+            return created
+                ? $"Patient {data.Mrn} created. {visitNote}"
+                : $"Patient {data.Mrn} updated. {visitNote}";
+        }
+
+        return created ? $"Patient {data.Mrn} created." : $"Patient {data.Mrn} updated.";
+    }
+
+    private async Task<string> HandleOrmAsync(Hl7Message message, CancellationToken ct)
+    {
+        var data = Hl7OrmMapper.Map(message);
+        if (string.IsNullOrWhiteSpace(data.PlacerOrderId))
+        {
+            throw new Hl7MappingException("Order message has no placer order id (ORC-2/OBR-2).");
+        }
+
+        var patient = await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == data.Mrn, ct);
+        if (patient is null)
+        {
+            throw new Hl7MappingException($"No patient found for MRN '{data.Mrn}'; order cannot be created.");
+        }
+
+        var existing = await _orders.FirstOrDefaultAsync(o => o.OrderNumber == data.PlacerOrderId, ct);
+
+        if (string.Equals(data.OrderControl, "CA", StringComparison.OrdinalIgnoreCase))
+        {
+            if (existing is null)
+            {
+                throw new Hl7MappingException($"Cancel for unknown order '{data.PlacerOrderId}'.");
+            }
+
+            existing.Status = OrderStatus.Cancelled;
+            existing.CancellationReason ??= "Cancelled via HL7 ORM";
+            _orders.Update(existing);
+            return $"Order {data.PlacerOrderId} cancelled.";
+        }
+
+        if (existing is not null)
+        {
+            return $"Order {data.PlacerOrderId} already exists; not duplicated.";
+        }
+
+        var encounter = await _encounters.EnsureEncounterForHl7OrderAsync(patient.Id, data.VisitNumber, ct);
+        var location = await _orderingLocationCatalog.EnsureFromHl7Async(
+                data.OrderingLocationCode,
+                name: data.OrderingLocationCode,
+                department: null,
+                ct)
+            ?? await _locationRepo.FirstOrDefaultAsync(l => l.IsActive, ct)
+            ?? await _locationRepo.FirstOrDefaultAsync(l => l.Code == "LEGACY", ct)
+            ?? throw new Hl7MappingException("No ordering location configured; cannot create HL7 order.");
+
+        var provider = await _orderingProviders.EnsureFromHl7Async(
+            data.OrderingProviderId,
+            data.OrderingProviderName,
+            specialty: null,
+            location: null,
+            "HL7",
+            ct);
+
+        var testCode = string.IsNullOrWhiteSpace(data.TestCode)
+            ? data.OrderType.ToString()
+            : data.TestCode.Trim().ToUpperInvariant();
+        var createResult = await _ordersService.CreateAsync(patient.Id, new CreateOrderRequest(
+            encounter.Id,
+            location.Id,
+            data.PlacerOrderId,
+            [new OrderLineInputDto(OrderCategory.Test, testCode, null)],
+            OrderPriority.Routine,
+            _clock.UtcNow,
+            provider?.Id,
+            OrderSource.Hl7,
+            "HL7",
+            null), ct);
+
+        if (!createResult.Succeeded)
+        {
+            throw new Hl7MappingException(createResult.Error ?? "Failed to create HL7 order.");
+        }
+
+        return $"Order {data.PlacerOrderId} created.";
+    }
+
+}
+
+/// <summary>An application-level mapping/execution failure that yields an AE (retryable) NAK.</summary>
+public sealed class Hl7MappingException(string message) : Exception(message);

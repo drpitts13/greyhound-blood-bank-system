@@ -1,0 +1,210 @@
+@page "/admin/users"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Users &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Users</h1>
+    <button class="btn btn-primary" @onclick="NewUser">New user</button>
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_users.Count == 0)
+    {
+        <div class="empty">No users.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Username</th><th>Display name</th><th>Roles</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var u in _users)
+                {
+                    <tr>
+                        <td class="mono">@u.UserName</td>
+                        <td>@u.DisplayName @if (u.IsServiceAccount) { <span class="badge badge-gray">service</span> }</td>
+                        <td>@string.Join(", ", u.Roles)</td>
+                        <td>
+                            @if (!u.IsActive) { <span class="badge badge-amber">Inactive</span> }
+                            else if (u.IsLocked) { <span class="badge badge-amber">Locked</span> }
+                            else { <span class="badge badge-green">Active</span> }
+                        </td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(u.Id)">Manage</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New user" : $"Manage: {_editing.UserName}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Username</label><input @bind="_editing.UserName" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Display name</label><input @bind="_editing.DisplayName" /></div>
+            <div class="field"><label>Email</label><input @bind="_editing.Email" /></div>
+        </div>
+        <div class="flex gap" style="margin:.4rem 0;">
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.IsServiceAccount" /> Service account</label>
+        </div>
+
+        <div class="field">
+            <label>Roles</label>
+            <div class="flex gap" style="flex-wrap:wrap;">
+                @foreach (var role in _roles)
+                {
+                    var selected = _editing.Roles.Contains(role.Name);
+                    <span class="badge @(selected ? "badge-green" : "badge-gray")" style="cursor:pointer;" @onclick="() => ToggleRole(role.Name)">@role.Name</span>
+                }
+            </div>
+        </div>
+
+        <div class="field"><label>Change reason (required to grant admin roles)</label>
+            <input @bind="_changeReason" placeholder="Reason for this change" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;flex-wrap:wrap;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && _current is not null)
+            {
+                @if (_current.IsActive)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="() => SetActiveAsync(false)">Deactivate</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="() => SetActiveAsync(true)">Activate</button>
+                }
+                @if (_current.IsLocked)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="() => SetLockedAsync(false)">Unlock</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="() => SetLockedAsync(true)">Lock</button>
+                }
+                <button class="btn btn-ghost" disabled="@_busy" @onclick="ResetPasswordAsync">Reset password</button>
+            }
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AdminUserDto> _users = new();
+    private List<AdminRoleDto> _roles = new();
+    private bool _loading = true;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private AdminUserDto? _current;
+    private string? _changeReason;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var roles = await Api.GetAdminRolesAsync();
+        _roles = roles.Value ?? new();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminUsersAsync();
+        _users = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewUser()
+    {
+        _editId = null; _current = null; _changeReason = null;
+        _editing = new EditModel();
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminUserAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _current = r.Value; _editId = r.Value.Id; _changeReason = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+    }
+
+    private void ToggleRole(string name)
+    {
+        if (_editing is null) return;
+        if (!_editing.Roles.Remove(name)) _editing.Roles.Add(name);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null ? await Api.CreateAdminUserAsync(req) : await Api.UpdateAdminUserAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "User created." : "Saved.");
+        if (r.Succeeded) { _current = r.Value; _editId = r.Value!.Id; await LoadAsync(); }
+    }
+
+    private async Task SetActiveAsync(bool active)
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.SetUserActiveAsync(_editId.Value, active, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback(active ? "Activated." : "Deactivated.");
+        if (r.Succeeded) { _current = r.Value; await LoadAsync(); }
+    }
+
+    private async Task SetLockedAsync(bool locked)
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.SetUserLockedAsync(_editId.Value, locked, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback(locked ? "Locked." : "Unlocked.");
+        if (r.Succeeded) { _current = r.Value; await LoadAsync(); }
+    }
+
+    private async Task ResetPasswordAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ResetUserPasswordAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Password reset recorded (placeholder).");
+    }
+
+    private sealed class EditModel
+    {
+        public string UserName { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public bool IsServiceAccount { get; set; }
+        public List<string> Roles { get; set; } = new();
+
+        public static EditModel From(AdminUserDto u) => new()
+        {
+            UserName = u.UserName, DisplayName = u.DisplayName, Email = u.Email,
+            IsServiceAccount = u.IsServiceAccount, Roles = u.Roles.ToList()
+        };
+
+        public SaveUserRequest ToRequest(string? reason) => new(UserName, DisplayName, Email, IsServiceAccount, Roles, reason);
+    }
+}

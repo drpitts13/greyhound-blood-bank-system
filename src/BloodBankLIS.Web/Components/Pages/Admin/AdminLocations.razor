@@ -1,0 +1,175 @@
+@page "/admin/locations"
+@using BloodBankLIS.Application.Admin
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Ordering Locations &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Ordering Locations</h1>
+    @if (CanEdit)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New location</button>
+    }
+</div>
+<p class="muted">Location code is required. Name, department, and HL7 mapping code are optional descriptions; name defaults to code when blank.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code or name" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No ordering locations.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Department</th><th>HL7 map</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var l in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@l.Code</td>
+                        <td>@l.DisplayName</td>
+                        <td>@(l.Department ?? "—")</td>
+                        <td class="mono">@(l.Hl7MappingCode ?? l.Code)</td>
+                        <td>@(l.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => Edit(l)">Edit</button>
+                                @if (l.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(l.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(l.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_draft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New location" : $"Edit: {_draft.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_draft.Code" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Name (description)</label><input @bind="_draft.Name" placeholder="Defaults to code" /></div>
+            <div class="field"><label>Department</label><input @bind="_draft.Department" /></div>
+            <div class="field"><label>HL7 mapping code</label><input class="mono" @bind="_draft.Hl7MappingCode" placeholder="Defaults to code" /></div>
+        </div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private bool _includeInactive;
+    private List<OrderingLocationDto> _list = new();
+    private Feedback? _feedback;
+    private long? _editId;
+    private LocationDraft? _draft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<OrderingLocationDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _list
+            : _list.Where(l =>
+                l.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || l.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminLocationsAsync(_includeInactive);
+        _list = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft() { _editId = null; _draft = new LocationDraft(); }
+
+    private void Edit(OrderingLocationDto l)
+    {
+        _editId = l.Id;
+        _draft = new LocationDraft
+        {
+            Code = l.Code,
+            Name = l.Name,
+            Department = l.Department,
+            Hl7MappingCode = l.Hl7MappingCode
+        };
+    }
+
+    private void CancelEdit() { _editId = null; _draft = null; }
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        if (string.IsNullOrWhiteSpace(_draft.Code))
+        {
+            _feedback = Feedback.Fail("Location code is required.");
+            return;
+        }
+
+        _busy = true;
+        var req = new SaveOrderingLocationRequest(_draft.Code, _draft.Name, _draft.Department, _draft.Hl7MappingCode);
+        var r = _editId is null
+            ? await Api.CreateAdminLocationAsync(req)
+            : await Api.UpdateAdminLocationAsync(_editId.Value, req);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _feedback = r.ToFeedback("Location saved.");
+            _editId = null;
+            _draft = null;
+            await LoadAsync();
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+    }
+
+    private async Task SetActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminLocationActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.Succeeded ? r.ToFeedback(active ? "Activated." : "Deactivated.") : r.ToFeedback();
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private sealed class LocationDraft
+    {
+        public string Code { get; set; } = string.Empty;
+        public string? Name { get; set; }
+        public string? Department { get; set; }
+        public string? Hl7MappingCode { get; set; }
+    }
+}

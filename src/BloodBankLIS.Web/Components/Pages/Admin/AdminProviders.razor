@@ -1,0 +1,205 @@
+@page "/admin/providers"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Application.Reference
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Ordering Providers &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Ordering Providers</h1>
+    @if (CanEdit)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New provider</button>
+    }
+</div>
+<p class="muted">Provider id and name are required. Specialty and location are optional. Used on visits and orders; HL7 ADT/ORM can also add providers.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by id or name" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No providers.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Provider id</th><th>Name</th><th>Specialty</th><th>Location</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var p in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@p.ProviderId</td>
+                        <td>@p.Name</td>
+                        <td>@(p.Specialty ?? "—")</td>
+                        <td>@(p.Location ?? "—")</td>
+                        <td>@(p.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => Edit(p)">Edit</button>
+                                @if (p.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(p.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(p.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_draft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New provider" : $"Edit: {_draft.ProviderId}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Provider id</label><input class="mono" @bind="_draft.ProviderId" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Name</label><input @bind="_draft.Name" /></div>
+            <div class="field"><label>Specialty</label><input @bind="_draft.Specialty" /></div>
+            <div class="field"><label>Location</label>
+                <FilterableComboBox TItem="OrderingLocationRefDto" TValue="string?"
+                                    Items="_locationCatalog"
+                                    @bind-Value="_draft.Location"
+                                    DisplayText="@FormatLocation"
+                                    SearchText="@SearchLocation"
+                                    ItemValue="@LocationItemValue"
+                                    AllowCustom="true"
+                                    Clearable="true"
+                                    Placeholder="Type location or pick from catalog..." />
+            </div>
+        </div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private bool _includeInactive;
+    private List<OrderingProviderDto> _list = new();
+    private List<OrderingLocationRefDto> _locationCatalog = new();
+    private Feedback? _feedback;
+    private long? _editId;
+    private ProviderDraft? _draft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<OrderingProviderDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _list
+            : _list.Where(p =>
+                p.ProviderId.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || p.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLocationCatalogAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadLocationCatalogAsync()
+    {
+        var r = await Api.GetOrderingLocationsAsync();
+        _locationCatalog = r.Succeeded ? r.Value ?? new() : new();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminProvidersAsync(_includeInactive);
+        _list = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _draft = new ProviderDraft();
+    }
+
+    private void Edit(OrderingProviderDto p)
+    {
+        _editId = p.Id;
+        _draft = new ProviderDraft { ProviderId = p.ProviderId, Name = p.Name, Specialty = p.Specialty, Location = p.Location };
+    }
+
+    private void CancelEdit() { _editId = null; _draft = null; }
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        if (string.IsNullOrWhiteSpace(_draft.ProviderId) || string.IsNullOrWhiteSpace(_draft.Name))
+        {
+            _feedback = Feedback.Fail("Provider id and name are required.");
+            return;
+        }
+
+        _busy = true;
+        var req = new SaveOrderingProviderRequest(_draft.ProviderId, _draft.Name, _draft.Specialty, _draft.Location);
+        var r = _editId is null
+            ? await Api.CreateAdminProviderAsync(req)
+            : await Api.UpdateAdminProviderAsync(_editId.Value, req);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _feedback = r.ToFeedback("Provider saved.");
+            _editId = null;
+            _draft = null;
+            await LoadAsync();
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+    }
+
+    private async Task SetActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminProviderActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.Succeeded ? r.ToFeedback(active ? "Activated." : "Deactivated.") : r.ToFeedback();
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private sealed class ProviderDraft
+    {
+        public string ProviderId { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Specialty { get; set; }
+        public string? Location { get; set; }
+    }
+
+    private static string FormatLocation(OrderingLocationRefDto l) =>
+        string.IsNullOrWhiteSpace(l.Department)
+            ? $"{l.DisplayName} ({l.Code})"
+            : $"{l.DisplayName} — {l.Department} ({l.Code})";
+
+    private static string SearchLocation(OrderingLocationRefDto l) =>
+        $"{l.Code} {l.DisplayName} {l.Name} {l.Department}";
+
+    private static string? LocationItemValue(OrderingLocationRefDto l) => l.DisplayName;
+}

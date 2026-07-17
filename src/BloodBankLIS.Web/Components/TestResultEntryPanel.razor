@@ -1,0 +1,641 @@
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Application.Reference
+@using BloodBankLIS.Domain.ValueObjects
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<div class="stack">
+    <Outcome Value="_fb" />
+
+    @if (WorkItem.CurrentResultId is not null)
+    {
+        <div class="muted" style="margin-bottom:.5rem;">
+            Current result:
+            <span class="@Ui.Badge(WorkItem.CurrentResultStatus ?? ResultStatus.Pending)">@(WorkItem.CurrentResultStatus?.ToString() ?? "—")</span>
+            · @DisplayValue(WorkItem.TestCode, WorkItem.CurrentResultValue)
+            @if (!string.IsNullOrWhiteSpace(WorkItem.CurrentResultInterpretation))
+            {
+                <span> · @WorkItem.CurrentResultInterpretation</span>
+            }
+        </div>
+    }
+
+    @if (!WorkItem.CanEnterResults)
+    {
+        <div class="alert alert-warning">@WorkItem.BlockReason</div>
+    }
+    else if (Session.Has(PermissionCodes.ResultEnter))
+    {
+        @if (_definition is null && !_defLoading)
+        {
+            <div class="loading">Loading test definition...</div>
+        }
+        else if (_definition is not null)
+        {
+            <h4 style="margin:0;">@_definition.Name <span class="mono muted">(@_definition.Code)</span></h4>
+
+            @if (_definition.ResultValueType == ResultValueType.AboRh)
+            {
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Interpreted ABO</label>
+                        <select @bind="_abo">
+                            @foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }
+                        </select>
+                    </div>
+                    <div class="field"><label>Interpreted Rh(D)</label>
+                        <select @bind="_rh">
+                            @foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@rr</option> }
+                        </select>
+                    </div>
+                </div>
+            }
+
+            @if (_definition.ResultValueType is ResultValueType.AboRh or ResultValueType.Subtest && _panelSubtests.Count > 0)
+            {
+                <table class="bb" style="margin-top:.5rem;">
+                    <thead><tr><th>Subtest</th><th>Result</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var st in _panelSubtests)
+                        {
+                            var optional = !st.Required;
+                            var performed = !optional || IsOptionalPerformed(st.SubtestCode);
+                            <tr>
+                                <td>@st.Label <span class="mono muted">@st.SubtestCode</span></td>
+                                <td>
+                                    @if (st.ResultType == SubtestResultType.FreeText)
+                                    {
+                                        <input value="@GetSubtestValue(st.SubtestCode)" @onchange="e => SetSubtestValue(st.SubtestCode, e)" disabled="@(!performed)" />
+                                    }
+                                    else
+                                    {
+                                        <select value="@GetSubtestValue(st.SubtestCode)" @onchange="e => SetSubtestValue(st.SubtestCode, e)" disabled="@(!performed)">
+                                            @if (optional)
+                                            {
+                                                <option value="NT">NT</option>
+                                            }
+                                            @foreach (var c in st.Choices)
+                                            {
+                                                <option value="@c.Code">@c.Label</option>
+                                            }
+                                        </select>
+                                    }
+                                </td>
+                                <td>
+                                    @if (optional)
+                                    {
+                                        <label class="flex" style="gap:.35rem;"><input type="checkbox" checked="@IsOptionalPerformed(st.SubtestCode)" @onchange="e => OnOptionalPerformedChanged(st.SubtestCode, e)" /> Performed</label>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @if (_definition.ResultValueType == ResultValueType.Coded)
+            {
+                <div class="field" style="margin-top:.5rem;max-width:320px;">
+                    <label>Result</label>
+                    <select @bind="_codedValue">
+                        <option value="">— Select —</option>
+                        @foreach (var v in AllowedValues)
+                        {
+                            <option value="@v">@v</option>
+                        }
+                    </select>
+                </div>
+            }
+            else if (_definition.ResultValueType == ResultValueType.Numeric)
+            {
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Value</label><input @bind="_value" /></div>
+                    <div class="field"><label>Units</label><input @bind="_units" placeholder="e.g. g/dL" /></div>
+                </div>
+            }
+            else if (_definition.ResultValueType == ResultValueType.FreeText)
+            {
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Result</label><input @bind="_value" /></div>
+                    <div class="field"><label>Interpretation</label><input @bind="_interpretation" /></div>
+                </div>
+            }
+            else if (_definition.ResultValueType == ResultValueType.BloodAttribute && _definition.BloodAttributeScope.Count > 0)
+            {
+                @if (_definition.ContributesToUnitBloodAttributes)
+                {
+                    <div class="field" style="margin-top:.5rem;max-width:320px;">
+                        <label>Unit number (required)</label>
+                        <input @bind="_unitNumber" placeholder="W0001230000001" />
+                    </div>
+                }
+                <table class="bb" style="margin-top:.5rem;">
+                    <thead>
+                        <tr>
+                            @if (IsAntibodyScope)
+                            {
+                                <th>Antibody</th>
+                                <th>Antigen code</th>
+                            }
+                            else
+                            {
+                                <th>Antigen</th>
+                                <th>Antibody</th>
+                            }
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var attr in _definition.BloodAttributeScope)
+                        {
+                            <tr>
+                                @if (IsAntibodyScope)
+                                {
+                                    <td>@attr.AntibodyName</td>
+                                    <td><span class="mono muted">@attr.Code</span></td>
+                                }
+                                else
+                                {
+                                    <td>@attr.Name <span class="mono muted">@attr.Code</span></td>
+                                    <td>@attr.AntibodyName</td>
+                                }
+                                <td>
+                                    <select value="@GetBloodAttrResult(attr.Code)" @onchange="e => SetBloodAttrResult(attr.Code, e)">
+                                        @foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @if (string.Equals(WorkItem.TestCode, "XM", StringComparison.OrdinalIgnoreCase))
+            {
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Unit number</label><input @bind="_unitNumber" placeholder="W0001230000001" /></div>
+                    <div class="field"><label>Method</label>
+                        <select @bind="_xmMethod">
+                            @foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@m</option> }
+                        </select>
+                    </div>
+                    <div class="field"><label>Crossmatch result</label>
+                        <select @bind="_xmResult">
+                            <option value="@CrossmatchResult.Compatible">Compatible</option>
+                            <option value="@CrossmatchResult.Incompatible">Incompatible</option>
+                        </select>
+                    </div>
+                    <div class="field" style="align-self:end;">
+                        <label class="flex"><input type="checkbox" @bind="_antibodyScreenNegative" /> Antibody screen negative</label>
+                    </div>
+                </div>
+            }
+            else if (_definition.ResultValueType == ResultValueType.Subtest)
+            {
+                <div class="field" style="margin-top:.5rem;max-width:420px;">
+                    <label>Interpretation @(_interpretationRequired ? "(required)" : "(optional)")</label>
+                    @if (_definition.InterpretationOptions.Count > 0)
+                    {
+                        <select @bind="_interpretation">
+                            <option value="">— Select —</option>
+                            @foreach (var opt in _definition.InterpretationOptions)
+                            {
+                                <option value="@opt.Key">@opt.Label</option>
+                            }
+                        </select>
+                    }
+                    else
+                    {
+                        <input @bind="_interpretation" />
+                    }
+                </div>
+            }
+
+            @if (WorkItem.CurrentResultStatus == ResultStatus.Verified && _showSavePrompt)
+            {
+                <div class="field" style="margin-top:.5rem;">
+                    <label>Correction reason (required)</label>
+                    <input @bind="_correctionReason" placeholder="Reason for changing a completed result" />
+                </div>
+            }
+
+            @if (_showDeltaOverride)
+            {
+                <div class="bb-card" style="background:#fff8f0;margin-top:.75rem;border:1px solid #e8c48a;">
+                    <div style="margin-bottom:.5rem;"><strong>ABO/Rh historical discrepancy</strong></div>
+                    <p class="muted" style="margin-bottom:.5rem;">The verified type disagrees with history. Choose whether to retain the historical type or replace it, then authorize the override.</p>
+                    @if (!CanOverrideDelta)
+                    {
+                        <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum required (@_deltaMinLevel) to override this exception.</div>
+                    }
+                    else
+                    {
+                        <div class="form-row">
+                            <div class="field"><label>History resolution</label>
+                                <select @bind="_historyResolution">
+                                    <option value="@AboRhHistoryResolution.Retain">Retain historical type</option>
+                                    <option value="@AboRhHistoryResolution.Replace">Replace with current result</option>
+                                </select>
+                            </div>
+                            <div class="field"><label>Authorized by</label><input @bind="_authorizedBy" placeholder="@Session.UserName" /></div>
+                        </div>
+                        <div class="field"><label>Override reason</label><input @bind="_overrideReason" /></div>
+                        <div class="field"><label>Meaning of signature</label><input @bind="_signatureMeaning" placeholder="I authorize ABO/Rh discrepancy override" /></div>
+                        <div class="flex gap" style="margin-top:.5rem;">
+                            <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="SaveWithDeltaOverrideAsync">Sign &amp; verify with override</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Cancel</button>
+                        </div>
+                    }
+                </div>
+            }
+            else if (_showSavePrompt)
+            {
+                <div class="bb-card" style="background:#fafbfe;margin-top:.75rem;">
+                    <div class="muted" style="margin-bottom:.5rem;">Is this test complete?</div>
+                    <div class="flex gap">
+                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(false)">Save incomplete</button>
+                        @if (Session.Has(PermissionCodes.ResultVerify))
+                        {
+                            <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(true)">Save &amp; verify</button>
+                        }
+                        <button class="btn btn-ghost btn-sm" @onclick="() => _showSavePrompt = false">Cancel</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <button class="btn btn-primary btn-sm" style="margin-top:.75rem;" disabled="@_busy" @onclick="BeginSave">Save result</button>
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public TestWorkItemDto WorkItem { get; set; } = default!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private TestDefinitionForEntryDto? _definition;
+    private List<ResolvedPanelSubtestDto> _panelSubtests = new();
+    private Dictionary<string, string> _subtestValues = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, AntigenResult> _bloodAttrResults = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, bool> _optionalSubtestPerformed = new(StringComparer.OrdinalIgnoreCase);
+    private AboGroup _abo = AboGroup.O;
+    private RhType _rh = RhType.Positive;
+    private string _value = string.Empty;
+    private string _codedValue = string.Empty;
+    private string _units = string.Empty;
+    private string _interpretation = string.Empty;
+    private string _unitNumber = string.Empty;
+    private CrossmatchMethod _xmMethod = CrossmatchMethod.Serologic;
+    private CrossmatchResult _xmResult = CrossmatchResult.Compatible;
+    private bool _antibodyScreenNegative = true;
+    private string _correctionReason = string.Empty;
+    private bool _showSavePrompt;
+    private bool _showDeltaOverride;
+    private string _overrideReason = string.Empty;
+    private string _authorizedBy = string.Empty;
+    private string _signatureMeaning = "I authorize ABO/Rh discrepancy override";
+    private AboRhHistoryResolution _historyResolution = AboRhHistoryResolution.Retain;
+    private int _deltaMinLevel = 2;
+    private bool _busy;
+    private bool _defLoading = true;
+    private Feedback? _fb;
+
+    private bool CanOverrideDelta => Session.SecurityLevel >= _deltaMinLevel;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _fb = null;
+        _showSavePrompt = false;
+        _defLoading = true;
+        var r = await Api.GetTestDefinitionForEntryAsync(WorkItem.TestCode);
+        _defLoading = false;
+        if (!r.Succeeded || r.Value is null)
+        {
+            _definition = null;
+            _fb = Feedback.Fail(r.FailureSummary() ?? "Could not load test definition for result entry.");
+        }
+        else
+        {
+            _definition = r.Value;
+        }
+
+        _panelSubtests = _definition?.PanelSubtests.ToList() ?? [];
+        ResetSubtestValues();
+        ResetBloodAttrResults();
+        PrefillFromCurrent();
+    }
+
+    private void PrefillFromCurrent()
+    {
+        if (string.IsNullOrWhiteSpace(WorkItem.CurrentResultValue))
+        {
+            return;
+        }
+
+        if (_definition?.ResultValueType == ResultValueType.AboRh && AboRhResultValue.TryParsePanel(WorkItem.CurrentResultValue, out var panel))
+        {
+            _abo = panel.Abo;
+            _rh = panel.Rh;
+            foreach (var st in _panelSubtests)
+            {
+                if (panel.Subtests.TryGetValue(st.SubtestCode, out var grade))
+                {
+                    _subtestValues[st.SubtestCode] = grade;
+                    if (!st.Required)
+                    {
+                        _optionalSubtestPerformed[st.SubtestCode] = !string.Equals(grade, "NT", StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+            }
+        }
+        else if (_definition?.ResultValueType == ResultValueType.Subtest && PanelResultValue.TryParse(WorkItem.CurrentResultValue, out var subtests))
+        {
+            foreach (var st in _panelSubtests)
+            {
+                if (subtests.TryGetValue(st.SubtestCode, out var grade))
+                {
+                    _subtestValues[st.SubtestCode] = grade;
+                    if (!st.Required)
+                    {
+                        _optionalSubtestPerformed[st.SubtestCode] = !string.Equals(grade, "NT", StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+            }
+        }
+        else if (_definition?.ResultValueType == ResultValueType.Coded)
+        {
+            _codedValue = WorkItem.CurrentResultValue ?? string.Empty;
+        }
+        else if (_definition?.ResultValueType == ResultValueType.BloodAttribute
+                 && BloodAttributeResultValue.TryParse(WorkItem.CurrentResultValue, out var rows))
+        {
+            foreach (var row in rows)
+            {
+                _bloodAttrResults[row.Code] = row.Result;
+            }
+        }
+        else
+        {
+            _value = WorkItem.CurrentResultValue ?? string.Empty;
+        }
+
+        var storedInterpretation = WorkItem.CurrentResultInterpretation ?? string.Empty;
+        if (storedInterpretation.StartsWith("Unit: ", StringComparison.OrdinalIgnoreCase))
+        {
+            _unitNumber = storedInterpretation["Unit: ".Length..].Trim();
+            _interpretation = storedInterpretation;
+        }
+        else if (_definition?.ResultValueType == ResultValueType.Subtest
+                 && _definition.InterpretationOptions.Count > 0)
+        {
+            var match = _definition.InterpretationOptions.FirstOrDefault(o =>
+                string.Equals(o.Key, storedInterpretation, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(o.Label, storedInterpretation, StringComparison.OrdinalIgnoreCase));
+            _interpretation = match?.Key ?? storedInterpretation;
+        }
+        else
+        {
+            _interpretation = storedInterpretation;
+        }
+    }
+
+    private bool _interpretationRequired =>
+        _definition?.ResultValueType == ResultValueType.Subtest
+        && _definition.InterpretationOptions.Count > 0;
+
+    private bool IsAntibodyScope =>
+        _definition?.BloodAttributeScopeKind == BloodAttributeKind.Antibody;
+
+    private IEnumerable<string> AllowedValues =>
+        string.IsNullOrWhiteSpace(_definition?.AllowedResultValues)
+            ? Array.Empty<string>()
+            : _definition.AllowedResultValues.Split(new[] { '\n', '\r', ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private void BeginSave() => _showSavePrompt = true;
+
+    private void CancelDeltaOverride()
+    {
+        _showDeltaOverride = false;
+        _overrideReason = string.Empty;
+    }
+
+    private async Task SaveAsync(bool markComplete) =>
+        await SaveInternalAsync(markComplete, includeOverride: false);
+
+    private async Task SaveWithDeltaOverrideAsync() =>
+        await SaveInternalAsync(markComplete: true, includeOverride: true);
+
+    private async Task SaveInternalAsync(bool markComplete, bool includeOverride)
+    {
+        if (WorkItem.SpecimenId is not > 0)
+        {
+            _fb = Feedback.Fail("A specimen must be linked before saving results.");
+            return;
+        }
+
+        if (WorkItem.CurrentResultStatus == ResultStatus.Verified && string.IsNullOrWhiteSpace(_correctionReason))
+        {
+            _fb = Feedback.Fail("A correction reason is required when changing a completed result.");
+            return;
+        }
+
+        if (includeOverride)
+        {
+            if (string.IsNullOrWhiteSpace(_overrideReason) || string.IsNullOrWhiteSpace(_signatureMeaning))
+            {
+                _fb = Feedback.Fail("An override reason and a meaning-of-signature are required.");
+                return;
+            }
+        }
+
+        _busy = true;
+        long? signatureId = null;
+        if (includeOverride)
+        {
+            var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("ResultOverride", _signatureMeaning, "TestResult"));
+            if (!sig.Succeeded || sig.Value is null)
+            {
+                _busy = false;
+                _fb = sig.ToFeedback();
+                return;
+            }
+
+            signatureId = sig.Value.Id;
+        }
+
+        var subtests = BuildSubtests();
+        var value = _definition?.ResultValueType switch
+        {
+            ResultValueType.Coded => _codedValue,
+            ResultValueType.BloodAttribute => BuildBloodAttributeValue(),
+            _ => _value
+        };
+        var req = new SaveTestResultRequest(
+            WorkItem.SpecimenId.Value,
+            WorkItem.OrderId,
+            WorkItem.OrderLineId,
+            WorkItem.TestCode,
+            value,
+            string.IsNullOrWhiteSpace(_units) ? null : _units,
+            string.IsNullOrWhiteSpace(_interpretation) ? null : _interpretation,
+            _definition?.ResultValueType == ResultValueType.AboRh ? _abo : null,
+            _definition?.ResultValueType == ResultValueType.AboRh ? _rh : null,
+            subtests,
+            markComplete,
+            string.IsNullOrWhiteSpace(_correctionReason) ? null : _correctionReason.Trim(),
+            string.IsNullOrWhiteSpace(_unitNumber) ? null : _unitNumber.Trim(),
+            string.Equals(WorkItem.TestCode, "XM", StringComparison.OrdinalIgnoreCase) ? _xmMethod : null,
+            string.Equals(WorkItem.TestCode, "XM", StringComparison.OrdinalIgnoreCase) ? _xmResult : null,
+            _antibodyScreenNegative,
+            includeOverride ? _overrideReason.Trim() : null,
+            includeOverride ? (string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy.Trim()) : null,
+            includeOverride ? _historyResolution : null,
+            signatureId);
+
+        var r = await Api.SaveTestResultAsync(req, signatureId);
+        _busy = false;
+
+        if (r.Blocked && r.Overridable && markComplete && IsAboRhDelta(r))
+        {
+            await PrepareDeltaOverrideAsync();
+            _fb = r.ToFeedback();
+            return;
+        }
+
+        _fb = r.ToFeedback(markComplete ? "Result saved and verified." : "Result saved (incomplete).");
+        if (r.Succeeded)
+        {
+            _showSavePrompt = false;
+            _showDeltaOverride = false;
+            _correctionReason = string.Empty;
+            _overrideReason = string.Empty;
+            await OnSaved.InvokeAsync();
+        }
+    }
+
+    private static bool IsAboRhDelta(ApiResult<TestResultDto> r) =>
+        r.Warnings.Any(w => w.Code == AboRhDeltaRule.DeltaCode)
+        || r.HardStops.Any(h => h.Code == AboRhDeltaRule.DeltaCode);
+
+    private async Task PrepareDeltaOverrideAsync()
+    {
+        _showSavePrompt = false;
+        _showDeltaOverride = true;
+        var def = await Api.GetAdminExceptionByCodeAsync(AboRhDeltaRule.DeltaCode);
+        if (def.Succeeded && def.Value is not null)
+        {
+            _deltaMinLevel = def.Value.MinSecurityLevel;
+        }
+    }
+
+    private Dictionary<string, string>? BuildSubtests()
+    {
+        if (_definition?.ResultValueType is not (ResultValueType.AboRh or ResultValueType.Subtest))
+        {
+            return null;
+        }
+
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var st in _panelSubtests)
+        {
+            if (!st.Required && !IsOptionalPerformed(st.SubtestCode))
+            {
+                continue;
+            }
+
+            map[st.SubtestCode] = GetSubtestValue(st.SubtestCode);
+        }
+
+        return map.Count > 0 ? map : null;
+    }
+
+    private void ResetBloodAttrResults()
+    {
+        if (_definition?.BloodAttributeScope is null)
+        {
+            _bloodAttrResults = new Dictionary<string, AntigenResult>(StringComparer.OrdinalIgnoreCase);
+            return;
+        }
+
+        _bloodAttrResults = _definition.BloodAttributeScope.ToDictionary(
+            a => a.Code,
+            _ => AntigenResult.NotTested,
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private string BuildBloodAttributeValue()
+    {
+        var rows = _definition?.BloodAttributeScope
+            .Select(a => new BloodAttributeResultRow(a.Code, GetBloodAttrResult(a.Code)))
+            .ToList() ?? [];
+        return BloodAttributeResultValue.Serialize(rows);
+    }
+
+    private AntigenResult GetBloodAttrResult(string code) =>
+        _bloodAttrResults.TryGetValue(code, out var r) ? r : AntigenResult.NotTested;
+
+    private void SetBloodAttrResult(string code, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<AntigenResult>(e.Value?.ToString(), out var result))
+        {
+            _bloodAttrResults[code] = result;
+        }
+    }
+
+    private void ResetSubtestValues()
+    {
+        _subtestValues = _panelSubtests.ToDictionary(
+            s => s.SubtestCode,
+            s => DefaultValueFor(s),
+            StringComparer.OrdinalIgnoreCase);
+        _optionalSubtestPerformed = _panelSubtests
+            .Where(s => !s.Required)
+            .ToDictionary(s => s.SubtestCode, _ => false, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static string DefaultValueFor(ResolvedPanelSubtestDto st)
+    {
+        if (!st.Required)
+        {
+            return "NT";
+        }
+
+        return st.ResultType switch
+        {
+            SubtestResultType.FreeText => string.Empty,
+            _ => st.Choices.FirstOrDefault()?.Code ?? "0"
+        };
+    }
+
+    private string GetSubtestValue(string code) =>
+        _subtestValues.TryGetValue(code, out var v) ? v : string.Empty;
+
+    private void SetSubtestValue(string code, ChangeEventArgs e) =>
+        _subtestValues[code] = e.Value?.ToString() ?? string.Empty;
+
+    private bool IsOptionalPerformed(string code) =>
+        _optionalSubtestPerformed.TryGetValue(code, out var p) && p;
+
+    private void OnOptionalPerformedChanged(string code, ChangeEventArgs e) =>
+        _optionalSubtestPerformed[code] = e.Value is bool b && b;
+
+    private static string DisplayValue(string testCode, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return "—";
+        }
+
+        if (string.Equals(testCode, "ABORH", StringComparison.OrdinalIgnoreCase))
+        {
+            return AboRhResultValue.FormatDisplay(value);
+        }
+
+        if (PanelResultValue.TryParse(value, out _))
+        {
+            return PanelResultValue.FormatDisplay(value);
+        }
+
+        return value;
+    }
+}

@@ -1,0 +1,79 @@
+@* Configuration change history with old/new JSON comparison. *@
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card-title">
+        <h3>@Title</h3>
+        <button class="btn btn-ghost btn-sm" @onclick="OnClose">Close</button>
+    </div>
+
+    @if (Rows.Count == 0)
+    {
+        <div class="empty">No change history recorded.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead>
+                <tr><th>When (UTC)</th><th>Action</th><th>Ver</th><th>By</th><th>Env</th><th>Reason</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var h in Rows)
+                {
+                    <tr>
+                        <td class="nowrap">@h.ChangedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>@h.Action</td>
+                        <td>@h.Version</td>
+                        <td class="mono">@h.ChangedBy</td>
+                        <td>
+                            @h.Environment
+                            @if (h.IsDevMode) { <span class="badge badge-amber">dev</span> }
+                        </td>
+                        <td>@h.ChangeReason</td>
+                        <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => Toggle(h.Id)">@(_open == h.Id ? "Hide" : "Compare")</button></td>
+                    </tr>
+                    @if (_open == h.Id)
+                    {
+                        <tr>
+                            <td colspan="7">
+                                <div class="form-row">
+                                    <div>
+                                        <div class="muted" style="font-size:.78rem;margin-bottom:.3rem;">Previous</div>
+                                        <pre class="pre diff-old">@Pretty(h.OldValueJson)</pre>
+                                    </div>
+                                    <div>
+                                        <div class="muted" style="font-size:.78rem;margin-bottom:.3rem;">New</div>
+                                        <pre class="pre diff-new">@Pretty(h.NewValueJson)</pre>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "History";
+    [Parameter] public IReadOnlyList<ConfigHistoryDto> Rows { get; set; } = Array.Empty<ConfigHistoryDto>();
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private long? _open;
+
+    private void Toggle(long id) => _open = _open == id ? null : id;
+
+    private static string Pretty(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return "(none)";
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return System.Text.Json.JsonSerializer.Serialize(doc.RootElement, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return json;
+        }
+    }
+}

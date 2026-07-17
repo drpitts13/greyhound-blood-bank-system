@@ -1,0 +1,172 @@
+@page "/admin/exceptions"
+@using BloodBankLIS.Application.Admin
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Exceptions &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Exception Definitions</h1>
+    @if (CanEdit)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New exception</button>
+    }
+</div>
+<p class="muted">Catalog of clinical exceptions and the minimum security level required to override them.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code or name" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No exception definitions.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Rule code</th><th>Name</th><th>Min level</th><th>Overridable</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var e in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@e.RuleCode</td>
+                        <td>@e.Name</td>
+                        <td>@e.MinSecurityLevel</td>
+                        <td>@(e.IsOverridable ? "Yes" : "No")</td>
+                        <td>@(e.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => Edit(e)">Edit</button>
+                                @if (e.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(e.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(e.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_draft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New exception" : $"Edit: {_draft.RuleCode}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Rule code</label><input class="mono" @bind="_draft.RuleCode" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Name</label><input @bind="_draft.Name" /></div>
+            <div class="field"><label>Min security level</label><input type="number" min="0" @bind="_draft.MinSecurityLevel" /></div>
+        </div>
+        <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>
+        <label class="flex" style="gap:.35rem; margin-top:.4rem;"><input type="checkbox" @bind="_draft.IsOverridable" /> Overridable</label>
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private bool _includeInactive;
+    private List<ExceptionDefinitionDto> _list = new();
+    private Feedback? _feedback;
+    private long? _editId;
+    private Draft? _draft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<ExceptionDefinitionDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _list
+            : _list.Where(e =>
+                e.RuleCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || e.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminExceptionsAsync(_includeInactive);
+        _list = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _draft = new Draft();
+        _feedback = null;
+    }
+
+    private void Edit(ExceptionDefinitionDto e)
+    {
+        _editId = e.Id;
+        _draft = Draft.From(e);
+        _feedback = null;
+    }
+
+    private void CancelEdit() => _draft = null;
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        _busy = true;
+        var req = new SaveExceptionDefinitionRequest(
+            _draft.RuleCode, _draft.Name, _draft.Description, _draft.MinSecurityLevel, _draft.IsOverridable);
+        var r = _editId is null
+            ? await Api.CreateAdminExceptionAsync(req)
+            : await Api.UpdateAdminExceptionAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Exception created." : "Saved.");
+        if (r.Succeeded) { _draft = null; await LoadAsync(); }
+    }
+
+    private async Task SetActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminExceptionActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.ToFeedback(active ? "Activated." : "Deactivated.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private sealed class Draft
+    {
+        public string RuleCode { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public int MinSecurityLevel { get; set; } = 2;
+        public bool IsOverridable { get; set; } = true;
+
+        public static Draft From(ExceptionDefinitionDto e) => new()
+        {
+            RuleCode = e.RuleCode,
+            Name = e.Name,
+            Description = e.Description,
+            MinSecurityLevel = e.MinSecurityLevel,
+            IsOverridable = e.IsOverridable
+        };
+    }
+}

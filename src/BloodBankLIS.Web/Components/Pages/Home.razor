@@ -1,0 +1,87 @@
+﻿@page "/"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Dashboard &middot; Blood Bank LIS</PageTitle>
+
+<div class="flex-between" style="margin-bottom:1rem;">
+    <h1>Transfusion Service Dashboard</h1>
+    <span class="muted">Signed in as <strong>@Session.DisplayName</strong></span>
+</div>
+
+<div class="bb-grid cols-4">
+    <div class="stat">
+        <div class="label">Patients</div>
+        <div class="value">@(_patients?.ToString() ?? "—")</div>
+    </div>
+    <div class="stat">
+        <div class="label">Available units</div>
+        <div class="value">@(_available?.ToString() ?? "—")</div>
+    </div>
+    <div class="stat">
+        <div class="label">In quarantine</div>
+        <div class="value">@(_quarantine?.ToString() ?? "—")</div>
+    </div>
+    <div class="stat">
+        <div class="label">Charges to review</div>
+        <div class="value">@(_pendingCharges?.ToString() ?? "—")</div>
+    </div>
+</div>
+
+<div class="bb-card" style="margin-top:1.25rem;">
+    <div class="bb-card-title"><h3>Quick actions</h3></div>
+    <div class="flex gap" style="flex-wrap:wrap;">
+        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/patients")'>Find a patient</button>
+        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/inventory")'>Search inventory</button>
+        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/compatibility")'>Crossmatch &amp; allocate</button>
+        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/issuing")'>Issue a unit</button>
+        @if (Session.Has(PermissionCodes.Hl7Manage))
+        {
+            <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/hl7")'>HL7 interface</button>
+        }
+    </div>
+</div>
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Your access</h3></div>
+    <p class="muted">The API grants you the following permissions. Actions you cannot perform are hidden or will be rejected by the server.</p>
+    <div class="flex gap" style="flex-wrap:wrap;">
+        @if (Session.Permissions.Count == 0)
+        {
+            <span class="muted">No permissions.</span>
+        }
+        else
+        {
+            @foreach (var p in Session.Permissions)
+            {
+                <span class="badge badge-gray mono">@p</span>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private int? _patients;
+    private int? _available;
+    private int? _quarantine;
+    private int? _pendingCharges;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var patients = await Api.GetPatientsAsync();
+        if (patients.Succeeded) _patients = patients.Value!.Count;
+
+        var available = await Api.SearchUnitsAsync(new InventorySearchCriteria(Status: UnitStatus.Available));
+        if (available.Succeeded) _available = available.Value!.Count;
+
+        var quarantine = await Api.SearchUnitsAsync(new InventorySearchCriteria(Status: UnitStatus.Quarantine));
+        if (quarantine.Succeeded) _quarantine = quarantine.Value!.Count;
+
+        if (Session.Has(PermissionCodes.BillingReview))
+        {
+            var charges = await Api.GetBillingQueueAsync();
+            if (charges.Succeeded) _pendingCharges = charges.Value!.Count;
+        }
+    }
+}

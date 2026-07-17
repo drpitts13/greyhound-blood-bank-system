@@ -1,0 +1,141 @@
+@page "/patients"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Patients &middot; Blood Bank LIS</PageTitle>
+
+<div class="flex-between" style="margin-bottom:1rem;">
+    <h1>Patients</h1>
+    @if (Session.Has(PermissionCodes.PatientWrite))
+    {
+        <button class="btn btn-primary" @onclick="ToggleCreate">@(_showCreate ? "Cancel" : "Register patient")</button>
+    }
+</div>
+
+@if (_showCreate)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Register a patient</h3></div>
+        <Outcome Value="_createFb" />
+        <EditForm Model="_new" OnValidSubmit="CreateAsync">
+            <div class="form-row">
+                <div class="field"><label>MRN</label><InputText class="" @bind-Value="_new.MedicalRecordNumber" /></div>
+                <div class="field"><label>Date of birth</label><InputDate @bind-Value="_new.DateOfBirth" /></div>
+                <div class="field"><label>Last name</label><InputText @bind-Value="_new.LastName" /></div>
+                <div class="field"><label>First name</label><InputText @bind-Value="_new.FirstName" /></div>
+                <div class="field"><label>Middle name</label><InputText @bind-Value="_new.MiddleName" /></div>
+                <div class="field"><label>Sex</label>
+                    <InputSelect @bind-Value="_new.Sex">
+                        @foreach (var s in Enum.GetValues<Sex>())
+                        {
+                            <option value="@s">@s</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+            <button class="btn btn-primary" type="submit" disabled="@_saving">Register</button>
+        </EditForm>
+    </div>
+}
+
+<div class="bb-card">
+    <div class="field" style="max-width:360px;">
+        <label>Search by name or MRN</label>
+        <input @bind="_filter" @bind:event="oninput" placeholder="Type to filter..." />
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading patients...</div>
+    }
+    else if (_error is not null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    else if (Filtered.Count == 0)
+    {
+        <div class="empty">No patients found.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead>
+                <tr><th>MRN</th><th>Name</th><th>DOB</th><th>Sex</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var p in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@p.MedicalRecordNumber</td>
+                        <td>@p.LastName, @p.FirstName @p.MiddleName</td>
+                        <td>@p.DateOfBirth.ToString("yyyy-MM-dd")</td>
+                        <td>@p.Sex</td>
+                        <td><span class="badge badge-gray">@p.Status</span></td>
+                        <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => Open(p.Id)">Open</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<PatientDto> _patients = new();
+    private string _filter = string.Empty;
+    private bool _loading = true;
+    private string? _error;
+
+    private bool _showCreate;
+    private bool _saving;
+    private Feedback? _createFb;
+    private NewPatient _new = new();
+
+    private List<PatientDto> Filtered => string.IsNullOrWhiteSpace(_filter)
+        ? _patients
+        : _patients.Where(p =>
+            p.MedicalRecordNumber.Contains(_filter, StringComparison.OrdinalIgnoreCase) ||
+            p.LastName.Contains(_filter, StringComparison.OrdinalIgnoreCase) ||
+            p.FirstName.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var result = await Api.GetPatientsAsync();
+        _loading = false;
+        if (result.Succeeded) { _patients = result.Value!; _error = null; }
+        else _error = result.FailureSummary();
+    }
+
+    private void Open(long id) => Nav.NavigateTo($"/patients/{id}");
+
+    private void ToggleCreate() => _showCreate = !_showCreate;
+
+    private async Task CreateAsync()
+    {
+        _saving = true;
+        var req = new CreatePatientRequest(_new.MedicalRecordNumber, _new.LastName, _new.FirstName,
+            string.IsNullOrWhiteSpace(_new.MiddleName) ? null : _new.MiddleName, _new.DateOfBirth, _new.Sex);
+        var result = await Api.CreatePatientAsync(req);
+        _saving = false;
+        _createFb = result.ToFeedback("Patient registered.");
+        if (result.Succeeded)
+        {
+            _new = new();
+            _showCreate = false;
+            await LoadAsync();
+        }
+    }
+
+    private sealed class NewPatient
+    {
+        public string MedicalRecordNumber { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string? MiddleName { get; set; }
+        public DateOnly DateOfBirth { get; set; } = new(1980, 1, 1);
+        public Sex Sex { get; set; } = Sex.Unknown;
+    }
+}

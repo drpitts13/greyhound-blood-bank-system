@@ -1,0 +1,221 @@
+@page "/admin/hl7"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>HL7 Endpoints &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>HL7 Endpoints</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New endpoint</button>
+    }
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="empty">No endpoints configured.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Name</th><th>Direction</th><th>Transport</th><th>Host:Port</th><th>Messages</th><th>Env</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var e in _items)
+                {
+                    <tr>
+                        <td>@e.Name</td>
+                        <td>@e.Direction</td>
+                        <td>@e.Transport</td>
+                        <td class="mono">@(e.Host is null ? "—" : $"{e.Host}:{e.Port}")</td>
+                        <td>@e.MessageTypes</td>
+                        <td>@e.Environment</td>
+                        <td>
+                            @if (e.IsEnabled) { <span class="badge badge-green">Enabled</span> }
+                            else { <span class="badge badge-gray">Disabled</span> }
+                        </td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(e.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(e.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New endpoint" : $"Edit: {_editing.Name}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
+            <div class="field"><label>Direction</label>
+                <select @bind="_editing.Direction">@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@d</option> }</select>
+            </div>
+            <div class="field"><label>Transport</label>
+                <select @bind="_editing.Transport">@foreach (var t in Enum.GetValues<InterfaceTransport>()) { <option value="@t">@t</option> }</select>
+            </div>
+            <div class="field"><label>Message types (comma-separated)</label><input @bind="_editing.MessageTypes" placeholder="ADT,ORM,ORU" /></div>
+            <div class="field"><label>Host</label><input @bind="_editing.Host" /></div>
+            <div class="field"><label>Port</label><input type="number" @bind="_editing.Port" /></div>
+            <div class="field"><label>Path (HTTP)</label><input @bind="_editing.Path" /></div>
+            <div class="field"><label>Environment</label><input @bind="_editing.Environment" placeholder="Development / Test / Production" /></div>
+            <div class="field"><label>Sending application</label><input @bind="_editing.SendingApplication" /></div>
+            <div class="field"><label>Sending facility</label><input @bind="_editing.SendingFacility" /></div>
+            <div class="field"><label>Receiving application</label><input @bind="_editing.ReceivingApplication" /></div>
+            <div class="field"><label>Receiving facility</label><input @bind="_editing.ReceivingFacility" /></div>
+            <div class="field"><label>ACK timeout (s)</label><input type="number" @bind="_editing.AckTimeoutSeconds" /></div>
+            <div class="field"><label>Max retries</label><input type="number" @bind="_editing.MaxRetryCount" /></div>
+            <div class="field"><label>Retry delay (s)</label><input type="number" @bind="_editing.RetryDelaySeconds" /></div>
+            <div class="field"><label>Logging level</label><input @bind="_editing.MessageLoggingLevel" placeholder="None / Errors / All" /></div>
+            <div class="field"><label>Mapping profile</label><input @bind="_editing.MappingProfile" /></div>
+        </div>
+
+        <div class="flex gap" style="margin:.6rem 0;">
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.ReplayAllowed" /> Replay allowed</label>
+        </div>
+
+        <div class="field"><label>Change reason (required for enabled/production)</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && CanManage)
+            {
+                @if (!_currentEnabled)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="() => SetEnabledAsync(true)">Enable</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="() => SetEnabledAsync(false)">Disable</button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_history is not null)
+{
+    <ConfigHistoryPanel Title="@($"History: {_historyTitle}")" Rows="_history" OnClose="() => _history = null" />
+}
+
+@code {
+    private List<Hl7EndpointDto> _items = new();
+    private bool _loading = true;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private bool _currentEnabled;
+    private string? _changeReason;
+
+    private List<ConfigHistoryDto>? _history;
+    private string _historyTitle = string.Empty;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminHl7Manage);
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminHl7EndpointsAsync();
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null; _currentEnabled = false; _changeReason = null;
+        _editing = new EditModel { MessageTypes = "ADT" };
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminHl7EndpointAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = r.Value.Id; _currentEnabled = r.Value.IsEnabled; _changeReason = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null ? await Api.CreateAdminHl7EndpointAsync(req) : await Api.UpdateAdminHl7EndpointAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Created." : "Saved.");
+        if (r.Succeeded) { _editId = r.Value!.Id; _currentEnabled = r.Value.IsEnabled; await LoadAsync(); }
+    }
+
+    private async Task SetEnabledAsync(bool enabled)
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.SetHl7EndpointEnabledAsync(_editId.Value, enabled, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback(enabled ? "Enabled." : "Disabled.");
+        if (r.Succeeded) { _currentEnabled = enabled; await LoadAsync(); }
+    }
+
+    private async Task ShowHistoryAsync(long id)
+    {
+        var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.InterfaceEndpoint), id);
+        _history = r.Value ?? new();
+        _historyTitle = _items.FirstOrDefault(e => e.Id == id)?.Name ?? id.ToString();
+    }
+
+    private sealed class EditModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public Hl7Direction Direction { get; set; } = Hl7Direction.Inbound;
+        public InterfaceTransport Transport { get; set; } = InterfaceTransport.Mllp;
+        public string? Host { get; set; }
+        public int? Port { get; set; }
+        public string? Path { get; set; }
+        public string MessageTypes { get; set; } = string.Empty;
+        public string? MappingProfile { get; set; }
+        public string? Environment { get; set; }
+        public string? SendingApplication { get; set; }
+        public string? SendingFacility { get; set; }
+        public string? ReceivingApplication { get; set; }
+        public string? ReceivingFacility { get; set; }
+        public int? AckTimeoutSeconds { get; set; }
+        public int? MaxRetryCount { get; set; }
+        public int? RetryDelaySeconds { get; set; }
+        public string? MessageLoggingLevel { get; set; }
+        public bool ReplayAllowed { get; set; }
+
+        public static EditModel From(Hl7EndpointDto e) => new()
+        {
+            Name = e.Name, Direction = e.Direction, Transport = e.Transport, Host = e.Host, Port = e.Port, Path = e.Path,
+            MessageTypes = e.MessageTypes, MappingProfile = e.MappingProfile, Environment = e.Environment,
+            SendingApplication = e.SendingApplication, SendingFacility = e.SendingFacility,
+            ReceivingApplication = e.ReceivingApplication, ReceivingFacility = e.ReceivingFacility,
+            AckTimeoutSeconds = e.AckTimeoutSeconds, MaxRetryCount = e.MaxRetryCount, RetryDelaySeconds = e.RetryDelaySeconds,
+            MessageLoggingLevel = e.MessageLoggingLevel, ReplayAllowed = e.ReplayAllowed
+        };
+
+        public SaveHl7EndpointRequest ToRequest(string? reason) => new(
+            Name, Direction, Transport, Host, Port, Path, MessageTypes, MappingProfile, Environment, SendingApplication,
+            SendingFacility, ReceivingApplication, ReceivingFacility, AckTimeoutSeconds, MaxRetryCount, RetryDelaySeconds,
+            MessageLoggingLevel, ReplayAllowed, reason);
+    }
+}

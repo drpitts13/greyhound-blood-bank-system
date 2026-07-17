@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/BloodBankLIS.Api/BloodBankLIS.Api.csproj" />
+    <Project Path="src/BloodBankLIS.Application/BloodBankLIS.Application.csproj" />
+    <Project Path="src/BloodBankLIS.Domain/BloodBankLIS.Domain.csproj" />
+    <Project Path="src/BloodBankLIS.HL7/BloodBankLIS.HL7.csproj" />
+    <Project Path="src/BloodBankLIS.Infrastructure/BloodBankLIS.Infrastructure.csproj" />
+    <Project Path="src/BloodBankLIS.Printing/BloodBankLIS.Printing.csproj" />
+    <Project Path="src/BloodBankLIS.Security/BloodBankLIS.Security.csproj" />
+    <Project Path="src/BloodBankLIS.Web/BloodBankLIS.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BloodBankLIS.Application.Tests/BloodBankLIS.Application.Tests.csproj" />
+    <Project Path="tests/BloodBankLIS.Domain.Tests/BloodBankLIS.Domain.Tests.csproj" />
+    <Project Path="tests/BloodBankLIS.HL7.Tests/BloodBankLIS.HL7.Tests.csproj" />
+    <Project Path="tests/BloodBankLIS.Integration.Tests/BloodBankLIS.Integration.Tests.csproj" />
+    <Project Path="tests/BloodBankLIS.Printing.Tests/BloodBankLIS.Printing.Tests.csproj" />
+  </Folder>
+</Solution>

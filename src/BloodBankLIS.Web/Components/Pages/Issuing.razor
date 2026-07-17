@@ -1,0 +1,209 @@
+@page "/issuing"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Issue &amp; Transfuse &middot; Blood Bank LIS</PageTitle>
+
+<h1>Issue &amp; Transfuse</h1>
+<p class="muted">The issue gate runs all safety checks. Overrides require a reason and an electronic signature.</p>
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Issue a unit</h3></div>
+    @if (!Session.Has(PermissionCodes.IssueCreate))
+    {
+        <div class="muted">You do not have permission to issue units.</div>
+    }
+    else
+    {
+        <Outcome Value="_issueFb" RequiresSignature="true" />
+        <div class="form-row">
+            <div class="field"><label>Blood unit id</label><input type="number" @bind="_issue.BloodUnitId" /></div>
+            <div class="field"><label>Patient id</label><input type="number" @bind="_issue.PatientId" /></div>
+            <div class="field"><label>Issued to (person)</label><input @bind="_issue.IssuedTo" /></div>
+            <div class="field"><label>Issued to (location)</label><input @bind="_issue.IssuedToLocation" /></div>
+            <div class="field"><label>Issue type</label>
+                <select @bind="_issue.IssueType">@foreach (var t in Enum.GetValues<IssueType>()) { <option value="@t">@t</option> }</select>
+            </div>
+        </div>
+        <div class="flex gap" style="flex-wrap:wrap;margin:.5rem 0 1rem;">
+            <label class="flex"><input type="checkbox" @bind="_issue.IdentityConfirmed" /> &nbsp;Patient identity confirmed</label>
+            <label class="flex"><input type="checkbox" @bind="_issue.ProductMatchesOrder" /> &nbsp;Product matches order</label>
+            <label class="flex"><input type="checkbox" @bind="_issue.SpecialRequirementsMet" /> &nbsp;Special requirements met</label>
+        </div>
+
+        <div class="alert alert-warning">
+            <label class="flex"><input type="checkbox" @bind="_overrideOn" /> &nbsp;<strong>Override</strong> (emergency release / warning override)</label>
+            @if (_overrideOn)
+            {
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Override reason</label><input @bind="_overrideReason" /></div>
+                    <div class="field"><label>Authorized by</label><input @bind="_authorizedBy" /></div>
+                    <div class="field"><label>Meaning of signature</label><input @bind="_signatureMeaning" placeholder="e.g. I authorize emergency release" /></div>
+                    <div class="field"><label>Unresolved ABO/Rh discrepancy</label>
+                        <select @bind="_issue.UnresolvedAboRhDiscrepancy"><option value="false">No</option><option value="true">Yes</option></select>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (_overrideOn)
+        {
+            <button class="btn btn-danger" disabled="@_busy" @onclick="IssueWithOverrideAsync">Sign &amp; issue (override)</button>
+        }
+        else
+        {
+            <button class="btn btn-primary" disabled="@_busy" @onclick="IssueAsync">Issue unit</button>
+        }
+
+        @if (_lastIssue is not null)
+        {
+            <div class="alert alert-success" style="margin-top:1rem;">
+                Issue <strong>#@_lastIssue.Id</strong> created for unit @_lastIssue.BloodUnitId &middot; <span class="badge badge-amber">@_lastIssue.Status</span>
+            </div>
+        }
+    }
+</div>
+
+<div class="bb-grid cols-2">
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Return a unit</h3></div>
+        @if (!Session.Has(PermissionCodes.IssueReturn))
+        {
+            <div class="muted">No permission to return units.</div>
+        }
+        else
+        {
+            <Outcome Value="_returnFb" />
+            <div class="form-row">
+                <div class="field"><label>Issue id</label><input type="number" @bind="_returnIssueId" /></div>
+                <div class="field"><label>Reissue eligible</label>
+                    <select @bind="_reissueEligible"><option value="true">Yes</option><option value="false">No</option></select>
+                </div>
+            </div>
+            <div class="field"><label>Reason</label><input @bind="_returnReason" /></div>
+            <button class="btn btn-secondary" disabled="@_busy" @onclick="ReturnAsync">Return unit</button>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Document transfusion</h3></div>
+        @if (!Session.Has(PermissionCodes.TransfusionDocument))
+        {
+            <div class="muted">No permission to document transfusions.</div>
+        }
+        else
+        {
+            <Outcome Value="_txFb" />
+            <div class="form-row">
+                <div class="field"><label>Issue id</label><input type="number" @bind="_txIssueId" /></div>
+                <div class="field"><label>Disposition</label>
+                    <select @bind="_txDisposition">@foreach (var d in Enum.GetValues<TransfusionDisposition>()) { <option value="@d">@d</option> }</select>
+                </div>
+                <div class="field"><label>Volume transfused (mL)</label><input type="number" @bind="_txVolume" /></div>
+                <div class="field"><label>Transfusionist</label><input @bind="_txTransfusionist" /></div>
+            </div>
+            <label class="flex"><input type="checkbox" @bind="_txReaction" /> &nbsp;Reaction suspected</label>
+            <div style="margin-top:.75rem;">
+                <button class="btn btn-secondary" disabled="@_busy" @onclick="DocumentTransfusionAsync">Document</button>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private bool _busy;
+
+    private IssueModel _issue = new();
+    private Feedback? _issueFb;
+    private IssueDto? _lastIssue;
+
+    private bool _overrideOn;
+    private string _overrideReason = string.Empty;
+    private string _authorizedBy = string.Empty;
+    private string _signatureMeaning = string.Empty;
+
+    private long _returnIssueId;
+    private string _returnReason = string.Empty;
+    private bool _reissueEligible = true;
+    private Feedback? _returnFb;
+
+    private long _txIssueId;
+    private TransfusionDisposition _txDisposition = TransfusionDisposition.Completed;
+    private decimal? _txVolume;
+    private string? _txTransfusionist;
+    private bool _txReaction;
+    private Feedback? _txFb;
+
+    private IssueUnitRequest BuildRequest(string? overrideReason, string? authorizedBy) => new(
+        _issue.BloodUnitId, _issue.PatientId, _issue.IdentityConfirmed,
+        string.IsNullOrWhiteSpace(_issue.IssuedTo) ? null : _issue.IssuedTo,
+        string.IsNullOrWhiteSpace(_issue.IssuedToLocation) ? null : _issue.IssuedToLocation,
+        _issue.IssueType, _issue.ProductMatchesOrder, false,
+        _issue.SpecialRequirementsMet, _issue.UnresolvedAboRhDiscrepancy, overrideReason, authorizedBy);
+
+    private async Task IssueAsync()
+    {
+        _busy = true;
+        var r = await Api.IssueUnitAsync(BuildRequest(null, null));
+        _busy = false;
+        _issueFb = r.ToFeedback("Unit issued.");
+        if (r.Succeeded) _lastIssue = r.Value;
+    }
+
+    private async Task IssueWithOverrideAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_overrideReason) || string.IsNullOrWhiteSpace(_signatureMeaning))
+        {
+            _issueFb = new Feedback(false, null, Array.Empty<RuleMessage>(), false, false, Array.Empty<RuleMessage>(),
+                "An override reason and a meaning-of-signature are required.");
+            return;
+        }
+
+        _busy = true;
+        // 1) record the electronic signature, 2) issue with the signature id.
+        var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("IssueOverride", _signatureMeaning, "Issue"));
+        if (!sig.Succeeded || sig.Value is null)
+        {
+            _busy = false;
+            _issueFb = sig.ToFeedback();
+            return;
+        }
+
+        var r = await Api.IssueUnitAsync(BuildRequest(_overrideReason, string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy), sig.Value.Id);
+        _busy = false;
+        _issueFb = r.ToFeedback("Unit issued under override.");
+        if (r.Succeeded) { _lastIssue = r.Value; _overrideOn = false; }
+    }
+
+    private async Task ReturnAsync()
+    {
+        _busy = true;
+        var r = await Api.ReturnUnitAsync(_returnIssueId, new ReturnUnitRequest(_returnReason, _reissueEligible));
+        _busy = false;
+        _returnFb = r.ToFeedback("Unit returned.");
+    }
+
+    private async Task DocumentTransfusionAsync()
+    {
+        _busy = true;
+        var r = await Api.DocumentTransfusionAsync(_txIssueId, new DocumentTransfusionRequest(
+            _txDisposition, VolumeTransfused: _txVolume,
+            Transfusionist: string.IsNullOrWhiteSpace(_txTransfusionist) ? null : _txTransfusionist,
+            ReactionSuspected: _txReaction));
+        _busy = false;
+        _txFb = r.ToFeedback("Transfusion documented.");
+    }
+
+    private sealed class IssueModel
+    {
+        public long BloodUnitId { get; set; }
+        public long PatientId { get; set; }
+        public bool IdentityConfirmed { get; set; } = true;
+        public string? IssuedTo { get; set; }
+        public string? IssuedToLocation { get; set; }
+        public IssueType IssueType { get; set; } = IssueType.Standard;
+        public bool ProductMatchesOrder { get; set; } = true;
+        public bool SpecialRequirementsMet { get; set; } = true;
+        public bool UnresolvedAboRhDiscrepancy { get; set; }
+    }
+}

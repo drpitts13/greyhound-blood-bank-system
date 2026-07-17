@@ -1,0 +1,75 @@
+@page "/audit"
+@inject BloodBankApiClient Api
+
+<PageTitle>Audit Trail &middot; Blood Bank LIS</PageTitle>
+
+<h1>Audit Trail</h1>
+<p class="muted">Append-only record of every clinical action. Showing up to 200 most recent matching events.</p>
+
+<div class="bb-card">
+    <div class="form-row">
+        <div class="field"><label>Entity type</label><input @bind="_entityType" placeholder="e.g. BloodUnit, Patient, Issue" /></div>
+        <div class="field"><label>Entity id (optional)</label><input type="number" @bind="_entityId" /></div>
+    </div>
+    <button class="btn btn-secondary" disabled="@_busy" @onclick="LoadAsync">Search</button>
+</div>
+
+<div class="bb-card">
+    @if (_loading)
+    {
+        <div class="loading">Loading audit events...</div>
+    }
+    else if (_fb is not null && !string.IsNullOrEmpty(_fb.Error))
+    {
+        <Outcome Value="_fb" />
+    }
+    else if (_events.Count == 0)
+    {
+        <div class="empty">No audit events found.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>When (UTC)</th><th>Action</th><th>Entity</th><th>User</th><th>Workstation</th><th>Reason</th><th>Sig</th></tr></thead>
+            <tbody>
+                @foreach (var e in _events)
+                {
+                    <tr>
+                        <td class="nowrap">@e.OccurredUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td><span class="badge badge-blue">@e.EventType</span></td>
+                        <td>@e.EntityType @(e.EntityId is null ? "" : $"#{e.EntityId}")</td>
+                        <td>@e.UserName</td>
+                        <td class="muted">@e.Workstation</td>
+                        <td>@e.Reason</td>
+                        <td class="mono">@(e.SignatureId?.ToString() ?? "")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<AuditEventVm> _events = new();
+    private string? _entityType;
+    private long? _entityId;
+    private bool _loading = true;
+    private bool _busy;
+    private Feedback? _fb;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _busy = true;
+        var r = await Api.GetAuditEventsAsync(
+            string.IsNullOrWhiteSpace(_entityType) ? null : _entityType,
+            _entityId is > 0 ? _entityId : null);
+        _loading = false;
+        _busy = false;
+        _fb = null;
+        if (r.Succeeded) _events = r.Value!;
+        else { _events = new(); _fb = r.ToFeedback(); }
+    }
+}

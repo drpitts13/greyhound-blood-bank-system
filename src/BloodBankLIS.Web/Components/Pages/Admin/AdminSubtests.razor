@@ -1,0 +1,322 @@
+@page "/admin/subtests"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Domain.ValueObjects
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Subtests &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Subtest Definitions</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New subtest</button>
+    }
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code or name" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (Filtered.Count == 0)
+    {
+        <div class="empty">No subtest definitions.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Result type</th><th>Choices</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var s in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@s.Code</td>
+                        <td>@s.Name</td>
+                        <td>@s.ResultType</td>
+                        <td>@s.Choices.Count</td>
+                        <td>@s.Version</td>
+                        <td>@StatusBadge(s)</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(s.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(s.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New subtest" : $"Edit: {_editing.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input @bind="_editing.Code" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
+            <div class="field"><label>Result type</label>
+                <select @bind="_editing.ResultType" @bind:after="OnResultTypeChanged">
+                    @foreach (var t in Enum.GetValues<SubtestResultType>()) { <option value="@t">@t</option> }
+                </select>
+            </div>
+        </div>
+
+        @if (_editing.ResultType != SubtestResultType.FreeText)
+        {
+            <div class="field" style="margin-top:.6rem;">
+                <div class="flex-between" style="margin-bottom:.4rem;">
+                    <label style="margin:0;"><strong>Choices</strong></label>
+                    <div class="flex gap">
+                        @if (_editing.ResultType == SubtestResultType.GradedReaction)
+                        {
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="LoadDefaultGradedChoices">Load standard grades</button>
+                        }
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="AddChoice">Add choice</button>
+                    </div>
+                </div>
+                <table class="bb">
+                    <thead>
+                        <tr>
+                            <th>Code</th><th>Label</th>
+                            @if (_editing.ResultType == SubtestResultType.GradedReaction) { <th>Polarity</th> }
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var i = 0; i < _editing.Choices.Count; i++)
+                        {
+                            var row = _editing.Choices[i];
+                            <tr>
+                                <td><input class="mono" @bind="row.Code" /></td>
+                                <td><input @bind="row.Label" /></td>
+                                @if (_editing.ResultType == SubtestResultType.GradedReaction)
+                                {
+                                    <td>
+                                        <select @bind="row.Polarity">
+                                            @foreach (var p in Enum.GetValues<ReactionPolarity>()) { <option value="@p">@p</option> }
+                                        </select>
+                                    </td>
+                                }
+                                <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveChoice(i)">Remove</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <div class="field"><label>Change reason @(EditingActive ? "(required)" : "(optional)")</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && CanActivate)
+            {
+                @if (!_currentIsActive)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ActivateAsync">Activate</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DeactivateAsync">Deactivate</button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_history is not null)
+{
+    <ConfigHistoryPanel Title="@($"History: {_historyTitle}")" Rows="_history" OnClose="() => _history = null" />
+}
+
+@code {
+    private List<SubtestDefinitionDto> _items = new();
+    private bool _loading = true;
+    private bool _includeInactive = true;
+    private string _filter = string.Empty;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private bool _currentIsActive;
+    private string? _changeReason;
+
+    private List<ConfigHistoryDto>? _history;
+    private string _historyTitle = string.Empty;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminTestsManage);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private bool EditingActive => _currentIsActive;
+
+    private List<SubtestDefinitionDto> Filtered => string.IsNullOrWhiteSpace(_filter)
+        ? _items
+        : _items.Where(s => s.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || s.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminSubtestsAsync(_includeInactive);
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _currentIsActive = false;
+        _changeReason = null;
+        _editing = new EditModel { ResultType = SubtestResultType.GradedReaction };
+        LoadDefaultGradedChoices();
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminSubtestAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = r.Value.Id;
+        _currentIsActive = r.Value.IsActive;
+        _changeReason = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null
+            ? await Api.CreateAdminSubtestAsync(req)
+            : await Api.UpdateAdminSubtestAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Draft created." : "Saved.");
+        if (r.Succeeded)
+        {
+            _editId = r.Value!.Id;
+            _currentIsActive = r.Value.IsActive;
+            await LoadAsync();
+        }
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ActivateAdminSubtestAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Activated.");
+        if (r.Succeeded) { _currentIsActive = true; await LoadAsync(); }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAdminSubtestAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Deactivated.");
+        if (r.Succeeded) { _currentIsActive = false; await LoadAsync(); }
+    }
+
+    private async Task ShowHistoryAsync(long id)
+    {
+        var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.SubtestDefinition), id);
+        _history = r.Value ?? new();
+        _historyTitle = _items.FirstOrDefault(s => s.Id == id)?.Code ?? id.ToString();
+    }
+
+    private static RenderFragment StatusBadge(SubtestDefinitionDto s) => builder =>
+    {
+        var (cls, text) = s.IsActive ? ("badge-green", "Active") : s.IsDraft ? ("badge-gray", "Draft") : ("badge-amber", "Inactive");
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", $"badge {cls}");
+        builder.AddContent(2, text);
+        builder.CloseElement();
+    };
+
+    private void OnResultTypeChanged()
+    {
+        if (_editing is null) return;
+        if (_editing.ResultType == SubtestResultType.GradedReaction && _editing.Choices.Count == 0)
+        {
+            LoadDefaultGradedChoices();
+        }
+    }
+
+    private void AddChoice()
+    {
+        if (_editing is null) return;
+        _editing.Choices.Add(new ChoiceRow { Polarity = ReactionPolarity.Negative });
+    }
+
+    private void RemoveChoice(int index)
+    {
+        if (_editing is null || index < 0 || index >= _editing.Choices.Count) return;
+        _editing.Choices.RemoveAt(index);
+    }
+
+    private void LoadDefaultGradedChoices()
+    {
+        if (_editing is null) return;
+        _editing.Choices = SubtestChoiceDefinitions.DefaultGradedReaction()
+            .Select(c => new ChoiceRow { Code = c.Code, Label = c.Label, Polarity = c.Polarity ?? ReactionPolarity.Neutral })
+            .ToList();
+    }
+
+    private sealed class ChoiceRow
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public ReactionPolarity Polarity { get; set; } = ReactionPolarity.Negative;
+    }
+
+    private sealed class EditModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public SubtestResultType ResultType { get; set; }
+        public List<ChoiceRow> Choices { get; set; } = new();
+
+        public static EditModel From(SubtestDefinitionDto s) => new()
+        {
+            Code = s.Code,
+            Name = s.Name,
+            ResultType = s.ResultType,
+            Choices = s.Choices.Select(c => new ChoiceRow
+            {
+                Code = c.Code,
+                Label = c.Label,
+                Polarity = c.Polarity ?? ReactionPolarity.Neutral
+            }).ToList()
+        };
+
+        public SaveSubtestDefinitionRequest ToRequest(string? reason) => new(
+            Code,
+            Name,
+            ResultType,
+            ResultType == SubtestResultType.FreeText
+                ? null
+                : Choices.Select(c => new SubtestChoiceDto(
+                    c.Code,
+                    c.Label,
+                    ResultType == SubtestResultType.GradedReaction ? c.Polarity : null)).ToList(),
+            reason);
+    }
+}

@@ -1,0 +1,609 @@
+@page "/admin/tests"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Application.Reference
+@using BloodBankLIS.Domain.ValueObjects
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Test Definitions &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Test Definitions</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New test</button>
+    }
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code or name" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (Filtered.Count == 0)
+    {
+        <div class="empty">No test definitions.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead>
+                <tr><th>Code</th><th>Name</th><th>Category</th><th>Value type</th><th>Ver</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var t in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@t.Code</td>
+                        <td>@t.Name</td>
+                        <td>@t.Category</td>
+                        <td>@DisplayValueType(t.ResultValueType)</td>
+                        <td>@t.Version</td>
+                        <td>@StatusBadge(t)</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(t.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(t.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New test definition" : $"Edit: {_editing.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input @bind="_editing.Code" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
+            <div class="field"><label>Category</label>
+                <select @bind="_editing.Category">
+                    @foreach (var c in Enum.GetValues<TestCategory>()) { <option value="@c">@c</option> }
+                </select>
+            </div>
+            <div class="field"><label>Result value type</label>
+                <select @bind="_editing.ResultValueType" @bind:after="OnResultValueTypeChanged">
+                    @foreach (var v in Enum.GetValues<ResultValueType>()) { <option value="@v">@DisplayValueType(v)</option> }
+                </select>
+            </div>
+            @if (_editing.ResultValueType == ResultValueType.BloodAttribute)
+            {
+                <div class="field">
+                    <label>Scoped as</label>
+                    <select @bind="_editing.BloodAttributeScopeKind">
+                        @foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@k</option> }
+                    </select>
+                </div>
+                <div class="field" style="grid-column:1/-1;">
+                    <label><strong>Blood attribute scope</strong> (catalog @(_editing.BloodAttributeScopeKind == BloodAttributeKind.Antibody ? "antibodies" : "antigens") this test may report)</label>
+                    <div class="flex gap" style="flex-wrap:wrap;margin-top:.4rem;">
+                        @foreach (var attr in _catalogBloodAttributes)
+                        {
+                            var selected = _editing.BloodAttributeScopeCodes.Contains(attr.Code, StringComparer.OrdinalIgnoreCase);
+                            <label class="flex" style="gap:.35rem;">
+                                <input type="checkbox" checked="@selected" @onchange="e => ToggleBloodAttrScope(attr.Code, (bool)(e.Value ?? false))" />
+                                @attr.Code —
+                                @(_editing.BloodAttributeScopeKind == BloodAttributeKind.Antibody ? attr.AntibodyName : attr.Name)
+                            </label>
+                        }
+                    </div>
+                </div>
+            }
+            @if (EditModel.UsesPanelSubtests(_editing.ResultValueType))
+            {
+                <div class="field" style="grid-column:1/-1;">
+                    <div class="flex-between" style="margin-bottom:.4rem;">
+                        <label style="margin:0;"><strong>Panel subtests</strong> (from subtest catalog)</label>
+                        <div class="flex gap">
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="LoadDefaultAboRhSubtests">Load ABORH defaults</button>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="AddSubtest">Add subtest</button>
+                        </div>
+                    </div>
+                    @if (_editing.PanelSubtestAssignments.Count == 0)
+                    {
+                        <div class="muted">No subtests assigned. Add rows or load defaults before activating a panel test.</div>
+                    }
+                    else
+                    {
+                        <table class="bb">
+                            <thead><tr><th>Subtest</th><th>Type</th><th>Required</th><th>Order</th><th></th></tr></thead>
+                            <tbody>
+                                @for (var i = 0; i < _editing.PanelSubtestAssignments.Count; i++)
+                                {
+                                    var row = _editing.PanelSubtestAssignments[i];
+                                    var catalog = _catalogSubtests.FirstOrDefault(s => string.Equals(s.Code, row.SubtestCode, StringComparison.OrdinalIgnoreCase));
+                                    <tr>
+                                        <td>
+                                            <select @bind="row.SubtestCode">
+                                                <option value="">— select —</option>
+                                                @foreach (var s in _catalogSubtests) { <option value="@s.Code">@s.Code — @s.Name</option> }
+                                            </select>
+                                        </td>
+                                        <td class="muted">@(catalog?.ResultType.ToString() ?? "—")</td>
+                                        <td><input type="checkbox" @bind="row.Required" /></td>
+                                        <td><input type="number" style="width:4rem;" @bind="row.SortOrder" /></td>
+                                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveSubtest(i)">Remove</button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+
+                @if (_editing.ResultValueType is ResultValueType.AboRh or ResultValueType.Subtest)
+                {
+                    <div class="field" style="grid-column:1/-1;">
+                        <div class="flex-between" style="margin-bottom:.4rem;">
+                            <label style="margin:0;"><strong>Interpretation logic</strong> (expected subtest reactions per interpretation)</label>
+                            <div class="flex gap">
+                                @if (_editing.ResultValueType == ResultValueType.AboRh)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="LoadDefaultAboRhLogic">Load standard ABO/Rh logic</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="AddLogicRow">Add interpretation row</button>
+                                }
+                            </div>
+                        </div>
+                        @if (_editing.InterpretationLogic.Count == 0)
+                        {
+                            <div class="muted">No logic rows. @( _editing.ResultValueType == ResultValueType.AboRh ? "Load standard logic or add rows manually." : "Add rows to define interpretations and expected subtest reactions.")</div>
+                        }
+                        else if (LogicTableColumns.Any())
+                        {
+                            <table class="bb">
+                                <thead>
+                                    <tr>
+                                        <th>Interpretation</th>
+                                        @foreach (var col in LogicTableColumns)
+                                        {
+                                            <th class="mono">@(col)</th>
+                                        }
+                                        @if (_editing.ResultValueType == ResultValueType.Subtest)
+                                        {
+                                            <th></th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (var ri = 0; ri < _editing.InterpretationLogic.Count; ri++)
+                                    {
+                                        var row = _editing.InterpretationLogic[ri];
+                                        <tr>
+                                            <td>
+                                                @if (_editing.ResultValueType == ResultValueType.AboRh)
+                                                {
+                                                    @row.Label <span class="mono muted">@row.InterpretationKey</span>
+                                                }
+                                                else
+                                                {
+                                                    <input @bind="row.Label" placeholder="Label" style="margin-bottom:.25rem;" />
+                                                    <input @bind="row.InterpretationKey" placeholder="Key" class="mono" />
+                                                }
+                                            </td>
+                                            @foreach (var col in LogicTableColumns)
+                                            {
+                                                <td>
+                                                    <select value="@GetLogicExpectation(row, col)" @onchange="e => SetLogicExpectation(row, col, e)">
+                                                        <option value="">—</option>
+                                                        <option value="@ReactionPolarity.Negative">Neg</option>
+                                                        <option value="@ReactionPolarity.Positive">Pos</option>
+                                                    </select>
+                                                </td>
+                                            }
+                                            @if (_editing.ResultValueType == ResultValueType.Subtest)
+                                            {
+                                                <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveLogicRow(ri)">Remove</button></td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                        else
+                        {
+                            <div class="muted">Assign subtests above before configuring interpretation logic.</div>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+            <div class="field" style="grid-column:1/3;"><label>Allowed result values (one per line)</label>
+                <textarea rows="3" @bind="_editing.AllowedResultValues"></textarea>
+            </div>
+            }
+            <div class="field"><label>Required specimen type</label>
+                <select @bind="_editing.RequiredSpecimenType">
+                    <option value="">— Any —</option>
+                    @foreach (var t in _catalogSpecimenTypes)
+                    {
+                        <option value="@t.Code">@t.Code — @t.Description</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Testing method</label><input @bind="_editing.TestingMethod" /></div>
+            <div class="field"><label>Performing department</label><input @bind="_editing.PerformingDepartment" /></div>
+            <div class="field"><label>Sort order</label><input type="number" @bind="_editing.SortOrder" /></div>
+            <div class="field"><label>Charge code mapping</label><input @bind="_editing.ChargeCodeMapping" /></div>
+        </div>
+
+        <div class="flex gap" style="flex-wrap:wrap;margin:.6rem 0;">
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.Billable" /> Billable</label>
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.VerificationRequired" /> Verification required</label>
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.ContributesToAboRhHistory" /> ABO/Rh history</label>
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.ContributesToAntibodyHistory" /> Antibody history</label>
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.ContributesToCompatibility" /> Compatibility</label>
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.ContributesToUnitBloodAttributes" /> Unit blood attributes</label>
+        </div>
+
+        <div class="field"><label>Change reason @(EditingActive ? "(required)" : "(optional)")</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && CanActivate)
+            {
+                @if (!_currentIsActive)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ActivateAsync">Activate</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DeactivateAsync">Deactivate</button>
+                }
+            }
+            @if (_editId is not null && CanManage)
+            {
+                <button class="btn btn-ghost" disabled="@_busy" @onclick="CloneAsync">Clone</button>
+            }
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_history is not null)
+{
+    <ConfigHistoryPanel Title="@($"History: {_historyTitle}")" Rows="_history" OnClose="() => _history = null" />
+}
+
+@code {
+    private List<TestDefinitionDto> _items = new();
+    private List<SubtestListItemDto> _catalogSubtests = new();
+    private List<BloodAttributeListItemDto> _catalogBloodAttributes = new();
+    private List<SpecimenTypeListItemDto> _catalogSpecimenTypes = new();
+    private bool _loading = true;
+    private bool _includeInactive = true;
+    private string _filter = string.Empty;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private bool _currentIsActive;
+    private string? _changeReason;
+
+    private List<ConfigHistoryDto>? _history;
+    private string _historyTitle = string.Empty;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminTestsManage);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private bool EditingActive => _currentIsActive;
+
+    private List<TestDefinitionDto> Filtered => string.IsNullOrWhiteSpace(_filter)
+        ? _items
+        : _items.Where(t => t.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || t.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private IEnumerable<string> GradedAssignmentCodes =>
+        _editing?.PanelSubtestAssignments
+            .Select(a => a.SubtestCode)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Where(c => _catalogSubtests.FirstOrDefault(s => string.Equals(s.Code, c, StringComparison.OrdinalIgnoreCase))?.ResultType == SubtestResultType.GradedReaction)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+        ?? Enumerable.Empty<string>();
+
+    private IEnumerable<string> AssignedSubtestCodes =>
+        _editing?.PanelSubtestAssignments
+            .Select(a => a.SubtestCode)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+        ?? Enumerable.Empty<string>();
+
+    private IEnumerable<string> LogicTableColumns =>
+        _editing?.ResultValueType == ResultValueType.AboRh ? GradedAssignmentCodes : AssignedSubtestCodes;
+
+    private static string DisplayValueType(ResultValueType valueType) =>
+        valueType switch
+        {
+            ResultValueType.Subtest => "Subtest",
+            ResultValueType.BloodAttribute => "Blood attribute",
+            _ => valueType.ToString()
+        };
+
+    private void ToggleBloodAttrScope(string code, bool selected)
+    {
+        if (_editing is null) return;
+        if (selected && !_editing.BloodAttributeScopeCodes.Contains(code, StringComparer.OrdinalIgnoreCase))
+        {
+            _editing.BloodAttributeScopeCodes.Add(code);
+        }
+        else if (!selected)
+        {
+            _editing.BloodAttributeScopeCodes.RemoveAll(c => string.Equals(c, code, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var subtests = await Api.GetReferenceSubtestsAsync();
+        _catalogSubtests = subtests.Value ?? new();
+        var bloodAttrs = await Api.GetReferenceBloodAttributesAsync();
+        _catalogBloodAttributes = bloodAttrs.Value ?? new();
+        var specimenTypes = await Api.GetReferenceSpecimenTypesAsync();
+        _catalogSpecimenTypes = specimenTypes.Value ?? new();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminTestsAsync(_includeInactive);
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _currentIsActive = false;
+        _changeReason = null;
+        _editing = new EditModel { VerificationRequired = true };
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminTestAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        var t = r.Value;
+        _editId = t.Id;
+        _currentIsActive = t.IsActive;
+        _changeReason = null;
+        _editing = EditModel.From(t);
+        _feedback = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null
+            ? await Api.CreateAdminTestAsync(req)
+            : await Api.UpdateAdminTestAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Draft created." : "Saved.");
+        if (r.Succeeded)
+        {
+            _editId = r.Value!.Id;
+            _currentIsActive = r.Value.IsActive;
+            await LoadAsync();
+        }
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ActivateAdminTestAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Activated.");
+        if (r.Succeeded) { _currentIsActive = true; await LoadAsync(); }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAdminTestAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Deactivated.");
+        if (r.Succeeded) { _currentIsActive = false; await LoadAsync(); }
+    }
+
+    private async Task CloneAsync()
+    {
+        if (_editId is null || _editing is null) return;
+        _busy = true;
+        var r = await Api.CloneAdminTestAsync(_editId.Value, _editing.Code + "-COPY");
+        _busy = false;
+        _feedback = r.ToFeedback("Cloned to a new draft.");
+        if (r.Succeeded) { await LoadAsync(); await EditAsync(r.Value!.Id); }
+    }
+
+    private async Task ShowHistoryAsync(long id)
+    {
+        var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.TestDefinition), id);
+        _history = r.Value ?? new();
+        _historyTitle = _items.FirstOrDefault(t => t.Id == id)?.Code ?? id.ToString();
+    }
+
+    private static RenderFragment StatusBadge(TestDefinitionDto t) => builder =>
+    {
+        var (cls, text) = t.IsActive ? ("badge-green", "Active") : t.IsDraft ? ("badge-gray", "Draft") : ("badge-amber", "Inactive");
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", $"badge {cls}");
+        builder.AddContent(2, text);
+        builder.CloseElement();
+    };
+
+    private void OnResultValueTypeChanged()
+    {
+        if (_editing is null) return;
+        if (EditModel.UsesPanelSubtests(_editing.ResultValueType) && _editing.PanelSubtestAssignments.Count == 0
+            && _editing.ResultValueType == ResultValueType.AboRh)
+        {
+            LoadDefaultAboRhSubtests();
+        }
+    }
+
+    private void AddSubtest()
+    {
+        if (_editing is null) return;
+        var next = _editing.PanelSubtestAssignments.Count + 1;
+        _editing.PanelSubtestAssignments.Add(new AssignmentRow { SortOrder = next });
+    }
+
+    private void RemoveSubtest(int index)
+    {
+        if (_editing is null || index < 0 || index >= _editing.PanelSubtestAssignments.Count) return;
+        _editing.PanelSubtestAssignments.RemoveAt(index);
+    }
+
+    private void LoadDefaultAboRhSubtests()
+    {
+        if (_editing is null) return;
+        _editing.PanelSubtestAssignments = PanelSubtestDefinitions.DefaultAboRh()
+            .Select(s => new AssignmentRow
+            {
+                SubtestCode = s.Code,
+                Required = s.Required,
+                SortOrder = s.SortOrder
+            }).ToList();
+    }
+
+    private void LoadDefaultAboRhLogic()
+    {
+        if (_editing is null) return;
+        _editing.InterpretationLogic = InterpretationLogicDefinitions.DefaultAboRhLogic()
+            .Select(r => new LogicRow
+            {
+                InterpretationKey = r.InterpretationKey,
+                Label = r.Label,
+                Expectations = new Dictionary<string, ReactionPolarity>(r.SubtestExpectations, StringComparer.OrdinalIgnoreCase)
+            }).ToList();
+    }
+
+    private void AddLogicRow()
+    {
+        if (_editing is null) return;
+        var index = _editing.InterpretationLogic.Count + 1;
+        _editing.InterpretationLogic.Add(new LogicRow
+        {
+            InterpretationKey = $"INTERP{index}",
+            Label = $"Interpretation {index}"
+        });
+    }
+
+    private void RemoveLogicRow(int index)
+    {
+        if (_editing is null || index < 0 || index >= _editing.InterpretationLogic.Count) return;
+        _editing.InterpretationLogic.RemoveAt(index);
+    }
+
+    private static string GetLogicExpectation(LogicRow row, string code) =>
+        row.Expectations.TryGetValue(code, out var p) ? p.ToString() : string.Empty;
+
+    private static void SetLogicExpectation(LogicRow row, string code, ChangeEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(e.Value?.ToString()))
+        {
+            row.Expectations.Remove(code);
+            return;
+        }
+
+        if (Enum.TryParse<ReactionPolarity>(e.Value?.ToString(), out var polarity))
+        {
+            row.Expectations[code] = polarity;
+        }
+    }
+
+    private sealed class AssignmentRow
+    {
+        public string SubtestCode { get; set; } = string.Empty;
+        public bool Required { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    private sealed class LogicRow
+    {
+        public string InterpretationKey { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public Dictionary<string, ReactionPolarity> Expectations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class EditModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public TestCategory Category { get; set; } = TestCategory.Other;
+        public ResultValueType ResultValueType { get; set; } = ResultValueType.Coded;
+        public string? AllowedResultValues { get; set; }
+        public List<AssignmentRow> PanelSubtestAssignments { get; set; } = new();
+        public List<LogicRow> InterpretationLogic { get; set; } = new();
+
+        public static bool UsesPanelSubtests(ResultValueType valueType) =>
+            valueType is ResultValueType.AboRh or ResultValueType.Subtest;
+        public string? RequiredSpecimenType { get; set; }
+        public string? TestingMethod { get; set; }
+        public string? PerformingDepartment { get; set; }
+        public int SortOrder { get; set; }
+        public bool Billable { get; set; }
+        public string? ChargeCodeMapping { get; set; }
+        public bool VerificationRequired { get; set; } = true;
+        public bool ContributesToAboRhHistory { get; set; }
+        public bool ContributesToAntibodyHistory { get; set; }
+        public bool ContributesToCompatibility { get; set; }
+        public List<string> BloodAttributeScopeCodes { get; set; } = new();
+        public BloodAttributeKind BloodAttributeScopeKind { get; set; } = BloodAttributeKind.Antigen;
+        public bool ContributesToUnitBloodAttributes { get; set; }
+
+        public static EditModel From(TestDefinitionDto t) => new()
+        {
+            Code = t.Code, Name = t.Name, Category = t.Category, ResultValueType = t.ResultValueType,
+            AllowedResultValues = t.AllowedResultValues,
+            PanelSubtestAssignments = t.PanelSubtestAssignments.Select(s => new AssignmentRow
+            {
+                SubtestCode = s.SubtestCode, Required = s.Required, SortOrder = s.SortOrder
+            }).ToList(),
+            InterpretationLogic = t.InterpretationLogic.Select(r => new LogicRow
+            {
+                InterpretationKey = r.InterpretationKey,
+                Label = r.Label,
+                Expectations = new Dictionary<string, ReactionPolarity>(r.SubtestExpectations, StringComparer.OrdinalIgnoreCase)
+            }).ToList(),
+            RequiredSpecimenType = t.RequiredSpecimenType,
+            TestingMethod = t.TestingMethod, PerformingDepartment = t.PerformingDepartment, SortOrder = t.SortOrder,
+            Billable = t.Billable, ChargeCodeMapping = t.ChargeCodeMapping, VerificationRequired = t.VerificationRequired,
+            ContributesToAboRhHistory = t.ContributesToAboRhHistory, ContributesToAntibodyHistory = t.ContributesToAntibodyHistory,
+            ContributesToCompatibility = t.ContributesToCompatibility,
+            BloodAttributeScopeCodes = t.BloodAttributeScopeCodes.ToList(),
+            BloodAttributeScopeKind = t.BloodAttributeScopeKind ?? BloodAttributeKind.Antigen,
+            ContributesToUnitBloodAttributes = t.ContributesToUnitBloodAttributes
+        };
+
+        public SaveTestDefinitionRequest ToRequest(string? reason) => new(
+            Code, Name, Category, ResultValueType, AllowedResultValues,
+            PanelSubtestAssignments.Select(s => new PanelSubtestAssignmentDto(s.SubtestCode, s.Required, s.SortOrder)).ToList(),
+            InterpretationLogic.Select(r => new InterpretationLogicRowDto(
+                r.InterpretationKey, r.Label, r.Expectations)).ToList(),
+            RequiredSpecimenType, TestingMethod, PerformingDepartment, SortOrder, Billable, ChargeCodeMapping,
+            VerificationRequired, ContributesToAboRhHistory, ContributesToAntibodyHistory, ContributesToCompatibility,
+            BloodAttributeScopeCodes,
+            ResultValueType == ResultValueType.BloodAttribute ? BloodAttributeScopeKind : null,
+            ContributesToUnitBloodAttributes, reason);
+    }
+}

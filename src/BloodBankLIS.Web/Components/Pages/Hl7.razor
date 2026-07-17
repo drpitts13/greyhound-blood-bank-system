@@ -1,0 +1,162 @@
+@page "/hl7"
+@inject BloodBankApiClient Api
+
+<PageTitle>HL7 Interface &middot; Blood Bank LIS</PageTitle>
+
+<h1>HL7 Interface</h1>
+<p class="muted">Operational view of the HL7 v2.x message log. Submit inbound messages, inspect raw content, replay, and review the error queue.</p>
+
+<div class="bb-grid cols-2">
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Submit inbound message</h3></div>
+        @if (_ackFb is not null)
+        {
+            <Outcome Value="_ackFb" />
+        }
+        @if (!string.IsNullOrEmpty(_ack))
+        {
+            <div class="bb-card-title"><strong>ACK / NAK</strong></div>
+            <div class="pre">@_ack</div>
+        }
+        <div class="field">
+            <label>Raw HL7 (use \r or new lines between segments)</label>
+            <textarea rows="8" class="mono" @bind="_raw" placeholder="MSH|^~\&amp;|..."></textarea>
+        </div>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="SubmitAsync">Submit</button>
+        <button class="btn btn-secondary" @onclick="LoadSample">Load ADT sample</button>
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Error queue</h3>
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+        </div>
+        @if (_errors.Count == 0)
+        {
+            <div class="empty">No unresolved errors.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Msg</th><th>Type</th><th>Detail</th><th>Retries</th></tr></thead>
+                <tbody>
+                    @foreach (var e in _errors)
+                    {
+                        <tr><td>@e.Hl7MessageId</td><td>@e.ErrorType</td><td>@e.ErrorDetail</td><td>@e.RetryCount</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Message log</h3>
+        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+    </div>
+    @if (_loading)
+    {
+        <div class="loading">Loading messages...</div>
+    }
+    else if (_messages.Count == 0)
+    {
+        <div class="empty">No messages logged.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Id</th><th>Dir</th><th>Type</th><th>Control id</th><th>Received</th><th>Status</th><th>Ack</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var m in _messages)
+                {
+                    <tr>
+                        <td>@m.Id</td>
+                        <td>@m.Direction</td>
+                        <td>@m.MessageType@(string.IsNullOrEmpty(m.TriggerEvent) ? "" : $"^{m.TriggerEvent}")</td>
+                        <td class="mono">@m.MessageControlId</td>
+                        <td class="nowrap">@m.ReceivedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td><span class="@Ui.Badge(m.Status)">@m.Status</span></td>
+                        <td class="mono">@m.AckCode</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(m.Id)">View</button>
+                            @if (m.Direction == Hl7Direction.Inbound)
+                            {
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(m.Id)">Replay</button>
+                            }
+                        </td>
+                    </tr>
+                    @if (_viewId == m.Id && _detail is not null)
+                    {
+                        <tr><td colspan="8">
+                            @if (!string.IsNullOrEmpty(m.ErrorDetail))
+                            {
+                                <div class="alert alert-danger">@m.ErrorDetail</div>
+                            }
+                            <div class="pre">@_detail.Raw</div>
+                        </td></tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private string _raw = string.Empty;
+    private string? _ack;
+    private Feedback? _ackFb;
+
+    private List<Hl7MessageVm> _messages = new();
+    private List<Hl7ErrorVm> _errors = new();
+    private bool _loading = true;
+    private bool _busy;
+    private long? _viewId;
+    private Hl7MessageDetailVm? _detail;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _busy = true;
+        _messages = (await Api.GetHl7MessagesAsync()).Value ?? new();
+        _errors = (await Api.GetHl7ErrorsAsync()).Value ?? new();
+        _loading = false;
+        _busy = false;
+    }
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _ack = null;
+        var normalized = _raw.Replace("\r\n", "\r").Replace("\n", "\r");
+        var r = await Api.SendInboundHl7Async(normalized);
+        _busy = false;
+        _ack = r.Value ?? r.Error;
+        _ackFb = r.Succeeded
+            ? new Feedback(true, "Message accepted (AA).", Array.Empty<RuleMessage>(), false, false, Array.Empty<RuleMessage>(), null)
+            : new Feedback(false, null, Array.Empty<RuleMessage>(), false, false, Array.Empty<RuleMessage>(), "Message rejected — see NAK below.");
+        await LoadAsync();
+    }
+
+    private async Task ViewAsync(long id)
+    {
+        if (_viewId == id) { _viewId = null; _detail = null; return; }
+        var r = await Api.GetHl7MessageAsync(id);
+        if (r.Succeeded) { _detail = r.Value; _viewId = id; }
+    }
+
+    private async Task ReplayAsync(long id)
+    {
+        _busy = true;
+        await Api.ReplayHl7Async(id);
+        _busy = false;
+        await LoadAsync();
+    }
+
+    private void LoadSample()
+    {
+        _raw = "MSH|^~\\&|ADT|HOSP|LIS|LAB|20260101120000||ADT^A04|MSG0001|P|2.5\n"
+             + "EVN|A04|20260101120000\n"
+             + "PID|1||MRN12345^^^HOSP^MR||DOE^JOHN^A||19800101|M";
+    }
+}

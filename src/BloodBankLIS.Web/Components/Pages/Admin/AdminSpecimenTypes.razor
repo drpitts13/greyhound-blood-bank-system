@@ -1,0 +1,241 @@
+@page "/admin/specimen-types"
+@using BloodBankLIS.Application.Admin
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Specimen Types &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Specimen Types</h1>
+    @if (CanEdit)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New specimen type</button>
+    }
+</div>
+<p class="muted">Catalog of specimen types for accessioning. Each type defines tests that cannot be performed on that specimen.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code or description" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No specimen type definitions.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Description</th><th>Excluded tests</th><th>Sort</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var d in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@d.Code</td>
+                        <td>@d.Description</td>
+                        <td>@(d.ExcludedTestCodes.Count == 0 ? "—" : string.Join(", ", d.ExcludedTestCodes))</td>
+                        <td>@d.SortOrder</td>
+                        <td>@d.Version</td>
+                        <td>@StatusBadge(d)</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(d.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(d.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New specimen type" : $"Edit: {_editing.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_editing.Code" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Description</label><input @bind="_editing.Description" placeholder="EDTA Whole Blood" /></div>
+            <div class="field"><label>Sort order</label><input type="number" @bind="_editing.SortOrder" /></div>
+        </div>
+        <div class="field" style="margin-top:.5rem;">
+            <label><strong>Tests that cannot be run on this specimen type</strong></label>
+            <div class="flex gap" style="flex-wrap:wrap;margin-top:.4rem;">
+                @foreach (var t in _catalogTests)
+                {
+                    var selected = _editing.ExcludedTestCodes.Contains(t.Code, StringComparer.OrdinalIgnoreCase);
+                    <label class="flex" style="gap:.35rem;">
+                        <input type="checkbox" checked="@selected" @onchange="e => ToggleExcludedTest(t.Code, (bool)(e.Value ?? false))" />
+                        @t.Code — @t.Name
+                    </label>
+                }
+            </div>
+        </div>
+        <div class="field" style="margin-top:.6rem;"><label>Change reason @(EditingActive ? "(required)" : "(optional)")</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+        <div class="flex gap" style="margin-top:.6rem;">
+            @if (CanEdit)
+            {
+                <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+                @if (_editId is not null && !_editing.IsActive && CanActivate)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ActivateAsync">Activate</button>
+                }
+                @if (_editId is not null && _editing.IsActive && CanActivate)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DeactivateAsync">Deactivate</button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_historyEntityId is not null)
+{
+    <ConfigHistoryPanel EntityType="SpecimenTypeDefinition" EntityId="_historyEntityId.Value" OnClose="() => _historyEntityId = null" />
+}
+
+@code {
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private List<SpecimenTypeDefinitionDto> _items = new();
+    private List<TestDefinitionListItemDto> _catalogTests = new();
+    private bool _loading = true;
+    private bool _includeInactive = true;
+    private string _filter = string.Empty;
+    private Feedback? _feedback;
+    private bool _busy;
+    private EditModel? _editing;
+    private long? _editId;
+    private string? _changeReason;
+    private long? _historyEntityId;
+
+    private bool EditingActive => _editing?.IsActive == true;
+
+    private IEnumerable<SpecimenTypeDefinitionDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _items
+            : _items.Where(d =>
+                d.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || d.Description.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _catalogTests = (await Api.GetTestDefinitionsListAsync()).Value ?? new();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminSpecimenTypesAsync(_includeInactive);
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _changeReason = null;
+        _editing = new EditModel();
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminSpecimenTypeAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = id;
+        _changeReason = null;
+        _editing = EditModel.From(r.Value);
+    }
+
+    private void CancelEdit() { _editing = null; _editId = null; _changeReason = null; }
+
+    private void ToggleExcludedTest(string code, bool selected)
+    {
+        if (_editing is null) return;
+        if (selected && !_editing.ExcludedTestCodes.Contains(code, StringComparer.OrdinalIgnoreCase))
+        {
+            _editing.ExcludedTestCodes.Add(code);
+        }
+        else if (!selected)
+        {
+            _editing.ExcludedTestCodes.RemoveAll(c => string.Equals(c, code, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null
+            ? await Api.CreateAdminSpecimenTypeAsync(req)
+            : await Api.UpdateAdminSpecimenTypeAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback("Specimen type saved.");
+        if (r.Succeeded) { CancelEdit(); await LoadAsync(); }
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ActivateAdminSpecimenTypeAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Specimen type activated.");
+        if (r.Succeeded) { CancelEdit(); await LoadAsync(); }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAdminSpecimenTypeAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Specimen type deactivated.");
+        if (r.Succeeded) { CancelEdit(); await LoadAsync(); }
+    }
+
+    private void ShowHistoryAsync(long id) => _historyEntityId = id;
+
+    private static RenderFragment StatusBadge(SpecimenTypeDefinitionDto d) => builder =>
+    {
+        var text = d.IsActive ? "Active" : d.IsDraft ? "Draft" : "Inactive";
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", d.IsActive ? "badge badge-green" : "badge");
+        builder.AddContent(2, text);
+        builder.CloseElement();
+    };
+
+    private sealed class EditModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public List<string> ExcludedTestCodes { get; set; } = new();
+        public int SortOrder { get; set; }
+        public bool IsActive { get; set; }
+
+        public static EditModel From(SpecimenTypeDefinitionDto dto) => new()
+        {
+            Code = dto.Code,
+            Description = dto.Description,
+            ExcludedTestCodes = dto.ExcludedTestCodes.ToList(),
+            SortOrder = dto.SortOrder,
+            IsActive = dto.IsActive
+        };
+
+        public SaveSpecimenTypeDefinitionRequest ToRequest(string? changeReason) =>
+            new(Code, Description, ExcludedTestCodes, SortOrder, changeReason);
+    }
+}

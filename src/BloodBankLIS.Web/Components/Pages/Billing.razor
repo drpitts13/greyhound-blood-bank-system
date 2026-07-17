@@ -1,0 +1,118 @@
+@page "/billing"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Billing &middot; Blood Bank LIS</PageTitle>
+
+<h1>Billing &amp; Charge Capture</h1>
+<p class="muted">Review, export, or cancel captured charges. Charges are captured automatically on result verification and unit issue.</p>
+
+<Outcome Value="_fb" />
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Charge review queue</h3>
+        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading charges...</div>
+    }
+    else if (_charges.Count == 0)
+    {
+        <div class="empty">No charges in the queue.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Id</th><th>Trigger</th><th>Source</th><th>Patient</th><th>Service date</th><th class="right">Amount</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var c in _charges)
+                {
+                    <tr>
+                        <td>@c.Id</td>
+                        <td>@c.TriggerType</td>
+                        <td class="muted">@c.TriggerEntityType #@c.TriggerEntityId</td>
+                        <td>@(c.PatientId?.ToString() ?? "—")</td>
+                        <td class="nowrap">@c.ServiceDateUtc.ToString("yyyy-MM-dd")</td>
+                        <td class="right">@c.Amount.ToString("C")</td>
+                        <td><span class="@Ui.Badge(c.Status)">@c.Status</span></td>
+                        <td class="right nowrap">
+                            @if (c.Status == BillingEventStatus.Pending)
+                            {
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReviewAsync(c.Id)">Review</button>
+                            }
+                            @if (c.Status is BillingEventStatus.Pending or BillingEventStatus.Reviewed && Session.Has(PermissionCodes.BillingExport))
+                            {
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ExportAsync(c.Id)">Export</button>
+                            }
+                            @if (c.Status != BillingEventStatus.Cancelled && c.Status != BillingEventStatus.Exported && Session.Has(PermissionCodes.BillingCancel))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => BeginCancel(c.Id)">Cancel</button>
+                            }
+                        </td>
+                    </tr>
+                    @if (_cancelId == c.Id)
+                    {
+                        <tr><td colspan="8">
+                            <div class="flex gap">
+                                <input @bind="_cancelReason" placeholder="Cancellation reason" style="flex:1;" />
+                                <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => CancelAsync(c.Id)">Confirm cancel</button>
+                                <button class="btn btn-secondary btn-sm" @onclick="() => _cancelId = null">Dismiss</button>
+                            </div>
+                        </td></tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<BillingEventDto> _charges = new();
+    private bool _loading = true;
+    private bool _busy;
+    private Feedback? _fb;
+    private long? _cancelId;
+    private string _cancelReason = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetBillingQueueAsync();
+        _loading = false;
+        if (r.Succeeded) _charges = r.Value!;
+        else _fb = r.ToFeedback();
+    }
+
+    private async Task ReviewAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReviewChargeAsync(id);
+        _busy = false;
+        _fb = r.ToFeedback("Charge reviewed.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private async Task ExportAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ExportChargeAsync(id);
+        _busy = false;
+        _fb = r.ToFeedback("Charge exported.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private void BeginCancel(long id) { _cancelId = id; _cancelReason = string.Empty; }
+
+    private async Task CancelAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.CancelChargeAsync(id, _cancelReason);
+        _busy = false;
+        _fb = r.ToFeedback("Charge cancelled.");
+        if (r.Succeeded) { _cancelId = null; await LoadAsync(); }
+    }
+}

@@ -1,0 +1,89 @@
+﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject UserSession Session
+@inject NavigationManager Nav
+@inject DevModeState Dev
+@inject BloodBankApiClient Api
+
+@if (Session.IsSignedIn)
+{
+    <div class="bb-shell">
+        <aside class="bb-sidebar">
+            <div class="bb-brand"><span class="dot"></span> Blood Bank LIS</div>
+            <NavMenu />
+            <div class="bb-user">
+                <div class="name">@Session.DisplayName</div>
+                <div class="role">@Session.UserName &middot; @Session.Workstation</div>
+                @if (!Dev.Enabled)
+                {
+                    <button class="btn btn-ghost btn-sm" style="padding-left:0;" @onclick="SignOut">Sign out</button>
+                }
+            </div>
+        </aside>
+        <div class="bb-main">
+            @if (Dev.Enabled)
+            {
+                <div class="bb-devbanner">
+                    DEV MODE &mdash; running as <strong>@Session.UserName</strong> with full permissions. Not for production use.
+                </div>
+            }
+            <header class="bb-topbar">
+                <div class="ws">@_pageTitle</div>
+                <div class="flex">
+                    <span class="badge badge-gray">@Session.Workstation</span>
+                </div>
+            </header>
+            <div class="bb-content">
+                @Body
+            </div>
+        </div>
+    </div>
+}
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private string _pageTitle = "Transfusion Service";
+
+    protected override void OnInitialized()
+    {
+        Session.Changed += OnSessionChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Session.IsSignedIn)
+        {
+            return;
+        }
+
+        // No-login dev mode: silently establish the dev admin session instead of redirecting.
+        if (Dev.Enabled)
+        {
+            Session.SignIn(Dev.UserName, "Development Administrator", Session.Workstation, Array.Empty<string>());
+            var me = await Api.GetMeAsync();
+            if (me.Succeeded && me.Value is not null)
+            {
+                Session.SignIn(me.Value.UserName, me.Value.DisplayName, Session.Workstation, me.Value.Permissions, me.Value.SecurityLevel);
+            }
+
+            return;
+        }
+
+        Nav.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(Nav.ToBaseRelativePath(Nav.Uri))}", forceLoad: false);
+    }
+
+    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+
+    private void SignOut()
+    {
+        Session.SignOut();
+        Nav.NavigateTo("/login");
+    }
+
+    public void Dispose() => Session.Changed -= OnSessionChanged;
+}

@@ -1,0 +1,1635 @@
+@page "/patients/{Id:long}"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Application.Immunohematology
+@using BloodBankLIS.Application.PatientWorkspace
+@using BloodBankLIS.Application.Reference
+@using BloodBankLIS.Domain.ValueObjects
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Patient &middot; Blood Bank LIS</PageTitle>
+
+@if (_loading)
+{
+    <div class="loading">Loading patient...</div>
+}
+else if (_patient is null)
+{
+    <div class="alert alert-danger">@(_error ?? "Patient not found.")</div>
+    <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/patients")'>Back to patients</button>
+}
+else
+{
+    <div class="flex-between" style="margin-bottom:1rem;">
+        <div>
+            <h1>@_patient.LastName, @_patient.FirstName</h1>
+            <div class="muted">MRN <span class="mono">@_patient.MedicalRecordNumber</span> &middot; DOB @_patient.DateOfBirth.ToString("yyyy-MM-dd") &middot; @_patient.Sex</div>
+        </div>
+        <div class="flex gap">
+            <div class="stat" style="text-align:center;padding:.6rem 1rem;">
+                <div class="label">Blood type</div>
+                <div class="value" style="font-size:1.4rem;">@(_currentType is null ? "—" : Ui.BloodType(_currentType.Abo, _currentType.RhD))</div>
+            </div>
+            <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/patients")'>Back</button>
+        </div>
+    </div>
+
+    @if (_activeAntibodies.Count > 0)
+    {
+        <div class="alert alert-warning">
+            <strong>Active antibodies:</strong> @string.Join(", ", _activeAntibodies.Select(a => a.AntibodySpecificity))
+        </div>
+    }
+
+    <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
+        <button type="button" class="btn @TabClass("overview")" @onclick='() => SelectTab("overview")'>Overview</button>
+        <button type="button" class="btn @TabClass("visits")" @onclick='() => SelectTab("visits")'>Visits</button>
+        <button type="button" class="btn @TabClass("orders")" @onclick='() => SelectTab("orders")'>Orders</button>
+        <button type="button" class="btn @TabClass("specimens")" @onclick='() => SelectTab("specimens")'>Specimens</button>
+        <button type="button" class="btn @TabClass("tests")" @onclick='() => SelectTab("tests")'>Tests</button>
+        <button type="button" class="btn @TabClass("history")" @onclick='() => SelectTab("history")'>Product History</button>
+    </div>
+
+    @if (_tab == "overview")
+    {
+    <div class="bb-grid cols-2">
+        <!-- Blood type -->
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Blood type history</h3></div>
+            @if (_typeHistory.Count == 0)
+            {
+                <div class="empty">No blood type on record.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Type</th><th>Source</th><th>Current</th><th>Recorded</th></tr></thead>
+                    <tbody>
+                        @foreach (var t in _typeHistory)
+                        {
+                            <tr>
+                                <td><strong>@Ui.BloodType(t.Abo, t.RhD)</strong></td>
+                                <td>@t.Source</td>
+                                <td>@(t.IsCurrent ? "Yes" : "")</td>
+                                <td class="nowrap">@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @if (Session.Has(PermissionCodes.ImmunoOverride))
+            {
+                <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+                <h4>Record manual ABO/Rh <span class="badge badge-red">dangerous</span></h4>
+                <Outcome Value="_typeFb" />
+                <div class="form-row">
+                    <div class="field"><label>ABO</label>
+                        <select @bind="_typeAbo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>
+                    </div>
+                    <div class="field"><label>Rh(D)</label>
+                        <select @bind="_typeRh">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select>
+                    </div>
+                </div>
+                <div class="field"><label>Reason (required)</label><input @bind="_typeReason" /></div>
+                <button class="btn btn-danger" disabled="@_busy" @onclick="RecordTypeAsync">Record blood type</button>
+            }
+        </div>
+
+        <!-- Antibodies -->
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Antibodies</h3></div>
+            @if (_antibodyHistory.Count == 0)
+            {
+                <div class="empty">No antibodies on record.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Specificity</th><th>Status</th><th>Active</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _antibodyHistory)
+                        {
+                            <tr>
+                                <td><strong>@a.AntibodySpecificity</strong></td>
+                                <td>@a.Status</td>
+                                <td>@(a.IsActive ? "Yes" : "No")</td>
+                                <td class="right">
+                                    @if (a.IsActive && Session.Has(PermissionCodes.ImmunoOverride))
+                                    {
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => BeginDeactivate(a)">Deactivate</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @if (_deactivateId is not null)
+            {
+                <div class="alert alert-warning">
+                    <div class="field"><label>Reason to deactivate</label><input @bind="_deactivateReason" /></div>
+                    <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="DeactivateAsync">Confirm</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="() => _deactivateId = null">Cancel</button>
+                </div>
+            }
+
+            @if (Session.Has(PermissionCodes.ImmunoRecord))
+            {
+                <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+                <h4>Add antibody</h4>
+                <Outcome Value="_antibodyFb" />
+                <div class="form-row">
+                    <div class="field"><label>Catalog antibody</label>
+                        <FilterableComboBox TItem="BloodAttributeListItemDto" TValue="long?"
+                                            Items="_bloodAttributeCatalog"
+                                            @bind-Value="_abCatalogId"
+                                            DisplayText="@(a => $"{a.AntibodyName} ({a.Code})")"
+                                            Placeholder="Select from catalog" />
+                    </div>
+                    <div class="field"><label>Status</label>
+                        <select @bind="_abStatus">@foreach (var s in Enum.GetValues<AntibodyStatus>()) { <option value="@s">@s</option> }</select>
+                    </div>
+                </div>
+                <div class="field"><label>Comment</label><input @bind="_abComment" /></div>
+                <button class="btn btn-primary" disabled="@(_busy || _abCatalogId is null)" @onclick="AddAntibodyAsync">Add antibody</button>
+            }
+        </div>
+
+        <!-- Antigen profile -->
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Antigen profile</h3></div>
+            @if (_antigenProfiles.Count == 0)
+            {
+                <div class="empty">No antigen typing on record.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Antigen</th><th>Code</th><th>Result</th><th>Tested</th></tr></thead>
+                    <tbody>
+                        @foreach (var p in _antigenProfiles)
+                        {
+                            <tr>
+                                <td>@p.AntigenName</td>
+                                <td class="mono">@p.AntigenCode</td>
+                                <td>@p.Result</td>
+                                <td class="nowrap">@(p.TestedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (Session.Has(PermissionCodes.ImmunoRecord))
+            {
+                <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+                <h4>Record antigen result</h4>
+                <Outcome Value="_antigenFb" />
+                <div class="form-row">
+                    <div class="field"><label>Antigen</label>
+                        <FilterableComboBox TItem="BloodAttributeListItemDto" TValue="long?"
+                                            Items="_bloodAttributeCatalog"
+                                            @bind-Value="_agCatalogId"
+                                            DisplayText="@(a => $"{a.Name} ({a.Code})")"
+                                            Placeholder="Select antigen" />
+                    </div>
+                    <div class="field"><label>Result</label>
+                        <select @bind="_agResult">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }</select>
+                    </div>
+                </div>
+                <button class="btn btn-primary" disabled="@(_busy || _agCatalogId is null)" @onclick="SaveAntigenProfileAsync">Save antigen result</button>
+            }
+        </div>
+    </div>
+    }
+
+    @if (_tab == "visits")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title flex-between">
+                <h3>Visits / encounters</h3>
+                @if (Session.Has(PermissionCodes.PatientWrite))
+                {
+                    <button type="button" class="btn btn-primary btn-sm" @onclick="ToggleAddVisit">@(_showAddVisit ? "Cancel" : "Add visit")</button>
+                }
+            </div>
+            <Outcome Value="_visitFb" />
+            @if (_showAddVisit && Session.Has(PermissionCodes.PatientWrite))
+            {
+                <div class="alert alert-info" style="margin-bottom:.75rem;">
+                    <div class="form-row">
+                        <div class="field"><label>Visit number</label><input @bind="_newVisitNumber" class="mono" placeholder="VIS-2026-100" /></div>
+                        <div class="field"><label>Type</label>
+                            <select @bind="_newVisitType">@foreach (var t in Enum.GetValues<EncounterType>()) { <option value="@t">@t</option> }</select>
+                        </div>
+                        <div class="field"><label>Status</label>
+                            <select @bind="_newVisitStatus">@foreach (var s in Enum.GetValues<EncounterStatus>()) { <option value="@s">@s</option> }</select>
+                        </div>
+                        <div class="field"><label>Admit (local)</label><input type="datetime-local" @bind="_newVisitAdmit" /></div>
+                        <div class="field"><label>Current location</label><input @bind="_newVisitLocation" /></div>
+                        <div class="field"><label>Attending provider</label>
+                            <FilterableComboBox TItem="OrderingProviderRefDto" TValue="long?"
+                                               Items="_providers"
+                                               @bind-Value="_newVisitProviderId"
+                                               DisplayText="@FormatProvider"
+                                               SearchText="@SearchProvider"
+                                               ItemValue="@ProviderItemValue"
+                                               Clearable="true"
+                                               Placeholder="Type to search providers..." />
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="AddVisitAsync">Save visit</button>
+                </div>
+            }
+            @if (_visitsLoading) { <div class="loading">Loading visits...</div> }
+            else if (_encounters.Count == 0) { <div class="empty">No visits on record.</div> }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Visit #</th><th>Type</th><th>Admit</th><th>Discharge</th><th>Location</th><th>Status</th></tr></thead>
+                    <tbody>
+                        @foreach (var v in _encounters)
+                        {
+                            <tr class="@(v.Status == EncounterStatus.Active ? "row-active" : "")">
+                                <td class="mono"><strong>@v.VisitNumber</strong></td>
+                                <td>@v.EncounterType</td>
+                                <td class="nowrap">@(v.AdmitUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                <td class="nowrap">@(v.DischargeUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                <td>@(v.CurrentLocation ?? v.AdmissionLocation ?? "—")</td>
+                                <td><span class="@(v.Status == EncounterStatus.Active ? "badge badge-green" : "badge")">@v.Status</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
+    @if (_tab == "orders")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title flex-between">
+                <h3>Orders</h3>
+                @if (Session.Has(PermissionCodes.PatientWrite))
+                {
+                    <button type="button" class="btn btn-primary btn-sm" @onclick="ToggleAddOrder">@(_showAddOrder ? "Cancel" : "Add order")</button>
+                }
+            </div>
+            <Outcome Value="_orderFb" />
+            @if (_showAddOrder && Session.Has(PermissionCodes.PatientWrite))
+            {
+                <div class="alert alert-info" style="margin-bottom:.75rem;">
+                    @if (_encounters.Count == 0)
+                    {
+                        <p class="muted">Add a visit before placing an order.</p>
+                    }
+                    else
+                    {
+                        <div class="form-row">
+                            <div class="field"><label>Visit</label>
+                                <select @bind="_newOrderEncounterId">
+                                    @foreach (var v in _encounters)
+                                    {
+                                        <option value="@v.Id">@v.VisitNumber</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="field"><label>Priority</label>
+                                <select @bind="_newOrderPriority">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@p</option> }</select>
+                            </div>
+                            <div class="field"><label>Ordering location</label>
+                                <select @bind="_newOrderLocationId">
+                                    @foreach (var l in _orderingLocations)
+                                    {
+                                        <option value="@l.Id">@l.DisplayName (@l.Code)</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="field"><label>Ordering provider</label>
+                                <FilterableComboBox TItem="OrderingProviderRefDto" TValue="long?"
+                                                   Items="_providers"
+                                                   @bind-Value="_newOrderProviderId"
+                                                   DisplayText="@FormatProvider"
+                                                   SearchText="@SearchProvider"
+                                                   ItemValue="@ProviderItemValue"
+                                                   Clearable="true"
+                                                   Placeholder="Type to search providers..." />
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin-top:.5rem;">
+                            <div class="field" style="flex:1;">
+                                @if (_testGroupers.Count > 0)
+                                {
+                                    <label>Test groupers</label>
+                                    <div class="checkbox-list" style="margin-bottom:.5rem;">
+                                        @foreach (var g in _testGroupers)
+                                        {
+                                            <label class="checkbox-item">
+                                                <input type="checkbox" checked="@IsGrouperSelected(g.Code, _newOrderGrouperCodes)" @onchange="e => ToggleNewOrderGrouper(g, e)" />
+                                                <strong>@g.Name</strong> <span class="muted mono">(@g.Code)</span>
+                                                <span class="muted"> — @string.Join(", ", g.MemberTestCodes)</span>
+                                            </label>
+                                        }
+                                    </div>
+                                }
+                                <label>Tests</label>
+                                <div class="checkbox-list">
+                                    @foreach (var t in _testDefs)
+                                    {
+                                        <label class="checkbox-item">
+                                            <input type="checkbox" checked="@_newOrderTestCodes.Contains(t.Code)" @onchange="e => ToggleNewOrderTest(t.Code, e)" />
+                                            @t.Name <span class="muted mono">(@t.Code)</span>
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                            <div class="field" style="flex:1;">
+                                <label>Products</label>
+                                <div class="checkbox-list">
+                                    @foreach (var pt in _productTypes)
+                                    {
+                                        <label class="checkbox-item">
+                                            <input type="checkbox" checked="@_newOrderProductTypeIds.Contains(pt.Id)" @onchange="e => ToggleNewOrderProduct(pt.Id, e)" />
+                                            @pt.Name
+                                        </label>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                        <div class="field" style="grid-column:1/-1;max-width:420px;">
+                            <label>Specimen (optional)</label>
+                            <select @bind="_newOrderSpecimenId">
+                                <option value="0">Auto-link most recent accepted specimen</option>
+                                @foreach (var s in LinkableSpecimens)
+                                {
+                                    <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType</option>
+                                }
+                            </select>
+                        </div>
+                        <p class="muted" style="margin:.5rem 0 0;font-size:.85rem;">Link a specimen to inherit this order's tests on the worklist. Leave auto-link to use the most recent accepted specimen, or pick one explicitly.</p>
+                        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="AddOrderAsync">Save order</button>
+                    }
+                </div>
+            }
+            <div class="form-row" style="margin-bottom:.75rem;">
+                <div class="field">
+                    <label>Visit</label>
+                    <select @bind="_orderVisitFilter" @bind:after="LoadOrdersAsync">
+                        <option value="0">All visits</option>
+                        @foreach (var v in _encounters)
+                        {
+                            <option value="@v.Id">@v.VisitNumber</option>
+                        }
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Type</label>
+                    <select @bind="_orderCategoryFilter" @bind:after="LoadOrdersAsync">
+                        <option value="">All</option>
+                        <option value="Test">Test</option>
+                        <option value="Product">Product</option>
+                        <option value="Mixed">Mixed</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Active</label>
+                    <select @bind="_orderActiveFilter" @bind:after="LoadOrdersAsync">
+                        <option value="">All</option>
+                        <option value="true">Active only</option>
+                        <option value="false">Historical</option>
+                    </select>
+                </div>
+                <div class="field" style="flex:2;">
+                    <label>Search</label>
+                    <input @bind="_orderSearch" @bind:event="oninput" @onkeyup="LoadOrdersAsync" placeholder="Order name, accession, visit, provider" />
+                </div>
+            </div>
+            @if (_ordersLoading) { <div class="loading">Loading orders...</div> }
+            else if (_orders.Count == 0) { <div class="empty">No orders.</div> }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Date/time</th><th>Visit</th><th>Type</th><th>Order</th><th>Priority</th><th>Location</th><th>Provider</th><th>Specimen</th><th>Status</th><th>Fulfillment</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var o in _orders)
+                        {
+                            <tr class="@OrderRowClass(o)">
+                                <td class="nowrap">@o.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="mono">@o.VisitNumber</td>
+                                <td>@o.OrderCategory</td>
+                                <td>
+                                    <div class="muted mono" style="margin-bottom:.15rem;">@o.OrderNumber</div>
+                                    @foreach (var line in o.Lines)
+                                    {
+                                        <div>@line.LineName <span class="muted">(@(line.LineCategory == OrderCategory.Test ? line.TestCode : "product"))</span></div>
+                                    }
+                                </td>
+                                <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@o.Priority</span> } else { @o.Priority }</td>
+                                <td>@o.OrderingLocationName</td>
+                                <td>@(o.OrderingProvider ?? "—")</td>
+                                <td class="mono">
+                                    @(o.AccessionNumber ?? "—")
+                                    @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive)
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" style="margin-left:.35rem;" @onclick="() => BeginLinkSpecimen(o)">
+                                            @(_linkingOrderId == o.Id ? "Cancel" : string.IsNullOrEmpty(o.AccessionNumber) ? "Link" : "Change")
+                                        </button>
+                                    }
+                                </td>
+                                <td><span class="@Ui.Badge(o.Status)">@o.Status</span></td>
+                                <td>@(o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")</td>
+                                <td class="right nowrap">
+                                    @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive)
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => BeginEditOrder(o)">@(_editingOrderId == o.Id ? "Cancel" : "Edit")</button>
+                                    }
+                                </td>
+                            </tr>
+                            @if (_linkingOrderId == o.Id)
+                            {
+                                <tr>
+                                    <td colspan="11">
+                                        <div class="alert alert-info" style="margin:.25rem 0;">
+                                            <p class="muted" style="margin:0 0 .5rem;">Link specimen to order <span class="mono">@o.OrderNumber</span>. Tests on this order will appear on the worklist for the selected specimen.</p>
+                                            <div class="flex gap" style="align-items:end;">
+                                                <div class="field" style="flex:1;max-width:420px;margin:0;">
+                                                    <label>Specimen</label>
+                                                    <select @bind="_linkSpecimenId">
+                                                        <option value="0">— Select —</option>
+                                                        @foreach (var s in LinkableSpecimens)
+                                                        {
+                                                            <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType (@s.CollectedUtc.ToString("yyyy-MM-dd HH:mm"))</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                                <button type="button" class="btn btn-primary btn-sm" disabled="@(_busy || _linkSpecimenId <= 0)" @onclick="() => LinkSpecimenAsync(o.Id)">Link specimen</button>
+                                            </div>
+                                            @if (!LinkableSpecimens.Any())
+                                            {
+                                                <p class="muted" style="margin:.5rem 0 0;">No accepted, non-expired specimens are available. Accession a specimen first.</p>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                            @if (_editingOrderId == o.Id)
+                            {
+                                <tr>
+                                    <td colspan="11">
+                                        <div class="alert alert-info" style="margin:.25rem 0;">
+                                            <p class="muted" style="margin:0 0 .5rem;">Editing order <span class="mono">@o.OrderNumber</span></p>
+                                            <div class="form-row">
+                                                <div class="field"><label>Visit</label>
+                                                    <select @bind="_editOrderEncounterId">
+                                                        @foreach (var v in _encounters)
+                                                        {
+                                                            <option value="@v.Id">@v.VisitNumber</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                                <div class="field"><label>Priority</label>
+                                                    <select @bind="_editOrderPriority">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@p</option> }</select>
+                                                </div>
+                                                <div class="field"><label>Ordering location</label>
+                                                    <select @bind="_editOrderLocationId">
+                                                        @foreach (var l in _orderingLocations)
+                                                        {
+                                                            <option value="@l.Id">@l.DisplayName (@l.Code)</option>
+                                                        }
+                                                    </select>
+                                                </div>
+                                                <div class="field"><label>Ordering provider</label>
+                                                    <FilterableComboBox TItem="OrderingProviderRefDto" TValue="long?"
+                                                                       Items="_providers"
+                                                                       @bind-Value="_editOrderProviderId"
+                                                                       DisplayText="@FormatProvider"
+                                                                       SearchText="@SearchProvider"
+                                                                       ItemValue="@ProviderItemValue"
+                                                                       Clearable="true"
+                                                                       Placeholder="Type to search providers..." />
+                                                </div>
+                                            </div>
+                                            <div class="form-row" style="margin-top:.5rem;">
+                                                <div class="field" style="flex:1;">
+                                                    @if (_testGroupers.Count > 0)
+                                                    {
+                                                        <label>Test groupers</label>
+                                                        <div class="checkbox-list" style="margin-bottom:.5rem;">
+                                                            @foreach (var g in _testGroupers)
+                                                            {
+                                                                <label class="checkbox-item">
+                                                                    <input type="checkbox" checked="@IsGrouperSelected(g.Code, _editOrderGrouperCodes)" @onchange="e => ToggleEditOrderGrouper(g, e)" />
+                                                                    <strong>@g.Name</strong> <span class="muted mono">(@g.Code)</span>
+                                                                </label>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    <label>Tests</label>
+                                                    <div class="checkbox-list">
+                                                        @foreach (var t in _testDefs)
+                                                        {
+                                                            <label class="checkbox-item">
+                                                                <input type="checkbox" checked="@_editOrderTestCodes.Contains(t.Code)" @onchange="e => ToggleEditOrderTest(t.Code, e)" />
+                                                                @t.Name <span class="muted mono">(@t.Code)</span>
+                                                            </label>
+                                                        }
+                                                    </div>
+                                                </div>
+                                                <div class="field" style="flex:1;">
+                                                    <label>Products</label>
+                                                    <div class="checkbox-list">
+                                                        @foreach (var pt in _productTypes)
+                                                        {
+                                                            <label class="checkbox-item">
+                                                                <input type="checkbox" checked="@_editOrderProductTypeIds.Contains(pt.Id)" @onchange="e => ToggleEditOrderProduct(pt.Id, e)" />
+                                                                @pt.Name
+                                                            </label>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveOrderAsync">Save changes</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
+    @if (_tab == "specimens")
+    {
+    <div class="bb-card">
+        <p class="muted" style="margin:0 0 .75rem;">For order-driven result entry, use the <strong>Tests</strong> tab.</p>
+        <div class="bb-card-title">
+            <h3>Specimens</h3>
+            @if (Session.Has(PermissionCodes.SpecimenAccession))
+            {
+                <button class="btn btn-primary btn-sm" @onclick="() => _showAccession = !_showAccession">@(_showAccession ? "Cancel" : "Accession specimen")</button>
+            }
+        </div>
+
+        @if (_showAccession)
+        {
+            <div class="alert alert-info">
+                <Outcome Value="_accessionFb" />
+                <div class="form-row">
+                    <div class="field"><label>Accession #</label><input @bind="_acc.AccessionNumber" /></div>
+                    <div class="field"><label>Specimen type</label>
+                        <select @bind="_acc.SpecimenType">
+                            @if (_specimenTypes.Count == 0)
+                            {
+                                <option value="EDTA">EDTA — EDTA Whole Blood</option>
+                            }
+                            else
+                            {
+                                @foreach (var t in _specimenTypes)
+                                {
+                                    <option value="@t.Code">@t.Code — @t.Description</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="_acc.CollectedLocal" /></div>
+                    <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="_acc.ValidityHours" /></div>
+                </div>
+                <button class="btn btn-primary" disabled="@_busy" @onclick="AccessionAsync">Accession</button>
+            </div>
+        }
+
+        @if (_specimens.Count == 0)
+        {
+            <div class="empty">No specimens.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Accession</th><th>Type</th><th>Collected</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var s in _specimens)
+                    {
+                        <tr>
+                            <td class="mono">@s.AccessionNumber</td>
+                            <td>@(s.SpecimenTypeDescription ?? s.SpecimenType)</td>
+                            <td class="nowrap">@s.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="nowrap">@(s.ExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            <td><span class="@Ui.Badge(s.Status)">@s.Status</span></td>
+                            <td class="right">
+                                <button class="btn btn-ghost btn-sm" @onclick="() => SelectSpecimen(s)">@(_selectedSpecimen?.Id == s.Id ? "Hide" : "Results")</button>
+                                @if (s.Status == SpecimenStatus.Accepted && Session.Has(PermissionCodes.SpecimenReject))
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => BeginReject(s)">Reject</button>
+                                }
+                            </td>
+                        </tr>
+                        @if (_rejectId == s.Id)
+                        {
+                            <tr><td colspan="6">
+                                <div class="flex gap">
+                                    <input @bind="_rejectReason" placeholder="Rejection reason" style="flex:1;" />
+                                    <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => RejectAsync(s.Id)">Confirm reject</button>
+                                    <button class="btn btn-secondary btn-sm" @onclick="() => _rejectId = null">Cancel</button>
+                                </div>
+                            </td></tr>
+                        }
+                        @if (_selectedSpecimen?.Id == s.Id)
+                        {
+                            <tr><td colspan="6">
+                                @if (_specimenWorklist.Count > 0)
+                                {
+                                    <div style="margin-bottom:.75rem;">
+                                        <strong>Tests from linked orders</strong>
+                                        <table class="bb" style="margin-top:.35rem;">
+                                            <thead><tr><th>Test</th><th>Order #</th><th>Status</th></tr></thead>
+                                            <tbody>
+                                                @foreach (var item in _specimenWorklist)
+                                                {
+                                                    <tr>
+                                                        <td>@item.TestName <span class="mono muted">@item.TestCode</span></td>
+                                                        <td class="mono">@item.OrderNumber</td>
+                                                        <td>@(item.CurrentResultStatus?.ToString() ?? (item.CanEnterResults ? "Pending" : item.BlockReason ?? "Blocked"))</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                        <p class="muted" style="margin:.35rem 0 0;font-size:.85rem;">Enter results on the <strong>Tests</strong> tab after linking.</p>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="muted" style="margin:0 0 .75rem;">No tests from linked orders. Link this specimen to an order on the Orders tab to inherit its tests.</p>
+                                }
+                                @RenderResults(s)
+                            </td></tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+    }
+
+    @if (_tab == "tests")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title">
+                <h3>Test results</h3>
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadTestWorklistAsync">Refresh</button>
+            </div>
+            <div class="form-row" style="margin-bottom:.75rem;">
+                <div class="field">
+                    <label>Status</label>
+                    <select @bind="_testStatusFilter" @bind:after="LoadTestWorklistAsync">
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                        <option value="all">Both</option>
+                    </select>
+                </div>
+                <div class="field" style="flex:1;">
+                    <label>Search</label>
+                    <input @bind="_testSearch" @bind:event="oninput" placeholder="Test, order #, accession..." />
+                </div>
+            </div>
+            @if (_testsLoading)
+            {
+                <div class="loading">Loading tests...</div>
+            }
+            else if (_testWorklist.Count == 0)
+            {
+                <div class="empty">No tests match this filter.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Status</th><th>Priority</th><th>Ordered</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var item in _testWorklist)
+                        {
+                            <tr class="@TestRowClass(item)">
+                                <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span></td>
+                                <td class="mono">@item.OrderNumber</td>
+                                <td class="mono">@(item.AccessionNumber ?? "—")</td>
+                                <td>
+                                    @if (item.CurrentResultStatus is not null)
+                                    {
+                                        <span class="@Ui.Badge(item.CurrentResultStatus.Value)">@item.CurrentResultStatus</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-gray">Pending</span>
+                                    }
+                                </td>
+                                <td>@item.Priority</td>
+                                <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td class="right">
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => ToggleTestEntry(item.OrderLineId)">
+                                        @(_expandedTestLineId == item.OrderLineId ? "Hide" : "Enter")
+                                    </button>
+                                </td>
+                            </tr>
+                            @if (_expandedTestLineId == item.OrderLineId)
+                            {
+                                <tr><td colspan="7">
+                                    <TestResultEntryPanel WorkItem="item" OnSaved="OnTestResultSaved" />
+                                </td></tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
+    @if (_tab == "history")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Product history</h3></div>
+            @if (_historyLoading) { <div class="loading">Loading product history...</div> }
+            else if (_productHistory.Count == 0) { <div class="empty">No product events.</div> }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Date/time</th><th>Event</th><th>Unit</th><th>Product</th><th>Unit type</th><th>Visit</th><th>Order</th><th>Compatibility</th><th>Disposition</th></tr></thead>
+                    <tbody>
+                        @foreach (var h in _productHistory)
+                        {
+                            <tr class="@HistoryRowClass(h)">
+                                <td class="nowrap">@h.EventUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td><strong>@h.EventType</strong></td>
+                                <td class="mono">@(h.UnitNumber ?? "—")</td>
+                                <td>@(h.ProductTypeName ?? "—")</td>
+                                <td>@(h.UnitBloodType ?? "—")</td>
+                                <td class="mono">@(h.HasMissingVisitContext ? "—" : (h.VisitNumber ?? "—"))</td>
+                                <td class="mono">@(h.OrderNumber ?? "—")</td>
+                                <td>@(h.CompatibilityStatus ?? "—")</td>
+                                <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <span class="badge badge-red">Reaction</span> }</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public long Id { get; set; }
+
+    private bool _loading = true;
+    private string? _error;
+    private bool _busy;
+
+    private PatientDto? _patient;
+    private BloodTypeDto? _currentType;
+    private List<BloodTypeDto> _typeHistory = new();
+    private List<AntibodyDto> _antibodyHistory = new();
+    private List<AntibodyDto> _activeAntibodies = new();
+    private List<SpecimenDto> _specimens = new();
+    private List<SpecimenTypeListItemDto> _specimenTypes = new();
+    private string _tab = "overview";
+    private List<EncounterDto> _encounters = new();
+    private List<PatientOrderDto> _orders = new();
+    private List<PatientProductHistoryRowDto> _productHistory = new();
+    private bool _visitsLoaded;
+    private bool _ordersLoaded;
+    private bool _historyLoaded;
+    private bool _visitsLoading;
+    private bool _ordersLoading;
+    private bool _historyLoading;
+    private long _orderVisitFilter;
+    private string _orderCategoryFilter = string.Empty;
+    private string _orderActiveFilter = string.Empty;
+    private string _orderSearch = string.Empty;
+    private bool _showAddVisit;
+    private bool _showAddOrder;
+    private Feedback? _visitFb;
+    private Feedback? _orderFb;
+    private List<OrderingProviderRefDto> _providers = new();
+    private List<OrderingLocationRefDto> _orderingLocations = new();
+    private List<TestDefinitionListItemDto> _testDefs = new();
+    private List<ProductTypeDto> _productTypes = new();
+    private string _newVisitNumber = string.Empty;
+    private EncounterType _newVisitType = EncounterType.Inpatient;
+    private EncounterStatus _newVisitStatus = EncounterStatus.Active;
+    private DateTime? _newVisitAdmit;
+    private string _newVisitLocation = string.Empty;
+    private long? _newVisitProviderId;
+    private long _newOrderEncounterId;
+    private HashSet<string> _newOrderTestCodes = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _newOrderGrouperCodes = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _editOrderGrouperCodes = new(StringComparer.OrdinalIgnoreCase);
+    private List<TestGrouperListItemDto> _testGroupers = new();
+    private HashSet<long> _newOrderProductTypeIds = new();
+    private OrderPriority _newOrderPriority = OrderPriority.Routine;
+    private long _newOrderLocationId;
+    private long? _newOrderProviderId;
+    private long? _editingOrderId;
+    private long _editOrderEncounterId;
+    private HashSet<string> _editOrderTestCodes = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<long> _editOrderProductTypeIds = new();
+    private OrderPriority _editOrderPriority = OrderPriority.Routine;
+    private long _editOrderLocationId;
+    private long? _editOrderProviderId;
+    private long? _linkingOrderId;
+    private long _linkSpecimenId;
+    private long _newOrderSpecimenId;
+
+    private IEnumerable<SpecimenDto> LinkableSpecimens => _specimens.Where(s =>
+        s.Status == SpecimenStatus.Accepted
+        && (s.ExpiresUtc is null || s.ExpiresUtc > DateTime.UtcNow));
+
+    // manual blood type
+    private AboGroup _typeAbo = AboGroup.O;
+    private RhType _typeRh = RhType.Positive;
+    private string _typeReason = string.Empty;
+    private Feedback? _typeFb;
+
+    // antibody add / deactivate
+    private List<BloodAttributeListItemDto> _bloodAttributeCatalog = new();
+    private long? _abCatalogId;
+    private AntibodyStatus _abStatus = AntibodyStatus.Identified;
+    private string? _abComment;
+    private Feedback? _antibodyFb;
+    private List<AntigenProfileDto> _antigenProfiles = new();
+    private long? _agCatalogId;
+    private AntigenResult _agResult = AntigenResult.Negative;
+    private Feedback? _antigenFb;
+    private long? _deactivateId;
+    private string _deactivateReason = string.Empty;
+
+    // accession / reject
+    private bool _showAccession;
+    private AccessionModel _acc = new();
+    private Feedback? _accessionFb;
+    private long? _rejectId;
+    private string _rejectReason = string.Empty;
+
+    // results
+    private SpecimenDto? _selectedSpecimen;
+    private List<TestWorkItemDto> _specimenWorklist = new();
+    private List<TestResultDto> _results = new();
+    private Feedback? _resultFb;
+    private string _resultTestCode = "ABORH";
+    private string _panelTestCode = "ABORH";
+    private string _panelTestName = "ABO/Rh typing";
+    private List<ResolvedPanelSubtestDto> _panelSubtests = new();
+    private Dictionary<string, string> _subtestValues = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, bool> _optionalSubtestPerformed = new(StringComparer.OrdinalIgnoreCase);
+    private AboGroup _resAbo = AboGroup.O;
+    private RhType _resRh = RhType.Positive;
+    private string _resValue = string.Empty;
+    private long? _correctId;
+    private string _correctValue = string.Empty;
+    private string _correctReason = string.Empty;
+    private long? _deltaOverrideResultId;
+    private long? _deltaOverrideSpecimenId;
+    private string _deltaOverrideReason = string.Empty;
+    private string _deltaAuthorizedBy = string.Empty;
+    private string _deltaSignatureMeaning = "I authorize ABO/Rh discrepancy override";
+    private AboRhHistoryResolution _deltaHistoryResolution = AboRhHistoryResolution.Retain;
+    private int _deltaMinLevel = 2;
+
+    private bool CanOverrideDelta => Session.SecurityLevel >= _deltaMinLevel;
+
+    // tests tab
+    private List<TestWorkItemDto> _testWorklist = new();
+    private bool _testsLoading;
+    private bool _testsLoaded;
+    private string _testStatusFilter = "pending";
+    private string _testSearch = string.Empty;
+    private long? _expandedTestLineId;
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var p = await Api.GetPatientAsync(Id);
+        if (!p.Succeeded) { _patient = null; _error = p.FailureSummary(); _loading = false; return; }
+        _patient = p.Value;
+
+        _currentType = (await Api.GetCurrentBloodTypeAsync(Id)).Value;
+        _typeHistory = (await Api.GetBloodTypeHistoryAsync(Id)).Value ?? new();
+        _antibodyHistory = (await Api.GetAntibodyHistoryAsync(Id)).Value ?? new();
+        _activeAntibodies = _antibodyHistory.Where(a => a.IsActive).ToList();
+        _antigenProfiles = (await Api.GetAntigenProfilesAsync(Id)).Value ?? new();
+        _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
+        _specimens = (await Api.GetPatientSpecimensAsync(Id)).Value ?? new();
+        _specimenTypes = (await Api.GetReferenceSpecimenTypesAsync()).Value ?? new();
+        await LoadPanelDefinitionAsync(_panelTestCode);
+        _loading = false;
+    }
+
+    private string TabClass(string tab) => _tab == tab ? "btn-primary" : "btn-secondary";
+
+    private async Task SelectTab(string tab)
+    {
+        _tab = tab;
+        if (tab is "visits" or "orders") await EnsureWorkspaceRefsAsync();
+        if (tab == "visits" && !_visitsLoaded) await LoadVisitsAsync();
+        if (tab == "orders") { if (!_visitsLoaded) await LoadVisitsAsync(); if (!_ordersLoaded) await LoadOrdersAsync(); }
+        if (tab == "history" && !_historyLoaded) await LoadProductHistoryAsync();
+        if (tab == "tests" && !_testsLoaded) await LoadTestWorklistAsync();
+    }
+
+    private void ToggleTestEntry(long orderLineId) =>
+        _expandedTestLineId = _expandedTestLineId == orderLineId ? null : orderLineId;
+
+    private async Task LoadTestWorklistAsync()
+    {
+        _testsLoading = true;
+        _testWorklist = (await Api.GetPatientTestWorklistAsync(Id, _testStatusFilter, string.IsNullOrWhiteSpace(_testSearch) ? null : _testSearch)).Value ?? new();
+        _testsLoading = false;
+        _testsLoaded = true;
+    }
+
+    private async Task OnTestResultSaved()
+    {
+        await LoadTestWorklistAsync();
+        await LoadHeaderType();
+    }
+
+    private async Task EnsureWorkspaceRefsAsync()
+    {
+        if (_providers.Count == 0) _providers = (await Api.GetOrderingProvidersAsync()).Value ?? new();
+        if (_orderingLocations.Count == 0)
+        {
+            _orderingLocations = (await Api.GetOrderingLocationsAsync()).Value ?? new();
+            if (_newOrderLocationId == 0 && _orderingLocations.Count > 0) _newOrderLocationId = _orderingLocations[0].Id;
+        }
+        if (_testDefs.Count == 0) _testDefs = (await Api.GetTestDefinitionsListAsync()).Value ?? new();
+        if (_testGroupers.Count == 0) _testGroupers = (await Api.GetReferenceTestGroupersAsync()).Value ?? new();
+        if (_productTypes.Count == 0) _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
+    }
+
+    private void ToggleAddVisit() => _showAddVisit = !_showAddVisit;
+
+    private async Task ToggleAddOrder()
+    {
+        _showAddOrder = !_showAddOrder;
+        if (_showAddOrder)
+        {
+            await EnsureWorkspaceRefsAsync();
+            if (!_visitsLoaded) await LoadVisitsAsync();
+            if (_encounters.Count > 0 && _newOrderEncounterId == 0) _newOrderEncounterId = _encounters[0].Id;
+        }
+    }
+
+    private async Task AddVisitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newVisitNumber)) { _visitFb = Feedback.Fail("Visit number is required."); return; }
+        _busy = true;
+        DateTime? admit = _newVisitAdmit.HasValue
+            ? DateTime.SpecifyKind(_newVisitAdmit.Value, DateTimeKind.Utc)
+            : null;
+
+        var req = new CreateEncounterRequest(
+            _newVisitNumber.Trim(), _newVisitType, _newVisitStatus, admit, null, null,
+            _newVisitProviderId is > 0 ? _newVisitProviderId : null,
+            null, _newVisitLocation, null, null, "Manual", null);
+        var r = await Api.CreatePatientEncounterAsync(Id, req);
+        _busy = false;
+        if (!r.Succeeded) { _visitFb = r.ToFeedback(); return; }
+        _visitFb = r.ToFeedback($"Visit {_newVisitNumber} added.");
+        _showAddVisit = false;
+        _newVisitNumber = string.Empty;
+        _visitsLoaded = false;
+        await LoadVisitsAsync();
+    }
+
+    private void ToggleNewOrderTest(string code, ChangeEventArgs e)
+    {
+        if (e.Value is bool checkedValue && checkedValue) _newOrderTestCodes.Add(code);
+        else _newOrderTestCodes.Remove(code);
+    }
+
+    private void ToggleNewOrderGrouper(TestGrouperListItemDto grouper, ChangeEventArgs e)
+    {
+        if (e.Value is bool checkedValue && checkedValue)
+        {
+            _newOrderGrouperCodes.Add(grouper.Code);
+            foreach (var code in grouper.MemberTestCodes) _newOrderTestCodes.Add(code);
+        }
+        else
+        {
+            _newOrderGrouperCodes.Remove(grouper.Code);
+        }
+    }
+
+    private void ToggleEditOrderGrouper(TestGrouperListItemDto grouper, ChangeEventArgs e)
+    {
+        if (e.Value is bool checkedValue && checkedValue)
+        {
+            _editOrderGrouperCodes.Add(grouper.Code);
+            foreach (var code in grouper.MemberTestCodes) _editOrderTestCodes.Add(code);
+        }
+        else
+        {
+            _editOrderGrouperCodes.Remove(grouper.Code);
+        }
+    }
+
+    private static bool IsGrouperSelected(string code, HashSet<string> selected) =>
+        selected.Contains(code);
+
+    private void ToggleNewOrderProduct(long productTypeId, ChangeEventArgs e)
+    {
+        if (e.Value is bool checkedValue && checkedValue) _newOrderProductTypeIds.Add(productTypeId);
+        else _newOrderProductTypeIds.Remove(productTypeId);
+    }
+
+    private void ToggleEditOrderTest(string code, ChangeEventArgs e)
+    {
+        if (e.Value is bool checkedValue && checkedValue) _editOrderTestCodes.Add(code);
+        else _editOrderTestCodes.Remove(code);
+    }
+
+    private void ToggleEditOrderProduct(long productTypeId, ChangeEventArgs e)
+    {
+        if (e.Value is bool checkedValue && checkedValue) _editOrderProductTypeIds.Add(productTypeId);
+        else _editOrderProductTypeIds.Remove(productTypeId);
+    }
+
+    private static List<OrderLineInputDto> BuildLineInputs(IEnumerable<string> testCodes, IEnumerable<long> productTypeIds)
+    {
+        var lines = testCodes
+            .Select(code => new OrderLineInputDto(OrderCategory.Test, code, null))
+            .Concat(productTypeIds.Select(id => new OrderLineInputDto(OrderCategory.Product, null, id)))
+            .ToList();
+        return lines;
+    }
+
+    private async Task AddOrderAsync()
+    {
+        if (_newOrderEncounterId <= 0) { _orderFb = Feedback.Fail("Select a visit."); return; }
+        if (_newOrderLocationId <= 0) { _orderFb = Feedback.Fail("Select an ordering location."); return; }
+        var lines = BuildLineInputs(_newOrderTestCodes, _newOrderProductTypeIds);
+        if (lines.Count == 0) { _orderFb = Feedback.Fail("Select at least one test or product."); return; }
+
+        _busy = true;
+        var orderNumber = $"ORD-{Guid.NewGuid():N}"[..16].ToUpperInvariant();
+        var req = new CreateOrderRequest(
+            _newOrderEncounterId,
+            _newOrderLocationId,
+            orderNumber,
+            lines,
+            _newOrderPriority,
+            DateTime.UtcNow,
+            _newOrderProviderId is > 0 ? _newOrderProviderId : null,
+            OrderSource.Manual,
+            "Manual",
+            null,
+            _newOrderSpecimenId > 0 ? _newOrderSpecimenId : null);
+        var r = await Api.CreatePatientOrderAsync(Id, req);
+        _busy = false;
+        if (!r.Succeeded) { _orderFb = r.ToFeedback(); return; }
+        _orderFb = r.ToFeedback($"Order {orderNumber} created.");
+        _showAddOrder = false;
+        _newOrderTestCodes.Clear();
+        _newOrderGrouperCodes.Clear();
+        _newOrderProductTypeIds.Clear();
+        _newOrderSpecimenId = 0;
+        _ordersLoaded = false;
+        await LoadOrdersAsync();
+    }
+
+    private void BeginLinkSpecimen(PatientOrderDto order)
+    {
+        if (_linkingOrderId == order.Id)
+        {
+            _linkingOrderId = null;
+            return;
+        }
+
+        _linkingOrderId = order.Id;
+        _linkSpecimenId = order.SpecimenId ?? LinkableSpecimens.FirstOrDefault()?.Id ?? 0;
+    }
+
+    private async Task LinkSpecimenAsync(long orderId)
+    {
+        if (_linkSpecimenId <= 0)
+        {
+            _orderFb = Feedback.Fail("Select a specimen.");
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.LinkPatientOrderSpecimenAsync(Id, orderId, new LinkOrderSpecimenRequest(_linkSpecimenId));
+        _busy = false;
+        _orderFb = r.ToFeedback("Specimen linked to order.");
+        if (r.Succeeded)
+        {
+            _linkingOrderId = null;
+            _ordersLoaded = false;
+            _testsLoaded = false;
+            await LoadOrdersAsync();
+        }
+    }
+
+    private async Task BeginEditOrder(PatientOrderDto order)
+    {
+        if (_editingOrderId == order.Id)
+        {
+            _editingOrderId = null;
+            return;
+        }
+
+        await EnsureWorkspaceRefsAsync();
+        if (!_visitsLoaded) await LoadVisitsAsync();
+
+        _editingOrderId = order.Id;
+        _showAddOrder = false;
+        _editOrderEncounterId = order.EncounterId;
+        _editOrderTestCodes = order.Lines
+            .Where(l => l.LineCategory == OrderCategory.Test && l.TestCode is not null)
+            .Select(l => l.TestCode!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _editOrderProductTypeIds = order.Lines
+            .Where(l => l.LineCategory == OrderCategory.Product && l.ProductTypeId is > 0)
+            .Select(l => l.ProductTypeId!.Value)
+            .ToHashSet();
+        _editOrderPriority = order.Priority;
+        _editOrderLocationId = order.OrderingLocationId;
+        _editOrderProviderId = order.OrderingProviderId;
+        _orderFb = null;
+    }
+
+    private async Task SaveOrderAsync()
+    {
+        if (_editingOrderId is not > 0) return;
+        if (_editOrderEncounterId <= 0) { _orderFb = Feedback.Fail("Select a visit."); return; }
+        if (_editOrderLocationId <= 0) { _orderFb = Feedback.Fail("Select an ordering location."); return; }
+        var lines = BuildLineInputs(_editOrderTestCodes, _editOrderProductTypeIds);
+        if (lines.Count == 0) { _orderFb = Feedback.Fail("Select at least one test or product."); return; }
+
+        var order = _orders.FirstOrDefault(o => o.Id == _editingOrderId);
+        if (order is null) { _orderFb = Feedback.Fail("Order not found."); return; }
+
+        _busy = true;
+        var req = new UpdateOrderRequest(
+            _editOrderEncounterId,
+            _editOrderLocationId,
+            lines,
+            _editOrderPriority,
+            _editOrderProviderId is > 0 ? _editOrderProviderId : null);
+        var r = await Api.UpdatePatientOrderAsync(Id, _editingOrderId.Value, req);
+        _busy = false;
+        if (!r.Succeeded) { _orderFb = r.ToFeedback(); return; }
+        _orderFb = r.ToFeedback($"Order {order.OrderNumber} updated.");
+        _editingOrderId = null;
+        _ordersLoaded = false;
+        await LoadOrdersAsync();
+    }
+
+    private async Task LoadVisitsAsync()
+    {
+        _visitsLoading = true;
+        _encounters = (await Api.GetPatientEncountersAsync(Id)).Value ?? new();
+        _visitsLoading = false;
+        _visitsLoaded = true;
+    }
+
+    private async Task LoadOrdersAsync()
+    {
+        _ordersLoading = true;
+        long? enc = _orderVisitFilter > 0 ? _orderVisitFilter : null;
+        bool? active = _orderActiveFilter switch { "true" => true, "false" => false, _ => null };
+        _orders = (await Api.GetPatientOrdersAsync(Id, enc, string.IsNullOrWhiteSpace(_orderCategoryFilter) ? null : _orderCategoryFilter, active, _orderSearch)).Value ?? new();
+        _ordersLoading = false;
+        _ordersLoaded = true;
+    }
+
+    private async Task LoadProductHistoryAsync()
+    {
+        _historyLoading = true;
+        _productHistory = (await Api.GetPatientProductHistoryAsync(Id)).Value ?? new();
+        _historyLoading = false;
+        _historyLoaded = true;
+    }
+
+    private static string TestRowClass(TestWorkItemDto item) =>
+        item.Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease or OrderPriority.MassiveTransfusionProtocol
+            ? "row-urgent" : string.Empty;
+
+    private static string OrderRowClass(PatientOrderDto o)
+    {
+        if (o.Status == OrderStatus.Cancelled || o.Status == OrderStatus.Completed) return "row-muted";
+        return o.IsUrgentPriority ? "row-urgent" : string.Empty;
+    }
+
+    private static string HistoryRowClass(PatientProductHistoryRowDto h)
+    {
+        if (h.ReactionSuspected) return "row-urgent";
+        if (h.IsOpenAssignment) return "row-active";
+        return string.Empty;
+    }
+
+    private async Task RecordTypeAsync()
+    {
+        _busy = true;
+        var r = await Api.RecordBloodTypeAsync(Id, new RecordBloodTypeRequest(_typeAbo, _typeRh, _typeReason));
+        _busy = false;
+        _typeFb = r.ToFeedback("Blood type recorded.");
+        if (r.Succeeded) { _typeReason = string.Empty; await LoadAsync(); }
+    }
+
+    private async Task AddAntibodyAsync()
+    {
+        if (_abCatalogId is null) return;
+        _busy = true;
+        var r = await Api.AddAntibodyAsync(Id, new AddAntibodyRequest(_abCatalogId, null, _abStatus, string.IsNullOrWhiteSpace(_abComment) ? null : _abComment));
+        _busy = false;
+        _antibodyFb = r.ToFeedback("Antibody added.");
+        if (r.Succeeded) { _abCatalogId = null; _abComment = null; await LoadAsync(); }
+    }
+
+    private async Task SaveAntigenProfileAsync()
+    {
+        if (_agCatalogId is null) return;
+        _busy = true;
+        var r = await Api.SaveAntigenProfileAsync(Id, new SaveAntigenProfileRequest(_agCatalogId.Value, _agResult));
+        _busy = false;
+        _antigenFb = r.ToFeedback("Antigen result saved.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private void BeginDeactivate(AntibodyDto a) { _deactivateId = a.Id; _deactivateReason = string.Empty; }
+
+    private async Task DeactivateAsync()
+    {
+        if (_deactivateId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAntibodyAsync(_deactivateId.Value, _deactivateReason);
+        _busy = false;
+        _antibodyFb = r.ToFeedback("Antibody deactivated.");
+        if (r.Succeeded) { _deactivateId = null; await LoadAsync(); }
+    }
+
+    private async Task AccessionAsync()
+    {
+        _busy = true;
+        var req = new AccessionSpecimenRequest(_acc.AccessionNumber, Id, _acc.SpecimenType,
+            DateTime.SpecifyKind(_acc.CollectedLocal, DateTimeKind.Utc), ValidityHours: _acc.ValidityHours);
+        var r = await Api.AccessionSpecimenAsync(req);
+        _busy = false;
+        _accessionFb = r.ToFeedback("Specimen accessioned.");
+        if (r.Succeeded) { _acc = new(); _showAccession = false; await LoadAsync(); }
+    }
+
+    private void BeginReject(SpecimenDto s) { _rejectId = s.Id; _rejectReason = string.Empty; }
+
+    private async Task RejectAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason);
+        _busy = false;
+        if (r.Succeeded) { _rejectId = null; await LoadAsync(); }
+        else _accessionFb = r.ToFeedback();
+    }
+
+    private async Task SelectSpecimen(SpecimenDto s)
+    {
+        if (_selectedSpecimen?.Id == s.Id)
+        {
+            _selectedSpecimen = null;
+            _specimenWorklist = new();
+            return;
+        }
+
+        _selectedSpecimen = s;
+        _resultFb = null;
+        _correctId = null;
+        _results = (await Api.GetSpecimenResultsAsync(s.Id)).Value ?? new();
+        _specimenWorklist = (await Api.GetSpecimenTestWorklistAsync(s.Id)).Value ?? new();
+        await LoadPanelDefinitionAsync(_panelTestCode);
+    }
+
+    private async Task LoadPanelDefinitionAsync(string testCode)
+    {
+        var r = await Api.GetTestDefinitionForEntryAsync(testCode);
+        if (!r.Succeeded || r.Value is null)
+        {
+            _panelSubtests = Array.Empty<ResolvedPanelSubtestDto>().ToList();
+            _panelTestName = "ABO/Rh typing";
+            return;
+        }
+
+        _panelTestCode = r.Value.Code;
+        _panelTestName = r.Value.Name;
+        _panelSubtests = r.Value.PanelSubtests.ToList();
+        ResetSubtestValues();
+    }
+
+    private void ResetSubtestValues()
+    {
+        _subtestValues = _panelSubtests.ToDictionary(
+            s => s.SubtestCode,
+            s => !s.Required ? "NT" : (s.Choices.FirstOrDefault()?.Code ?? "0"),
+            StringComparer.OrdinalIgnoreCase);
+        _optionalSubtestPerformed = _panelSubtests
+            .Where(s => !s.Required)
+            .ToDictionary(s => s.SubtestCode, _ => false, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private string GetSubtestValue(string code) =>
+        _subtestValues.TryGetValue(code, out var v) ? v : string.Empty;
+
+    private void SetSubtestValue(string code, ChangeEventArgs e) =>
+        _subtestValues[code] = e.Value?.ToString() ?? string.Empty;
+
+    private bool IsOptionalPerformed(string code) =>
+        _optionalSubtestPerformed.TryGetValue(code, out var p) && p;
+
+    private void OnOptionalPerformedChanged(string code, ChangeEventArgs e)
+    {
+        _optionalSubtestPerformed[code] = e.Value is bool b && b;
+    }
+
+    private async Task EnterAboRhAsync(long specimenId)
+    {
+        _busy = true;
+        var subtests = BuildAboRhSubtests();
+        var r = await Api.EnterAboRhAsync(new EnterAboRhRequest(specimenId, _resAbo, _resRh, subtests));
+        _busy = false;
+        _resultFb = r.ToFeedback("ABO/Rh panel entered.");
+        if (r.Succeeded) await ReloadResults(specimenId);
+    }
+
+    private Dictionary<string, string> BuildAboRhSubtests()
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var st in _panelSubtests)
+        {
+            if (!st.Required && !IsOptionalPerformed(st.SubtestCode))
+            {
+                continue;
+            }
+
+            map[st.SubtestCode] = GetSubtestValue(st.SubtestCode);
+        }
+
+        return map;
+    }
+
+    private static string DisplayResultValue(TestResultDto r) =>
+        r.TestCode == "ABORH" ? AboRhResultValue.FormatDisplay(r.Value) : (r.Value ?? "—");
+
+    private async Task EnterGenericAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.EnterResultAsync(new EnterResultRequest(specimenId, _resultTestCode, _resValue));
+        _busy = false;
+        _resultFb = r.ToFeedback("Result entered.");
+        if (r.Succeeded) { _resValue = string.Empty; await ReloadResults(specimenId); }
+    }
+
+    private async Task VerifyAsync(long resultId, long specimenId)
+    {
+        _busy = true;
+        var r = await Api.VerifyResultAsync(resultId);
+        _busy = false;
+
+        if (r.Blocked && r.Overridable && r.Warnings.Any(w => w.Code == AboRhDeltaRule.DeltaCode))
+        {
+            _deltaOverrideResultId = resultId;
+            _deltaOverrideSpecimenId = specimenId;
+            var def = await Api.GetAdminExceptionByCodeAsync(AboRhDeltaRule.DeltaCode);
+            if (def.Succeeded && def.Value is not null)
+            {
+                _deltaMinLevel = def.Value.MinSecurityLevel;
+            }
+
+            _resultFb = r.ToFeedback();
+            return;
+        }
+
+        _resultFb = r.ToFeedback("Result verified.");
+        if (r.Succeeded)
+        {
+            _deltaOverrideResultId = null;
+            await ReloadResults(specimenId);
+            await LoadHeaderType();
+        }
+    }
+
+    private async Task VerifyWithDeltaOverrideAsync()
+    {
+        if (_deltaOverrideResultId is null || _deltaOverrideSpecimenId is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_deltaOverrideReason) || string.IsNullOrWhiteSpace(_deltaSignatureMeaning))
+        {
+            _resultFb = Feedback.Fail("An override reason and a meaning-of-signature are required.");
+            return;
+        }
+
+        _busy = true;
+        var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("ResultOverride", _deltaSignatureMeaning, "TestResult"));
+        if (!sig.Succeeded || sig.Value is null)
+        {
+            _busy = false;
+            _resultFb = sig.ToFeedback();
+            return;
+        }
+
+        var req = new VerifyResultRequest(
+            _deltaOverrideReason.Trim(),
+            string.IsNullOrWhiteSpace(_deltaAuthorizedBy) ? Session.UserName : _deltaAuthorizedBy.Trim(),
+            _deltaHistoryResolution,
+            sig.Value.Id);
+        var r = await Api.VerifyResultAsync(_deltaOverrideResultId.Value, req, sig.Value.Id);
+        _busy = false;
+        _resultFb = r.ToFeedback("Result verified with ABO/Rh override.");
+        if (r.Succeeded)
+        {
+            var specimenId = _deltaOverrideSpecimenId.Value;
+            _deltaOverrideResultId = null;
+            _deltaOverrideSpecimenId = null;
+            _deltaOverrideReason = string.Empty;
+            await ReloadResults(specimenId);
+            await LoadHeaderType();
+        }
+    }
+
+    private void CancelDeltaOverride()
+    {
+        _deltaOverrideResultId = null;
+        _deltaOverrideSpecimenId = null;
+        _deltaOverrideReason = string.Empty;
+    }
+
+    private void BeginCorrect(TestResultDto r) { _correctId = r.Id; _correctValue = r.Value ?? string.Empty; _correctReason = string.Empty; }
+
+    private async Task CorrectAsync(long specimenId)
+    {
+        if (_correctId is null) return;
+        _busy = true;
+        var r = await Api.CorrectResultAsync(_correctId.Value, new CorrectResultRequest(_correctValue, _correctReason));
+        _busy = false;
+        _resultFb = r.ToFeedback("Result corrected.");
+        if (r.Succeeded) { _correctId = null; await ReloadResults(specimenId); }
+    }
+
+    private async Task ReloadResults(long specimenId) =>
+        _results = (await Api.GetSpecimenResultsAsync(specimenId)).Value ?? new();
+
+    private async Task LoadHeaderType()
+    {
+        _currentType = (await Api.GetCurrentBloodTypeAsync(Id)).Value;
+        _typeHistory = (await Api.GetBloodTypeHistoryAsync(Id)).Value ?? new();
+    }
+
+    private RenderFragment RenderResults(SpecimenDto s) => __builder =>
+    {
+        <div class="stack">
+            <Outcome Value="_resultFb" />
+            @if (_deltaOverrideResultId is not null)
+            {
+                <div class="bb-card" style="background:#fff8f0;margin:.5rem 0;border:1px solid #e8c48a;">
+                    <div style="margin-bottom:.5rem;"><strong>ABO/Rh historical discrepancy</strong></div>
+                    @if (!CanOverrideDelta)
+                    {
+                        <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum required (@_deltaMinLevel) to override this exception.</div>
+                        <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Dismiss</button>
+                    }
+                    else
+                    {
+                        <div class="form-row">
+                            <div class="field"><label>History resolution</label>
+                                <select @bind="_deltaHistoryResolution">
+                                    <option value="@AboRhHistoryResolution.Retain">Retain historical type</option>
+                                    <option value="@AboRhHistoryResolution.Replace">Replace with current result</option>
+                                </select>
+                            </div>
+                            <div class="field"><label>Authorized by</label><input @bind="_deltaAuthorizedBy" placeholder="@Session.UserName" /></div>
+                        </div>
+                        <div class="field"><label>Override reason</label><input @bind="_deltaOverrideReason" /></div>
+                        <div class="field"><label>Meaning of signature</label><input @bind="_deltaSignatureMeaning" /></div>
+                        <div class="flex gap" style="margin-top:.5rem;">
+                            <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="VerifyWithDeltaOverrideAsync">Sign &amp; verify with override</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Cancel</button>
+                        </div>
+                    }
+                </div>
+            }
+            @if (_results.Count == 0)
+            {
+                <div class="muted">No results for this specimen.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Test</th><th>Value</th><th>Ver.</th><th>Status</th><th>Verified by</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var r in _results.Where(r => r.SupersededByResultId is null))
+                        {
+                            <tr>
+                                <td class="mono">@r.TestCode</td>
+                                <td>@DisplayResultValue(r)</td>
+                                <td>@r.Version</td>
+                                <td><span class="@Ui.Badge(r.Status)">@r.Status</span></td>
+                                <td>@r.VerifiedBy</td>
+                                <td class="right">
+                                    @if (r.Status is ResultStatus.Entered or ResultStatus.Corrected && Session.Has(PermissionCodes.ResultVerify))
+                                    {
+                                        <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => VerifyAsync(r.Id, s.Id)">Verify</button>
+                                    }
+                                    @if (r.Status == ResultStatus.Verified && Session.Has(PermissionCodes.ResultCorrect))
+                                    {
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => BeginCorrect(r)">Correct</button>
+                                    }
+                                </td>
+                            </tr>
+                            @if (_correctId == r.Id)
+                            {
+                                <tr><td colspan="6">
+                                    <div class="form-row">
+                                        <div class="field"><label>New value</label><input @bind="_correctValue" /></div>
+                                        <div class="field"><label>Reason</label><input @bind="_correctReason" /></div>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => CorrectAsync(s.Id)">Save correction</button>
+                                    <button class="btn btn-secondary btn-sm" @onclick="() => _correctId = null">Cancel</button>
+                                </td></tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @if (Session.Has(PermissionCodes.ResultEnter) && s.Status == SpecimenStatus.Accepted)
+            {
+                <div class="bb-card" style="background:#fafbfe;margin-top:.5rem;">
+                    <h4>@_panelTestName <span class="mono muted">(@_panelTestCode)</span></h4>
+                    @if (_panelSubtests.Count == 0)
+                    {
+                        <div class="muted">No panel subtests configured for this test. Define them under Administration → Test Definitions.</div>
+                    }
+                    else
+                    {
+                    <div class="form-row">
+                        <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select></div>
+                        <div class="field"><label>Interpreted Rh(D)</label><select @bind="_resRh">@foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@rr</option> }</select></div>
+                    </div>
+                    <table class="bb" style="margin-top:.5rem;">
+                        <thead><tr><th>Subtest</th><th>Reaction</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var st in _panelSubtests)
+                            {
+                                var optional = !st.Required;
+                                var performed = !optional || IsOptionalPerformed(st.SubtestCode);
+                                <tr>
+                                    <td>@st.Label <span class="mono muted">@st.SubtestCode</span></td>
+                                    <td>
+                                        <select value="@GetSubtestValue(st.SubtestCode)" @onchange="e => SetSubtestValue(st.SubtestCode, e)" disabled="@(!performed)">
+                                            @if (optional) { <option value="NT">NT</option> }
+                                            @foreach (var c in st.Choices)
+                                            {
+                                                <option value="@c.Code">@c.Label</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td>
+                                        @if (optional)
+                                        {
+                                            <label class="flex" style="gap:.35rem;"><input type="checkbox" checked="@IsOptionalPerformed(st.SubtestCode)" @onchange="e => OnOptionalPerformedChanged(st.SubtestCode, e)" /> Performed</label>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <button class="btn btn-primary btn-sm" style="margin-top:.6rem;" disabled="@_busy" @onclick="() => EnterAboRhAsync(s.Id)">Enter @_panelTestCode panel</button>
+                    }
+                    <hr style="margin:.75rem 0;border:none;border-top:1px solid var(--bb-border);" />
+                    <div class="form-row">
+                        <div class="field"><label>Test code</label><input @bind="_resultTestCode" /></div>
+                        <div class="field"><label>Value</label><input @bind="_resValue" /></div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => EnterGenericAsync(s.Id)">Enter result</button>
+                </div>
+            }
+        </div>
+    };
+
+    private sealed class AccessionModel
+    {
+        public string AccessionNumber { get; set; } = string.Empty;
+        public string SpecimenType { get; set; } = "EDTA";
+        public DateTime CollectedLocal { get; set; } = DateTime.UtcNow;
+        public int? ValidityHours { get; set; }
+    }
+
+    private static string FormatProvider(OrderingProviderRefDto p) => $"{p.Name} ({p.ProviderId})";
+
+    private static string SearchProvider(OrderingProviderRefDto p) =>
+        $"{p.Name} {p.ProviderId} {p.Specialty} {p.Location}";
+
+    private static long? ProviderItemValue(OrderingProviderRefDto p) => p.Id;
+}

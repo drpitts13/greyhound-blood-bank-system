@@ -1,0 +1,53 @@
+@* Renders a success message, validation/auth error, safety-gate block, or warnings. *@
+
+@if (Value is not null)
+{
+    @if (Value.Success && !string.IsNullOrEmpty(Value.Message))
+    {
+        <div class="alert alert-success">@Value.Message</div>
+    }
+
+    @if (Value.Warnings.Count > 0)
+    {
+        <div class="alert alert-warning">
+            <strong>Warnings</strong>
+            <ul>
+                @foreach (var w in Value.Warnings)
+                {
+                    <li>@w.Message <span class="muted mono">(@w.Code)</span></li>
+                }
+            </ul>
+        </div>
+    }
+
+    @if (Value.Blocked)
+    {
+        <div class="alert @(Value.HardStops.Count > 0 ? "alert-danger" : "alert-warning")">
+            <strong>@(Value.HardStops.Count > 0 ? "Action blocked by a safety rule" : "Override required")</strong>
+            <ul>
+                @foreach (var h in Value.HardStops)
+                {
+                    <li>@h.Message <span class="muted mono">(@h.Code)</span></li>
+                }
+                @foreach (var w in Value.Warnings)
+                {
+                    <li>@w.Message <span class="muted mono">(@w.Code)</span></li>
+                }
+            </ul>
+            @if (Value.Overridable)
+            {
+                <div class="muted" style="margin-top:.4rem;">An authorized user may override this with a reason@(RequiresSignature ? " and an electronic signature" : "").</div>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(Value.Error))
+    {
+        <div class="alert alert-danger">@Value.Error</div>
+    }
+}
+
+@code {
+    [Parameter] public Feedback? Value { get; set; }
+    [Parameter] public bool RequiresSignature { get; set; }
+}

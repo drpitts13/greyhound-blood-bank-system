@@ -1,0 +1,355 @@
+@page "/inventory"
+@using BloodBankLIS.Application.Inventory
+@using BloodBankLIS.Application.Reference
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Inventory &middot; Blood Bank LIS</PageTitle>
+
+<div class="flex-between" style="margin-bottom:1rem;">
+    <h1>Blood Product Inventory</h1>
+    <div class="flex gap">
+        @if (Session.Has(PermissionCodes.InventoryReceive))
+        {
+            <button class="btn btn-primary" @onclick="ToggleReceive">@(_showReceive ? "Cancel" : "Receive unit")</button>
+        }
+        @if (Session.Has(PermissionCodes.InventoryDiscard))
+        {
+            <button class="btn btn-secondary" disabled="@_busy" @onclick="ExpireDueAsync">Run expiration sweep</button>
+        }
+    </div>
+</div>
+
+<Outcome Value="_topFb" />
+
+@if (_showReceive)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Receive a unit into quarantine</h3></div>
+        <Outcome Value="_receiveFb" />
+        <div class="form-row">
+            <div class="field"><label>Unit number</label><input @bind="_rec.UnitNumber" placeholder="W0001230000099" /></div>
+            <div class="field"><label>Product type</label>
+                <select @bind="_rec.ProductTypeId">
+                    <option value="0">— select —</option>
+                    @foreach (var t in _productTypes) { <option value="@t.Id">@t.ProductCode — @t.Name</option> }
+                </select>
+            </div>
+            <div class="field"><label>ABO</label><select @bind="_rec.Abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select></div>
+            <div class="field"><label>Rh(D)</label><select @bind="_rec.RhD">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select></div>
+            <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_rec.ExpiresLocal" /></div>
+            <div class="field"><label>Location</label>
+                <select @bind="_rec.LocationId">
+                    <option value="0">— none —</option>
+                    @foreach (var l in _locations) { <option value="@l.Id">@l.Code — @l.Name</option> }
+                </select>
+            </div>
+            <div class="field"><label>Collection facility</label><input @bind="_rec.CollectionFacility" /></div>
+            <div class="field"><label>Supplier</label><input @bind="_rec.Supplier" /></div>
+        </div>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="ReceiveAsync">Receive</button>
+    </div>
+}
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Search</h3></div>
+    <div class="form-row">
+        <div class="field"><label>Unit number</label><input @bind="_searchUnit" /></div>
+        <div class="field"><label>Status</label>
+            <select @bind="_searchStatus"><option value="">Any</option>@foreach (var s in Enum.GetValues<UnitStatus>()) { <option value="@s">@s</option> }</select>
+        </div>
+        <div class="field"><label>ABO</label>
+            <select @bind="_searchAbo"><option value="">Any</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>
+        </div>
+        <div class="field"><label>Rh(D)</label>
+            <select @bind="_searchRh"><option value="">Any</option>@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select>
+        </div>
+    </div>
+    <button class="btn btn-secondary" disabled="@_busy" @onclick="SearchAsync">Search</button>
+</div>
+
+<div class="bb-card">
+    @if (_loading)
+    {
+        <div class="loading">Loading units...</div>
+    }
+    else if (_units.Count == 0)
+    {
+        <div class="empty">No units match the current filters.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Unit #</th><th>Type</th><th>Type</th><th>Expires</th><th>Status</th><th>Location</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var u in _units)
+                {
+                    <tr>
+                        <td class="mono">@u.UnitNumber</td>
+                        <td>@ProductName(u.ProductTypeId)</td>
+                        <td><strong>@Ui.BloodType(u.Abo, u.RhD)</strong></td>
+                        <td class="nowrap @(u.ExpiresUtc < DateTime.UtcNow ? "" : "")">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
+                        <td>@LocationName(u.CurrentLocationId)</td>
+                        <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => Select(u)">@(_selected?.Id == u.Id ? "Hide" : "Manage")</button></td>
+                    </tr>
+                    @if (_selected?.Id == u.Id)
+                    {
+                        <tr><td colspan="7">@RenderActions(u)</td></tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<BloodUnitDto> _units = new();
+    private List<ProductTypeDto> _productTypes = new();
+    private List<InventoryLocationDto> _locations = new();
+    private bool _loading = true;
+    private bool _busy;
+    private Feedback? _topFb;
+
+    private string? _searchUnit;
+    private UnitStatus? _searchStatus;
+    private AboGroup? _searchAbo;
+    private RhType? _searchRh;
+
+    private bool _showReceive;
+    private ReceiveModel _rec = new();
+    private Feedback? _receiveFb;
+
+    private BloodUnitDto? _selected;
+    private List<InventoryStatusHistoryDto> _history = new();
+    private List<UnitBloodAttributeDto> _unitAttributes = new();
+    private List<BloodAttributeListItemDto> _bloodAttributeCatalog = new();
+    private long? _uaCatalogId;
+    private BloodAttributeKind _uaKind = BloodAttributeKind.Antigen;
+    private AntigenResult _uaResult = AntigenResult.Negative;
+    private Feedback? _actionFb;
+    private long _transferTo;
+    private string _transferReason = string.Empty;
+    private string _discardReason = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
+        _locations = (await Api.GetLocationsAsync()).Value ?? new();
+        await SearchAsync();
+    }
+
+    private string ProductName(long id) => _productTypes.FirstOrDefault(t => t.Id == id)?.ProductCode ?? id.ToString();
+    private string LocationName(long? id) => id is null ? "—" : (_locations.FirstOrDefault(l => l.Id == id)?.Code ?? id.Value.ToString());
+
+    private async Task SearchAsync()
+    {
+        _loading = true;
+        var criteria = new InventorySearchCriteria(
+            string.IsNullOrWhiteSpace(_searchUnit) ? null : _searchUnit, _searchStatus, _searchAbo, _searchRh);
+        var r = await Api.SearchUnitsAsync(criteria);
+        _loading = false;
+        if (r.Succeeded) _units = r.Value!;
+        else _topFb = r.ToFeedback();
+    }
+
+    private async Task ReceiveAsync()
+    {
+        _busy = true;
+        var req = new ReceiveUnitRequest(_rec.UnitNumber, _rec.ProductTypeId, _rec.Abo, _rec.RhD,
+            DateTime.SpecifyKind(_rec.ExpiresLocal, DateTimeKind.Utc),
+            _rec.LocationId == 0 ? null : _rec.LocationId,
+            string.IsNullOrWhiteSpace(_rec.CollectionFacility) ? null : _rec.CollectionFacility,
+            string.IsNullOrWhiteSpace(_rec.Supplier) ? null : _rec.Supplier);
+        var r = await Api.ReceiveUnitAsync(req);
+        _busy = false;
+        _receiveFb = r.ToFeedback("Unit received into quarantine.");
+        if (r.Succeeded) { _rec = new(); _showReceive = false; await SearchAsync(); }
+    }
+
+    private async Task ExpireDueAsync()
+    {
+        _busy = true;
+        var r = await Api.ExpireDueAsync();
+        _busy = false;
+        _topFb = r.Succeeded
+            ? new Feedback(true, $"Expiration sweep complete: {r.Value!.Expired} unit(s) expired.", Array.Empty<RuleMessage>(), false, false, Array.Empty<RuleMessage>(), null)
+            : r.ToFeedback();
+        if (r.Succeeded) await SearchAsync();
+    }
+
+    private void ToggleReceive() => _showReceive = !_showReceive;
+
+    private async Task Select(BloodUnitDto u)
+    {
+        if (_selected?.Id == u.Id)
+        {
+            _selected = null;
+            return;
+        }
+
+        _selected = u;
+        _actionFb = null;
+        _transferTo = 0;
+        _transferReason = string.Empty;
+        _discardReason = string.Empty;
+        _history = (await Api.GetUnitHistoryAsync(u.Id)).Value ?? new();
+        _unitAttributes = (await Api.GetUnitBloodAttributesAsync(u.Id)).Value ?? new();
+        if (_bloodAttributeCatalog.Count == 0)
+        {
+            _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
+        }
+    }
+
+    private async Task SaveUnitAttributeAsync(long unitId)
+    {
+        if (_uaCatalogId is null) return;
+        _busy = true;
+        var r = await Api.SaveUnitBloodAttributeAsync(unitId, new SaveUnitBloodAttributeRequest(_uaCatalogId.Value, _uaKind, _uaResult));
+        _busy = false;
+        _actionFb = r.ToFeedback("Blood attribute saved.");
+        if (r.Succeeded) await RefreshSelected(unitId);
+    }
+
+    private async Task ReleaseAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReleaseUnitAsync(id);
+        _busy = false;
+        _actionFb = r.ToFeedback("Unit released from quarantine.");
+        if (r.Succeeded) await RefreshSelected(id);
+    }
+
+    private async Task TransferAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.TransferUnitAsync(id, _transferTo, string.IsNullOrWhiteSpace(_transferReason) ? null : _transferReason);
+        _busy = false;
+        _actionFb = r.ToFeedback("Unit transferred.");
+        if (r.Succeeded) await RefreshSelected(id);
+    }
+
+    private async Task DiscardAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.DiscardUnitAsync(id, _discardReason);
+        _busy = false;
+        _actionFb = r.ToFeedback("Unit discarded.");
+        if (r.Succeeded) await RefreshSelected(id);
+    }
+
+    private async Task RefreshSelected(long id)
+    {
+        await SearchAsync();
+        _selected = _units.FirstOrDefault(u => u.Id == id);
+        if (_selected is not null) _history = (await Api.GetUnitHistoryAsync(id)).Value ?? new();
+    }
+
+    private RenderFragment RenderActions(BloodUnitDto u) => __builder =>
+    {
+        <div class="stack">
+            <Outcome Value="_actionFb" />
+            <div class="flex gap" style="flex-wrap:wrap;">
+                @if (u.Status == UnitStatus.Quarantine && Session.Has(PermissionCodes.InventoryRelease))
+                {
+                    <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(u.Id)">Release from quarantine</button>
+                }
+            </div>
+
+            @if (Session.Has(PermissionCodes.InventoryTransfer))
+            {
+                <div class="flex gap">
+                    <select @bind="_transferTo"><option value="0">— location —</option>@foreach (var l in _locations) { <option value="@l.Id">@l.Code — @l.Name</option> }</select>
+                    <input @bind="_transferReason" placeholder="Reason (optional)" />
+                    <button class="btn btn-secondary btn-sm" disabled="@(_busy || _transferTo == 0)" @onclick="() => TransferAsync(u.Id)">Transfer</button>
+                </div>
+            }
+
+            @if (Session.Has(PermissionCodes.InventoryDiscard))
+            {
+                <div class="flex gap">
+                    <input @bind="_discardReason" placeholder="Discard reason" style="flex:1;" />
+                    <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discardReason))" @onclick="() => DiscardAsync(u.Id)">Discard</button>
+                </div>
+            }
+
+            <h4 style="margin-top:.5rem;">Blood attributes</h4>
+            @if (_unitAttributes.Count == 0)
+            {
+                <div class="muted">No extended typing on record.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Kind</th><th>Antigen</th><th>Antibody</th><th>Result</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _unitAttributes)
+                        {
+                            <tr>
+                                <td>@a.AttributeKind</td>
+                                <td class="mono">@a.AntigenCode — @a.AntigenName</td>
+                                <td>@a.AntibodyName</td>
+                                <td>@a.Result</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (Session.Has(PermissionCodes.InventoryReceive))
+            {
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Attribute</label>
+                        <FilterableComboBox TItem="BloodAttributeListItemDto" TValue="long?"
+                                            Items="_bloodAttributeCatalog"
+                                            @bind-Value="_uaCatalogId"
+                                            DisplayText="@(a => $"{a.Name} ({a.Code})")"
+                                            Placeholder="Select" />
+                    </div>
+                    <div class="field"><label>Kind</label>
+                        <select @bind="_uaKind">@foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@k</option> }</select>
+                    </div>
+                    <div class="field"><label>Result</label>
+                        <select @bind="_uaResult">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }</select>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" disabled="@(_busy || _uaCatalogId is null)" @onclick="() => SaveUnitAttributeAsync(u.Id)">Save attribute</button>
+            }
+
+            <h4 style="margin-top:.5rem;">Status history</h4>
+            @if (_history.Count == 0)
+            {
+                <div class="muted">No history.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>From</th><th>To</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+                    <tbody>
+                        @foreach (var h in _history)
+                        {
+                            <tr>
+                                <td>@(h.FromStatus?.ToString() ?? "—")</td>
+                                <td>@h.ToStatus</td>
+                                <td>@h.Reason</td>
+                                <td>@h.ChangedBy</td>
+                                <td class="nowrap">@h.ChangedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    };
+
+    private sealed class ReceiveModel
+    {
+        public string UnitNumber { get; set; } = string.Empty;
+        public long ProductTypeId { get; set; }
+        public AboGroup Abo { get; set; } = AboGroup.O;
+        public RhType RhD { get; set; } = RhType.Positive;
+        public DateTime ExpiresLocal { get; set; } = DateTime.UtcNow.AddDays(30);
+        public long LocationId { get; set; }
+        public string? CollectionFacility { get; set; }
+        public string? Supplier { get; set; }
+    }
+}

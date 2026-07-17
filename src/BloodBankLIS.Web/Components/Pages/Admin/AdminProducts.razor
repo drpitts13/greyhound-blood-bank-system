@@ -1,0 +1,263 @@
+@page "/admin/products"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Products &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Product Definitions</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New product</button>
+    }
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="empty">No products.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Class</th><th>XM</th><th>Attributes</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var p in _items)
+                {
+                    <tr>
+                        <td class="mono">@p.ProductCode</td>
+                        <td>@p.Name</td>
+                        <td>@p.ComponentClass</td>
+                        <td>@(p.RequiresCrossmatch ? "Yes" : "No")</td>
+                        <td>@string.Join(", ", p.Attributes.Select(a => a.Code + (a.IsRequired ? "*" : "")))</td>
+                        <td>@p.Version</td>
+                        <td>
+                            @if (p.IsActive) { <span class="badge badge-green">Active</span> }
+                            else { <span class="badge badge-gray">Inactive</span> }
+                        </td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(p.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(p.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New product" : $"Edit: {_editing.ProductCode}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Product code</label><input @bind="_editing.ProductCode" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
+            <div class="field"><label>Component class</label>
+                <select @bind="_editing.ComponentClass">@foreach (var c in Enum.GetValues<ComponentClass>()) { <option value="@c">@c</option> }</select>
+            </div>
+            <div class="field"><label>Category</label><input @bind="_editing.Category" /></div>
+            <div class="field"><label>Shelf life (hours)</label><input type="number" @bind="_editing.DefaultShelfLifeHours" /></div>
+            <div class="field"><label>ISBT 128 code</label><input @bind="_editing.Isbt128ProductCode" /></div>
+            <div class="field"><label>Default charge code</label><input @bind="_editing.DefaultChargeCode" /></div>
+            <div class="field"><label>Storage requirements</label><input @bind="_editing.StorageRequirements" /></div>
+            <div class="field" style="grid-column:1/3;"><label>Issue rules</label><input @bind="_editing.IssueRules" /></div>
+            <div class="field" style="grid-column:1/3;"><label>Return rules</label><input @bind="_editing.ReturnRules" /></div>
+            <div class="field" style="grid-column:1/3;"><label>Modification rules</label><input @bind="_editing.ModificationRules" /></div>
+        </div>
+
+        <div class="flex gap" style="flex-wrap:wrap;margin:.6rem 0;">
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresCrossmatch" /> Requires crossmatch</label>
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresAboMatch" /> Requires ABO match</label>
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresRhMatch" /> Requires Rh match</label>
+        </div>
+
+        <div class="field">
+            <label>Attributes</label>
+            <div class="flex gap" style="flex-wrap:wrap;">
+                @foreach (var attr in _attributes)
+                {
+                    var sel = _editing.Attributes.FirstOrDefault(a => a.AttributeId == attr.Id);
+                    <span class="badge @(sel is not null ? "badge-green" : "badge-gray")" style="cursor:pointer;" @onclick="() => ToggleAttr(attr.Id)">
+                        @attr.Code
+                        @if (sel is not null)
+                        {
+                            <label class="flex" style="gap:.2rem;margin-left:.4rem;" @onclick:stopPropagation="true">
+                                <input type="checkbox" checked="@sel.IsRequired" @onchange="e => SetRequired(attr.Id, (bool)e.Value!)" /> req
+                            </label>
+                        }
+                    </span>
+                }
+            </div>
+        </div>
+
+        <div class="field"><label>Change reason @(_currentIsActive ? "(required)" : "(optional)")</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && CanActivate)
+            {
+                @if (!_currentIsActive)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ActivateAsync">Activate</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DeactivateAsync">Deactivate</button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_history is not null)
+{
+    <ConfigHistoryPanel Title="@($"History: {_historyTitle}")" Rows="_history" OnClose="() => _history = null" />
+}
+
+@code {
+    private List<ProductDefinitionDto> _items = new();
+    private List<ProductAttributeDto> _attributes = new();
+    private bool _loading = true;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private bool _currentIsActive;
+    private string? _changeReason;
+
+    private List<ConfigHistoryDto>? _history;
+    private string _historyTitle = string.Empty;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminProductsManage);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var attrs = await Api.GetProductAttributesAsync();
+        _attributes = attrs.Value ?? new();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminProductsAsync();
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null; _currentIsActive = false; _changeReason = null;
+        _editing = new EditModel();
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminProductAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = r.Value.Id; _currentIsActive = r.Value.IsActive; _changeReason = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+    }
+
+    private void ToggleAttr(long attrId)
+    {
+        if (_editing is null) return;
+        var existing = _editing.Attributes.FirstOrDefault(a => a.AttributeId == attrId);
+        if (existing is not null) _editing.Attributes.Remove(existing);
+        else _editing.Attributes.Add(new ProductAttributeSelection(attrId, false));
+    }
+
+    private void SetRequired(long attrId, bool required)
+    {
+        if (_editing is null) return;
+        var idx = _editing.Attributes.FindIndex(a => a.AttributeId == attrId);
+        if (idx >= 0) _editing.Attributes[idx] = new ProductAttributeSelection(attrId, required);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null ? await Api.CreateAdminProductAsync(req) : await Api.UpdateAdminProductAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Draft created." : "Saved.");
+        if (r.Succeeded) { _editId = r.Value!.Id; _currentIsActive = r.Value.IsActive; await LoadAsync(); }
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ActivateAdminProductAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Activated.");
+        if (r.Succeeded) { _currentIsActive = true; await LoadAsync(); }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAdminProductAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Deactivated.");
+        if (r.Succeeded) { _currentIsActive = false; await LoadAsync(); }
+    }
+
+    private async Task ShowHistoryAsync(long id)
+    {
+        var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.ProductType), id);
+        _history = r.Value ?? new();
+        _historyTitle = _items.FirstOrDefault(p => p.Id == id)?.ProductCode ?? id.ToString();
+    }
+
+    private sealed class EditModel
+    {
+        public string ProductCode { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public ComponentClass ComponentClass { get; set; } = ComponentClass.RedBloodCells;
+        public string? Category { get; set; }
+        public int? DefaultShelfLifeHours { get; set; }
+        public bool RequiresCrossmatch { get; set; }
+        public bool RequiresAboMatch { get; set; } = true;
+        public bool RequiresRhMatch { get; set; } = true;
+        public string? Isbt128ProductCode { get; set; }
+        public string? DefaultChargeCode { get; set; }
+        public string? StorageRequirements { get; set; }
+        public string? IssueRules { get; set; }
+        public string? ReturnRules { get; set; }
+        public string? ModificationRules { get; set; }
+        public List<ProductAttributeSelection> Attributes { get; set; } = new();
+
+        public static EditModel From(ProductDefinitionDto p) => new()
+        {
+            ProductCode = p.ProductCode, Name = p.Name, ComponentClass = p.ComponentClass, Category = p.Category,
+            DefaultShelfLifeHours = p.DefaultShelfLifeHours, RequiresCrossmatch = p.RequiresCrossmatch,
+            RequiresAboMatch = p.RequiresAboMatch, RequiresRhMatch = p.RequiresRhMatch, Isbt128ProductCode = p.Isbt128ProductCode,
+            DefaultChargeCode = p.DefaultChargeCode, StorageRequirements = p.StorageRequirements, IssueRules = p.IssueRules,
+            ReturnRules = p.ReturnRules, ModificationRules = p.ModificationRules,
+            Attributes = p.Attributes.Select(a => new ProductAttributeSelection(a.AttributeId, a.IsRequired)).ToList()
+        };
+
+        public SaveProductDefinitionRequest ToRequest(string? reason) => new(
+            ProductCode, Name, ComponentClass, Category, DefaultShelfLifeHours, RequiresCrossmatch, RequiresAboMatch,
+            RequiresRhMatch, Isbt128ProductCode, DefaultChargeCode, StorageRequirements, IssueRules, ReturnRules,
+            ModificationRules, Attributes, reason);
+    }
+}

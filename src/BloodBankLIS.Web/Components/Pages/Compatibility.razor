@@ -1,0 +1,126 @@
+@page "/compatibility"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Compatibility &middot; Blood Bank LIS</PageTitle>
+
+<h1>Compatibility Testing</h1>
+<p class="muted">Record crossmatches and reserve units for a patient. ABO/Rh incompatibility is a hard stop.</p>
+
+<div class="bb-grid cols-2">
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Record crossmatch</h3></div>
+        @if (!Session.Has(PermissionCodes.CompatibilityCrossmatch))
+        {
+            <div class="muted">You do not have permission to record crossmatches.</div>
+        }
+        else
+        {
+            <Outcome Value="_xmFb" RequiresSignature="false" />
+            <div class="form-row">
+                <div class="field"><label>Blood unit id</label><input type="number" @bind="_xm.BloodUnitId" /></div>
+                <div class="field"><label>Patient id</label><input type="number" @bind="_xm.PatientId" /></div>
+                <div class="field"><label>Specimen id</label><input type="number" @bind="_xm.SpecimenId" /></div>
+                <div class="field"><label>Method</label>
+                    <select @bind="_xm.Method">@foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@m</option> }</select>
+                </div>
+                <div class="field"><label>Result</label>
+                    <select @bind="_xm.Result">@foreach (var r in Enum.GetValues<CrossmatchResult>()) { <option value="@r">@r</option> }</select>
+                </div>
+                <div class="field"><label>Antibody screen</label>
+                    <select @bind="_xm.ScreenNegative"><option value="true">Negative</option><option value="false">Positive</option></select>
+                </div>
+            </div>
+            <div class="field"><label>Comment</label><input @bind="_xm.Comment" /></div>
+            <button class="btn btn-primary" disabled="@_busy" @onclick="RecordCrossmatchAsync">Record crossmatch</button>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Allocate unit</h3></div>
+        @if (!Session.Has(PermissionCodes.CompatibilityAllocate))
+        {
+            <div class="muted">You do not have permission to allocate units.</div>
+        }
+        else
+        {
+            <Outcome Value="_allocFb" />
+            <div class="form-row">
+                <div class="field"><label>Blood unit id</label><input type="number" @bind="_alloc.BloodUnitId" /></div>
+                <div class="field"><label>Patient id</label><input type="number" @bind="_alloc.PatientId" /></div>
+                <div class="field"><label>Specimen id (optional)</label><input type="number" @bind="_alloc.SpecimenId" /></div>
+            </div>
+            <button class="btn btn-primary" disabled="@_busy" @onclick="AllocateAsync">Reserve unit</button>
+
+            @if (_lastAllocation is not null)
+            {
+                <div class="alert alert-info" style="margin-top:1rem;">
+                    Allocation <strong>#@_lastAllocation.Id</strong> for unit @_lastAllocation.BloodUnitId &mdash; <span class="@Ui.Badge(_lastAllocation.Status)">@_lastAllocation.Status</span>
+                    <div class="flex gap" style="margin-top:.5rem;">
+                        <input @bind="_releaseReason" placeholder="Release reason" style="flex:1;" />
+                        <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(_lastAllocation.Id)">Release</button>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private bool _busy;
+
+    private XmModel _xm = new();
+    private Feedback? _xmFb;
+
+    private AllocModel _alloc = new();
+    private Feedback? _allocFb;
+    private AllocationDto? _lastAllocation;
+    private string _releaseReason = string.Empty;
+
+    private async Task RecordCrossmatchAsync()
+    {
+        _busy = true;
+        var req = new RecordCrossmatchRequest(_xm.BloodUnitId, _xm.PatientId, _xm.SpecimenId, _xm.Method, _xm.Result, _xm.ScreenNegative,
+            string.IsNullOrWhiteSpace(_xm.Comment) ? null : _xm.Comment);
+        var r = await Api.RecordCrossmatchAsync(req);
+        _busy = false;
+        _xmFb = r.ToFeedback($"Crossmatch recorded (#{r.Value?.Id}).");
+    }
+
+    private async Task AllocateAsync()
+    {
+        _busy = true;
+        var req = new AllocateUnitRequest(_alloc.BloodUnitId, _alloc.PatientId, _alloc.SpecimenId == 0 ? null : _alloc.SpecimenId);
+        var r = await Api.AllocateUnitAsync(req);
+        _busy = false;
+        _allocFb = r.ToFeedback("Unit reserved.");
+        if (r.Succeeded) _lastAllocation = r.Value;
+    }
+
+    private async Task ReleaseAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReleaseAllocationAsync(id, _releaseReason);
+        _busy = false;
+        _allocFb = r.ToFeedback("Allocation released.");
+        if (r.Succeeded) _lastAllocation = r.Value;
+    }
+
+    private sealed class XmModel
+    {
+        public long BloodUnitId { get; set; }
+        public long PatientId { get; set; }
+        public long SpecimenId { get; set; }
+        public CrossmatchMethod Method { get; set; } = CrossmatchMethod.Serologic;
+        public CrossmatchResult Result { get; set; } = CrossmatchResult.Compatible;
+        public bool ScreenNegative { get; set; } = true;
+        public string? Comment { get; set; }
+    }
+
+    private sealed class AllocModel
+    {
+        public long BloodUnitId { get; set; }
+        public long PatientId { get; set; }
+        public long SpecimenId { get; set; }
+    }
+}

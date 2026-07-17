@@ -1,0 +1,96 @@
+@page "/login"
+@layout LoginLayout
+@inject UserSession Session
+@inject BloodBankApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Sign in &middot; Blood Bank LIS</PageTitle>
+
+<div class="bb-login">
+    <div class="bb-login-card">
+        <h1><span class="dot" style="width:14px;height:14px;border-radius:50%;background:var(--bb-primary);display:inline-block;"></span> Blood Bank LIS</h1>
+        <p class="muted">Sign in with your operator identity. Authorization is enforced by the API.</p>
+
+        <div class="field">
+            <label>Username</label>
+            <input @bind="_userName" @bind:event="oninput" placeholder="e.g. tech1" @onkeydown="OnKey" />
+        </div>
+        <div class="field">
+            <label>Workstation</label>
+            <input @bind="_workstation" placeholder="Workstation id" />
+        </div>
+
+        <button class="btn btn-primary" style="width:100%;" disabled="@_busy" @onclick="SignInAsync">
+            @(_busy ? "Signing in..." : "Sign in")
+        </button>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger" style="margin-top:1rem;">@_error</div>
+        }
+
+        <div style="margin-top:1.25rem;">
+            <div class="muted" style="font-size:.78rem;margin-bottom:.4rem;">Demo accounts</div>
+            <div class="flex gap" style="flex-wrap:wrap;">
+                @foreach (var demo in _demoUsers)
+                {
+                    <button class="btn btn-secondary btn-sm" @onclick="() => Quick(demo)">@demo</button>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    private string _userName = string.Empty;
+    private string _workstation = Environment.MachineName;
+    private string? _error;
+    private bool _busy;
+
+    private static readonly string[] _demoUsers = { "admin", "supervisor", "tech1", "viewer" };
+
+    private async Task Quick(string user)
+    {
+        _userName = user;
+        await SignInAsync();
+    }
+
+    private async Task OnKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SignInAsync();
+        }
+    }
+
+    private async Task SignInAsync()
+    {
+        _error = null;
+        if (string.IsNullOrWhiteSpace(_userName))
+        {
+            _error = "Enter a username.";
+            return;
+        }
+
+        _busy = true;
+        // Set a provisional identity so the API call carries the header, then confirm
+        // against /api/me and load the effective permission set.
+        Session.SignIn(_userName.Trim(), null, _workstation, Array.Empty<string>());
+        var me = await Api.GetMeAsync();
+        _busy = false;
+
+        if (!me.Succeeded || me.Value is null)
+        {
+            Session.SignOut();
+            _error = me.StatusCode is 404 or 401
+                ? $"'{_userName}' is not a recognized active account."
+                : me.FailureSummary();
+            return;
+        }
+
+        Session.SignIn(me.Value.UserName, me.Value.DisplayName, _workstation, me.Value.Permissions, me.Value.SecurityLevel);
+        Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
+    }
+}

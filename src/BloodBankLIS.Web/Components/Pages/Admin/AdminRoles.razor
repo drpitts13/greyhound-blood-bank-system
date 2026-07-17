@@ -1,0 +1,158 @@
+@page "/admin/roles"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Roles &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Roles &amp; Permissions</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewRole">New role</button>
+    }
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_roles.Count == 0)
+    {
+        <div class="empty">No roles.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Role</th><th>Description</th><th>Level</th><th>Permissions</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in _roles)
+                {
+                    <tr>
+                        <td>@r.Name</td>
+                        <td class="muted">@r.Description</td>
+                        <td>@r.SecurityLevel</td>
+                        <td>@r.Permissions.Count</td>
+                        <td class="right nowrap">
+                            @if (CanManage)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(r.Id)">Edit</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New role" : $"Edit: {_editing.Name}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Name</label><input @bind="_editing.Name" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Description</label><input @bind="_editing.Description" /></div>
+            <div class="field"><label>Security level</label><input type="number" min="0" @bind="_editing.SecurityLevel" /></div>
+        </div>
+
+        <div class="field">
+            <label>Permissions</label>
+            <div class="flex gap" style="flex-wrap:wrap;">
+                @foreach (var perm in _allPermissions)
+                {
+                    var selected = _editing.Permissions.Contains(perm);
+                    <span class="badge @(selected ? "badge-green" : "badge-gray")" style="cursor:pointer;" @onclick="() => Toggle(perm)">@perm</span>
+                }
+            </div>
+        </div>
+
+        <div class="field"><label>Change reason (optional)</label><input @bind="_changeReason" /></div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AdminRoleDto> _roles = new();
+    private List<string> _allPermissions = new();
+    private bool _loading = true;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private string? _changeReason;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminRolesManage);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CanManage)
+        {
+            var perms = await Api.GetPermissionCodesAsync();
+            _allPermissions = perms.Value ?? new();
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminRolesAsync();
+        _roles = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewRole()
+    {
+        _editId = null; _changeReason = null;
+        _editing = new EditModel();
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminRoleAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = r.Value.Id; _changeReason = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+    }
+
+    private void Toggle(string code)
+    {
+        if (_editing is null) return;
+        if (!_editing.Permissions.Remove(code)) _editing.Permissions.Add(code);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = new SaveRoleRequest(_editing.Name, _editing.Description, _editing.SecurityLevel, _editing.Permissions, _changeReason);
+        var r = _editId is null ? await Api.CreateAdminRoleAsync(req) : await Api.UpdateAdminRoleAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Role created." : "Saved.");
+        if (r.Succeeded) { _editId = r.Value!.Id; await LoadAsync(); }
+    }
+
+    private sealed class EditModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public int SecurityLevel { get; set; }
+        public List<string> Permissions { get; set; } = new();
+
+        public static EditModel From(AdminRoleDto r) => new()
+        {
+            Name = r.Name, Description = r.Description, SecurityLevel = r.SecurityLevel, Permissions = r.Permissions.ToList()
+        };
+    }
+}

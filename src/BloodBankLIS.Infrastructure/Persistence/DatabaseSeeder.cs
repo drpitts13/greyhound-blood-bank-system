@@ -1,0 +1,913 @@
+using System.Linq.Expressions;
+using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Entities.Identity;
+using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
+using Microsoft.EntityFrameworkCore;
+
+namespace BloodBankLIS.Infrastructure.Persistence;
+
+/// <summary>
+/// Seeds reference and demo data for development, demos, and workflow validation
+/// (see docs/validation-plan.md section 3). Idempotent: skips full tables, and ensures
+/// required reference codes exist after a partial SQLite-to-SQL Server migration.
+/// </summary>
+public static class DatabaseSeeder
+{
+    public static async Task SeedAsync(BloodBankDbContext context, bool seedDevAdmin = false, CancellationToken cancellationToken = default)
+    {
+        await SeedIdentityAsync(context, cancellationToken);
+        await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
+        await SeedExceptionDefinitionsAsync(context, cancellationToken);
+        await SeedProductTypesAsync(context, cancellationToken);
+        await SeedProductAttributesAsync(context, cancellationToken);
+        await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
+        await SeedSpecimenTypeDefinitionsAsync(context, cancellationToken);
+        await SeedSubtestDefinitionsAsync(context, cancellationToken);
+        await SeedTestDefinitionsAsync(context, cancellationToken);
+        await EnsureAgtypeTestAsync(context, cancellationToken);
+        await MigrateExistingTestPanelConfigAsync(context, cancellationToken);
+        await SeedTestGroupersAsync(context, cancellationToken);
+        await SeedReflexRulesAsync(context, cancellationToken);
+        await SeedLocationsAsync(context, cancellationToken);
+        await SeedOrderingLocationsAsync(context, cancellationToken);
+        await SeedOrderingProvidersAsync(context, cancellationToken);
+        await SeedChargeMasterAsync(context, cancellationToken);
+        await SeedDemoClinicalDataAsync(context, cancellationToken);
+
+        if (seedDevAdmin)
+        {
+            await SeedDevAdminAsync(context, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Seeds the no-login dev-mode account (<c>DEV_ADMIN</c>) with a Dev Admin role that
+    /// holds every permission. Only invoked when dev mode is enabled in a Development host.
+    /// Idempotent.
+    /// </summary>
+    public static async Task SeedDevAdminAsync(BloodBankDbContext context, CancellationToken ct = default)
+    {
+        const string devUser = "DEV_ADMIN";
+
+        var permissions = await context.Permissions.ToListAsync(ct);
+        if (permissions.Count == 0)
+        {
+            return;
+        }
+
+        var byCode = permissions.ToDictionary(p => p.Code, StringComparer.Ordinal);
+
+        var devRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Dev Admin", ct);
+        if (devRole is null)
+        {
+            devRole = AddRole(context, "Dev Admin", "No-login development administrator (all permissions)", byCode, 3, PermissionCodes.All.ToArray());
+            await context.SaveChangesAsync(ct);
+        }
+        else if (devRole.SecurityLevel < 3)
+        {
+            devRole.SecurityLevel = 3;
+            await context.SaveChangesAsync(ct);
+        }
+
+        var user = await context.Users.FirstOrDefaultAsync(u => u.UserName == devUser, ct);
+        if (user is null)
+        {
+            AddUser(context, devUser, "Development Administrator", devRole);
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>
+    /// Seeds the full permission catalog, the standard roles, and demo accounts
+    /// (see docs/validation-plan.md section 3). Authorization evaluates permission
+    /// codes; roles only aggregate them.
+    /// </summary>
+    private static async Task SeedIdentityAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Permissions.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var permissions = PermissionCodes.All
+            .Select(code => new Permission { Code = code })
+            .ToList();
+        context.Permissions.AddRange(permissions);
+        await context.SaveChangesAsync(ct);
+
+        var byCode = permissions.ToDictionary(p => p.Code, StringComparer.Ordinal);
+
+        // Technologist: routine bench work. No override/discard/correction/cancellation.
+        var technologistCodes = new[]
+        {
+            PermissionCodes.PatientWrite,
+            PermissionCodes.SpecimenAccession, PermissionCodes.SpecimenReject,
+            PermissionCodes.ResultEnter, PermissionCodes.ResultVerify,
+            PermissionCodes.ImmunoRecord,
+            PermissionCodes.InventoryReceive, PermissionCodes.InventoryTransfer, PermissionCodes.InventoryRelease,
+            PermissionCodes.CompatibilityCrossmatch, PermissionCodes.CompatibilityAllocate,
+            PermissionCodes.IssueCreate, PermissionCodes.IssueReturn, PermissionCodes.TransfusionDocument,
+            PermissionCodes.PrintLabel,
+            PermissionCodes.BillingReview,
+            PermissionCodes.Hl7Manage,
+            PermissionCodes.AuditRead
+        };
+
+        // Supervisor: technologist plus the dangerous/override actions.
+        var supervisorCodes = technologistCodes.Concat(new[]
+        {
+            PermissionCodes.ResultCorrect,
+            PermissionCodes.ImmunoOverride,
+            PermissionCodes.InventoryDiscard,
+            PermissionCodes.IssueOverride,
+            PermissionCodes.PrintReprint,
+            PermissionCodes.BillingCancel, PermissionCodes.BillingExport
+        }).Distinct().ToArray();
+
+        // Specialized administrative roles. Each gets read access to all config plus
+        // edit/activate on its own area (least privilege).
+        var interfaceAnalystCodes = new[]
+        {
+            PermissionCodes.Hl7Manage, PermissionCodes.AuditRead,
+            PermissionCodes.AdminConfigView, PermissionCodes.AdminConfigEdit, PermissionCodes.AdminConfigActivate,
+            PermissionCodes.AdminHl7Manage, PermissionCodes.AdminAuditReview
+        };
+        var inventoryManagerCodes = new[]
+        {
+            PermissionCodes.InventoryReceive, PermissionCodes.InventoryTransfer, PermissionCodes.InventoryRelease, PermissionCodes.InventoryDiscard,
+            PermissionCodes.AdminConfigView, PermissionCodes.AdminConfigEdit, PermissionCodes.AdminConfigActivate,
+            PermissionCodes.AdminProductsManage
+        };
+        var billingAnalystCodes = new[]
+        {
+            PermissionCodes.BillingReview, PermissionCodes.BillingCancel, PermissionCodes.BillingExport,
+            PermissionCodes.AdminConfigView
+        };
+        var auditorCodes = new[]
+        {
+            PermissionCodes.AuditRead, PermissionCodes.AdminConfigView, PermissionCodes.AdminAuditReview
+        };
+        // Non-interactive interface engine / system integrations.
+        var serviceAccountCodes = new[] { PermissionCodes.Hl7Manage };
+
+        var administrator = AddRole(context, "Administrator", "Full system access", byCode, 3, PermissionCodes.All.ToArray());
+        var supervisor = AddRole(context, "Supervisor", "Bench work plus overrides and dangerous actions", byCode, 2, supervisorCodes);
+        var technologist = AddRole(context, "Technologist", "Routine bench work", byCode, 1, technologistCodes);
+        var readOnly = AddRole(context, "ReadOnly", "Audit and read-only access", byCode, 0, PermissionCodes.AuditRead);
+        var interfaceAnalyst = AddRole(context, "Interface Analyst", "HL7 interface configuration and monitoring", byCode, 0, interfaceAnalystCodes);
+        var inventoryManager = AddRole(context, "Inventory Manager", "Inventory operations and product configuration", byCode, 0, inventoryManagerCodes);
+        var billingAnalyst = AddRole(context, "Billing Analyst", "Billing review, cancel, and export", byCode, 0, billingAnalystCodes);
+        var auditor = AddRole(context, "Auditor", "Read-only audit and configuration history review", byCode, 0, auditorCodes);
+        var serviceAccount = AddRole(context, "Service Account", "Non-interactive system/service integrations", byCode, 0, serviceAccountCodes);
+        await context.SaveChangesAsync(ct);
+
+        AddUser(context, "admin", "System Administrator", administrator);
+        AddUser(context, "supervisor", "Sam Supervisor", supervisor);
+        AddUser(context, "tech1", "Terry Technologist", technologist);
+        AddUser(context, "viewer", "Val Viewer", readOnly);
+        AddUser(context, "analyst", "Ana Analyst", interfaceAnalyst);
+        AddUser(context, "invmgr", "Ingrid Manager", inventoryManager);
+        AddUser(context, "biller", "Bill Biller", billingAnalyst);
+        AddUser(context, "auditor", "Ada Auditor", auditor);
+        AddUser(context, "svc-interface", "Interface Engine", serviceAccount, isServiceAccount: true);
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static Role AddRole(
+        BloodBankDbContext context,
+        string name,
+        string description,
+        IReadOnlyDictionary<string, Permission> byCode,
+        int securityLevel,
+        params string[] codes)
+    {
+        var role = new Role { Name = name, Description = description, SecurityLevel = securityLevel };
+        context.Roles.Add(role);
+        foreach (var code in codes.Distinct(StringComparer.Ordinal))
+        {
+            role.RolePermissions.Add(new RolePermission { Permission = byCode[code] });
+        }
+
+        return role;
+    }
+
+    /// <summary>
+    /// Idempotent: applies canonical security levels to known roles after schema upgrade.
+    /// </summary>
+    private static async Task EnsureRoleSecurityLevelsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var levelByName = new Dictionary<string, int>(StringComparer.Ordinal)
+        {
+            ["Administrator"] = 3,
+            ["Dev Admin"] = 3,
+            ["Supervisor"] = 2,
+            ["Technologist"] = 1
+        };
+
+        var names = levelByName.Keys.ToList();
+        var roles = await context.Roles.Where(r => names.Contains(r.Name)).ToListAsync(ct);
+        var changed = false;
+        foreach (var role in roles)
+        {
+            if (levelByName.TryGetValue(role.Name, out var level) && role.SecurityLevel != level)
+            {
+                role.SecurityLevel = level;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    private static async Task SeedExceptionDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.ExceptionDefinitions.AnyAsync(e => e.RuleCode == AboRhDeltaRule.DeltaCode, ct))
+        {
+            return;
+        }
+
+        context.ExceptionDefinitions.Add(new ExceptionDefinition
+        {
+            RuleCode = AboRhDeltaRule.DeltaCode,
+            Name = "ABO/Rh historical discrepancy",
+            Description = "Verified ABO/Rh disagrees with the patient's current historical type. Requires authorized override and Retain or Replace resolution.",
+            MinSecurityLevel = 2,
+            IsOverridable = true,
+            IsActive = true
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static void AddUser(BloodBankDbContext context, string userName, string displayName, Role role, bool isServiceAccount = false)
+    {
+        var user = new User { UserName = userName, DisplayName = displayName, IsServiceAccount = isServiceAccount };
+        user.UserRoles.Add(new UserRole { Role = role });
+        context.Users.Add(user);
+    }
+
+    private static async Task SeedChargeMasterAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.ChargeCodes.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var aboRh = new ChargeCode { Code = "BB-ABORH", Description = "ABO/Rh typing", DefaultAmount = 35.00m, CptCode = "86900" };
+        var screen = new ChargeCode { Code = "BB-SCREEN", Description = "Antibody screen", DefaultAmount = 55.00m, CptCode = "86850" };
+        var xm = new ChargeCode { Code = "BB-XM", Description = "Crossmatch", DefaultAmount = 75.00m, CptCode = "86920" };
+        var rbcIssue = new ChargeCode { Code = "BB-RBC-ISSUE", Description = "Red blood cell unit issued", DefaultAmount = 250.00m, CptCode = "P9021" };
+        var unitIssue = new ChargeCode { Code = "BB-UNIT-ISSUE", Description = "Blood product unit issued", DefaultAmount = 200.00m };
+        context.ChargeCodes.AddRange(aboRh, screen, xm, rbcIssue, unitIssue);
+        await context.SaveChangesAsync(ct);
+
+        context.ChargeRules.AddRange(
+            new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "ABORH", ChargeCodeId = aboRh.Id },
+            new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "ABSC", ChargeCodeId = screen.Id },
+            new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "XM", ChargeCodeId = xm.Id },
+            // Product-specific rule plus a catch-all for any other issued unit.
+            new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = "RBC-LR", ChargeCodeId = rbcIssue.Id },
+            new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = null, ChargeCodeId = unitIssue.Id });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedProductTypesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.ProductTypes.AnyAsync(ct))
+        {
+            return;
+        }
+
+        context.ProductTypes.AddRange(
+            new ProductType { ProductCode = "RBC-LR", Name = "Red Blood Cells, Leukoreduced", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true, DefaultShelfLifeHours = 42 * 24 },
+            new ProductType { ProductCode = "FFP", Name = "Fresh Frozen Plasma", ComponentClass = ComponentClass.Plasma, RequiresCrossmatch = false, DefaultShelfLifeHours = 365 * 24 },
+            new ProductType { ProductCode = "PLT-A", Name = "Apheresis Platelets", ComponentClass = ComponentClass.Platelets, RequiresCrossmatch = false, DefaultShelfLifeHours = 5 * 24 });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedProductAttributesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.ProductAttributes.AnyAsync(ct))
+        {
+            return;
+        }
+
+        context.ProductAttributes.AddRange(
+            new ProductAttribute { Code = "IRRAD", Name = "Irradiated", Description = "Gamma/X-ray irradiated to prevent TA-GVHD" },
+            new ProductAttribute { Code = "LR", Name = "Leukoreduced", Description = "White cells reduced by filtration" },
+            new ProductAttribute { Code = "CMVNEG", Name = "CMV Negative", Description = "Tested CMV seronegative" },
+            new ProductAttribute { Code = "WASHED", Name = "Washed", Description = "Plasma removed by washing" },
+            new ProductAttribute { Code = "VOLRED", Name = "Volume Reduced", Description = "Reduced plasma volume" });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedBloodAttributeDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.BloodAttributeDefinitions.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+
+        BloodAttributeDefinition Attr(string code, string name, string antibody, bool significant, int sort) => new()
+        {
+            Code = code,
+            Name = name,
+            AntibodyName = antibody,
+            IsClinicallySignificant = significant,
+            SortOrder = sort,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1
+        };
+
+        context.BloodAttributeDefinitions.AddRange(
+            Attr("K", "Kell", "anti-K", true, 1),
+            Attr("E", "Rh E", "anti-E", true, 2),
+            Attr("C", "Rh C", "anti-C", true, 3),
+            Attr("c", "Rh c", "anti-c", true, 4),
+            Attr("FYA", "Duffy a", "anti-Fya", true, 5),
+            Attr("JKA", "Kidd a", "anti-Jka", true, 6),
+            Attr("JKB", "Kidd b", "anti-Jkb", true, 7),
+            Attr("M", "MNS M", "anti-M", false, 8),
+            Attr("N", "MNS N", "anti-N", false, 9));
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedSpecimenTypeDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SpecimenTypeDefinitions.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+
+        SpecimenTypeDefinition Type(string code, string description, int sort, params string[] excludedTests) => new()
+        {
+            Code = code,
+            Description = description,
+            ExcludedTestCodesJson = SpecimenTypeExcludedTests.Serialize(excludedTests),
+            SortOrder = sort,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1
+        };
+
+        context.SpecimenTypeDefinitions.AddRange(
+            Type("EDTA", "EDTA Whole Blood", 1),
+            Type("SERUM", "Serum", 2, "XM"));
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedSubtestDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SubtestDefinitions.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var choicesJson = SubtestChoiceDefinitions.ToJson(SubtestChoiceDefinitions.DefaultGradedReaction());
+
+        SubtestDefinition Sub(string code, string name, bool required = true) => new()
+        {
+            Code = code,
+            Name = name,
+            ResultType = SubtestResultType.GradedReaction,
+            ChoicesJson = choicesJson,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1
+        };
+
+        context.SubtestDefinitions.AddRange(
+            Sub(AboRhPanelSubtestCodes.AntiA, "Anti-A"),
+            Sub(AboRhPanelSubtestCodes.AntiB, "Anti-B"),
+            Sub(AboRhPanelSubtestCodes.AntiD, "Anti-D"),
+            Sub(AboRhPanelSubtestCodes.ACells, "A cells"),
+            Sub(AboRhPanelSubtestCodes.BCells, "B cells"),
+            Sub(AboRhPanelSubtestCodes.Control, "Control"),
+            Sub(AboRhPanelSubtestCodes.WeakD, "Weak-D"));
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Seeds active <see cref="TestDefinition"/>s for the test codes the clinical workflows
+    /// already use, so result-entry catalog validation is non-breaking on existing data.
+    /// </summary>
+    private static async Task SeedTestDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.TestDefinitions.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+
+        TestDefinition Def(string code, string name, TestCategory category, ResultValueType valueType,
+            bool aboRh = false, bool antibody = false, bool compatibility = false, string? allowed = null, bool billable = false, string? charge = null)
+            => new()
+            {
+                Code = code,
+                Name = name,
+                Category = category,
+                ResultValueType = valueType,
+                AllowedResultValues = allowed,
+                VerificationRequired = true,
+                ContributesToAboRhHistory = aboRh,
+                ContributesToAntibodyHistory = antibody,
+                ContributesToCompatibility = compatibility,
+                Billable = billable,
+                ChargeCodeMapping = charge,
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = now,
+                Version = 1
+            };
+
+        var aboRh = Def("ABORH", "ABO/Rh Type", TestCategory.AboRh, ResultValueType.AboRh, aboRh: true, compatibility: true, billable: true, charge: "BB-ABORH");
+        aboRh.PanelSubtestsJson = PanelSubtestAssignments.ToJson(PanelSubtestDefinitions.DefaultAboRh()
+            .Select(s => new PanelSubtestAssignment(s.Code, s.Required, s.SortOrder))
+            .ToList());
+        aboRh.InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(InterpretationLogicDefinitions.DefaultAboRhLogic());
+
+        context.TestDefinitions.AddRange(
+            aboRh,
+            Def("ABSC", "Antibody Screen", TestCategory.AntibodyScreen, ResultValueType.Coded, antibody: true, compatibility: true, allowed: "Negative\nPositive", billable: true, charge: "BB-SCREEN"),
+            Def("ABID", "Antibody Identification", TestCategory.AntibodyIdentification, ResultValueType.FreeText, antibody: true, compatibility: true),
+            Def("XM", "Crossmatch", TestCategory.Crossmatch, ResultValueType.Coded, compatibility: true, allowed: "Compatible\nIncompatible", billable: true, charge: "BB-XM"),
+            Def("DAT", "Direct Antiglobulin Test", TestCategory.DirectAntiglobulinTest, ResultValueType.Coded, allowed: "Negative\nPositive"));
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureAgtypeTestAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.TestDefinitions.AnyAsync(t => t.Code == "AGTYPE", ct))
+        {
+            return;
+        }
+
+        var attrs = await context.BloodAttributeDefinitions
+            .Where(d => d.IsActive && (d.Code == "K" || d.Code == "FYA"))
+            .OrderBy(d => d.SortOrder)
+            .ToListAsync(ct);
+        if (attrs.Count == 0)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var scope = BloodAttributeScope.Serialize(attrs.Select(a => new BloodAttributeScopeEntry(a.Code)));
+
+        context.TestDefinitions.Add(new TestDefinition
+        {
+            Code = "AGTYPE",
+            Name = "Antigen Typing Panel",
+            Category = TestCategory.AntigenTyping,
+            ResultValueType = ResultValueType.BloodAttribute,
+            BloodAttributeScopeJson = scope,
+            BloodAttributeScopeKind = BloodAttributeKind.Antigen,
+            VerificationRequired = true,
+            ContributesToCompatibility = true,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1
+        });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task MigrateExistingTestPanelConfigAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.SubtestDefinitions.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var aboRh = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == "ABORH", ct);
+        if (aboRh is null)
+        {
+            return;
+        }
+
+        var assignments = PanelSubtestAssignments.Parse(aboRh.PanelSubtestsJson);
+        if (assignments.Count == 0)
+        {
+            aboRh.PanelSubtestsJson = PanelSubtestAssignments.ToJson(PanelSubtestDefinitions.DefaultAboRh()
+                .Select(s => new PanelSubtestAssignment(s.Code, s.Required, s.SortOrder))
+                .ToList());
+        }
+
+        if (string.IsNullOrWhiteSpace(aboRh.InterpretationLogicJson))
+        {
+            aboRh.InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(
+                InterpretationLogicDefinitions.DefaultAboRhLogic());
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedTestGroupersAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.TestGroupers.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        context.TestGroupers.Add(new TestGrouper
+        {
+            Code = "TNS",
+            Name = "Type and Screen",
+            MemberTestsJson = TestGrouperMembers.ToJson([
+                new TestGrouperMember("ABORH", 1),
+                new TestGrouperMember("ABSC", 2)
+            ]),
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1
+        });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedReflexRulesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.ReflexRules.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        context.ReflexRules.Add(new ReflexRule
+        {
+            Code = "ABSC-POS-ABID",
+            Name = "Positive antibody screen reflexes antibody identification",
+            TriggerTestCode = "ABSC",
+            TriggerResultValue = "Positive",
+            ReflexTestCode = "ABID",
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1
+        });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedLocationsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await AddMissingByCodeAsync(
+            context,
+            context.InventoryLocations,
+            (InventoryLocation l) => l.Code,
+            [
+                new InventoryLocation { Code = "FRIDGE-1", Name = "Main Blood Bank Refrigerator", LocationType = LocationType.Refrigerator },
+                new InventoryLocation { Code = "FREEZER-1", Name = "Plasma Freezer", LocationType = LocationType.Freezer },
+                new InventoryLocation { Code = "ISSUE", Name = "Issue Window", LocationType = LocationType.Issue }
+            ],
+            ct);
+    }
+
+    private static async Task SeedOrderingLocationsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await AddMissingByCodeAsync(
+            context,
+            context.OrderingLocations,
+            (OrderingLocation l) => l.Code,
+            [
+                new OrderingLocation { Code = "OR", Name = "Operating Room", Department = "Surgery", IsActive = true },
+                new OrderingLocation { Code = "ICU", Name = "Intensive Care Unit", Department = "Critical Care", IsActive = true },
+                new OrderingLocation { Code = "ED", Name = "Emergency Department", Department = "Emergency", IsActive = true },
+                new OrderingLocation { Code = "OPLAB", Name = "Outpatient Lab", Department = "Laboratory", IsActive = true },
+                new OrderingLocation { Code = "LEGACY", Name = "Legacy Ordering Location", IsActive = true }
+            ],
+            ct);
+    }
+
+    private static async Task SeedOrderingProvidersAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await AddMissingByCodeAsync(
+            context,
+            context.OrderingProviders,
+            (OrderingProvider p) => p.ProviderId,
+            [
+                new OrderingProvider { ProviderId = "PROV-SMITH", Name = "Dr. Jane Smith", Specialty = "Surgery", Location = "OR", IsActive = true, SourceSystem = "Seed" },
+                new OrderingProvider { ProviderId = "PROV-JONES", Name = "Dr. Robert Jones", Specialty = "Hematology", IsActive = true, SourceSystem = "Seed" },
+                new OrderingProvider { ProviderId = "PROV-LEE", Name = "Dr. Amy Lee", Location = "ED", IsActive = true, SourceSystem = "Seed" }
+            ],
+            ct);
+    }
+
+    private static async Task AddMissingByCodeAsync<TEntity>(
+        BloodBankDbContext context,
+        DbSet<TEntity> set,
+        Expression<Func<TEntity, string>> codeSelector,
+        IReadOnlyList<TEntity> required,
+        CancellationToken ct)
+        where TEntity : class
+    {
+        var existingCodes = await set
+            .Select(codeSelector)
+            .ToListAsync(ct);
+
+        var codeFunc = codeSelector.Compile();
+        var existing = existingCodes.ToHashSet(StringComparer.Ordinal);
+        var missing = required.Where(e => !existing.Contains(codeFunc(e))).ToList();
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        set.AddRange(missing);
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedDemoClinicalDataAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var rbc = await context.ProductTypes.FirstAsync(t => t.ProductCode == "RBC-LR", ct);
+        var plt = await context.ProductTypes.FirstAsync(t => t.ProductCode == "PLT-A", ct);
+        var orLoc = await context.OrderingLocations.FirstAsync(l => l.Code == "OR", ct);
+        var edLoc = await context.OrderingLocations.FirstAsync(l => l.Code == "ED", ct);
+        var smith = await context.OrderingProviders.FirstOrDefaultAsync(p => p.ProviderId == "PROV-SMITH", ct);
+        var lee = await context.OrderingProviders.FirstOrDefaultAsync(p => p.ProviderId == "PROV-LEE", ct);
+        var fridge = await context.InventoryLocations.FirstAsync(l => l.Code == "FRIDGE-1", ct);
+        var now = DateTime.UtcNow;
+
+        var patient = new Patient
+        {
+            MedicalRecordNumber = "MRN0001",
+            LastName = "Demo",
+            FirstName = "Patricia",
+            DateOfBirth = new DateOnly(1980, 4, 12),
+            Sex = Sex.Female,
+            Status = PatientStatus.Active
+        };
+        context.Patients.Add(patient);
+        await context.SaveChangesAsync(ct);
+
+        var activeVisit = new Encounter
+        {
+            PatientId = patient.Id,
+            VisitNumber = "VIS-2026-001",
+            EncounterType = EncounterType.Inpatient,
+            Status = EncounterStatus.Active,
+            AdmitUtc = now.AddDays(-2),
+            CurrentLocation = "4W Med/Surg",
+            AdmissionLocation = "ED",
+            AttendingProviderId = smith?.Id,
+            AttendingProvider = smith?.Name ?? "Dr. Smith"
+        };
+        var priorVisit = new Encounter
+        {
+            PatientId = patient.Id,
+            VisitNumber = "VIS-2025-882",
+            EncounterType = EncounterType.Outpatient,
+            Status = EncounterStatus.Discharged,
+            AdmitUtc = now.AddMonths(-3),
+            DischargeUtc = now.AddMonths(-3).AddHours(6),
+            CurrentLocation = "Outpatient Clinic"
+        };
+        context.Encounters.AddRange(activeVisit, priorVisit);
+        await context.SaveChangesAsync(ct);
+
+        var specimen = new Specimen
+        {
+            AccessionNumber = "ACC0001",
+            PatientId = patient.Id,
+            EncounterId = activeVisit.Id,
+            SpecimenType = "EDTA",
+            Barcode = "SPC-ACC0001",
+            CollectedUtc = now.AddHours(-2),
+            ReceivedUtc = now.AddHours(-1),
+            ExpiresUtc = now.AddDays(3),
+            Status = SpecimenStatus.Accepted
+        };
+        context.Specimens.Add(specimen);
+        await context.SaveChangesAsync(ct);
+
+        var tsOrder = new Order
+        {
+            OrderNumber = "ORD0001",
+            PatientId = patient.Id,
+            EncounterId = activeVisit.Id,
+            OrderingLocationId = orLoc.Id,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Type and Screen",
+            OrderType = OrderType.TypeAndScreen,
+            TestCode = "TNS",
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.InProcess,
+            Source = OrderSource.Manual,
+            OrderingProviderId = smith?.Id,
+            OrderingProvider = smith?.Name,
+            OrderedUtc = now.AddHours(-2),
+            ResultStatus = ResultStatus.Pending
+        };
+        var xmOrder = new Order
+        {
+            OrderNumber = "ORD0002",
+            PatientId = patient.Id,
+            EncounterId = activeVisit.Id,
+            OrderingLocationId = orLoc.Id,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Crossmatch",
+            OrderType = OrderType.Crossmatch,
+            TestCode = "XM",
+            Priority = OrderPriority.Stat,
+            Status = OrderStatus.New,
+            Source = OrderSource.Manual,
+            OrderingProviderId = smith?.Id,
+            OrderingProvider = smith?.Name,
+            OrderedUtc = now.AddHours(-1)
+        };
+        var rbcOrder = new Order
+        {
+            OrderNumber = "ORD0003",
+            PatientId = patient.Id,
+            EncounterId = activeVisit.Id,
+            OrderingLocationId = edLoc.Id,
+            OrderCategory = OrderCategory.Product,
+            OrderName = "Red Blood Cells",
+            OrderType = OrderType.Other,
+            ProductTypeId = rbc.Id,
+            Priority = OrderPriority.Urgent,
+            Status = OrderStatus.New,
+            Source = OrderSource.Manual,
+            OrderingProviderId = lee?.Id,
+            OrderingProvider = lee?.Name,
+            OrderedUtc = now.AddMinutes(-45),
+            FulfillmentStatus = FulfillmentStatus.Ordered
+        };
+        var pltOrder = new Order
+        {
+            OrderNumber = "ORD0004",
+            PatientId = patient.Id,
+            EncounterId = priorVisit.Id,
+            OrderingLocationId = orLoc.Id,
+            OrderCategory = OrderCategory.Product,
+            OrderName = "Platelets",
+            OrderType = OrderType.Other,
+            ProductTypeId = plt.Id,
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.Completed,
+            Source = OrderSource.Manual,
+            OrderedUtc = now.AddMonths(-3),
+            FulfillmentStatus = FulfillmentStatus.Complete
+        };
+        context.Orders.AddRange(tsOrder, xmOrder, rbcOrder, pltOrder);
+        await context.SaveChangesAsync(ct);
+
+        context.OrderLines.AddRange(
+            new OrderLine { OrderId = tsOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Test, LineName = "ABO/Rh Type", TestCode = "ABORH", OrderType = OrderType.AboRh },
+            new OrderLine { OrderId = tsOrder.Id, LineNumber = 2, LineCategory = OrderCategory.Test, LineName = "Antibody Screen", TestCode = "ABSC", OrderType = OrderType.Other },
+            new OrderLine { OrderId = xmOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Test, LineName = "Crossmatch", TestCode = "XM", OrderType = OrderType.Crossmatch },
+            new OrderLine { OrderId = rbcOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Product, LineName = "Red Blood Cells", ProductTypeId = rbc.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Ordered },
+            new OrderLine { OrderId = pltOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Product, LineName = "Platelets", ProductTypeId = plt.Id, OrderType = OrderType.Other, FulfillmentStatus = FulfillmentStatus.Complete });
+
+        context.OrderSpecimens.AddRange(
+            new OrderSpecimen { OrderId = tsOrder.Id, SpecimenId = specimen.Id, IsPrimary = true },
+            new OrderSpecimen { OrderId = xmOrder.Id, SpecimenId = specimen.Id, IsPrimary = true });
+
+        context.TestResults.Add(new TestResult
+        {
+            SpecimenId = specimen.Id,
+            PatientId = patient.Id,
+            OrderId = tsOrder.Id,
+            TestCode = "ABORH",
+            Version = 1,
+            Value = "O POS",
+            Status = ResultStatus.Verified,
+            EnteredBy = "tech1",
+            EnteredUtc = now.AddMinutes(-30),
+            VerifiedBy = "tech2",
+            VerifiedUtc = now.AddMinutes(-20)
+        });
+
+        var unit1 = new BloodUnit
+        {
+            UnitNumber = "W0001230000001",
+            ProductTypeId = rbc.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = now.AddDays(30),
+            CurrentLocationId = fridge.Id,
+            Status = UnitStatus.Available,
+            CollectionFacility = "Regional Blood Center"
+        };
+        var unit2 = new BloodUnit
+        {
+            UnitNumber = "W0001230000002",
+            ProductTypeId = rbc.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Negative,
+            ExpiresUtc = now.AddDays(2),
+            CurrentLocationId = fridge.Id,
+            Status = UnitStatus.Quarantine,
+            QuarantineReason = "Awaiting infectious disease testing review"
+        };
+        var unitIssued = new BloodUnit
+        {
+            UnitNumber = "W0001230000099",
+            ProductTypeId = rbc.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = now.AddDays(25),
+            CurrentLocationId = fridge.Id,
+            Status = UnitStatus.Issued,
+            CollectionFacility = "Regional Blood Center"
+        };
+        context.BloodUnits.AddRange(unit1, unit2, unitIssued);
+        await context.SaveChangesAsync(ct);
+
+        context.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+
+        var allocation = new Allocation
+        {
+            BloodProductId = unit1.Id,
+            PatientId = patient.Id,
+            EncounterId = activeVisit.Id,
+            OrderId = rbcOrder.Id,
+            SpecimenId = specimen.Id,
+            Status = AllocationStatus.Reserved,
+            AllocatedUtc = now.AddMinutes(-30),
+            AllocatedBy = "tech1",
+            ExpiresUtc = now.AddHours(24)
+        };
+        context.Allocations.Add(allocation);
+
+        context.Crossmatches.Add(new Crossmatch
+        {
+            BloodProductId = unit1.Id,
+            PatientId = patient.Id,
+            SpecimenId = specimen.Id,
+            Method = CrossmatchMethod.Serologic,
+            Result = CrossmatchResult.Compatible,
+            PerformedUtc = now.AddMinutes(-25),
+            PerformedBy = "tech1",
+            ExpiresUtc = specimen.ExpiresUtc
+        });
+
+        var issue = new Issue
+        {
+            BloodProductId = unitIssued.Id,
+            PatientId = patient.Id,
+            EncounterId = activeVisit.Id,
+            OrderId = rbcOrder.Id,
+            IssuedUtc = now.AddMinutes(-20),
+            IssuedBy = "tech2",
+            IssuedTo = "Patricia Demo",
+            IssuedToLocation = "4W Med/Surg",
+            Status = IssueStatus.Issued
+        };
+        context.Issues.Add(issue);
+        await context.SaveChangesAsync(ct);
+
+        context.TransfusionEvents.Add(new TransfusionEvent
+        {
+            IssueId = issue.Id,
+            BloodProductId = unitIssued.Id,
+            PatientId = patient.Id,
+            StartUtc = now.AddMinutes(-15),
+            StopUtc = now.AddMinutes(-5),
+            VolumeTransfused = 250m,
+            Transfusionist = "RN Jones",
+            ReactionSuspected = false,
+            FinalDisposition = TransfusionDisposition.Completed,
+            DocumentedBy = "tech2"
+        });
+
+        await context.SaveChangesAsync(ct);
+    }
+}

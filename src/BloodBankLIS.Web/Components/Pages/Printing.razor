@@ -1,0 +1,157 @@
+@page "/printing"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Printing &middot; Blood Bank LIS</PageTitle>
+
+<h1>Label &amp; Tag Printing</h1>
+<p class="muted">Print specimen labels and compatibility tags. Reprints require a reason and are audited.</p>
+
+<div class="bb-grid cols-2">
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Print specimen label</h3></div>
+        <Outcome Value="_specFb" />
+        <div class="form-row">
+            <div class="field"><label>Specimen id</label><input type="number" @bind="_specimenId" /></div>
+            <div class="field"><label>Format</label>
+                <select @bind="_specFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@f</option> }</select>
+            </div>
+        </div>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="PrintSpecimenAsync">Print</button>
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Print compatibility tag</h3></div>
+        <Outcome Value="_tagFb" />
+        <div class="form-row">
+            <div class="field"><label>Issue id</label><input type="number" @bind="_issueId" /></div>
+            <div class="field"><label>Format</label>
+                <select @bind="_tagFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@f</option> }</select>
+            </div>
+        </div>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="PrintTagAsync">Print</button>
+    </div>
+</div>
+
+@if (_lastJob is not null && !string.IsNullOrEmpty(_lastJob.RenderedZpl))
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Rendered output &middot; job #@_lastJob.Id</h3>
+            <span class="@Ui.Badge(_lastJob.Status)">@_lastJob.Status</span>
+        </div>
+        <div class="pre">@_lastJob.RenderedZpl</div>
+    </div>
+}
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Print jobs</h3>
+        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadJobsAsync">Refresh</button>
+    </div>
+    @if (_loading)
+    {
+        <div class="loading">Loading jobs...</div>
+    }
+    else if (_jobs.Count == 0)
+    {
+        <div class="empty">No print jobs yet.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Id</th><th>Type</th><th>Template</th><th>Format</th><th>Context</th><th>Status</th><th>By</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var j in _jobs)
+                {
+                    <tr>
+                        <td>@j.Id</td>
+                        <td>@j.JobType @(j.IsReprint ? "(reprint)" : "")</td>
+                        <td class="mono">@j.TemplateCode</td>
+                        <td>@j.Format</td>
+                        <td class="muted">@j.ContextType @(j.ContextId is null ? "" : $"#{j.ContextId}")</td>
+                        <td><span class="@Ui.Badge(j.Status)">@j.Status</span></td>
+                        <td>@j.PrintedBy</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ViewJobAsync(j.Id)">View</button>
+                            @if (Session.Has(PermissionCodes.PrintReprint))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => BeginReprint(j.Id)">Reprint</button>
+                            }
+                        </td>
+                    </tr>
+                    @if (_reprintId == j.Id)
+                    {
+                        <tr><td colspan="8">
+                            <div class="flex gap">
+                                <input @bind="_reprintReason" placeholder="Reprint reason" style="flex:1;" />
+                                <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => ReprintAsync(j.Id)">Confirm reprint</button>
+                                <button class="btn btn-secondary btn-sm" @onclick="() => _reprintId = null">Cancel</button>
+                            </div>
+                        </td></tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private long _specimenId;
+    private LabelFormat _specFormat = LabelFormat.Preview;
+    private Feedback? _specFb;
+
+    private long _issueId;
+    private LabelFormat _tagFormat = LabelFormat.Preview;
+    private Feedback? _tagFb;
+
+    private List<PrintJobVm> _jobs = new();
+    private bool _loading = true;
+    private bool _busy;
+    private PrintJobVm? _lastJob;
+    private long? _reprintId;
+    private string _reprintReason = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadJobsAsync();
+
+    private async Task LoadJobsAsync()
+    {
+        _loading = true;
+        var r = await Api.GetPrintJobsAsync();
+        _loading = false;
+        if (r.Succeeded) _jobs = r.Value!;
+    }
+
+    private async Task PrintSpecimenAsync()
+    {
+        _busy = true;
+        var r = await Api.PrintSpecimenLabelAsync(_specimenId, new PrintRequestVm(_specFormat));
+        _busy = false;
+        _specFb = r.ToFeedback("Specimen label queued.");
+        if (r.Succeeded) { _lastJob = r.Value; await LoadJobsAsync(); }
+    }
+
+    private async Task PrintTagAsync()
+    {
+        _busy = true;
+        var r = await Api.PrintCompatibilityTagAsync(_issueId, new PrintRequestVm(_tagFormat));
+        _busy = false;
+        _tagFb = r.ToFeedback("Compatibility tag queued.");
+        if (r.Succeeded) { _lastJob = r.Value; await LoadJobsAsync(); }
+    }
+
+    private async Task ViewJobAsync(long id)
+    {
+        var r = await Api.GetPrintJobAsync(id);
+        if (r.Succeeded) _lastJob = r.Value;
+    }
+
+    private void BeginReprint(long id) { _reprintId = id; _reprintReason = string.Empty; }
+
+    private async Task ReprintAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReprintJobAsync(id, _reprintReason);
+        _busy = false;
+        if (r.Succeeded) { _reprintId = null; _lastJob = r.Value; await LoadJobsAsync(); }
+        else _specFb = r.ToFeedback();
+    }
+}

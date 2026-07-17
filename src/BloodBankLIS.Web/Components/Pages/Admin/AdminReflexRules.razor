@@ -1,0 +1,262 @@
+@page "/admin/reflex-rules"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Application.Reference
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Reflex Rules &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Reflex Rules</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New reflex rule</button>
+    }
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code, name, or test" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (Filtered.Count == 0)
+    {
+        <div class="empty">No reflex rules.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Trigger</th><th>Value</th><th>Reflex</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@r.Code</td>
+                        <td>@r.Name</td>
+                        <td class="mono">@r.TriggerTestCode</td>
+                        <td>@r.TriggerResultValue</td>
+                        <td class="mono">@r.ReflexTestCode</td>
+                        <td>@r.Version</td>
+                        <td>@StatusBadge(r)</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(r.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(r.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New reflex rule" : $"Edit: {_editing.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input @bind="_editing.Code" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
+        </div>
+        <div class="form-row">
+            <div class="field">
+                <label>Trigger test</label>
+                <select @bind="_editing.TriggerTestCode">
+                    <option value="">Select test...</option>
+                    @foreach (var test in _availableTests)
+                    {
+                        <option value="@test.Code">@test.Code — @test.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Trigger result value</label><input @bind="_editing.TriggerResultValue" placeholder="e.g. Positive" /></div>
+            <div class="field">
+                <label>Reflex test</label>
+                <select @bind="_editing.ReflexTestCode">
+                    <option value="">Select test...</option>
+                    @foreach (var test in _availableTests)
+                    {
+                        <option value="@test.Code">@test.Code — @test.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="field"><label>Change reason @(EditingActive ? "(required)" : "(optional)")</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && CanActivate)
+            {
+                @if (!_currentIsActive)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ActivateAsync">Activate</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DeactivateAsync">Deactivate</button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_history is not null)
+{
+    <ConfigHistoryPanel Title="@($"History: {_historyTitle}")" Rows="_history" OnClose="() => _history = null" />
+}
+
+@code {
+    private List<ReflexRuleDto> _items = new();
+    private List<TestDefinitionListItemDto> _availableTests = new();
+    private bool _loading = true;
+    private bool _includeInactive = true;
+    private string _filter = string.Empty;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private bool _currentIsActive;
+    private string? _changeReason;
+
+    private List<ConfigHistoryDto>? _history;
+    private string _historyTitle = string.Empty;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminTestsManage);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private bool EditingActive => _currentIsActive;
+
+    private List<ReflexRuleDto> Filtered => string.IsNullOrWhiteSpace(_filter)
+        ? _items
+        : _items.Where(r => r.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || r.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || r.TriggerTestCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || r.ReflexTestCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || r.TriggerResultValue.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tests = await Api.GetTestDefinitionsListAsync();
+        _availableTests = tests.Value ?? new();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminReflexRulesAsync(_includeInactive);
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _currentIsActive = false;
+        _changeReason = null;
+        _editing = new EditModel();
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminReflexRuleAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = r.Value.Id;
+        _currentIsActive = r.Value.IsActive;
+        _changeReason = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null
+            ? await Api.CreateAdminReflexRuleAsync(req)
+            : await Api.UpdateAdminReflexRuleAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Draft created." : "Saved.");
+        if (r.Succeeded)
+        {
+            _editId = r.Value!.Id;
+            _currentIsActive = r.Value.IsActive;
+            await LoadAsync();
+        }
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ActivateAdminReflexRuleAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Activated.");
+        if (r.Succeeded) { _currentIsActive = true; await LoadAsync(); }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAdminReflexRuleAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Deactivated.");
+        if (r.Succeeded) { _currentIsActive = false; await LoadAsync(); }
+    }
+
+    private async Task ShowHistoryAsync(long id)
+    {
+        var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.ReflexRule), id);
+        _history = r.Value ?? new();
+        _historyTitle = _items.FirstOrDefault(x => x.Id == id)?.Code ?? id.ToString();
+    }
+
+    private static RenderFragment StatusBadge(ReflexRuleDto r) => builder =>
+    {
+        var (cls, text) = r.IsActive ? ("badge-green", "Active") : r.IsDraft ? ("badge-gray", "Draft") : ("badge-amber", "Inactive");
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", $"badge {cls}");
+        builder.AddContent(2, text);
+        builder.CloseElement();
+    };
+
+    private sealed class EditModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string TriggerTestCode { get; set; } = string.Empty;
+        public string TriggerResultValue { get; set; } = string.Empty;
+        public string ReflexTestCode { get; set; } = string.Empty;
+
+        public static EditModel From(ReflexRuleDto r) => new()
+        {
+            Code = r.Code,
+            Name = r.Name,
+            TriggerTestCode = r.TriggerTestCode,
+            TriggerResultValue = r.TriggerResultValue,
+            ReflexTestCode = r.ReflexTestCode
+        };
+
+        public SaveReflexRuleRequest ToRequest(string? reason) => new(
+            Code,
+            Name,
+            TriggerTestCode,
+            TriggerResultValue,
+            ReflexTestCode,
+            reason);
+    }
+}

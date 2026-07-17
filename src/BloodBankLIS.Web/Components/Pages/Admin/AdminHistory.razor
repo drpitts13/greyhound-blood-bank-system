@@ -1,0 +1,51 @@
+@page "/admin/history"
+@inject BloodBankApiClient Api
+
+<PageTitle>Configuration History &middot; Admin</PageTitle>
+
+<h1>Configuration History</h1>
+<p class="muted">Every configuration change, with environment and dev-mode context. Compare any version's before/after snapshot.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;flex-wrap:wrap;">
+        <select @bind="_entityType" @bind:after="LoadAsync">
+            <option value="">All types</option>
+            <option value="TestDefinition">Test definitions</option>
+            <option value="ProductType">Products</option>
+            <option value="InterfaceEndpoint">HL7 endpoints</option>
+            <option value="User">Users</option>
+            <option value="Role">Roles</option>
+        </select>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="loading">Loading...</div>
+}
+else
+{
+    <ConfigHistoryPanel Title="Recent changes" Rows="_rows" OnClose="NoOp" />
+}
+
+@code {
+    private List<ConfigHistoryDto> _rows = new();
+    private bool _loading = true;
+    private string _entityType = string.Empty;
+    private Feedback? _feedback;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetConfigHistoryAsync(string.IsNullOrWhiteSpace(_entityType) ? null : _entityType, max: 200);
+        _rows = r.Value ?? new();
+        _feedback = r.Succeeded ? null : r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NoOp() { }
+}

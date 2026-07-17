@@ -1,0 +1,275 @@
+@page "/admin/test-groupers"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Application.Reference
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Test Groupers &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Test Groupers</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New grouper</button>
+    }
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code or name" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (Filtered.Count == 0)
+    {
+        <div class="empty">No test groupers.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Members</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var g in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@g.Code</td>
+                        <td>@g.Name</td>
+                        <td>@string.Join(", ", g.Members.Select(m => m.TestCode))</td>
+                        <td>@g.Version</td>
+                        <td>@StatusBadge(g)</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(g.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(g.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New test grouper" : $"Edit: {_editing.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input @bind="_editing.Code" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
+        </div>
+
+        <div class="field" style="margin-top:.6rem;">
+            <label><strong>Member tests</strong></label>
+            <div class="flex gap" style="flex-wrap:wrap;margin-top:.4rem;">
+                @foreach (var test in _availableTests)
+                {
+                    var member = _editing.Members.FirstOrDefault(m => string.Equals(m.TestCode, test.Code, StringComparison.OrdinalIgnoreCase));
+                    <span class="badge @(member is not null ? "badge-green" : "badge-gray")" style="cursor:pointer;" @onclick="() => ToggleMember(test.Code)">
+                        @test.Code
+                        @if (member is not null)
+                        {
+                            <span class="mono muted" style="margin-left:.3rem;">#@member.SortOrder</span>
+                        }
+                    </span>
+                }
+            </div>
+        </div>
+
+        <div class="field"><label>Change reason @(EditingActive ? "(required)" : "(optional)")</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && CanActivate)
+            {
+                @if (!_currentIsActive)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ActivateAsync">Activate</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DeactivateAsync">Deactivate</button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_history is not null)
+{
+    <ConfigHistoryPanel Title="@($"History: {_historyTitle}")" Rows="_history" OnClose="() => _history = null" />
+}
+
+@code {
+    private List<TestGrouperDto> _items = new();
+    private List<TestDefinitionListItemDto> _availableTests = new();
+    private bool _loading = true;
+    private bool _includeInactive = true;
+    private string _filter = string.Empty;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private bool _currentIsActive;
+    private string? _changeReason;
+
+    private List<ConfigHistoryDto>? _history;
+    private string _historyTitle = string.Empty;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminTestsManage);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private bool EditingActive => _currentIsActive;
+
+    private List<TestGrouperDto> Filtered => string.IsNullOrWhiteSpace(_filter)
+        ? _items
+        : _items.Where(g => g.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || g.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tests = await Api.GetTestDefinitionsListAsync();
+        _availableTests = tests.Value ?? new();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminTestGroupersAsync(_includeInactive);
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _currentIsActive = false;
+        _changeReason = null;
+        _editing = new EditModel();
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminTestGrouperAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = r.Value.Id;
+        _currentIsActive = r.Value.IsActive;
+        _changeReason = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null
+            ? await Api.CreateAdminTestGrouperAsync(req)
+            : await Api.UpdateAdminTestGrouperAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Draft created." : "Saved.");
+        if (r.Succeeded)
+        {
+            _editId = r.Value!.Id;
+            _currentIsActive = r.Value.IsActive;
+            await LoadAsync();
+        }
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ActivateAdminTestGrouperAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Activated.");
+        if (r.Succeeded) { _currentIsActive = true; await LoadAsync(); }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAdminTestGrouperAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Deactivated.");
+        if (r.Succeeded) { _currentIsActive = false; await LoadAsync(); }
+    }
+
+    private async Task ShowHistoryAsync(long id)
+    {
+        var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.TestGrouper), id);
+        _history = r.Value ?? new();
+        _historyTitle = _items.FirstOrDefault(g => g.Id == id)?.Code ?? id.ToString();
+    }
+
+    private void ToggleMember(string testCode)
+    {
+        if (_editing is null) return;
+        var existing = _editing.Members.FirstOrDefault(m => string.Equals(m.TestCode, testCode, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            _editing.Members.Remove(existing);
+            ReorderMembers();
+            return;
+        }
+
+        _editing.Members.Add(new MemberRow { TestCode = testCode, SortOrder = _editing.Members.Count + 1 });
+    }
+
+    private void ReorderMembers()
+    {
+        if (_editing is null) return;
+        var order = 1;
+        foreach (var m in _editing.Members.OrderBy(m => m.SortOrder).ThenBy(m => m.TestCode))
+        {
+            m.SortOrder = order++;
+        }
+    }
+
+    private static RenderFragment StatusBadge(TestGrouperDto g) => builder =>
+    {
+        var (cls, text) = g.IsActive ? ("badge-green", "Active") : g.IsDraft ? ("badge-gray", "Draft") : ("badge-amber", "Inactive");
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", $"badge {cls}");
+        builder.AddContent(2, text);
+        builder.CloseElement();
+    };
+
+    private sealed class MemberRow
+    {
+        public string TestCode { get; set; } = string.Empty;
+        public int SortOrder { get; set; }
+    }
+
+    private sealed class EditModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public List<MemberRow> Members { get; set; } = new();
+
+        public static EditModel From(TestGrouperDto g) => new()
+        {
+            Code = g.Code,
+            Name = g.Name,
+            Members = g.Members.Select(m => new MemberRow { TestCode = m.TestCode, SortOrder = m.SortOrder }).ToList()
+        };
+
+        public SaveTestGrouperRequest ToRequest(string? reason) => new(
+            Code,
+            Name,
+            Members.OrderBy(m => m.SortOrder).Select(m => new TestGrouperMemberDto(m.TestCode, m.SortOrder)).ToList(),
+            reason);
+    }
+}

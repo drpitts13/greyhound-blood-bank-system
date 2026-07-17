@@ -1,0 +1,67 @@
+﻿@inject UserSession Session
+
+<nav class="bb-nav">
+    <NavLink href="" Match="NavLinkMatch.All" ActiveClass="active">Dashboard</NavLink>
+
+    <div class="group-label">Patient &amp; Lab</div>
+    <NavLink href="patients" ActiveClass="active">Patients</NavLink>
+    @if (Session.Has(PermissionCodes.ResultEnter))
+    {
+        <NavLink href="test-worklist" ActiveClass="active">Test Worklist</NavLink>
+    }
+    <NavLink href="inventory" ActiveClass="active">Inventory</NavLink>
+
+    <div class="group-label">Transfusion</div>
+    <NavLink href="compatibility" ActiveClass="active">Compatibility</NavLink>
+    <NavLink href="issuing" ActiveClass="active">Issue &amp; Transfuse</NavLink>
+
+    <div class="group-label">Operations</div>
+    @if (Session.Has(PermissionCodes.PrintLabel))
+    {
+        <NavLink href="printing" ActiveClass="active">Printing</NavLink>
+    }
+    @if (Session.Has(PermissionCodes.BillingReview))
+    {
+        <NavLink href="billing" ActiveClass="active">Billing</NavLink>
+    }
+    @if (Session.Has(PermissionCodes.Hl7Manage))
+    {
+        <NavLink href="hl7" ActiveClass="active">HL7 Interface</NavLink>
+    }
+    @if (Session.Has(PermissionCodes.AuditRead))
+    {
+        <NavLink href="audit" ActiveClass="active">Audit Trail</NavLink>
+    }
+
+    @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminUsersManage, PermissionCodes.AdminRolesManage))
+    {
+        <div class="group-label">Administration</div>
+        <NavLink href="admin" Match="NavLinkMatch.All" ActiveClass="active">Admin Home</NavLink>
+        @if (Session.Has(PermissionCodes.AdminConfigView))
+        {
+            <NavLink href="admin/tests" ActiveClass="active">Tests</NavLink>
+            <NavLink href="admin/subtests" ActiveClass="active">Subtests</NavLink>
+            <NavLink href="admin/test-groupers" ActiveClass="active">Test Groupers</NavLink>
+            <NavLink href="admin/reflex-rules" ActiveClass="active">Reflex Rules</NavLink>
+            <NavLink href="admin/products" ActiveClass="active">Products</NavLink>
+            <NavLink href="admin/blood-attributes" ActiveClass="active">Blood Attributes</NavLink>
+            <NavLink href="admin/specimen-types" ActiveClass="active">Specimen Types</NavLink>
+            <NavLink href="admin/providers" ActiveClass="active">Providers</NavLink>
+            <NavLink href="admin/exceptions" ActiveClass="active">Exceptions</NavLink>
+            <NavLink href="admin/locations" ActiveClass="active">Locations</NavLink>
+            <NavLink href="admin/hl7" ActiveClass="active">HL7 Endpoints</NavLink>
+        }
+        @if (Session.Has(PermissionCodes.AdminUsersManage))
+        {
+            <NavLink href="admin/users" ActiveClass="active">Users</NavLink>
+        }
+        @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage))
+        {
+            <NavLink href="admin/roles" ActiveClass="active">Roles</NavLink>
+        }
+        @if (Session.Has(PermissionCodes.AdminAuditReview))
+        {
+            <NavLink href="admin/history" ActiveClass="active">Config History</NavLink>
+        }
+    }
+</nav>
