@@ -22,12 +22,14 @@ public static class DatabaseSeeder
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
+        await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
         await SeedProductAttributesAsync(context, cancellationToken);
         await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
         await SeedSpecimenTypeDefinitionsAsync(context, cancellationToken);
         await SeedSubtestDefinitionsAsync(context, cancellationToken);
         await SeedTestDefinitionsAsync(context, cancellationToken);
         await EnsureAgtypeTestAsync(context, cancellationToken);
+        await EnsureCrossmatchTestsAsync(context, cancellationToken);
         await MigrateExistingTestPanelConfigAsync(context, cancellationToken);
         await SeedTestGroupersAsync(context, cancellationToken);
         await SeedReflexRulesAsync(context, cancellationToken);
@@ -227,21 +229,126 @@ public static class DatabaseSeeder
 
     private static async Task SeedExceptionDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
     {
-        if (await context.ExceptionDefinitions.AnyAsync(e => e.RuleCode == AboRhDeltaRule.DeltaCode, ct))
+        var changed = false;
+
+        changed |= await EnsureExceptionDefinitionAsync(
+            context,
+            AboRhDeltaRule.DeltaCode,
+            "ABO/Rh historical discrepancy",
+            "Verified ABO/Rh disagrees with the patient's current historical type. Requires authorized override and Retain or Replace resolution.",
+            minSecurityLevel: 2,
+            isOverridable: true,
+            ct);
+
+        changed |= await EnsureExceptionDefinitionAsync(
+            context,
+            AntibodyHistoryCrossmatchRule.RuleCode,
+            "Simple crossmatch with positive antibody screen or history",
+            "Simple crossmatch selected for a patient with a current or historical positive antibody screen, or antibody history. Requires authorized override and a comment; complex crossmatch is preferred.",
+            minSecurityLevel: 2,
+            isOverridable: true,
+            ct,
+            updateDescriptionIfExists: true);
+
+        changed |= await EnsureExceptionDefinitionAsync(
+            context,
+            AboCompatibilityRule.AboCode,
+            "ABO antigen/antibody incompatibility",
+            "Donor and recipient ABO types have an antigen/antibody conflict for the product component class. Not overridable.",
+            minSecurityLevel: 0,
+            isOverridable: false,
+            ct);
+
+        changed |= await EnsureExceptionDefinitionAsync(
+            context,
+            AboCompatibilityRule.RhCode,
+            "Rh(D) incompatibility",
+            "Rh-positive red cells or whole blood cannot be given to an Rh-negative recipient. Not overridable.",
+            minSecurityLevel: 0,
+            isOverridable: false,
+            ct);
+
+        changed |= await EnsureExceptionDefinitionAsync(
+            context,
+            AboCompatibilityRule.UnknownTypeCode,
+            "ABO/Rh unknown",
+            "Patient or unit ABO/Rh is unknown; compatibility cannot be established. Not overridable.",
+            minSecurityLevel: 0,
+            isOverridable: false,
+            ct);
+
+        changed |= await EnsureExceptionDefinitionAsync(
+            context,
+            BloodAttributeCompatibilityRule.AntigenNegCode,
+            "Antigen-negative requirement not met",
+            "Patient has a clinically significant antibody (current or historical); RBC or whole blood unit must be typed antigen-negative. Requires authorized override by supervisor or higher.",
+            minSecurityLevel: 2,
+            isOverridable: true,
+            ct,
+            updateDescriptionIfExists: true,
+            syncPolicyIfExists: true);
+
+        changed |= await EnsureExceptionDefinitionAsync(
+            context,
+            CrossmatchValidityRule.Code,
+            "Compatible crossmatch required",
+            "RBC or whole blood (or other crossmatch-required product) requires a compatible, unexpired crossmatch unless emergency release. Not overridable via exception catalog.",
+            minSecurityLevel: 0,
+            isOverridable: false,
+            ct);
+
+        if (changed)
         {
-            return;
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    private static async Task<bool> EnsureExceptionDefinitionAsync(
+        BloodBankDbContext context,
+        string ruleCode,
+        string name,
+        string description,
+        int minSecurityLevel,
+        bool isOverridable,
+        CancellationToken ct,
+        bool updateDescriptionIfExists = false,
+        bool syncPolicyIfExists = false)
+    {
+        var existing = await context.ExceptionDefinitions.FirstOrDefaultAsync(e => e.RuleCode == ruleCode, ct);
+        if (existing is null)
+        {
+            context.ExceptionDefinitions.Add(new ExceptionDefinition
+            {
+                RuleCode = ruleCode,
+                Name = name,
+                Description = description,
+                MinSecurityLevel = minSecurityLevel,
+                IsOverridable = isOverridable,
+                IsActive = true
+            });
+            return true;
         }
 
-        context.ExceptionDefinitions.Add(new ExceptionDefinition
+        var changed = false;
+        if (updateDescriptionIfExists
+            && (!string.Equals(existing.Description, description, StringComparison.Ordinal)
+                || !string.Equals(existing.Name, name, StringComparison.Ordinal)))
         {
-            RuleCode = AboRhDeltaRule.DeltaCode,
-            Name = "ABO/Rh historical discrepancy",
-            Description = "Verified ABO/Rh disagrees with the patient's current historical type. Requires authorized override and Retain or Replace resolution.",
-            MinSecurityLevel = 2,
-            IsOverridable = true,
-            IsActive = true
-        });
-        await context.SaveChangesAsync(ct);
+            existing.Name = name;
+            existing.Description = description;
+            changed = true;
+        }
+
+        if (syncPolicyIfExists
+            && (existing.IsOverridable != isOverridable || existing.MinSecurityLevel != minSecurityLevel || !existing.IsActive))
+        {
+            existing.IsOverridable = isOverridable;
+            existing.MinSecurityLevel = minSecurityLevel;
+            existing.IsActive = true;
+            changed = true;
+        }
+
+        return changed;
     }
 
     private static void AddUser(BloodBankDbContext context, string userName, string displayName, Role role, bool isServiceAccount = false)
@@ -270,10 +377,34 @@ public static class DatabaseSeeder
             new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "ABORH", ChargeCodeId = aboRh.Id },
             new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "ABSC", ChargeCodeId = screen.Id },
             new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "XM", ChargeCodeId = xm.Id },
+            new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "CXM", ChargeCodeId = xm.Id },
             // Product-specific rule plus a catch-all for any other issued unit.
             new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = "RBC-LR", ChargeCodeId = rbcIssue.Id },
             new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = null, ChargeCodeId = unitIssue.Id });
 
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureCxmChargeRuleAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.ChargeRules.AnyAsync(
+                r => r.TriggerType == BillingTriggerType.TestVerified && r.TriggerKey == "CXM", ct))
+        {
+            return;
+        }
+
+        var xmCharge = await context.ChargeCodes.FirstOrDefaultAsync(c => c.Code == "BB-XM", ct);
+        if (xmCharge is null)
+        {
+            return;
+        }
+
+        context.ChargeRules.Add(new ChargeRule
+        {
+            TriggerType = BillingTriggerType.TestVerified,
+            TriggerKey = "CXM",
+            ChargeCodeId = xmCharge.Id
+        });
         await context.SaveChangesAsync(ct);
     }
 
@@ -285,11 +416,53 @@ public static class DatabaseSeeder
         }
 
         context.ProductTypes.AddRange(
-            new ProductType { ProductCode = "RBC-LR", Name = "Red Blood Cells, Leukoreduced", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true, DefaultShelfLifeHours = 42 * 24 },
+            new ProductType { ProductCode = "RBC-LR", Name = "Red Blood Cells, Leukoreduced", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true, RequiresAboMatch = true, RequiresRhMatch = true, DefaultShelfLifeHours = 42 * 24 },
+            new ProductType { ProductCode = "WB", Name = "Whole Blood", ComponentClass = ComponentClass.WholeBlood, RequiresCrossmatch = true, RequiresAboMatch = true, RequiresRhMatch = true, DefaultShelfLifeHours = 35 * 24 },
             new ProductType { ProductCode = "FFP", Name = "Fresh Frozen Plasma", ComponentClass = ComponentClass.Plasma, RequiresCrossmatch = false, DefaultShelfLifeHours = 365 * 24 },
             new ProductType { ProductCode = "PLT-A", Name = "Apheresis Platelets", ComponentClass = ComponentClass.Platelets, RequiresCrossmatch = false, DefaultShelfLifeHours = 5 * 24 });
 
         await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// RBC and whole blood always require crossmatch; ensure catalog flags and WB product exist.
+    /// </summary>
+    private static async Task EnsureCellularProductCrossmatchFlagsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var changed = false;
+
+        if (!await context.ProductTypes.AnyAsync(p => p.ProductCode == "WB", ct))
+        {
+            context.ProductTypes.Add(new ProductType
+            {
+                ProductCode = "WB",
+                Name = "Whole Blood",
+                ComponentClass = ComponentClass.WholeBlood,
+                RequiresCrossmatch = true,
+                RequiresAboMatch = true,
+                RequiresRhMatch = true,
+                DefaultShelfLifeHours = 35 * 24
+            });
+            changed = true;
+        }
+
+        var cellular = await context.ProductTypes.Where(p =>
+            p.ComponentClass == ComponentClass.RedBloodCells
+            || p.ComponentClass == ComponentClass.WholeBlood).ToListAsync(ct);
+
+        foreach (var product in cellular)
+        {
+            if (!product.RequiresCrossmatch)
+            {
+                product.RequiresCrossmatch = true;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
     }
 
     private static async Task SeedProductAttributesAsync(BloodBankDbContext context, CancellationToken ct)
@@ -402,9 +575,57 @@ public static class DatabaseSeeder
             Sub(AboRhPanelSubtestCodes.ACells, "A cells"),
             Sub(AboRhPanelSubtestCodes.BCells, "B cells"),
             Sub(AboRhPanelSubtestCodes.Control, "Control"),
-            Sub(AboRhPanelSubtestCodes.WeakD, "Weak-D"));
+            Sub(AboRhPanelSubtestCodes.WeakD, "Weak-D"),
+            Sub("IS", "Immediate spin"),
+            Sub("37C", "37°C"),
+            Sub("AHG", "AHG"),
+            Sub("CC", "Check cells", required: false),
+            Sub("PEG", "PEG", required: false),
+            Sub("ENZ", "Enzyme", required: false));
 
         await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureCrossmatchSubtestsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var choicesJson = SubtestChoiceDefinitions.ToJson(SubtestChoiceDefinitions.DefaultGradedReaction());
+        var needed = new (string Code, string Name)[]
+        {
+            ("IS", "Immediate spin"),
+            ("37C", "37°C"),
+            ("AHG", "AHG"),
+            ("CC", "Check cells"),
+            ("PEG", "PEG"),
+            ("ENZ", "Enzyme")
+        };
+
+        var changed = false;
+        foreach (var (code, name) in needed)
+        {
+            if (await context.SubtestDefinitions.AnyAsync(s => s.Code == code, ct))
+            {
+                continue;
+            }
+
+            context.SubtestDefinitions.Add(new SubtestDefinition
+            {
+                Code = code,
+                Name = name,
+                ResultType = SubtestResultType.GradedReaction,
+                ChoicesJson = choicesJson,
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = now,
+                Version = 1
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
     }
 
     /// <summary>
@@ -447,14 +668,100 @@ public static class DatabaseSeeder
             .ToList());
         aboRh.InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(InterpretationLogicDefinitions.DefaultAboRhLogic());
 
+        var xm = Def("XM", "Crossmatch", TestCategory.Crossmatch, ResultValueType.Crossmatch, compatibility: true, allowed: "Compatible\nIncompatible", billable: true, charge: "BB-XM");
+        xm.PanelSubtestsJson = DefaultCrossmatchPanelJson();
+
+        var cxm = Def("CXM", "Complex Crossmatch", TestCategory.Crossmatch, ResultValueType.ComplexCrossmatch, compatibility: true, allowed: "Compatible\nIncompatible", billable: true, charge: "BB-XM");
+        cxm.PanelSubtestsJson = DefaultComplexCrossmatchPanelJson();
+
         context.TestDefinitions.AddRange(
             aboRh,
             Def("ABSC", "Antibody Screen", TestCategory.AntibodyScreen, ResultValueType.Coded, antibody: true, compatibility: true, allowed: "Negative\nPositive", billable: true, charge: "BB-SCREEN"),
             Def("ABID", "Antibody Identification", TestCategory.AntibodyIdentification, ResultValueType.FreeText, antibody: true, compatibility: true),
-            Def("XM", "Crossmatch", TestCategory.Crossmatch, ResultValueType.Coded, compatibility: true, allowed: "Compatible\nIncompatible", billable: true, charge: "BB-XM"),
+            xm,
+            cxm,
             Def("DAT", "Direct Antiglobulin Test", TestCategory.DirectAntiglobulinTest, ResultValueType.Coded, allowed: "Negative\nPositive"));
 
         await context.SaveChangesAsync(ct);
+    }
+
+    private static string DefaultCrossmatchPanelJson() =>
+        PanelSubtestAssignments.ToJson([
+            new PanelSubtestAssignment("IS", true, 1),
+            new PanelSubtestAssignment("37C", true, 2),
+            new PanelSubtestAssignment("AHG", true, 3),
+            new PanelSubtestAssignment("CC", false, 4)
+        ])!;
+
+    private static string DefaultComplexCrossmatchPanelJson() =>
+        PanelSubtestAssignments.ToJson([
+            new PanelSubtestAssignment("IS", true, 1),
+            new PanelSubtestAssignment("37C", true, 2),
+            new PanelSubtestAssignment("AHG", true, 3),
+            new PanelSubtestAssignment("PEG", false, 4),
+            new PanelSubtestAssignment("ENZ", false, 5),
+            new PanelSubtestAssignment("CC", false, 6)
+        ])!;
+
+    /// <summary>
+    /// Migrates legacy coded XM to Crossmatch result type with cell panel, and ensures CXM exists.
+    /// </summary>
+    private static async Task EnsureCrossmatchTestsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await EnsureCrossmatchSubtestsAsync(context, ct);
+        await EnsureCxmChargeRuleAsync(context, ct);
+
+        var now = DateTime.UtcNow;
+        var changed = false;
+
+        var xm = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == "XM", ct);
+        if (xm is not null)
+        {
+            if (xm.ResultValueType != ResultValueType.Crossmatch)
+            {
+                xm.ResultValueType = ResultValueType.Crossmatch;
+                changed = true;
+            }
+
+            if (string.IsNullOrWhiteSpace(xm.AllowedResultValues))
+            {
+                xm.AllowedResultValues = "Compatible\nIncompatible";
+                changed = true;
+            }
+
+            if (PanelSubtestAssignments.Parse(xm.PanelSubtestsJson).Count == 0)
+            {
+                xm.PanelSubtestsJson = DefaultCrossmatchPanelJson();
+                changed = true;
+            }
+        }
+
+        if (!await context.TestDefinitions.AnyAsync(t => t.Code == "CXM", ct))
+        {
+            context.TestDefinitions.Add(new TestDefinition
+            {
+                Code = "CXM",
+                Name = "Complex Crossmatch",
+                Category = TestCategory.Crossmatch,
+                ResultValueType = ResultValueType.ComplexCrossmatch,
+                AllowedResultValues = "Compatible\nIncompatible",
+                PanelSubtestsJson = DefaultComplexCrossmatchPanelJson(),
+                VerificationRequired = true,
+                ContributesToCompatibility = true,
+                Billable = true,
+                ChargeCodeMapping = "BB-XM",
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = now,
+                Version = 1
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
     }
 
     private static async Task EnsureAgtypeTestAsync(BloodBankDbContext context, CancellationToken ct)

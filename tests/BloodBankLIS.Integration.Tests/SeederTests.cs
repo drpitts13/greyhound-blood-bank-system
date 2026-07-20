@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,12 +26,21 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
 
         await using (var verify = _factory.Create())
         {
-            Assert.Equal(3, await verify.ProductTypes.CountAsync());
+            Assert.Equal(4, await verify.ProductTypes.CountAsync());
+            Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "WB" && p.RequiresCrossmatch));
             Assert.Equal(3, await verify.InventoryLocations.CountAsync());
             Assert.Equal(1, await verify.Patients.CountAsync());
             Assert.Equal(3, await verify.BloodUnits.CountAsync());
             Assert.Equal(2, await verify.Encounters.CountAsync());
             Assert.Equal(4, await verify.Orders.CountAsync());
+
+            Assert.True(await verify.ExceptionDefinitions.AnyAsync(e => e.RuleCode == AboCompatibilityRule.AboCode && !e.IsOverridable));
+            Assert.True(await verify.ExceptionDefinitions.AnyAsync(e =>
+                e.RuleCode == BloodAttributeCompatibilityRule.AntigenNegCode
+                && e.IsOverridable
+                && e.MinSecurityLevel == 2));
+            Assert.True(await verify.ExceptionDefinitions.AnyAsync(e => e.RuleCode == CrossmatchValidityRule.Code && !e.IsOverridable));
+            Assert.True(await verify.ExceptionDefinitions.AnyAsync(e => e.RuleCode == AntibodyHistoryCrossmatchRule.RuleCode && e.IsOverridable));
 
             // Seeding clinical/reference rows also produced audit events.
             Assert.True(await verify.AuditEvents.AnyAsync());

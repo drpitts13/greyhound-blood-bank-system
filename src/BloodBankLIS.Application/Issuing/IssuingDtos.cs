@@ -20,7 +20,9 @@ public sealed record IssueUnitRequest(
     bool SpecialRequirementsMet = true,
     bool UnresolvedAboRhDiscrepancy = false,
     string? OverrideReason = null,
-    string? AuthorizedBy = null);
+    string? AuthorizedBy = null,
+    DateTime? IssuedUtc = null,
+    string? Comment = null);
 
 public sealed record ReturnUnitRequest(string Reason, bool ReissueEligible);
 
@@ -41,13 +43,14 @@ public sealed record IssueDto(
     string? IssuedToLocation,
     DateTime IssuedUtc,
     string IssuedBy,
+    string? Comment,
     IssueType IssueType,
     long? OverrideId,
     IssueStatus Status)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
-        i.IssuedUtc, i.IssuedBy, i.IssueType, i.OverrideId, i.Status);
+        i.IssuedUtc, i.IssuedBy, i.Comment, i.IssueType, i.OverrideId, i.Status);
 }
 
 public sealed record ReturnDto(

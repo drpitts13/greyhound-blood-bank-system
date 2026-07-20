@@ -58,6 +58,14 @@ public static class Ui
         _ => "badge badge-gray"
     };
 
+    public static string Badge(ProductAllocationDisplayStatus status) => status switch
+    {
+        ProductAllocationDisplayStatus.ReadyForIssue => "badge badge-green",
+        ProductAllocationDisplayStatus.Exception => "badge badge-red",
+        ProductAllocationDisplayStatus.Reserved => "badge badge-amber",
+        _ => "badge"
+    };
+
     public static string Badge(AllocationStatus status) => status switch
     {
         AllocationStatus.Reserved => "badge badge-blue",

@@ -30,12 +30,16 @@ public class ReflexRulesTests : IClassFixture<SqliteContextFactory>
     private CompatibilityService Compatibility(BloodBankDbContext c) =>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
             new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
-            new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<AntibodyHistory>(c),
+            new EfRepository<PatientBloodTypeHistory>(c),
             new BloodAttributeCompatLoader(
                 new EfRepository<AntibodyHistory>(c),
                 new EfRepository<AntigenProfile>(c),
                 new EfRepository<UnitBloodAttribute>(c),
                 new EfRepository<BloodAttributeDefinition>(c)),
+            new AntibodyScreenCompatLoader(
+                new EfRepository<TestResult>(c),
+                new EfRepository<TestDefinition>(c),
+                new EfRepository<AntibodyHistory>(c)),
             c, _factory.Clock, _factory.CurrentUser);
 
     private OrderService Orders(BloodBankDbContext c) =>

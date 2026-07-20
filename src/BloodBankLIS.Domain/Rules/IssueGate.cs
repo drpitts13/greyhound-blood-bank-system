@@ -120,7 +120,10 @@ public static class IssueGate
                 ? RuleResult.Pass(AllocationCode)
                 : RuleResult.HardStop(AllocationCode, "Unit is not allocated/reserved to this patient."),
 
-            CrossmatchValidityRule.Evaluate(c.RequiresCrossmatch, c.HasValidCrossmatch, c.IsEmergencyRelease),
+            CrossmatchValidityRule.Evaluate(
+                RequiresCrossmatchEffective(c),
+                c.HasValidCrossmatch,
+                c.IsEmergencyRelease),
 
             c.SpecialRequirementsMet
                 ? RuleResult.Pass(SpecialReqCode)
@@ -129,8 +132,8 @@ public static class IssueGate
             EvaluateDiscrepancy(c)
         };
 
-        // ABO/Rh compatibility only contributes meaningfully when both types are known;
-        // the unknown cases are already hard-stopped above.
+        // Ordered checks: (1) ABORH Ag/Ab, (2) non-ABORH antigen-neg for RBC/WB.
+        // Complex XM (3) is enforced at allocation/order time; compatible XM (4) above.
         if (c.PatientBloodTypeKnown && c.UnitAboRh.IsKnown)
         {
             results.AddRange(AboCompatibilityRule.Evaluate(c.PatientAboRh, c.UnitAboRh, c.ComponentClass));
@@ -146,6 +149,11 @@ public static class IssueGate
         return new RuleEvaluation(results);
     }
 
+    /// <summary>RBC and whole blood always require a compatible crossmatch result.</summary>
+    internal static bool RequiresCrossmatchEffective(IssueGateContext c) =>
+        c.RequiresCrossmatch
+        || c.ComponentClass is ComponentClass.RedBloodCells or ComponentClass.WholeBlood;
+
     private static RuleResult EvaluateDiscrepancy(IssueGateContext c)
     {
         if (!c.UnresolvedAboRhDiscrepancy)
@@ -155,7 +163,7 @@ public static class IssueGate
 
         // An unresolved ABO/Rh discrepancy is a HardStop on a crossmatch-required
         // product; otherwise an overridable Warning (see docs/safety-rules.md 1 & 6).
-        return c.RequiresCrossmatch
+        return RequiresCrossmatchEffective(c)
             ? RuleResult.HardStop(AboRhDiscrepancyCode, "Unresolved ABO/Rh discrepancy on a crossmatch-required product.")
             : RuleResult.Warning(AboRhDiscrepancyCode, "Current ABO/Rh determination disagrees with the historical record.");
     }

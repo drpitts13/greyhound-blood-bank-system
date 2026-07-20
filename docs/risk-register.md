@@ -11,7 +11,7 @@ Scoring: Severity (Sev) and Likelihood (Lik) on Low / Medium / High / Critical.
 | RK-03 | Expired blood unit issued | High | Medium | `ISS-UNIT-EXPIRED` HardStop; expired blocks allocate/issue | safety-rules 1, 4 | D: transitions |
 | RK-04 | Unit issued without crossmatch when required | Critical | Medium | `ISS-XM-REQUIRED` HardStop unless audited emergency release | safety-rules 1; workflows 6 | A: issue gate; emergency path |
 | RK-05 | Special requirement missed (e.g. non-irradiated to at-risk patient) | High | Medium | `ISS-SPECIAL-REQ` HardStop from active requirements | safety-rules 1 | D,A: special-req tests |
-| RK-06 | Antigen-positive unit to patient with antibody | Critical | Medium | `ISS-ANTIGEN-NEG` + `ISS-ANTIBODY-HX` HardStop | safety-rules 1 | D: antigen-neg tests |
+| RK-06 | Antigen-positive unit to patient with antibody | Critical | Medium | `ISS-ANTIGEN-NEG` Warning (supervisor+ override) | safety-rules 1 | D: antigen-neg tests |
 | RK-07 | Wrong patient (identity mismatch) | Critical | Medium | `ISS-IDENTITY` HardStop; specimen-patient binding | safety-rules 1 | A: identity tests |
 | RK-08 | Verified result silently altered | High | Low | Verified results immutable; correction creates new version + e-sign | safety-rules 6, 7 | A,I: versioning tests |
 | RK-09 | ABO/Rh history overwritten silently | Critical | Low | Append-only history; manual edit needs reason + e-sign | safety-rules 5, 7 | A: history tests |

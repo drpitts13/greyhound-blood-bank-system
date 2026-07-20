@@ -77,12 +77,15 @@ if (app.Environment.IsDevelopment())
                 return;
             }
 
+            // Surface the deepest message — EF wraps SQLite/SQL errors as DbUpdateException
+            // with the actionable detail on InnerException.
+            var detail = ex?.InnerException?.Message ?? ex?.Message;
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "application/problem+json";
             await context.Response.WriteAsJsonAsync(new
             {
                 title = "An unexpected error occurred.",
-                detail = ex?.Message,
+                detail,
                 status = 500
             });
         });

@@ -466,7 +466,8 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         var attrs = await _bloodAttrRepo.ListAsync(d => d.IsActive && !d.IsDraft, ct);
 
-        return attrs.Select(d => d.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Case-sensitive: Rh C and c are distinct catalog codes.
+        return attrs.Select(d => d.Code).ToHashSet(StringComparer.Ordinal);
 
     }
 

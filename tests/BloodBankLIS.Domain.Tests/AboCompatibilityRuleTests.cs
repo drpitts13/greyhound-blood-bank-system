@@ -79,4 +79,38 @@ public class AboCompatibilityRuleTests
         var results = AboCompatibilityRule.Evaluate(Rh(AboGroup.Unknown), Rh(AboGroup.O), ComponentClass.RedBloodCells);
         Assert.Contains(results, r => r.Code == AboCompatibilityRule.UnknownTypeCode && r.Severity == RuleSeverity.HardStop);
     }
+
+    [Fact]
+    public void WholeBlood_Bidirectional_ARecipientCannotReceiveODonor()
+    {
+        // Cellular OK (O has no Ags), but O plasma has anti-A against patient A antigen.
+        var results = AboCompatibilityRule.Evaluate(Rh(AboGroup.A), Rh(AboGroup.O), ComponentClass.WholeBlood);
+        Assert.Equal(RuleSeverity.HardStop, Abo(results).Severity);
+    }
+
+    [Fact]
+    public void WholeBlood_SameGroup_Passes()
+    {
+        var results = AboCompatibilityRule.Evaluate(Rh(AboGroup.A), Rh(AboGroup.A), ComponentClass.WholeBlood);
+        Assert.Equal(RuleSeverity.Pass, Abo(results).Severity);
+    }
+
+    [Fact]
+    public void DeriveAboProfile_TypeA_HasAntigenAAndAntiB()
+    {
+        var profile = AboCompatibilityRule.DeriveAboProfile(AboGroup.A);
+        Assert.Equal(new[] { "A" }, profile.Antigens);
+        Assert.Equal(new[] { "B" }, profile.Antibodies);
+    }
+
+    [Fact]
+    public void Platelets_UsePlasmaDirection_Abo()
+    {
+        // Inverse: O recipient can receive AB plasma/platelets.
+        var ok = AboCompatibilityRule.Evaluate(Rh(AboGroup.O), Rh(AboGroup.AB), ComponentClass.Platelets);
+        Assert.Equal(RuleSeverity.Pass, Abo(ok).Severity);
+
+        var bad = AboCompatibilityRule.Evaluate(Rh(AboGroup.AB), Rh(AboGroup.O), ComponentClass.Platelets);
+        Assert.Equal(RuleSeverity.HardStop, Abo(bad).Severity);
+    }
 }

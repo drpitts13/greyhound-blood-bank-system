@@ -22,6 +22,15 @@ public static class DevelopmentSqliteBootstrap
         "OrderSpecimens"
     ];
 
+    /// <summary>
+    /// Nullable columns added after EnsureCreated. Applied with ALTER TABLE when missing
+    /// so local demo data is preserved when possible. SQL is fixed (not user input).
+    /// </summary>
+    private static readonly (string Table, string Column, string AlterSql)[] AdditiveColumns =
+    [
+        ("Issues", "Comment", """ALTER TABLE "Issues" ADD COLUMN "Comment" TEXT NULL""")
+    ];
+
     public static async Task InitializeAsync(
         BloodBankDbContext context,
         ILogger logger,
@@ -37,10 +46,41 @@ public static class DevelopmentSqliteBootstrap
         }
 
         var created = await context.Database.EnsureCreatedAsync(cancellationToken);
+        if (!created && !recreate)
+        {
+            await ApplyAdditiveColumnsAsync(context, logger, cancellationToken);
+        }
+
         logger.LogInformation(
             recreate || created
                 ? "SQLite development database created from EF model."
                 : "SQLite development database is up to date.");
+    }
+
+    private static async Task ApplyAdditiveColumnsAsync(
+        BloodBankDbContext context,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        foreach (var (table, column, alterSql) in AdditiveColumns)
+        {
+            if (!await TableExistsAsync(context, table, ct))
+            {
+                continue;
+            }
+
+            if (await ColumnExistsAsync(context, table, column, ct))
+            {
+                continue;
+            }
+
+            logger.LogWarning(
+                "SQLite development database is missing {Table}.{Column}. Adding column via ALTER TABLE.",
+                table,
+                column);
+
+            await context.Database.ExecuteSqlRawAsync(alterSql, ct);
+        }
     }
 
     private static async Task<bool> NeedsRecreateAsync(BloodBankDbContext context, CancellationToken ct)
@@ -86,6 +126,37 @@ public static class DevelopmentSqliteBootstrap
 
             var result = await command.ExecuteScalarAsync(ct);
             return Convert.ToInt64(result) > 0;
+        }
+        finally
+        {
+            await context.Database.CloseConnectionAsync();
+        }
+    }
+
+    private static async Task<bool> ColumnExistsAsync(
+        BloodBankDbContext context,
+        string tableName,
+        string columnName,
+        CancellationToken ct)
+    {
+        await context.Database.OpenConnectionAsync(ct);
+        try
+        {
+            await using var command = context.Database.GetDbConnection().CreateCommand();
+            // PRAGMA table_info does not accept bound parameters for the table name.
+            command.CommandText = $"PRAGMA table_info(\"{tableName}\")";
+
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                var name = reader.GetString(1);
+                if (string.Equals(name, columnName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
         finally
         {

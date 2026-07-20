@@ -8,9 +8,9 @@ namespace BloodBankLIS.Application.Compatibility;
 
 /// <summary>
 /// Crossmatch recording and unit allocation (reservation). Electronic crossmatch is
-/// gated by <see cref="ElectronicCrossmatchEligibilityRule"/>; allocation runs the
-/// ABO/Rh compatibility matrix and the inventory transition guard before reserving
-/// a unit to a patient (see docs/workflows.md section 4).
+/// gated by <see cref="ElectronicCrossmatchEligibilityRule"/>; allocation runs ABO/Rh
+/// antigen/antibody compatibility, non-ABORH antigen-negative checks, and the inventory
+/// transition guard before reserving a unit to a patient (see docs/workflows.md section 4).
 /// </summary>
 public sealed class CompatibilityService
 {
@@ -24,8 +24,8 @@ public sealed class CompatibilityService
     private readonly IRepository<Specimen> _specimens;
     private readonly IRepository<ProductType> _productTypes;
     private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
-    private readonly IRepository<AntibodyHistory> _antibodies;
     private readonly BloodAttributeCompatLoader _bloodAttributeCompat;
+    private readonly AntibodyScreenCompatLoader _antibodyScreenCompat;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
@@ -38,8 +38,8 @@ public sealed class CompatibilityService
         IRepository<Specimen> specimens,
         IRepository<ProductType> productTypes,
         IRepository<PatientBloodTypeHistory> bloodTypes,
-        IRepository<AntibodyHistory> antibodies,
         BloodAttributeCompatLoader bloodAttributeCompat,
+        AntibodyScreenCompatLoader antibodyScreenCompat,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser)
@@ -51,8 +51,8 @@ public sealed class CompatibilityService
         _specimens = specimens;
         _productTypes = productTypes;
         _bloodTypes = bloodTypes;
-        _antibodies = antibodies;
         _bloodAttributeCompat = bloodAttributeCompat;
+        _antibodyScreenCompat = antibodyScreenCompat;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
@@ -84,8 +84,9 @@ public sealed class CompatibilityService
         if (request.Method == CrossmatchMethod.Electronic)
         {
             var currentAboRhConfirmed = await _bloodTypes.AnyAsync(h => h.PatientId == request.PatientId && h.IsCurrent, ct);
-            var hasAntibodyHistory = await _antibodies.AnyAsync(a => a.PatientId == request.PatientId, ct);
-            var eligibility = ElectronicCrossmatchEligibilityRule.Evaluate(currentAboRhConfirmed, request.AntibodyScreenNegative, hasAntibodyHistory);
+            var requiresComplexXm = await _antibodyScreenCompat.RequiresComplexCrossmatchAsync(request.PatientId, ct);
+            var screenNegative = request.AntibodyScreenNegative && !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(request.PatientId, ct);
+            var eligibility = ElectronicCrossmatchEligibilityRule.Evaluate(currentAboRhConfirmed, screenNegative, requiresComplexXm);
             if (eligibility.Severity == RuleSeverity.HardStop)
             {
                 return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation(new[] { eligibility }));
@@ -198,6 +199,13 @@ public sealed class CompatibilityService
 
         var evaluation = new RuleEvaluation(results);
         if (evaluation.IsHardStopped)
+        {
+            return EvaluationResult<Allocation>.Blocked(evaluation);
+        }
+
+        // Antigen-negative mismatches are Warnings (supervisor-overridable); block unless authorized.
+        if (evaluation.Warnings.Any(w => w.Code == BloodAttributeCompatibilityRule.AntigenNegCode)
+            && !request.AntigenNegOverrideAuthorized)
         {
             return EvaluationResult<Allocation>.Blocked(evaluation);
         }

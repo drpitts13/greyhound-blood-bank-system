@@ -23,18 +23,27 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new EfRepository<UnitBloodAttribute>(c),
             new EfRepository<BloodAttributeDefinition>(c));
 
+    private AntibodyScreenCompatLoader AntibodyScreenCompat(BloodBankDbContext c) =>
+        new(
+            new EfRepository<TestResult>(c),
+            new EfRepository<TestDefinition>(c),
+            new EfRepository<AntibodyHistory>(c));
+
     private CompatibilityService Compatibility(BloodBankDbContext c) =>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
             new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
-            new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<AntibodyHistory>(c),
-            BloodAttrCompat(c), c, _factory.Clock, _factory.CurrentUser);
+            new EfRepository<PatientBloodTypeHistory>(c),
+            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser);
 
     private IssuingService Issuing(BloodBankDbContext c) =>
         new(new InventoryRepository(c), new EfRepository<Issue>(c), new EfRepository<Allocation>(c),
             new EfRepository<Crossmatch>(c), new EfRepository<Return>(c), new EfRepository<TransfusionEvent>(c),
             new EfRepository<Override>(c), new EfRepository<Patient>(c), new EfRepository<Specimen>(c),
             new EfRepository<ProductType>(c), new EfRepository<PatientBloodTypeHistory>(c),
-            BloodAttrCompat(c), c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            new EfRepository<ExceptionDefinition>(c),
+            BloodAttrCompat(c),
+            new FixedPermissionEvaluator(3),
+            c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
 
     private sealed record Scenario(long PatientId, long SpecimenId, long UnitId, long ProductTypeId);
 

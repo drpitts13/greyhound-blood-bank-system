@@ -30,6 +30,9 @@ public class Issue : BaseEntity
 
     public string IssuedBy { get; set; } = "system";
 
+    /// <summary>Optional free-text comments captured at issue time.</summary>
+    public string? Comment { get; set; }
+
     public IssueType IssueType { get; set; } = IssueType.Standard;
 
     public long? OverrideId { get; set; }

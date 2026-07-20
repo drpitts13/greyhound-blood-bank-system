@@ -3,16 +3,21 @@ using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.PatientWorkspace;
 
-internal static class OrderLineBuilder
+public static class OrderLineBuilder
 {
     public static OrderType MapTestOrderType(string? code) => code?.ToUpperInvariant() switch
     {
         "TNS" or "TS" => OrderType.TypeAndScreen,
-        "XM" => OrderType.Crossmatch,
+        "XM" or "CXM" => OrderType.Crossmatch,
         "ABORH" => OrderType.AboRh,
         "ABID" => OrderType.AntibodyIdentification,
         _ => OrderType.Other
     };
+
+    public static bool IsCrossmatchTestCode(string? code) =>
+        code is not null
+        && (string.Equals(code, "XM", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(code, "CXM", StringComparison.OrdinalIgnoreCase));
 
     public static void ApplyHeaderFromLines(Order order, IReadOnlyList<OrderLine> activeLines)
     {
@@ -41,7 +46,7 @@ internal static class OrderLineBuilder
     {
         var hasXm = lines.Any(l =>
             l.LineCategory == OrderCategory.Test
-            && string.Equals(l.TestCode, "XM", StringComparison.OrdinalIgnoreCase));
+            && IsCrossmatchTestCode(l.TestCode));
 
         if (hasXm)
         {

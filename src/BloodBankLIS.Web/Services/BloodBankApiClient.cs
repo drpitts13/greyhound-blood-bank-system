@@ -79,6 +79,21 @@ public sealed class BloodBankApiClient
         return SendAsync<List<PatientProductHistoryRowDto>>(HttpMethod.Get, $"api/patients/{patientId}/product-history{qs}", ct: ct);
     }
 
+    public Task<ApiResult<List<PatientAllocationRowDto>>> GetPatientAllocationsAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<PatientAllocationRowDto>>(HttpMethod.Get, $"api/patients/{patientId}/allocations", ct: ct);
+
+    public Task<ApiResult<List<CompatibleUnitDto>>> GetPatientCompatibleUnitsAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<CompatibleUnitDto>>(HttpMethod.Get, $"api/patients/{patientId}/compatible-units", ct: ct);
+
+    public Task<ApiResult<List<CrossmatchTestOptionDto>>> GetPatientCrossmatchTestsAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<CrossmatchTestOptionDto>>(HttpMethod.Get, $"api/patients/{patientId}/crossmatch-tests", ct: ct);
+
+    public Task<ApiResult<AllocatePatientUnitResultDto>> AllocatePatientUnitAsync(
+        long patientId,
+        AllocatePatientUnitRequest req,
+        CancellationToken ct = default) =>
+        SendAsync<AllocatePatientUnitResultDto>(HttpMethod.Post, $"api/patients/{patientId}/allocations", req, ct);
+
     public Task<ApiResult<EncounterDto>> CreatePatientEncounterAsync(long patientId, CreateEncounterRequest req, CancellationToken ct = default) =>
         SendAsync<EncounterDto>(HttpMethod.Post, $"api/patients/{patientId}/encounters", req, ct);
 

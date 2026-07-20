@@ -89,7 +89,7 @@ public class IssueGateTests
     }
 
     [Fact]
-    public void BloodAttributeMismatch_RequiresOverride()
+    public void BloodAttributeMismatch_OnRbc_RequiresOverride()
     {
         var context = PassingContext() with
         {
@@ -99,7 +99,21 @@ public class IssueGateTests
         var evaluation = IssueGate.Evaluate(context);
         Assert.False(evaluation.IsHardStopped);
         Assert.True(evaluation.RequiresOverride);
-        Assert.Contains(evaluation.Warnings, r => r.Code == "COMPAT-ATTR-K");
+        Assert.Contains(evaluation.Warnings, r => r.Code == BloodAttributeCompatibilityRule.AntigenNegCode);
+    }
+
+    [Fact]
+    public void RbcWithoutRequiresCrossmatchFlag_StillRequiresCompatibleXm()
+    {
+        var context = PassingContext() with
+        {
+            RequiresCrossmatch = false,
+            HasValidCrossmatch = false,
+            ComponentClass = ComponentClass.RedBloodCells
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == CrossmatchValidityRule.Code);
     }
 
     [Fact]
@@ -109,6 +123,8 @@ public class IssueGateTests
         {
             RequiresCrossmatch = false,
             HasValidCrossmatch = false,
+            ComponentClass = ComponentClass.Plasma,
+            UnitAboRh = new AboRh(AboGroup.A, RhType.Positive),
             UnitExpiresUtc = Now.AddHours(6)
         };
         var evaluation = IssueGate.Evaluate(context);

@@ -33,7 +33,8 @@ public sealed class BloodAttributeCompatLoader
         var defs = (await _definitions.ListAsync(d => d.IsActive, ct))
             .ToDictionary(d => d.Id);
 
-        var patientAntibodies = await _antibodies.ListAsync(a => a.PatientId == patientId && a.IsActive, ct);
+        // Current and historical antibodies both drive antigen-negative requirements.
+        var patientAntibodies = await _antibodies.ListAsync(a => a.PatientId == patientId, ct);
         var patientAntigens = await _antigenProfiles.ListAsync(p => p.PatientId == patientId, ct);
         var unitAttrs = await _unitAttributes.ListAsync(u => u.BloodProductId == unitId, ct);
 

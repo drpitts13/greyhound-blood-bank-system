@@ -94,7 +94,8 @@ flowchart TD
 
 - Use cases: `RecordCrossmatchCommand`, `AllocateUnitCommand`, `IssueUnitCommand`, `DocumentTransfusionCommand`.
 - The **issue gate** (`safety-rules.md` section 1) runs the full check set before any unit leaves inventory.
-- Electronic crossmatch path is allowed only when its preconditions are met (current ABO/Rh confirmed, negative antibody screen, no antibody history); otherwise serologic crossmatch is required (HardStop).
+- Electronic crossmatch path is allowed only when its preconditions are met (current ABO/Rh confirmed, negative antibody screen current/historical, no antibody history); otherwise serologic crossmatch is required (HardStop). Positive antibody screen (current or historical) or antibody history requires a complex crossmatch unless an authorized `ALLOC-XM-AB-HISTORY` override is recorded.
+- Compatibility evaluation order: (1) ABO/Rh antigen/antibody conflict, (2) non-ABORH antigen-negative for RBC/WB (`ISS-ANTIGEN-NEG` Warning, supervisor+ override), (3) complex XM when indicated, (4) compatible XM required for RBC/WB.
 
 ---
 
@@ -105,7 +106,7 @@ flowchart TD
     start([Issue request]) --> id[Verify patient identity vs specimen + unit tag]
     id --> spec[Specimen exists, correct patient, not expired]
     spec --> abo[Patient ABO/Rh known + unit ABO/Rh present]
-    abo --> comp[ABO/Rh compatibility matrix]
+    abo --> comp[ABO/Rh Ag/Ab compatibility]
     comp --> ptype[Product type matches order]
     ptype --> ustat[Unit status Available/Allocated, not expired/discarded]
     ustat --> alloc[Unit allocated to THIS patient]

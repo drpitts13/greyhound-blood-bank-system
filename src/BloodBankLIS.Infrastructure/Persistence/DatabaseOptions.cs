@@ -19,9 +19,8 @@ public static class DatabaseOptions
 
         if (string.Equals(provider, Sqlite, StringComparison.OrdinalIgnoreCase))
         {
-            if (!string.IsNullOrWhiteSpace(configured)
-                && !configured.Contains("localdb", StringComparison.OrdinalIgnoreCase)
-                && !configured.Contains("MSSQLLocalDB", StringComparison.OrdinalIgnoreCase))
+            // Use an explicit SQLite connection string when one is configured.
+            if (!string.IsNullOrWhiteSpace(configured) && LooksLikeSqliteConnectionString(configured))
             {
                 return configured;
             }
@@ -39,4 +38,10 @@ public static class DatabaseOptions
 
     public static string ResolveProvider(Microsoft.Extensions.Configuration.IConfiguration configuration, bool isDevelopment) =>
         configuration.GetValue(ProviderKey, isDevelopment ? Sqlite : SqlServer);
+
+    private static bool LooksLikeSqliteConnectionString(string connectionString) =>
+        connectionString.Contains("Data Source=", StringComparison.OrdinalIgnoreCase)
+        && !connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase)
+        && !connectionString.Contains("localdb", StringComparison.OrdinalIgnoreCase)
+        && !connectionString.Contains("MSSQLLocalDB", StringComparison.OrdinalIgnoreCase);
 }

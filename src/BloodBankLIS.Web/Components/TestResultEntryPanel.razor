@@ -50,10 +50,10 @@
                 </div>
             }
 
-            @if (_definition.ResultValueType is ResultValueType.AboRh or ResultValueType.Subtest && _panelSubtests.Count > 0)
+            @if (ShowsPanelSubtests && _panelSubtests.Count > 0)
             {
                 <table class="bb" style="margin-top:.5rem;">
-                    <thead><tr><th>Subtest</th><th>Result</th><th></th></tr></thead>
+                    <thead><tr><th>@(IsCrossmatchType ? "Cell reaction" : "Subtest")</th><th>Result</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var st in _panelSubtests)
                         {
@@ -169,7 +169,7 @@
                 </table>
             }
 
-            @if (string.Equals(WorkItem.TestCode, "XM", StringComparison.OrdinalIgnoreCase))
+            @if (IsCrossmatchType)
             {
                 <div class="form-row" style="margin-top:.5rem;">
                     <div class="field"><label>Unit number</label><input @bind="_unitNumber" placeholder="W0001230000001" /></div>
@@ -276,7 +276,8 @@
     private TestDefinitionForEntryDto? _definition;
     private List<ResolvedPanelSubtestDto> _panelSubtests = new();
     private Dictionary<string, string> _subtestValues = new(StringComparer.OrdinalIgnoreCase);
-    private Dictionary<string, AntigenResult> _bloodAttrResults = new(StringComparer.OrdinalIgnoreCase);
+    // Blood-attribute codes are case-sensitive (Rh C vs c, E vs e).
+    private Dictionary<string, AntigenResult> _bloodAttrResults = new(StringComparer.Ordinal);
     private Dictionary<string, bool> _optionalSubtestPerformed = new(StringComparer.OrdinalIgnoreCase);
     private AboGroup _abo = AboGroup.O;
     private RhType _rh = RhType.Positive;
@@ -348,7 +349,10 @@
                 }
             }
         }
-        else if (_definition?.ResultValueType == ResultValueType.Subtest && PanelResultValue.TryParse(WorkItem.CurrentResultValue, out var subtests))
+        else if ((_definition?.ResultValueType is ResultValueType.Subtest
+                      or ResultValueType.Crossmatch
+                      or ResultValueType.ComplexCrossmatch)
+                 && PanelResultValue.TryParse(WorkItem.CurrentResultValue, out var subtests))
         {
             foreach (var st in _panelSubtests)
             {
@@ -361,6 +365,12 @@
                     }
                 }
             }
+
+            PrefillCrossmatchResultFromStored();
+        }
+        else if (IsCrossmatchType && Enum.TryParse<CrossmatchResult>(WorkItem.CurrentResultValue, true, out var xmCoded))
+        {
+            _xmResult = xmCoded;
         }
         else if (_definition?.ResultValueType == ResultValueType.Coded)
         {
@@ -382,8 +392,11 @@
         var storedInterpretation = WorkItem.CurrentResultInterpretation ?? string.Empty;
         if (storedInterpretation.StartsWith("Unit: ", StringComparison.OrdinalIgnoreCase))
         {
-            _unitNumber = storedInterpretation["Unit: ".Length..].Trim();
+            var unitPart = storedInterpretation["Unit: ".Length..].Trim();
+            var semi = unitPart.IndexOf(';');
+            _unitNumber = (semi >= 0 ? unitPart[..semi] : unitPart).Trim();
             _interpretation = storedInterpretation;
+            PrefillCrossmatchResultFromStored();
         }
         else if (_definition?.ResultValueType == ResultValueType.Subtest
                  && _definition.InterpretationOptions.Count > 0)
@@ -403,8 +416,44 @@
         _definition?.ResultValueType == ResultValueType.Subtest
         && _definition.InterpretationOptions.Count > 0;
 
+    private bool IsCrossmatchType =>
+        _definition?.ResultValueType is ResultValueType.Crossmatch or ResultValueType.ComplexCrossmatch
+        || string.Equals(WorkItem.TestCode, "XM", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(WorkItem.TestCode, "CXM", StringComparison.OrdinalIgnoreCase);
+
+    private bool ShowsPanelSubtests =>
+        _definition?.ResultValueType is ResultValueType.AboRh
+            or ResultValueType.Subtest
+            or ResultValueType.Crossmatch
+            or ResultValueType.ComplexCrossmatch;
+
     private bool IsAntibodyScope =>
         _definition?.BloodAttributeScopeKind == BloodAttributeKind.Antibody;
+
+    private void PrefillCrossmatchResultFromStored()
+    {
+        if (!IsCrossmatchType)
+        {
+            return;
+        }
+
+        if (Enum.TryParse<CrossmatchResult>(WorkItem.CurrentResultValue, true, out var fromValue)
+            && fromValue is CrossmatchResult.Compatible or CrossmatchResult.Incompatible)
+        {
+            _xmResult = fromValue;
+            return;
+        }
+
+        var interp = WorkItem.CurrentResultInterpretation ?? string.Empty;
+        if (interp.Contains("Incompatible", StringComparison.OrdinalIgnoreCase))
+        {
+            _xmResult = CrossmatchResult.Incompatible;
+        }
+        else if (interp.Contains("Compatible", StringComparison.OrdinalIgnoreCase))
+        {
+            _xmResult = CrossmatchResult.Compatible;
+        }
+    }
 
     private IEnumerable<string> AllowedValues =>
         string.IsNullOrWhiteSpace(_definition?.AllowedResultValues)
@@ -484,8 +533,8 @@
             markComplete,
             string.IsNullOrWhiteSpace(_correctionReason) ? null : _correctionReason.Trim(),
             string.IsNullOrWhiteSpace(_unitNumber) ? null : _unitNumber.Trim(),
-            string.Equals(WorkItem.TestCode, "XM", StringComparison.OrdinalIgnoreCase) ? _xmMethod : null,
-            string.Equals(WorkItem.TestCode, "XM", StringComparison.OrdinalIgnoreCase) ? _xmResult : null,
+            IsCrossmatchType ? _xmMethod : null,
+            IsCrossmatchType ? _xmResult : null,
             _antibodyScreenNegative,
             includeOverride ? _overrideReason.Trim() : null,
             includeOverride ? (string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy.Trim()) : null,
@@ -530,7 +579,10 @@
 
     private Dictionary<string, string>? BuildSubtests()
     {
-        if (_definition?.ResultValueType is not (ResultValueType.AboRh or ResultValueType.Subtest))
+        if (_definition?.ResultValueType is not (ResultValueType.AboRh
+                or ResultValueType.Subtest
+                or ResultValueType.Crossmatch
+                or ResultValueType.ComplexCrossmatch))
         {
             return null;
         }
@@ -553,14 +605,14 @@
     {
         if (_definition?.BloodAttributeScope is null)
         {
-            _bloodAttrResults = new Dictionary<string, AntigenResult>(StringComparer.OrdinalIgnoreCase);
+            _bloodAttrResults = new Dictionary<string, AntigenResult>(StringComparer.Ordinal);
             return;
         }
 
         _bloodAttrResults = _definition.BloodAttributeScope.ToDictionary(
             a => a.Code,
             _ => AntigenResult.NotTested,
-            StringComparer.OrdinalIgnoreCase);
+            StringComparer.Ordinal);
     }
 
     private string BuildBloodAttributeValue()

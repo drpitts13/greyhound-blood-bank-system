@@ -1,9 +1,9 @@
-ï»¿@page "/"
+@page "/"
 @inject BloodBankApiClient Api
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>Dashboard &middot; Blood Bank LIS</PageTitle>
+<PageTitle>Dashboard &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <div class="flex-between" style="margin-bottom:1rem;">
     <h1>Transfusion Service Dashboard</h1>
@@ -13,19 +13,19 @@
 <div class="bb-grid cols-4">
     <div class="stat">
         <div class="label">Patients</div>
-        <div class="value">@(_patients?.ToString() ?? "â€”")</div>
+        <div class="value">@(_patients?.ToString() ?? "—")</div>
     </div>
     <div class="stat">
         <div class="label">Available units</div>
-        <div class="value">@(_available?.ToString() ?? "â€”")</div>
+        <div class="value">@(_available?.ToString() ?? "—")</div>
     </div>
     <div class="stat">
         <div class="label">In quarantine</div>
-        <div class="value">@(_quarantine?.ToString() ?? "â€”")</div>
+        <div class="value">@(_quarantine?.ToString() ?? "—")</div>
     </div>
     <div class="stat">
         <div class="label">Charges to review</div>
-        <div class="value">@(_pendingCharges?.ToString() ?? "â€”")</div>
+        <div class="value">@(_pendingCharges?.ToString() ?? "—")</div>
     </div>
 </div>
 

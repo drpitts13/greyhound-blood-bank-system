@@ -88,7 +88,7 @@
                     <div class="flex gap" style="flex-wrap:wrap;margin-top:.4rem;">
                         @foreach (var attr in _catalogBloodAttributes)
                         {
-                            var selected = _editing.BloodAttributeScopeCodes.Contains(attr.Code, StringComparer.OrdinalIgnoreCase);
+                            var selected = _editing.BloodAttributeScopeCodes.Contains(attr.Code, StringComparer.Ordinal);
                             <label class="flex" style="gap:.35rem;">
                                 <input type="checkbox" checked="@selected" @onchange="e => ToggleBloodAttrScope(attr.Code, (bool)(e.Value ?? false))" />
                                 @attr.Code —
@@ -100,9 +100,15 @@
             }
             @if (EditModel.UsesPanelSubtests(_editing.ResultValueType))
             {
+                @if (_editing.ResultValueType is ResultValueType.Crossmatch or ResultValueType.ComplexCrossmatch)
+                {
+                    <div class="field" style="grid-column:1/3;"><label>Overall result values (one per line)</label>
+                        <textarea rows="2" @bind="_editing.AllowedResultValues" placeholder="Compatible&#10;Incompatible"></textarea>
+                    </div>
+                }
                 <div class="field" style="grid-column:1/-1;">
                     <div class="flex-between" style="margin-bottom:.4rem;">
-                        <label style="margin:0;"><strong>Panel subtests</strong> (from subtest catalog)</label>
+                        <label style="margin:0;"><strong>@( _editing.ResultValueType is ResultValueType.Crossmatch or ResultValueType.ComplexCrossmatch ? "Cell reaction subtests" : "Panel subtests" )</strong> (from subtest catalog)</label>
                         <div class="flex gap">
                             <button type="button" class="btn btn-ghost btn-sm" @onclick="LoadDefaultAboRhSubtests">Load ABORH defaults</button>
                             <button type="button" class="btn btn-ghost btn-sm" @onclick="AddSubtest">Add subtest</button>
@@ -329,19 +335,22 @@
         {
             ResultValueType.Subtest => "Subtest",
             ResultValueType.BloodAttribute => "Blood attribute",
+            ResultValueType.Crossmatch => "Crossmatch",
+            ResultValueType.ComplexCrossmatch => "Complex crossmatch",
             _ => valueType.ToString()
         };
 
     private void ToggleBloodAttrScope(string code, bool selected)
     {
         if (_editing is null) return;
-        if (selected && !_editing.BloodAttributeScopeCodes.Contains(code, StringComparer.OrdinalIgnoreCase))
+        // Blood-attribute codes are case-sensitive (Rh C vs c).
+        if (selected && !_editing.BloodAttributeScopeCodes.Contains(code, StringComparer.Ordinal))
         {
             _editing.BloodAttributeScopeCodes.Add(code);
         }
         else if (!selected)
         {
-            _editing.BloodAttributeScopeCodes.RemoveAll(c => string.Equals(c, code, StringComparison.OrdinalIgnoreCase));
+            _editing.BloodAttributeScopeCodes.RemoveAll(c => string.Equals(c, code, StringComparison.Ordinal));
         }
     }
 
@@ -556,7 +565,10 @@
         public List<LogicRow> InterpretationLogic { get; set; } = new();
 
         public static bool UsesPanelSubtests(ResultValueType valueType) =>
-            valueType is ResultValueType.AboRh or ResultValueType.Subtest;
+            valueType is ResultValueType.AboRh
+                or ResultValueType.Subtest
+                or ResultValueType.Crossmatch
+                or ResultValueType.ComplexCrossmatch;
         public string? RequiredSpecimenType { get; set; }
         public string? TestingMethod { get; set; }
         public string? PerformingDepartment { get; set; }

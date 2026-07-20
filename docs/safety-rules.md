@@ -30,15 +30,15 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ISS-SPEC-EXPIRED` | Specimen is not past its expiration | HardStop |
 | `ISS-PT-ABORH` | Patient ABO/Rh is known (current `PatientBloodTypeHistory`) | HardStop |
 | `ISS-UNIT-ABORH` | Unit ABO/Rh is present | HardStop |
-| `ISS-ABO-COMPAT` | Unit ABO/Rh is compatible with patient per matrix (section 3) | HardStop |
+| `ISS-ABO-COMPAT` | Unit ABO is compatible with patient via antigen/antibody conflict check (section 3) | HardStop |
 | `ISS-PRODUCT-TYPE` | Unit product type matches what the order/clinical need requires | HardStop |
 | `ISS-UNIT-STATUS` | Unit status is Available/Allocated (not Quarantine/Discarded/Issued/Transfused/Expired) | HardStop |
 | `ISS-UNIT-EXPIRED` | Unit is not past expiration date/time | HardStop |
 | `ISS-ALLOCATION` | Unit is allocated/reserved to THIS patient | HardStop |
 | `ISS-XM-REQUIRED` | If product requires crossmatch, a compatible, unexpired crossmatch exists (unless emergency release) | HardStop |
 | `ISS-SPECIAL-REQ` | All active special requirements met (irradiated/CMV-neg/leukoreduced/washed) | HardStop |
-| `ISS-ANTIGEN-NEG` | Antigen-negative requirements satisfied for known antibodies | HardStop |
-| `ISS-ANTIBODY-HX` | Antibody history reviewed; antigen-negative units selected where indicated | HardStop |
+| `ISS-ANTIGEN-NEG` | For RBC/WB: unit typed antigen-negative for each clinically significant patient antibody (current or historical) | Warning (supervisor+ override via ExceptionDefinitions, MinSecurityLevel 2) |
+| `ALLOC-XM-AB-HISTORY` | Positive antibody screen (current/historical) or antibody history requires complex crossmatch (simple XM needs override) | Warning |
 | `ISS-ABORH-DISCREPANCY` | Current ABO/Rh determination agrees with historical record | Warning (HardStop if unresolved on a crossmatch-required product) |
 | `ISS-SPEC-NEAR-EXPIRY` | Specimen expires within configurable warning window | Warning |
 | `ISS-UNIT-NEAR-EXPIRY` | Unit expires within configurable warning window | Warning |
@@ -55,13 +55,17 @@ If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning w
 
 ---
 
-## 3. ABO/Rh compatibility matrix
+## 3. ABO/Rh compatibility (antigen/antibody)
 
-- Implemented as a data-driven truth table evaluated by component class (RBC vs plasma differ).
-- RBC (recipient can receive donor ABO): O->{O}; A->{A,O}; B->{B,O}; AB->{AB,A,B,O}.
-- Rh(D): Rh-negative recipients should receive Rh-negative RBC (Rh-positive to Rh-negative is HardStop outside emergency policy; configurable for males/specific scenarios as Warning per facility policy).
-- Plasma compatibility is the inverse direction and is encoded separately.
-- The matrix is exhaustively unit-tested across all recipient/donor combinations and both component directions.
+- ABO compatibility is evaluated by deriving antigens and naturally occurring isoagglutinins from each side’s ABO type, then detecting antigen/antibody conflicts. Example: type A expresses A antigen and is assumed to have anti-B.
+- Conflict rule: whenever either side has an antigen, the other side must not carry the corresponding antibody (and symmetrically).
+- Component direction:
+  - **RBC / granulocytes:** patient antibodies vs unit antigens.
+  - **Whole blood:** bidirectional (cellular + plasma), because the unit carries both red cells and plasma.
+  - **Plasma / cryoprecipitate / platelets:** unit antibodies vs patient antigens (inverse).
+- Equivalent clinical outcomes for RBC: O→{O}; A→{A,O}; B→{B,O}; AB→{AB,A,B,O}.
+- Rh(D): Rh-negative recipients must not receive Rh-positive RBC or whole blood (HardStop). Anti-D is not assumed from Rh-negative typing alone; immunized anti-D is handled by antigen-negative rules (`ISS-ANTIGEN-NEG`).
+- Exhaustively unit-tested across recipient/donor combinations and component directions.
 
 ---
 

@@ -59,10 +59,12 @@ public static class DependencyInjection
         services.AddScoped<EncounterService>();
         services.AddScoped<OrderService>();
         services.AddScoped<PatientProductHistoryService>();
+        services.AddScoped<PatientAllocationService>();
         services.AddScoped<ResultService>();
         services.AddScoped<TestWorklistService>();
         services.AddScoped<ImmunohematologyService>();
         services.AddScoped<BloodAttributeCompatLoader>();
+        services.AddScoped<AntibodyScreenCompatLoader>();
         services.AddScoped<CompatibilityService>();
         services.AddScoped<IssuingService>();
         services.AddScoped<BillingService>();

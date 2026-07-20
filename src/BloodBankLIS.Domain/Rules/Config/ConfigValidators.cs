@@ -137,7 +137,13 @@ public static class TestDefinitionValidator
     }
 
     public static bool UsesPanelSubtests(ResultValueType valueType) =>
-        valueType is ResultValueType.AboRh or ResultValueType.Subtest;
+        valueType is ResultValueType.AboRh
+            or ResultValueType.Subtest
+            or ResultValueType.Crossmatch
+            or ResultValueType.ComplexCrossmatch;
+
+    public static bool IsCrossmatchResultType(ResultValueType valueType) =>
+        valueType is ResultValueType.Crossmatch or ResultValueType.ComplexCrossmatch;
 }
 
 public static class BloodAttributeDefinitionValidator

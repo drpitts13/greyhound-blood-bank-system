@@ -1,6 +1,7 @@
 @page "/patients/{Id:long}"
 @using BloodBankLIS.Application.Admin
 @using BloodBankLIS.Application.Immunohematology
+@using BloodBankLIS.Application.Issuing
 @using BloodBankLIS.Application.PatientWorkspace
 @using BloodBankLIS.Application.Reference
 @using BloodBankLIS.Domain.ValueObjects
@@ -8,7 +9,7 @@
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>Patient &middot; Blood Bank LIS</PageTitle>
+<PageTitle>Patient &middot; Greyhound Blood Bank LIS</PageTitle>
 
 @if (_loading)
 {
@@ -48,6 +49,7 @@ else
         <button type="button" class="btn @TabClass("orders")" @onclick='() => SelectTab("orders")'>Orders</button>
         <button type="button" class="btn @TabClass("specimens")" @onclick='() => SelectTab("specimens")'>Specimens</button>
         <button type="button" class="btn @TabClass("tests")" @onclick='() => SelectTab("tests")'>Tests</button>
+        <button type="button" class="btn @TabClass("products")" @onclick='() => SelectTab("products")'>Products</button>
         <button type="button" class="btn @TabClass("history")" @onclick='() => SelectTab("history")'>Product History</button>
     </div>
 
@@ -745,6 +747,197 @@ else
         </div>
     }
 
+    @if (_tab == "products")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title flex-between">
+                <h3>Allocated products</h3>
+                @if (Session.Has(PermissionCodes.CompatibilityAllocate))
+                {
+                    <button type="button" class="btn btn-primary btn-sm" @onclick="ToggleAllocatePanel">@(_showAllocate ? "Cancel" : "Allocate unit")</button>
+                }
+            </div>
+            <Outcome Value="_allocFb" />
+            @if (_allocLoading) { <div class="loading">Loading allocations...</div> }
+            else if (_allocations.Count == 0) { <div class="empty">No active product allocations.</div> }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Unit number</th><th>Product code</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _allocations)
+                        {
+                            <tr>
+                                <td class="mono">@a.UnitNumber</td>
+                                <td class="mono">@a.ProductCode</td>
+                                <td><span class="@Ui.Badge(a.DisplayStatus)">@DisplayAllocationStatus(a.DisplayStatus)</span></td>
+                                <td>
+                                    <div class="flex gap" style="flex-wrap:wrap;">
+                                        @if (Session.Has(PermissionCodes.IssueCreate))
+                                        {
+                                            <button type="button" class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => BeginIssueAllocation(a)">Issue</button>
+                                        }
+                                        @if (Session.Has(PermissionCodes.CompatibilityAllocate))
+                                        {
+                                            <button type="button" class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => BeginReleaseAllocation(a)">Release</button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @if (_issuingAllocation is not null)
+            {
+                <div class="bb-card" style="margin-top:1rem;">
+                    <div class="bb-card-title"><h3>Issue unit <span class="mono">@_issuingAllocation.UnitNumber</span></h3></div>
+                    <Outcome Value="_issueFb" RequiresSignature="true" />
+                    <div class="form-row">
+                        <div class="field"><label>Date/time of issue</label>
+                            <input type="datetime-local" @bind="_issueLocalDateTime" />
+                        </div>
+                        <div class="field"><label>Location to issue</label>
+                            <input @bind="_issueLocation" placeholder="Ward / OR / location" />
+                        </div>
+                        <div class="field"><label>Person issued to</label>
+                            <input @bind="_issueIssuedTo" placeholder="Nurse / courier / recipient" />
+                        </div>
+                        <div class="field"><label>User id issuing</label>
+                            <input value="@(Session.UserName ?? "—")" disabled />
+                        </div>
+                        <div class="field" style="grid-column:1/-1;"><label>Comments (optional)</label>
+                            <textarea rows="2" @bind="_issueComment"></textarea>
+                        </div>
+                    </div>
+
+                    @if (_showIssueOverride)
+                    {
+                        <div class="bb-card" style="background:#fff8f0;margin-top:.75rem;border:1px solid #e8c48a;">
+                            <strong>Issue override required</strong>
+                            <p class="muted">The issue gate reported warnings. Provide a reason, authorizer, and electronic signature to proceed.</p>
+                            <div class="form-row">
+                                <div class="field"><label>Override reason</label><input @bind="_issueOverrideReason" /></div>
+                                <div class="field"><label>Authorized by</label><input @bind="_issueAuthorizedBy" placeholder="@Session.UserName" /></div>
+                                <div class="field"><label>Meaning of signature</label><input @bind="_issueSignatureMeaning" placeholder="I authorize issue override" /></div>
+                            </div>
+                            <div class="flex gap" style="margin-top:.5rem;">
+                                <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="IssueAllocationWithOverrideAsync">Sign &amp; issue</button>
+                                <button class="btn btn-ghost btn-sm" @onclick="CancelIssueAllocation">Cancel</button>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="flex gap" style="margin-top:.75rem;">
+                            <button class="btn btn-primary" disabled="@_busy" @onclick="IssueAllocationAsync">Confirm issue</button>
+                            <button class="btn btn-ghost" @onclick="CancelIssueAllocation">Cancel</button>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (_releasingAllocationId is not null)
+            {
+                <div class="bb-card" style="margin-top:1rem;background:#fff8f0;">
+                    <div class="field"><label>Release reason</label><input @bind="_releaseReason" placeholder="Reason for releasing allocation" /></div>
+                    <div class="flex gap" style="margin-top:.5rem;">
+                        <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="ReleaseAllocationAsync">Confirm release</button>
+                        <button class="btn btn-ghost btn-sm" @onclick="() => _releasingAllocationId = null">Cancel</button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (_showAllocate && Session.Has(PermissionCodes.CompatibilityAllocate))
+        {
+            <div class="bb-card" style="margin-top:1rem;">
+                <div class="bb-card-title"><h3>Allocate unit</h3></div>
+                <p class="muted">Select an ABO/Rh-compatible Available unit. Crossmatch-required products will order the selected XM/CXM test.</p>
+                <div class="form-row">
+                    <div class="field"><label>Visit</label>
+                        <select @bind="_allocEncounterId">
+                            <option value="0">— Active visit (auto) —</option>
+                            @foreach (var v in _encounters.Where(e => e.Status == EncounterStatus.Active))
+                            {
+                                <option value="@v.Id">@v.VisitNumber</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="field"><label>Specimen (optional)</label>
+                        <select @bind="_allocSpecimenId">
+                            <option value="0">— None —</option>
+                            @foreach (var s in LinkableSpecimens)
+                            {
+                                <option value="@s.Id">@s.AccessionNumber</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                @if (_compatUnitsLoading) { <div class="loading">Loading compatible units...</div> }
+                else if (!string.IsNullOrWhiteSpace(_compatUnitsError)) { <div class="alert alert-warning">@_compatUnitsError</div> }
+                else if (_compatibleUnits.Count == 0) { <div class="empty">No ABO/Rh-compatible Available units.</div> }
+                else
+                {
+                    <table class="bb" style="margin-top:.75rem;">
+                        <thead><tr><th></th><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Expires</th><th>XM?</th></tr></thead>
+                        <tbody>
+                            @foreach (var u in _compatibleUnits)
+                            {
+                                <tr class="@(_selectedUnitId == u.BloodUnitId ? "selected" : null)">
+                                    <td><input type="radio" name="alloc-unit" checked="@(_selectedUnitId == u.BloodUnitId)" @onchange="() => SelectAllocUnit(u)" /></td>
+                                    <td class="mono">@u.UnitNumber</td>
+                                    <td class="mono">@u.ProductCode</td>
+                                    <td>@u.BloodType</td>
+                                    <td class="nowrap">@u.ExpiresUtc.ToString("yyyy-MM-dd")</td>
+                                    <td>@(u.RequiresCrossmatch ? "Yes" : "No")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @if (_selectedUnit is not null && _selectedUnit.RequiresCrossmatch)
+                {
+                    <div class="form-row" style="margin-top:.75rem;">
+                        <div class="field"><label>Crossmatch test</label>
+                            <select @bind="_allocXmTestCode">
+                                @foreach (var t in _crossmatchTests)
+                                {
+                                    <option value="@t.Code">@t.Name (@t.Code) — @t.ResultValueType</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+                    @if (NeedsAbHistoryOverride)
+                    {
+                        <div class="bb-card" style="background:#fff8f0;margin-top:.75rem;border:1px solid #e8c48a;">
+                            <strong>Exception: antibody history</strong>
+                            <p class="muted">This patient has antibody history. Simple crossmatch requires an authorized override and comment. Prefer complex crossmatch.</p>
+                            @if (Session.SecurityLevel < _allocXmMinLevel)
+                            {
+                                <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum (@_allocXmMinLevel) required to override.</div>
+                            }
+                            else
+                            {
+                                <div class="form-row">
+                                    <div class="field"><label>Authorized by</label><input @bind="_allocAuthorizedBy" placeholder="@Session.UserName" /></div>
+                                    <div class="field" style="grid-column:1/-1;"><label>Override comment</label><input @bind="_allocOverrideReason" /></div>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+
+                <div class="flex gap" style="margin-top:1rem;">
+                    <button class="btn btn-primary" disabled="@(_busy || _selectedUnitId is null)" @onclick="AllocateUnitAsync">Reserve unit</button>
+                </div>
+            </div>
+        }
+    }
+
     @if (_tab == "history")
     {
         <div class="bb-card">
@@ -904,6 +1097,48 @@ else
     private string _testSearch = string.Empty;
     private long? _expandedTestLineId;
 
+    // products tab
+    private List<PatientAllocationRowDto> _allocations = new();
+    private bool _allocLoading;
+    private bool _allocLoaded;
+    private bool _showAllocate;
+    private Feedback? _allocFb;
+    private List<CompatibleUnitDto> _compatibleUnits = new();
+    private bool _compatUnitsLoading;
+    private string? _compatUnitsError;
+    private List<CrossmatchTestOptionDto> _crossmatchTests = new();
+    private long? _selectedUnitId;
+    private CompatibleUnitDto? _selectedUnit;
+    private string _allocXmTestCode = "CXM";
+    private long _allocEncounterId;
+    private long _allocSpecimenId;
+    private string _allocOverrideReason = string.Empty;
+    private string _allocAuthorizedBy = string.Empty;
+    private int _allocXmMinLevel = 2;
+    private long? _releasingAllocationId;
+    private string _releaseReason = string.Empty;
+
+    private PatientAllocationRowDto? _issuingAllocation;
+    private Feedback? _issueFb;
+    private DateTime _issueLocalDateTime = DateTime.Now;
+    private string _issueLocation = string.Empty;
+    private string _issueIssuedTo = string.Empty;
+    private string _issueComment = string.Empty;
+    private bool _showIssueOverride;
+    private string _issueOverrideReason = string.Empty;
+    private string _issueAuthorizedBy = string.Empty;
+    private string _issueSignatureMeaning = "I authorize issue override";
+
+    private bool NeedsAbHistoryOverride =>
+        _activeAntibodies.Count > 0
+        && _selectedUnit?.RequiresCrossmatch == true
+        && SelectedXmResultType == ResultValueType.Crossmatch;
+
+    private ResultValueType SelectedXmResultType =>
+        _crossmatchTests.FirstOrDefault(t => string.Equals(t.Code, _allocXmTestCode, StringComparison.OrdinalIgnoreCase))
+            ?.ResultValueType
+        ?? ResultValueType.Crossmatch;
+
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
     private async Task LoadAsync()
@@ -935,6 +1170,299 @@ else
         if (tab == "orders") { if (!_visitsLoaded) await LoadVisitsAsync(); if (!_ordersLoaded) await LoadOrdersAsync(); }
         if (tab == "history" && !_historyLoaded) await LoadProductHistoryAsync();
         if (tab == "tests" && !_testsLoaded) await LoadTestWorklistAsync();
+        if (tab == "products" && !_allocLoaded) await LoadAllocationsAsync();
+    }
+
+    private static string DisplayAllocationStatus(ProductAllocationDisplayStatus status) => status switch
+    {
+        ProductAllocationDisplayStatus.ReadyForIssue => "Ready for Issue",
+        ProductAllocationDisplayStatus.Exception => "Exception",
+        ProductAllocationDisplayStatus.Reserved => "Reserved",
+        _ => status.ToString()
+    };
+
+    private async Task LoadAllocationsAsync()
+    {
+        _allocLoading = true;
+        var r = await Api.GetPatientAllocationsAsync(Id);
+        _allocations = r.Value ?? new();
+        if (!r.Succeeded) _allocFb = r.ToFeedback();
+        _allocLoading = false;
+        _allocLoaded = true;
+    }
+
+    private async Task ToggleAllocatePanel()
+    {
+        _showAllocate = !_showAllocate;
+        _allocFb = null;
+        if (_showAllocate)
+        {
+            await EnsureWorkspaceRefsAsync();
+            if (!_visitsLoaded) await LoadVisitsAsync();
+            await LoadCompatibleUnitsAsync();
+            var tests = await Api.GetPatientCrossmatchTestsAsync(Id);
+            _crossmatchTests = tests.Value ?? new();
+            if (_activeAntibodies.Count > 0
+                && _crossmatchTests.Any(t => t.ResultValueType == ResultValueType.ComplexCrossmatch))
+            {
+                _allocXmTestCode = _crossmatchTests.First(t => t.ResultValueType == ResultValueType.ComplexCrossmatch).Code;
+            }
+            else if (_crossmatchTests.Count > 0
+                     && !_crossmatchTests.Any(t => string.Equals(t.Code, _allocXmTestCode, StringComparison.OrdinalIgnoreCase)))
+            {
+                _allocXmTestCode = _crossmatchTests[0].Code;
+            }
+
+            var exc = await Api.GetAdminExceptionByCodeAsync(AntibodyHistoryCrossmatchRule.RuleCode);
+            if (exc.Succeeded && exc.Value is not null) _allocXmMinLevel = exc.Value.MinSecurityLevel;
+        }
+    }
+
+    private async Task LoadCompatibleUnitsAsync()
+    {
+        _compatUnitsLoading = true;
+        _compatUnitsError = null;
+        var r = await Api.GetPatientCompatibleUnitsAsync(Id);
+        _compatibleUnits = r.Value ?? new();
+        if (!r.Succeeded) _compatUnitsError = r.FailureSummary();
+        _compatUnitsLoading = false;
+    }
+
+    private void SelectAllocUnit(CompatibleUnitDto u)
+    {
+        _selectedUnitId = u.BloodUnitId;
+        _selectedUnit = u;
+    }
+
+    private void BeginReleaseAllocation(PatientAllocationRowDto a)
+    {
+        _issuingAllocation = null;
+        _showIssueOverride = false;
+        _issueFb = null;
+        _releasingAllocationId = a.AllocationId;
+        _releaseReason = string.Empty;
+    }
+
+    private void BeginIssueAllocation(PatientAllocationRowDto a)
+    {
+        _releasingAllocationId = null;
+        _issuingAllocation = a;
+        _issueFb = null;
+        _showIssueOverride = false;
+        _issueLocalDateTime = DateTime.Now;
+        _issueLocation = string.Empty;
+        _issueIssuedTo = string.Empty;
+        _issueComment = string.Empty;
+        _issueOverrideReason = string.Empty;
+        _issueAuthorizedBy = Session.UserName ?? string.Empty;
+        _issueSignatureMeaning = "I authorize issue override";
+    }
+
+    private void CancelIssueAllocation()
+    {
+        _issuingAllocation = null;
+        _showIssueOverride = false;
+        _issueFb = null;
+    }
+
+    private IssueUnitRequest BuildPatientIssueRequest(string? overrideReason, string? authorizedBy)
+    {
+        var issuedUtc = DateTime.SpecifyKind(_issueLocalDateTime, DateTimeKind.Local).ToUniversalTime();
+        return new IssueUnitRequest(
+            _issuingAllocation!.BloodUnitId,
+            Id,
+            IdentityConfirmed: true,
+            IssuedTo: _issueIssuedTo.Trim(),
+            IssuedToLocation: _issueLocation.Trim(),
+            IssueType: IssueType.Standard,
+            ProductMatchesOrder: true,
+            AntigenNegativeConfirmed: false,
+            SpecialRequirementsMet: true,
+            UnresolvedAboRhDiscrepancy: false,
+            OverrideReason: overrideReason,
+            AuthorizedBy: authorizedBy,
+            IssuedUtc: issuedUtc,
+            Comment: string.IsNullOrWhiteSpace(_issueComment) ? null : _issueComment.Trim());
+    }
+
+    private bool ValidateIssueForm()
+    {
+        if (_issuingAllocation is null)
+        {
+            _issueFb = Feedback.Fail("Select a unit to issue.");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_issueLocation))
+        {
+            _issueFb = Feedback.Fail("Location to issue is required.");
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_issueIssuedTo))
+        {
+            _issueFb = Feedback.Fail("Person issued to is required.");
+            return false;
+        }
+
+        if (_issueLocalDateTime == default)
+        {
+            _issueFb = Feedback.Fail("Date/time of issue is required.");
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task IssueAllocationAsync()
+    {
+        if (!ValidateIssueForm())
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.IssueUnitAsync(BuildPatientIssueRequest(null, null));
+        _busy = false;
+
+        if (r.Blocked && r.Overridable)
+        {
+            _showIssueOverride = true;
+            _issueFb = r.ToFeedback();
+            return;
+        }
+
+        _issueFb = r.ToFeedback($"Unit {_issuingAllocation!.UnitNumber} issued.");
+        if (r.Succeeded)
+        {
+            _issuingAllocation = null;
+            _showIssueOverride = false;
+            await LoadAllocationsAsync();
+            _historyLoaded = false;
+        }
+    }
+
+    private async Task IssueAllocationWithOverrideAsync()
+    {
+        if (!ValidateIssueForm())
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_issueOverrideReason) || string.IsNullOrWhiteSpace(_issueSignatureMeaning))
+        {
+            _issueFb = Feedback.Fail("An override reason and a meaning-of-signature are required.");
+            return;
+        }
+
+        _busy = true;
+        var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("IssueOverride", _issueSignatureMeaning, "Issue"));
+        if (!sig.Succeeded || sig.Value is null)
+        {
+            _busy = false;
+            _issueFb = sig.ToFeedback();
+            return;
+        }
+
+        var authorizedBy = string.IsNullOrWhiteSpace(_issueAuthorizedBy) ? Session.UserName : _issueAuthorizedBy.Trim();
+        var r = await Api.IssueUnitAsync(
+            BuildPatientIssueRequest(_issueOverrideReason.Trim(), authorizedBy),
+            sig.Value.Id);
+        _busy = false;
+        _issueFb = r.ToFeedback($"Unit {_issuingAllocation!.UnitNumber} issued under override.");
+        if (r.Succeeded)
+        {
+            _issuingAllocation = null;
+            _showIssueOverride = false;
+            await LoadAllocationsAsync();
+            _historyLoaded = false;
+        }
+    }
+
+    private async Task ReleaseAllocationAsync()
+    {
+        if (_releasingAllocationId is null || string.IsNullOrWhiteSpace(_releaseReason))
+        {
+            _allocFb = Feedback.Fail("A release reason is required.");
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.ReleaseAllocationAsync(_releasingAllocationId.Value, _releaseReason.Trim());
+        _busy = false;
+        _allocFb = r.ToFeedback("Allocation released.");
+        if (r.Succeeded)
+        {
+            _releasingAllocationId = null;
+            await LoadAllocationsAsync();
+        }
+    }
+
+    private async Task AllocateUnitAsync()
+    {
+        if (_selectedUnitId is null)
+        {
+            _allocFb = Feedback.Fail("Select a unit to allocate.");
+            return;
+        }
+
+        if (_selectedUnit?.RequiresCrossmatch == true && string.IsNullOrWhiteSpace(_allocXmTestCode))
+        {
+            _allocFb = Feedback.Fail("Select a crossmatch test.");
+            return;
+        }
+
+        if (NeedsAbHistoryOverride)
+        {
+            if (Session.SecurityLevel < _allocXmMinLevel)
+            {
+                _allocFb = Feedback.Fail("Security level is insufficient to override antibody-history crossmatch exception.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_allocOverrideReason))
+            {
+                _allocFb = Feedback.Fail("An override comment is required when selecting simple crossmatch for a patient with antibody history.");
+                return;
+            }
+        }
+
+        _busy = true;
+        var req = new AllocatePatientUnitRequest(
+            _selectedUnitId.Value,
+            _allocEncounterId > 0 ? _allocEncounterId : null,
+            _allocSpecimenId > 0 ? _allocSpecimenId : null,
+            _newOrderLocationId > 0 ? _newOrderLocationId : null,
+            null,
+            _selectedUnit?.RequiresCrossmatch == true ? _allocXmTestCode : null,
+            NeedsAbHistoryOverride ? _allocOverrideReason.Trim() : null,
+            NeedsAbHistoryOverride
+                ? (string.IsNullOrWhiteSpace(_allocAuthorizedBy) ? Session.UserName : _allocAuthorizedBy.Trim())
+                : null);
+
+        var r = await Api.AllocatePatientUnitAsync(Id, req);
+        _busy = false;
+
+        if (r.Blocked && r.Overridable && NeedsAbHistoryOverride)
+        {
+            _allocFb = r.ToFeedback();
+            return;
+        }
+
+        _allocFb = r.ToFeedback(
+            r.Value?.CrossmatchOrderId is not null
+                ? $"Unit allocated; crossmatch order {r.Value.CrossmatchTestCode} created."
+                : "Unit allocated.");
+
+        if (r.Succeeded)
+        {
+            _showAllocate = false;
+            _selectedUnitId = null;
+            _selectedUnit = null;
+            _allocOverrideReason = string.Empty;
+            await LoadAllocationsAsync();
+            _testsLoaded = false;
+        }
     }
 
     private void ToggleTestEntry(long orderLineId) =>

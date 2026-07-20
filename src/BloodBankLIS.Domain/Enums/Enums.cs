@@ -379,7 +379,20 @@ public enum ResultValueType
     FreeText = 2,
     AboRh = 3,
     Subtest = 4,
-    BloodAttribute = 5
+    BloodAttribute = 5,
+    Crossmatch = 6,
+    ComplexCrossmatch = 7
+}
+
+/// <summary>
+/// Presentation status for an active patient product allocation (does not replace
+/// <see cref="AllocationStatus"/>).
+/// </summary>
+public enum ProductAllocationDisplayStatus
+{
+    Reserved = 0,
+    Exception = 1,
+    ReadyForIssue = 2
 }
 
 /// <summary>Antigen typing result on a patient or unit.</summary>

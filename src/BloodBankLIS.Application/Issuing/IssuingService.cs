@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
@@ -28,7 +29,9 @@ public sealed class IssuingService
     private readonly IRepository<Specimen> _specimens;
     private readonly IRepository<ProductType> _productTypes;
     private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
+    private readonly IRepository<ExceptionDefinition> _exceptionDefinitions;
     private readonly BloodAttributeCompatLoader _bloodAttributeCompat;
+    private readonly IPermissionEvaluator _permissions;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
@@ -46,7 +49,9 @@ public sealed class IssuingService
         IRepository<Specimen> specimens,
         IRepository<ProductType> productTypes,
         IRepository<PatientBloodTypeHistory> bloodTypes,
+        IRepository<ExceptionDefinition> exceptionDefinitions,
         BloodAttributeCompatLoader bloodAttributeCompat,
+        IPermissionEvaluator permissions,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
@@ -63,7 +68,9 @@ public sealed class IssuingService
         _specimens = specimens;
         _productTypes = productTypes;
         _bloodTypes = bloodTypes;
+        _exceptionDefinitions = exceptionDefinitions;
         _bloodAttributeCompat = bloodAttributeCompat;
+        _permissions = permissions;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
@@ -146,6 +153,21 @@ public sealed class IssuingService
                 return EvaluationResult<Issue>.Blocked(evaluation);
             }
 
+            // Antigen-negative overrides require supervisor+ per ExceptionDefinitions catalog.
+            if (evaluation.Warnings.Any(w => w.Code == BloodAttributeCompatibilityRule.AntigenNegCode))
+            {
+                var antigenDef = await _exceptionDefinitions.FirstOrDefaultAsync(
+                    e => e.RuleCode == BloodAttributeCompatibilityRule.AntigenNegCode && e.IsActive, ct);
+                var userLevel = await _permissions.GetMaxSecurityLevelAsync(_currentUser.UserName, ct);
+                var access = ExceptionOverridePolicy.EvaluateAccess(
+                    userLevel, antigenDef, BloodAttributeCompatibilityRule.AntigenNegCode);
+                if (access.Severity == RuleSeverity.HardStop)
+                {
+                    return EvaluationResult<Issue>.Blocked(
+                        new RuleEvaluation(evaluation.Results.Append(access).ToList()));
+                }
+            }
+
             authorizedOverride = new Override
             {
                 Action = request.IssueType == IssueType.EmergencyRelease ? OverrideAction.EmergencyRelease : OverrideAction.WarningOverride,
@@ -162,15 +184,28 @@ public sealed class IssuingService
         var fromStatus = unit.Status;
         unit.Status = UnitStatus.Issued;
 
+        var issuedUtc = request.IssuedUtc ?? now;
+        if (issuedUtc.Kind == DateTimeKind.Unspecified)
+        {
+            issuedUtc = DateTime.SpecifyKind(issuedUtc, DateTimeKind.Utc);
+        }
+        else if (issuedUtc.Kind == DateTimeKind.Local)
+        {
+            issuedUtc = issuedUtc.ToUniversalTime();
+        }
+
         var issue = new Issue
         {
             AllocationId = allocation?.Id,
             BloodProductId = unit.Id,
             PatientId = request.PatientId,
-            IssuedTo = request.IssuedTo,
-            IssuedToLocation = request.IssuedToLocation,
-            IssuedUtc = now,
+            EncounterId = allocation?.EncounterId,
+            OrderId = allocation?.OrderId,
+            IssuedTo = string.IsNullOrWhiteSpace(request.IssuedTo) ? null : request.IssuedTo.Trim(),
+            IssuedToLocation = string.IsNullOrWhiteSpace(request.IssuedToLocation) ? null : request.IssuedToLocation.Trim(),
+            IssuedUtc = issuedUtc,
             IssuedBy = _currentUser.UserName,
+            Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
             IssueType = request.IssueType,
             Override = authorizedOverride,
             Status = IssueStatus.Issued

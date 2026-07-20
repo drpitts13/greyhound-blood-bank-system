@@ -7,6 +7,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.Rules.Config;
 using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Results;
@@ -172,7 +173,9 @@ public sealed class ResultService
             allWarnings.AddRange(saveResult.Warnings);
         }
 
-        if (string.Equals(normalizedCode, CrossmatchTestCode, StringComparison.OrdinalIgnoreCase))
+        var savedValueType = await ResolveResultValueTypeAsync(normalizedCode, ct);
+        if (TestDefinitionValidator.IsCrossmatchResultType(savedValueType)
+            || string.Equals(normalizedCode, CrossmatchTestCode, StringComparison.OrdinalIgnoreCase))
         {
             var xm = await RecordCrossmatchForResultAsync(request, specimen, saveResult.Value, ct);
             if (!xm.Succeeded)
@@ -798,7 +801,10 @@ public sealed class ResultService
     private async Task<OperationResult<(string Value, string? Units, string? Interpretation)>> BuildValueFromRequestAsync(
         SaveTestResultRequest request, string normalizedCode, CancellationToken ct)
     {
-        if (string.Equals(normalizedCode, CrossmatchTestCode, StringComparison.OrdinalIgnoreCase))
+        var valueType = await ResolveResultValueTypeAsync(normalizedCode, ct);
+
+        if (TestDefinitionValidator.IsCrossmatchResultType(valueType)
+            || string.Equals(normalizedCode, CrossmatchTestCode, StringComparison.OrdinalIgnoreCase))
         {
             if (string.IsNullOrWhiteSpace(request.UnitNumber))
             {
@@ -810,12 +816,37 @@ public sealed class ResultService
                 return OperationResult<(string, string?, string?)>.Fail("Crossmatch method and result are required.");
             }
 
-            var interpretation = $"Unit: {request.UnitNumber.Trim()}";
-            return OperationResult<(string, string?, string?)>.Ok(
-                (request.CrossmatchResult.Value.ToString(), null, interpretation));
-        }
+            if (request.CrossmatchResult is not (CrossmatchResult.Compatible or CrossmatchResult.Incompatible))
+            {
+                return OperationResult<(string, string?, string?)>.Fail(
+                    "Crossmatch result must be Compatible or Incompatible.");
+            }
 
-        var valueType = await ResolveResultValueTypeAsync(normalizedCode, ct);
+            var interpretation = $"Unit: {request.UnitNumber.Trim()}";
+            string value;
+            if (request.Subtests is { Count: > 0 })
+            {
+                var configured = await GetPanelSubtestsForCodeAsync(normalizedCode, ct);
+                var missing = configured
+                    .Where(c => c.Required && !request.Subtests.ContainsKey(c.Code))
+                    .Select(c => c.Code)
+                    .ToList();
+                if (missing.Count > 0)
+                {
+                    return OperationResult<(string, string?, string?)>.Fail(
+                        $"Required cell reaction subtests missing: {string.Join(", ", missing)}.");
+                }
+
+                value = PanelResultValue.Format(request.Subtests);
+                interpretation = $"{interpretation}; {request.CrossmatchResult.Value}";
+            }
+            else
+            {
+                value = request.CrossmatchResult.Value.ToString();
+            }
+
+            return OperationResult<(string, string?, string?)>.Ok((value, null, interpretation));
+        }
 
         if (valueType == ResultValueType.AboRh)
         {
@@ -1011,7 +1042,8 @@ public sealed class ResultService
 
         var kind = def.BloodAttributeScopeKind ?? BloodAttributeKind.Antigen;
         var catalog = await _bloodAttributes.ListAsync(d => d.IsActive, ct);
-        var byCode = catalog.ToDictionary(d => d.Code, StringComparer.OrdinalIgnoreCase);
+        // Case-sensitive: catalog includes distinct Rh C / c (and similar) codes.
+        var byCode = catalog.ToDictionary(d => d.Code, StringComparer.Ordinal);
 
         var updatesUnit = def.ContributesToUnitBloodAttributes;
         long? unitId = null;

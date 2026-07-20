@@ -433,6 +433,7 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
         b.Property(i => i.IssuedTo).HasMaxLength(150);
         b.Property(i => i.IssuedToLocation).HasMaxLength(150);
         b.Property(i => i.IssuedBy).HasMaxLength(100).IsRequired();
+        b.Property(i => i.Comment).HasMaxLength(1000);
         b.Property(i => i.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(i => i.ModifiedBy).HasMaxLength(100);
 

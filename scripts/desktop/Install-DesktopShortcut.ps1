@@ -1,7 +1,7 @@
-# Creates or updates a desktop shortcut for Blood Bank LIS with the ABO quadrant icon.
+# Creates or updates a desktop shortcut for Greyhound Blood Bank LIS with the ABO quadrant icon.
 $ErrorActionPreference = "Stop"
 $Desktop = [Environment]::GetFolderPath("Desktop")
-$ShortcutPath = Join-Path $Desktop "Blood Bank LIS.lnk"
+$ShortcutPath = Join-Path $Desktop "Greyhound Blood Bank LIS.lnk"
 $Launcher = Join-Path $PSScriptRoot "Start-BloodBankLIS.ps1"
 $IconPath = Join-Path $PSScriptRoot "bloodbank-lis-icon.ico"
 $PngPath = Join-Path $PSScriptRoot "bloodbank-lis-icon.png"

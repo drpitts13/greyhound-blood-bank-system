@@ -115,5 +115,50 @@ public static class PatientWorkspaceEndpoints
             var list = await service.ListByPatientAsync(patientId, encounterId, ct);
             return Results.Ok(list);
         });
+
+        group.MapGet("/allocations", async (
+            long patientId,
+            PatientAllocationService service,
+            CancellationToken ct) =>
+        {
+            var list = await service.ListActiveAsync(patientId, ct);
+            return Results.Ok(list);
+        });
+
+        group.MapGet("/compatible-units", async (
+            long patientId,
+            PatientAllocationService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.ListCompatibleUnitsAsync(patientId, ct);
+            return result.Succeeded
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { error = result.Error });
+        });
+
+        group.MapGet("/crossmatch-tests", async (PatientAllocationService service, CancellationToken ct) =>
+        {
+            var list = await service.ListCrossmatchTestsAsync(ct);
+            return Results.Ok(list);
+        });
+
+        group.MapPost("/allocations", async (
+            long patientId,
+            AllocatePatientUnitRequest request,
+            PatientAllocationService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.AllocateAsync(patientId, request, ct);
+            if (!result.Succeeded || result.Value is null)
+            {
+                return result.Evaluation is not null
+                    ? EndpointResults.FromEvaluation(result, r => r)
+                    : Results.BadRequest(new { error = result.Error });
+            }
+
+            return Results.Created(
+                $"/api/patients/{patientId}/allocations/{result.Value.Allocation.AllocationId}",
+                result.Value);
+        }).RequirePermission(PermissionCodes.CompatibilityAllocate);
     }
 }

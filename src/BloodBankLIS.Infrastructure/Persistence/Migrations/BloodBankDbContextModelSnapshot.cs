@@ -2229,6 +2229,10 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<int>("IssueType")
                         .HasColumnType("int");
 
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<string>("IssuedBy")
                         .IsRequired()
                         .HasMaxLength(100)
