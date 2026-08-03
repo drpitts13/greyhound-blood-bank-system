@@ -162,17 +162,108 @@ public enum AntibodyStatus
 /// <summary>
 /// Lifecycle states for a blood unit. Allowed transitions are enforced by the
 /// transition guard (see <c>InventoryStatusTransition</c> and docs/safety-rules.md).
+/// Existing integer values (0–7) are preserved for database compatibility; new
+/// primary and exception states are appended.
+/// INSTITUTIONAL_POLICY_REVIEW: confirm facility-specific exception-state usage.
 /// </summary>
 public enum UnitStatus
 {
     Quarantine = 0,
     Available = 1,
+    /// <summary>Legacy synonym retained for open allocations; prefer Assigned/Crossmatched.</summary>
     Allocated = 2,
     Issued = 3,
     Transfused = 4,
     Returned = 5,
     Discarded = 6,
-    Expired = 7
+    Expired = 7,
+    Expected = 8,
+    Received = 9,
+    Selected = 10,
+    Assigned = 11,
+    Crossmatched = 12,
+    TransfusionStarted = 13,
+    ReturnPending = 14,
+    Transferred = 15,
+    Recalled = 16,
+    Missing = 17,
+    Damaged = 18,
+    CancelledAssignment = 19,
+    TransfusionStopped = 20,
+    /// <summary>
+    /// Terminal state: the unit was consumed as the source of a product modification
+    /// (divide/pool/irradiate/thaw/volume-reduce/leukoreduce) and replaced by one or
+    /// more result units. See <c>UnitModification</c> / docs/safety-rules.md.
+    /// </summary>
+    Modified = 21
+}
+
+/// <summary>How a blood-component identity was entered into the LIS.</summary>
+public enum ComponentEntrySource
+{
+    Scanner = 0,
+    Manual = 1,
+    Interface = 2,
+    Migration = 3
+}
+
+/// <summary>Detected entry mode for a single input string (auto-detected, not user-toggle alone).</summary>
+public enum IsbtInputMode
+{
+    HumanReadable = 0,
+    ScannedIsbt = 1
+}
+
+/// <summary>ISBT 128 data-structure family recognized by the classifier.</summary>
+public enum IsbtDataStructureKind
+{
+    Unknown = 0,
+    DonationIdentificationNumber = 1,
+    AboRhd = 2,
+    ProductCode = 3,
+    ExpirationDate = 4,
+    ExpirationDateTime = 5,
+    CollectionDate = 6,
+    CollectionDateTime = 7,
+    ExtendedDivision = 8
+}
+
+/// <summary>Patient–component assignment pathway (not a generic “linked” flag).</summary>
+public enum AssignmentType
+{
+    Reservation = 0,
+    ElectronicCrossmatch = 1,
+    SerologicCrossmatch = 2,
+    EmergencyRelease = 3,
+    NoCrossmatchRequired = 4
+}
+
+/// <summary>Outcome of the table-driven compatibility rules engine.</summary>
+public enum CompatibilityOutcome
+{
+    Compatible = 0,
+    Incompatible = 1,
+    RequiresOverride = 2
+}
+
+/// <summary>Crossmatch / issue pathway selected by compatibility evaluation.</summary>
+public enum CompatibilityPathway
+{
+    NoCrossmatch = 0,
+    ElectronicCrossmatch = 1,
+    SerologicImmediateSpin = 2,
+    SerologicAhg = 3,
+    EmergencyRelease = 4
+}
+
+/// <summary>Distinct from Compatible — emergency-release units are not marked compatible.</summary>
+public enum CrossmatchClinicalStatus
+{
+    Compatible = 0,
+    Incompatible = 1,
+    NotPerformed = 2,
+    NotCrossmatchedEmergency = 3,
+    Expired = 4
 }
 
 public enum CrossmatchMethod
@@ -337,7 +428,31 @@ public enum AuditEventType
     Clone = 12,
     Import = 13,
     Export = 14,
-    Configure = 15
+    Configure = 15,
+    Modify = 16
+}
+
+/// <summary>
+/// A blood-product modification: transforms one or more source units into one or
+/// more result units under an admin-configured <c>ModificationRule</c>.
+/// Divide is 1 source -&gt; N results; Pool is N sources -&gt; 1 result; the rest are
+/// 1 source -&gt; 1 result. See docs/erd.md and docs/workflows.md.
+/// </summary>
+public enum ModificationType
+{
+    Divide = 0,
+    Pool = 1,
+    Irradiate = 2,
+    Thaw = 3,
+    VolumeReduction = 4,
+    Leukoreduction = 5
+}
+
+/// <summary>Whether a unit participated in a <c>UnitModification</c> as an input or an output.</summary>
+public enum ModificationUnitRole
+{
+    Source = 0,
+    Result = 1
 }
 
 /// <summary>
@@ -424,6 +539,33 @@ public enum ReactionPolarity
     Negative = 0,
     Positive = 1,
     Neutral = 2
+}
+
+/// <summary>
+/// Which workflow stage a configurable <c>RuleDefinition</c> is evaluated at.
+/// Order rules run when an order is created or updated; test rules run when a
+/// result is verified. See docs/safety-rules.md.
+/// </summary>
+public enum RuleLevel
+{
+    Order = 0,
+    Test = 1
+}
+
+/// <summary>Action a matched <c>RuleDefinition</c> performs.</summary>
+public enum RuleActionKind
+{
+    /// <summary>Add a test line to the order if it is not already present.</summary>
+    AddTest = 0,
+
+    /// <summary>Deactivate a pending test line on the order.</summary>
+    CancelTest = 1,
+
+    /// <summary>Surface an overridable warning to the operator.</summary>
+    Warn = 2,
+
+    /// <summary>Hard-stop the order (order-level rules only).</summary>
+    Block = 3
 }
 
 /// <summary>Workflow area a configurable exception rule applies to (used in later phases).</summary>

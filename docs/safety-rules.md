@@ -74,18 +74,44 @@ If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning w
 Allowed transitions are enforced by a transition guard; anything not listed is a HardStop.
 
 ```
-Quarantine -> Available | Discarded | Expired
-Available  -> Allocated | Quarantine | Discarded | Expired
-Allocated  -> Issued | Available (release) | Discarded | Expired
-Issued     -> Transfused | Returned
+# Authoritative allow-list is InventoryStatusTransition (expanded for ISBT 128).
+# See docs/isbt128-module.md. Legacy core paths remain:
+Quarantine -> Available | Discarded | Expired | Recalled | Damaged | Missing
+Available  -> Allocated | Assigned | Selected | Crossmatched | Quarantine | Discarded | Expired | Recalled | Transferred | Modified
+Allocated  -> Issued | Available (release) | Assigned | Crossmatched | Discarded | Expired
+Assigned   -> Issued | Available | Crossmatched | CancelledAssignment | ...
+Issued     -> Transfused | TransfusionStarted | Returned | ReturnPending | Recalled
+
 Returned   -> Available | Quarantine | Discarded | Expired
 Transfused -> (terminal)
 Discarded  -> (terminal)
 Expired    -> Discarded
+Modified   -> (terminal)
 ```
 
 - Any transition writes `InventoryStatusHistory` + `AuditEvent`.
 - Expiration is enforced automatically: a unit past `ExpiresUtc` cannot move to Allocated/Issued (HardStop) and is eligible to be marked Expired.
+- `Modified` is the terminal state for a source unit consumed into a product modification (divide/pool/irradiate/thaw/volume-reduce/leukoreduce); the resulting unit(s) are new `BloodProducts` rows in `Quarantine` (see section 4a).
+
+---
+
+## 4a. Product modification rules
+
+Enforced by `UnitModificationEligibilityRule` and `ModificationExpirationRule` in `BloodProductModificationService`. Reference: `workflows.md` §8a.
+
+| Code | Rule | Severity if violated |
+|---|---|---|
+| `MOD-STATUS-INVALID` | Source unit status is `Available` | HardStop |
+| `MOD-EXPIRED` | Source unit is not past its expiration date/time | HardStop |
+| `MOD-PRODUCT-MISMATCH` | Source unit's product type matches the modification rule's source product | HardStop |
+| `MOD-POOL-MIN-SOURCES` | Pool has at least two source units | HardStop |
+| `MOD-POOL-ABO-MISMATCH` | All pooled source units share the same product type, ABO, and Rh(D) | HardStop |
+| `MOD-DIVIDE-MIN-TARGETS` | Divide requests at least two result units | HardStop |
+| `MOD-VOLUME-EXCEEDS-SOURCE` | Divide's requested child volumes (when supplied) do not exceed the source unit's volume | HardStop |
+
+Admin `ModificationRules` catalog validation (`ModificationRuleValidator`), all HardStop: `MODRULE.SOURCE.REQUIRED`, `MODRULE.TARGET.REQUIRED`, `MODRULE.OFFSET.INVALID` (expiration offset code must match `^\d+[HD]$`, e.g. `24H`/`5D`), `MODRULE.TRIPLE.DUPLICATE` (another active rule already maps the same source product + type + target product), `MODRULE.SOURCE.INACTIVE`/`MODRULE.TARGET.INACTIVE`. `MODRULE.SAMEPRODUCT` is a non-blocking Warning.
+
+Expiration: `ResultExpiresUtc = min(PerformedUtc + ExpirationOffsetCode, earliest source ExpiresUtc)` — a result unit can never outlive the shortest-lived unit consumed to produce it.
 
 ---
 
@@ -101,6 +127,7 @@ Expired    -> Discarded
 | Return an issued unit to inventory | Yes | Yes | No (reason required) | `Return` |
 | Manually alter ABO/Rh history | Yes | Yes | Yes | `Update` (blood type history) |
 | Deactivate an antibody record | Yes | Yes | No (reason required) | `Update` (antibody history) |
+| Modify a product (divide/pool/irradiate/thaw/volume-reduce/leukoreduce) | No | Yes | No (reason required) | `Modify` |
 
 - HardStops are never part of an override path — only Warnings can be overridden.
 - All override and signature records are append-only (`Overrides`, `ElectronicSignatures`).

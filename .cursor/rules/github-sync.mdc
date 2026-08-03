@@ -1,0 +1,45 @@
+---
+description: Commit completed features to GitHub, then confirm before pushing
+alwaysApply: true
+---
+
+# Sync Major Changes to GitHub
+
+Remote `origin` is https://github.com/drpitts13/greyhound-blood-bank-system, branch `main` tracking `origin/main`.
+
+## When to sync
+
+Sync after a **completed feature or vertical slice** — for example, finishing the order/test rules engine across Domain, Application, Infrastructure, API, Web, and tests. Do not sync mid-feature, on scratch edits, or while the build is red.
+
+## Workflow
+
+1. Confirm the solution builds and the full test suite passes.
+2. Stage and commit **automatically** — no need to ask first.
+3. **Ask before pushing.** Never run `git push` without explicit confirmation from the user.
+4. Commit straight to `main`. Do not create branches or pull requests unless asked.
+
+## Running git here
+
+`git` is not on the PowerShell PATH, and the repo sits on a Parallels share that trips git's ownership check. Work around both on every invocation:
+
+```powershell
+# BAD - fails with "term 'git' is not recognized", then "detected dubious ownership"
+git status
+
+# GOOD
+$git = "C:\Program Files\Git\cmd\git.exe"
+& $git -c safe.directory=* status
+```
+
+Pass `-c safe.directory=*` per command. Never edit the global git config to work around this.
+
+## Commit messages
+
+Match the existing history: a single imperative sentence ending in a period.
+
+```
+Refine compatibility rules and rebrand to Greyhound Blood Bank LIS.
+Add configurable order and test rules engine with admin UI.
+```
+
+Never stage secrets in `appsettings.*.json`, local `.db` files, or `bin/` and `obj/` output.

@@ -1,0 +1,326 @@
+@page "/inventory/modify"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Modify Products &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Modify Blood Products</h1>
+<p class="muted">
+    Divide, pool, irradiate, thaw, volume-reduce, or leukoreduce a unit into a new product under an
+    admin-configured modification rule. The source unit(s) are retired and new result unit(s) are created
+    in Quarantine with a recalculated expiration.
+</p>
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>1. Find the source unit</h3></div>
+    <div class="flex gap">
+        <input @bind="_searchUnitNumber" @bind:event="oninput" placeholder="Unit number" style="flex:1;" />
+        <button class="btn btn-secondary" disabled="@_busy" @onclick="SearchAsync">Search</button>
+    </div>
+    <Outcome Value="_searchFb" />
+    @if (_searchResults.Count > 0)
+    {
+        <table class="bb" style="margin-top:.6rem;">
+            <thead><tr><th>Unit #</th><th>ABO/Rh</th><th>Status</th><th>Expires</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var u in _searchResults)
+                {
+                    <tr>
+                        <td class="mono">@u.UnitNumber</td>
+                        <td><strong>@Ui.BloodType(u.Abo, u.RhD)</strong></td>
+                        <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
+                        <td class="nowrap">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => SelectUnitAsync(u)">Select</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_unit is not null)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>2. Selected unit</h3></div>
+        <div class="form-row">
+            <div class="field"><label>Unit number</label><div class="mono">@_unit.UnitNumber</div></div>
+            <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
+            <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@_unit.Status</span></div></div>
+            <div class="field"><label>Expires</label><div>@_unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+        </div>
+
+        @if (_eligible.Count == 0)
+        {
+            <div class="empty">No active modification rules apply to this unit's current product.</div>
+        }
+        else
+        {
+            <div class="field"><label>Modification</label>
+                <select @bind="_selectedRuleId" @bind:after="OnRuleChanged">
+                    <option value="0">-- select a modification --</option>
+                    @foreach (var e in _eligible)
+                    {
+                        <option value="@e.RuleId">@e.ModificationType &rarr; @e.TargetProductCode (offset @e.ExpirationOffsetCode)</option>
+                    }
+                </select>
+            </div>
+        }
+    </div>
+}
+
+@if (_unit is not null && _selectedRule is not null)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>3. Modification details</h3></div>
+        <Outcome Value="_actionFb" />
+
+        @if (_selectedRule.ModificationType == ModificationType.Divide)
+        {
+            <div class="field"><label>Number of result units</label>
+                <input type="number" min="2" @bind="_childCount" @bind:after="SyncChildRows" />
+            </div>
+            @if (_children.Count > 0)
+            {
+                <table class="bb">
+                    <thead><tr><th>#</th><th>Unit number suffix (optional)</th><th>Volume (optional)</th></tr></thead>
+                    <tbody>
+                        @for (var i = 0; i < _children.Count; i++)
+                        {
+                            var row = _children[i];
+                            <tr>
+                                <td>@(i + 1)</td>
+                                <td><input @bind="row.UnitNumberSuffix" placeholder="@($"M{i + 1:D2}")" /></td>
+                                <td><input type="number" step="0.01" @bind="row.Volume" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+        else if (_selectedRule.ModificationType == ModificationType.Pool)
+        {
+            <p class="muted">
+                Add two or more units of the same product, ABO, and Rh(D) to pool (the selected unit above is
+                included automatically as the first source).
+            </p>
+            <div class="flex gap">
+                <input @bind="_poolAddUnitNumber" placeholder="Additional unit number" style="flex:1;" />
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="AddPoolUnitAsync">Add</button>
+            </div>
+            <table class="bb" style="margin-top:.6rem;">
+                <thead><tr><th>Unit #</th><th>ABO/Rh</th><th></th></tr></thead>
+                <tbody>
+                    <tr>
+                        <td class="mono">@_unit.UnitNumber</td>
+                        <td>@Ui.BloodType(_unit.Abo, _unit.RhD)</td>
+                        <td class="muted">primary</td>
+                    </tr>
+                    @foreach (var p in _poolUnits)
+                    {
+                        <tr>
+                            <td class="mono">@p.UnitNumber</td>
+                            <td>@Ui.BloodType(p.Abo, p.RhD)</td>
+                            <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => _poolUnits.Remove(p)">Remove</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else
+        {
+            <div class="field"><label>Result volume (optional; defaults to source volume)</label>
+                <input type="number" step="0.01" @bind="_singleResultVolume" />
+            </div>
+        }
+
+        <div class="field" style="margin-top:.6rem;"><label>Reason (required)</label>
+            <input @bind="_reason" placeholder="Why is this modification being performed?" style="width:100%;" />
+        </div>
+
+        <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason))" @onclick="SubmitAsync">
+            Perform @_selectedRule.ModificationType
+        </button>
+    </div>
+}
+
+@if (_lastResult is not null)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Result</h3></div>
+        <table class="bb">
+            <thead><tr><th>New unit #</th><th>ABO/Rh</th><th>Status</th><th>Expires</th></tr></thead>
+            <tbody>
+                @foreach (var u in _lastResult.ResultUnits)
+                {
+                    <tr>
+                        <td class="mono">@u.UnitNumber</td>
+                        <td>@Ui.BloodType(u.Abo, u.RhD)</td>
+                        <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
+                        <td class="nowrap">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (_unit is not null && _history.Count > 0)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Modification history for this unit</h3></div>
+        <table class="bb">
+            <thead><tr><th>Type</th><th>Source</th><th>Target</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+            <tbody>
+                @foreach (var h in _history)
+                {
+                    <tr>
+                        <td>@h.ModificationType</td>
+                        <td class="mono">@h.SourceProductCode</td>
+                        <td class="mono">@h.TargetProductCode</td>
+                        <td class="mono">@h.ExpirationOffsetCodeApplied</td>
+                        <td class="nowrap">@h.ResultExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@h.Reason</td>
+                        <td>@h.PerformedBy</td>
+                        <td class="nowrap">@h.PerformedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private string? _searchUnitNumber;
+    private List<BloodUnitDto> _searchResults = new();
+    private Feedback? _searchFb;
+    private bool _busy;
+
+    private BloodUnitDto? _unit;
+    private List<EligibleModificationDto> _eligible = new();
+    private long _selectedRuleId;
+    private EligibleModificationDto? _selectedRule;
+
+    private int _childCount = 2;
+    private List<DivideChildRow> _children = new();
+
+    private string? _poolAddUnitNumber;
+    private List<BloodUnitDto> _poolUnits = new();
+
+    private decimal? _singleResultVolume;
+
+    private string _reason = string.Empty;
+    private Feedback? _actionFb;
+    private ModificationResultVm? _lastResult;
+
+    private List<UnitModificationDto> _history = new();
+
+    private async Task SearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_searchUnitNumber)) return;
+        _busy = true;
+        var r = await Api.SearchUnitsAsync(new InventorySearchCriteria(_searchUnitNumber));
+        _busy = false;
+        _searchResults = r.Value ?? new();
+        _searchFb = r.Succeeded ? null : r.ToFeedback();
+    }
+
+    private async Task SelectUnitAsync(BloodUnitDto u)
+    {
+        _unit = u;
+        _selectedRuleId = 0;
+        _selectedRule = null;
+        _lastResult = null;
+        _actionFb = null;
+        _poolUnits.Clear();
+        _reason = string.Empty;
+
+        var eligible = await Api.GetEligibleModificationsAsync(u.Id);
+        _eligible = eligible.Value ?? new();
+
+        var history = await Api.GetUnitModificationHistoryAsync(u.Id);
+        _history = history.Value ?? new();
+    }
+
+    private void OnRuleChanged()
+    {
+        _selectedRule = _eligible.FirstOrDefault(e => e.RuleId == _selectedRuleId);
+        _actionFb = null;
+        _lastResult = null;
+        _childCount = 2;
+        SyncChildRows();
+    }
+
+    private void SyncChildRows()
+    {
+        if (_childCount < 2) _childCount = 2;
+        while (_children.Count < _childCount) _children.Add(new DivideChildRow());
+        while (_children.Count > _childCount) _children.RemoveAt(_children.Count - 1);
+    }
+
+    private async Task AddPoolUnitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_poolAddUnitNumber) || _unit is null) return;
+        _busy = true;
+        var r = await Api.SearchUnitsAsync(new InventorySearchCriteria(_poolAddUnitNumber));
+        _busy = false;
+        var match = (r.Value ?? new()).FirstOrDefault(u => string.Equals(u.UnitNumber, _poolAddUnitNumber, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            _actionFb = Feedback.Fail($"No unit found with number '{_poolAddUnitNumber}'.");
+            return;
+        }
+
+        if (match.Id == _unit.Id || _poolUnits.Any(p => p.Id == match.Id))
+        {
+            _actionFb = Feedback.Fail("That unit is already in the pool.");
+            return;
+        }
+
+        _poolUnits.Add(match);
+        _poolAddUnitNumber = null;
+        _actionFb = null;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_unit is null || _selectedRule is null || string.IsNullOrWhiteSpace(_reason)) return;
+
+        _busy = true;
+        ApiResult<ModificationResultVm> r;
+
+        if (_selectedRule.ModificationType == ModificationType.Divide)
+        {
+            var children = _children
+                .Select(c => new DivideChildSpec(string.IsNullOrWhiteSpace(c.UnitNumberSuffix) ? null : c.UnitNumberSuffix, c.Volume))
+                .ToList();
+            r = await Api.DivideUnitAsync(_unit.Id, new PerformDivideRequest(_selectedRule.RuleId, children, _reason));
+        }
+        else if (_selectedRule.ModificationType == ModificationType.Pool)
+        {
+            var sourceIds = new List<long> { _unit.Id };
+            sourceIds.AddRange(_poolUnits.Select(p => p.Id));
+            r = await Api.PoolUnitsAsync(new PerformPoolRequest(sourceIds, _selectedRule.RuleId, _reason));
+        }
+        else
+        {
+            r = await Api.ApplyModificationAsync(_unit.Id, new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason));
+        }
+
+        _busy = false;
+        _actionFb = r.ToFeedback("Modification completed.");
+        if (r.Succeeded)
+        {
+            _lastResult = r.Value;
+            _reason = string.Empty;
+            _poolUnits.Clear();
+            var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
+            _history = history.Value ?? new();
+        }
+    }
+
+    private sealed class DivideChildRow
+    {
+        public string? UnitNumberSuffix { get; set; }
+        public decimal? Volume { get; set; }
+    }
+}

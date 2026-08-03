@@ -1,8 +1,11 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Isbt128;
+using BloodBankLIS.Domain.Isbt128.Validation;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Inventory;
@@ -18,12 +21,15 @@ public sealed class InventoryService
 {
     private static readonly UnitStatus[] TransferableStatuses =
     {
-        UnitStatus.Quarantine, UnitStatus.Available, UnitStatus.Allocated, UnitStatus.Returned
+        UnitStatus.Quarantine, UnitStatus.Available, UnitStatus.Allocated, UnitStatus.Returned,
+        UnitStatus.Received, UnitStatus.Selected, UnitStatus.Assigned, UnitStatus.Crossmatched,
+        UnitStatus.Transferred, UnitStatus.CancelledAssignment
     };
 
     private readonly IInventoryRepository _repository;
     private readonly IRepository<UnitBloodAttribute> _unitAttributes;
     private readonly IRepository<BloodAttributeDefinition> _bloodAttributes;
+    private readonly IsbtLookupCatalog _lookups;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
@@ -33,6 +39,7 @@ public sealed class InventoryService
         IInventoryRepository repository,
         IRepository<UnitBloodAttribute> unitAttributes,
         IRepository<BloodAttributeDefinition> bloodAttributes,
+        IsbtLookupCatalog lookups,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
@@ -41,6 +48,7 @@ public sealed class InventoryService
         _repository = repository;
         _unitAttributes = unitAttributes;
         _bloodAttributes = bloodAttributes;
+        _lookups = lookups;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
@@ -116,11 +124,22 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Expiration date/time must be in the future.");
         }
 
+        var productLookup = await _lookups.GetProductLookupAsync(ct);
+        var productValidation = ProductCodeLookupValidator.Validate(
+            request.Isbt128ProductCode,
+            productLookup,
+            DateOnly.FromDateTime(_clock.UtcNow));
+        if (!productValidation.Success)
+        {
+            return InventoryActionResult.Fail(productValidation.Error!);
+        }
+
         if (await _repository.UnitNumberExistsAsync(request.UnitNumber, ct))
         {
             return InventoryActionResult.Fail($"A unit with number '{request.UnitNumber}' already exists.");
         }
 
+        var resolved = productValidation.Value!;
         var unit = new BloodUnit
         {
             UnitNumber = request.UnitNumber,
@@ -131,7 +150,11 @@ public sealed class InventoryService
             CurrentLocationId = request.LocationId,
             CollectionFacility = request.CollectionFacility,
             Supplier = request.Supplier,
-            Isbt128ProductCode = request.Isbt128ProductCode,
+            Isbt128ProductCode = resolved.ProductCodeData ?? resolved.ProductDescriptionCode,
+            ProductDescriptionCode = resolved.ProductDescriptionCode,
+            ProductCodeData = resolved.ProductCodeData,
+            CollectionTypeCode = resolved.CollectionTypeCode,
+            DivisionCode = resolved.DivisionCode,
             Isbt128DonationId = request.Isbt128DonationId,
             Volume = request.Volume,
             Status = UnitStatus.Quarantine
@@ -154,6 +177,89 @@ public sealed class InventoryService
 
         await _unitOfWork.SaveChangesAsync(ct);
         return InventoryActionResult.Ok(unit);
+    }
+
+    /// <summary>
+    /// Receives a component from a normalized canonical draft (scanner session or manual entry).
+    /// Does not re-parse raw barcodes — callers must supply the canonical draft.
+    /// </summary>
+    public async Task<InventoryActionResult> ReceiveNormalizedComponentAsync(
+        CanonicalComponentDraft draft,
+        long productTypeId,
+        long? locationId,
+        string? supplier,
+        string? shipmentId,
+        string? collectionFacility,
+        decimal? volume,
+        bool releaseToAvailable,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(draft);
+        draft.RebuildIdentity();
+
+        if (draft.Din is null || draft.Product is null || draft.AboRhd is null || draft.Expiration is null)
+            return InventoryActionResult.Fail($"{IsbtErrorCodes.IncompleteScanSession}: Required quadrants missing.");
+
+        var identityKey = ComponentIdentityBuilder.BuildUniquenessKey(
+            draft.Din.Din, draft.Product.ProductCodeData, draft.Product.ExtendedDivisionCode);
+
+        if (await _repository.ComponentIdentityKeyExistsAsync(identityKey, ct))
+            return InventoryActionResult.Fail($"{IsbtErrorCodes.ComponentDuplicate}: {draft.ComponentIdentity}");
+
+        var validation = ComponentCrossFieldValidator.Validate(draft, identityAlreadyExists: false, _clock.UtcNow);
+        if (!validation.Valid)
+            return InventoryActionResult.Fail(string.Join("; ", validation.Errors.Select(e => $"{e.Code}: {e.Message}")));
+
+        var initialStatus = releaseToAvailable ? UnitStatus.Available : UnitStatus.Received;
+        // Disposition incomplete → quarantine. INSTITUTIONAL_POLICY_REVIEW.
+        if (!releaseToAvailable)
+            initialStatus = UnitStatus.Quarantine;
+
+        var unit = Application.Isbt128.CanonicalComponentMapper.ToBloodUnit(
+            draft, productTypeId, locationId, supplier, shipmentId, collectionFacility, volume,
+            initialStatus, _clock.UtcNow);
+
+        await _repository.AddUnitAsync(unit, ct);
+
+        _repository.AddStatusHistory(new InventoryStatusHistory
+        {
+            Unit = unit,
+            FromStatus = null,
+            ToStatus = initialStatus,
+            ToLocationId = locationId,
+            Reason = releaseToAvailable ? "ISBT receipt — released to available" : "ISBT receipt — quarantine pending disposition",
+            ChangedBy = _currentUser.UserName,
+            ChangedUtc = _clock.UtcNow
+        });
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return InventoryActionResult.Ok(unit);
+    }
+
+    public async Task<InventoryActionResult> RecallAsync(long unitId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return InventoryActionResult.Fail("A reason is required to recall a unit.");
+
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+            return InventoryActionResult.Fail("Unit not found.");
+
+        unit.RecallReason = reason;
+        return await ChangeStatusAsync(unit, UnitStatus.Recalled, reason, ct);
+    }
+
+    public async Task<InventoryActionResult> QuarantineAsync(long unitId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return InventoryActionResult.Fail("A quarantine reason is required.");
+
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+            return InventoryActionResult.Fail("Unit not found.");
+
+        unit.QuarantineReason = reason;
+        return await ChangeStatusAsync(unit, UnitStatus.Quarantine, reason, ct);
     }
 
     public async Task<InventoryActionResult> ReleaseFromQuarantineAsync(long unitId, CancellationToken ct = default)

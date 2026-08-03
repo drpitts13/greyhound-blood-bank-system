@@ -81,9 +81,29 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<SubtestDefinition> SubtestDefinitions => Set<SubtestDefinition>();
     public DbSet<TestGrouper> TestGroupers => Set<TestGrouper>();
     public DbSet<ReflexRule> ReflexRules => Set<ReflexRule>();
+    public DbSet<RuleDefinition> RuleDefinitions => Set<RuleDefinition>();
+    public DbSet<RuleExecutionLog> RuleExecutionLogs => Set<RuleExecutionLog>();
     public DbSet<ProductAttribute> ProductAttributes => Set<ProductAttribute>();
     public DbSet<ProductAttributeAssignment> ProductAttributeAssignments => Set<ProductAttributeAssignment>();
     public DbSet<ExceptionDefinition> ExceptionDefinitions => Set<ExceptionDefinition>();
+    public DbSet<ModificationRule> ModificationRules => Set<ModificationRule>();
+    public DbSet<UnitModification> UnitModifications => Set<UnitModification>();
+    public DbSet<UnitModificationUnit> UnitModificationUnits => Set<UnitModificationUnit>();
+
+    // ISBT 128 component identity / lookups / workflow
+    public DbSet<BloodComponentRawScan> BloodComponentRawScans => Set<BloodComponentRawScan>();
+    public DbSet<BloodComponentSpecialTest> BloodComponentSpecialTests => Set<BloodComponentSpecialTest>();
+    public DbSet<BloodComponentScanSession> BloodComponentScanSessions => Set<BloodComponentScanSession>();
+    public DbSet<BloodComponentScanSessionLine> BloodComponentScanSessionLines => Set<BloodComponentScanSessionLine>();
+    public DbSet<IsbtAboRhdCode> IsbtAboRhdCodes => Set<IsbtAboRhdCode>();
+    public DbSet<IsbtProductCode> IsbtProductCodes => Set<IsbtProductCode>();
+    public DbSet<IsbtCollectionType> IsbtCollectionTypes => Set<IsbtCollectionType>();
+    public DbSet<IsbtDataStructure> IsbtDataStructures => Set<IsbtDataStructure>();
+    public DbSet<BloodComponentCompatibilityDecision> BloodComponentCompatibilityDecisions => Set<BloodComponentCompatibilityDecision>();
+    public DbSet<BloodComponentIdentityCorrection> BloodComponentIdentityCorrections => Set<BloodComponentIdentityCorrection>();
+    public DbSet<BloodComponentException> BloodComponentExceptions => Set<BloodComponentException>();
+    public DbSet<CompatibilityRuleVersion> CompatibilityRuleVersions => Set<CompatibilityRuleVersion>();
+    public DbSet<CompatibilityRule> CompatibilityRules => Set<CompatibilityRule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

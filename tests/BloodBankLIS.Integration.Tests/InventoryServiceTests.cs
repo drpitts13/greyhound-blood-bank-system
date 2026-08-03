@@ -1,8 +1,10 @@
 using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -19,18 +21,55 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     {
         var repository = new InventoryRepository(context);
         var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser);
+        var lookups = new IsbtLookupCatalog(
+            new EfRepository<IsbtAboRhdCode>(context),
+            new EfRepository<IsbtProductCode>(context));
         return new InventoryService(
             repository,
             new EfRepository<UnitBloodAttribute>(context),
             new EfRepository<BloodAttributeDefinition>(context),
+            lookups,
             context,
             _factory.Clock,
             _factory.CurrentUser,
             audit);
     }
 
+    private async Task EnsureProductCodesAsync()
+    {
+        await using var context = _factory.Create();
+        if (!await context.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E0206"))
+        {
+            context.IsbtProductCodes.Add(new IsbtProductCode
+            {
+                ProductDescriptionCode = "E0206",
+                Description = "RED BLOOD CELLS|CPDA-1/450mL/refg|Irradiated",
+                ComponentClass = nameof(ComponentClass.RedBloodCells),
+                AttributesJson = "[]",
+                StandardVersion = UsSupplierProductCodeSeed.StandardVersion,
+                IsPlaceholder = true
+            });
+        }
+
+        if (!await context.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E0336"))
+        {
+            context.IsbtProductCodes.Add(new IsbtProductCode
+            {
+                ProductDescriptionCode = "E0336",
+                Description = "RED BLOOD CELLS|CPD>AS1/500mL/refg|ResLeu:<5E6",
+                ComponentClass = nameof(ComponentClass.RedBloodCells),
+                AttributesJson = "[]",
+                StandardVersion = UsSupplierProductCodeSeed.StandardVersion,
+                IsPlaceholder = true
+            });
+        }
+
+        await context.SaveChangesAsync();
+    }
+
     private async Task<long> EnsureProductTypeAsync()
     {
+        await EnsureProductCodesAsync();
         await using var context = _factory.Create();
         var existing = await context.ProductTypes.FirstOrDefaultAsync(t => t.ProductCode == "RBC-TEST");
         if (existing is not null)
@@ -50,9 +89,14 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         return type.Id;
     }
 
-    private ReceiveUnitRequest NewUnitRequest(string unitNumber, long productTypeId, DateTime? expires = null) =>
+    private ReceiveUnitRequest NewUnitRequest(
+        string unitNumber,
+        long productTypeId,
+        DateTime? expires = null,
+        string? productCode = "E0206") =>
         new(unitNumber, productTypeId, AboGroup.O, RhType.Positive,
-            expires ?? _factory.Clock.UtcNow.AddDays(30));
+            expires ?? _factory.Clock.UtcNow.AddDays(30),
+            Isbt128ProductCode: productCode);
 
     [Fact]
     public async Task ReceiveUnit_CreatesQuarantineUnit_WithInitialHistory()
@@ -67,6 +111,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
             Assert.True(result.Succeeded);
             Assert.Equal(UnitStatus.Quarantine, result.Unit!.Status);
+            Assert.Equal("E0206", result.Unit.ProductDescriptionCode);
             unitId = result.Unit.Id;
         }
 
@@ -77,6 +122,48 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             Assert.Null(initial.FromStatus);
             Assert.Equal(UnitStatus.Quarantine, initial.ToStatus);
         }
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_MissingProductCode_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.ReceiveUnitAsync(NewUnitRequest("U-NOPDC", productTypeId, productCode: null));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(IsbtErrorCodes.UnknownProductCode, result.Error);
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_UnknownProductCode_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.ReceiveUnitAsync(NewUnitRequest("U-BADPDC", productTypeId, productCode: "EXXXX"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(IsbtErrorCodes.UnknownProductCode, result.Error);
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_EightCharProductCodeData_StoresComponents()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.ReceiveUnitAsync(NewUnitRequest("U-8CHAR", productTypeId, productCode: "E0336000"));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal("E0336", result.Unit!.ProductDescriptionCode);
+        Assert.Equal("E0336000", result.Unit.ProductCodeData);
+        Assert.Equal("0", result.Unit.CollectionTypeCode);
+        Assert.Equal("00", result.Unit.DivisionCode);
     }
 
     [Fact]

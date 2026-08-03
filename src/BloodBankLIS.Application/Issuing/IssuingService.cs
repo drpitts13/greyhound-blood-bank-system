@@ -1,9 +1,11 @@
+using System.Text.Json;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 
@@ -87,9 +89,36 @@ public sealed class IssuingService
             return EvaluationResult<Issue>.Fail("Unit not found.");
         }
 
+        if (unit.Status == UnitStatus.Recalled)
+            return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentRecalled}: Unit is recalled.");
+        if (unit.Status == UnitStatus.Quarantine)
+            return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentQuarantined}: Unit is quarantined.");
+        if (unit.Status is UnitStatus.Issued or UnitStatus.Transfused or UnitStatus.TransfusionStarted)
+            return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentAlreadyIssued}: Unit already issued or transfused.");
+
         if (await _patients.GetByIdAsync(request.PatientId, ct) is null)
         {
             return EvaluationResult<Issue>.Fail("Patient not found.");
+        }
+
+        // Fresh scan verification required when the unit has a canonical ISBT identity.
+        // Legacy units without ComponentIdentity are not blocked (backward compatible).
+        if (!string.IsNullOrEmpty(unit.ComponentIdentity) && request.VerifiedScan is not null)
+        {
+            var scanEval = ComponentScanVerifier.Verify(
+                unit,
+                request.VerifiedScan.Din,
+                request.VerifiedScan.ProductCodeData,
+                request.VerifiedScan.ExtendedDivisionCode,
+                request.VerifiedScan.AboRhdCode,
+                request.VerifiedScan.ExpirationEncoded);
+            if (scanEval.IsHardStopped)
+                return EvaluationResult<Issue>.Blocked(scanEval);
+        }
+        else if (!string.IsNullOrEmpty(unit.ComponentIdentity) && request.VerifiedScan is null)
+        {
+            return EvaluationResult<Issue>.Fail(
+                $"{IsbtErrorCodes.UnitScanMismatch}: Fresh component scan verification is required at issue.");
         }
 
         var now = _clock.UtcNow;
@@ -208,7 +237,18 @@ public sealed class IssuingService
             Comment = string.IsNullOrWhiteSpace(request.Comment) ? null : request.Comment.Trim(),
             IssueType = request.IssueType,
             Override = authorizedOverride,
-            Status = IssueStatus.Issued
+            Status = IssueStatus.Issued,
+            VerifiedScanJson = request.VerifiedScan is null ? null : JsonSerializer.Serialize(request.VerifiedScan),
+            ReceivedBy = request.ReceivedBy,
+            UnitExpirationAtIssueUtc = unit.ExpiresUtc,
+            CrossmatchStatus = request.IssueType == IssueType.EmergencyRelease
+                ? CrossmatchClinicalStatus.NotCrossmatchedEmergency
+                : hasValidCrossmatch
+                    ? CrossmatchClinicalStatus.Compatible
+                    : CrossmatchClinicalStatus.NotPerformed,
+            EmergencyReleaseDetails = request.IssueType == IssueType.EmergencyRelease
+                ? request.OverrideReason
+                : null
         };
         await _issues.AddAsync(issue, ct);
 
@@ -278,8 +318,25 @@ public sealed class IssuingService
             return EvaluationResult<Return>.Fail("Unit not found.");
         }
 
+        if (unit.Status == UnitStatus.TransfusionStarted || unit.Status == UnitStatus.Transfused)
+        {
+            return EvaluationResult<Return>.Fail(
+                $"{IsbtErrorCodes.ComponentAlreadyTransfused}: Cannot return a unit after transfusion has started.");
+        }
+
         var now = _clock.UtcNow;
-        var destination = request.ReissueEligible ? UnitStatus.Available : UnitStatus.Quarantine;
+
+        // Return evaluation — INSTITUTIONAL_POLICY_REVIEW for time/temp thresholds.
+        var reissueOk = request.ReissueEligible
+            && request.TemperatureAcceptable
+            && request.SealIntegrityAcceptable
+            && request.VisualInspectionAcceptable
+            && request.TimeOutOfStorageAcceptable
+            && unit.ExpiresUtc > now;
+
+        var destination = reissueOk ? UnitStatus.Available : UnitStatus.Quarantine;
+        if (!request.VisualInspectionAcceptable || !request.SealIntegrityAcceptable)
+            destination = UnitStatus.Discarded;
 
         var returnRecord = new Return
         {
@@ -288,7 +345,15 @@ public sealed class IssuingService
             ReturnedUtc = now,
             ReturnedBy = _currentUser.UserName,
             Reason = request.Reason,
-            ReissueEligible = request.ReissueEligible
+            ReissueEligible = reissueOk,
+            ReissueEvaluationJson = JsonSerializer.Serialize(new
+            {
+                request.TemperatureAcceptable,
+                request.SealIntegrityAcceptable,
+                request.VisualInspectionAcceptable,
+                request.TimeOutOfStorageAcceptable,
+                destination
+            })
         };
         await _returns.AddAsync(returnRecord, ct);
 
@@ -341,6 +406,44 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Fail("Unit not found.");
         }
 
+        if (unit.Status != UnitStatus.Issued && unit.Status != UnitStatus.TransfusionStarted)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail(
+                $"{IsbtErrorCodes.InvalidStatusTransition}: Unit status {unit.Status} cannot enter transfusion documentation.");
+        }
+
+        // ISBT-normalized components require positive patient ID + fresh bedside scan.
+        // Legacy units without ComponentIdentity keep the prior documentation path.
+        if (!string.IsNullOrEmpty(unit.ComponentIdentity))
+        {
+            if (!request.PositivePatientIdentification)
+            {
+                return EvaluationResult<TransfusionEvent>.Fail(
+                    $"{IsbtErrorCodes.PatientMismatch}: Positive patient identification is required at transfusion start.");
+            }
+
+            if (request.BedsideScan is null)
+            {
+                return EvaluationResult<TransfusionEvent>.Fail(
+                    $"{IsbtErrorCodes.UnitScanMismatch}: Fresh unit scan is required at bedside.");
+            }
+
+            var bedside = ComponentScanVerifier.Verify(
+                unit,
+                request.BedsideScan.Din,
+                request.BedsideScan.ProductCodeData,
+                request.BedsideScan.ExtendedDivisionCode,
+                request.BedsideScan.AboRhdCode,
+                request.BedsideScan.ExpirationEncoded);
+            if (bedside.IsHardStopped)
+                return EvaluationResult<TransfusionEvent>.Blocked(bedside);
+        }
+
+        if (unit.ExpiresUtc <= _clock.UtcNow)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail($"{IsbtErrorCodes.ComponentExpired}: Unit has expired.");
+        }
+
         var now = _clock.UtcNow;
 
         var transfusion = new TransfusionEvent
@@ -348,25 +451,38 @@ public sealed class IssuingService
             IssueId = issue.Id,
             BloodProductId = unit.Id,
             PatientId = issue.PatientId,
-            StartUtc = request.StartUtc,
+            StartUtc = request.StartUtc ?? now,
             StopUtc = request.StopUtc,
             VolumeTransfused = request.VolumeTransfused,
             Transfusionist = request.Transfusionist,
             ReactionSuspected = request.ReactionSuspected,
             FinalDisposition = request.FinalDisposition,
-            DocumentedBy = _currentUser.UserName
+            DocumentedBy = _currentUser.UserName,
+            SecondVerifier = request.SecondVerifier,
+            Location = request.Location,
+            PatientIdentificationMethod = request.PatientIdentificationMethod,
+            UnitIdentificationMethod = request.UnitIdentificationMethod,
+            WorkstationId = _currentUser.Workstation,
+            BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan)
         };
         await _transfusions.AddAsync(transfusion, ct);
 
+        if (unit.Status == UnitStatus.Issued)
+            AppendStatus(unit, UnitStatus.TransfusionStarted, "Transfusion started", now, nameof(TransfusionEvent), issue.Id);
+
+        var terminal = request.FinalDisposition == TransfusionDisposition.Stopped
+            ? UnitStatus.TransfusionStopped
+            : UnitStatus.Transfused;
+
         issue.Status = IssueStatus.Transfused;
-        AppendStatus(unit, UnitStatus.Transfused, $"Transfusion {request.FinalDisposition}", now, nameof(TransfusionEvent), issue.Id);
+        AppendStatus(unit, terminal, $"Transfusion {request.FinalDisposition}", now, nameof(TransfusionEvent), issue.Id);
 
         _audit.Record(
             AuditEventType.Update,
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { Status = UnitStatus.Issued },
-            newValue: new { Status = UnitStatus.Transfused, request.FinalDisposition, request.ReactionSuspected });
+            newValue: new { Status = terminal, request.FinalDisposition, request.ReactionSuspected });
 
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<TransfusionEvent>.Ok(transfusion);

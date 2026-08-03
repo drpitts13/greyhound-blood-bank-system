@@ -172,6 +172,29 @@ flowchart TD
 
 ---
 
+## 8a. Product modification (divide / pool / irradiate / thaw / volume-reduce / leukoreduce)
+
+```mermaid
+flowchart TD
+    admin["Admin: ModificationRules table\n(source product, type, target product, expiration offset)"] --> eligible
+    tech["Technologist selects source unit(s)"] --> eligible["GET eligible-modifications\n(active rules matching unit's product)"]
+    eligible --> guard["UnitModificationEligibilityRule:\nstatus=Available, unexpired, product match;\nPool: >=2 sources + same product/ABO/Rh;\nDivide: >=2 result units, volumes <= source"]
+    guard -->|HardStop| blocked[422 blocked, hardStops/warnings]
+    guard -->|Pass| execute[Compute ResultExpiresUtc via\nModificationExpirationRule, capped at\nearliest source ExpiresUtc]
+    execute --> source[Source unit(s) -> Modified\n+ InventoryStatusHistory]
+    execute --> result[Result unit(s) created -> Quarantine\n+ DerivedFromModificationId]
+    execute --> header[UnitModification header +\nUnitModificationUnit link rows]
+    execute --> audit[Audit: Modify]
+```
+
+- Use cases: `DivideAsync`, `PoolAsync`, `ApplySingleAsync` (`BloodProductModificationService`).
+- Every modification retires its source unit(s) into the terminal `Modified` status and creates new result unit(s) in `Quarantine` (new units always need release, same convention as intake) — this keeps 1→N (Divide), N→1 (Pool), and 1→1 (Irradiate/Thaw/Volume Reduction/Leukoreduction) on one execution path.
+- Checks: source unit(s) `Available`, unexpired, and on the modification rule's source product; Pool additionally requires ≥2 sources with identical product/ABO/Rh (`MOD-POOL-ABO-MISMATCH` otherwise); Divide requires ≥2 result units and (if volumes are supplied) their sum must not exceed the source's volume.
+- Expiration: `ResultExpiresUtc = min(PerformedUtc + ExpirationOffsetCode, earliest source ExpiresUtc)` — a result can never outlive its source(s), including the shortest-lived component pooled in.
+- Dangerous action: requires a reason; records `AuditEventType.Modify` in addition to the automatic Create/Update audit on every touched/created row. Gated by `inventory.modify`; the rules table itself is gated by `admin.modification-rules.manage`.
+
+---
+
 ## 9. Reaction investigation
 
 ```mermaid
@@ -220,5 +243,6 @@ flowchart LR
 | Warning override | Override | Yes |
 | Return | Return, Update(status) | No |
 | Discard | Discard, Update(status) | Confirmation + reason |
+| Product modification | Modify, Create/Update(status) | Reason |
 | ABO/Rh manual edit | Update(blood type history) | Yes |
 | P-tag reprint | Reprint | Reason |

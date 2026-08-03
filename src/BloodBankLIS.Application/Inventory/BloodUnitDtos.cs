@@ -16,6 +16,14 @@ public sealed record CreateBloodUnitRequest(
 public sealed record BloodUnitDto(
     long Id,
     string UnitNumber,
+    string? ComponentIdentity,
+    string? Din,
+    string? ProductCodeData,
+    string? AboRhdCode,
+    string? ExpirationEncoded,
+    DateTime? ExpirationLocal,
+    string? ExpirationTimezone,
+    bool ExpirationHasExplicitTime,
     long ProductTypeId,
     AboGroup Abo,
     RhType RhD,
@@ -23,10 +31,13 @@ public sealed record BloodUnitDto(
     DateTime ExpiresUtc,
     UnitStatus Status,
     long? CurrentLocationId,
+    ComponentEntrySource Source,
     DateTime CreatedUtc,
     string CreatedBy)
 {
     public static BloodUnitDto From(BloodUnit u) => new(
-        u.Id, u.UnitNumber, u.ProductTypeId, u.Abo, u.RhD, u.BloodType.ToString(),
-        u.ExpiresUtc, u.Status, u.CurrentLocationId, u.CreatedUtc, u.CreatedBy);
+        u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData, u.AboRhdCode,
+        u.ExpirationEncoded, u.ExpirationLocal, u.ExpirationTimezone, u.ExpirationHasExplicitTime,
+        u.ProductTypeId, u.Abo, u.RhD, u.BloodType.ToString(),
+        u.ExpiresUtc, u.Status, u.CurrentLocationId, u.Source, u.CreatedUtc, u.CreatedBy);
 }

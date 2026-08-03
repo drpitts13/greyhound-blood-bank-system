@@ -8,13 +8,19 @@ public class InventoryStatusTransitionTests
     [Theory]
     [InlineData(UnitStatus.Quarantine, UnitStatus.Available)]
     [InlineData(UnitStatus.Available, UnitStatus.Allocated)]
+    [InlineData(UnitStatus.Available, UnitStatus.Assigned)]
+    [InlineData(UnitStatus.Assigned, UnitStatus.Issued)]
     [InlineData(UnitStatus.Allocated, UnitStatus.Issued)]
     [InlineData(UnitStatus.Issued, UnitStatus.Transfused)]
+    [InlineData(UnitStatus.Issued, UnitStatus.TransfusionStarted)]
     [InlineData(UnitStatus.Issued, UnitStatus.Returned)]
     [InlineData(UnitStatus.Returned, UnitStatus.Available)]
     [InlineData(UnitStatus.Quarantine, UnitStatus.Expired)]
     [InlineData(UnitStatus.Returned, UnitStatus.Expired)]
     [InlineData(UnitStatus.Expired, UnitStatus.Discarded)]
+    [InlineData(UnitStatus.Available, UnitStatus.Recalled)]
+    [InlineData(UnitStatus.Received, UnitStatus.Available)]
+    [InlineData(UnitStatus.Available, UnitStatus.Modified)]
     public void AllowedTransitions_Pass(UnitStatus from, UnitStatus to)
     {
         Assert.True(InventoryStatusTransition.IsAllowed(from, to));
@@ -27,6 +33,8 @@ public class InventoryStatusTransitionTests
     [InlineData(UnitStatus.Transfused, UnitStatus.Available)]
     [InlineData(UnitStatus.Discarded, UnitStatus.Available)]
     [InlineData(UnitStatus.Issued, UnitStatus.Available)]
+    [InlineData(UnitStatus.Modified, UnitStatus.Available)]
+    [InlineData(UnitStatus.Quarantine, UnitStatus.Modified)]
     public void DisallowedTransitions_AreHardStop(UnitStatus from, UnitStatus to)
     {
         Assert.False(InventoryStatusTransition.IsAllowed(from, to));

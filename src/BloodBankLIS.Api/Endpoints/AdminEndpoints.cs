@@ -1,5 +1,6 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Admin;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Api.Endpoints;
@@ -19,7 +20,10 @@ public static class AdminEndpoints
         MapSubtests(app);
         MapTestGroupers(app);
         MapReflexRules(app);
+        MapRules(app);
         MapProducts(app);
+        MapModificationRules(app);
+        MapIsbtProductCodes(app);
         MapProviders(app);
         MapLocations(app);
         MapExceptions(app);
@@ -218,6 +222,46 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
 
+    private static void MapRules(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/rules").WithTags("Admin: Order and Test Rules").RequireAuthenticatedUser();
+
+        group.MapGet("", async (RuleDefinitionAdminService svc, bool? includeInactive, RuleLevel? level, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, level, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        // Vocabulary is authoring metadata, so it is mapped before the id route.
+        group.MapGet("/vocabulary", (RuleLevel? level) =>
+            Results.Ok(RuleDefinitionAdminService.Vocabulary(level ?? RuleLevel.Order)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, RuleDefinitionAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Rule not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("/validate", async (ValidateRuleRequest req, RuleDefinitionAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ValidateAsync(req, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveRuleDefinitionRequest req, RuleDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminTestsManage);
+
+        group.MapPut("/{id:long}", async (long id, SaveRuleDefinitionRequest req, RuleDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminTestsManage);
+
+        group.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, RuleDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ActivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, RuleDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.From(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
     private static void MapProducts(WebApplication app)
     {
         var group = app.MapGroup("/api/admin/products").WithTags("Admin: Products").RequireAuthenticatedUser();
@@ -251,6 +295,46 @@ public static class AdminEndpoints
         group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, ProductAdminService svc, CancellationToken ct) =>
             EndpointResults.From(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapModificationRules(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/modification-rules").WithTags("Admin: Modification Rules").RequireAuthenticatedUser();
+
+        group.MapGet("", async (ModificationRuleAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, ModificationRuleAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Modification rule not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveModificationRuleRequest req, ModificationRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminModificationRulesManage);
+
+        group.MapPut("/{id:long}", async (long id, SaveModificationRuleRequest req, ModificationRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminModificationRulesManage);
+
+        group.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, ModificationRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ActivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, ModificationRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.From(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapIsbtProductCodes(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/isbt-product-codes").WithTags("Admin: ISBT Product Codes").RequireAuthenticatedUser();
+
+        group.MapGet("", async (IsbtProductCodeAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
     }
 
     private static void MapProviders(WebApplication app)

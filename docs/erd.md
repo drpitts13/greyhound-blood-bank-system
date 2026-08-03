@@ -7,7 +7,7 @@ Status: Phase 0 (design). Column lists are the target schema; exact CLR/SQL type
 - **Surrogate PK**: every table has `Id BIGINT IDENTITY` unless noted. Source/natural identifiers (MRN, accession number, unit number, order id, visit number) are preserved as their own columns with unique indexes.
 - **Audit metadata** on every clinical/operational table: `CreatedUtc DATETIME2`, `CreatedBy BIGINT (Users.Id)`, `ModifiedUtc DATETIME2 NULL`, `ModifiedBy BIGINT NULL`, `RowVersion ROWVERSION` (optimistic concurrency).
 - **No hard deletes for clinical data.** Use status columns and append-only history tables. Reference/config tables may use an `IsActive`/`IsRetired` flag instead of deletion.
-- **Time**: stored as UTC `DATETIME2`. Expiration of products is tracked to date+time.
+- **Time**: stored as UTC `DATETIME2`. Expiration of products is tracked to date+time. ISBT 128 also stores facility-local expiration (`ExpirationLocal` + `ExpirationTimezone` + `ExpirationHasExplicitTime`) — see `docs/isbt128-module.md`.
 - **Money**: `DECIMAL(18,2)`.
 - All FK columns are indexed.
 
@@ -31,7 +31,12 @@ erDiagram
     ProductAttributes ||--o{ UnitAttributes : referencedBy
     InventoryLocations ||--o{ BloodProducts : storedAt
     BloodProducts ||--o{ InventoryStatusHistory : tracks
-    BloodProducts ||--o{ UnitModifications : tracks
+    ProductTypes ||--o{ ModificationRules : sourceOf
+    ProductTypes ||--o{ ModificationRules : targetOf
+    ModificationRules ||--o{ UnitModifications : executedAs
+    UnitModifications ||--o{ UnitModificationUnits : links
+    BloodProducts ||--o{ UnitModificationUnits : participatesIn
+    UnitModifications ||--o{ BloodProducts : produces
     BloodProducts ||--o{ Crossmatches : testedIn
     Patients ||--o{ Crossmatches : testedFor
     BloodProducts ||--o{ Allocations : reservedAs
@@ -156,7 +161,7 @@ Indexes: (`SpecimenId`,`TestId`), (`PatientId`), (`Status`).
 Indexes: unique(`UnitNumber`), (`Status`), (`ExpiresUtc`), (`ProductTypeId`), (`Abo`,`RhD`), (`CurrentLocationId`).
 
 ### UnitAttributes (link)
-`Id`, `BloodProductId` (FK BloodProducts), `ProductAttributeId` (FK ProductAttributes), `AppliedUtc`, `AppliedBy`, `SourceModificationId BIGINT NULL` (FK UnitModifications). Unique (`BloodProductId`,`ProductAttributeId`).
+`Id`, `BloodProductId` (FK BloodProducts), `ProductAttributeId` (FK ProductAttributes), `AppliedUtc`, `AppliedBy`. Unique (`BloodProductId`,`ProductAttributeId`).
 
 ### InventoryLocations
 `Id`, `Code` (unique), `Name`, `LocationType` (Refrigerator/Freezer/Issue/Transit/External), `IsActive`.
@@ -165,8 +170,24 @@ Indexes: unique(`UnitNumber`), (`Status`), (`ExpiresUtc`), (`ProductTypeId`), (`
 `Id`, `BloodProductId` (FK BloodProducts), `FromStatus NULL`, `ToStatus`, `FromLocationId NULL`, `ToLocationId NULL`, `Reason NULL`, `ChangedBy`, `ChangedUtc`, `RelatedEntityType NULL`, `RelatedEntityId NULL`.
 Index: (`BloodProductId`,`ChangedUtc`).
 
-### UnitModifications
-`Id`, `BloodProductId` (FK BloodProducts), `ModificationType` (Irradiate/Wash/Thaw/Pool/Aliquot/Split/...), `ResultingUnitNumber NULL`, `PerformedBy`, `PerformedUtc`, `Comment NULL`. Index: (`BloodProductId`).
+### Product modification (implemented)
+
+Every modification (Divide, Pool, Irradiate, Thaw, Volume Reduction, Leukoreduction) is executed under an admin-configured `ModificationRules` row, retires its source unit(s) into the terminal `Modified` status, and produces new result unit(s) in `Quarantine`. See `docs/workflows.md` §"Product modification" and `docs/safety-rules.md`.
+
+#### ModificationRules (admin config)
+`Id`, `SourceProductTypeId` (FK ProductTypes), `ModificationType` (Divide/Pool/Irradiate/Thaw/VolumeReduction/Leukoreduction), `TargetProductTypeId` (FK ProductTypes), `ExpirationOffsetCode` (e.g. `24H`, `5D`), `Description NULL`, `IsActive`, `Version`, audit metadata.
+Indexes: (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`), (`IsActive`). App-layer guard prevents more than one **active** rule per (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`) triple.
+
+#### UnitModifications (header, append-only)
+`Id`, `ModificationRuleId` (FK ModificationRules), `ModificationType` (denormalized), `ExpirationOffsetCodeApplied` (denormalized), `ResultExpiresUtc` (= `min(PerformedUtc + offset, earliest source ExpiresUtc)`), `Reason`, `PerformedBy`, `PerformedUtc`, audit metadata.
+Indexes: (`ModificationRuleId`), (`PerformedUtc`).
+
+#### UnitModificationUnits (link, append-only)
+`Id`, `UnitModificationId` (FK UnitModifications), `BloodProductId` (FK BloodProducts), `Role` (`Source`/`Result`), `SortOrder`, audit metadata. Multiple `Source` rows for a Pool; multiple `Result` rows for a Divide.
+Indexes: (`UnitModificationId`), (`BloodProductId`).
+
+#### BloodProducts.DerivedFromModificationId
+Nullable FK BloodProducts → UnitModifications, set on result units so "how was this unit produced" is an O(1) lookup. Null for units received directly into inventory.
 
 ---
 

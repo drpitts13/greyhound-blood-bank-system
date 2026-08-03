@@ -13,6 +13,10 @@ public interface IInventoryRepository
 
     Task<bool> UnitNumberExistsAsync(string unitNumber, CancellationToken cancellationToken = default);
 
+    Task<bool> ComponentIdentityKeyExistsAsync(string componentIdentityKey, CancellationToken cancellationToken = default);
+
+    Task<BloodUnit?> GetByComponentIdentityAsync(string componentIdentity, CancellationToken cancellationToken = default);
+
     Task AddUnitAsync(BloodUnit unit, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken cancellationToken = default);

@@ -1,0 +1,219 @@
+@page "/admin/modification-rules"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Modification Rules &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Modification Rules</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New rule</button>
+    }
+</div>
+
+<p class="muted">
+    Maps a source product code and modification type (Divide, Pool, Irradiate, Thaw, Volume Reduction,
+    Leukoreduction) to a resulting target product code, plus an expiration offset (e.g. <code>24H</code>,
+    <code>5D</code>) applied from the modification date/time and capped at the source unit's original expiration.
+</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="empty">No modification rules.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Source</th><th>Type</th><th>Target</th><th>Offset</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in _items)
+                {
+                    <tr>
+                        <td class="mono">@r.SourceProductCode</td>
+                        <td>@r.ModificationType</td>
+                        <td class="mono">@r.TargetProductCode</td>
+                        <td class="mono">@r.ExpirationOffsetCode</td>
+                        <td>@r.Version</td>
+                        <td>
+                            @if (r.IsActive) { <span class="badge badge-green">Active</span> }
+                            else { <span class="badge badge-gray">Inactive</span> }
+                        </td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(r.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(r.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New modification rule" : $"Edit rule #{_editId}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Source product</label>
+                <select @bind="_editing.SourceProductTypeId">
+                    <option value="0">-- select --</option>
+                    @foreach (var p in _products) { <option value="@p.Id">@p.ProductCode &mdash; @p.Name</option> }
+                </select>
+            </div>
+            <div class="field"><label>Modification type</label>
+                <select @bind="_editing.ModificationType">@foreach (var t in Enum.GetValues<ModificationType>()) { <option value="@t">@t</option> }</select>
+            </div>
+            <div class="field"><label>Target product</label>
+                <select @bind="_editing.TargetProductTypeId">
+                    <option value="0">-- select --</option>
+                    @foreach (var p in _products) { <option value="@p.Id">@p.ProductCode &mdash; @p.Name</option> }
+                </select>
+            </div>
+            <div class="field"><label>Expiration offset (e.g. 24H, 5D)</label><input @bind="_editing.ExpirationOffsetCode" placeholder="24H" /></div>
+            <div class="field" style="grid-column:1/3;"><label>Description</label><input @bind="_editing.Description" /></div>
+        </div>
+
+        <div class="field"><label>Change reason @(_currentIsActive ? "(required)" : "(optional)")</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && CanActivate)
+            {
+                @if (!_currentIsActive)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ActivateAsync">Activate</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DeactivateAsync">Deactivate</button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_history is not null)
+{
+    <ConfigHistoryPanel Title="@($"History: rule #{_historyId}")" Rows="_history" OnClose="() => _history = null" />
+}
+
+@code {
+    private List<ModificationRuleDto> _items = new();
+    private List<ProductTypeDto> _products = new();
+    private bool _loading = true;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private bool _currentIsActive;
+    private string? _changeReason;
+
+    private List<ConfigHistoryDto>? _history;
+    private long _historyId;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminModificationRulesManage);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var products = await Api.GetProductTypesAsync();
+        _products = products.Value ?? new();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminModificationRulesAsync();
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null; _currentIsActive = false; _changeReason = null;
+        _editing = new EditModel();
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminModificationRuleAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = r.Value.Id; _currentIsActive = r.Value.IsActive; _changeReason = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null ? await Api.CreateAdminModificationRuleAsync(req) : await Api.UpdateAdminModificationRuleAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Draft created." : "Saved.");
+        if (r.Succeeded) { _editId = r.Value!.Id; _currentIsActive = r.Value.IsActive; await LoadAsync(); }
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ActivateAdminModificationRuleAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Activated.");
+        if (r.Succeeded) { _currentIsActive = true; await LoadAsync(); }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAdminModificationRuleAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Deactivated.");
+        if (r.Succeeded) { _currentIsActive = false; await LoadAsync(); }
+    }
+
+    private async Task ShowHistoryAsync(long id)
+    {
+        var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.ModificationRule), id);
+        _history = r.Value ?? new();
+        _historyId = id;
+    }
+
+    private sealed class EditModel
+    {
+        public long SourceProductTypeId { get; set; }
+        public ModificationType ModificationType { get; set; } = ModificationType.Divide;
+        public long TargetProductTypeId { get; set; }
+        public string ExpirationOffsetCode { get; set; } = string.Empty;
+        public string? Description { get; set; }
+
+        public static EditModel From(ModificationRuleDto r) => new()
+        {
+            SourceProductTypeId = r.SourceProductTypeId,
+            ModificationType = r.ModificationType,
+            TargetProductTypeId = r.TargetProductTypeId,
+            ExpirationOffsetCode = r.ExpirationOffsetCode,
+            Description = r.Description
+        };
+
+        public SaveModificationRuleRequest ToRequest(string? reason) => new(
+            SourceProductTypeId, ModificationType, TargetProductTypeId, ExpirationOffsetCode, Description, reason);
+    }
+}

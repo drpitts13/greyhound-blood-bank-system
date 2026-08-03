@@ -141,6 +141,73 @@ public sealed record SaveReflexRuleRequest(
     string ReflexTestCode,
     string? ChangeReason);
 
+// ---- Order and test rules ----
+
+public sealed record RuleDefinitionDto(
+    long Id,
+    string Code,
+    string Name,
+    string? Description,
+    RuleLevel Level,
+    int Priority,
+    bool StopOnMatch,
+    string ConditionExpression,
+    string ActionExpression,
+    int Version,
+    bool IsActive,
+    bool IsDraft,
+    DateTime? EffectiveUtc,
+    DateTime? RetiredUtc,
+    string? ChangeReason);
+
+public sealed record SaveRuleDefinitionRequest(
+    string Code,
+    string Name,
+    string? Description,
+    RuleLevel Level,
+    int Priority,
+    bool StopOnMatch,
+    string ConditionExpression,
+    string ActionExpression,
+    string? ChangeReason);
+
+public sealed record ValidateRuleRequest(
+    RuleLevel Level,
+    string ConditionExpression,
+    string ActionExpression);
+
+public sealed record RuleMessageDto(string Code, string Severity, string Message);
+
+public sealed record RuleValidationDto(
+    bool IsValid,
+    IReadOnlyList<RuleMessageDto> HardStops,
+    IReadOnlyList<RuleMessageDto> Warnings,
+    IReadOnlyList<string> ParsedActions);
+
+public sealed record RuleAttributeDto(
+    string Path,
+    string Kind,
+    string Description,
+    string Example);
+
+public sealed record RuleFunctionDto(
+    string Name,
+    string Kind,
+    string Description,
+    string Example);
+
+public sealed record RuleActionDto(
+    string Name,
+    string Description,
+    string Example);
+
+/// <summary>Everything the rule authoring UI needs to describe one level's vocabulary.</summary>
+public sealed record RuleVocabularyDto(
+    RuleLevel Level,
+    IReadOnlyList<RuleAttributeDto> Attributes,
+    IReadOnlyList<RuleFunctionDto> Functions,
+    IReadOnlyList<RuleActionDto> Actions);
+
 // ---- Products ----
 
 public sealed record ProductDefinitionDto(
@@ -186,6 +253,44 @@ public sealed record SaveProductDefinitionRequest(
 public sealed record ProductAttributeSelection(long AttributeId, bool IsRequired);
 
 public sealed record ProductAttributeDto(long Id, string Code, string Name, string? Description, bool IsActive);
+
+// ---- Modification rules ----
+
+public sealed record ModificationRuleDto(
+    long Id,
+    long SourceProductTypeId,
+    string SourceProductCode,
+    ModificationType ModificationType,
+    long TargetProductTypeId,
+    string TargetProductCode,
+    string ExpirationOffsetCode,
+    string? Description,
+    int Version,
+    bool IsActive);
+
+public sealed record SaveModificationRuleRequest(
+    long SourceProductTypeId,
+    ModificationType ModificationType,
+    long TargetProductTypeId,
+    string ExpirationOffsetCode,
+    string? Description,
+    string? ChangeReason);
+
+// ---- ISBT product description codes ----
+
+public sealed record IsbtProductCodeDto(
+    long Id,
+    string ProductDescriptionCode,
+    string Description,
+    string ComponentClass,
+    string? Modifier,
+    string? StorageRequirements,
+    bool RequiresExtendedDivision,
+    DateOnly? EffectiveDate,
+    DateOnly? RetiredDate,
+    string StandardVersion,
+    bool IsPlaceholder,
+    bool IsRetired);
 
 // ---- HL7 endpoints ----
 

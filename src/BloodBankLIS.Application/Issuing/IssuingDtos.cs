@@ -22,9 +22,25 @@ public sealed record IssueUnitRequest(
     string? OverrideReason = null,
     string? AuthorizedBy = null,
     DateTime? IssuedUtc = null,
-    string? Comment = null);
+    string? Comment = null,
+    /// <summary>Fresh positive unit identity verification at issue (required when unit has ISBT identity).</summary>
+    ComponentScanVerificationRequest? VerifiedScan = null,
+    string? ReceivedBy = null);
 
-public sealed record ReturnUnitRequest(string Reason, bool ReissueEligible);
+public sealed record ComponentScanVerificationRequest(
+    string Din,
+    string ProductCodeData,
+    string? ExtendedDivisionCode,
+    string AboRhdCode,
+    string ExpirationEncoded);
+
+public sealed record ReturnUnitRequest(
+    string Reason,
+    bool ReissueEligible,
+    bool TemperatureAcceptable = true,
+    bool SealIntegrityAcceptable = true,
+    bool VisualInspectionAcceptable = true,
+    bool TimeOutOfStorageAcceptable = true);
 
 public sealed record DocumentTransfusionRequest(
     TransfusionDisposition FinalDisposition,
@@ -32,7 +48,13 @@ public sealed record DocumentTransfusionRequest(
     DateTime? StopUtc = null,
     decimal? VolumeTransfused = null,
     string? Transfusionist = null,
-    bool ReactionSuspected = false);
+    bool ReactionSuspected = false,
+    ComponentScanVerificationRequest? BedsideScan = null,
+    string? SecondVerifier = null,
+    string? Location = null,
+    string? PatientIdentificationMethod = null,
+    string? UnitIdentificationMethod = null,
+    bool PositivePatientIdentification = false);
 
 public sealed record IssueDto(
     long Id,

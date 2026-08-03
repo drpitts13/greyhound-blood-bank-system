@@ -110,6 +110,8 @@ app.UseHttpsRedirection();
 app.MapPatientEndpoints();
 app.MapPatientWorkspaceEndpoints();
 app.MapInventoryEndpoints();
+app.MapModificationEndpoints();
+app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();
 app.MapTestWorklistEndpoints();

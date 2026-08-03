@@ -30,4 +30,20 @@ public class Crossmatch : BaseEntity
     public DateTime? ExpiresUtc { get; set; }
 
     public string? Comment { get; set; }
+
+    public string? Phase { get; set; }
+
+    public string? Interpretation { get; set; }
+
+    public string? ObservedResultsJson { get; set; }
+
+    public CrossmatchClinicalStatus ClinicalStatus { get; set; } = CrossmatchClinicalStatus.NotPerformed;
+
+    public string? RulesVersion { get; set; }
+
+    public string? PolicyVersion { get; set; }
+
+    public long? EncounterId { get; set; }
+
+    public long? OrderId { get; set; }
 }

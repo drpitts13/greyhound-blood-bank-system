@@ -165,6 +165,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("AllocatedUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("AssignmentType")
+                        .HasColumnType("int");
+
                     b.Property<long>("BloodProductId")
                         .HasColumnType("bigint");
 
@@ -432,6 +435,494 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("BillingEvents", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentCompatibilityDecision", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("BloodProductId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EvaluatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EvaluatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("HardStopsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("OrderId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Pathway")
+                        .HasColumnType("int");
+
+                    b.Property<long>("PatientId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PolicyVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("RequiredApprovalsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("RulesVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("SatisfiedRulesJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WarningsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BloodProductId", "PatientId", "EvaluatedAt");
+
+                    b.ToTable("BloodComponentCompatibilityDecisions", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentException", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ApproverId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("BloodProductId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExceptionCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OverrideCode")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("OverrideReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RecordedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BloodProductId");
+
+                    b.ToTable("BloodComponentExceptions", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentIdentityCorrection", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AffectedTransactionsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ApproverId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<long>("BloodProductId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CorrectedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CorrectedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CorrectedValue")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Field")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OriginalValue")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("RevalidationCompleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("RevalidationRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("SupportingEvidence")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BloodProductId");
+
+                    b.ToTable("BloodComponentIdentityCorrections", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentRawScan", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("BloodProductId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EnteredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EnteredBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NormalizedValue")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("OriginalValue")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("SanitizedValue")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StructureKind")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BloodProductId");
+
+                    b.ToTable("BloodComponentRawScans", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentScanSession", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CompletedComponentIdentity")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DraftJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ExpectedStructuresJson")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LastScanAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReceivedStructuresJson")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("SessionKey")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StartedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionKey")
+                        .IsUnique();
+
+                    b.ToTable("BloodComponentScanSessions", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentScanSessionLine", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OriginalValue")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("SanitizedValue")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long>("ScanSessionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("ScannedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("StructureKind")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("WasConflict")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("WasDuplicate")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ScanSessionId");
+
+                    b.ToTable("BloodComponentScanSessionLines", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentSpecialTest", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("BloodProductId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Result")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("StandardVersion")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("TestCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BloodProductId");
+
+                    b.ToTable("BloodComponentSpecialTests", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodUnit", b =>
                 {
                     b.Property<long>("Id")
@@ -443,12 +934,35 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<int>("Abo")
                         .HasColumnType("int");
 
+                    b.Property<string>("AboRhdCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("AboSpecialMessage")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime?>("CollectedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CollectionDateTime")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CollectionFacility")
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("CollectionTypeCode")
+                        .HasMaxLength(1)
+                        .HasColumnType("nvarchar(1)");
+
+                    b.Property<string>("ComponentIdentity")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("ComponentIdentityKey")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<string>("CreatedBy")
                         .IsRequired()
@@ -461,12 +975,65 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<long?>("CurrentLocationId")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("DerivedFromModificationId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Din")
+                        .HasMaxLength(13)
+                        .HasColumnType("nvarchar(13)");
+
+                    b.Property<string>("DinFlags")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<string>("DinKeyboardCheck")
+                        .HasMaxLength(1)
+                        .HasColumnType("nvarchar(1)");
+
                     b.Property<string>("DiscardReason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("DivisionCode")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<string>("DonationCollectionCategory")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("DonationSequence")
+                        .HasMaxLength(6)
+                        .HasColumnType("nvarchar(6)");
+
+                    b.Property<string>("EncodedPhenotype")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ExpirationEncoded")
+                        .HasMaxLength(11)
+                        .HasColumnType("nvarchar(11)");
+
+                    b.Property<bool>("ExpirationHasExplicitTime")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ExpirationLocal")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExpirationTimezone")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<DateTime>("ExpiresUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("ExtendedDivisionCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Fin")
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
 
                     b.Property<string>("Isbt128DonationId")
                         .HasMaxLength(30)
@@ -483,10 +1050,30 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("NominalYear")
+                        .HasMaxLength(2)
+                        .HasColumnType("nvarchar(2)");
+
+                    b.Property<string>("ProcessingFacilityCode")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("ProductCodeData")
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<string>("ProductDescriptionCode")
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
                     b.Property<long>("ProductTypeId")
                         .HasColumnType("bigint");
 
                     b.Property<string>("QuarantineReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RecallReason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
@@ -498,6 +1085,18 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<string>("ShipmentId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StandardVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -507,8 +1106,8 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("UnitNumber")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<decimal?>("Volume")
                         .HasPrecision(18, 3)
@@ -516,7 +1115,15 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ComponentIdentityKey")
+                        .IsUnique()
+                        .HasFilter("[ComponentIdentityKey] IS NOT NULL");
+
                     b.HasIndex("CurrentLocationId");
+
+                    b.HasIndex("DerivedFromModificationId");
+
+                    b.HasIndex("Din");
 
                     b.HasIndex("ExpiresUtc");
 
@@ -637,6 +1244,135 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.HasIndex("TriggerType", "TriggerKey");
 
                     b.ToTable("ChargeRules", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.CompatibilityRule", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("CompatibilityRuleVersionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ComponentClass")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ExpressionJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("RuleCode")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("RuleFamily")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompatibilityRuleVersionId", "RuleCode")
+                        .IsUnique();
+
+                    b.ToTable("CompatibilityRules", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.CompatibilityRuleVersion", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("EffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("PolicyVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateOnly?>("RetiredDate")
+                        .HasColumnType("date");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Version")
+                        .IsUnique();
+
+                    b.ToTable("CompatibilityRuleVersions", (string)null);
                 });
 
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.BloodAttributeDefinition", b =>
@@ -781,6 +1517,69 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ExceptionDefinitions", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.ModificationRule", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ExpirationOffsetCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("ModificationType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<long>("SourceProductTypeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("TargetProductTypeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsActive");
+
+                    b.HasIndex("TargetProductTypeId");
+
+                    b.HasIndex("SourceProductTypeId", "ModificationType", "TargetProductTypeId");
+
+                    b.ToTable("ModificationRules", (string)null);
                 });
 
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.ProductAttribute", b =>
@@ -975,6 +1774,105 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.HasIndex("TriggerTestCode");
 
                     b.ToTable("ReflexRules", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.RuleDefinition", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ActionExpression")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ApprovedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChangeReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ConditionExpression")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("EffectiveUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDraft")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPendingApproval")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("RetiredUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<bool>("StopOnMatch")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code");
+
+                    b.HasIndex("Level", "IsActive");
+
+                    b.ToTable("RuleDefinitions", (string)null);
                 });
 
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.SpecimenTypeDefinition", b =>
@@ -1366,6 +2264,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<long>("BloodProductId")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("ClinicalStatus")
+                        .HasColumnType("int");
+
                     b.Property<string>("Comment")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -1378,8 +2279,14 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<long?>("EncounterId")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTime?>("ExpiresUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Interpretation")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("Method")
                         .HasColumnType("int");
@@ -1390,6 +2297,12 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("ObservedResultsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long?>("OrderId")
+                        .HasColumnType("bigint");
 
                     b.Property<long>("PatientId")
                         .HasColumnType("bigint");
@@ -1402,6 +2315,12 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("PerformedUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Phase")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PolicyVersion")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("Result")
                         .HasColumnType("int");
 
@@ -1409,6 +2328,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<string>("RulesVersion")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<long>("SpecimenId")
                         .HasColumnType("bigint");
@@ -2201,6 +3123,277 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("InventoryStatusHistory", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.IsbtAboRhdCode", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Abo")
+                        .HasColumnType("int");
+
+                    b.Property<string>("AdditionalPhenotype")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("CollectionType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("EffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsPlaceholder")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("RetiredDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("RhD")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("SpecialMessage")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("StandardVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code", "StandardVersion")
+                        .IsUnique();
+
+                    b.ToTable("IsbtAboRhdCodes", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.IsbtCollectionType", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateOnly?>("EffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsPlaceholder")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly?>("RetiredDate")
+                        .HasColumnType("date");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("StandardVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("IsbtCollectionTypes", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.IsbtDataStructure", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DataIdentifier")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("StandardVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataIdentifier")
+                        .IsUnique();
+
+                    b.ToTable("IsbtDataStructures", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.IsbtProductCode", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AttributesJson")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("ComponentClass")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateOnly?>("EffectiveDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsPlaceholder")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Modifier")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ProductDescriptionCode")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.Property<bool>("RequiresExtendedDivision")
+                        .HasColumnType("bit");
+
+                    b.Property<DateOnly?>("RetiredDate")
+                        .HasColumnType("date");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("StandardVersion")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("StorageRequirements")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductDescriptionCode", "StandardVersion")
+                        .IsUnique();
+
+                    b.ToTable("IsbtProductCodes", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Issue", b =>
                 {
                     b.Property<long>("Id")
@@ -2215,6 +3408,10 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<long>("BloodProductId")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<string>("CreatedBy")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -2223,15 +3420,17 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("CrossmatchStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EmergencyReleaseDetails")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<long?>("EncounterId")
                         .HasColumnType("bigint");
 
                     b.Property<int>("IssueType")
                         .HasColumnType("int");
-
-                    b.Property<string>("Comment")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("IssuedBy")
                         .IsRequired()
@@ -2265,6 +3464,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<long>("PatientId")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("ReceivedBy")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -2272,6 +3474,12 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("UnitExpirationAtIssueUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VerifiedScanJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -3092,6 +4300,79 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("Returns", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.RuleExecutionLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ActionsJson")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("EvaluatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Level")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<long?>("OrderId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("PatientId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("RuleCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<long>("RuleId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("RuleVersion")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("TestResultId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("RuleId");
+
+                    b.HasIndex("TestResultId");
+
+                    b.ToTable("RuleExecutionLogs", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Specimen", b =>
                 {
                     b.Property<long>("Id")
@@ -3284,6 +4565,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
+                    b.Property<string>("BedsideScanVerificationJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<long>("BloodProductId")
                         .HasColumnType("bigint");
 
@@ -3294,6 +4578,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("CreatedUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("DeviceId")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("DocumentedBy")
                         .IsRequired()
@@ -3306,6 +4593,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<long>("IssueId")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Location")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ModifiedBy")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -3313,16 +4603,37 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("OverrideDataJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<long>("PatientId")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("PatientIdentificationMethod")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PostTransfusionObservations")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PreTransfusionVitalsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ReactionActions")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("ReactionSuspected")
                         .HasColumnType("bit");
+
+                    b.Property<string>("RemainderDisposition")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<string>("SecondVerifier")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("StartUtc")
                         .HasColumnType("datetime2");
@@ -3334,12 +4645,18 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
+                    b.Property<string>("UnitIdentificationMethod")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("VitalsJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal?>("VolumeTransfused")
                         .HasPrecision(18, 3)
                         .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("WorkstationId")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -3400,6 +4717,119 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("UnitBloodAttributes", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.UnitModification", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExpirationOffsetCodeApplied")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<long>("ModificationRuleId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ModificationType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("PerformedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("ResultExpiresUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ModificationRuleId");
+
+                    b.HasIndex("PerformedUtc");
+
+                    b.ToTable("UnitModifications", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.UnitModificationUnit", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("BloodProductId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<long>("UnitModificationId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BloodProductId");
+
+                    b.HasIndex("UnitModificationId");
+
+                    b.ToTable("UnitModificationUnits", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Allocation", b =>
                 {
                     b.HasOne("BloodBankLIS.Domain.Entities.BloodUnit", "Unit")
@@ -3422,11 +4852,82 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Navigation("ChargeCode");
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentCompatibilityDecision", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.BloodUnit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("BloodProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentException", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.BloodUnit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("BloodProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentIdentityCorrection", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.BloodUnit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("BloodProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentRawScan", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.BloodUnit", "Unit")
+                        .WithMany("RawScans")
+                        .HasForeignKey("BloodProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentScanSessionLine", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.BloodComponentScanSession", "Session")
+                        .WithMany("Lines")
+                        .HasForeignKey("ScanSessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentSpecialTest", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.BloodUnit", "Unit")
+                        .WithMany("SpecialTests")
+                        .HasForeignKey("BloodProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Unit");
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodUnit", b =>
                 {
                     b.HasOne("BloodBankLIS.Domain.Entities.InventoryLocation", "CurrentLocation")
                         .WithMany()
                         .HasForeignKey("CurrentLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BloodBankLIS.Domain.Entities.UnitModification", "DerivedFromModification")
+                        .WithMany()
+                        .HasForeignKey("DerivedFromModificationId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("BloodBankLIS.Domain.Entities.ProductType", "ProductType")
@@ -3436,6 +4937,8 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("CurrentLocation");
+
+                    b.Navigation("DerivedFromModification");
 
                     b.Navigation("ProductType");
                 });
@@ -3449,6 +4952,36 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("ChargeCode");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.CompatibilityRule", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.CompatibilityRuleVersion", "Version")
+                        .WithMany("Rules")
+                        .HasForeignKey("CompatibilityRuleVersionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Version");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.ModificationRule", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.ProductType", "SourceProductType")
+                        .WithMany()
+                        .HasForeignKey("SourceProductTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BloodBankLIS.Domain.Entities.ProductType", "TargetProductType")
+                        .WithMany()
+                        .HasForeignKey("TargetProductTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("SourceProductType");
+
+                    b.Navigation("TargetProductType");
                 });
 
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.ProductAttributeAssignment", b =>
@@ -3722,6 +5255,53 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Navigation("Issue");
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.UnitModification", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.Configuration.ModificationRule", "ModificationRule")
+                        .WithMany()
+                        .HasForeignKey("ModificationRuleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ModificationRule");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.UnitModificationUnit", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.BloodUnit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("BloodProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BloodBankLIS.Domain.Entities.UnitModification", "UnitModification")
+                        .WithMany("Units")
+                        .HasForeignKey("UnitModificationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Unit");
+
+                    b.Navigation("UnitModification");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodComponentScanSession", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.BloodUnit", b =>
+                {
+                    b.Navigation("RawScans");
+
+                    b.Navigation("SpecialTests");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.CompatibilityRuleVersion", b =>
+                {
+                    b.Navigation("Rules");
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.ProductAttribute", b =>
                 {
                     b.Navigation("Assignments");
@@ -3769,6 +5349,11 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                 {
                     b.Navigation("AttributeAssignments");
 
+                    b.Navigation("Units");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.UnitModification", b =>
+                {
                     b.Navigation("Units");
                 });
 #pragma warning restore 612, 618

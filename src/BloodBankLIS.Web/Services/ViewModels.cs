@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Web.Services;
@@ -61,6 +62,10 @@ public sealed record MeVm(string UserName, string DisplayName, int SecurityLevel
 public sealed record ExpireDueVm(int Expired);
 
 public sealed record SignatureCreatedVm(long Id);
+
+// Response shape for the modification endpoints' anonymous success payload
+// (source record lives inline in Api/Endpoints/ModificationEndpoints.cs).
+public sealed record ModificationResultVm(long ModificationId, List<BloodUnitDto> ResultUnits);
 
 // Request bodies whose records live in the Api/Printing projects.
 public sealed record TransferRequestVm(long ToLocationId, string? Reason);

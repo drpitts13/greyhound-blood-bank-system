@@ -27,11 +27,28 @@ function Wait-HttpReady {
     param(
         [string]$Url,
         [string]$Name,
-        [int]$TimeoutSeconds = 120
+        [int]$TimeoutSeconds = 120,
+        [string]$StdErrLog = $null,
+        [System.Diagnostics.Process]$Process = $null
     )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    $lastProgress = Get-Date
     while ((Get-Date) -lt $deadline) {
+        if ($null -ne $Process -and $Process.HasExited) {
+            Write-Host "$Name process exited early (exit code $($Process.ExitCode))." -ForegroundColor Red
+            return $false
+        }
+
+        if ($StdErrLog -and (Test-Path $StdErrLog)) {
+            $fatal = Select-String -Path $StdErrLog -Pattern "Unhandled exception|Database migrate/seed failed|fail: Program" -SimpleMatch:$false -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+            if ($fatal) {
+                Write-Host "$Name reported a startup failure in logs." -ForegroundColor Red
+                return $false
+            }
+        }
+
         try {
             # Do not follow redirects: Development HTTP profiles often emit an HTTPS
             # redirect that has no listener, which would look like a failed startup.
@@ -48,6 +65,11 @@ function Wait-HttpReady {
                 Write-Host "$Name is ready at $Url" -ForegroundColor Green
                 return $true
             }
+        }
+
+        if (((Get-Date) - $lastProgress).TotalSeconds -ge 10) {
+            Write-Host "  Waiting for $Name..." -ForegroundColor DarkGray
+            $lastProgress = Get-Date
         }
 
         Start-Sleep -Seconds 2
@@ -70,33 +92,40 @@ function Show-LogTail {
 Write-Host "Starting Greyhound Blood Bank LIS..."
 Write-Host "  Logs: $logDir"
 
+# Clear prior redirected logs so crash detection is for this run only.
+Remove-Item $apiOut, $apiErr, $webOut, $webErr -ErrorAction SilentlyContinue
+
 # API first (Web depends on it)
-Start-Process -FilePath "dotnet" `
+$apiProc = Start-Process -FilePath "dotnet" `
     -ArgumentList @("run", "--project", $apiProject, "--launch-profile", "http") `
     -WorkingDirectory $Root `
     -RedirectStandardOutput $apiOut `
     -RedirectStandardError $apiErr `
-    -WindowStyle Hidden | Out-Null
+    -WindowStyle Hidden `
+    -PassThru
 
-if (-not (Wait-HttpReady -Url $apiUrl -Name "API" -TimeoutSeconds 180)) {
+if (-not (Wait-HttpReady -Url $apiUrl -Name "API" -TimeoutSeconds 180 -StdErrLog $apiErr -Process $apiProc)) {
     Write-Host ""
     Write-Host "API failed to start. Last log lines:" -ForegroundColor Red
     Show-LogTail -Paths @($apiOut, $apiErr)
+    if (-not $apiProc.HasExited) { Stop-Process -Id $apiProc.Id -Force -ErrorAction SilentlyContinue }
     Read-Host "Press Enter to close"
     exit 1
 }
 
-Start-Process -FilePath "dotnet" `
+$webProc = Start-Process -FilePath "dotnet" `
     -ArgumentList @("run", "--project", $webProject, "--launch-profile", "http") `
     -WorkingDirectory $Root `
     -RedirectStandardOutput $webOut `
     -RedirectStandardError $webErr `
-    -WindowStyle Hidden | Out-Null
+    -WindowStyle Hidden `
+    -PassThru
 
-if (-not (Wait-HttpReady -Url $webUrl -Name "Web UI" -TimeoutSeconds 180)) {
+if (-not (Wait-HttpReady -Url $webUrl -Name "Web UI" -TimeoutSeconds 180 -StdErrLog $webErr -Process $webProc)) {
     Write-Host ""
     Write-Host "Web UI failed to start. Last log lines:" -ForegroundColor Red
     Show-LogTail -Paths @($webOut, $webErr)
+    if (-not $webProc.HasExited) { Stop-Process -Id $webProc.Id -Force -ErrorAction SilentlyContinue }
     Read-Host "Press Enter to close"
     exit 1
 }

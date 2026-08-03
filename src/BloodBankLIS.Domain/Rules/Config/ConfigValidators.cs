@@ -1,6 +1,7 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules.Engine;
 using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Domain.Rules.Config;
@@ -430,6 +431,59 @@ public static class ProductDefinitionValidator
     }
 }
 
+public static class ModificationRuleValidator
+{
+    public static RuleEvaluation Validate(
+        ModificationRule r,
+        bool duplicateActiveTriple,
+        bool? sourceProductActive = null,
+        bool? targetProductActive = null)
+    {
+        var results = new List<RuleResult>();
+
+        if (r.SourceProductTypeId <= 0)
+        {
+            results.Add(RuleResult.HardStop("MODRULE.SOURCE.REQUIRED", "A source product is required."));
+        }
+
+        if (r.TargetProductTypeId <= 0)
+        {
+            results.Add(RuleResult.HardStop("MODRULE.TARGET.REQUIRED", "A target product is required."));
+        }
+
+        if (!ExpirationOffsetCode.TryParse(r.ExpirationOffsetCode, out _))
+        {
+            results.Add(RuleResult.HardStop("MODRULE.OFFSET.INVALID",
+                $"Expiration offset code '{r.ExpirationOffsetCode}' is not valid. Use a format such as '24H' or '5D'."));
+        }
+
+        if (duplicateActiveTriple)
+        {
+            results.Add(RuleResult.HardStop("MODRULE.TRIPLE.DUPLICATE",
+                "Another active modification rule already maps this source product, modification type, and target product."));
+        }
+
+        if (sourceProductActive == false)
+        {
+            results.Add(RuleResult.HardStop("MODRULE.SOURCE.INACTIVE", "The source product is not an active product definition."));
+        }
+
+        if (targetProductActive == false)
+        {
+            results.Add(RuleResult.HardStop("MODRULE.TARGET.INACTIVE", "The target product is not an active product definition."));
+        }
+
+        if (r.ModificationType is ModificationType.Divide or ModificationType.Pool
+            && r.SourceProductTypeId > 0 && r.TargetProductTypeId > 0 && r.SourceProductTypeId == r.TargetProductTypeId)
+        {
+            results.Add(RuleResult.Warning("MODRULE.SAMEPRODUCT",
+                "Source and target product are the same; confirm this is intended for this modification type."));
+        }
+
+        return new RuleEvaluation(results);
+    }
+}
+
 public static class Hl7EndpointValidator
 {
     public static RuleEvaluation Validate(InterfaceEndpoint e, bool duplicateActiveName, bool duplicateActiveHostPort)
@@ -480,5 +534,117 @@ public static class Hl7EndpointValidator
         }
 
         return new RuleEvaluation(results);
+    }
+}
+
+public static class RuleDefinitionValidator
+{
+    /// <summary>
+    /// Validates a configurable order/test rule. The condition and action expressions must
+    /// parse and may only reference attributes the rule's level can supply, otherwise the
+    /// rule could never fire. Test codes are checked against the catalog as warnings only,
+    /// so a rule may be authored before its target test exists.
+    /// </summary>
+    /// <param name="knownTestCodes">Active test definition and test grouper codes, or null to skip the check.</param>
+    public static RuleEvaluation Validate(
+        RuleDefinition rule,
+        bool duplicateActiveCode,
+        IReadOnlySet<string>? knownTestCodes = null)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+
+        var results = new List<RuleResult>();
+
+        if (string.IsNullOrWhiteSpace(rule.Code))
+        {
+            results.Add(RuleResult.HardStop("RULE.CODE.REQUIRED", "Rule code is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(rule.Name))
+        {
+            results.Add(RuleResult.HardStop("RULE.NAME.REQUIRED", "Rule name is required."));
+        }
+
+        if (duplicateActiveCode)
+        {
+            results.Add(RuleResult.HardStop("RULE.CODE.DUPLICATE",
+                $"Another active rule already uses code '{rule.Code}'."));
+        }
+
+        ValidateCondition(rule, results);
+        var actions = ValidateActions(rule, results);
+        ValidateTestCodes(actions, knownTestCodes, results);
+
+        return new RuleEvaluation(results);
+    }
+
+    private static void ValidateCondition(RuleDefinition rule, List<RuleResult> results)
+    {
+        if (string.IsNullOrWhiteSpace(rule.ConditionExpression))
+        {
+            results.Add(RuleResult.HardStop("RULE.CONDITION.REQUIRED", "A condition is required."));
+            return;
+        }
+
+        if (!RuleExpressionParser.TryParse(rule.ConditionExpression, out var node, out var syntaxError))
+        {
+            results.Add(RuleResult.HardStop("RULE.CONDITION.SYNTAX", $"Condition is not valid: {syntaxError}"));
+            return;
+        }
+
+        foreach (var unknown in RuleAttributeCatalog.FindUnknownReferences(node, rule.Level))
+        {
+            results.Add(RuleResult.HardStop("RULE.CONDITION.ATTRIBUTE", unknown));
+        }
+    }
+
+    private static IReadOnlyList<RuleActionInstruction> ValidateActions(RuleDefinition rule, List<RuleResult> results)
+    {
+        if (string.IsNullOrWhiteSpace(rule.ActionExpression))
+        {
+            results.Add(RuleResult.HardStop("RULE.ACTION.REQUIRED", "At least one action is required."));
+            return Array.Empty<RuleActionInstruction>();
+        }
+
+        if (!RuleActionParser.TryParse(rule.ActionExpression, rule.Level, out var actions, out var actionError))
+        {
+            var code = actionError is not null && actionError.Contains("only available to", StringComparison.OrdinalIgnoreCase)
+                ? "RULE.ACTION.LEVEL"
+                : "RULE.ACTION.SYNTAX";
+            results.Add(RuleResult.HardStop(code, $"Actions are not valid: {actionError}"));
+            return Array.Empty<RuleActionInstruction>();
+        }
+
+        var added = actions.Where(a => a.Kind == RuleActionKind.AddTest).Select(a => a.TestCode).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var cancelled = actions.Where(a => a.Kind == RuleActionKind.CancelTest).Select(a => a.TestCode);
+        foreach (var conflict in cancelled.Where(added.Contains).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            results.Add(RuleResult.HardStop("RULE.ACTION.SELF",
+                $"Test '{conflict}' is both added and cancelled by this rule."));
+        }
+
+        return actions;
+    }
+
+    private static void ValidateTestCodes(
+        IReadOnlyList<RuleActionInstruction> actions,
+        IReadOnlySet<string>? knownTestCodes,
+        List<RuleResult> results)
+    {
+        if (knownTestCodes is null)
+        {
+            return;
+        }
+
+        var referenced = actions
+            .Where(a => a.Kind is RuleActionKind.AddTest or RuleActionKind.CancelTest)
+            .Select(a => a.TestCode)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var code in referenced.Where(c => !knownTestCodes.Contains(c)))
+        {
+            results.Add(RuleResult.Warning("RULE.TEST.UNKNOWN",
+                $"Test '{code}' is not in the active test catalog. The action will be skipped until it exists."));
+        }
     }
 }

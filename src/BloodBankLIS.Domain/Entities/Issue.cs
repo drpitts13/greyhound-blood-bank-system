@@ -41,4 +41,15 @@ public class Issue : BaseEntity
     public Override? Override { get; set; }
 
     public IssueStatus Status { get; set; } = IssueStatus.Issued;
+
+    /// <summary>Fresh scan verification payload captured at issue (normalized identity fields).</summary>
+    public string? VerifiedScanJson { get; set; }
+
+    public CrossmatchClinicalStatus CrossmatchStatus { get; set; } = CrossmatchClinicalStatus.NotPerformed;
+
+    public string? EmergencyReleaseDetails { get; set; }
+
+    public string? ReceivedBy { get; set; }
+
+    public DateTime? UnitExpirationAtIssueUtc { get; set; }
 }

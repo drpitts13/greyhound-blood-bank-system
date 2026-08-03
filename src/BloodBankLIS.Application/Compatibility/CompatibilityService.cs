@@ -177,7 +177,8 @@ public sealed class CompatibilityService
             return EvaluationResult<Allocation>.Fail("Unit already has an active allocation.");
         }
 
-        var results = new List<RuleResult> { InventoryStatusTransition.Evaluate(unit.Status, UnitStatus.Allocated) };
+        var targetStatus = UnitStatus.Assigned;
+        var results = new List<RuleResult> { InventoryStatusTransition.Evaluate(unit.Status, targetStatus) };
 
         var bloodType = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == request.PatientId && h.IsCurrent, ct);
         var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
@@ -211,7 +212,7 @@ public sealed class CompatibilityService
         }
 
         var fromStatus = unit.Status;
-        unit.Status = UnitStatus.Allocated;
+        unit.Status = targetStatus;
 
         var allocation = new Allocation
         {
@@ -219,6 +220,7 @@ public sealed class CompatibilityService
             PatientId = request.PatientId,
             SpecimenId = request.SpecimenId,
             Status = AllocationStatus.Reserved,
+            AssignmentType = AssignmentType.Reservation,
             AllocatedUtc = _clock.UtcNow,
             AllocatedBy = _currentUser.UserName,
             ExpiresUtc = request.ExpiresUtc
@@ -229,10 +231,10 @@ public sealed class CompatibilityService
         {
             BloodProductId = unit.Id,
             FromStatus = fromStatus,
-            ToStatus = UnitStatus.Allocated,
+            ToStatus = targetStatus,
             FromLocationId = unit.CurrentLocationId,
             ToLocationId = unit.CurrentLocationId,
-            Reason = "Allocated to patient",
+            Reason = "Assigned/allocated to patient",
             ChangedBy = _currentUser.UserName,
             ChangedUtc = _clock.UtcNow,
             RelatedEntityType = nameof(Allocation)

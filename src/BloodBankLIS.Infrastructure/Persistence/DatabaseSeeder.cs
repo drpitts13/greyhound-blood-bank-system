@@ -29,20 +29,191 @@ public static class DatabaseSeeder
         await SeedSubtestDefinitionsAsync(context, cancellationToken);
         await SeedTestDefinitionsAsync(context, cancellationToken);
         await EnsureAgtypeTestAsync(context, cancellationToken);
+        await EnsureWeakDTestAsync(context, cancellationToken);
         await EnsureCrossmatchTestsAsync(context, cancellationToken);
         await MigrateExistingTestPanelConfigAsync(context, cancellationToken);
         await SeedTestGroupersAsync(context, cancellationToken);
         await SeedReflexRulesAsync(context, cancellationToken);
+        await SeedRuleDefinitionsAsync(context, cancellationToken);
         await SeedLocationsAsync(context, cancellationToken);
         await SeedOrderingLocationsAsync(context, cancellationToken);
         await SeedOrderingProvidersAsync(context, cancellationToken);
         await SeedChargeMasterAsync(context, cancellationToken);
         await SeedDemoClinicalDataAsync(context, cancellationToken);
+        await EnsureIsbtPermissionsAsync(context, cancellationToken);
+        await SeedIsbt128LookupsAsync(context, cancellationToken);
 
         if (seedDevAdmin)
         {
             await SeedDevAdminAsync(context, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Ensures newly introduced permission codes exist on upgraded databases.
+    /// </summary>
+    private static async Task EnsureIsbtPermissionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var existing = await context.Permissions.Select(p => p.Code).ToListAsync(ct);
+        var missing = PermissionCodes.All.Except(existing, StringComparer.Ordinal).ToList();
+        if (missing.Count == 0)
+            return;
+
+        context.Permissions.AddRange(missing.Select(code => new Permission { Code = code }));
+        await context.SaveChangesAsync(ct);
+
+        // Grant new ISBT/inventory permissions to Administrator (and Dev Admin if present).
+        var adminRoles = await context.Roles
+            .Where(r => r.Name == "Administrator" || r.Name == "Dev Admin" || r.Name == "Supervisor")
+            .ToListAsync(ct);
+        var perms = await context.Permissions.Where(p => missing.Contains(p.Code)).ToListAsync(ct);
+        foreach (var role in adminRoles)
+        {
+            foreach (var perm in perms)
+            {
+                if (!await context.RolePermissions.AnyAsync(rp => rp.RoleId == role.Id && rp.PermissionId == perm.Id, ct))
+                {
+                    context.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = perm.Id });
+                }
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// PLACEHOLDER ISBT lookup rows for demonstration/testing only.
+    /// Do not treat as official ICCBBA code tables. ICCBBA_VALIDATION_REQUIRED.
+    /// </summary>
+    private static async Task SeedIsbt128LookupsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.IsbtDataStructures.AnyAsync(ct))
+        {
+            context.IsbtDataStructures.AddRange(
+                new IsbtDataStructure { DataIdentifier = "=", Kind = IsbtDataStructureKind.DonationIdentificationNumber, Description = "DIN (PLACEHOLDER)" },
+                new IsbtDataStructure { DataIdentifier = "=%", Kind = IsbtDataStructureKind.AboRhd, Description = "ABO/RhD (PLACEHOLDER)" },
+                new IsbtDataStructure { DataIdentifier = "=<", Kind = IsbtDataStructureKind.ProductCode, Description = "Product (PLACEHOLDER)" },
+                new IsbtDataStructure { DataIdentifier = "=>", Kind = IsbtDataStructureKind.ExpirationDate, Description = "Expiration date (PLACEHOLDER)" },
+                new IsbtDataStructure { DataIdentifier = "&>", Kind = IsbtDataStructureKind.ExpirationDateTime, Description = "Expiration date/time (PLACEHOLDER)" },
+                new IsbtDataStructure { DataIdentifier = "=*", Kind = IsbtDataStructureKind.CollectionDate, Description = "Collection date (PLACEHOLDER)" },
+                new IsbtDataStructure { DataIdentifier = "&*", Kind = IsbtDataStructureKind.CollectionDateTime, Description = "Collection date/time (PLACEHOLDER)" });
+            await context.SaveChangesAsync(ct);
+        }
+
+        if (!await context.IsbtCollectionTypes.AnyAsync(ct))
+        {
+            context.IsbtCollectionTypes.Add(new IsbtCollectionType
+            {
+                Code = "0",
+                Description = "PLACEHOLDER — Volunteer/allogeneic (requires ICCBBA confirmation)",
+                IsPlaceholder = true
+            });
+            await context.SaveChangesAsync(ct);
+        }
+
+        if (!await context.IsbtAboRhdCodes.AnyAsync(ct))
+        {
+            // Intentionally fabricated facility demo codes — NOT official ISBT ABO/RhD encodings.
+            context.IsbtAboRhdCodes.AddRange(
+                new IsbtAboRhdCode
+                {
+                    Code = "DEMO",
+                    Abo = AboGroup.O,
+                    RhD = RhType.Positive,
+                    CollectionType = "Volunteer/allogeneic (PLACEHOLDER)",
+                    SpecialMessage = "PLACEHOLDER demo code — replace with ICCBBA table",
+                    IsPlaceholder = true
+                },
+                new IsbtAboRhdCode
+                {
+                    Code = "DEMA",
+                    Abo = AboGroup.A,
+                    RhD = RhType.Negative,
+                    CollectionType = "Volunteer/allogeneic (PLACEHOLDER)",
+                    IsPlaceholder = true
+                });
+            await context.SaveChangesAsync(ct);
+        }
+
+        await SeedUsSupplierProductCodesAsync(context, ct);
+
+        if (!await context.CompatibilityRuleVersions.AnyAsync(ct))
+        {
+            var version = new CompatibilityRuleVersion
+            {
+                Version = "PLACEHOLDER-1",
+                PolicyVersion = "PLACEHOLDER-POLICY-1",
+                EffectiveDate = new DateOnly(2020, 1, 1),
+                IsActive = true,
+                Notes = "INSTITUTIONAL_POLICY_REVIEW / MEDICAL_DIRECTOR_APPROVAL required before clinical use."
+            };
+            context.CompatibilityRuleVersions.Add(version);
+            await context.SaveChangesAsync(ct);
+
+            context.CompatibilityRules.Add(new CompatibilityRule
+            {
+                CompatibilityRuleVersionId = version.Id,
+                RuleCode = "RBC-ABO-BASE",
+                ComponentClass = ComponentClass.RedBloodCells,
+                RuleFamily = "RedBloodCells",
+                ExpressionJson = "{}",
+                Severity = "HardStop",
+                Description = "Delegates to domain AboCompatibilityRule (placeholder version row)."
+            });
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>
+    /// Idempotent upsert of commonly published US supplier ISBT PDCs into <see cref="IsbtProductCode"/>.
+    /// Inserts missing codes and refreshes description/component class for seed rows.
+    /// </summary>
+    private static async Task SeedUsSupplierProductCodesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var seedRows = UsSupplierProductCodeSeed.CreateRows();
+        var existing = await context.IsbtProductCodes.ToListAsync(ct);
+        var byPdc = existing
+            .GroupBy(r => r.ProductDescriptionCode, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+
+        var changed = false;
+        foreach (var seed in seedRows)
+        {
+            if (byPdc.TryGetValue(seed.ProductDescriptionCode, out var rows))
+            {
+                // Unique index is (PDC, StandardVersion); collapse legacy duplicates for the same PDC first.
+                for (var i = 1; i < rows.Count; i++)
+                {
+                    context.IsbtProductCodes.Remove(rows[i]);
+                    changed = true;
+                }
+
+                var row = rows[0];
+                if (row.Description != seed.Description
+                    || row.ComponentClass != seed.ComponentClass
+                    || row.StandardVersion != seed.StandardVersion
+                    || row.AttributesJson != seed.AttributesJson
+                    || row.RequiresExtendedDivision != seed.RequiresExtendedDivision
+                    || !row.IsPlaceholder)
+                {
+                    row.Description = seed.Description;
+                    row.ComponentClass = seed.ComponentClass;
+                    row.StandardVersion = seed.StandardVersion;
+                    row.AttributesJson = seed.AttributesJson;
+                    row.RequiresExtendedDivision = seed.RequiresExtendedDivision;
+                    row.IsPlaceholder = seed.IsPlaceholder;
+                    changed = true;
+                }
+            }
+            else
+            {
+                context.IsbtProductCodes.Add(seed);
+                changed = true;
+            }
+        }
+
+        if (changed)
+            await context.SaveChangesAsync(ct);
     }
 
     /// <summary>
@@ -110,6 +281,7 @@ public static class DatabaseSeeder
             PermissionCodes.ResultEnter, PermissionCodes.ResultVerify,
             PermissionCodes.ImmunoRecord,
             PermissionCodes.InventoryReceive, PermissionCodes.InventoryTransfer, PermissionCodes.InventoryRelease,
+            PermissionCodes.InventoryModify,
             PermissionCodes.CompatibilityCrossmatch, PermissionCodes.CompatibilityAllocate,
             PermissionCodes.IssueCreate, PermissionCodes.IssueReturn, PermissionCodes.TransfusionDocument,
             PermissionCodes.PrintLabel,
@@ -140,8 +312,9 @@ public static class DatabaseSeeder
         var inventoryManagerCodes = new[]
         {
             PermissionCodes.InventoryReceive, PermissionCodes.InventoryTransfer, PermissionCodes.InventoryRelease, PermissionCodes.InventoryDiscard,
+            PermissionCodes.InventoryModify,
             PermissionCodes.AdminConfigView, PermissionCodes.AdminConfigEdit, PermissionCodes.AdminConfigActivate,
-            PermissionCodes.AdminProductsManage
+            PermissionCodes.AdminProductsManage, PermissionCodes.AdminModificationRulesManage
         };
         var billingAnalystCodes = new[]
         {
@@ -798,6 +971,80 @@ public static class DatabaseSeeder
             EffectiveUtc = now,
             Version = 1
         });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Weak D is a standalone reflex test as well as an ABORH panel subtest. The test
+    /// definition is required for the seeded Weak D rule to have something to order.
+    /// </summary>
+    private static async Task EnsureWeakDTestAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.TestDefinitions.AnyAsync(t => t.Code == "WEAKD", ct))
+        {
+            return;
+        }
+
+        context.TestDefinitions.Add(new TestDefinition
+        {
+            Code = "WEAKD",
+            Name = "Weak D Test",
+            Category = TestCategory.AboRh,
+            ResultValueType = ResultValueType.Coded,
+            AllowedResultValues = "Negative\nPositive",
+            VerificationRequired = true,
+            ContributesToCompatibility = true,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = DateTime.UtcNow,
+            Version = 1
+        });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Seeds the two reference rules as inactive drafts. They demonstrate both levels of the
+    /// engine and are visible in the admin UI, but a site must review and activate them
+    /// before they affect any clinical workflow.
+    /// </summary>
+    private static async Task SeedRuleDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.RuleDefinitions.AnyAsync(ct))
+        {
+            return;
+        }
+
+        context.RuleDefinitions.AddRange(
+            new RuleDefinition
+            {
+                Code = "NEO-TYPE-AND-SCREEN",
+                Name = "Neonatal type and screen",
+                Description =
+                    "A patient under one day old receives the neonatal type and screen instead of the standard one.",
+                Level = RuleLevel.Order,
+                Priority = 100,
+                ConditionExpression = "patient.ageDays < 1 AND order.hasTest('TNS')",
+                ActionExpression = "cancelTest('TNS'); addTest('TSNEO')",
+                IsActive = false,
+                IsDraft = true,
+                Version = 1
+            },
+            new RuleDefinition
+            {
+                Code = "ABORH-RHNEG-WEAKD",
+                Name = "Weak D on an Rh negative type",
+                Description = "An Rh(D) negative ABO/Rh interpretation reflexes a Weak D test.",
+                Level = RuleLevel.Test,
+                Priority = 100,
+                ConditionExpression =
+                    "test.code = 'ABORH' AND test.interpretation IN ('A Negative','B Negative','O Negative','AB Negative')",
+                ActionExpression = "addTest('WEAKD')",
+                IsActive = false,
+                IsDraft = true,
+                Version = 1
+            });
 
         await context.SaveChangesAsync(ct);
     }

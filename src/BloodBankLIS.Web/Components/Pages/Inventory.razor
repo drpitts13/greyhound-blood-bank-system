@@ -9,6 +9,7 @@
 <div class="flex-between" style="margin-bottom:1rem;">
     <h1>Blood Product Inventory</h1>
     <div class="flex gap">
+        <a class="btn btn-secondary" href="inventory/isbt-receive">ISBT 128 receive</a>
         @if (Session.Has(PermissionCodes.InventoryReceive))
         {
             <button class="btn btn-primary" @onclick="ToggleReceive">@(_showReceive ? "Cancel" : "Receive unit")</button>
@@ -43,6 +44,9 @@
                     <option value="0">— none —</option>
                     @foreach (var l in _locations) { <option value="@l.Id">@l.Code — @l.Name</option> }
                 </select>
+            </div>
+            <div class="field"><label>Product description code</label>
+                <input @bind="_rec.ProductDescriptionCode" placeholder="E0336 or E0336000" maxlength="8" required />
             </div>
             <div class="field"><label>Collection facility</label><input @bind="_rec.CollectionFacility" /></div>
             <div class="field"><label>Supplier</label><input @bind="_rec.Supplier" /></div>
@@ -160,7 +164,8 @@
             DateTime.SpecifyKind(_rec.ExpiresLocal, DateTimeKind.Utc),
             _rec.LocationId == 0 ? null : _rec.LocationId,
             string.IsNullOrWhiteSpace(_rec.CollectionFacility) ? null : _rec.CollectionFacility,
-            string.IsNullOrWhiteSpace(_rec.Supplier) ? null : _rec.Supplier);
+            string.IsNullOrWhiteSpace(_rec.Supplier) ? null : _rec.Supplier,
+            string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode) ? null : _rec.ProductDescriptionCode.Trim());
         var r = await Api.ReceiveUnitAsync(req);
         _busy = false;
         _receiveFb = r.ToFeedback("Unit received into quarantine.");
@@ -349,6 +354,7 @@
         public RhType RhD { get; set; } = RhType.Positive;
         public DateTime ExpiresLocal { get; set; } = DateTime.UtcNow.AddDays(30);
         public long LocationId { get; set; }
+        public string ProductDescriptionCode { get; set; } = string.Empty;
         public string? CollectionFacility { get; set; }
         public string? Supplier { get; set; }
     }

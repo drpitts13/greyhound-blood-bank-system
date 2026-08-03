@@ -24,6 +24,9 @@ public class Allocation : BaseEntity
 
     public AllocationStatus Status { get; set; } = AllocationStatus.Reserved;
 
+    /// <summary>Patient-assignment pathway; not a generic linked flag.</summary>
+    public AssignmentType AssignmentType { get; set; } = AssignmentType.Reservation;
+
     public DateTime AllocatedUtc { get; set; }
 
     public string AllocatedBy { get; set; } = "system";

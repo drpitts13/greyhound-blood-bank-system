@@ -310,13 +310,36 @@ public sealed class BloodUnitConfiguration : IEntityTypeConfiguration<BloodUnit>
     {
         b.ToTable("BloodProducts");
         b.HasKey(u => u.Id);
-        b.Property(u => u.UnitNumber).HasMaxLength(50).IsRequired();
+        b.Property(u => u.UnitNumber).HasMaxLength(80).IsRequired();
+        b.Property(u => u.ComponentIdentity).HasMaxLength(80);
+        b.Property(u => u.ComponentIdentityKey).HasMaxLength(80);
+        b.Property(u => u.Din).HasMaxLength(13);
+        b.Property(u => u.Fin).HasMaxLength(5);
+        b.Property(u => u.NominalYear).HasMaxLength(2);
+        b.Property(u => u.DonationSequence).HasMaxLength(6);
+        b.Property(u => u.DinFlags).HasMaxLength(2);
+        b.Property(u => u.DinKeyboardCheck).HasMaxLength(1);
+        b.Property(u => u.AboRhdCode).HasMaxLength(10);
+        b.Property(u => u.DonationCollectionCategory).HasMaxLength(100);
+        b.Property(u => u.EncodedPhenotype).HasMaxLength(100);
+        b.Property(u => u.AboSpecialMessage).HasMaxLength(200);
+        b.Property(u => u.ProductCodeData).HasMaxLength(8);
+        b.Property(u => u.ProductDescriptionCode).HasMaxLength(5);
+        b.Property(u => u.CollectionTypeCode).HasMaxLength(1);
+        b.Property(u => u.DivisionCode).HasMaxLength(2);
+        b.Property(u => u.ExtendedDivisionCode).HasMaxLength(20);
+        b.Property(u => u.ExpirationEncoded).HasMaxLength(11);
+        b.Property(u => u.ExpirationTimezone).HasMaxLength(100);
+        b.Property(u => u.ProcessingFacilityCode).HasMaxLength(20);
+        b.Property(u => u.StandardVersion).HasMaxLength(50);
         b.Property(u => u.Isbt128ProductCode).HasMaxLength(20);
         b.Property(u => u.Isbt128DonationId).HasMaxLength(30);
         b.Property(u => u.CollectionFacility).HasMaxLength(150);
         b.Property(u => u.Supplier).HasMaxLength(150);
+        b.Property(u => u.ShipmentId).HasMaxLength(100);
         b.Property(u => u.QuarantineReason).HasMaxLength(500);
         b.Property(u => u.DiscardReason).HasMaxLength(500);
+        b.Property(u => u.RecallReason).HasMaxLength(500);
         b.Property(u => u.Volume).HasPrecision(18, 3);
         b.Property(u => u.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(u => u.ModifiedBy).HasMaxLength(100);
@@ -326,13 +349,74 @@ public sealed class BloodUnitConfiguration : IEntityTypeConfiguration<BloodUnit>
 
         b.HasOne(u => u.ProductType).WithMany(t => t.Units).HasForeignKey(u => u.ProductTypeId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(u => u.CurrentLocation).WithMany().HasForeignKey(u => u.CurrentLocationId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(u => u.RawScans).WithOne(s => s.Unit!).HasForeignKey(s => s.BloodProductId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(u => u.SpecialTests).WithOne(s => s.Unit!).HasForeignKey(s => s.BloodProductId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(u => u.DerivedFromModification).WithMany().HasForeignKey(u => u.DerivedFromModificationId).OnDelete(DeleteBehavior.Restrict);
 
         b.HasIndex(u => u.UnitNumber).IsUnique();
+        b.HasIndex(u => u.ComponentIdentityKey).IsUnique().HasFilter("[ComponentIdentityKey] IS NOT NULL");
+        b.HasIndex(u => u.Din);
         b.HasIndex(u => u.Status);
         b.HasIndex(u => u.ExpiresUtc);
         b.HasIndex(u => u.ProductTypeId);
         b.HasIndex(u => new { u.Abo, u.RhD });
         b.HasIndex(u => u.CurrentLocationId);
+        b.HasIndex(u => u.DerivedFromModificationId);
+    }
+}
+
+public sealed class ModificationRuleConfiguration : IEntityTypeConfiguration<ModificationRule>
+{
+    public void Configure(EntityTypeBuilder<ModificationRule> b)
+    {
+        b.ToTable("ModificationRules");
+        b.HasKey(r => r.Id);
+        b.Property(r => r.ExpirationOffsetCode).HasMaxLength(10).IsRequired();
+        b.Property(r => r.Description).HasMaxLength(500);
+        b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.ModifiedBy).HasMaxLength(100);
+
+        b.HasOne(r => r.SourceProductType).WithMany().HasForeignKey(r => r.SourceProductTypeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(r => r.TargetProductType).WithMany().HasForeignKey(r => r.TargetProductTypeId).OnDelete(DeleteBehavior.Restrict);
+
+        b.HasIndex(r => new { r.SourceProductTypeId, r.ModificationType, r.TargetProductTypeId });
+        b.HasIndex(r => r.IsActive);
+    }
+}
+
+public sealed class UnitModificationConfiguration : IEntityTypeConfiguration<UnitModification>
+{
+    public void Configure(EntityTypeBuilder<UnitModification> b)
+    {
+        b.ToTable("UnitModifications");
+        b.HasKey(m => m.Id);
+        b.Property(m => m.ExpirationOffsetCodeApplied).HasMaxLength(10).IsRequired();
+        b.Property(m => m.Reason).HasMaxLength(500).IsRequired();
+        b.Property(m => m.PerformedBy).HasMaxLength(100).IsRequired();
+        b.Property(m => m.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(m => m.ModifiedBy).HasMaxLength(100);
+
+        b.HasOne(m => m.ModificationRule).WithMany().HasForeignKey(m => m.ModificationRuleId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(m => m.Units).WithOne(u => u.UnitModification!).HasForeignKey(u => u.UnitModificationId).OnDelete(DeleteBehavior.Restrict);
+
+        b.HasIndex(m => m.ModificationRuleId);
+        b.HasIndex(m => m.PerformedUtc);
+    }
+}
+
+public sealed class UnitModificationUnitConfiguration : IEntityTypeConfiguration<UnitModificationUnit>
+{
+    public void Configure(EntityTypeBuilder<UnitModificationUnit> b)
+    {
+        b.ToTable("UnitModificationUnits");
+        b.HasKey(u => u.Id);
+        b.Property(u => u.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(u => u.ModifiedBy).HasMaxLength(100);
+
+        b.HasOne(u => u.Unit).WithMany().HasForeignKey(u => u.BloodProductId).OnDelete(DeleteBehavior.Restrict);
+
+        b.HasIndex(u => u.UnitModificationId);
+        b.HasIndex(u => u.BloodProductId);
     }
 }
 
@@ -866,6 +950,47 @@ public sealed class ReflexRuleConfiguration : IEntityTypeConfiguration<ReflexRul
     }
 }
 
+public sealed class RuleDefinitionConfiguration : IEntityTypeConfiguration<RuleDefinition>
+{
+    public void Configure(EntityTypeBuilder<RuleDefinition> b)
+    {
+        b.ToTable("RuleDefinitions");
+        b.HasKey(r => r.Id);
+        b.Property(r => r.Code).HasMaxLength(50).IsRequired();
+        b.Property(r => r.Name).HasMaxLength(200).IsRequired();
+        b.Property(r => r.Description).HasMaxLength(1000);
+        b.Property(r => r.Level).HasConversion<int>();
+        b.Property(r => r.ConditionExpression).HasMaxLength(2000).IsRequired();
+        b.Property(r => r.ActionExpression).HasMaxLength(2000).IsRequired();
+        b.Property(r => r.ChangeReason).HasMaxLength(1000);
+        b.Property(r => r.ApprovedBy).HasMaxLength(100);
+        b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(r => r.Code);
+        b.HasIndex(r => new { r.Level, r.IsActive });
+    }
+}
+
+public sealed class RuleExecutionLogConfiguration : IEntityTypeConfiguration<RuleExecutionLog>
+{
+    public void Configure(EntityTypeBuilder<RuleExecutionLog> b)
+    {
+        b.ToTable("RuleExecutionLogs");
+        b.HasKey(l => l.Id);
+        b.Property(l => l.RuleCode).HasMaxLength(50).IsRequired();
+        b.Property(l => l.Level).HasConversion<int>();
+        b.Property(l => l.ActionsJson).HasMaxLength(2000);
+        b.Property(l => l.Notes).HasMaxLength(2000);
+        b.Property(l => l.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(l => l.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(l => l.OrderId);
+        b.HasIndex(l => l.TestResultId);
+        b.HasIndex(l => l.RuleId);
+    }
+}
+
 public sealed class ProductAttributeConfiguration : IEntityTypeConfiguration<ProductAttribute>
 {
     public void Configure(EntityTypeBuilder<ProductAttribute> b)
@@ -894,5 +1019,223 @@ public sealed class ProductAttributeAssignmentConfiguration : IEntityTypeConfigu
         b.HasOne(a => a.ProductType).WithMany(t => t.AttributeAssignments).HasForeignKey(a => a.ProductTypeId).OnDelete(DeleteBehavior.Cascade);
         b.HasOne(a => a.ProductAttribute).WithMany(p => p.Assignments).HasForeignKey(a => a.ProductAttributeId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(a => new { a.ProductTypeId, a.ProductAttributeId }).IsUnique();
+    }
+}
+
+public sealed class BloodComponentRawScanConfiguration : IEntityTypeConfiguration<BloodComponentRawScan>
+{
+    public void Configure(EntityTypeBuilder<BloodComponentRawScan> b)
+    {
+        b.ToTable("BloodComponentRawScans");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.OriginalValue).HasMaxLength(500).IsRequired();
+        b.Property(x => x.SanitizedValue).HasMaxLength(500).IsRequired();
+        b.Property(x => x.NormalizedValue).HasMaxLength(200);
+        b.Property(x => x.EnteredBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.BloodProductId);
+    }
+}
+
+public sealed class BloodComponentSpecialTestConfiguration : IEntityTypeConfiguration<BloodComponentSpecialTest>
+{
+    public void Configure(EntityTypeBuilder<BloodComponentSpecialTest> b)
+    {
+        b.ToTable("BloodComponentSpecialTests");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.TestCode).HasMaxLength(50).IsRequired();
+        b.Property(x => x.Result).HasMaxLength(200);
+        b.Property(x => x.StandardVersion).HasMaxLength(50);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.BloodProductId);
+    }
+}
+
+public sealed class BloodComponentScanSessionConfiguration : IEntityTypeConfiguration<BloodComponentScanSession>
+{
+    public void Configure(EntityTypeBuilder<BloodComponentScanSession> b)
+    {
+        b.ToTable("BloodComponentScanSessions");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ExpectedStructuresJson).HasMaxLength(2000).IsRequired();
+        b.Property(x => x.ReceivedStructuresJson).HasMaxLength(4000).IsRequired();
+        b.Property(x => x.DraftJson).IsRequired();
+        b.Property(x => x.StartedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.CompletedComponentIdentity).HasMaxLength(80);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.SessionKey).IsUnique();
+        b.HasMany(x => x.Lines).WithOne(l => l.Session!).HasForeignKey(l => l.ScanSessionId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class BloodComponentScanSessionLineConfiguration : IEntityTypeConfiguration<BloodComponentScanSessionLine>
+{
+    public void Configure(EntityTypeBuilder<BloodComponentScanSessionLine> b)
+    {
+        b.ToTable("BloodComponentScanSessionLines");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.OriginalValue).HasMaxLength(500).IsRequired();
+        b.Property(x => x.SanitizedValue).HasMaxLength(500).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.ScanSessionId);
+    }
+}
+
+public sealed class IsbtAboRhdCodeConfiguration : IEntityTypeConfiguration<IsbtAboRhdCode>
+{
+    public void Configure(EntityTypeBuilder<IsbtAboRhdCode> b)
+    {
+        b.ToTable("IsbtAboRhdCodes");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Code).HasMaxLength(10).IsRequired();
+        b.Property(x => x.CollectionType).HasMaxLength(100);
+        b.Property(x => x.SpecialMessage).HasMaxLength(200);
+        b.Property(x => x.AdditionalPhenotype).HasMaxLength(100);
+        b.Property(x => x.StandardVersion).HasMaxLength(50).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => new { x.Code, x.StandardVersion }).IsUnique();
+    }
+}
+
+public sealed class IsbtProductCodeConfiguration : IEntityTypeConfiguration<IsbtProductCode>
+{
+    public void Configure(EntityTypeBuilder<IsbtProductCode> b)
+    {
+        b.ToTable("IsbtProductCodes");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ProductDescriptionCode).HasMaxLength(5).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(200).IsRequired();
+        b.Property(x => x.ComponentClass).HasMaxLength(50).IsRequired();
+        b.Property(x => x.Modifier).HasMaxLength(50);
+        b.Property(x => x.AttributesJson).HasMaxLength(2000).IsRequired();
+        b.Property(x => x.StorageRequirements).HasMaxLength(200);
+        b.Property(x => x.StandardVersion).HasMaxLength(50).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => new { x.ProductDescriptionCode, x.StandardVersion }).IsUnique();
+    }
+}
+
+public sealed class IsbtCollectionTypeConfiguration : IEntityTypeConfiguration<IsbtCollectionType>
+{
+    public void Configure(EntityTypeBuilder<IsbtCollectionType> b)
+    {
+        b.ToTable("IsbtCollectionTypes");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Code).HasMaxLength(5).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(200).IsRequired();
+        b.Property(x => x.StandardVersion).HasMaxLength(50).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.Code).IsUnique();
+    }
+}
+
+public sealed class IsbtDataStructureConfiguration : IEntityTypeConfiguration<IsbtDataStructure>
+{
+    public void Configure(EntityTypeBuilder<IsbtDataStructure> b)
+    {
+        b.ToTable("IsbtDataStructures");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.DataIdentifier).HasMaxLength(5).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(200).IsRequired();
+        b.Property(x => x.StandardVersion).HasMaxLength(50).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.DataIdentifier).IsUnique();
+    }
+}
+
+public sealed class BloodComponentCompatibilityDecisionConfiguration : IEntityTypeConfiguration<BloodComponentCompatibilityDecision>
+{
+    public void Configure(EntityTypeBuilder<BloodComponentCompatibilityDecision> b)
+    {
+        b.ToTable("BloodComponentCompatibilityDecisions");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.PolicyVersion).HasMaxLength(50).IsRequired();
+        b.Property(x => x.RulesVersion).HasMaxLength(50).IsRequired();
+        b.Property(x => x.EvaluatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.BloodProductId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.BloodProductId, x.PatientId, x.EvaluatedAt });
+    }
+}
+
+public sealed class BloodComponentIdentityCorrectionConfiguration : IEntityTypeConfiguration<BloodComponentIdentityCorrection>
+{
+    public void Configure(EntityTypeBuilder<BloodComponentIdentityCorrection> b)
+    {
+        b.ToTable("BloodComponentIdentityCorrections");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Field).HasMaxLength(50).IsRequired();
+        b.Property(x => x.OriginalValue).HasMaxLength(200).IsRequired();
+        b.Property(x => x.CorrectedValue).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Reason).HasMaxLength(1000).IsRequired();
+        b.Property(x => x.CorrectedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ApproverId).HasMaxLength(100);
+        b.Property(x => x.SupportingEvidence).HasMaxLength(2000);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.BloodProductId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.BloodProductId);
+    }
+}
+
+public sealed class BloodComponentExceptionConfiguration : IEntityTypeConfiguration<BloodComponentException>
+{
+    public void Configure(EntityTypeBuilder<BloodComponentException> b)
+    {
+        b.ToTable("BloodComponentExceptions");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ExceptionCode).HasMaxLength(80).IsRequired();
+        b.Property(x => x.Message).HasMaxLength(1000).IsRequired();
+        b.Property(x => x.Severity).HasMaxLength(20).IsRequired();
+        b.Property(x => x.OverrideCode).HasMaxLength(80);
+        b.Property(x => x.OverrideReason).HasMaxLength(1000);
+        b.Property(x => x.ApproverId).HasMaxLength(100);
+        b.Property(x => x.RecordedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.BloodProductId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.BloodProductId);
+    }
+}
+
+public sealed class CompatibilityRuleVersionConfiguration : IEntityTypeConfiguration<CompatibilityRuleVersion>
+{
+    public void Configure(EntityTypeBuilder<CompatibilityRuleVersion> b)
+    {
+        b.ToTable("CompatibilityRuleVersions");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Version).HasMaxLength(50).IsRequired();
+        b.Property(x => x.PolicyVersion).HasMaxLength(50).IsRequired();
+        b.Property(x => x.Notes).HasMaxLength(1000).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.Version).IsUnique();
+        b.HasMany(x => x.Rules).WithOne(r => r.Version!).HasForeignKey(r => r.CompatibilityRuleVersionId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class CompatibilityRuleConfiguration : IEntityTypeConfiguration<CompatibilityRule>
+{
+    public void Configure(EntityTypeBuilder<CompatibilityRule> b)
+    {
+        b.ToTable("CompatibilityRules");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.RuleCode).HasMaxLength(80).IsRequired();
+        b.Property(x => x.RuleFamily).HasMaxLength(50).IsRequired();
+        b.Property(x => x.ExpressionJson).IsRequired();
+        b.Property(x => x.Severity).HasMaxLength(20).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(500).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => new { x.CompatibilityRuleVersionId, x.RuleCode }).IsUnique();
     }
 }

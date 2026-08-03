@@ -77,7 +77,10 @@ public static class IssueGate
     public const string SpecialReqCode = "ISS-SPECIAL-REQ";
     public const string AboRhDiscrepancyCode = "ISS-ABORH-DISCREPANCY";
 
-    private static readonly UnitStatus[] IssuableStatuses = { UnitStatus.Available, UnitStatus.Allocated };
+    private static readonly UnitStatus[] IssuableStatuses =
+    {
+        UnitStatus.Available, UnitStatus.Allocated, UnitStatus.Assigned, UnitStatus.Crossmatched, UnitStatus.Selected
+    };
 
     public static RuleEvaluation Evaluate(IssueGateContext c)
     {

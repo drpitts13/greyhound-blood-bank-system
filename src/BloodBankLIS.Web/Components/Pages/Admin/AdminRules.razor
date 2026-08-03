@@ -1,0 +1,399 @@
+@page "/admin/rules"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Domain.Enums
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Order &amp; Test Rules &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Order &amp; Test Rules</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New rule</button>
+    }
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code, name, condition, or action" @bind="_filter" @bind:event="oninput" />
+        <select @bind="_levelFilter" @bind:after="LoadAsync">
+            <option value="">All levels</option>
+            <option value="@RuleLevel.Order">Order</option>
+            <option value="@RuleLevel.Test">Test</option>
+        </select>
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (Filtered.Count == 0)
+    {
+        <div class="empty">No rules.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Level</th><th>Pri</th><th>Condition</th><th>Action</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@r.Code</td>
+                        <td>@r.Name</td>
+                        <td>@r.Level</td>
+                        <td>@r.Priority</td>
+                        <td class="mono">@r.ConditionExpression</td>
+                        <td class="mono">@r.ActionExpression</td>
+                        <td>@r.Version</td>
+                        <td>@StatusBadge(r)</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(r.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(r.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New rule" : $"Edit: {_editing.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input @bind="_editing.Code" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
+            <div class="field">
+                <label>Level</label>
+                <select @bind="_editing.Level" @bind:after="LoadVocabularyAsync">
+                    <option value="@RuleLevel.Order">Order — evaluated when an order is placed</option>
+                    <option value="@RuleLevel.Test">Test — evaluated when a result is verified</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="field"><label>Priority</label><input type="number" @bind="_editing.Priority" /></div>
+            <div class="field">
+                <label>&nbsp;</label>
+                <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.StopOnMatch" /> Stop evaluating later rules on match</label>
+            </div>
+        </div>
+        <div class="field"><label>Description</label><input @bind="_editing.Description" placeholder="What this rule is for" /></div>
+
+        <div class="field">
+            <label>Condition</label>
+            <textarea rows="2" class="mono" @bind="_editing.ConditionExpression"
+                      placeholder="patient.ageDays &lt; 1 AND order.hasTest('TNS')"></textarea>
+        </div>
+        <div class="field">
+            <label>Action</label>
+            <textarea rows="2" class="mono" @bind="_editing.ActionExpression"
+                      placeholder="cancelTest('TNS'); addTest('TSNEO')"></textarea>
+        </div>
+
+        <div class="flex gap" style="margin-top:.4rem;">
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ValidateAsync">Validate</button>
+            <button class="btn btn-ghost btn-sm" @onclick="() => _showReference = !_showReference">
+                @(_showReference ? "Hide" : "Show") attribute reference
+            </button>
+        </div>
+
+        @if (_validation is not null)
+        {
+            <div class="bb-card" style="margin-top:.6rem;">
+                @if (_validation.IsValid)
+                {
+                    <div class="badge badge-green">Valid</div>
+                    @if (_validation.ParsedActions.Count > 0)
+                    {
+                        <div class="mono" style="margin-top:.4rem;">@string.Join("  ", _validation.ParsedActions)</div>
+                    }
+                }
+                else
+                {
+                    <div class="badge badge-red">Not valid</div>
+                }
+                @foreach (var m in _validation.HardStops)
+                {
+                    <div class="error" style="margin-top:.3rem;"><span class="mono">@m.Code</span> @m.Message</div>
+                }
+                @foreach (var m in _validation.Warnings)
+                {
+                    <div class="warn" style="margin-top:.3rem;"><span class="mono">@m.Code</span> @m.Message</div>
+                }
+            </div>
+        }
+
+        @if (_showReference && _vocabulary is not null)
+        {
+            <div class="bb-card" style="margin-top:.6rem;">
+                <h3>Attributes available to @_vocabulary.Level rules</h3>
+                <table class="bb">
+                    <thead><tr><th>Path</th><th>Type</th><th>Description</th><th>Example</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _vocabulary.Attributes)
+                        {
+                            <tr>
+                                <td class="mono">@a.Path</td>
+                                <td>@a.Kind</td>
+                                <td>@a.Description</td>
+                                <td class="mono">@a.Example</td>
+                            </tr>
+                        }
+                        @foreach (var f in _vocabulary.Functions)
+                        {
+                            <tr>
+                                <td class="mono">@(f.Name)(...)</td>
+                                <td>@f.Kind</td>
+                                <td>@f.Description</td>
+                                <td class="mono">@f.Example</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <h3 style="margin-top:.8rem;">Actions</h3>
+                <table class="bb">
+                    <thead><tr><th>Action</th><th>Description</th><th>Example</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _vocabulary.Actions)
+                        {
+                            <tr>
+                                <td class="mono">@a.Name</td>
+                                <td>@a.Description</td>
+                                <td class="mono">@a.Example</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <p style="margin-top:.8rem;">
+                    Operators: <span class="mono">= != &lt; &lt;= &gt; &gt;= IN (...) NOT IN (...) CONTAINS IS NULL IS NOT NULL AND OR NOT</span>
+                    and parentheses. Text comparison ignores case and surrounding spaces.
+                    A comparison against a missing value never matches, so use
+                    <span class="mono">IS NULL</span> to test for absent data.
+                </p>
+            </div>
+        }
+
+        <div class="field" style="margin-top:.6rem;">
+            <label>Change reason @(EditingActive ? "(required)" : "(optional)")</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && CanActivate)
+            {
+                @if (!_currentIsActive)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ActivateAsync">Activate</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DeactivateAsync">Deactivate</button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_history is not null)
+{
+    <ConfigHistoryPanel Title="@($"History: {_historyTitle}")" Rows="_history" OnClose="() => _history = null" />
+}
+
+@code {
+    private List<RuleDefinitionDto> _items = new();
+    private bool _loading = true;
+    private bool _includeInactive = true;
+    private string _filter = string.Empty;
+    private string _levelFilter = string.Empty;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private bool _currentIsActive;
+    private string? _changeReason;
+
+    private RuleValidationDto? _validation;
+    private RuleVocabularyDto? _vocabulary;
+    private bool _showReference;
+
+    private List<ConfigHistoryDto>? _history;
+    private string _historyTitle = string.Empty;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminTestsManage);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private bool EditingActive => _currentIsActive;
+
+    private RuleLevel? SelectedLevel =>
+        Enum.TryParse<RuleLevel>(_levelFilter, out var level) ? level : null;
+
+    private List<RuleDefinitionDto> Filtered => string.IsNullOrWhiteSpace(_filter)
+        ? _items
+        : _items.Where(r => r.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || r.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || r.ConditionExpression.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || r.ActionExpression.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminRulesAsync(_includeInactive, SelectedLevel);
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private async Task LoadVocabularyAsync()
+    {
+        if (_editing is null) return;
+        var r = await Api.GetAdminRuleVocabularyAsync(_editing.Level);
+        _vocabulary = r.Value;
+        // The vocabulary narrows with the level, so a prior result may no longer apply.
+        _validation = null;
+    }
+
+    private async Task NewDraft()
+    {
+        _editId = null;
+        _currentIsActive = false;
+        _changeReason = null;
+        _validation = null;
+        _editing = new EditModel { Level = SelectedLevel ?? RuleLevel.Order };
+        _feedback = null;
+        await LoadVocabularyAsync();
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminRuleAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = r.Value.Id;
+        _currentIsActive = r.Value.IsActive;
+        _changeReason = null;
+        _validation = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+        await LoadVocabularyAsync();
+    }
+
+    private void CancelEdit()
+    {
+        _editing = null;
+        _validation = null;
+    }
+
+    private async Task ValidateAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var r = await Api.ValidateAdminRuleAsync(new ValidateRuleRequest(
+            _editing.Level,
+            _editing.ConditionExpression,
+            _editing.ActionExpression));
+        _busy = false;
+        _validation = r.Value;
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null
+            ? await Api.CreateAdminRuleAsync(req)
+            : await Api.UpdateAdminRuleAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Draft created." : "Saved.");
+        if (r.Succeeded)
+        {
+            _editId = r.Value!.Id;
+            _currentIsActive = r.Value.IsActive;
+            await LoadAsync();
+        }
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ActivateAdminRuleAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Activated.");
+        if (r.Succeeded) { _currentIsActive = true; await LoadAsync(); }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAdminRuleAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Deactivated.");
+        if (r.Succeeded) { _currentIsActive = false; await LoadAsync(); }
+    }
+
+    private async Task ShowHistoryAsync(long id)
+    {
+        var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.RuleDefinition), id);
+        _history = r.Value ?? new();
+        _historyTitle = _items.FirstOrDefault(x => x.Id == id)?.Code ?? id.ToString();
+    }
+
+    private static RenderFragment StatusBadge(RuleDefinitionDto r) => builder =>
+    {
+        var (cls, text) = r.IsActive ? ("badge-green", "Active") : r.IsDraft ? ("badge-gray", "Draft") : ("badge-amber", "Inactive");
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", $"badge {cls}");
+        builder.AddContent(2, text);
+        builder.CloseElement();
+    };
+
+    private sealed class EditModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public RuleLevel Level { get; set; } = RuleLevel.Order;
+        public int Priority { get; set; } = 100;
+        public bool StopOnMatch { get; set; }
+        public string ConditionExpression { get; set; } = string.Empty;
+        public string ActionExpression { get; set; } = string.Empty;
+
+        public static EditModel From(RuleDefinitionDto r) => new()
+        {
+            Code = r.Code,
+            Name = r.Name,
+            Description = r.Description,
+            Level = r.Level,
+            Priority = r.Priority,
+            StopOnMatch = r.StopOnMatch,
+            ConditionExpression = r.ConditionExpression,
+            ActionExpression = r.ActionExpression
+        };
+
+        public SaveRuleDefinitionRequest ToRequest(string? reason) => new(
+            Code,
+            Name,
+            Description,
+            Level,
+            Priority,
+            StopOnMatch,
+            ConditionExpression,
+            ActionExpression,
+            reason);
+    }
+}

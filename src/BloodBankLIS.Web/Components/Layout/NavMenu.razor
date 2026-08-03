@@ -10,6 +10,14 @@
         <NavLink href="test-worklist" ActiveClass="active">Test Worklist</NavLink>
     }
     <NavLink href="inventory" ActiveClass="active">Inventory</NavLink>
+    @if (Session.Has(PermissionCodes.InventoryReceive))
+    {
+        <NavLink href="inventory/isbt-receive" ActiveClass="active">ISBT Receive</NavLink>
+    }
+    @if (Session.Has(PermissionCodes.InventoryModify))
+    {
+        <NavLink href="inventory/modify" ActiveClass="active">Modify Products</NavLink>
+    }
 
     <div class="group-label">Transfusion</div>
     <NavLink href="compatibility" ActiveClass="active">Compatibility</NavLink>
@@ -43,7 +51,10 @@
             <NavLink href="admin/subtests" ActiveClass="active">Subtests</NavLink>
             <NavLink href="admin/test-groupers" ActiveClass="active">Test Groupers</NavLink>
             <NavLink href="admin/reflex-rules" ActiveClass="active">Reflex Rules</NavLink>
+            <NavLink href="admin/rules" ActiveClass="active">Order &amp; Test Rules</NavLink>
             <NavLink href="admin/products" ActiveClass="active">Products</NavLink>
+            <NavLink href="admin/modification-rules" ActiveClass="active">Modification Rules</NavLink>
+            <NavLink href="admin/isbt-product-codes" ActiveClass="active">ISBT Product Codes</NavLink>
             <NavLink href="admin/blood-attributes" ActiveClass="active">Blood Attributes</NavLink>
             <NavLink href="admin/specimen-types" ActiveClass="active">Specimen Types</NavLink>
             <NavLink href="admin/providers" ActiveClass="active">Providers</NavLink>

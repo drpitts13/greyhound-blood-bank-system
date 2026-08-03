@@ -11,7 +11,9 @@ public sealed class InventoryRepository : IInventoryRepository
 {
     private static readonly UnitStatus[] ExpirableStatuses =
     {
-        UnitStatus.Quarantine, UnitStatus.Available, UnitStatus.Allocated, UnitStatus.Returned
+        UnitStatus.Quarantine, UnitStatus.Available, UnitStatus.Allocated, UnitStatus.Returned,
+        UnitStatus.Received, UnitStatus.Selected, UnitStatus.Assigned, UnitStatus.Crossmatched,
+        UnitStatus.Expected, UnitStatus.ReturnPending, UnitStatus.Transferred, UnitStatus.CancelledAssignment
     };
 
     private readonly BloodBankDbContext _context;
@@ -23,6 +25,14 @@ public sealed class InventoryRepository : IInventoryRepository
 
     public Task<bool> UnitNumberExistsAsync(string unitNumber, CancellationToken cancellationToken = default) =>
         _context.BloodUnits.AnyAsync(u => u.UnitNumber == unitNumber, cancellationToken);
+
+    public Task<bool> ComponentIdentityKeyExistsAsync(string componentIdentityKey, CancellationToken cancellationToken = default) =>
+        _context.BloodUnits.AnyAsync(u => u.ComponentIdentityKey == componentIdentityKey, cancellationToken);
+
+    public Task<BloodUnit?> GetByComponentIdentityAsync(string componentIdentity, CancellationToken cancellationToken = default) =>
+        _context.BloodUnits.FirstOrDefaultAsync(
+            u => u.ComponentIdentity == componentIdentity || u.UnitNumber == componentIdentity,
+            cancellationToken);
 
     public async Task AddUnitAsync(BloodUnit unit, CancellationToken cancellationToken = default) =>
         await _context.BloodUnits.AddAsync(unit, cancellationToken);

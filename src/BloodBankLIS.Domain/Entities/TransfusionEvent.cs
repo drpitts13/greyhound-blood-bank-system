@@ -33,4 +33,28 @@ public class TransfusionEvent : BaseEntity
     public TransfusionDisposition FinalDisposition { get; set; } = TransfusionDisposition.Completed;
 
     public string DocumentedBy { get; set; } = "system";
+
+    public string? SecondVerifier { get; set; }
+
+    public string? Location { get; set; }
+
+    public string? PreTransfusionVitalsJson { get; set; }
+
+    public string? PostTransfusionObservations { get; set; }
+
+    public string? PatientIdentificationMethod { get; set; }
+
+    public string? UnitIdentificationMethod { get; set; }
+
+    public string? DeviceId { get; set; }
+
+    public string? WorkstationId { get; set; }
+
+    public string? BedsideScanVerificationJson { get; set; }
+
+    public string? RemainderDisposition { get; set; }
+
+    public string? ReactionActions { get; set; }
+
+    public string? OverrideDataJson { get; set; }
 }

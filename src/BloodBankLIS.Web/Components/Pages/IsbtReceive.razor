@@ -1,0 +1,137 @@
+@page "/inventory/isbt-receive"
+@using BloodBankLIS.Application.Isbt128
+@using BloodBankLIS.Application.Inventory
+@using BloodBankLIS.Domain.Enums
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>ISBT 128 Receive · Greyhound Blood Bank LIS</PageTitle>
+
+<section class="page">
+    <h1>ISBT 128 component receive</h1>
+    <p class="muted">
+        Manual structured entry and scanner session intake normalize to one canonical component.
+        Placeholder ABO/product codes require ICCBBA validation before clinical use.
+    </p>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert">@_message</div>
+    }
+
+    <div class="grid-2">
+        <div>
+            <h2>Manual entry</h2>
+            <label>
+                Donation / unit number
+                <input @bind="_donationNumber" maxlength="20" placeholder="G123417654321 or G1234 17 654321 A" />
+            </label>
+            <p class="muted" style="margin-top:0;font-size:0.85rem;">
+                Enter the full DIN as one string (facility + year + sequence). Spaces and an optional keyboard check character are allowed.
+            </p>
+            <label>ABO/RhD code (lookup) <input @bind="_aboCode" /></label>
+            <label>Product description code <input @bind="_pdc" maxlength="5" /></label>
+            <label>Collection type <input @bind="_collection" maxlength="1" /></label>
+            <label>Division <input @bind="_division" maxlength="2" /></label>
+            <label>Expiration (local) <input type="datetime-local" @bind="_expirationLocal" /></label>
+            <label><input type="checkbox" @bind="_explicitTime" /> Label includes explicit time</label>
+            <label><input type="checkbox" @bind="_releaseAvailable" /> Release to Available</label>
+            <button class="btn" disabled="@(!Session.Has(PermissionCodes.InventoryReceive))" @onclick="SubmitManual">
+                Create component
+            </button>
+        </div>
+
+        <div>
+            <h2>Scanner session</h2>
+            <button class="btn" @onclick="StartSession">Start scan session</button>
+            @if (_sessionKey is not null)
+            {
+                <p>Session: @_sessionKey</p>
+                <label>Scan / paste
+                    <input @bind="_scanValue" @onkeydown="OnScanKey" />
+                </label>
+                <button class="btn" @onclick="AddScan">Add scan</button>
+                <button class="btn" @onclick="CompleteSession">Complete &amp; receive</button>
+                @if (_session is not null)
+                {
+                    <pre>Received: @string.Join(", ", _session.Received)
+Identity: @_session.Draft?.ComponentIdentity
+Valid: @_session.Validation?.Valid</pre>
+                }
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    private string _donationNumber = "G123417654321";
+    private string _aboCode = "DEMO";
+    private string _pdc = "E0206";
+    private string _collection = "0";
+    private string _division = "00";
+    private DateTime _expirationLocal = DateTime.Now.AddDays(30);
+    private bool _explicitTime;
+    private bool _releaseAvailable = true;
+    private string? _message;
+    private Guid? _sessionKey;
+    private string _scanValue = "";
+    private ScanSessionDto? _session;
+    private long _productTypeId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var products = await Api.GetProductTypesAsync();
+        if (products.Succeeded && products.Value is { Count: > 0 })
+            _productTypeId = products.Value[0].Id;
+    }
+
+    private async Task SubmitManual()
+    {
+        var req = new ManualComponentEntryRequest(
+            _donationNumber.Trim(),
+            _aboCode, _pdc, _collection, _division, null,
+            _expirationLocal, _explicitTime, _productTypeId,
+            ReleaseToAvailable: _releaseAvailable);
+        var result = await Api.CreateIsbtManualAsync(req);
+        _message = result.Succeeded
+            ? $"Created {result.Value!.ComponentIdentity} (status {result.Value.Status})"
+            : result.Error;
+    }
+
+    private async Task StartSession()
+    {
+        var result = await Api.StartIsbtScanSessionAsync(new StartScanSessionRequest());
+        if (result.Succeeded)
+        {
+            _sessionKey = result.Value!.SessionKey;
+            _session = result.Value;
+            _message = "Scan session started.";
+        }
+        else _message = result.Error;
+    }
+
+    private async Task AddScan()
+    {
+        if (_sessionKey is null || string.IsNullOrWhiteSpace(_scanValue)) return;
+        var result = await Api.AddIsbtScanAsync(new AddScanRequest(_sessionKey.Value, _scanValue));
+        _scanValue = "";
+        if (result.Succeeded) { _session = result.Value; _message = "Scan accepted."; }
+        else _message = result.Error;
+    }
+
+    private async Task OnScanKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await AddScan();
+    }
+
+    private async Task CompleteSession()
+    {
+        if (_sessionKey is null) return;
+        var result = await Api.CompleteIsbtScanSessionAsync(new CompleteScanSessionRequest(
+            _sessionKey.Value, _productTypeId, ReleaseToAvailable: _releaseAvailable));
+        _message = result.Succeeded
+            ? $"Received {result.Value!.ComponentIdentity}"
+            : result.Error;
+    }
+}

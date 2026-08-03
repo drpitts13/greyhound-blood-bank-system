@@ -303,4 +303,273 @@ public class ConfigValidatorsTests
         var tripleDup = ReflexRuleValidator.Validate(rule, duplicateActiveCode: false, duplicateActiveTriple: true, active);
         Assert.Contains(tripleDup.HardStops, r => r.Code == "REFLEX.TRIPLE.DUPLICATE");
     }
+
+    [Fact]
+    public void ModificationRule_Valid_Passes()
+    {
+        var rule = new ModificationRule
+        {
+            SourceProductTypeId = 1,
+            TargetProductTypeId = 2,
+            ModificationType = ModificationType.Irradiate,
+            ExpirationOffsetCode = "24H"
+        };
+
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void ModificationRule_MissingSourceAndTarget_HardStops()
+    {
+        var rule = new ModificationRule
+        {
+            SourceProductTypeId = 0,
+            TargetProductTypeId = 0,
+            ModificationType = ModificationType.Divide,
+            ExpirationOffsetCode = "24H"
+        };
+
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.SOURCE.REQUIRED");
+        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.TARGET.REQUIRED");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("24")]
+    [InlineData("bogus")]
+    [InlineData("0H")]
+    public void ModificationRule_InvalidOffsetCode_HardStops(string offsetCode)
+    {
+        var rule = new ModificationRule
+        {
+            SourceProductTypeId = 1,
+            TargetProductTypeId = 2,
+            ModificationType = ModificationType.Thaw,
+            ExpirationOffsetCode = offsetCode
+        };
+
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.OFFSET.INVALID");
+    }
+
+    [Fact]
+    public void ModificationRule_DuplicateActiveTriple_HardStops()
+    {
+        var rule = new ModificationRule
+        {
+            SourceProductTypeId = 1,
+            TargetProductTypeId = 2,
+            ModificationType = ModificationType.Pool,
+            ExpirationOffsetCode = "5D"
+        };
+
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: true, sourceProductActive: true, targetProductActive: true);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.TRIPLE.DUPLICATE");
+    }
+
+    [Fact]
+    public void ModificationRule_InactiveSourceOrTargetProduct_HardStops()
+    {
+        var rule = new ModificationRule
+        {
+            SourceProductTypeId = 1,
+            TargetProductTypeId = 2,
+            ModificationType = ModificationType.VolumeReduction,
+            ExpirationOffsetCode = "24H"
+        };
+
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: false, targetProductActive: false);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.SOURCE.INACTIVE");
+        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.TARGET.INACTIVE");
+    }
+
+    [Fact]
+    public void ModificationRule_DivideSameSourceAndTarget_Warns()
+    {
+        var rule = new ModificationRule
+        {
+            SourceProductTypeId = 1,
+            TargetProductTypeId = 1,
+            ModificationType = ModificationType.Divide,
+            ExpirationOffsetCode = "24H"
+        };
+
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true);
+
+        Assert.False(eval.IsHardStopped);
+        Assert.Contains(eval.Warnings, r => r.Code == "MODRULE.SAMEPRODUCT");
+    }
+
+    [Fact]
+    public void ModificationRule_IrradiateSameSourceAndTarget_DoesNotWarn()
+    {
+        var rule = new ModificationRule
+        {
+            SourceProductTypeId = 1,
+            TargetProductTypeId = 1,
+            ModificationType = ModificationType.Irradiate,
+            ExpirationOffsetCode = "24H"
+        };
+
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true);
+
+        Assert.False(eval.IsHardStopped);
+        Assert.DoesNotContain(eval.Warnings, r => r.Code == "MODRULE.SAMEPRODUCT");
+    }
+
+    private static RuleDefinition NeonatalRule() => new()
+    {
+        Code = "NEO-TS",
+        Name = "Neonatal type and screen",
+        Level = RuleLevel.Order,
+        ConditionExpression = "patient.ageDays < 1 AND order.hasTest('TS')",
+        ActionExpression = "cancelTest('TS'); addTest('TSNEO')"
+    };
+
+    private static RuleDefinition WeakDRule() => new()
+    {
+        Code = "ABORH-WEAKD",
+        Name = "Weak D on Rh negative",
+        Level = RuleLevel.Test,
+        ConditionExpression =
+            "test.code = 'ABORH' AND test.interpretation IN ('A Negative','B Negative','O Negative','AB Negative')",
+        ActionExpression = "addTest('WEAKD')"
+    };
+
+    [Fact]
+    public void RuleDefinition_OrderExample_Passes()
+    {
+        var eval = RuleDefinitionValidator.Validate(NeonatalRule(), duplicateActiveCode: false);
+
+        Assert.False(eval.IsHardStopped);
+        Assert.True(eval.IsAllowed);
+    }
+
+    [Fact]
+    public void RuleDefinition_TestExample_Passes()
+    {
+        var eval = RuleDefinitionValidator.Validate(WeakDRule(), duplicateActiveCode: false);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void RuleDefinition_MissingFields_HardStops()
+    {
+        var eval = RuleDefinitionValidator.Validate(
+            new RuleDefinition { Code = "", Name = "" },
+            duplicateActiveCode: false);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.CODE.REQUIRED");
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.NAME.REQUIRED");
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.CONDITION.REQUIRED");
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.ACTION.REQUIRED");
+    }
+
+    [Fact]
+    public void RuleDefinition_DuplicateCode_HardStops()
+    {
+        var eval = RuleDefinitionValidator.Validate(NeonatalRule(), duplicateActiveCode: true);
+
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.CODE.DUPLICATE");
+    }
+
+    [Fact]
+    public void RuleDefinition_BadConditionSyntax_HardStops()
+    {
+        var rule = NeonatalRule();
+        rule.ConditionExpression = "patient.ageDays <";
+
+        var eval = RuleDefinitionValidator.Validate(rule, duplicateActiveCode: false);
+
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.CONDITION.SYNTAX");
+    }
+
+    [Fact]
+    public void RuleDefinition_TestAttributeInOrderRule_HardStops()
+    {
+        var rule = NeonatalRule();
+        rule.ConditionExpression = "test.interpretation = 'A Negative'";
+
+        var eval = RuleDefinitionValidator.Validate(rule, duplicateActiveCode: false);
+
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.CONDITION.ATTRIBUTE");
+    }
+
+    [Fact]
+    public void RuleDefinition_UnknownAttribute_HardStops()
+    {
+        var rule = NeonatalRule();
+        rule.ConditionExpression = "patient.height > 100";
+
+        var eval = RuleDefinitionValidator.Validate(rule, duplicateActiveCode: false);
+
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.CONDITION.ATTRIBUTE");
+    }
+
+    [Fact]
+    public void RuleDefinition_BadActionSyntax_HardStops()
+    {
+        var rule = NeonatalRule();
+        rule.ActionExpression = "addTest(TSNEO)";
+
+        var eval = RuleDefinitionValidator.Validate(rule, duplicateActiveCode: false);
+
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.ACTION.SYNTAX");
+    }
+
+    [Fact]
+    public void RuleDefinition_BlockInTestRule_HardStops()
+    {
+        var rule = WeakDRule();
+        rule.ActionExpression = "block('nope')";
+
+        var eval = RuleDefinitionValidator.Validate(rule, duplicateActiveCode: false);
+
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.ACTION.LEVEL");
+    }
+
+    [Fact]
+    public void RuleDefinition_AddAndCancelSameTest_HardStops()
+    {
+        var rule = NeonatalRule();
+        rule.ActionExpression = "cancelTest('TS'); addTest('ts')";
+
+        var eval = RuleDefinitionValidator.Validate(rule, duplicateActiveCode: false);
+
+        Assert.Contains(eval.HardStops, r => r.Code == "RULE.ACTION.SELF");
+    }
+
+    [Fact]
+    public void RuleDefinition_UnknownTestCode_WarnsButDoesNotBlock()
+    {
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "TS" };
+
+        var eval = RuleDefinitionValidator.Validate(NeonatalRule(), duplicateActiveCode: false, known);
+
+        Assert.False(eval.IsHardStopped);
+        Assert.Contains(eval.Warnings, r => r.Code == "RULE.TEST.UNKNOWN" && r.Message.Contains("TSNEO"));
+    }
+
+    [Fact]
+    public void RuleDefinition_KnownTestCodes_NoWarning()
+    {
+        var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "TS", "TSNEO" };
+
+        var eval = RuleDefinitionValidator.Validate(NeonatalRule(), duplicateActiveCode: false, known);
+
+        Assert.True(eval.IsAllowed);
+    }
 }

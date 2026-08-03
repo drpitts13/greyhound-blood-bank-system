@@ -7,12 +7,15 @@ using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.Modifications;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.Reference;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Application.Specimens;
+using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Web.Services;
 
@@ -241,6 +244,22 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<ExpireDueVm>> ExpireDueAsync(CancellationToken ct = default) =>
         SendAsync<ExpireDueVm>(HttpMethod.Post, "api/inventory/expire-due", ct: ct);
+
+    // ---- ISBT 128 ----
+    public Task<ApiResult<ParseIsbtInputResponse>> ParseIsbtAsync(ParseIsbtInputRequest req, CancellationToken ct = default) =>
+        SendAsync<ParseIsbtInputResponse>(HttpMethod.Post, "api/isbt/parse", req, ct);
+
+    public Task<ApiResult<ScanSessionDto>> StartIsbtScanSessionAsync(StartScanSessionRequest req, CancellationToken ct = default) =>
+        SendAsync<ScanSessionDto>(HttpMethod.Post, "api/isbt/scan-sessions", req, ct);
+
+    public Task<ApiResult<ScanSessionDto>> AddIsbtScanAsync(AddScanRequest req, CancellationToken ct = default) =>
+        SendAsync<ScanSessionDto>(HttpMethod.Post, "api/isbt/scan-sessions/scans", req, ct);
+
+    public Task<ApiResult<BloodUnitDto>> CompleteIsbtScanSessionAsync(CompleteScanSessionRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/isbt/scan-sessions/complete", req, ct);
+
+    public Task<ApiResult<BloodUnitDto>> CreateIsbtManualAsync(ManualComponentEntryRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/isbt/manual-entry", req, ct);
 
     // ---- Compatibility ----
     public Task<ApiResult<CrossmatchDto>> RecordCrossmatchAsync(RecordCrossmatchRequest req, CancellationToken ct = default) =>
@@ -488,6 +507,42 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ReflexRuleDto>> DeactivateAdminReflexRuleAsync(long id, string? reason, CancellationToken ct = default) =>
         SendAsync<ReflexRuleDto>(HttpMethod.Post, $"api/admin/reflex-rules/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
 
+    // ---- Admin: Order and test rules ----
+    public Task<ApiResult<List<RuleDefinitionDto>>> GetAdminRulesAsync(
+        bool includeInactive = true,
+        RuleLevel? level = null,
+        CancellationToken ct = default)
+    {
+        var query = $"includeInactive={includeInactive.ToString().ToLowerInvariant()}";
+        if (level is not null)
+        {
+            query += $"&level={level}";
+        }
+
+        return SendAsync<List<RuleDefinitionDto>>(HttpMethod.Get, $"api/admin/rules?{query}", ct: ct);
+    }
+
+    public Task<ApiResult<RuleDefinitionDto>> GetAdminRuleAsync(long id, CancellationToken ct = default) =>
+        SendAsync<RuleDefinitionDto>(HttpMethod.Get, $"api/admin/rules/{id}", ct: ct);
+
+    public Task<ApiResult<RuleVocabularyDto>> GetAdminRuleVocabularyAsync(RuleLevel level, CancellationToken ct = default) =>
+        SendAsync<RuleVocabularyDto>(HttpMethod.Get, $"api/admin/rules/vocabulary?level={level}", ct: ct);
+
+    public Task<ApiResult<RuleValidationDto>> ValidateAdminRuleAsync(ValidateRuleRequest req, CancellationToken ct = default) =>
+        SendAsync<RuleValidationDto>(HttpMethod.Post, "api/admin/rules/validate", req, ct);
+
+    public Task<ApiResult<RuleDefinitionDto>> CreateAdminRuleAsync(SaveRuleDefinitionRequest req, CancellationToken ct = default) =>
+        SendAsync<RuleDefinitionDto>(HttpMethod.Post, "api/admin/rules", req, ct);
+
+    public Task<ApiResult<RuleDefinitionDto>> UpdateAdminRuleAsync(long id, SaveRuleDefinitionRequest req, CancellationToken ct = default) =>
+        SendAsync<RuleDefinitionDto>(HttpMethod.Put, $"api/admin/rules/{id}", req, ct);
+
+    public Task<ApiResult<RuleDefinitionDto>> ActivateAdminRuleAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<RuleDefinitionDto>(HttpMethod.Post, $"api/admin/rules/{id}/activate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<RuleDefinitionDto>> DeactivateAdminRuleAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<RuleDefinitionDto>(HttpMethod.Post, $"api/admin/rules/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
+
     public Task<ApiResult<List<SubtestListItemDto>>> GetReferenceSubtestsAsync(CancellationToken ct = default) =>
         SendAsync<List<SubtestListItemDto>>(HttpMethod.Get, "api/reference/subtests", ct: ct);
 
@@ -556,6 +611,45 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<ProductDefinitionDto>> DeactivateAdminProductAsync(long id, string? reason, CancellationToken ct = default) =>
         SendAsync<ProductDefinitionDto>(HttpMethod.Post, $"api/admin/products/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
+
+    // ---- Inventory: Modifications ----
+    public Task<ApiResult<List<EligibleModificationDto>>> GetEligibleModificationsAsync(long unitId, CancellationToken ct = default) =>
+        SendAsync<List<EligibleModificationDto>>(HttpMethod.Get, $"api/inventory/units/{unitId}/eligible-modifications", ct: ct);
+
+    public Task<ApiResult<List<UnitModificationDto>>> GetUnitModificationHistoryAsync(long unitId, CancellationToken ct = default) =>
+        SendAsync<List<UnitModificationDto>>(HttpMethod.Get, $"api/inventory/units/{unitId}/modifications", ct: ct);
+
+    public Task<ApiResult<ModificationResultVm>> DivideUnitAsync(long unitId, PerformDivideRequest req, CancellationToken ct = default) =>
+        SendAsync<ModificationResultVm>(HttpMethod.Post, $"api/inventory/units/{unitId}/modifications/divide", req, ct);
+
+    public Task<ApiResult<ModificationResultVm>> PoolUnitsAsync(PerformPoolRequest req, CancellationToken ct = default) =>
+        SendAsync<ModificationResultVm>(HttpMethod.Post, "api/inventory/modifications/pool", req, ct);
+
+    public Task<ApiResult<ModificationResultVm>> ApplyModificationAsync(long unitId, PerformSingleModificationRequest req, CancellationToken ct = default) =>
+        SendAsync<ModificationResultVm>(HttpMethod.Post, $"api/inventory/units/{unitId}/modifications/apply", req, ct);
+
+    // ---- Admin: Modification rules ----
+    public Task<ApiResult<List<ModificationRuleDto>>> GetAdminModificationRulesAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<ModificationRuleDto>>(HttpMethod.Get, $"api/admin/modification-rules?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<ModificationRuleDto>> GetAdminModificationRuleAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ModificationRuleDto>(HttpMethod.Get, $"api/admin/modification-rules/{id}", ct: ct);
+
+    public Task<ApiResult<ModificationRuleDto>> CreateAdminModificationRuleAsync(SaveModificationRuleRequest req, CancellationToken ct = default) =>
+        SendAsync<ModificationRuleDto>(HttpMethod.Post, "api/admin/modification-rules", req, ct);
+
+    public Task<ApiResult<ModificationRuleDto>> UpdateAdminModificationRuleAsync(long id, SaveModificationRuleRequest req, CancellationToken ct = default) =>
+        SendAsync<ModificationRuleDto>(HttpMethod.Put, $"api/admin/modification-rules/{id}", req, ct);
+
+    public Task<ApiResult<ModificationRuleDto>> ActivateAdminModificationRuleAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<ModificationRuleDto>(HttpMethod.Post, $"api/admin/modification-rules/{id}/activate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<ModificationRuleDto>> DeactivateAdminModificationRuleAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<ModificationRuleDto>(HttpMethod.Post, $"api/admin/modification-rules/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
+
+    // ---- Admin: ISBT product description codes ----
+    public Task<ApiResult<List<IsbtProductCodeDto>>> GetAdminIsbtProductCodesAsync(CancellationToken ct = default) =>
+        SendAsync<List<IsbtProductCodeDto>>(HttpMethod.Get, "api/admin/isbt-product-codes", ct: ct);
 
     // ---- Admin: HL7 endpoints ----
     public Task<ApiResult<List<Hl7EndpointDto>>> GetAdminHl7EndpointsAsync(CancellationToken ct = default) =>

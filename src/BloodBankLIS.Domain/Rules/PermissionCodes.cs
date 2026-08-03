@@ -23,6 +23,9 @@ public static class PermissionCodes
     public const string InventoryTransfer = "inventory.transfer";
     public const string InventoryRelease = "inventory.release";
     public const string InventoryDiscard = "inventory.discard";
+    public const string InventoryRecall = "inventory.recall";
+    public const string InventoryCorrectIdentity = "inventory.correct-identity";
+    public const string InventoryModify = "inventory.modify";
 
     public const string CompatibilityCrossmatch = "compatibility.crossmatch";
     public const string CompatibilityAllocate = "compatibility.allocate";
@@ -30,7 +33,11 @@ public static class PermissionCodes
     public const string IssueCreate = "issue.create";
     public const string IssueOverride = "issue.override";
     public const string IssueReturn = "issue.return";
+    public const string IssueEmergencyRelease = "issue.emergency-release";
     public const string TransfusionDocument = "transfusion.document";
+    public const string TransfusionStart = "transfusion.start";
+    public const string TransfusionComplete = "transfusion.complete";
+    public const string OverrideApprove = "override.approve";
 
     public const string PrintLabel = "print.label";
     public const string PrintReprint = "print.reprint";
@@ -56,6 +63,7 @@ public static class PermissionCodes
 
     public const string AdminTestsManage = "admin.tests.manage";
     public const string AdminProductsManage = "admin.products.manage";
+    public const string AdminModificationRulesManage = "admin.modification-rules.manage";
     public const string AdminHl7Manage = "admin.hl7.manage";
     public const string AdminUsersManage = "admin.users.manage";
     public const string AdminRolesManage = "admin.roles.manage";
@@ -71,14 +79,16 @@ public static class PermissionCodes
         ResultEnter, ResultVerify, ResultCorrect,
         ImmunoRecord, ImmunoOverride,
         InventoryReceive, InventoryTransfer, InventoryRelease, InventoryDiscard,
+        InventoryRecall, InventoryCorrectIdentity, InventoryModify,
         CompatibilityCrossmatch, CompatibilityAllocate,
-        IssueCreate, IssueOverride, IssueReturn, TransfusionDocument,
+        IssueCreate, IssueOverride, IssueReturn, IssueEmergencyRelease,
+        TransfusionDocument, TransfusionStart, TransfusionComplete, OverrideApprove,
         PrintLabel, PrintReprint,
         BillingReview, BillingCancel, BillingExport,
         Hl7Manage,
         AuditRead,
         AdminConfigView, AdminConfigEdit, AdminConfigActivate,
-        AdminTestsManage, AdminProductsManage, AdminHl7Manage,
+        AdminTestsManage, AdminProductsManage, AdminModificationRulesManage, AdminHl7Manage,
         AdminUsersManage, AdminRolesManage, AdminAuditReview
     };
 
@@ -86,7 +96,7 @@ public static class PermissionCodes
     public static readonly IReadOnlyList<string> AdminAll = new[]
     {
         AdminConfigView, AdminConfigEdit, AdminConfigActivate,
-        AdminTestsManage, AdminProductsManage, AdminHl7Manage,
+        AdminTestsManage, AdminProductsManage, AdminModificationRulesManage, AdminHl7Manage,
         AdminUsersManage, AdminRolesManage, AdminAuditReview
     };
 }

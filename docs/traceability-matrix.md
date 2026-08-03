@@ -24,7 +24,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-IN-04 | Location transfers | workflows; erd.md InventoryStatusHistory | Transfer writes history | A |
 | R-IN-05 | Expiration enforcement | safety-rules 4 | Expired blocks allocate/issue | D |
 | R-IN-06 | Discard workflow | workflows 8; safety-rules 5 | Discard requires reason + audit | A |
-| R-IN-07 | Unit attributes/modifications | erd.md UnitAttributes/UnitModifications | Modification recorded | A |
+| R-IN-07 | Product modification (divide/pool/irradiate/thaw/volume-reduce/leukoreduce) | workflows 8a; safety-rules 4a; erd.md ModificationRules/UnitModifications/UnitModificationUnits | Rule eligibility + capped expiration + Modify audit for all six types | D,A,I |
 | R-CM-01 | ABO/Rh compatibility matrix | safety-rules 3 | Full matrix truth table | D |
 | R-CM-02 | Crossmatch records | erd.md Crossmatches | Crossmatch create + expiry | A |
 | R-CM-03 | Allocation/reservation | erd.md Allocations | One active allocation per unit | A,I |

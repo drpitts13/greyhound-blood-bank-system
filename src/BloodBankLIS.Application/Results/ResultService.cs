@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Application.Rules;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -45,6 +46,7 @@ public sealed class ResultService
     private readonly IRepository<Override>? _overrides;
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<ReflexRule>? _reflexRules;
+    private readonly RuleEngineService? _ruleEngine;
 
     public ResultService(
         IRepository<TestResult> results,
@@ -68,8 +70,10 @@ public sealed class ResultService
         IRepository<ExceptionDefinition>? exceptionDefinitions = null,
         IRepository<Override>? overrides = null,
         IPermissionEvaluator? permissions = null,
-        IRepository<ReflexRule>? reflexRules = null)
+        IRepository<ReflexRule>? reflexRules = null,
+        RuleEngineService? ruleEngine = null)
     {
+        _ruleEngine = ruleEngine;
         _results = results;
         _specimens = specimens;
         _bloodTypes = bloodTypes;
@@ -542,6 +546,12 @@ public sealed class ResultService
         }
 
         await ApplyReflexRulesAsync(result, ct);
+
+        if (_ruleEngine is not null)
+        {
+            var ruleOutcome = await _ruleEngine.ApplyTestRulesAsync(result, ct);
+            warnings.AddRange(ruleOutcome.Warnings);
+        }
 
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<TestResult>.Ok(result, warnings.Count > 0 ? new RuleEvaluation(warnings) : null);

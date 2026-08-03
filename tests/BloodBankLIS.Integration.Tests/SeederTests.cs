@@ -44,6 +44,53 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
 
             // Seeding clinical/reference rows also produced audit events.
             Assert.True(await verify.AuditEvents.AnyAsync());
+
+            Assert.True(await verify.IsbtProductCodes.CountAsync() >= 40);
+            Assert.True(await verify.IsbtProductCodes.AnyAsync(p =>
+                p.ProductDescriptionCode == "E0336"
+                && p.Description.Contains("AS1")
+                && p.StandardVersion == UsSupplierProductCodeSeed.StandardVersion));
+            Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E0206"));
+            Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E0701"));
+            Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E5165"));
+        }
+    }
+
+    [Fact]
+    public async Task Seed_UpsertsMissingProductCodes_WhenPlaceholderAlreadyPresent()
+    {
+        await using (var context = _factory.Create())
+        {
+            // Stale placeholder with a different StandardVersion than the US subset seed.
+            if (!await context.IsbtProductCodes.AnyAsync(p =>
+                    p.ProductDescriptionCode == "E0206"
+                    && p.StandardVersion == "PLACEHOLDER-REQUIRES-ICCBBA"))
+            {
+                context.IsbtProductCodes.Add(new IsbtProductCode
+                {
+                    ProductDescriptionCode = "E0206",
+                    Description = "PLACEHOLDER — Red Blood Cells",
+                    ComponentClass = "RedBloodCells",
+                    AttributesJson = "[]",
+                    StandardVersion = "PLACEHOLDER-REQUIRES-ICCBBA",
+                    IsPlaceholder = true
+                });
+                await context.SaveChangesAsync();
+            }
+        }
+
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using (var verify = _factory.Create())
+        {
+            Assert.True(await verify.IsbtProductCodes.CountAsync() >= 40);
+            Assert.Equal(1, await verify.IsbtProductCodes.CountAsync(p => p.ProductDescriptionCode == "E0206"));
+            var e0206 = await verify.IsbtProductCodes.SingleAsync(p => p.ProductDescriptionCode == "E0206");
+            Assert.Equal("RED BLOOD CELLS|CPDA-1/450mL/refg|Irradiated", e0206.Description);
+            Assert.Equal(UsSupplierProductCodeSeed.StandardVersion, e0206.StandardVersion);
         }
     }
 

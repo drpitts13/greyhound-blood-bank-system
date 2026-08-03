@@ -3,6 +3,8 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Application.Rules;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.Rules.PatientWorkspace;
 using BloodBankLIS.Domain.ValueObjects;
 
@@ -23,6 +25,7 @@ public sealed class OrderService
     private readonly IRepository<TestGrouper> _testGroupers;
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly RuleEngineService? _ruleEngine;
 
     public OrderService(
         IRepository<Order> orders,
@@ -37,8 +40,10 @@ public sealed class OrderService
         IRepository<TestDefinition> testDefinitions,
         IRepository<TestGrouper> testGroupers,
         IClock clock,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        RuleEngineService? ruleEngine = null)
     {
+        _ruleEngine = ruleEngine;
         _orders = orders;
         _orderLines = orderLines;
         _orderSpecimens = orderSpecimens;
@@ -198,6 +203,15 @@ public sealed class OrderService
             OrderedByUser = request.OrderedByUser
         };
 
+        // Rules see the specimen the order will be linked to, so resolve it before evaluating.
+        var specimenType = await PeekSpecimenTypeAsync(patientId, request.EncounterId, request.SpecimenId, ct);
+        var ruleOutcome = await ApplyOrderRulesAsync(patientId, order, builtLines, specimenType, ct);
+        if (ruleOutcome.IsBlocked)
+        {
+            return OperationResult<Order>.Fail(ruleOutcome.BlockMessage!);
+        }
+
+        builtLines = ruleOutcome.Lines;
         OrderLineBuilder.ApplyHeaderFromLines(order, builtLines);
 
         var validation = OrderValidator.Validate(
@@ -223,6 +237,11 @@ public sealed class OrderService
             await _orderLines.AddAsync(line, ct);
         }
 
+        if (_ruleEngine is not null)
+        {
+            await _ruleEngine.PersistOrderLogsAsync(ruleOutcome, order.Id, ct);
+        }
+
         await _unitOfWork.SaveChangesAsync(ct);
 
         if (request.SpecimenId is > 0)
@@ -238,7 +257,7 @@ public sealed class OrderService
             await AssociateCurrentSpecimenAsync(order.Id, patientId, request.EncounterId, ct);
         }
 
-        return OperationResult<Order>.Ok(order);
+        return OperationResult<Order>.Ok(order, ruleOutcome.Warnings);
     }
 
     public async Task<OperationResult<Order>> UpdateAsync(long patientId, long orderId, UpdateOrderRequest request, CancellationToken ct = default)
@@ -274,6 +293,14 @@ public sealed class OrderService
         order.OrderingProviderId = orderingProviderId;
         order.OrderingProvider = orderingProviderName;
 
+        var specimenType = await PeekSpecimenTypeAsync(patientId, request.EncounterId, specimenId: null, ct);
+        var ruleOutcome = await ApplyOrderRulesAsync(patientId, order, builtLines, specimenType, ct);
+        if (ruleOutcome.IsBlocked)
+        {
+            return OperationResult<Order>.Fail(ruleOutcome.BlockMessage!);
+        }
+
+        builtLines = ruleOutcome.Lines;
         OrderLineBuilder.ApplyHeaderFromLines(order, builtLines);
 
         var validation = OrderValidator.Validate(
@@ -310,10 +337,15 @@ public sealed class OrderService
             await _orderLines.AddAsync(line, ct);
         }
 
+        if (_ruleEngine is not null)
+        {
+            await _ruleEngine.PersistOrderLogsAsync(ruleOutcome, order.Id, ct);
+        }
+
         await _unitOfWork.SaveChangesAsync(ct);
         await AssociateCurrentSpecimenAsync(order.Id, patientId, request.EncounterId, ct);
 
-        return OperationResult<Order>.Ok(order);
+        return OperationResult<Order>.Ok(order, ruleOutcome.Warnings);
     }
 
     public async Task<OperationResult<Order>> CancelAsync(long patientId, long orderId, CancelOrderRequest request, CancellationToken ct = default)
@@ -407,6 +439,43 @@ public sealed class OrderService
         }
 
         await SyncOrderSpecimenAsync(orderId, specimen.Id, ct);
+    }
+
+    private async Task<OrderRuleOutcome> ApplyOrderRulesAsync(
+        long patientId,
+        Order order,
+        IReadOnlyList<OrderLine> lines,
+        string? specimenType,
+        CancellationToken ct)
+    {
+        if (_ruleEngine is null)
+        {
+            return new OrderRuleOutcome(lines, Array.Empty<RuleResult>(), null, Array.Empty<RuleExecutionLog>());
+        }
+
+        return await _ruleEngine.ApplyOrderRulesAsync(patientId, order, lines, specimenType, ct);
+    }
+
+    /// <summary>
+    /// Specimen type the order will end up linked to. The link itself is made after the
+    /// order is saved, but rules need the value while the lines are still pending.
+    /// </summary>
+    private async Task<string?> PeekSpecimenTypeAsync(
+        long patientId,
+        long encounterId,
+        long? specimenId,
+        CancellationToken ct)
+    {
+        if (_ruleEngine is null)
+        {
+            return null;
+        }
+
+        var specimen = specimenId is > 0
+            ? await _specimens.GetByIdAsync(specimenId.Value, ct)
+            : await ResolveCurrentSpecimenAsync(patientId, encounterId, ct);
+
+        return string.IsNullOrWhiteSpace(specimen?.SpecimenType) ? null : specimen!.SpecimenType;
     }
 
     private async Task<Specimen?> ResolveCurrentSpecimenAsync(long patientId, long encounterId, CancellationToken ct)

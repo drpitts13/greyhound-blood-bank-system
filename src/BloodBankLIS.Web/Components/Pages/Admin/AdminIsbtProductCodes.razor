@@ -1,0 +1,120 @@
+@page "/admin/isbt-product-codes"
+@using BloodBankLIS.Application.Admin
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>ISBT Product Codes &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>ISBT Product Description Codes</h1>
+</div>
+<p class="muted">
+    Supplier product codes permitted for inventory intake. Units must match one of these codes.
+    Seeded as a US public subset pending facility ICCBBA validation.
+</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code, description, or class" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;">
+            <input type="checkbox" @bind="_hideRetired" /> Hide retired
+        </label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No product description codes found. Restart the app so the database seeder can load the US supplier subset.</div>
+    }
+    else
+    {
+        <p class="muted" style="margin-bottom:.5rem;">@Filtered.Count() of @_items.Count code(s)</p>
+        <table class="bb">
+            <thead>
+                <tr>
+                    <th>Code</th>
+                    <th>Product description</th>
+                    <th>Class</th>
+                    <th>Ext. div.</th>
+                    <th>Status</th>
+                    <th>Version</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@c.ProductDescriptionCode</td>
+                        <td>@c.Description</td>
+                        <td>@c.ComponentClass</td>
+                        <td>@(c.RequiresExtendedDivision ? "Yes" : "No")</td>
+                        <td>
+                            @if (c.IsRetired)
+                            {
+                                <span class="badge badge-gray">Retired</span>
+                            }
+                            else if (c.IsPlaceholder)
+                            {
+                                <span class="badge badge-amber">Pending ICCBBA</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-green">Active</span>
+                            }
+                        </td>
+                        <td class="mono muted">@c.StandardVersion</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<IsbtProductCodeDto> _items = new();
+    private bool _loading = true;
+    private string _filter = string.Empty;
+    private bool _hideRetired = true;
+    private Feedback? _feedback;
+
+    private IEnumerable<IsbtProductCodeDto> Filtered
+    {
+        get
+        {
+            IEnumerable<IsbtProductCodeDto> q = _items;
+            if (_hideRetired)
+                q = q.Where(c => !c.IsRetired);
+            if (!string.IsNullOrWhiteSpace(_filter))
+            {
+                var f = _filter.Trim();
+                q = q.Where(c =>
+                    c.ProductDescriptionCode.Contains(f, StringComparison.OrdinalIgnoreCase)
+                    || c.Description.Contains(f, StringComparison.OrdinalIgnoreCase)
+                    || c.ComponentClass.Contains(f, StringComparison.OrdinalIgnoreCase));
+            }
+            return q;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.Has(PermissionCodes.AdminConfigView))
+        {
+            _feedback = Feedback.Fail("You do not have permission to view configuration.");
+            _loading = false;
+            return;
+        }
+
+        var r = await Api.GetAdminIsbtProductCodesAsync();
+        _loading = false;
+        if (r.Succeeded)
+            _items = r.Value ?? new();
+        else
+            _feedback = r.ToFeedback();
+    }
+}
