@@ -1,0 +1,179 @@
+@* Authoring help for order and test rules, generated from the rule catalog so it cannot drift from the engine. *@
+@inject BloodBankApiClient Api
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card-title">
+        <h3>Rule authoring help</h3>
+        <button class="btn btn-ghost btn-sm" @onclick="OnClose">Close</button>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading help...</div>
+    }
+    else if (_help is null)
+    {
+        <div class="empty">Help is unavailable right now.</div>
+    }
+    else
+    {
+        <p>
+            Every rule has two parts. The <strong>condition</strong> is an expression that is either true or false
+            for the case being evaluated. When it is true, the <strong>action</strong> runs. A rule with an empty
+            condition never fires.
+        </p>
+        <p>
+            <span class="badge badge-blue">Order</span>
+            rules are evaluated when an order is placed or changed, and see the patient and the order.
+            <span class="badge badge-blue">Test</span>
+            rules are evaluated when a result is verified, and see everything an order rule sees plus the result.
+            That is why the tables below mark some entries as available to test rules only.
+        </p>
+
+        <h3 style="margin-top:1.2rem;">Conditions</h3>
+        <p class="muted">
+            A condition compares attributes against values you type. Text values go in single quotes.
+        </p>
+
+        @foreach (var group in AttributeGroups)
+        {
+            <h4 style="margin-top:.9rem;">@group.Key attributes</h4>
+            <table class="bb">
+                <thead><tr><th>Attribute</th><th>Type</th><th>Available to</th><th>Description</th><th>Example</th></tr></thead>
+                <tbody>
+                    @foreach (var a in group)
+                    {
+                        <tr>
+                            <td class="mono">@a.Path</td>
+                            <td>@a.Kind</td>
+                            <td class="nowrap">@a.AvailableTo</td>
+                            <td>@a.Description</td>
+                            <td class="mono">@a.Example</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <h4 style="margin-top:.9rem;">Functions</h4>
+        <p class="muted">
+            Functions take one quoted argument. The prefix is optional, so
+            <span class="mono">hasTest('ABORH')</span> and <span class="mono">order.hasTest('ABORH')</span> are the same.
+        </p>
+        <table class="bb">
+            <thead><tr><th>Function</th><th>Returns</th><th>Available to</th><th>Description</th><th>Example</th></tr></thead>
+            <tbody>
+                @foreach (var f in _help.Functions)
+                {
+                    <tr>
+                        <td class="mono">@(f.Name)(...)</td>
+                        <td>@f.Kind</td>
+                        <td class="nowrap">@f.AvailableTo</td>
+                        <td>@f.Description</td>
+                        <td class="mono">@f.Example</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h4 style="margin-top:.9rem;">Operators</h4>
+        <table class="bb">
+            <thead><tr><th>Operator</th><th>Description</th><th>Example</th></tr></thead>
+            <tbody>
+                @foreach (var o in _help.Operators)
+                {
+                    <tr>
+                        <td class="mono nowrap">@o.Symbol</td>
+                        <td>@o.Description</td>
+                        <td class="mono">@o.Example</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h4 style="margin-top:.9rem;">Things that catch people out</h4>
+        <ul>
+            <li>Text comparison ignores case and surrounding spaces, so <span class="mono">'stat'</span> matches <span class="mono">'Stat'</span>.</li>
+            <li>
+                A comparison against missing data is never true, and neither is its negation. If a patient has no
+                historical blood type, both <span class="mono">patient.abo = 'O'</span> and
+                <span class="mono">patient.abo != 'O'</span> are false. Use
+                <span class="mono">IS NULL</span> to test for absent data on purpose.
+            </li>
+            <li><span class="mono">AND</span> binds tighter than <span class="mono">OR</span>. Use parentheses when you mix them.</li>
+            <li>Dates are compared in UTC and written as quoted text, for example <span class="mono">'2026-01-01'</span>.</li>
+        </ul>
+
+        <h3 style="margin-top:1.2rem;">Actions</h3>
+        <p class="muted">
+            An action is one or more calls separated by semicolons, each taking a single quoted argument. They run
+            in the order written, for example <span class="mono">cancelTest('TNS'); addTest('TSNEO')</span>.
+        </p>
+        <table class="bb">
+            <thead><tr><th>Action</th><th>Available to</th><th>Description</th><th>Example</th></tr></thead>
+            <tbody>
+                @foreach (var a in _help.Actions)
+                {
+                    <tr>
+                        <td class="mono nowrap">@(a.Name)(...)</td>
+                        <td class="nowrap">@a.AvailableTo</td>
+                        <td>@a.Description</td>
+                        <td class="mono">@a.Example</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h4 style="margin-top:.9rem;">How actions behave</h4>
+        <ul>
+            <li><span class="mono">addTest</span> does nothing when the test is already on the order, so a rule cannot add the same test twice.</li>
+            <li><span class="mono">cancelTest</span> only affects pending lines. A test that is already resulted is left alone.</li>
+            <li><span class="mono">warn</span> lets the operator continue after acknowledging the message. <span class="mono">block</span> does not.</li>
+            <li>Test codes must exist in the test catalog. Validation flags an unknown code before you can activate the rule.</li>
+        </ul>
+
+        <h3 style="margin-top:1.2rem;">Worked examples</h3>
+
+        <h4 style="margin-top:.9rem;">Neonatal type and screen, an order rule</h4>
+        <p class="muted">Swap the standard type and screen for the neonatal panel on a patient under one day old.</p>
+        <pre class="pre">Condition: patient.ageDays &lt; 1 AND order.hasTest('TNS')
+Action:    cancelTest('TNS'); addTest('TSNEO')</pre>
+
+        <h4 style="margin-top:.9rem;">Weak D follow-up, a test rule</h4>
+        <p class="muted">Add a weak D test whenever an ABO/Rh result interprets as Rh negative.</p>
+        <pre class="pre">Condition: test.code = 'ABORH' AND test.rh = 'Negative'
+Action:    addTest('WEAKD')</pre>
+
+        <h3 style="margin-top:1.2rem;">Ordering and safety</h3>
+        <ul>
+            <li>Rules run from the lowest priority number to the highest. Ties fall back to the rule code.</li>
+            <li>Turning on <em>stop on match</em> keeps later rules from running once this one fires.</li>
+            <li>A rule takes effect only once it is activated. Drafts are validated but never evaluated.</li>
+            <li>Use <strong>Validate</strong> in the editor to check spelling and level availability before saving.</li>
+        </ul>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private RuleHelpDto? _help;
+    private bool _loading = true;
+
+    private IEnumerable<IGrouping<string, RuleAttributeDto>> AttributeGroups =>
+        (_help?.Attributes ?? Array.Empty<RuleAttributeDto>()).GroupBy(GroupOf);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var r = await Api.GetAdminRuleHelpAsync();
+        _help = r.Value;
+        _loading = false;
+    }
+
+    private static string GroupOf(RuleAttributeDto a)
+    {
+        var dot = a.Path.IndexOf('.');
+        var prefix = dot > 0 ? a.Path[..dot] : a.Path;
+        return prefix.Length == 0 ? prefix : char.ToUpperInvariant(prefix[0]) + prefix[1..];
+    }
+}

@@ -8,11 +8,21 @@
 
 <div class="flex-between">
     <h1>Order &amp; Test Rules</h1>
-    @if (CanManage)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New rule</button>
-    }
+    <div class="flex gap">
+        <button class="btn btn-secondary" @onclick="() => _showHelp = !_showHelp">
+            @(_showHelp ? "Hide help" : "Help")
+        </button>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New rule</button>
+        }
+    </div>
 </div>
+
+@if (_showHelp)
+{
+    <RuleHelpPanel OnClose="() => _showHelp = false" />
+}
 
 <Outcome Value="_feedback" />
 
@@ -71,7 +81,7 @@
             <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
             <div class="field">
                 <label>Level</label>
-                <select @bind="_editing.Level" @bind:after="LoadVocabularyAsync">
+                <select @bind="_editing.Level" @bind:after="OnLevelChanged">
                     <option value="@RuleLevel.Order">Order — evaluated when an order is placed</option>
                     <option value="@RuleLevel.Test">Test — evaluated when a result is verified</option>
                 </select>
@@ -99,9 +109,6 @@
 
         <div class="flex gap" style="margin-top:.4rem;">
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ValidateAsync">Validate</button>
-            <button class="btn btn-ghost btn-sm" @onclick="() => _showReference = !_showReference">
-                @(_showReference ? "Hide" : "Show") attribute reference
-            </button>
         </div>
 
         @if (_validation is not null)
@@ -127,58 +134,6 @@
                 {
                     <div class="warn" style="margin-top:.3rem;"><span class="mono">@m.Code</span> @m.Message</div>
                 }
-            </div>
-        }
-
-        @if (_showReference && _vocabulary is not null)
-        {
-            <div class="bb-card" style="margin-top:.6rem;">
-                <h3>Attributes available to @_vocabulary.Level rules</h3>
-                <table class="bb">
-                    <thead><tr><th>Path</th><th>Type</th><th>Description</th><th>Example</th></tr></thead>
-                    <tbody>
-                        @foreach (var a in _vocabulary.Attributes)
-                        {
-                            <tr>
-                                <td class="mono">@a.Path</td>
-                                <td>@a.Kind</td>
-                                <td>@a.Description</td>
-                                <td class="mono">@a.Example</td>
-                            </tr>
-                        }
-                        @foreach (var f in _vocabulary.Functions)
-                        {
-                            <tr>
-                                <td class="mono">@(f.Name)(...)</td>
-                                <td>@f.Kind</td>
-                                <td>@f.Description</td>
-                                <td class="mono">@f.Example</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-
-                <h3 style="margin-top:.8rem;">Actions</h3>
-                <table class="bb">
-                    <thead><tr><th>Action</th><th>Description</th><th>Example</th></tr></thead>
-                    <tbody>
-                        @foreach (var a in _vocabulary.Actions)
-                        {
-                            <tr>
-                                <td class="mono">@a.Name</td>
-                                <td>@a.Description</td>
-                                <td class="mono">@a.Example</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-
-                <p style="margin-top:.8rem;">
-                    Operators: <span class="mono">= != &lt; &lt;= &gt; &gt;= IN (...) NOT IN (...) CONTAINS IS NULL IS NOT NULL AND OR NOT</span>
-                    and parentheses. Text comparison ignores case and surrounding spaces.
-                    A comparison against a missing value never matches, so use
-                    <span class="mono">IS NULL</span> to test for absent data.
-                </p>
             </div>
         }
 
@@ -225,8 +180,7 @@
     private string? _changeReason;
 
     private RuleValidationDto? _validation;
-    private RuleVocabularyDto? _vocabulary;
-    private bool _showReference;
+    private bool _showHelp;
 
     private List<ConfigHistoryDto>? _history;
     private string _historyTitle = string.Empty;
@@ -256,16 +210,10 @@
         _loading = false;
     }
 
-    private async Task LoadVocabularyAsync()
-    {
-        if (_editing is null) return;
-        var r = await Api.GetAdminRuleVocabularyAsync(_editing.Level);
-        _vocabulary = r.Value;
-        // The vocabulary narrows with the level, so a prior result may no longer apply.
-        _validation = null;
-    }
+    // The vocabulary narrows with the level, so a prior result may no longer apply.
+    private void OnLevelChanged() => _validation = null;
 
-    private async Task NewDraft()
+    private void NewDraft()
     {
         _editId = null;
         _currentIsActive = false;
@@ -273,7 +221,6 @@
         _validation = null;
         _editing = new EditModel { Level = SelectedLevel ?? RuleLevel.Order };
         _feedback = null;
-        await LoadVocabularyAsync();
     }
 
     private async Task EditAsync(long id)
@@ -286,7 +233,6 @@
         _validation = null;
         _editing = EditModel.From(r.Value);
         _feedback = null;
-        await LoadVocabularyAsync();
     }
 
     private void CancelEdit()

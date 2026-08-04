@@ -230,9 +230,12 @@ public static class AdminEndpoints
             Results.Ok(await svc.ListAsync(includeInactive ?? true, level, ct)))
             .RequirePermission(PermissionCodes.AdminConfigView);
 
-        // Vocabulary is authoring metadata, so it is mapped before the id route.
+        // Vocabulary and help are authoring metadata, so they are mapped before the id route.
         group.MapGet("/vocabulary", (RuleLevel? level) =>
             Results.Ok(RuleDefinitionAdminService.Vocabulary(level ?? RuleLevel.Order)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/help", () => Results.Ok(RuleDefinitionAdminService.Help()))
             .RequirePermission(PermissionCodes.AdminConfigView);
 
         group.MapGet("/{id:long}", async (long id, RuleDefinitionAdminService svc, CancellationToken ct) =>

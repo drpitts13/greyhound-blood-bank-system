@@ -188,16 +188,24 @@ public sealed record RuleAttributeDto(
     string Path,
     string Kind,
     string Description,
-    string Example);
+    string Example,
+    string AvailableTo);
 
 public sealed record RuleFunctionDto(
     string Name,
     string Kind,
     string Description,
-    string Example);
+    string Example,
+    string AvailableTo);
 
 public sealed record RuleActionDto(
     string Name,
+    string Description,
+    string Example,
+    string AvailableTo);
+
+public sealed record RuleOperatorDto(
+    string Symbol,
     string Description,
     string Example);
 
@@ -206,6 +214,16 @@ public sealed record RuleVocabularyDto(
     RuleLevel Level,
     IReadOnlyList<RuleAttributeDto> Attributes,
     IReadOnlyList<RuleFunctionDto> Functions,
+    IReadOnlyList<RuleActionDto> Actions);
+
+/// <summary>
+/// The complete authoring reference across both levels, generated from the rule catalog so
+/// the help can never describe a vocabulary the engine does not actually support.
+/// </summary>
+public sealed record RuleHelpDto(
+    IReadOnlyList<RuleAttributeDto> Attributes,
+    IReadOnlyList<RuleFunctionDto> Functions,
+    IReadOnlyList<RuleOperatorDto> Operators,
     IReadOnlyList<RuleActionDto> Actions);
 
 // ---- Products ----

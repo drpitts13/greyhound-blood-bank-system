@@ -528,6 +528,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<RuleVocabularyDto>> GetAdminRuleVocabularyAsync(RuleLevel level, CancellationToken ct = default) =>
         SendAsync<RuleVocabularyDto>(HttpMethod.Get, $"api/admin/rules/vocabulary?level={level}", ct: ct);
 
+    public Task<ApiResult<RuleHelpDto>> GetAdminRuleHelpAsync(CancellationToken ct = default) =>
+        SendAsync<RuleHelpDto>(HttpMethod.Get, "api/admin/rules/help", ct: ct);
+
     public Task<ApiResult<RuleValidationDto>> ValidateAdminRuleAsync(ValidateRuleRequest req, CancellationToken ct = default) =>
         SendAsync<RuleValidationDto>(HttpMethod.Post, "api/admin/rules/validate", req, ct);
 

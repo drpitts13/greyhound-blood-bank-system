@@ -205,15 +205,35 @@ public sealed class RuleDefinitionAdminService : ConfigAdminServiceBase
 
     public static RuleVocabularyDto Vocabulary(RuleLevel level) => new(
         level,
-        RuleAttributeCatalog.Attributes(level)
-            .Select(a => new RuleAttributeDto(a.Path, a.Kind.ToString(), a.Description, a.Example))
+        RuleAttributeCatalog.Attributes(level).Select(ToDto).ToList(),
+        RuleAttributeCatalog.Functions(level).Select(ToDto).ToList(),
+        RuleActionParser.For(level).Select(ToDto).ToList());
+
+    public static RuleHelpDto Help() => new(
+        RuleAttributeCatalog.AllAttributesForHelp().Select(ToDto).ToList(),
+        RuleAttributeCatalog.AllFunctionsForHelp().Select(ToDto).ToList(),
+        RuleAttributeCatalog.Operators
+            .Select(o => new RuleOperatorDto(o.Symbol, o.Description, o.Example))
             .ToList(),
-        RuleAttributeCatalog.Functions(level)
-            .Select(f => new RuleFunctionDto(f.Name, f.ReturnKind.ToString(), f.Description, f.Example))
-            .ToList(),
-        RuleActionParser.For(level)
-            .Select(a => new RuleActionDto(a.Name, a.Description, a.Example))
-            .ToList());
+        RuleActionParser.Descriptors.Select(ToDto).ToList());
+
+    private static RuleAttributeDto ToDto(RuleAttributeDescriptor a) =>
+        new(a.Path, a.Kind.ToString(), a.Description, a.Example, AvailabilityOf(a.MinimumLevel));
+
+    private static RuleFunctionDto ToDto(RuleFunctionDescriptor f) =>
+        new(f.Name, f.ReturnKind.ToString(), f.Description, f.Example, AvailabilityOf(f.MinimumLevel));
+
+    private static RuleActionDto ToDto(RuleActionDescriptor a) => new(
+        a.Name,
+        a.Description,
+        a.Example,
+        a.RestrictedTo is null ? BothLevels : $"{a.RestrictedTo} rules only");
+
+    /// <summary>Order-level attributes are also in scope for test rules; test-level ones are not shared back.</summary>
+    private static string AvailabilityOf(RuleLevel minimumLevel) =>
+        minimumLevel == RuleLevel.Order ? BothLevels : $"{RuleLevel.Test} rules only";
+
+    private const string BothLevels = "Order and Test rules";
 
     private async Task<RuleEvaluation> ValidateEntityAsync(RuleDefinition entity, long selfId, CancellationToken ct)
     {

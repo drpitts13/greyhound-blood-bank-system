@@ -21,6 +21,12 @@ public sealed record RuleFunctionDescriptor(
     public IReadOnlyList<string> Aliases { get; init; } = Array.Empty<string>();
 }
 
+/// <summary>An operator a condition may use, described for the authoring help.</summary>
+public sealed record RuleOperatorDescriptor(
+    string Symbol,
+    string Description,
+    string Example);
+
 /// <summary>
 /// The single whitelist of attributes and functions a rule condition may reference.
 /// Backs both authoring-time validation and the admin UI reference panel, so a rule
@@ -101,8 +107,45 @@ public static class RuleAttributeCatalog
         }
     };
 
+    /// <summary>
+    /// Every operator the parser accepts, in precedence order from tightest to loosest.
+    /// Documented here so the authoring help stays in step with the grammar.
+    /// </summary>
+    public static IReadOnlyList<RuleOperatorDescriptor> Operators { get; } = new List<RuleOperatorDescriptor>
+    {
+        new("( )", "Groups a sub-expression so it is evaluated first.",
+            "(patient.ageDays < 1 OR order.priority = 'Stat') AND order.hasTest('TNS')"),
+        new("=", "Equal. Text is compared ignoring case and surrounding spaces.",
+            "test.code = 'ABORH'"),
+        new("!=", "Not equal.", "order.priority != 'Routine'"),
+        new("<", "Less than. Numbers and dates only.", "patient.ageDays < 1"),
+        new("<=", "Less than or equal.", "patient.ageMonths <= 4"),
+        new(">", "Greater than.", "patient.ageYears > 65"),
+        new(">=", "Greater than or equal.", "order.date >= '2026-01-01'"),
+        new("IN (...)", "Matches any value in the list.",
+            "test.interpretation IN ('A Negative','O Negative')"),
+        new("NOT IN (...)", "Matches when the value is absent from the list.",
+            "order.priority NOT IN ('Stat','Urgent')"),
+        new("CONTAINS", "Substring match on text, or membership in a list attribute.",
+            "order.tests CONTAINS 'ABORH'"),
+        new("IS NULL", "True when the attribute has no value. The only way to test for absent data.",
+            "patient.bloodType IS NULL"),
+        new("IS NOT NULL", "True when the attribute has a value.", "test.interpretation IS NOT NULL"),
+        new("NOT", "Negates the expression that follows.", "NOT order.hasTest('WEAKD')"),
+        new("AND", "True when both sides are true. Binds tighter than OR.",
+            "patient.ageDays < 1 AND order.hasTest('TNS')"),
+        new("OR", "True when either side is true.",
+            "order.priority = 'Stat' OR order.priority = 'Urgent'")
+    };
+
     public static IReadOnlyList<RuleAttributeDescriptor> Attributes(RuleLevel level) =>
         AllAttributes.Where(a => IsAvailable(a.MinimumLevel, level)).ToList();
+
+    /// <summary>Every attribute, regardless of level, for the authoring help.</summary>
+    public static IReadOnlyList<RuleAttributeDescriptor> AllAttributesForHelp() => AllAttributes;
+
+    /// <summary>Every function, regardless of level, for the authoring help.</summary>
+    public static IReadOnlyList<RuleFunctionDescriptor> AllFunctionsForHelp() => AllFunctions;
 
     public static IReadOnlyList<RuleFunctionDescriptor> Functions(RuleLevel level) =>
         AllFunctions.Where(f => IsAvailable(f.MinimumLevel, level)).ToList();
