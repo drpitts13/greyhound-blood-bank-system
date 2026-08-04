@@ -445,7 +445,10 @@ public enum ModificationType
     Irradiate = 2,
     Thaw = 3,
     VolumeReduction = 4,
-    Leukoreduction = 5
+    Leukoreduction = 5,
+
+    /// <summary>Saline washing to remove plasma proteins, for example for IgA deficient recipients.</summary>
+    Wash = 6
 }
 
 /// <summary>Whether a unit participated in a <c>UnitModification</c> as an input or an output.</summary>

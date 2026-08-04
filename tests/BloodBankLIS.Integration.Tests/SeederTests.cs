@@ -1,5 +1,7 @@
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,13 +28,19 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
 
         await using (var verify = _factory.Create())
         {
-            Assert.Equal(4, await verify.ProductTypes.CountAsync());
+            // Four base products plus the three modification targets.
+            Assert.Equal(7, await verify.ProductTypes.CountAsync());
             Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "WB" && p.RequiresCrossmatch));
             Assert.Equal(3, await verify.InventoryLocations.CountAsync());
-            Assert.Equal(1, await verify.Patients.CountAsync());
-            Assert.Equal(3, await verify.BloodUnits.CountAsync());
-            Assert.Equal(2, await verify.Encounters.CountAsync());
-            Assert.Equal(4, await verify.Orders.CountAsync());
+
+            // The original demo patient plus the five extended scenarios.
+            Assert.Equal(6, await verify.Patients.CountAsync());
+            Assert.Equal(7, await verify.Encounters.CountAsync());
+            Assert.Equal(11, await verify.Orders.CountAsync());
+
+            // Three original units, 28 stocked across every ABO/Rh, two modification
+            // results, and one received by ISBT 128 scan.
+            Assert.Equal(34, await verify.BloodUnits.CountAsync());
 
             Assert.True(await verify.ExceptionDefinitions.AnyAsync(e => e.RuleCode == AboCompatibilityRule.AboCode && !e.IsOverridable));
             Assert.True(await verify.ExceptionDefinitions.AnyAsync(e =>
@@ -53,7 +61,53 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E0206"));
             Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E0701"));
             Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E5165"));
+
+            await AssertExtendedScenariosAsync(verify);
         }
+    }
+
+    /// <summary>
+    /// Each extended demo scenario must land, otherwise a scenario silently returned early
+    /// because a unit or reference row it depends on was missing.
+    /// </summary>
+    private static async Task AssertExtendedScenariosAsync(BloodBankDbContext verify)
+    {
+        // The neonatal rule adds TSNEO, so the catalog has to define it.
+        Assert.True(await verify.TestDefinitions.AnyAsync(t => t.Code == "TSNEO" && t.IsActive));
+
+        var neonate = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0002");
+        Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow), neonate.DateOfBirth);
+
+        // Rh negative type drives the Weak D rule, which matches on the canonical
+        // interpretation derived from the stored value.
+        var aboRh = await verify.TestResults.SingleAsync(r =>
+            r.TestCode == "ABORH" && r.Value == AboRhResultValue.Format(AboGroup.A, RhType.Negative));
+        Assert.Equal("A Negative", ResultInterpretation.Resolve(aboRh.Interpretation, aboRh.Value));
+
+        Assert.True(await verify.AntibodyHistory.AnyAsync(a => a.AntibodySpecificity == "anti-K" && a.IsActive));
+        Assert.True(await verify.AntigenProfiles.AnyAsync(a => a.Result == AntigenResult.Negative));
+        Assert.True(await verify.UnitBloodAttributes.AnyAsync(a => a.Result == AntigenResult.Negative));
+
+        var emergency = await verify.Issues.SingleAsync(i => i.IssueType == IssueType.EmergencyRelease);
+        Assert.Equal(CrossmatchClinicalStatus.NotCrossmatchedEmergency, emergency.CrossmatchStatus);
+        Assert.NotNull(emergency.OverrideId);
+        Assert.True(await verify.Overrides.AnyAsync(o =>
+            o.Action == OverrideAction.EmergencyRelease && o.ContextId == emergency.Id));
+
+        var reaction = await verify.TransfusionEvents.SingleAsync(t => t.ReactionSuspected);
+        Assert.Equal(TransfusionDisposition.Stopped, reaction.FinalDisposition);
+        Assert.True(await verify.Orders.AnyAsync(o => o.OrderType == OrderType.TransfusionReactionWorkup));
+
+        // Modifications consume a source unit and produce a derived one.
+        Assert.Equal(2, await verify.UnitModifications.CountAsync());
+        Assert.Equal(4, await verify.UnitModificationUnits.CountAsync());
+        Assert.True(await verify.UnitModifications.AnyAsync(m => m.ModificationType == ModificationType.Wash));
+        Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.DerivedFromModificationId != null));
+        Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Modified));
+
+        var scanned = await verify.BloodUnits.SingleAsync(u => u.Source == ComponentEntrySource.Scanner);
+        Assert.Equal(4, await verify.BloodComponentRawScans.CountAsync(s => s.BloodProductId == scanned.Id));
+        Assert.True(await verify.BloodComponentScanSessions.AnyAsync(s => s.IsCompleted));
     }
 
     [Fact]
@@ -118,7 +172,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "CUSTOM"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "OR"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "ED"));
-            Assert.Equal(1, await verify.Patients.CountAsync());
+            Assert.Equal(6, await verify.Patients.CountAsync());
         }
     }
 }

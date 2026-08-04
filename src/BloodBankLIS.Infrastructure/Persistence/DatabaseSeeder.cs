@@ -14,7 +14,7 @@ namespace BloodBankLIS.Infrastructure.Persistence;
 /// (see docs/validation-plan.md section 3). Idempotent: skips full tables, and ensures
 /// required reference codes exist after a partial SQLite-to-SQL Server migration.
 /// </summary>
-public static class DatabaseSeeder
+public static partial class DatabaseSeeder
 {
     public static async Task SeedAsync(BloodBankDbContext context, bool seedDevAdmin = false, CancellationToken cancellationToken = default)
     {
@@ -23,6 +23,7 @@ public static class DatabaseSeeder
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
         await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
+        await EnsureModificationProductTypesAsync(context, cancellationToken);
         await SeedProductAttributesAsync(context, cancellationToken);
         await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
         await SeedSpecimenTypeDefinitionsAsync(context, cancellationToken);
@@ -30,6 +31,7 @@ public static class DatabaseSeeder
         await SeedTestDefinitionsAsync(context, cancellationToken);
         await EnsureAgtypeTestAsync(context, cancellationToken);
         await EnsureWeakDTestAsync(context, cancellationToken);
+        await EnsureNeonatalTypeAndScreenTestAsync(context, cancellationToken);
         await EnsureCrossmatchTestsAsync(context, cancellationToken);
         await MigrateExistingTestPanelConfigAsync(context, cancellationToken);
         await SeedTestGroupersAsync(context, cancellationToken);
@@ -39,9 +41,11 @@ public static class DatabaseSeeder
         await SeedOrderingLocationsAsync(context, cancellationToken);
         await SeedOrderingProvidersAsync(context, cancellationToken);
         await SeedChargeMasterAsync(context, cancellationToken);
+        await SeedModificationRulesAsync(context, cancellationToken);
         await SeedDemoClinicalDataAsync(context, cancellationToken);
         await EnsureIsbtPermissionsAsync(context, cancellationToken);
         await SeedIsbt128LookupsAsync(context, cancellationToken);
+        await SeedExtendedDemoScenariosAsync(context, cancellationToken);
 
         if (seedDevAdmin)
         {
@@ -1354,7 +1358,7 @@ public static class DatabaseSeeder
             OrderId = tsOrder.Id,
             TestCode = "ABORH",
             Version = 1,
-            Value = "O POS",
+            Value = AboRhResultValue.Format(AboGroup.O, RhType.Positive),
             Status = ResultStatus.Verified,
             EnteredBy = "tech1",
             EnteredUtc = now.AddMinutes(-30),
