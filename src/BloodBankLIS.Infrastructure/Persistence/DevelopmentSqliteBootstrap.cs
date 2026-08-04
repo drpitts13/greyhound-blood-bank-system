@@ -11,32 +11,6 @@ namespace BloodBankLIS.Infrastructure.Persistence;
 public static class DevelopmentSqliteBootstrap
 {
     /// <summary>
-    /// Tables introduced after the original EnsureCreated-only workflow. If any are missing,
-    /// the file is recreated from the current model.
-    /// </summary>
-    private static readonly string[] RequiredTables =
-    [
-        "OrderingLocations",
-        "OrderingProviders",
-        "Encounters",
-        "OrderSpecimens",
-        // ISBT 128 module (Phase_Isbt128_ComponentIdentity)
-        "IsbtDataStructures",
-        "IsbtAboRhdCodes",
-        "IsbtProductCodes",
-        "IsbtCollectionTypes",
-        "BloodComponentRawScans",
-        "BloodComponentScanSessions",
-        "BloodComponentScanSessionLines",
-        "BloodComponentSpecialTests",
-        "BloodComponentCompatibilityDecisions",
-        "BloodComponentIdentityCorrections",
-        "BloodComponentExceptions",
-        "CompatibilityRuleVersions",
-        "CompatibilityRules"
-    ];
-
-    /// <summary>
     /// Nullable columns added after EnsureCreated. Applied with ALTER TABLE when missing
     /// so local demo data is preserved when possible. SQL is fixed (not user input).
     /// </summary>
@@ -103,12 +77,14 @@ public static class DevelopmentSqliteBootstrap
         ILogger logger,
         CancellationToken cancellationToken = default)
     {
-        var recreate = await NeedsRecreateAsync(context, cancellationToken);
+        var missingTable = await FindMissingTableAsync(context, cancellationToken);
+        var recreate = missingTable is not null;
         if (recreate)
         {
             logger.LogWarning(
-                "SQLite development database schema is out of date. Recreating from the current EF model. " +
-                "Demo data will be re-seeded on startup.");
+                "SQLite development database is missing table {Table}, so its schema is out of date. " +
+                "Recreating from the current EF model. Demo data will be re-seeded on startup.",
+                missingTable);
             await context.Database.EnsureDeletedAsync(cancellationToken);
         }
 
@@ -150,27 +126,40 @@ public static class DevelopmentSqliteBootstrap
         }
     }
 
-    private static async Task<bool> NeedsRecreateAsync(BloodBankDbContext context, CancellationToken ct)
+    /// <summary>
+    /// Returns the first table the EF model maps that is absent from the database, or null when
+    /// the file is absent, brand new, or already complete. The expected set is read from the model
+    /// rather than hand-maintained so a newly added entity cannot silently drift out of the dev
+    /// database and fail later during seeding.
+    /// </summary>
+    private static async Task<string?> FindMissingTableAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.Database.CanConnectAsync(ct))
         {
-            return false;
+            return null;
         }
 
+        // An empty file is handled by EnsureCreated, not by a recreate.
         if (!await TableExistsAsync(context, "Patients", ct))
         {
-            return false;
+            return null;
         }
 
-        foreach (var table in RequiredTables)
+        var mappedTables = context.Model.GetEntityTypes()
+            .Select(entity => entity.GetTableName())
+            .Where(table => !string.IsNullOrWhiteSpace(table))
+            .Select(table => table!)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var table in mappedTables)
         {
             if (!await TableExistsAsync(context, table, ct))
             {
-                return true;
+                return table;
             }
         }
 
-        return false;
+        return null;
     }
 
     private static async Task<bool> TableExistsAsync(
