@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Results;
@@ -27,7 +28,8 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
             new EfRepository<TestDefinition>(c), new EfRepository<SubtestDefinition>(c), new EfRepository<Order>(c), new EfRepository<OrderLine>(c),
             new InventoryRepository(c), Compatibility(c), new EfRepository<AntibodyHistory>(c),
             new EfRepository<AntigenProfile>(c), new EfRepository<BloodAttributeDefinition>(c),
-            new EfRepository<UnitBloodAttribute>(c), new EfRepository<SpecimenTypeDefinition>(c));
+            new EfRepository<UnitBloodAttribute>(c), new EfRepository<SpecimenTypeDefinition>(c),
+            allocations: new EfRepository<Allocation>(c));
 
     private CompatibilityService Compatibility(BloodBankDbContext c) =>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
@@ -273,10 +275,79 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
     {
         await using var c = _factory.Create();
         var seed = await SeedOrderWithTestAsync(c, testCode: "XM");
+        var unit = await AddCrossmatchUnitAsync(c, "RBC-TWL", "W0009990000001");
+        await ReserveAsync(c, unit, seed.patient.Id, AllocationStatus.Reserved);
 
+        var save = await SaveCrossmatchAsync(c, seed, unit.UnitNumber);
+        Assert.True(save.Succeeded);
+        Assert.Contains(unit.UnitNumber, save.Value!.Interpretation!);
+
+        var xm = await c.Crossmatches.FirstOrDefaultAsync(x => x.PatientId == seed.patient.Id && x.BloodProductId == unit.Id);
+        Assert.NotNull(xm);
+        Assert.Equal(CrossmatchResult.Compatible, xm!.Result);
+    }
+
+    /// <summary>
+    /// The unit dropdown only offers reserved units, but the API must refuse an unreserved unit on its
+    /// own so a stale or hand-crafted request cannot crossmatch another patient's blood.
+    /// </summary>
+    [Fact]
+    public async Task XmSave_RejectsUnitNotReservedForPatient()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c, testCode: "XM");
+        var unit = await AddCrossmatchUnitAsync(c, "RBC-TWL-UNRESERVED", "W0009990000002");
+
+        var save = await SaveCrossmatchAsync(c, seed, unit.UnitNumber);
+
+        Assert.False(save.Succeeded);
+        Assert.Contains("not reserved", save.Error!, StringComparison.OrdinalIgnoreCase);
+
+        // The request must be rejected before anything is written, not left half-recorded.
+        Assert.Empty(await c.Crossmatches.Where(x => x.BloodProductId == unit.Id).ToListAsync());
+        Assert.Empty(await c.TestResults.Where(r => r.OrderId == seed.order.Id && r.TestCode == "XM").ToListAsync());
+    }
+
+    /// <summary>
+    /// A unit reserved for someone else is the hazard the check exists to prevent.
+    /// </summary>
+    [Fact]
+    public async Task XmSave_RejectsUnitReservedForAnotherPatient()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c, testCode: "XM");
+        var other = await SeedOrderWithTestAsync(c, testCode: "XM");
+        var unit = await AddCrossmatchUnitAsync(c, "RBC-TWL-OTHER", "W0009990000004");
+        await ReserveAsync(c, unit, other.patient.Id, AllocationStatus.Reserved);
+
+        var save = await SaveCrossmatchAsync(c, seed, unit.UnitNumber);
+
+        Assert.False(save.Succeeded);
+        Assert.Contains("not reserved", save.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// A crossmatch still needs correcting after the unit is issued, at which point the reservation is
+    /// consumed rather than reserved.
+    /// </summary>
+    [Fact]
+    public async Task XmSave_AllowsUnitWhoseReservationWasConsumed()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c, testCode: "XM");
+        var unit = await AddCrossmatchUnitAsync(c, "RBC-TWL-CONSUMED", "W0009990000003");
+        await ReserveAsync(c, unit, seed.patient.Id, AllocationStatus.Consumed);
+
+        var save = await SaveCrossmatchAsync(c, seed, unit.UnitNumber);
+
+        Assert.True(save.Succeeded);
+    }
+
+    private async Task<BloodUnit> AddCrossmatchUnitAsync(BloodBankDbContext c, string productCode, string unitNumber)
+    {
         var productType = new ProductType
         {
-            ProductCode = "RBC-TWL",
+            ProductCode = productCode,
             Name = "RBC",
             ComponentClass = ComponentClass.RedBloodCells,
             RequiresCrossmatch = true
@@ -286,7 +357,7 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
 
         var unit = new BloodUnit
         {
-            UnitNumber = "W0009990000001",
+            UnitNumber = unitNumber,
             ProductTypeId = productType.Id,
             Abo = AboGroup.O,
             RhD = RhType.Positive,
@@ -295,17 +366,29 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         };
         c.BloodUnits.Add(unit);
         await c.SaveChangesAsync();
+        return unit;
+    }
 
-        var save = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+    private Task<EvaluationResult<TestResult>> SaveCrossmatchAsync(
+        BloodBankDbContext c,
+        (Patient patient, Encounter encounter, OrderingLocation location, Specimen? specimen, PatientOrderDto order, OrderLineDto line) seed,
+        string unitNumber) =>
+        Results(c).SaveTestResultAsync(new SaveTestResultRequest(
             seed.specimen!.Id, seed.order.Id, seed.line.Id, "XM", null, null, null, null, null, null,
-            MarkComplete: false, CorrectionReason: null, UnitNumber: unit.UnitNumber,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: unitNumber,
             CrossmatchMethod: CrossmatchMethod.Serologic, CrossmatchResult: CrossmatchResult.Compatible,
             AntibodyScreenNegative: true));
-        Assert.True(save.Succeeded);
-        Assert.Contains(unit.UnitNumber, save.Value!.Interpretation!);
 
-        var xm = await c.Crossmatches.FirstOrDefaultAsync(x => x.PatientId == seed.patient.Id && x.BloodProductId == unit.Id);
-        Assert.NotNull(xm);
-        Assert.Equal(CrossmatchResult.Compatible, xm!.Result);
+    private async Task ReserveAsync(BloodBankDbContext c, BloodUnit unit, long patientId, AllocationStatus status)
+    {
+        c.Allocations.Add(new Allocation
+        {
+            BloodProductId = unit.Id,
+            PatientId = patientId,
+            Status = status,
+            AllocatedUtc = _factory.Clock.UtcNow,
+            AllocatedBy = "tech"
+        });
+        await c.SaveChangesAsync();
     }
 }

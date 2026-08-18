@@ -171,8 +171,29 @@
 
             @if (IsCrossmatchType)
             {
+                @if (_unitsLoading)
+                {
+                    <div class="loading">Loading reserved units...</div>
+                }
+                else if (UnitOptions.Count == 0)
+                {
+                    <div class="alert alert-warning" style="margin-top:.5rem;">
+                        No units requiring a crossmatch are reserved for this patient. Reserve a unit on the
+                        patient's Products tab, then enter the crossmatch result.
+                    </div>
+                }
+
                 <div class="form-row" style="margin-top:.5rem;">
-                    <div class="field"><label>Unit number</label><input @bind="_unitNumber" placeholder="W0001230000001" /></div>
+                    <div class="field">
+                        <label>Unit number</label>
+                        <select @bind="_unitNumber" disabled="@(UnitOptions.Count == 0)">
+                            <option value="">— Select a reserved unit —</option>
+                            @foreach (var u in UnitOptions)
+                            {
+                                <option value="@u.UnitNumber">@UnitOptionLabel(u)</option>
+                            }
+                        </select>
+                    </div>
                     <div class="field"><label>Method</label>
                         <select @bind="_xmMethod">
                             @foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@m</option> }
@@ -286,6 +307,8 @@
     private string _units = string.Empty;
     private string _interpretation = string.Empty;
     private string _unitNumber = string.Empty;
+    private List<PatientAllocationRowDto> _reservedUnits = new();
+    private bool _unitsLoading;
     private CrossmatchMethod _xmMethod = CrossmatchMethod.Serologic;
     private CrossmatchResult _xmResult = CrossmatchResult.Compatible;
     private bool _antibodyScreenNegative = true;
@@ -323,8 +346,74 @@
         _panelSubtests = _definition?.PanelSubtests.ToList() ?? [];
         ResetSubtestValues();
         ResetBloodAttrResults();
+        _unitNumber = string.Empty;
+        _reservedUnits = new();
         PrefillFromCurrent();
+
+        if (IsCrossmatchType)
+        {
+            await LoadReservedUnitsAsync();
+        }
     }
+
+    /// <summary>
+    /// A crossmatch is only meaningful against a unit set aside for this patient, so the unit choices
+    /// come from the patient's active reservations rather than free text.
+    /// </summary>
+    private async Task LoadReservedUnitsAsync()
+    {
+        _unitsLoading = true;
+        var r = await Api.GetPatientAllocationsAsync(WorkItem.PatientId);
+        _unitsLoading = false;
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+            return;
+        }
+
+        _reservedUnits = (r.Value ?? new()).Where(a => a.RequiresCrossmatch).ToList();
+
+        if (!string.IsNullOrWhiteSpace(_unitNumber))
+        {
+            return;
+        }
+
+        // The reservation that raised this crossmatch order is the unit the tech almost always means.
+        var forThisOrder = _reservedUnits.FirstOrDefault(a => a.OrderId == WorkItem.OrderId);
+        _unitNumber = forThisOrder?.UnitNumber
+            ?? (_reservedUnits.Count == 1 ? _reservedUnits[0].UnitNumber : string.Empty);
+    }
+
+    /// <summary>
+    /// Reserved units, plus the unit already stored on the result even if its reservation has since
+    /// been released, so reopening a saved crossmatch never silently repoints it at another unit.
+    /// </summary>
+    private List<UnitOption> UnitOptions
+    {
+        get
+        {
+            var options = _reservedUnits
+                .Select(a => new UnitOption(a.UnitNumber, a.ProductCode, a.ProductName, false))
+                .ToList();
+
+            if (!string.IsNullOrWhiteSpace(_unitNumber)
+                && !options.Any(o => string.Equals(o.UnitNumber, _unitNumber, StringComparison.OrdinalIgnoreCase)))
+            {
+                options.Insert(0, new UnitOption(_unitNumber, null, null, true));
+            }
+
+            return options;
+        }
+    }
+
+    private static string UnitOptionLabel(UnitOption u) => u switch
+    {
+        { NoLongerReserved: true } => $"{u.UnitNumber} — no longer reserved",
+        { ProductCode: not null } => $"{u.UnitNumber} — {u.ProductCode} {u.ProductName}",
+        _ => u.UnitNumber
+    };
+
+    private sealed record UnitOption(string UnitNumber, string? ProductCode, string? ProductName, bool NoLongerReserved);
 
     private void PrefillFromCurrent()
     {
@@ -485,6 +574,12 @@
         if (WorkItem.CurrentResultStatus == ResultStatus.Verified && string.IsNullOrWhiteSpace(_correctionReason))
         {
             _fb = Feedback.Fail("A correction reason is required when changing a completed result.");
+            return;
+        }
+
+        if (IsCrossmatchType && string.IsNullOrWhiteSpace(_unitNumber))
+        {
+            _fb = Feedback.Fail("Select the reserved unit this crossmatch was performed against.");
             return;
         }
 

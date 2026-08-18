@@ -47,6 +47,7 @@ public sealed class ResultService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<ReflexRule>? _reflexRules;
     private readonly RuleEngineService? _ruleEngine;
+    private readonly IRepository<Allocation>? _allocations;
 
     public ResultService(
         IRepository<TestResult> results,
@@ -71,9 +72,11 @@ public sealed class ResultService
         IRepository<Override>? overrides = null,
         IPermissionEvaluator? permissions = null,
         IRepository<ReflexRule>? reflexRules = null,
-        RuleEngineService? ruleEngine = null)
+        RuleEngineService? ruleEngine = null,
+        IRepository<Allocation>? allocations = null)
     {
         _ruleEngine = ruleEngine;
+        _allocations = allocations;
         _results = results;
         _specimens = specimens;
         _bloodTypes = bloodTypes;
@@ -126,7 +129,7 @@ public sealed class ResultService
             }
         }
 
-        var build = await BuildValueFromRequestAsync(request, normalizedCode, ct);
+        var build = await BuildValueFromRequestAsync(request, normalizedCode, specimen.PatientId, ct);
         if (!build.Succeeded)
         {
             return EvaluationResult<TestResult>.Fail(build.Error!);
@@ -809,7 +812,7 @@ public sealed class ResultService
     }
 
     private async Task<OperationResult<(string Value, string? Units, string? Interpretation)>> BuildValueFromRequestAsync(
-        SaveTestResultRequest request, string normalizedCode, CancellationToken ct)
+        SaveTestResultRequest request, string normalizedCode, long patientId, CancellationToken ct)
     {
         var valueType = await ResolveResultValueTypeAsync(normalizedCode, ct);
 
@@ -830,6 +833,12 @@ public sealed class ResultService
             {
                 return OperationResult<(string, string?, string?)>.Fail(
                     "Crossmatch result must be Compatible or Incompatible.");
+            }
+
+            var reservation = await FindUnitReservationErrorAsync(request.UnitNumber, patientId, ct);
+            if (reservation is not null)
+            {
+                return OperationResult<(string, string?, string?)>.Fail(reservation);
             }
 
             var interpretation = $"Unit: {request.UnitNumber.Trim()}";
@@ -997,6 +1006,35 @@ public sealed class ResultService
         await _unitOfWork.SaveChangesAsync(ct);
         var warnings = await ValidateAgainstCatalogAsync(existing.TestCode, value, ct);
         return OperationResult<TestResult>.Ok(existing, warnings);
+    }
+
+    /// <summary>
+    /// A crossmatch may only be recorded against a unit allocated to this patient, so a stale or
+    /// mistyped unit number cannot attach a result to another patient's blood. Any allocation state
+    /// counts, because a crossmatch still needs correcting after the unit has been issued and its
+    /// reservation consumed. Returns the reason the unit is unusable, or null when it is allowed.
+    /// </summary>
+    private async Task<string?> FindUnitReservationErrorAsync(string unitNumber, long patientId, CancellationToken ct)
+    {
+        if (_inventory is null || _allocations is null)
+        {
+            return null;
+        }
+
+        var trimmed = unitNumber.Trim();
+        var units = await _inventory.SearchAsync(new InventorySearchCriteria(UnitNumber: trimmed), ct);
+        var unit = units.FirstOrDefault();
+        if (unit is null)
+        {
+            return $"Unit '{trimmed}' was not found.";
+        }
+
+        var allocated = await _allocations.FirstOrDefaultAsync(
+            a => a.PatientId == patientId && a.BloodProductId == unit.Id, ct);
+
+        return allocated is null
+            ? $"Unit {trimmed} is not reserved for this patient. Reserve the unit for the patient before crossmatching it."
+            : null;
     }
 
     private async Task<OperationResult<TestResult>> RecordCrossmatchForResultAsync(
