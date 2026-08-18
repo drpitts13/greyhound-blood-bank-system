@@ -30,4 +30,5 @@ public sealed record CompatibilityTagModel(
     DateTime UnitExpiresUtc,
     DateTime IssuedUtc,
     string IssuedBy,
-    bool IsEmergency);
+    bool IsEmergency,
+    bool TestsIncomplete = false);

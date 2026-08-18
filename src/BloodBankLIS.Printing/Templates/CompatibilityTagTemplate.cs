@@ -29,6 +29,12 @@ public static class CompatibilityTagTemplate
             y += 46;
         }
 
+        if (model.TestsIncomplete)
+        {
+            elements.Add(new LabelText(20, y, "*** TESTING INCOMPLETE — 21 CFR 606.151 ***", fontHeight: 28, fontWidth: 28, bold: true));
+            y += 40;
+        }
+
         elements.Add(new LabelText(20, y, $"Patient: {model.PatientName}", fontHeight: 32, fontWidth: 32, bold: true));
         elements.Add(new LabelText(20, y + 38, $"MRN: {model.MedicalRecordNumber}    DOB: {model.DateOfBirth:yyyy-MM-dd}"));
         elements.Add(new LabelText(20, y + 72, $"Patient ABO/Rh: {model.PatientBloodType}", fontHeight: 32, fontWidth: 32, bold: true));

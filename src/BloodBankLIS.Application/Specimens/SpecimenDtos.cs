@@ -11,7 +11,11 @@ public sealed record AccessionSpecimenRequest(
     string? Barcode = null,
     string? DrawLocation = null,
     string? Collector = null,
-    int? ValidityHours = null);
+    int? ValidityHours = null,
+    IdentityTokenType? Identifier1Type = null,
+    string? Identifier1Value = null,
+    IdentityTokenType? Identifier2Type = null,
+    string? Identifier2Value = null);
 
 public sealed record SpecimenDto(
     long Id,

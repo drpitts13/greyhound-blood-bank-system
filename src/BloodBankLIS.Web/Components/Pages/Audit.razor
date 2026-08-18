@@ -4,14 +4,14 @@
 <PageTitle>Audit Trail &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Audit Trail</h1>
-<p class="muted">Append-only record of every clinical action. Showing up to 200 most recent matching events.</p>
+<p class="muted">Append-only record of every clinical action. Paginated (max 1000 per page); records are retained and not purged.</p>
 
 <div class="bb-card">
     <div class="form-row">
         <div class="field"><label>Entity type</label><input @bind="_entityType" placeholder="e.g. BloodUnit, Patient, Issue" /></div>
         <div class="field"><label>Entity id (optional)</label><input type="number" @bind="_entityId" /></div>
     </div>
-    <button class="btn btn-secondary" disabled="@_busy" @onclick="LoadAsync">Search</button>
+    <button class="btn btn-secondary" disabled="@_busy" @onclick="() => LoadAsync(0)">Search</button>
 </div>
 
 <div class="bb-card">
@@ -46,6 +46,11 @@
                 }
             </tbody>
         </table>
+        <div class="flex gap" style="margin-top:.75rem;">
+            <span class="muted">@_skip + 1–@Math.Min(_skip + _events.Count, _total) of @_total</span>
+            <button class="btn btn-ghost btn-sm" disabled="@(_busy || _skip == 0)" @onclick="() => LoadAsync(Math.Max(0, _skip - _take))">Previous</button>
+            <button class="btn btn-ghost btn-sm" disabled="@(_busy || _skip + _take >= _total)" @onclick="() => LoadAsync(_skip + _take)">Next</button>
+        </div>
     }
 </div>
 
@@ -53,23 +58,33 @@
     private List<AuditEventVm> _events = new();
     private string? _entityType;
     private long? _entityId;
+    private int _skip;
+    private int _take = 200;
+    private int _total;
     private bool _loading = true;
     private bool _busy;
     private Feedback? _fb;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync() => await LoadAsync(0);
 
-    private async Task LoadAsync()
+    private async Task LoadAsync(int skip)
     {
         _loading = true;
         _busy = true;
+        _skip = skip;
         var r = await Api.GetAuditEventsAsync(
             string.IsNullOrWhiteSpace(_entityType) ? null : _entityType,
-            _entityId is > 0 ? _entityId : null);
+            _entityId is > 0 ? _entityId : null,
+            _skip,
+            _take);
         _loading = false;
         _busy = false;
         _fb = null;
-        if (r.Succeeded) _events = r.Value!;
-        else { _events = new(); _fb = r.ToFeedback(); }
+        if (r.Succeeded && r.Value is not null)
+        {
+            _events = r.Value.Items ?? new();
+            _total = r.Value.Total;
+        }
+        else { _events = new(); _total = 0; _fb = r.ToFeedback(); }
     }
 }

@@ -49,6 +49,9 @@ public static class PermissionCodes
     public const string Hl7Manage = "hl7.manage";
 
     public const string AuditRead = "audit.read";
+    public const string LookbackManage = "lookback.manage";
+    public const string ReactionInvestigate = "reaction.investigate";
+    public const string DeviationManage = "deviation.manage";
 
     // --- Administration / configuration ---
 
@@ -86,7 +89,7 @@ public static class PermissionCodes
         PrintLabel, PrintReprint,
         BillingReview, BillingCancel, BillingExport,
         Hl7Manage,
-        AuditRead,
+        AuditRead, LookbackManage, ReactionInvestigate, DeviationManage,
         AdminConfigView, AdminConfigEdit, AdminConfigActivate,
         AdminTestsManage, AdminProductsManage, AdminModificationRulesManage, AdminHl7Manage,
         AdminUsersManage, AdminRolesManage, AdminAuditReview

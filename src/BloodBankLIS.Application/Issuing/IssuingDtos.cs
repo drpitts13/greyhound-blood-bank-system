@@ -4,21 +4,22 @@ using BloodBankLIS.Domain.Enums;
 namespace BloodBankLIS.Application.Issuing;
 
 /// <summary>
-/// Request to issue a unit. The operator-confirmed flags (identity, antigen-negative,
-/// special requirements, product match) feed the issue gate. Override fields are
-/// required only when overridable Warnings are present or for an emergency release.
+/// Request to issue a unit. Patient identifiers, product match, special requirements,
+/// and ABO discrepancy are evaluated by the computer — not operator checkboxes.
 /// </summary>
 public sealed record IssueUnitRequest(
     long BloodUnitId,
     long PatientId,
-    bool IdentityConfirmed,
+    IdentityTokenType PatientIdentifier1Type = IdentityTokenType.MedicalRecordNumber,
+    string? PatientIdentifier1Value = null,
+    IdentityTokenType PatientIdentifier2Type = IdentityTokenType.DateOfBirth,
+    string? PatientIdentifier2Value = null,
     string? IssuedTo = null,
     string? IssuedToLocation = null,
     IssueType IssueType = IssueType.Standard,
-    bool ProductMatchesOrder = true,
-    bool AntigenNegativeConfirmed = false,
-    bool SpecialRequirementsMet = true,
-    bool UnresolvedAboRhDiscrepancy = false,
+    bool VisualInspectionAcceptable = true,
+    string? SecondVerifier = null,
+    long? OrderId = null,
     string? OverrideReason = null,
     string? AuthorizedBy = null,
     DateTime? IssuedUtc = null,
@@ -36,7 +37,6 @@ public sealed record ComponentScanVerificationRequest(
 
 public sealed record ReturnUnitRequest(
     string Reason,
-    bool ReissueEligible,
     bool TemperatureAcceptable = true,
     bool SealIntegrityAcceptable = true,
     bool VisualInspectionAcceptable = true,
@@ -68,11 +68,12 @@ public sealed record IssueDto(
     string? Comment,
     IssueType IssueType,
     long? OverrideId,
-    IssueStatus Status)
+    IssueStatus Status,
+    bool TestsIncompleteAtIssue)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
-        i.IssuedUtc, i.IssuedBy, i.Comment, i.IssueType, i.OverrideId, i.Status);
+        i.IssuedUtc, i.IssuedBy, i.Comment, i.IssueType, i.OverrideId, i.Status, i.TestsIncompleteAtIssue);
 }
 
 public sealed record ReturnDto(

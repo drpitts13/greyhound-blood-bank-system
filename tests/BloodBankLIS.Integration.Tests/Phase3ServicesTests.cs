@@ -100,7 +100,27 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         Assert.True(result.Succeeded);
         Assert.Equal(SpecimenStatus.Accepted, result.Value!.Status);
-        Assert.Equal(collected.AddHours(SpecimenService.DefaultValidityHours), result.Value.ExpiresUtc);
+        Assert.Equal(collected.AddHours(SpecimenValidityPolicy.DefaultStandardHours), result.Value.ExpiresUtc);
+    }
+
+    [Fact]
+    public async Task Accession_WithRecentPregnancy_UsesThreeDayWindow()
+    {
+        var patientId = await EnsurePatientAsync("MRN-PREG");
+        await using (var setup = _factory.Create())
+        {
+            var patient = await setup.Patients.FindAsync(patientId);
+            patient!.RecentPregnancyUtc = _factory.Clock.UtcNow.AddDays(-10);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+        var result = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest("ACC-PREG", patientId, "EDTA", collected));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(collected.AddHours(SpecimenValidityPolicy.DefaultAlloimmunizationRiskHours), result.Value!.ExpiresUtc);
     }
 
     [Fact]

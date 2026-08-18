@@ -22,8 +22,20 @@
     <div class="group-label">Transfusion</div>
     <NavLink href="compatibility" ActiveClass="active">Compatibility</NavLink>
     <NavLink href="issuing" ActiveClass="active">Issue &amp; Transfuse</NavLink>
+    @if (Session.Has(PermissionCodes.LookbackManage))
+    {
+        <NavLink href="lookback" ActiveClass="active">Lookback</NavLink>
+    }
+    @if (Session.Has(PermissionCodes.ReactionInvestigate))
+    {
+        <NavLink href="reactions" ActiveClass="active">Reactions</NavLink>
+    }
 
     <div class="group-label">Operations</div>
+    @if (Session.Has(PermissionCodes.DeviationManage))
+    {
+        <NavLink href="deviations" ActiveClass="active">Deviations</NavLink>
+    }
     @if (Session.Has(PermissionCodes.PrintLabel))
     {
         <NavLink href="printing" ActiveClass="active">Printing</NavLink>

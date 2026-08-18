@@ -86,7 +86,7 @@ Errors return machine-readable codes (e.g. `ISBT_DIN_CHECK_MISMATCH`, `COMPONENT
 - Scanner prefixes/suffixes/AIM stripping: `ScannerInputSanitizer.Options`
 - Date-only expiration default time: `ExpirationParser.Policy` (default 23:59) — **medical-director approval**
 - Facility timezone: stored on unit as `ExpirationTimezone`
-- DIN check: `IDinCheckCharacterValidator` (default `PlaceholderDinCheckCharacterValidator`)
+- DIN check: `IDinCheckCharacterValidator` (default `Iso7064Mod37_2DinCheckCharacterValidator`; obsolete alias `PlaceholderDinCheckCharacterValidator`)
 - Lookup tables: `IsbtProductCodes` is seeded with a commonly published US supplier subset of Product Description Codes (`US-PUBLIC-SUBSET-PENDING-ICCBBA` in `UsSupplierProductCodeSeed`); replace/extend with facility-validated ICCBBA data before clinical use
 - Admin UI: **Administration → ISBT Product Codes** (`/admin/isbt-product-codes`) lists the seeded codes (read-only); requires `admin.config.view`
 - Legacy inventory receive (`POST /api/inventory/units`) requires a matching PDC (5-char) or product code data (8-char) from `IsbtProductCodes`; unknown/retired codes are rejected with `ISBT_UNKNOWN_PRODUCT_CODE` / `ISBT_RETIRED_PRODUCT_NOT_ALLOWED`
@@ -124,7 +124,7 @@ Expiration: future local date/time
 ## Known assumptions
 
 1. Official ICCBBA product and ABO/RhD tables are licensed IP — shipped product rows are a **US public subset** (`IsPlaceholder=true`) pending facility ICCBBA validation; ABO/RhD demo codes remain placeholders.
-2. DIN keyboard check algorithm is a **placeholder** for workflow testing; replace after ICCBBA validation.
+2. DIN keyboard check uses **ISO/IEC 7064 MOD 37-2** (`Iso7064Mod37_2DinCheckCharacterValidator`) over the 13-character DIN. Official ICCBBA product and ABO/RhD tables remain licensed IP and are not shipped here.
 3. Century / ordinal-date mapping follows a conservative interpretation pending ICCBBA confirmation.
 4. Date-only labels use institutional end-of-day (23:59) unless policy differs.
 5. Legacy units without `ComponentIdentity` keep prior issue/transfusion paths (scan verification optional).

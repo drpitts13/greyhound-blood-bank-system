@@ -57,18 +57,24 @@ public sealed record AuditEventVm(
     string? Reason,
     long? SignatureId);
 
+public sealed record AuditPageVm(int Total, int Skip, int Take, List<AuditEventVm> Items);
+
 public sealed record MeVm(string UserName, string DisplayName, int SecurityLevel, string[] Permissions);
+
+public sealed record LoginRequestVm(string UserName, string? Password = null, string? Workstation = null);
 
 public sealed record ExpireDueVm(int Expired);
 
 public sealed record SignatureCreatedVm(long Id);
 
-// Response shape for the modification endpoints' anonymous success payload
-// (source record lives inline in Api/Endpoints/ModificationEndpoints.cs).
 public sealed record ModificationResultVm(long ModificationId, List<BloodUnitDto> ResultUnits);
 
-// Request bodies whose records live in the Api/Printing projects.
 public sealed record TransferRequestVm(long ToLocationId, string? Reason);
 public sealed record ReasonRequestVm(string Reason);
 public sealed record PrintRequestVm(LabelFormat Format = LabelFormat.Zpl, string? TemplateCode = null, string? TargetPrinter = null);
-public sealed record SignatureRequestVm(string Action, string MeaningOfSignature, string? ContextType = null, long? ContextId = null);
+public sealed record SignatureRequestVm(
+    string Action,
+    string MeaningOfSignature,
+    string? ContextType = null,
+    long? ContextId = null,
+    string? ReauthenticationSecret = null);

@@ -57,6 +57,12 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<Issue> Issues => Set<Issue>();
     public DbSet<Return> Returns => Set<Return>();
     public DbSet<TransfusionEvent> TransfusionEvents => Set<TransfusionEvent>();
+    public DbSet<ReactionInvestigation> ReactionInvestigations => Set<ReactionInvestigation>();
+    public DbSet<SpecialTransfusionRequirement> SpecialTransfusionRequirements => Set<SpecialTransfusionRequirement>();
+    public DbSet<PatientIdentifier> PatientIdentifiers => Set<PatientIdentifier>();
+    public DbSet<LookbackNotification> LookbackNotifications => Set<LookbackNotification>();
+    public DbSet<Deviation> Deviations => Set<Deviation>();
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<Override> Overrides => Set<Override>();
     public DbSet<InterfaceEndpoint> InterfaceEndpoints => Set<InterfaceEndpoint>();
     public DbSet<Hl7MessageLog> Hl7Messages => Set<Hl7MessageLog>();
@@ -137,6 +143,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
 
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        RejectAuditEventMutations();
         ApplyAuditMetadata();
         var captures = CaptureAuditEntries();
 
@@ -172,6 +179,17 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
         return SaveChangesAsync(acceptAllChangesOnSuccess).GetAwaiter().GetResult();
     }
 
+    private void RejectAuditEventMutations()
+    {
+        foreach (var entry in ChangeTracker.Entries<AuditEvent>())
+        {
+            if (entry.State is EntityState.Modified or EntityState.Deleted)
+            {
+                throw new InvalidOperationException("AuditEvent records are append-only and cannot be updated or deleted.");
+            }
+        }
+    }
+
     private void ApplyAuditMetadata()
     {
         var now = _clock.UtcNow;
@@ -179,6 +197,20 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
 
         foreach (var entry in ChangeTracker.Entries<BaseEntity>())
         {
+            if (entry.State is EntityState.Modified or EntityState.Deleted
+                && IsStrictAppendOnly(entry.Entity.GetType()))
+            {
+                throw new InvalidOperationException(
+                    $"{entry.Entity.GetType().Name} records are append-only and cannot be {entry.State}.");
+            }
+
+            if (entry.State == EntityState.Deleted
+                && IsDeleteProtected(entry.Entity.GetType()))
+            {
+                throw new InvalidOperationException(
+                    $"{entry.Entity.GetType().Name} records cannot be deleted.");
+            }
+
             switch (entry.State)
             {
                 case EntityState.Added:
@@ -261,6 +293,19 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
 
         return JsonSerializer.Serialize(snapshot, AuditJsonOptions);
     }
+
+    private static bool IsStrictAppendOnly(Type type) =>
+        type == typeof(InventoryStatusHistory)
+        || type == typeof(ConfigurationChangeHistory);
+
+    private static bool IsDeleteProtected(Type type) =>
+        IsStrictAppendOnly(type)
+        || type == typeof(ElectronicSignature)
+        || type == typeof(PatientBloodTypeHistory)
+        || type == typeof(AntibodyHistory)
+        || type == typeof(LookbackNotification)
+        || type == typeof(ReactionInvestigation)
+        || type == typeof(SpecialTransfusionRequirement);
 
     private sealed record AuditCapture(
         Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry Entry,

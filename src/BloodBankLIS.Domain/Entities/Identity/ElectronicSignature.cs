@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Common;
+using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Domain.Entities.Identity;
 
@@ -23,4 +24,15 @@ public class ElectronicSignature : BaseEntity
     public string MeaningOfSignature { get; set; } = string.Empty;
 
     public string? Workstation { get; set; }
+
+    public ElectronicSignatureAuthenticationMethod AuthenticationMethod { get; set; } =
+        ElectronicSignatureAuthenticationMethod.Password;
+
+    /// <summary>SHA-256 hex of action|meaning|user|context|signedUtc for tamper evidence.</summary>
+    public string? SignatureHash { get; set; }
+
+    public DateTime? ExpiresUtc { get; set; }
+
+    /// <summary>Set when the signature is bound to a completed dangerous action.</summary>
+    public DateTime? ConsumedUtc { get; set; }
 }

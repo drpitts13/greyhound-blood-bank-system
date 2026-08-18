@@ -69,7 +69,23 @@ public static class DevelopmentSqliteBootstrap
         ("TransfusionEvents", "BedsideScanVerificationJson", """ALTER TABLE "TransfusionEvents" ADD COLUMN "BedsideScanVerificationJson" TEXT NULL"""),
         ("TransfusionEvents", "RemainderDisposition", """ALTER TABLE "TransfusionEvents" ADD COLUMN "RemainderDisposition" TEXT NULL"""),
         ("TransfusionEvents", "ReactionActions", """ALTER TABLE "TransfusionEvents" ADD COLUMN "ReactionActions" TEXT NULL"""),
-        ("TransfusionEvents", "OverrideDataJson", """ALTER TABLE "TransfusionEvents" ADD COLUMN "OverrideDataJson" TEXT NULL""")
+        ("TransfusionEvents", "OverrideDataJson", """ALTER TABLE "TransfusionEvents" ADD COLUMN "OverrideDataJson" TEXT NULL"""),
+        ("Patients", "RecentPregnancyUtc", """ALTER TABLE "Patients" ADD COLUMN "RecentPregnancyUtc" TEXT NULL"""),
+        ("Specimens", "Identifier1Type", """ALTER TABLE "Specimens" ADD COLUMN "Identifier1Type" INTEGER NULL"""),
+        ("Specimens", "Identifier1Value", """ALTER TABLE "Specimens" ADD COLUMN "Identifier1Value" TEXT NULL"""),
+        ("Specimens", "Identifier2Type", """ALTER TABLE "Specimens" ADD COLUMN "Identifier2Type" INTEGER NULL"""),
+        ("Specimens", "Identifier2Value", """ALTER TABLE "Specimens" ADD COLUMN "Identifier2Value" TEXT NULL"""),
+        ("Issues", "TestsIncompleteAtIssue", """ALTER TABLE "Issues" ADD COLUMN "TestsIncompleteAtIssue" INTEGER NOT NULL DEFAULT 0"""),
+        ("Issues", "VisualInspectionAcceptable", """ALTER TABLE "Issues" ADD COLUMN "VisualInspectionAcceptable" INTEGER NOT NULL DEFAULT 1"""),
+        ("Issues", "SecondVerifier", """ALTER TABLE "Issues" ADD COLUMN "SecondVerifier" TEXT NULL"""),
+        ("Issues", "PatientIdentifier1", """ALTER TABLE "Issues" ADD COLUMN "PatientIdentifier1" TEXT NULL"""),
+        ("Issues", "PatientIdentifier2", """ALTER TABLE "Issues" ADD COLUMN "PatientIdentifier2" TEXT NULL"""),
+        ("Users", "FailedSignInCount", """ALTER TABLE "Users" ADD COLUMN "FailedSignInCount" INTEGER NOT NULL DEFAULT 0"""),
+        ("Users", "PinHash", """ALTER TABLE "Users" ADD COLUMN "PinHash" TEXT NULL"""),
+        ("ElectronicSignatures", "AuthenticationMethod", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "AuthenticationMethod" INTEGER NOT NULL DEFAULT 2"""),
+        ("ElectronicSignatures", "SignatureHash", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "SignatureHash" TEXT NULL"""),
+        ("ElectronicSignatures", "ExpiresUtc", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "ExpiresUtc" TEXT NULL"""),
+        ("ElectronicSignatures", "ConsumedUtc", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "ConsumedUtc" TEXT NULL""")
     ];
 
     public static async Task InitializeAsync(

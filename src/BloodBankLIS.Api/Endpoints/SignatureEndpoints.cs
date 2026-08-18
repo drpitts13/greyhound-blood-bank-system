@@ -15,7 +15,8 @@ public static class SignatureEndpoints
         string Action,
         string MeaningOfSignature,
         string? ContextType = null,
-        long? ContextId = null);
+        long? ContextId = null,
+        string? ReauthenticationSecret = null);
 
     public static void MapSignatureEndpoints(this WebApplication app)
     {
@@ -24,7 +25,8 @@ public static class SignatureEndpoints
         group.MapPost("/", async (RecordSignatureRequest request, ISignatureService service, CancellationToken ct) =>
         {
             var result = await service.RecordAsync(
-                request.Action, request.MeaningOfSignature, request.ContextType, request.ContextId, ct);
+                request.Action, request.MeaningOfSignature, request.ContextType, request.ContextId,
+                request.ReauthenticationSecret, ct);
 
             return result.Succeeded
                 ? Results.Created($"/api/signatures/{result.Value}", new { id = result.Value })

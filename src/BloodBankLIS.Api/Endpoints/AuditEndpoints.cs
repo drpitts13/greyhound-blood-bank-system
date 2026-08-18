@@ -17,7 +17,13 @@ public static class AuditEndpoints
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.AuditRead);
 
-        group.MapGet("/", async (string? entityType, long? entityId, BloodBankDbContext context, CancellationToken ct) =>
+        group.MapGet("/", async (
+            string? entityType,
+            long? entityId,
+            int skip,
+            int take,
+            BloodBankDbContext context,
+            CancellationToken ct) =>
         {
             var query = context.AuditEvents.AsNoTracking();
 
@@ -31,12 +37,17 @@ public static class AuditEndpoints
                 query = query.Where(a => a.EntityId == entityId);
             }
 
+            take = take <= 0 ? 200 : Math.Min(take, 1000);
+            skip = Math.Max(0, skip);
+
+            var total = await query.CountAsync(ct);
             var events = await query
                 .OrderByDescending(a => a.OccurredUtc)
-                .Take(200)
+                .Skip(skip)
+                .Take(take)
                 .ToListAsync(ct);
 
-            return Results.Ok(events);
+            return Results.Ok(new { total, skip, take, items = events });
         });
     }
 }

@@ -261,6 +261,7 @@
                         </div>
                         <div class="field"><label>Override reason</label><input @bind="_overrideReason" /></div>
                         <div class="field"><label>Meaning of signature</label><input @bind="_signatureMeaning" placeholder="I authorize ABO/Rh discrepancy override" /></div>
+                        <div class="field"><label>Password / PIN</label><input type="password" @bind="_signatureSecret" /></div>
                         <div class="flex gap" style="margin-top:.5rem;">
                             <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="SaveWithDeltaOverrideAsync">Sign &amp; verify with override</button>
                             <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Cancel</button>
@@ -318,6 +319,7 @@
     private string _overrideReason = string.Empty;
     private string _authorizedBy = string.Empty;
     private string _signatureMeaning = "I authorize ABO/Rh discrepancy override";
+    private string _signatureSecret = string.Empty;
     private AboRhHistoryResolution _historyResolution = AboRhHistoryResolution.Retain;
     private int _deltaMinLevel = 2;
     private bool _busy;
@@ -596,7 +598,7 @@
         long? signatureId = null;
         if (includeOverride)
         {
-            var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("ResultOverride", _signatureMeaning, "TestResult"));
+            var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("ResultOverride", _signatureMeaning, "TestResult", ReauthenticationSecret: _signatureSecret));
             if (!sig.Succeeded || sig.Value is null)
             {
                 _busy = false;

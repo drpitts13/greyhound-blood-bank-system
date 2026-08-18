@@ -2,6 +2,7 @@ using System.Text.Json;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -32,7 +33,13 @@ public sealed class IssuingService
     private readonly IRepository<ProductType> _productTypes;
     private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
     private readonly IRepository<ExceptionDefinition> _exceptionDefinitions;
+    private readonly IRepository<SpecialTransfusionRequirement> _specialRequirements;
+    private readonly IRepository<ProductAttribute> _productAttributes;
+    private readonly IRepository<ProductAttributeAssignment> _productAttributeAssignments;
+    private readonly IRepository<Order> _orders;
     private readonly BloodAttributeCompatLoader _bloodAttributeCompat;
+    private readonly FacilityPolicyService _policy;
+    private readonly ReactionInvestigationService _reactions;
     private readonly IPermissionEvaluator _permissions;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
@@ -52,7 +59,13 @@ public sealed class IssuingService
         IRepository<ProductType> productTypes,
         IRepository<PatientBloodTypeHistory> bloodTypes,
         IRepository<ExceptionDefinition> exceptionDefinitions,
+        IRepository<SpecialTransfusionRequirement> specialRequirements,
+        IRepository<ProductAttribute> productAttributes,
+        IRepository<ProductAttributeAssignment> productAttributeAssignments,
+        IRepository<Order> orders,
         BloodAttributeCompatLoader bloodAttributeCompat,
+        FacilityPolicyService policy,
+        ReactionInvestigationService reactions,
         IPermissionEvaluator permissions,
         IUnitOfWork unitOfWork,
         IClock clock,
@@ -71,7 +84,13 @@ public sealed class IssuingService
         _productTypes = productTypes;
         _bloodTypes = bloodTypes;
         _exceptionDefinitions = exceptionDefinitions;
+        _specialRequirements = specialRequirements;
+        _productAttributes = productAttributes;
+        _productAttributeAssignments = productAttributeAssignments;
+        _orders = orders;
         _bloodAttributeCompat = bloodAttributeCompat;
+        _policy = policy;
+        _reactions = reactions;
         _permissions = permissions;
         _unitOfWork = unitOfWork;
         _clock = clock;
@@ -96,7 +115,8 @@ public sealed class IssuingService
         if (unit.Status is UnitStatus.Issued or UnitStatus.Transfused or UnitStatus.TransfusionStarted)
             return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentAlreadyIssued}: Unit already issued or transfused.");
 
-        if (await _patients.GetByIdAsync(request.PatientId, ct) is null)
+        var patient = await _patients.GetByIdAsync(request.PatientId, ct);
+        if (patient is null)
         {
             return EvaluationResult<Issue>.Fail("Patient not found.");
         }
@@ -132,12 +152,27 @@ public sealed class IssuingService
                  && x.Result == CrossmatchResult.Compatible
                  && (x.ExpiresUtc == null || x.ExpiresUtc > now), ct);
         var bloodAttrs = await _bloodAttributeCompat.LoadAsync(request.PatientId, unit.Id, ct);
+        var identity = PatientIdentityMatchRule.Evaluate(
+            patient.MedicalRecordNumber,
+            patient.DateOfBirth,
+            patient.LastName,
+            patient.FirstName,
+            string.IsNullOrWhiteSpace(request.PatientIdentifier1Value)
+                ? null
+                : new PatientIdentityMatchRule.IdentityToken(request.PatientIdentifier1Type, request.PatientIdentifier1Value),
+            string.IsNullOrWhiteSpace(request.PatientIdentifier2Value)
+                ? null
+                : new PatientIdentityMatchRule.IdentityToken(request.PatientIdentifier2Type, request.PatientIdentifier2Value));
+
+        var specialMet = await SpecialRequirementsSatisfiedAsync(request.PatientId, unit, bloodAttrs.UnitAntigens, now, ct);
+        var productMatches = await ProductMatchesOrderAsync(allocation, request.OrderId, unit.ProductTypeId, ct);
+        var unresolvedDelta = await HasUnresolvedAboRhDiscrepancyAsync(request.PatientId, ct);
 
         var context = new IssueGateContext
         {
-            IdentityConfirmed = request.IdentityConfirmed,
+            IdentityConfirmed = identity.Severity == RuleSeverity.Pass,
             SpecimenExists = specimen is not null,
-            SpecimenBelongsToPatient = specimen is not null,
+            SpecimenBelongsToPatient = specimen is not null && specimen.PatientId == request.PatientId,
             SpecimenExpiresUtc = specimen?.ExpiresUtc,
             PatientBloodTypeKnown = bloodType is not null && bloodType.BloodType.IsKnown,
             PatientAboRh = bloodType?.BloodType ?? new AboRh(AboGroup.Unknown, RhType.Unknown),
@@ -149,17 +184,27 @@ public sealed class IssuingService
             RequiresCrossmatch = productType?.RequiresCrossmatch ?? false,
             HasValidCrossmatch = hasValidCrossmatch,
             IsEmergencyRelease = request.IssueType == IssueType.EmergencyRelease,
-            ProductTypeMatchesOrder = request.ProductMatchesOrder,
+            ProductTypeMatchesOrder = productMatches,
             PatientSignificantAntibodies = bloodAttrs.PatientSignificantAntibodies,
             PatientAntigens = bloodAttrs.PatientAntigens,
             UnitSignificantAntibodies = bloodAttrs.UnitSignificantAntibodies,
             UnitAntigens = bloodAttrs.UnitAntigens,
-            SpecialRequirementsMet = request.SpecialRequirementsMet,
-            UnresolvedAboRhDiscrepancy = request.UnresolvedAboRhDiscrepancy,
+            SpecialRequirementsMet = specialMet,
+            UnresolvedAboRhDiscrepancy = unresolvedDelta,
+            VisualInspectionAcceptable = request.VisualInspectionAcceptable,
             NowUtc = now
         };
 
         var evaluation = IssueGate.Evaluate(context);
+        var requireSecond = await _policy.GetRequireSecondVerifierAsync(ct);
+        var electronicId = request.VerifiedScan is not null
+            && identity.Severity == RuleSeverity.Pass;
+        var dual = DualIdentificationRule.Evaluate(
+            _currentUser.UserName, request.SecondVerifier, electronicId, requireSecond);
+        if (dual.Severity != RuleSeverity.Pass)
+        {
+            evaluation = new RuleEvaluation(evaluation.Results.Append(dual).ToList());
+        }
 
         if (evaluation.IsHardStopped)
         {
@@ -248,7 +293,13 @@ public sealed class IssuingService
                     : CrossmatchClinicalStatus.NotPerformed,
             EmergencyReleaseDetails = request.IssueType == IssueType.EmergencyRelease
                 ? request.OverrideReason
-                : null
+                : null,
+            TestsIncompleteAtIssue = request.IssueType is IssueType.EmergencyRelease or IssueType.MassiveTransfusion
+                && !hasValidCrossmatch,
+            VisualInspectionAcceptable = request.VisualInspectionAcceptable,
+            SecondVerifier = request.SecondVerifier,
+            PatientIdentifier1 = request.PatientIdentifier1Value,
+            PatientIdentifier2 = request.PatientIdentifier2Value
         };
         await _issues.AddAsync(issue, ct);
 
@@ -325,15 +376,20 @@ public sealed class IssuingService
         }
 
         var now = _clock.UtcNow;
+        var unitUnexpired = unit.ExpiresUtc > now;
+        var reissueEval = ReturnReissueRule.Evaluate(
+            request.TemperatureAcceptable,
+            request.SealIntegrityAcceptable,
+            request.VisualInspectionAcceptable,
+            request.TimeOutOfStorageAcceptable,
+            unitUnexpired);
 
-        // Return evaluation — INSTITUTIONAL_POLICY_REVIEW for time/temp thresholds.
-        var reissueOk = request.ReissueEligible
-            && request.TemperatureAcceptable
-            && request.SealIntegrityAcceptable
-            && request.VisualInspectionAcceptable
-            && request.TimeOutOfStorageAcceptable
-            && unit.ExpiresUtc > now;
+        if (reissueEval.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Return>.Blocked(new RuleEvaluation([reissueEval]));
+        }
 
+        var reissueOk = reissueEval.Severity == RuleSeverity.Pass;
         var destination = reissueOk ? UnitStatus.Available : UnitStatus.Quarantine;
         if (!request.VisualInspectionAcceptable || !request.SealIntegrityAcceptable)
             destination = UnitStatus.Discarded;
@@ -373,7 +429,7 @@ public sealed class IssuingService
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { Status = UnitStatus.Issued },
-            newValue: new { Status = destination, request.ReissueEligible },
+            newValue: new { Status = destination, ReissueEligible = reissueOk },
             reason: request.Reason);
 
         await _unitOfWork.SaveChangesAsync(ct);
@@ -444,6 +500,14 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Fail($"{IsbtErrorCodes.ComponentExpired}: Unit has expired.");
         }
 
+        var requireSecond = await _policy.GetRequireSecondVerifierAsync(ct);
+        var electronicId = request.PositivePatientIdentification && request.BedsideScan is not null;
+        var dual = DualIdentificationRule.Evaluate(_currentUser.UserName, request.SecondVerifier, electronicId, requireSecond);
+        if (dual.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([dual]));
+        }
+
         var now = _clock.UtcNow;
 
         var transfusion = new TransfusionEvent
@@ -485,6 +549,13 @@ public sealed class IssuingService
             newValue: new { Status = terminal, request.FinalDisposition, request.ReactionSuspected });
 
         await _unitOfWork.SaveChangesAsync(ct);
+
+        if (request.ReactionSuspected)
+        {
+            await _reactions.OpenForTransfusionAsync(transfusion, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
         return EvaluationResult<TransfusionEvent>.Ok(transfusion);
     }
 
@@ -492,6 +563,59 @@ public sealed class IssuingService
     {
         var accepted = await _specimens.ListAsync(s => s.PatientId == patientId && s.Status == SpecimenStatus.Accepted, ct);
         return accepted.OrderByDescending(s => s.CollectedUtc).FirstOrDefault();
+    }
+
+    private async Task<bool> SpecialRequirementsSatisfiedAsync(
+        long patientId,
+        BloodUnit unit,
+        IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> unitAntigens,
+        DateTime nowUtc,
+        CancellationToken ct)
+    {
+        var rows = await _specialRequirements.ListAsync(r => r.PatientId == patientId && r.IsActive, ct);
+        var refs = rows.Select(r => new SpecialTransfusionRequirementRule.RequirementRef(
+            r.RequirementType, r.AntigenCode, r.EffectiveUtc, r.ExpiresUtc, r.IsActive)).ToList();
+
+        var assignments = await _productAttributeAssignments.ListAsync(
+            a => a.ProductTypeId == unit.ProductTypeId && a.IsActive, ct);
+        var attrIds = assignments.Select(a => a.ProductAttributeId).ToHashSet();
+        var attributes = await _productAttributes.ListAsync(a => attrIds.Contains(a.Id) && a.IsActive, ct);
+        var codes = attributes.Select(a => a.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var results = SpecialTransfusionRequirementRule.Evaluate(refs, codes, unitAntigens, nowUtc);
+        return SpecialTransfusionRequirementRule.AllMet(results);
+    }
+
+    private async Task<bool> ProductMatchesOrderAsync(Allocation? allocation, long? requestOrderId, long unitProductTypeId, CancellationToken ct)
+    {
+        var orderId = requestOrderId ?? allocation?.OrderId;
+        if (orderId is null)
+        {
+            return true;
+        }
+
+        var order = await _orders.GetByIdAsync(orderId.Value, ct);
+        if (order is null || order.ProductTypeId is null)
+        {
+            return true;
+        }
+
+        return order.ProductTypeId == unitProductTypeId;
+    }
+
+    private async Task<bool> HasUnresolvedAboRhDiscrepancyAsync(long patientId, CancellationToken ct)
+    {
+        var history = await _bloodTypes.ListAsync(h => h.PatientId == patientId, ct);
+        var current = history.FirstOrDefault(h => h.IsCurrent);
+        if (current is null || !current.BloodType.IsKnown)
+        {
+            return false;
+        }
+
+        return history.Any(h =>
+            !h.IsCurrent
+            && h.BloodType.IsKnown
+            && h.BloodType != current.BloodType);
     }
 
     private void AppendStatus(BloodUnit unit, UnitStatus toStatus, string reason, DateTime whenUtc, string relatedType, long relatedId)

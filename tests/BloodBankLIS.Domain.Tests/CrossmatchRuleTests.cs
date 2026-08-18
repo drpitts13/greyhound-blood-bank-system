@@ -35,17 +35,19 @@ public class CrossmatchRuleTests
     [Fact]
     public void ElectronicEligibility_AllPreconditions_Passes()
     {
-        var result = ElectronicCrossmatchEligibilityRule.Evaluate(currentAboRhConfirmed: true, antibodyScreenNegative: true, hasAntibodyHistory: false);
+        var result = ElectronicCrossmatchEligibilityRule.Evaluate(
+            currentAboRhConfirmed: true, antibodyScreenNegative: true, hasAntibodyHistory: false, hasSecondConcordantAboRh: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
 
     [Theory]
-    [InlineData(false, true, false)]
-    [InlineData(true, false, false)]
-    [InlineData(true, true, true)]
-    public void ElectronicEligibility_AnyFailure_IsHardStop(bool aboRh, bool screenNeg, bool antibodyHx)
+    [InlineData(false, true, false, true)]
+    [InlineData(true, false, false, true)]
+    [InlineData(true, true, true, true)]
+    [InlineData(true, true, false, false)]
+    public void ElectronicEligibility_AnyFailure_IsHardStop(bool aboRh, bool screenNeg, bool antibodyHx, bool secondAbo)
     {
-        var result = ElectronicCrossmatchEligibilityRule.Evaluate(aboRh, screenNeg, antibodyHx);
+        var result = ElectronicCrossmatchEligibilityRule.Evaluate(aboRh, screenNeg, antibodyHx, secondAbo);
         Assert.Equal(RuleSeverity.HardStop, result.Severity);
     }
 }

@@ -10,11 +10,20 @@ public static class ElectronicCrossmatchEligibilityRule
 {
     public const string Code = "XM-EC-ELIGIBLE";
 
-    public static RuleResult Evaluate(bool currentAboRhConfirmed, bool antibodyScreenNegative, bool hasAntibodyHistory)
+    public static RuleResult Evaluate(
+        bool currentAboRhConfirmed,
+        bool antibodyScreenNegative,
+        bool hasAntibodyHistory,
+        bool hasSecondConcordantAboRh)
     {
         if (!currentAboRhConfirmed)
         {
             return RuleResult.HardStop(Code, "Electronic crossmatch requires a confirmed current ABO/Rh.");
+        }
+
+        if (!hasSecondConcordantAboRh)
+        {
+            return RuleResult.HardStop(Code, "Electronic crossmatch requires two concordant ABO/Rh determinations.");
         }
 
         if (!antibodyScreenNegative)

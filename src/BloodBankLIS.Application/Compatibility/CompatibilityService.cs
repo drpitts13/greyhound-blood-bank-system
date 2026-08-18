@@ -84,9 +84,13 @@ public sealed class CompatibilityService
         if (request.Method == CrossmatchMethod.Electronic)
         {
             var currentAboRhConfirmed = await _bloodTypes.AnyAsync(h => h.PatientId == request.PatientId && h.IsCurrent, ct);
+            var history = await _bloodTypes.ListAsync(h => h.PatientId == request.PatientId, ct);
+            var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
+                history.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
             var requiresComplexXm = await _antibodyScreenCompat.RequiresComplexCrossmatchAsync(request.PatientId, ct);
             var screenNegative = request.AntibodyScreenNegative && !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(request.PatientId, ct);
-            var eligibility = ElectronicCrossmatchEligibilityRule.Evaluate(currentAboRhConfirmed, screenNegative, requiresComplexXm);
+            var eligibility = ElectronicCrossmatchEligibilityRule.Evaluate(
+                currentAboRhConfirmed, screenNegative, requiresComplexXm, secondAbo);
             if (eligibility.Severity == RuleSeverity.HardStop)
             {
                 return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation(new[] { eligibility }));

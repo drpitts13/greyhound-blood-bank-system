@@ -135,7 +135,8 @@ public sealed class PrintService
             UnitExpiresUtc: unit.ExpiresUtc,
             IssuedUtc: issue.IssuedUtc,
             IssuedBy: issue.IssuedBy,
-            IsEmergency: issue.IssueType != IssueType.Standard);
+            IsEmergency: issue.IssueType != IssueType.Standard,
+            TestsIncomplete: issue.TestsIncompleteAtIssue);
 
         var templateCode = request.TemplateCode ?? CompatibilityTagTemplate.TemplateCode;
         var document = CompatibilityTagTemplate.Build(model);

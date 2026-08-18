@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Entities.Identity;
@@ -19,6 +20,7 @@ public static partial class DatabaseSeeder
     public static async Task SeedAsync(BloodBankDbContext context, bool seedDevAdmin = false, CancellationToken cancellationToken = default)
     {
         await SeedIdentityAsync(context, cancellationToken);
+        await SeedSystemSettingsAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
@@ -82,6 +84,66 @@ public static partial class DatabaseSeeder
             }
         }
 
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedSystemSettingsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.AddRange(
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.SpecimenAlloimmunizationHours,
+                Value = "72",
+                Category = "Specimen",
+                Description = "AABB-style 3-day window when transfused or pregnant in the lookback period."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.SpecimenStandardHours,
+                Value = "168",
+                Category = "Specimen",
+                Description = "Standard specimen validity (hours) when alloimmunization risk is not present."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.SpecimenLookbackDays,
+                Value = "90",
+                Category = "Specimen",
+                Description = "Lookback days for recent transfusion or pregnancy."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.RequireSecondVerifier,
+                Value = "true",
+                Category = "Transfusion",
+                Description = "Require a distinct second verifier or validated electronic identification."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.BlockSelfVerify,
+                Value = "false",
+                Category = "Result",
+                Description = "When true, the entering user cannot verify the same result."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.RetentionYears,
+                Value = "10",
+                Category = "Records",
+                Description = "Minimum product record retention (21 CFR 606.160(d)). No automated purge."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.SignatureValidityMinutes,
+                Value = "15",
+                Category = "Signatures",
+                Description = "Electronic signature reuse window before consumption."
+            });
         await context.SaveChangesAsync(ct);
     }
 
@@ -302,7 +364,8 @@ public static partial class DatabaseSeeder
             PermissionCodes.InventoryDiscard,
             PermissionCodes.IssueOverride,
             PermissionCodes.PrintReprint,
-            PermissionCodes.BillingCancel, PermissionCodes.BillingExport
+            PermissionCodes.BillingCancel, PermissionCodes.BillingExport,
+            PermissionCodes.LookbackManage, PermissionCodes.ReactionInvestigate, PermissionCodes.DeviationManage
         }).Distinct().ToArray();
 
         // Specialized administrative roles. Each gets read access to all config plus
@@ -530,7 +593,13 @@ public static partial class DatabaseSeeder
 
     private static void AddUser(BloodBankDbContext context, string userName, string displayName, Role role, bool isServiceAccount = false)
     {
-        var user = new User { UserName = userName, DisplayName = displayName, IsServiceAccount = isServiceAccount };
+        var user = new User
+        {
+            UserName = userName,
+            DisplayName = displayName,
+            IsServiceAccount = isServiceAccount,
+            PasswordHash = SecretHasher.Hash("demo")
+        };
         user.UserRoles.Add(new UserRole { Role = role });
         context.Users.Add(user);
     }

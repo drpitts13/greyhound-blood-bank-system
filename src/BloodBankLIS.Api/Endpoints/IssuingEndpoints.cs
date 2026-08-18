@@ -46,10 +46,14 @@ public static class IssuingEndpoints
             }
 
             var result = await service.IssueUnitAsync(request, ct);
-            // Issuing a unit is a billing trigger; capture only on a committed issue.
             if (result.Succeeded)
             {
                 await billing.CaptureForIssueAsync(result.Value!.Id, ct);
+                var header = http.Request.Headers[OverrideSignatureHeader].ToString();
+                if (long.TryParse(header, out var signatureId))
+                {
+                    await signatures.ConsumeAsync(signatureId, ct);
+                }
             }
 
             return EndpointResults.CreatedEvaluation(result, i => ($"/api/issues/{i.Id}", (object)IssueDto.From(i)));
@@ -67,7 +71,6 @@ public static class IssuingEndpoints
     private static bool IsOverrideAttempt(IssueUnitRequest request) =>
         !string.IsNullOrWhiteSpace(request.OverrideReason)
         || !string.IsNullOrWhiteSpace(request.AuthorizedBy)
-        || request.UnresolvedAboRhDiscrepancy
         || request.IssueType == Domain.Enums.IssueType.EmergencyRelease
         || request.IssueType == Domain.Enums.IssueType.MassiveTransfusion;
 

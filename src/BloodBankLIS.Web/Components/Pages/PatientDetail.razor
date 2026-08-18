@@ -43,6 +43,14 @@ else
         </div>
     }
 
+    @if (_specialRequirements.Any(r => r.IsActive))
+    {
+        <div class="alert alert-warning">
+            <strong>Special transfusion requirements:</strong>
+            @string.Join(", ", _specialRequirements.Where(r => r.IsActive).Select(r => r.AntigenCode is null ? r.RequirementType.ToString() : $"{r.RequirementType} {r.AntigenCode}"))
+        </div>
+    }
+
     <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
         <button type="button" class="btn @TabClass("overview")" @onclick='() => SelectTab("overview")'>Overview</button>
         <button type="button" class="btn @TabClass("visits")" @onclick='() => SelectTab("visits")'>Visits</button>
@@ -96,6 +104,69 @@ else
                 </div>
                 <div class="field"><label>Reason (required)</label><input @bind="_typeReason" /></div>
                 <button class="btn btn-danger" disabled="@_busy" @onclick="RecordTypeAsync">Record blood type</button>
+            }
+        </div>
+
+        <!-- Special transfusion requirements -->
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Special transfusion requirements</h3></div>
+            <p class="muted">Computer-evaluated at issue. Operators cannot checkbox these away.</p>
+            <Outcome Value="_srFb" />
+            @if (_specialRequirements.Count == 0)
+            {
+                <div class="empty">No special requirements on record.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Type</th><th>Antigen</th><th>Reason</th><th>Active</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var r in _specialRequirements)
+                        {
+                            <tr>
+                                <td>@r.RequirementType</td>
+                                <td class="mono">@r.AntigenCode</td>
+                                <td>@r.Reason</td>
+                                <td>@(r.IsActive ? "Yes" : "No")</td>
+                                <td class="right">
+                                    @if (r.IsActive && Session.Has(PermissionCodes.ImmunoOverride))
+                                    {
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => BeginDeactivateSr(r)">Deactivate</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (_srDeactivateId is not null)
+            {
+                <div class="alert alert-warning">
+                    <div class="field"><label>Reason to deactivate</label><input @bind="_srDeactivateReason" /></div>
+                    <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="DeactivateSrAsync">Confirm</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="() => _srDeactivateId = null">Cancel</button>
+                </div>
+            }
+            @if (Session.Has(PermissionCodes.ImmunoRecord))
+            {
+                <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+                <h4>Add requirement</h4>
+                <div class="form-row">
+                    <div class="field"><label>Type</label>
+                        <select @bind="_srType">@foreach (var t in Enum.GetValues<SpecialTransfusionRequirementType>()) { <option value="@t">@t</option> }</select>
+                    </div>
+                    <div class="field"><label>Antigen code</label><input @bind="_srAntigen" placeholder="Required for AntigenNegative" /></div>
+                    <div class="field" style="grid-column:1/-1;"><label>Reason</label><input @bind="_srReason" /></div>
+                </div>
+                <button class="btn btn-primary" disabled="@_busy" @onclick="AddSpecialRequirementAsync">Add</button>
+            }
+            @if (Session.Has(PermissionCodes.PatientWrite))
+            {
+                <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+                <h4>Recent pregnancy (specimen window)</h4>
+                <p class="muted">When documented, accepted specimens use the 3-day alloimmunization-risk window.</p>
+                <div class="muted">Current: @(_patient.RecentPregnancyUtc?.ToString("yyyy-MM-dd") ?? "not documented")</div>
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="MarkRecentPregnancyAsync">Document pregnancy in last 3 months</button>
             }
         </div>
 
@@ -599,6 +670,8 @@ else
                     </div>
                     <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="_acc.CollectedLocal" /></div>
                     <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="_acc.ValidityHours" /></div>
+                    <div class="field"><label>Identifier 1 (MRN)</label><input @bind="_acc.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
+                    <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="_acc.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
                 </div>
                 <button class="btn btn-primary" disabled="@_busy" @onclick="AccessionAsync">Accession</button>
             </div>
@@ -804,6 +877,15 @@ else
                         <div class="field"><label>Person issued to</label>
                             <input @bind="_issueIssuedTo" placeholder="Nurse / courier / recipient" />
                         </div>
+                        <div class="field"><label>Patient ID 1 (MRN)</label>
+                            <input @bind="_issueId1" />
+                        </div>
+                        <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label>
+                            <input @bind="_issueId2" />
+                        </div>
+                        <div class="field"><label>Second verifier</label>
+                            <input @bind="_issueSecondVerifier" placeholder="Different active user" />
+                        </div>
                         <div class="field"><label>User id issuing</label>
                             <input value="@(Session.UserName ?? "—")" disabled />
                         </div>
@@ -811,6 +893,7 @@ else
                             <textarea rows="2" @bind="_issueComment"></textarea>
                         </div>
                     </div>
+                    <label class="flex"><input type="checkbox" @bind="_issueVisualOk" /> &nbsp;Visual inspection acceptable</label>
 
                     @if (_showIssueOverride)
                     {
@@ -821,6 +904,7 @@ else
                                 <div class="field"><label>Override reason</label><input @bind="_issueOverrideReason" /></div>
                                 <div class="field"><label>Authorized by</label><input @bind="_issueAuthorizedBy" placeholder="@Session.UserName" /></div>
                                 <div class="field"><label>Meaning of signature</label><input @bind="_issueSignatureMeaning" placeholder="I authorize issue override" /></div>
+                                <div class="field"><label>Password / PIN</label><input type="password" @bind="_issueSignatureSecret" /></div>
                             </div>
                             <div class="flex gap" style="margin-top:.5rem;">
                                 <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="IssueAllocationWithOverrideAsync">Sign &amp; issue</button>
@@ -982,6 +1066,13 @@ else
     private List<BloodTypeDto> _typeHistory = new();
     private List<AntibodyDto> _antibodyHistory = new();
     private List<AntibodyDto> _activeAntibodies = new();
+    private List<SpecialRequirementDto> _specialRequirements = new();
+    private Feedback? _srFb;
+    private SpecialTransfusionRequirementType _srType = SpecialTransfusionRequirementType.Irradiated;
+    private string? _srAntigen;
+    private string _srReason = string.Empty;
+    private long? _srDeactivateId;
+    private string _srDeactivateReason = string.Empty;
     private List<SpecimenDto> _specimens = new();
     private List<SpecimenTypeListItemDto> _specimenTypes = new();
     private string _tab = "overview";
@@ -1084,6 +1175,7 @@ else
     private string _deltaOverrideReason = string.Empty;
     private string _deltaAuthorizedBy = string.Empty;
     private string _deltaSignatureMeaning = "I authorize ABO/Rh discrepancy override";
+    private string _deltaSignatureSecret = string.Empty;
     private AboRhHistoryResolution _deltaHistoryResolution = AboRhHistoryResolution.Retain;
     private int _deltaMinLevel = 2;
 
@@ -1128,6 +1220,11 @@ else
     private string _issueOverrideReason = string.Empty;
     private string _issueAuthorizedBy = string.Empty;
     private string _issueSignatureMeaning = "I authorize issue override";
+    private string _issueSignatureSecret = string.Empty;
+    private string _issueId1 = string.Empty;
+    private string _issueId2 = string.Empty;
+    private string? _issueSecondVerifier;
+    private bool _issueVisualOk = true;
 
     private bool NeedsAbHistoryOverride =>
         _activeAntibodies.Count > 0
@@ -1156,6 +1253,7 @@ else
         _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
         _specimens = (await Api.GetPatientSpecimensAsync(Id)).Value ?? new();
         _specimenTypes = (await Api.GetReferenceSpecimenTypesAsync()).Value ?? new();
+        _specialRequirements = (await Api.GetSpecialRequirementsAsync(Id)).Value ?? new();
         await LoadPanelDefinitionAsync(_panelTestCode);
         _loading = false;
     }
@@ -1256,6 +1354,11 @@ else
         _issueOverrideReason = string.Empty;
         _issueAuthorizedBy = Session.UserName ?? string.Empty;
         _issueSignatureMeaning = "I authorize issue override";
+        _issueSignatureSecret = string.Empty;
+        _issueId1 = _patient?.MedicalRecordNumber ?? string.Empty;
+        _issueId2 = _patient?.DateOfBirth.ToString("yyyy-MM-dd") ?? string.Empty;
+        _issueSecondVerifier = string.Empty;
+        _issueVisualOk = true;
     }
 
     private void CancelIssueAllocation()
@@ -1271,14 +1374,15 @@ else
         return new IssueUnitRequest(
             _issuingAllocation!.BloodUnitId,
             Id,
-            IdentityConfirmed: true,
+            PatientIdentifier1Type: IdentityTokenType.MedicalRecordNumber,
+            PatientIdentifier1Value: _issueId1,
+            PatientIdentifier2Type: IdentityTokenType.DateOfBirth,
+            PatientIdentifier2Value: _issueId2,
             IssuedTo: _issueIssuedTo.Trim(),
             IssuedToLocation: _issueLocation.Trim(),
             IssueType: IssueType.Standard,
-            ProductMatchesOrder: true,
-            AntigenNegativeConfirmed: false,
-            SpecialRequirementsMet: true,
-            UnresolvedAboRhDiscrepancy: false,
+            VisualInspectionAcceptable: _issueVisualOk,
+            SecondVerifier: _issueSecondVerifier,
             OverrideReason: overrideReason,
             AuthorizedBy: authorizedBy,
             IssuedUtc: issuedUtc,
@@ -1356,7 +1460,7 @@ else
         }
 
         _busy = true;
-        var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("IssueOverride", _issueSignatureMeaning, "Issue"));
+        var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("IssueOverride", _issueSignatureMeaning, "Issue", ReauthenticationSecret: _issueSignatureSecret));
         if (!sig.Succeeded || sig.Value is null)
         {
             _busy = false;
@@ -1798,11 +1902,51 @@ else
         if (r.Succeeded) { _deactivateId = null; await LoadAsync(); }
     }
 
+    private async Task AddSpecialRequirementAsync()
+    {
+        _busy = true;
+        var r = await Api.AddSpecialRequirementAsync(Id, new AddSpecialRequirementRequest(
+            _srType, _srReason, string.IsNullOrWhiteSpace(_srAntigen) ? null : _srAntigen));
+        _busy = false;
+        _srFb = r.ToFeedback("Special requirement added.");
+        if (r.Succeeded) { _srReason = string.Empty; _srAntigen = null; await LoadAsync(); }
+    }
+
+    private void BeginDeactivateSr(SpecialRequirementDto r)
+    {
+        _srDeactivateId = r.Id;
+        _srDeactivateReason = string.Empty;
+    }
+
+    private async Task DeactivateSrAsync()
+    {
+        if (_srDeactivateId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateSpecialRequirementAsync(_srDeactivateId.Value, _srDeactivateReason);
+        _busy = false;
+        _srFb = r.ToFeedback("Special requirement deactivated.");
+        if (r.Succeeded) { _srDeactivateId = null; await LoadAsync(); }
+    }
+
+    private async Task MarkRecentPregnancyAsync()
+    {
+        if (_patient is null) return;
+        _busy = true;
+        var r = await Api.UpdatePatientAsync(Id, new UpdatePatientRequest(
+            _patient.LastName, _patient.FirstName, _patient.MiddleName, _patient.DateOfBirth, _patient.Sex, _patient.Status,
+            RecentPregnancyUtc: DateTime.UtcNow));
+        _busy = false;
+        _srFb = r.ToFeedback("Recent pregnancy documented. Specimen validity recomputed.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
     private async Task AccessionAsync()
     {
         _busy = true;
         var req = new AccessionSpecimenRequest(_acc.AccessionNumber, Id, _acc.SpecimenType,
-            DateTime.SpecifyKind(_acc.CollectedLocal, DateTimeKind.Utc), ValidityHours: _acc.ValidityHours);
+            DateTime.SpecifyKind(_acc.CollectedLocal, DateTimeKind.Utc), ValidityHours: _acc.ValidityHours,
+            Identifier1Value: string.IsNullOrWhiteSpace(_acc.Identifier1Value) ? null : _acc.Identifier1Value,
+            Identifier2Value: string.IsNullOrWhiteSpace(_acc.Identifier2Value) ? null : _acc.Identifier2Value);
         var r = await Api.AccessionSpecimenAsync(req);
         _busy = false;
         _accessionFb = r.ToFeedback("Specimen accessioned.");
@@ -1959,7 +2103,7 @@ else
         }
 
         _busy = true;
-        var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("ResultOverride", _deltaSignatureMeaning, "TestResult"));
+        var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("ResultOverride", _deltaSignatureMeaning, "TestResult", ReauthenticationSecret: _deltaSignatureSecret));
         if (!sig.Succeeded || sig.Value is null)
         {
             _busy = false;
@@ -2040,6 +2184,7 @@ else
                         </div>
                         <div class="field"><label>Override reason</label><input @bind="_deltaOverrideReason" /></div>
                         <div class="field"><label>Meaning of signature</label><input @bind="_deltaSignatureMeaning" /></div>
+                        <div class="field"><label>Password / PIN</label><input type="password" @bind="_deltaSignatureSecret" /></div>
                         <div class="flex gap" style="margin-top:.5rem;">
                             <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="VerifyWithDeltaOverrideAsync">Sign &amp; verify with override</button>
                             <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Cancel</button>
@@ -2152,6 +2297,8 @@ else
         public string SpecimenType { get; set; } = "EDTA";
         public DateTime CollectedLocal { get; set; } = DateTime.UtcNow;
         public int? ValidityHours { get; set; }
+        public string? Identifier1Value { get; set; }
+        public string? Identifier2Value { get; set; }
     }
 
     private static string FormatProvider(OrderingProviderRefDto p) => $"{p.Name} ({p.ProviderId})";

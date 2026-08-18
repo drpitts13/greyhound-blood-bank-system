@@ -26,5 +26,10 @@ public class User : BaseEntity
 
     public DateTime? LastLoginUtc { get; set; }
 
+    public int FailedSignInCount { get; set; }
+
+    /// <summary>Optional PIN hash for electronic-signature re-authentication.</summary>
+    public string? PinHash { get; set; }
+
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }

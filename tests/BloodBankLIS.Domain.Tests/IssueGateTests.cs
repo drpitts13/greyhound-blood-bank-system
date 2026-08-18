@@ -149,4 +149,22 @@ public class IssueGateTests
         Assert.True(evaluation.IsHardStopped);
         Assert.Contains(evaluation.HardStops, r => r.Code == IssueGate.IdentityCode);
     }
+
+    [Fact]
+    public void SpecialRequirementsUnmet_IsHardStopped()
+    {
+        var context = PassingContext() with { SpecialRequirementsMet = false };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+    }
+
+    [Fact]
+    public void FailedVisualInspection_IsHardStopped()
+    {
+        var context = PassingContext() with { VisualInspectionAcceptable = false };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == IssueGate.VisualInspectionCode);
+    }
 }

@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -35,17 +36,42 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new EfRepository<PatientBloodTypeHistory>(c),
             BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser);
 
-    private IssuingService Issuing(BloodBankDbContext c) =>
-        new(new InventoryRepository(c), new EfRepository<Issue>(c), new EfRepository<Allocation>(c),
+    private IssuingService Issuing(BloodBankDbContext c)
+    {
+        var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
+        return new IssuingService(
+            new InventoryRepository(c), new EfRepository<Issue>(c), new EfRepository<Allocation>(c),
             new EfRepository<Crossmatch>(c), new EfRepository<Return>(c), new EfRepository<TransfusionEvent>(c),
             new EfRepository<Override>(c), new EfRepository<Patient>(c), new EfRepository<Specimen>(c),
             new EfRepository<ProductType>(c), new EfRepository<PatientBloodTypeHistory>(c),
             new EfRepository<ExceptionDefinition>(c),
+            new EfRepository<SpecialTransfusionRequirement>(c),
+            new EfRepository<ProductAttribute>(c),
+            new EfRepository<ProductAttributeAssignment>(c),
+            new EfRepository<Order>(c),
             BloodAttrCompat(c),
+            new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
+            new ReactionInvestigationService(
+                new EfRepository<ReactionInvestigation>(c),
+                new EfRepository<TransfusionEvent>(c),
+                c, _factory.Clock, _factory.CurrentUser, audit),
             new FixedPermissionEvaluator(3),
-            c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            c, _factory.Clock, _factory.CurrentUser, audit);
+    }
 
-    private sealed record Scenario(long PatientId, long SpecimenId, long UnitId, long ProductTypeId);
+    private sealed record Scenario(long PatientId, long SpecimenId, long UnitId, long ProductTypeId, string Mrn);
+
+    private static IssueUnitRequest IssueReq(
+        Scenario s,
+        IssueType issueType = IssueType.Standard,
+        string? overrideReason = null,
+        string? authorizedBy = null) =>
+        new(s.UnitId, s.PatientId,
+            PatientIdentifier1Value: s.Mrn,
+            PatientIdentifier2Value: "1975-06-01",
+            IssueType: issueType,
+            OverrideReason: overrideReason,
+            AuthorizedBy: authorizedBy);
 
     /// <summary>
     /// Seeds a patient with a known current ABO/Rh, an accepted specimen, a product
@@ -111,7 +137,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         c.BloodUnits.Add(unit);
         await c.SaveChangesAsync();
 
-        return new Scenario(patient.Id, specimen.Id, unit.Id, productType.Id);
+        return new Scenario(patient.Id, specimen.Id, unit.Id, productType.Id, $"MRN-{key}");
     }
 
     private async Task RecordCompatibleCrossmatchAsync(Scenario s)
@@ -139,7 +165,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         long issueId;
         await using (var c = _factory.Create())
         {
-            var issued = await Issuing(c).IssueUnitAsync(new IssueUnitRequest(s.UnitId, s.PatientId, IdentityConfirmed: true));
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
             Assert.True(issued.Succeeded);
             Assert.Equal(IssueStatus.Issued, issued.Value!.Status);
             issueId = issued.Value.Id;
@@ -171,7 +197,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await AllocateAsync(s);
 
         await using var c = _factory.Create();
-        var issued = await Issuing(c).IssueUnitAsync(new IssueUnitRequest(s.UnitId, s.PatientId, IdentityConfirmed: true));
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
 
         Assert.False(issued.Succeeded);
         Assert.NotNull(issued.Evaluation);
@@ -186,7 +212,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await RecordCompatibleCrossmatchAsync(s);
 
         await using var c = _factory.Create();
-        var issued = await Issuing(c).IssueUnitAsync(new IssueUnitRequest(s.UnitId, s.PatientId, IdentityConfirmed: true));
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
 
         Assert.False(issued.Succeeded);
         Assert.Contains(issued.Evaluation!.HardStops, r => r.Code == IssueGate.AllocationCode);
@@ -214,7 +240,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using var c = _factory.Create();
         var issued = await Issuing(c).IssueUnitAsync(
-            new IssueUnitRequest(s.UnitId, s.PatientId, IdentityConfirmed: true, IssueType: IssueType.EmergencyRelease));
+            IssueReq(s, IssueType.EmergencyRelease));
 
         Assert.False(issued.Succeeded);
         Assert.True(issued.RequiresOverride);
@@ -229,9 +255,9 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         long issueId;
         await using (var c = _factory.Create())
         {
-            var issued = await Issuing(c).IssueUnitAsync(new IssueUnitRequest(
-                s.UnitId, s.PatientId, IdentityConfirmed: true, IssueType: IssueType.EmergencyRelease,
-                OverrideReason: "Massive hemorrhage, uncrossmatched O units required", AuthorizedBy: "dr-authorizer"));
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Massive hemorrhage, uncrossmatched O units required", authorizedBy: "dr-authorizer"));
 
             Assert.True(issued.Succeeded);
             Assert.Equal(IssueType.EmergencyRelease, issued.Value!.IssueType);
@@ -263,12 +289,12 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         long issueId;
         await using (var c = _factory.Create())
         {
-            issueId = (await Issuing(c).IssueUnitAsync(new IssueUnitRequest(s.UnitId, s.PatientId, IdentityConfirmed: true))).Value!.Id;
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
         }
 
         await using (var c = _factory.Create())
         {
-            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed; cooler intact", ReissueEligible: true));
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed; cooler intact"));
             Assert.True(returned.Succeeded);
         }
 
@@ -293,12 +319,12 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         long issueId;
         await using (var c = _factory.Create())
         {
-            issueId = (await Issuing(c).IssueUnitAsync(new IssueUnitRequest(s.UnitId, s.PatientId, IdentityConfirmed: true))).Value!.Id;
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
         }
 
         await using (var c = _factory.Create())
         {
-            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Out of temperature range", ReissueEligible: false));
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Out of temperature range", TemperatureAcceptable: false));
             Assert.True(returned.Succeeded);
         }
 
@@ -327,5 +353,82 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.False(result.Succeeded);
         Assert.True(result.Evaluation!.IsHardStopped);
         Assert.Contains(result.Evaluation.HardStops, r => r.Code == ElectronicCrossmatchEligibilityRule.Code);
+    }
+
+    [Fact]
+    public async Task Issue_MismatchedPatientIdentifiers_IsHardStopped()
+    {
+        var s = await SeedAsync("BADID");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with { PatientIdentifier1Value = "WRONG" });
+        Assert.True(issued.Evaluation!.IsHardStopped);
+        Assert.Contains(issued.Evaluation.HardStops, r => r.Code == IssueGate.IdentityCode);
+    }
+
+    [Fact]
+    public async Task Issue_UnmetSpecialRequirement_IsHardStopped()
+    {
+        var s = await SeedAsync("IRRAD");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+            {
+                PatientId = s.PatientId,
+                RequirementType = SpecialTransfusionRequirementType.Irradiated,
+                Reason = "Directed donation",
+                EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+                IsActive = true,
+                EnteredBy = "tech-test"
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Evaluation!.IsHardStopped);
+        Assert.Contains(issued.Evaluation.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+    }
+
+    [Fact]
+    public async Task Transfusion_ReactionSuspected_OpensInvestigation()
+    {
+        var s = await SeedAsync("RXN");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.True(issued.Succeeded);
+            issueId = issued.Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var tx = await Issuing(c).DocumentTransfusionAsync(
+                issueId, new DocumentTransfusionRequest(TransfusionDisposition.Completed, ReactionSuspected: true));
+            Assert.True(tx.Succeeded);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.True(await verify.ReactionInvestigations.AnyAsync(r => r.PatientId == s.PatientId));
+    }
+
+    [Fact]
+    public async Task ElectronicCrossmatch_WithoutSecondAbo_IsBlocked()
+    {
+        var s = await SeedAsync("ONEABO", requiresCrossmatch: false);
+        await using var ctx = _factory.Create();
+        var result = await Compatibility(ctx).RecordCrossmatchAsync(
+            new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Electronic));
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ElectronicCrossmatchEligibilityRule.Code);
     }
 }

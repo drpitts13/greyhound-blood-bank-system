@@ -1,0 +1,173 @@
+@page "/reactions"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Reaction investigations &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Transfusion reaction investigations</h1>
+<p class="muted">Opened automatically when a transfusion is documented with a suspected reaction. Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA.</p>
+
+@if (!Session.Has(PermissionCodes.ReactionInvestigate))
+{
+    <div class="muted">No permission to investigate reactions.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Open investigations</h3>
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+        </div>
+        <Outcome Value="_fb" />
+        @if (_rows.Count == 0)
+        {
+            <div class="empty">No reaction investigations.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Id</th><th>Patient</th><th>Unit</th><th>Severity</th><th>Status</th><th>Fatality</th><th>Written report due</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var r in _rows)
+                    {
+                        <tr>
+                            <td>@r.Id</td>
+                            <td>@r.PatientId</td>
+                            <td>@r.BloodProductId</td>
+                            <td>@r.Severity</td>
+                            <td>@r.Status</td>
+                            <td>@(r.IsFatality ? r.FatalityNotificationStatus.ToString() : "")</td>
+                            <td class="nowrap">@(r.WrittenReportDueUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                            <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => Select(r)">Open</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    @if (_selected is not null)
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Investigation #@_selected.Id</h3></div>
+            <div class="form-row">
+                <div class="field"><label>Type</label><input @bind="_type" /></div>
+                <div class="field"><label>Severity</label>
+                    <select @bind="_severity">@foreach (var s in Enum.GetValues<ReactionSeverity>()) { <option value="@s">@s</option> }</select>
+                </div>
+                <div class="field"><label>Status</label>
+                    <select @bind="_status">@foreach (var s in Enum.GetValues<ReactionInvestigationStatus>()) { <option value="@s">@s</option> }</select>
+                </div>
+                <div class="field"><label>Disposition</label><input @bind="_disposition" /></div>
+                <div class="field" style="grid-column:1/-1;"><label>Findings</label><textarea rows="2" @bind="_findings"></textarea></div>
+                <div class="field" style="grid-column:1/-1;"><label>Conclusions</label><textarea rows="2" @bind="_conclusions"></textarea></div>
+                <div class="field" style="grid-column:1/-1;"><label>Follow-up</label><textarea rows="2" @bind="_followUp"></textarea></div>
+            </div>
+            <label class="flex"><input type="checkbox" @bind="_productAtFault" /> &nbsp;Product at fault</label>
+            <label class="flex"><input type="checkbox" @bind="_isFatality" /> &nbsp;Fatality (sets 7-day written-report due date)</label>
+            @if (_status == ReactionInvestigationStatus.Closed)
+            {
+                <div class="field"><label>Password / PIN to close</label><input type="password" @bind="_closeSecret" /></div>
+            }
+            <div class="flex gap" style="margin-top:.75rem;">
+                <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+                @if (_selected.IsFatality)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="CberAsync">Record CBER notified</button>
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="WrittenAsync">Record written report</button>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<ReactionInvestigationDto> _rows = new();
+    private ReactionInvestigationDto? _selected;
+    private Feedback? _fb;
+    private bool _busy;
+    private string? _type;
+    private ReactionSeverity _severity;
+    private ReactionInvestigationStatus _status;
+    private string? _disposition;
+    private string? _findings;
+    private string? _conclusions;
+    private string? _followUp;
+    private bool _productAtFault;
+    private bool _isFatality;
+    private string _closeSecret = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _busy = true;
+        var r = await Api.GetReactionInvestigationsAsync();
+        _busy = false;
+        if (r.Succeeded) _rows = r.Value ?? new();
+        else _fb = r.ToFeedback();
+    }
+
+    private void Select(ReactionInvestigationDto r)
+    {
+        _selected = r;
+        _type = r.ReactionType;
+        _severity = r.Severity;
+        _status = r.Status;
+        _disposition = r.Disposition;
+        _findings = r.Findings;
+        _conclusions = r.Conclusions;
+        _followUp = r.FollowUp;
+        _productAtFault = r.ProductAtFault;
+        _isFatality = r.IsFatality;
+        _closeSecret = string.Empty;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_selected is null) return;
+        long? sigId = null;
+        if (_status == ReactionInvestigationStatus.Closed)
+        {
+            var sig = await Api.RecordSignatureAsync(new SignatureRequestVm(
+                "ReactionInvestigationClose", "I close this reaction investigation", "ReactionInvestigation", _selected.Id, _closeSecret));
+            if (!sig.Succeeded || sig.Value is null)
+            {
+                _fb = sig.ToFeedback();
+                return;
+            }
+
+            sigId = sig.Value.Id;
+        }
+
+        _busy = true;
+        var r = await Api.UpdateReactionInvestigationAsync(_selected.Id, new UpdateReactionInvestigationRequest(
+            _type, _severity, _findings, _conclusions, _followUp, _disposition, _productAtFault, _isFatality, _status, sigId));
+        _busy = false;
+        _fb = r.ToFeedback("Investigation updated.");
+        if (r.Succeeded)
+        {
+            _selected = r.Value;
+            await LoadAsync();
+        }
+    }
+
+    private async Task CberAsync()
+    {
+        if (_selected is null) return;
+        _busy = true;
+        var r = await Api.RecordCberNotificationAsync(_selected.Id);
+        _busy = false;
+        _fb = r.ToFeedback("CBER notification recorded.");
+        if (r.Succeeded) { _selected = r.Value; await LoadAsync(); }
+    }
+
+    private async Task WrittenAsync()
+    {
+        if (_selected is null) return;
+        _busy = true;
+        var r = await Api.RecordWrittenReportAsync(_selected.Id);
+        _busy = false;
+        _fb = r.ToFeedback("Written report recorded.");
+        if (r.Succeeded) { _selected = r.Value; await LoadAsync(); }
+    }
+}

@@ -114,6 +114,9 @@ public sealed class SpecimenConfiguration : IEntityTypeConfiguration<Specimen>
         b.HasIndex(s => s.ExpiresUtc);
         b.HasIndex(s => s.Status);
 
+        b.Property(s => s.Identifier1Value).HasMaxLength(100);
+        b.Property(s => s.Identifier2Value).HasMaxLength(100);
+
         b.HasOne(s => s.Encounter).WithMany().HasForeignKey(s => s.EncounterId).OnDelete(DeleteBehavior.Restrict);
     }
 }
@@ -527,6 +530,9 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
         b.HasIndex(i => i.PatientId);
         b.HasIndex(i => i.EncounterId);
         b.HasIndex(i => i.OrderId);
+        b.Property(i => i.SecondVerifier).HasMaxLength(100);
+        b.Property(i => i.PatientIdentifier1).HasMaxLength(100);
+        b.Property(i => i.PatientIdentifier2).HasMaxLength(100);
     }
 }
 
@@ -710,6 +716,7 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         b.Property(u => u.DisplayName).HasMaxLength(200).IsRequired();
         b.Property(u => u.Email).HasMaxLength(256);
         b.Property(u => u.PasswordHash).HasMaxLength(500);
+        b.Property(u => u.PinHash).HasMaxLength(500);
         b.Property(u => u.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(u => u.ModifiedBy).HasMaxLength(100);
 
@@ -804,6 +811,7 @@ public sealed class ElectronicSignatureConfiguration : IEntityTypeConfiguration<
         b.Property(s => s.ContextType).HasMaxLength(100);
         b.Property(s => s.MeaningOfSignature).HasMaxLength(500).IsRequired();
         b.Property(s => s.Workstation).HasMaxLength(100);
+        b.Property(s => s.SignatureHash).HasMaxLength(64);
         b.Property(s => s.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(s => s.ModifiedBy).HasMaxLength(100);
 
@@ -1237,5 +1245,109 @@ public sealed class CompatibilityRuleConfiguration : IEntityTypeConfiguration<Co
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
         b.HasIndex(x => new { x.CompatibilityRuleVersionId, x.RuleCode }).IsUnique();
+    }
+}
+
+public sealed class SpecialTransfusionRequirementConfiguration : IEntityTypeConfiguration<SpecialTransfusionRequirement>
+{
+    public void Configure(EntityTypeBuilder<SpecialTransfusionRequirement> b)
+    {
+        b.ToTable("SpecialTransfusionRequirements");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.AntigenCode).HasMaxLength(20);
+        b.Property(x => x.Reason).HasMaxLength(500).IsRequired();
+        b.Property(x => x.EnteredBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.DeactivationReason).HasMaxLength(500);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => new { x.PatientId, x.IsActive });
+    }
+}
+
+public sealed class PatientIdentifierConfiguration : IEntityTypeConfiguration<PatientIdentifier>
+{
+    public void Configure(EntityTypeBuilder<PatientIdentifier> b)
+    {
+        b.ToTable("PatientIdentifiers");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Value).HasMaxLength(100).IsRequired();
+        b.Property(x => x.AssigningAuthority).HasMaxLength(100);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => new { x.IdentifierType, x.Value, x.AssigningAuthority }).IsUnique();
+        b.HasIndex(x => x.PatientId);
+    }
+}
+
+public sealed class ReactionInvestigationConfiguration : IEntityTypeConfiguration<ReactionInvestigation>
+{
+    public void Configure(EntityTypeBuilder<ReactionInvestigation> b)
+    {
+        b.ToTable("ReactionInvestigations");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.ReportedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ReactionType).HasMaxLength(100);
+        b.Property(x => x.Findings).HasMaxLength(4000);
+        b.Property(x => x.Conclusions).HasMaxLength(4000);
+        b.Property(x => x.FollowUp).HasMaxLength(2000);
+        b.Property(x => x.Disposition).HasMaxLength(500);
+        b.Property(x => x.ClosedBy).HasMaxLength(100);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasOne(x => x.TransfusionEvent).WithMany().HasForeignKey(x => x.TransfusionEventId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.TransfusionEventId);
+        b.HasIndex(x => x.PatientId);
+    }
+}
+
+public sealed class LookbackNotificationConfiguration : IEntityTypeConfiguration<LookbackNotification>
+{
+    public void Configure(EntityTypeBuilder<LookbackNotification> b)
+    {
+        b.ToTable("LookbackNotifications");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Din).HasMaxLength(13).IsRequired();
+        b.Property(x => x.PhysicianOfRecord).HasMaxLength(200);
+        b.Property(x => x.AttemptedBy).HasMaxLength(100);
+        b.Property(x => x.Notes).HasMaxLength(2000);
+        b.Property(x => x.Reason).HasMaxLength(1000).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.Din);
+        b.HasIndex(x => x.PatientId);
+    }
+}
+
+public sealed class DeviationConfiguration : IEntityTypeConfiguration<Deviation>
+{
+    public void Configure(EntityTypeBuilder<Deviation> b)
+    {
+        b.ToTable("Deviations");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Title).HasMaxLength(200).IsRequired();
+        b.Property(x => x.Description).HasMaxLength(4000).IsRequired();
+        b.Property(x => x.ContextType).HasMaxLength(100);
+        b.Property(x => x.CorrectiveAction).HasMaxLength(4000);
+        b.Property(x => x.ReportedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ClosedBy).HasMaxLength(100);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.Status);
+    }
+}
+
+public sealed class SystemSettingConfiguration : IEntityTypeConfiguration<SystemSetting>
+{
+    public void Configure(EntityTypeBuilder<SystemSetting> b)
+    {
+        b.ToTable("SystemSettings");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Key).HasMaxLength(150).IsRequired();
+        b.Property(x => x.Value).HasMaxLength(2000).IsRequired();
+        b.Property(x => x.Category).HasMaxLength(50);
+        b.Property(x => x.Description).HasMaxLength(500);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.Key).IsUnique();
     }
 }

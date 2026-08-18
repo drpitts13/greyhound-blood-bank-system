@@ -17,7 +17,8 @@ public sealed record UpdatePatientRequest(
     string? MiddleName,
     DateOnly DateOfBirth,
     Sex Sex,
-    PatientStatus Status);
+    PatientStatus Status,
+    DateTime? RecentPregnancyUtc = null);
 
 public sealed record PatientDto(
     long Id,
@@ -29,9 +30,10 @@ public sealed record PatientDto(
     Sex Sex,
     PatientStatus Status,
     DateTime CreatedUtc,
-    string CreatedBy)
+    string CreatedBy,
+    DateTime? RecentPregnancyUtc = null)
 {
     public static PatientDto From(Patient p) => new(
         p.Id, p.MedicalRecordNumber, p.LastName, p.FirstName, p.MiddleName,
-        p.DateOfBirth, p.Sex, p.Status, p.CreatedUtc, p.CreatedBy);
+        p.DateOfBirth, p.Sex, p.Status, p.CreatedUtc, p.CreatedBy, p.RecentPregnancyUtc);
 }

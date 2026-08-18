@@ -429,7 +429,14 @@ public enum AuditEventType
     Import = 13,
     Export = 14,
     Configure = 15,
-    Modify = 16
+    Modify = 16,
+    Login = 17,
+    Logout = 18,
+    Lockout = 19,
+    SignatureFailed = 20,
+    Lookback = 21,
+    ReactionInvestigation = 22,
+    Deviation = 23
 }
 
 /// <summary>
@@ -588,4 +595,80 @@ public enum WorkflowArea
     PtagReprint = 11,
     Hl7Processing = 12,
     Billing = 13
+}
+
+/// <summary>Patient-level special transfusion requirement (AABB special needs / irradiated, CMV-neg, etc.).</summary>
+public enum SpecialTransfusionRequirementType
+{
+    Irradiated = 0,
+    CmvNegative = 1,
+    Leukoreduced = 2,
+    Washed = 3,
+    AntigenNegative = 4,
+    Other = 99
+}
+
+/// <summary>Independent identifier used to confirm patient or specimen identity.</summary>
+public enum IdentityTokenType
+{
+    MedicalRecordNumber = 0,
+    DateOfBirth = 1,
+    FullName = 2,
+    AccountNumber = 3,
+    Other = 99
+}
+
+public enum ReactionInvestigationStatus
+{
+    Open = 0,
+    UnderReview = 1,
+    Closed = 2
+}
+
+public enum ReactionSeverity
+{
+    Unknown = 0,
+    Mild = 1,
+    Moderate = 2,
+    Severe = 3,
+    Fatal = 4
+}
+
+public enum FatalityNotificationStatus
+{
+    NotApplicable = 0,
+    Pending = 1,
+    CberNotified = 2,
+    WrittenReportSubmitted = 3
+}
+
+public enum LookbackNotificationStatus
+{
+    Pending = 0,
+    Attempted = 1,
+    Completed = 2,
+    NotApplicable = 3
+}
+
+public enum DeviationStatus
+{
+    Open = 0,
+    UnderReview = 1,
+    CorrectiveAction = 2,
+    Closed = 3
+}
+
+public enum DeviationSeverity
+{
+    Minor = 0,
+    Major = 1,
+    Critical = 2
+}
+
+public enum ElectronicSignatureAuthenticationMethod
+{
+    Password = 0,
+    Pin = 1,
+    FederatedStepUp = 2,
+    DevMode = 3
 }

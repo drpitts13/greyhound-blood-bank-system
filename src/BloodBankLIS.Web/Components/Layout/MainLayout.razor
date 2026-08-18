@@ -56,8 +56,16 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        if (Session.IsSignedIn && Session.IsIdle && !Dev.Enabled)
+        {
+            Session.SignOut();
+            Nav.NavigateTo("/login");
+            return;
+        }
+
         if (Session.IsSignedIn)
         {
+            Session.Touch();
             return;
         }
 
@@ -81,6 +89,7 @@
 
     private void SignOut()
     {
+        _ = Api.LogoutAsync();
         Session.SignOut();
         Nav.NavigateTo("/login");
     }

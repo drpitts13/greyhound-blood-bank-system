@@ -52,4 +52,15 @@ public class Issue : BaseEntity
     public string? ReceivedBy { get; set; }
 
     public DateTime? UnitExpirationAtIssueUtc { get; set; }
+
+    /// <summary>21 CFR 606.151(b): conspicuous incomplete-testing statement for emergency release.</summary>
+    public bool TestsIncompleteAtIssue { get; set; }
+
+    public bool VisualInspectionAcceptable { get; set; } = true;
+
+    public string? SecondVerifier { get; set; }
+
+    public string? PatientIdentifier1 { get; set; }
+
+    public string? PatientIdentifier2 { get; set; }
 }

@@ -1,0 +1,135 @@
+@page "/deviations"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Deviations &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Deviations / nonconformances</h1>
+<p class="muted">Quality-system records linking a problem to an order, unit, result, or interface event. CAPA status is tracked here; this is not an AABB certification claim.</p>
+
+@if (!Session.Has(PermissionCodes.DeviationManage))
+{
+    <div class="muted">No permission to manage deviations.</div>
+}
+else
+{
+    <div class="bb-grid cols-2">
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Record deviation</h3></div>
+            <Outcome Value="_createFb" />
+            <div class="field"><label>Title</label><input @bind="_title" /></div>
+            <div class="field"><label>Description</label><textarea rows="3" @bind="_description"></textarea></div>
+            <div class="form-row">
+                <div class="field"><label>Severity</label>
+                    <select @bind="_severity">@foreach (var s in Enum.GetValues<DeviationSeverity>()) { <option value="@s">@s</option> }</select>
+                </div>
+                <div class="field"><label>Context type</label><input @bind="_contextType" placeholder="Order, BloodUnit, TestResult, Hl7" /></div>
+                <div class="field"><label>Context id</label><input type="number" @bind="_contextId" /></div>
+            </div>
+            <button class="btn btn-primary" disabled="@_busy" @onclick="CreateAsync">Create</button>
+        </div>
+
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Open items</h3>
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+            </div>
+            <Outcome Value="_fb" />
+            @if (_rows.Count == 0)
+            {
+                <div class="empty">No deviations recorded.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Id</th><th>Title</th><th>Severity</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var d in _rows)
+                        {
+                            <tr>
+                                <td>@d.Id</td>
+                                <td>@d.Title</td>
+                                <td>@d.Severity</td>
+                                <td>@d.Status</td>
+                                <td class="right">
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => BeginStatus(d)">Update</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @if (_statusId is not null)
+            {
+                <div class="alert alert-info" style="margin-top:1rem;">
+                    <div class="field"><label>Status</label>
+                        <select @bind="_newStatus">@foreach (var s in Enum.GetValues<DeviationStatus>()) { <option value="@s">@s</option> }</select>
+                    </div>
+                    <div class="field"><label>Corrective action</label><textarea rows="2" @bind="_capa"></textarea></div>
+                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="SaveStatusAsync">Save</button>
+                    <button class="btn btn-ghost btn-sm" @onclick="() => _statusId = null">Cancel</button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private List<DeviationDto> _rows = new();
+    private bool _busy;
+    private Feedback? _fb;
+    private Feedback? _createFb;
+    private string _title = string.Empty;
+    private string _description = string.Empty;
+    private DeviationSeverity _severity = DeviationSeverity.Minor;
+    private string? _contextType;
+    private long? _contextId;
+    private long? _statusId;
+    private DeviationStatus _newStatus = DeviationStatus.UnderReview;
+    private string? _capa;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _busy = true;
+        var r = await Api.GetDeviationsAsync();
+        _busy = false;
+        if (r.Succeeded) _rows = r.Value ?? new();
+        else _fb = r.ToFeedback();
+    }
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        var r = await Api.CreateDeviationAsync(new CreateDeviationRequest(_title, _description, _severity, _contextType, _contextId is > 0 ? _contextId : null));
+        _busy = false;
+        _createFb = r.ToFeedback("Deviation recorded.");
+        if (r.Succeeded)
+        {
+            _title = _description = string.Empty;
+            await LoadAsync();
+        }
+    }
+
+    private void BeginStatus(DeviationDto d)
+    {
+        _statusId = d.Id;
+        _newStatus = d.Status;
+        _capa = d.CorrectiveAction;
+    }
+
+    private async Task SaveStatusAsync()
+    {
+        if (_statusId is null) return;
+        _busy = true;
+        var r = await Api.UpdateDeviationStatusAsync(_statusId.Value, _newStatus, _capa);
+        _busy = false;
+        _fb = r.ToFeedback("Deviation updated.");
+        if (r.Succeeded)
+        {
+            _statusId = null;
+            await LoadAsync();
+        }
+    }
+}

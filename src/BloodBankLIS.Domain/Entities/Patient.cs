@@ -31,6 +31,9 @@ public class Patient : BaseEntity
     /// <summary>When a duplicate is merged, the surviving patient is referenced here. Merges never delete.</summary>
     public long? MergedIntoPatientId { get; set; }
 
+    /// <summary>Documented pregnancy (or pregnancy in lookback) used for specimen validity.</summary>
+    public DateTime? RecentPregnancyUtc { get; set; }
+
     public ICollection<Specimen> Specimens { get; set; } = new List<Specimen>();
 
     public ICollection<Order> Orders { get; set; } = new List<Order>();

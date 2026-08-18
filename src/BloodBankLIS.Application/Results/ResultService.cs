@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Rules;
@@ -48,6 +49,7 @@ public sealed class ResultService
     private readonly IRepository<ReflexRule>? _reflexRules;
     private readonly RuleEngineService? _ruleEngine;
     private readonly IRepository<Allocation>? _allocations;
+    private readonly FacilityPolicyService? _policy;
 
     public ResultService(
         IRepository<TestResult> results,
@@ -73,10 +75,12 @@ public sealed class ResultService
         IPermissionEvaluator? permissions = null,
         IRepository<ReflexRule>? reflexRules = null,
         RuleEngineService? ruleEngine = null,
-        IRepository<Allocation>? allocations = null)
+        IRepository<Allocation>? allocations = null,
+        FacilityPolicyService? policy = null)
     {
         _ruleEngine = ruleEngine;
         _allocations = allocations;
+        _policy = policy;
         _results = results;
         _specimens = specimens;
         _bloodTypes = bloodTypes;
@@ -435,6 +439,18 @@ public sealed class ResultService
         if (result is null)
         {
             return EvaluationResult<TestResult>.Fail("Result not found.");
+        }
+
+        var selfVerify = SelfVerifyRule.Evaluate(result.EnteredBy ?? string.Empty, _currentUser.UserName, blockSelfVerify: false);
+        if (_policy is not null)
+        {
+            var block = await _policy.GetBlockSelfVerifyAsync(ct);
+            selfVerify = SelfVerifyRule.Evaluate(result.EnteredBy ?? string.Empty, _currentUser.UserName, block);
+        }
+
+        if (selfVerify.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TestResult>.Blocked(new RuleEvaluation([selfVerify]));
         }
 
         if (result.Status is not (ResultStatus.Entered or ResultStatus.Corrected))

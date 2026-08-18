@@ -1,0 +1,170 @@
+@page "/lookback"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Lookback &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>DIN lookback</h1>
+<p class="muted">Find every component sharing a donation identification number. Recalling quarantines non-transfused units and opens a recipient-notification worklist. The LIS does not auto-notify patients.</p>
+
+@if (!Session.Has(PermissionCodes.LookbackManage))
+{
+    <div class="muted">No permission to run lookback.</div>
+}
+else
+{
+    <div class="bb-card">
+        <Outcome Value="_fb" />
+        <div class="form-row">
+            <div class="field"><label>DIN (13 characters)</label><input class="mono" @bind="_din" placeholder="W0000X1234567" /></div>
+            <div class="field"><label>Recall reason</label><input @bind="_reason" placeholder="Required to recall" /></div>
+        </div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SearchAsync">Search</button>
+            <button class="btn btn-danger" disabled="@_busy" @onclick="RecallAsync">Recall all components</button>
+        </div>
+    </div>
+
+    @if (_report is not null)
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Components for <span class="mono">@_report.Din</span></h3></div>
+            <table class="bb">
+                <thead><tr><th>Unit</th><th>DIN</th><th>Status</th><th>Derived</th></tr></thead>
+                <tbody>
+                    @foreach (var u in _report.Units)
+                    {
+                        <tr>
+                            <td class="mono">@u.UnitNumber (#@u.BloodProductId)</td>
+                            <td class="mono">@u.Din</td>
+                            <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
+                            <td>@(u.IsDerivedComponent ? "Yes" : "")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Recipients / issues</h3></div>
+            @if (_report.Recipients.Count == 0)
+            {
+                <div class="empty">No issues found for this DIN.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Patient</th><th>Issue</th><th>Transfusion</th><th>Location</th><th>Issued</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in _report.Recipients)
+                        {
+                            <tr>
+                                <td>@(r.PatientId?.ToString() ?? "—")</td>
+                                <td>@(r.IssueId?.ToString() ?? "—")</td>
+                                <td>@(r.TransfusionEventId?.ToString() ?? "—")</td>
+                                <td>@r.IssuedToLocation</td>
+                                <td class="nowrap">@(r.IssuedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Notification worklist</h3></div>
+            @if (_report.Notifications.Count == 0)
+            {
+                <div class="empty">No recipient notifications (none transfused, or recall not yet run).</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Id</th><th>Patient</th><th>Status</th><th>Physician</th><th>Attempted</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var n in _report.Notifications)
+                        {
+                            <tr>
+                                <td>@n.Id</td>
+                                <td>@(n.PatientId?.ToString() ?? "—")</td>
+                                <td>@n.Status</td>
+                                <td>@n.PhysicianOfRecord</td>
+                                <td class="nowrap">@(n.AttemptedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                <td class="right">
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => BeginAttempt(n)">Record attempt</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+
+            @if (_attemptId is not null)
+            {
+                <div class="alert alert-info" style="margin-top:1rem;">
+                    <div class="form-row">
+                        <div class="field"><label>Physician of record</label><input @bind="_physician" /></div>
+                        <div class="field"><label>Status</label>
+                            <select @bind="_attemptStatus">@foreach (var s in Enum.GetValues<LookbackNotificationStatus>()) { <option value="@s">@s</option> }</select>
+                        </div>
+                        <div class="field" style="grid-column:1/-1;"><label>Notes</label><input @bind="_attemptNotes" /></div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="SaveAttemptAsync">Save</button>
+                    <button class="btn btn-ghost btn-sm" @onclick="() => _attemptId = null">Cancel</button>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    private string _din = string.Empty;
+    private string _reason = string.Empty;
+    private bool _busy;
+    private Feedback? _fb;
+    private LookbackReportDto? _report;
+    private long? _attemptId;
+    private string? _physician;
+    private string? _attemptNotes;
+    private LookbackNotificationStatus _attemptStatus = LookbackNotificationStatus.Attempted;
+
+    private async Task SearchAsync()
+    {
+        _busy = true;
+        var r = await Api.LookbackAsync(_din);
+        _busy = false;
+        _fb = r.ToFeedback("Lookback complete.");
+        if (r.Succeeded) _report = r.Value;
+    }
+
+    private async Task RecallAsync()
+    {
+        _busy = true;
+        var r = await Api.RecallByDinAsync(_din, _reason);
+        _busy = false;
+        _fb = r.ToFeedback("Recall by DIN recorded. Transfused recipients remain on the notification worklist.");
+        if (r.Succeeded) _report = r.Value;
+    }
+
+    private void BeginAttempt(LookbackNotificationDto n)
+    {
+        _attemptId = n.Id;
+        _physician = n.PhysicianOfRecord;
+        _attemptNotes = n.Notes;
+        _attemptStatus = LookbackNotificationStatus.Attempted;
+    }
+
+    private async Task SaveAttemptAsync()
+    {
+        if (_attemptId is null) return;
+        _busy = true;
+        var r = await Api.RecordLookbackAttemptAsync(_attemptId.Value, new RecordLookbackAttemptRequest(_physician, _attemptNotes, _attemptStatus));
+        _busy = false;
+        _fb = r.ToFeedback("Notification attempt recorded.");
+        if (r.Succeeded)
+        {
+            _attemptId = null;
+            await SearchAsync();
+        }
+    }
+}

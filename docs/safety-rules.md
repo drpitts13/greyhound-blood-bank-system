@@ -36,12 +36,15 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ISS-UNIT-EXPIRED` | Unit is not past expiration date/time | HardStop |
 | `ISS-ALLOCATION` | Unit is allocated/reserved to THIS patient | HardStop |
 | `ISS-XM-REQUIRED` | If product requires crossmatch, a compatible, unexpired crossmatch exists (unless emergency release) | HardStop |
-| `ISS-SPECIAL-REQ` | All active special requirements met (irradiated/CMV-neg/leukoreduced/washed) | HardStop |
+| `ISS-SPECIAL-REQ` | All active special requirements met (irradiated/CMV-neg/leukoreduced/washed/antigen-negative) — computer-evaluated from persisted patient requirements | HardStop |
 | `ISS-ANTIGEN-NEG` | For RBC/WB: unit typed antigen-negative for each clinically significant patient antibody (current or historical) | Warning (supervisor+ override via ExceptionDefinitions, MinSecurityLevel 2) |
 | `ALLOC-XM-AB-HISTORY` | Positive antibody screen (current/historical) or antibody history requires complex crossmatch (simple XM needs override) | Warning |
-| `ISS-ABORH-DISCREPANCY` | Current ABO/Rh determination agrees with historical record | Warning (HardStop if unresolved on a crossmatch-required product) |
+| `ISS-ABORH-DISCREPANCY` | Current ABO/Rh determination agrees with historical record (computed from history, not an operator flag) | Warning (HardStop if unresolved on a crossmatch-required product) |
+| `ISS-VISUAL` | Unit passed visual inspection at issue | HardStop |
 | `ISS-SPEC-NEAR-EXPIRY` | Specimen expires within configurable warning window | Warning |
 | `ISS-UNIT-NEAR-EXPIRY` | Unit expires within configurable warning window | Warning |
+| `TX-DUAL-ID` | Distinct second verifier, or validated electronic identification of recipient + unit | HardStop when facility policy requires it |
+| `RET-REISSUE` | Returned unit may re-enter Available only when temperature, seal, visual, and time-out-of-storage checks pass | HardStop / Warning |
 
 If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning within that workflow (see section 5) rather than a HardStop, and an `Override` + signature is mandatory.
 
@@ -49,8 +52,9 @@ If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning w
 
 ## 2. Specimen expiration logic
 
-- Default specimen validity is policy-driven via `SystemConfiguration` (e.g. 3 calendar days for patients potentially alloimmunized — transfused or pregnant within the preceding 3 months — else a longer interval). The exact policy values are configuration, never hard-coded constants in the engine.
-- `Specimens.ExpiresUtc` is computed at accessioning from `CollectedUtc` + the applicable window and recomputed if relevant inputs change (with audit).
+- When the patient was transfused or had a documented pregnancy in the lookback window (default 90 days), specimen validity is the alloimmunization-risk window (default **72 hours / 3 days** from collection). Otherwise a longer configured standard window applies (default 168 hours). Keys: `Specimen.ValidityHours.AlloimmunizationRisk`, `Specimen.ValidityHours.Standard`, `Specimen.LookbackDays`.
+- Accessioning stores two independent identifiers (typically MRN + DOB) that must match the patient record.
+- `Specimens.ExpiresUtc` is computed at accessioning and recomputed (with audit) when alloimmunization-risk status changes.
 - Rule `SPEC-EXPIRED` (HardStop on issue) and `SPEC-NEAR-EXPIRY` (Warning) both read `IClock` for deterministic testing.
 
 ---

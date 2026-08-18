@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
@@ -58,7 +59,12 @@ public static class DependencyInjection
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<InventoryService>();
         services.AddScoped<BloodProductModificationService>();
-        services.AddSingleton<IDinCheckCharacterValidator, PlaceholderDinCheckCharacterValidator>();
+        services.AddSingleton<IDinCheckCharacterValidator, Iso7064Mod37_2DinCheckCharacterValidator>();
+        services.AddScoped<FacilityPolicyService>();
+        services.AddScoped<SpecialRequirementService>();
+        services.AddScoped<LookbackService>();
+        services.AddScoped<ReactionInvestigationService>();
+        services.AddScoped<DeviationService>();
         services.AddScoped<IsbtLookupCatalog>();
         services.AddScoped<IsbtParsingService>();
         services.AddScoped<ScanSessionService>();

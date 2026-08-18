@@ -53,6 +53,9 @@ public sealed record IssueGateContext
     /// <summary>A current vs historical ABO/Rh discrepancy that has not been resolved.</summary>
     public required bool UnresolvedAboRhDiscrepancy { get; init; }
 
+    /// <summary>Operator attested that the unit passed visual inspection at issue.</summary>
+    public bool VisualInspectionAcceptable { get; init; } = true;
+
     public required DateTime NowUtc { get; init; }
     public TimeSpan SpecimenNearExpiryWindow { get; init; } = TimeSpan.FromHours(12);
     public TimeSpan UnitNearExpiryWindow { get; init; } = TimeSpan.FromHours(24);
@@ -76,6 +79,7 @@ public static class IssueGate
     public const string AntigenNegCode = "ISS-ANTIGEN-NEG";
     public const string SpecialReqCode = "ISS-SPECIAL-REQ";
     public const string AboRhDiscrepancyCode = "ISS-ABORH-DISCREPANCY";
+    public const string VisualInspectionCode = "ISS-VISUAL";
 
     private static readonly UnitStatus[] IssuableStatuses =
     {
@@ -131,6 +135,10 @@ public static class IssueGate
             c.SpecialRequirementsMet
                 ? RuleResult.Pass(SpecialReqCode)
                 : RuleResult.HardStop(SpecialReqCode, "One or more active special transfusion requirements are not satisfied."),
+
+            c.VisualInspectionAcceptable
+                ? RuleResult.Pass(VisualInspectionCode)
+                : RuleResult.HardStop(VisualInspectionCode, "Unit failed visual inspection and cannot be issued."),
 
             EvaluateDiscrepancy(c)
         };

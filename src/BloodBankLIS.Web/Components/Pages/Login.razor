@@ -16,6 +16,10 @@
             <input @bind="_userName" @bind:event="oninput" placeholder="e.g. tech1" @onkeydown="OnKey" />
         </div>
         <div class="field">
+            <label>Password</label>
+            <input type="password" @bind="_password" placeholder="Demo password is demo" @onkeydown="OnKey" />
+        </div>
+        <div class="field">
             <label>Workstation</label>
             <input @bind="_workstation" placeholder="Workstation id" />
         </div>
@@ -30,7 +34,7 @@
         }
 
         <div style="margin-top:1.25rem;">
-            <div class="muted" style="font-size:.78rem;margin-bottom:.4rem;">Demo accounts</div>
+            <div class="muted" style="font-size:.78rem;margin-bottom:.4rem;">Demo accounts (password: demo)</div>
             <div class="flex gap" style="flex-wrap:wrap;">
                 @foreach (var demo in _demoUsers)
                 {
@@ -45,6 +49,7 @@
     [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
 
     private string _userName = string.Empty;
+    private string _password = string.Empty;
     private string _workstation = Environment.MachineName;
     private string? _error;
     private bool _busy;
@@ -54,6 +59,7 @@
     private async Task Quick(string user)
     {
         _userName = user;
+        _password = "demo";
         await SignInAsync();
     }
 
@@ -75,22 +81,18 @@
         }
 
         _busy = true;
-        // Set a provisional identity so the API call carries the header, then confirm
-        // against /api/me and load the effective permission set.
-        Session.SignIn(_userName.Trim(), null, _workstation, Array.Empty<string>());
-        var me = await Api.GetMeAsync();
+        var login = await Api.LoginAsync(new LoginRequestVm(_userName.Trim(), _password, _workstation));
         _busy = false;
 
-        if (!me.Succeeded || me.Value is null)
+        if (!login.Succeeded || login.Value is null)
         {
-            Session.SignOut();
-            _error = me.StatusCode is 404 or 401
-                ? $"'{_userName}' is not a recognized active account."
-                : me.FailureSummary();
+            _error = login.StatusCode is 401 or 404
+                ? "Sign-in failed. Check the username and password."
+                : login.FailureSummary();
             return;
         }
 
-        Session.SignIn(me.Value.UserName, me.Value.DisplayName, _workstation, me.Value.Permissions, me.Value.SecurityLevel);
+        Session.SignIn(login.Value.UserName, login.Value.DisplayName, _workstation, login.Value.Permissions, login.Value.SecurityLevel);
         Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
     }
 }

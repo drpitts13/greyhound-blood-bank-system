@@ -2,6 +2,10 @@
 
 An original, safety-critical Blood Bank Laboratory Information System built on C# / .NET, SQL Server, and EF Core, using a layered, API-first architecture. Accuracy, traceability, auditability, and workflow controls are prioritized over development speed.
 
+## Regulatory status
+
+This product is a **hospital transfusion-service LIS** (patients, specimens, compatibility, issue, transfusion). It is **not** a blood-collection establishment and does not implement donor eligibility under 21 CFR 630/640. Software cannot be AABB- or FDA-certified by code alone. A licensed facility still needs SOPs, user-facility BECS validation, and — if the product is marketed as a BECS — 510(k) clearance. ISBT 128 product/ABO tables require an ICCBBA license before clinical use. Do not treat this repository as an AABB or FDA certification claim.
+
 This repository is being built in phases. See [`docs/`](docs/) for the full design:
 [architecture](docs/architecture.md), [data model](docs/erd.md), [workflows](docs/workflows.md),
 [safety rules](docs/safety-rules.md), [HL7](docs/hl7-design.md), [printing & billing](docs/printing-billing.md),
@@ -74,8 +78,12 @@ Endpoints:
 - HL7: `POST /api/hl7/inbound` (accepts a raw `text/plain` HL7 v2.x message, returns the ACK/NAK; `200` on `AA`, `422` on `AE`/`AR`), `GET /api/hl7/messages`, `GET /api/hl7/messages/{id}` (includes raw text), `POST /api/hl7/messages/{id}/replay`, `GET /api/hl7/errors`, `POST /api/hl7/outbound/results/{resultId}` (queue an ORU for a verified result)
 - Printing: `POST /api/print/specimen-labels/{specimenId}`, `POST /api/print/compatibility-tags/{issueId}` (build the P-tag from the issue record), `POST /api/print/jobs/{id}/reprint` (requires `{ reason }`), `GET /api/print/jobs`, `GET /api/print/jobs/{id}` (includes rendered output). Each accepts an optional `{ format, templateCode, targetPrinter }` body; `format` is `Zpl` (default) or `Preview`.
 - Billing: `GET /api/billing/charges` (review queue), `POST /api/billing/charges/{id}/review`, `POST /api/billing/charges/{id}/cancel` (requires `{ reason }`), `POST /api/billing/charges/{id}/export`, `POST /api/billing/capture/result/{resultId}`, `POST /api/billing/capture/issue/{issueId}` (manual, idempotent recapture). Verifying a result and issuing a unit automatically capture charges after they commit.
-- Signatures: `POST /api/signatures` records an append-only electronic signature for the current user (`{ action, meaningOfSignature, contextType?, contextId? }`) and returns its id.
-- Audit: read-only `GET /api/audit-events`
+- Signatures: `POST /api/signatures` records an electronic signature for the current user (`{ action, meaningOfSignature, contextType?, contextId?, reauthenticationSecret? }`) and returns its id. Password/PIN re-authentication is required when the account has a local secret.
+- Audit: read-only `GET /api/audit-events?skip=&take=` (max take 1000; no purge)
+- Lookback: `GET /api/lookback/{din}`, `POST /api/lookback/{din}/recall`
+- Reactions: `GET/PUT /api/reaction-investigations`
+- Deviations: `GET/POST /api/deviations`
+- Special requirements: `GET/POST /api/patients/{id}/special-requirements`
 
 ### Authorization
 

@@ -5,6 +5,7 @@ using System.Text.Json;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
@@ -38,6 +39,12 @@ public sealed class BloodBankApiClient
     // ---- Identity ----
     public Task<ApiResult<MeVm>> GetMeAsync(CancellationToken ct = default) =>
         SendAsync<MeVm>(HttpMethod.Get, "api/me", ct: ct);
+
+    public Task<ApiResult<MeVm>> LoginAsync(LoginRequestVm req, CancellationToken ct = default) =>
+        SendAsync<MeVm>(HttpMethod.Post, "api/auth/login", req, ct);
+
+    public Task<ApiResult<object>> LogoutAsync(CancellationToken ct = default) =>
+        SendAsync<object>(HttpMethod.Post, "api/auth/logout", ct: ct);
 
     // ---- Patients ----
     public Task<ApiResult<List<PatientDto>>> GetPatientsAsync(CancellationToken ct = default) =>
@@ -375,14 +382,61 @@ public sealed class BloodBankApiClient
         SendAsync<List<TestDefinitionListItemDto>>(HttpMethod.Get, "api/reference/test-definitions", ct: ct);
 
     // ---- Audit ----
-    public Task<ApiResult<List<AuditEventVm>>> GetAuditEventsAsync(string? entityType = null, long? entityId = null, CancellationToken ct = default)
+    public Task<ApiResult<AuditPageVm>> GetAuditEventsAsync(
+        string? entityType = null,
+        long? entityId = null,
+        int skip = 0,
+        int take = 200,
+        CancellationToken ct = default)
     {
-        var q = new List<string>();
+        var q = new List<string>
+        {
+            $"skip={skip}",
+            $"take={take}"
+        };
         if (!string.IsNullOrWhiteSpace(entityType)) q.Add($"entityType={Uri.EscapeDataString(entityType)}");
         if (entityId is not null) q.Add($"entityId={entityId}");
-        var query = q.Count > 0 ? "?" + string.Join("&", q) : string.Empty;
-        return SendAsync<List<AuditEventVm>>(HttpMethod.Get, $"api/audit-events{query}", ct: ct);
+        return SendAsync<AuditPageVm>(HttpMethod.Get, $"api/audit-events?{string.Join("&", q)}", ct: ct);
     }
+
+    public Task<ApiResult<List<SpecialRequirementDto>>> GetSpecialRequirementsAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<SpecialRequirementDto>>(HttpMethod.Get, $"api/patients/{patientId}/special-requirements", ct: ct);
+
+    public Task<ApiResult<SpecialRequirementDto>> AddSpecialRequirementAsync(long patientId, AddSpecialRequirementRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecialRequirementDto>(HttpMethod.Post, $"api/patients/{patientId}/special-requirements", req, ct);
+
+    public Task<ApiResult<SpecialRequirementDto>> DeactivateSpecialRequirementAsync(long id, string reason, CancellationToken ct = default) =>
+        SendAsync<SpecialRequirementDto>(HttpMethod.Post, $"api/special-requirements/{id}/deactivate", new ReasonRequestVm(reason), ct);
+
+    public Task<ApiResult<LookbackReportDto>> LookbackAsync(string din, CancellationToken ct = default) =>
+        SendAsync<LookbackReportDto>(HttpMethod.Get, $"api/lookback/{Uri.EscapeDataString(din)}", ct: ct);
+
+    public Task<ApiResult<LookbackReportDto>> RecallByDinAsync(string din, string reason, CancellationToken ct = default) =>
+        SendAsync<LookbackReportDto>(HttpMethod.Post, $"api/lookback/{Uri.EscapeDataString(din)}/recall", new ReasonRequestVm(reason), ct);
+
+    public Task<ApiResult<LookbackNotificationDto>> RecordLookbackAttemptAsync(long id, RecordLookbackAttemptRequest req, CancellationToken ct = default) =>
+        SendAsync<LookbackNotificationDto>(HttpMethod.Post, $"api/lookback/notifications/{id}", req, ct);
+
+    public Task<ApiResult<List<ReactionInvestigationDto>>> GetReactionInvestigationsAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReactionInvestigationDto>>(HttpMethod.Get, "api/reaction-investigations", ct: ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> UpdateReactionInvestigationAsync(long id, UpdateReactionInvestigationRequest req, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Put, $"api/reaction-investigations/{id}", req, ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> RecordCberNotificationAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/cber-notified", ct: ct);
+
+    public Task<ApiResult<ReactionInvestigationDto>> RecordWrittenReportAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReactionInvestigationDto>(HttpMethod.Post, $"api/reaction-investigations/{id}/written-report", ct: ct);
+
+    public Task<ApiResult<List<DeviationDto>>> GetDeviationsAsync(CancellationToken ct = default) =>
+        SendAsync<List<DeviationDto>>(HttpMethod.Get, "api/deviations", ct: ct);
+
+    public Task<ApiResult<DeviationDto>> CreateDeviationAsync(CreateDeviationRequest req, CancellationToken ct = default) =>
+        SendAsync<DeviationDto>(HttpMethod.Post, "api/deviations", req, ct);
+
+    public Task<ApiResult<DeviationDto>> UpdateDeviationStatusAsync(long id, DeviationStatus status, string? correctiveAction = null, CancellationToken ct = default) =>
+        SendAsync<DeviationDto>(HttpMethod.Post, $"api/deviations/{id}/status", new { status, correctiveAction }, ct);
 
     // ---- Admin: Tests ----
     public Task<ApiResult<List<TestDefinitionDto>>> GetAdminTestsAsync(bool includeInactive = true, CancellationToken ct = default) =>

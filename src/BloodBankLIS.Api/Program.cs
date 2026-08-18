@@ -126,6 +126,7 @@ app.MapReferenceEndpoints();
 app.MapMeEndpoints();
 app.MapAdminEndpoints();
 app.MapAuditEndpoints();
+app.MapComplianceEndpoints();
 
 app.Run();
 

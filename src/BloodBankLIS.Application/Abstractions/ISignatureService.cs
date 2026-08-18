@@ -18,14 +18,18 @@ public interface ISignatureService
         string meaningOfSignature,
         string? contextType = null,
         long? contextId = null,
+        string? reauthenticationSecret = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Confirms a previously recorded signature exists, was made by the current user,
-    /// and (when supplied) matches the expected action — used to gate override paths.
+    /// is unexpired and unused, and (when supplied) matches the expected action.
     /// </summary>
     Task<bool> IsValidForCurrentUserAsync(
         long signatureId,
         string? expectedAction = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>Marks a signature as consumed so it cannot authorize a second action.</summary>
+    Task ConsumeAsync(long signatureId, CancellationToken cancellationToken = default);
 }

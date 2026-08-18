@@ -23,9 +23,17 @@ public sealed class UserSession
     /// <summary>Max role security level for UI gating of exception overrides. API re-checks.</summary>
     public int SecurityLevel { get; private set; }
 
+    public DateTime LastActivityUtc { get; private set; } = DateTime.UtcNow;
+
+    public static TimeSpan IdleTimeout { get; } = TimeSpan.FromMinutes(30);
+
     public bool IsSignedIn => !string.IsNullOrWhiteSpace(UserName);
 
+    public bool IsIdle => IsSignedIn && DateTime.UtcNow - LastActivityUtc > IdleTimeout;
+
     public event Action? Changed;
+
+    public void Touch() => LastActivityUtc = DateTime.UtcNow;
 
     public void SignIn(string userName, string? displayName, string? workstation, IReadOnlyList<string> permissions, int securityLevel = 0)
     {
@@ -38,6 +46,7 @@ public sealed class UserSession
 
         Permissions = permissions;
         SecurityLevel = securityLevel;
+        Touch();
         Changed?.Invoke();
     }
 

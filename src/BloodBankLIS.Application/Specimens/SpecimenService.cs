@@ -1,8 +1,10 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Specimens;
 
@@ -13,27 +15,36 @@ namespace BloodBankLIS.Application.Specimens;
 /// </summary>
 public sealed class SpecimenService
 {
-    /// <summary>Default specimen validity window. Policy-driven; placeholder for SystemConfiguration.</summary>
-    public const int DefaultValidityHours = 72;
+    /// <summary>Default specimen validity window when no facility policy is registered.</summary>
+    public const int DefaultValidityHours = SpecimenValidityPolicy.DefaultStandardHours;
 
     private readonly IRepository<Specimen> _specimens;
     private readonly IRepository<Patient> _patients;
     private readonly IRepository<SpecimenTypeDefinition> _specimenTypes;
+    private readonly IRepository<TransfusionEvent>? _transfusions;
+    private readonly FacilityPolicyService? _policy;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly IAuditWriter? _audit;
 
     public SpecimenService(
         IRepository<Specimen> specimens,
         IRepository<Patient> patients,
         IRepository<SpecimenTypeDefinition> specimenTypes,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        IRepository<TransfusionEvent>? transfusions = null,
+        FacilityPolicyService? policy = null,
+        IAuditWriter? audit = null)
     {
         _specimens = specimens;
         _patients = patients;
         _specimenTypes = specimenTypes;
+        _transfusions = transfusions;
+        _policy = policy;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _audit = audit;
     }
 
     public async Task<SpecimenDto?> GetAsync(long id, CancellationToken ct = default)
@@ -79,7 +90,7 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail("Collection date/time cannot be in the future.");
         }
 
-        if (await _patients.GetByIdAsync(request.PatientId, ct) is null)
+        if (await _patients.GetByIdAsync(request.PatientId, ct) is not { } patient)
         {
             return OperationResult<Specimen>.Fail("Patient not found.");
         }
@@ -89,7 +100,26 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail($"Accession number '{request.AccessionNumber}' already exists.");
         }
 
-        var validityHours = request.ValidityHours ?? DefaultValidityHours;
+        var id1Type = request.Identifier1Type ?? IdentityTokenType.MedicalRecordNumber;
+        var id1Value = string.IsNullOrWhiteSpace(request.Identifier1Value) ? patient.MedicalRecordNumber : request.Identifier1Value;
+        var id2Type = request.Identifier2Type ?? IdentityTokenType.DateOfBirth;
+        var id2Value = string.IsNullOrWhiteSpace(request.Identifier2Value)
+            ? patient.DateOfBirth.ToString("yyyy-MM-dd")
+            : request.Identifier2Value;
+
+        var identity = PatientIdentityMatchRule.Evaluate(
+            patient.MedicalRecordNumber,
+            patient.DateOfBirth,
+            patient.LastName,
+            patient.FirstName,
+            new PatientIdentityMatchRule.IdentityToken(id1Type, id1Value),
+            new PatientIdentityMatchRule.IdentityToken(id2Type, id2Value));
+        if (identity.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(identity.Message);
+        }
+
+        var validityHours = request.ValidityHours ?? await ResolveValidityHoursAsync(patient, ct);
         var specimen = new Specimen
         {
             AccessionNumber = request.AccessionNumber,
@@ -101,6 +131,10 @@ public sealed class SpecimenService
             ExpiresUtc = request.CollectedUtc.AddHours(validityHours),
             DrawLocation = request.DrawLocation,
             Collector = request.Collector,
+            Identifier1Type = id1Type,
+            Identifier1Value = id1Value,
+            Identifier2Type = id2Type,
+            Identifier2Value = id2Value,
             Status = SpecimenStatus.Accepted
         };
 
@@ -132,6 +166,70 @@ public sealed class SpecimenService
         _specimens.Update(specimen);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
+    }
+
+    /// <summary>
+    /// Recomputes expiry for accepted specimens when alloimmunization risk changes
+    /// (recent transfusion or documented pregnancy).
+    /// </summary>
+    public async Task RecomputeValidityForPatientAsync(long patientId, CancellationToken ct = default)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return;
+        }
+
+        var hours = await ResolveValidityHoursAsync(patient, ct);
+        var specimens = await _specimens.ListAsync(
+            s => s.PatientId == patientId && s.Status == SpecimenStatus.Accepted, ct);
+        foreach (var specimen in specimens)
+        {
+            var next = specimen.CollectedUtc.AddHours(hours);
+            if (specimen.ExpiresUtc == next)
+            {
+                continue;
+            }
+
+            var previous = specimen.ExpiresUtc;
+            specimen.ExpiresUtc = next;
+            _audit?.Record(
+                AuditEventType.Update,
+                nameof(Specimen),
+                specimen.Id,
+                oldValue: new { ExpiresUtc = previous },
+                newValue: new { ExpiresUtc = next },
+                reason: "Specimen validity recomputed after alloimmunization-risk change.");
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+    }
+
+    private async Task<int> ResolveValidityHoursAsync(Patient patient, CancellationToken ct)
+    {
+        var alloHours = _policy is null
+            ? SpecimenValidityPolicy.DefaultAlloimmunizationRiskHours
+            : await _policy.GetSpecimenAlloHoursAsync(ct);
+        var standardHours = _policy is null
+            ? SpecimenValidityPolicy.DefaultStandardHours
+            : await _policy.GetSpecimenStandardHoursAsync(ct);
+        var lookbackDays = _policy is null
+            ? SpecimenValidityPolicy.DefaultLookbackDays
+            : await _policy.GetSpecimenLookbackDaysAsync(ct);
+
+        DateTime? lastTransfusion = null;
+        if (_transfusions is not null)
+        {
+            var events = await _transfusions.ListAsync(t => t.PatientId == patient.Id, ct);
+            if (events.Count > 0)
+            {
+                lastTransfusion = events.Max(t => t.StartUtc ?? t.CreatedUtc);
+            }
+        }
+
+        var risk = SpecimenValidityPolicy.HasAlloimmunizationRisk(
+            _clock.UtcNow, lastTransfusion, patient.RecentPregnancyUtc, lookbackDays);
+        return risk ? alloHours : standardHours;
     }
 
     private async Task<SpecimenDto> MapAsync(Specimen specimen, CancellationToken ct)
