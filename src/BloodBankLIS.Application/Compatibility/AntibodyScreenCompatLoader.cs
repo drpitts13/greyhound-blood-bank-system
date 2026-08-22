@@ -64,6 +64,16 @@ public sealed class AntibodyScreenCompatLoader
 
         return results.Any(r =>
             screenCodes.Contains(r.TestCode)
-            && string.Equals(r.Value?.Trim(), "Positive", StringComparison.OrdinalIgnoreCase));
+            && IsPositiveScreen(r.Value, r.Interpretation));
+    }
+
+    private static bool IsPositiveScreen(string? value, string? interpretation)
+    {
+        if (string.Equals(interpretation?.Trim(), "Positive", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return string.Equals(value?.Trim(), "Positive", StringComparison.OrdinalIgnoreCase);
     }
 }

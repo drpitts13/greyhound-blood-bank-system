@@ -72,8 +72,15 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
     /// </summary>
     private static async Task AssertExtendedScenariosAsync(BloodBankDbContext verify)
     {
-        // The neonatal rule adds TSNEO, so the catalog has to define it.
-        Assert.True(await verify.TestDefinitions.AnyAsync(t => t.Code == "TSNEO" && t.IsActive));
+            Assert.True(await verify.PhaseDefinitions.AnyAsync(p => p.Code == "IS" && p.IsActive));
+            Assert.True(await verify.PhaseDefinitions.AnyAsync(p => p.Code == "CC" && p.IsCheckCell && !p.IncludeInInterpretation));
+            var absc = await verify.TestDefinitions.SingleAsync(t => t.Code == "ABSC" && t.IsActive);
+            Assert.Equal(ResultValueType.Subtest, absc.ResultValueType);
+            Assert.Contains("Cell1", absc.PanelSubtestsJson);
+            Assert.Contains("AHG", absc.PanelSubtestsJson);
+
+            // The neonatal rule adds TSNEO, so the catalog has to define it.
+            Assert.True(await verify.TestDefinitions.AnyAsync(t => t.Code == "TSNEO" && t.IsActive));
 
         var neonate = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0002");
         Assert.Equal(DateOnly.FromDateTime(DateTime.UtcNow), neonate.DateOfBirth);

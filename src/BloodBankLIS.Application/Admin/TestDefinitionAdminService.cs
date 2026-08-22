@@ -40,6 +40,8 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
     private readonly IRepository<SubtestDefinition> _subtestRepo;
 
+    private readonly IRepository<PhaseDefinition> _phaseRepo;
+
     private readonly IRepository<BloodAttributeDefinition> _bloodAttrRepo;
 
     private readonly IRepository<SpecimenTypeDefinition> _specimenTypeRepo;
@@ -51,6 +53,8 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
         IRepository<TestDefinition> repo,
 
         IRepository<SubtestDefinition> subtestRepo,
+
+        IRepository<PhaseDefinition> phaseRepo,
 
         IRepository<BloodAttributeDefinition> bloodAttrRepo,
 
@@ -73,6 +77,8 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
         _repo = repo;
 
         _subtestRepo = subtestRepo;
+
+        _phaseRepo = phaseRepo;
 
         _bloodAttrRepo = bloodAttrRepo;
 
@@ -132,7 +138,9 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         var activeSpecimenTypes = await LoadActiveSpecimenTypeCodesAsync(ct);
 
-        var evaluation = TestDefinitionValidator.Validate(entity, duplicate, activeSubtests, activeBloodAttrs, activeSpecimenTypes);
+        var activePhases = await LoadActivePhasesAsync(ct);
+
+        var evaluation = TestDefinitionValidator.Validate(entity, duplicate, activeSubtests, activeBloodAttrs, activeSpecimenTypes, activePhases);
 
         if (evaluation.IsHardStopped)
 
@@ -216,7 +224,9 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         var activeSpecimenTypes = await LoadActiveSpecimenTypeCodesAsync(ct);
 
-        var evaluation = TestDefinitionValidator.Validate(entity, duplicate, activeSubtests, activeBloodAttrs, activeSpecimenTypes);
+        var activePhases = await LoadActivePhasesAsync(ct);
+
+        var evaluation = TestDefinitionValidator.Validate(entity, duplicate, activeSubtests, activeBloodAttrs, activeSpecimenTypes, activePhases);
 
         if (evaluation.IsHardStopped)
 
@@ -268,7 +278,9 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         var activeSpecimenTypes = await LoadActiveSpecimenTypeCodesAsync(ct);
 
-        var evaluation = TestDefinitionValidator.Validate(entity, duplicate, activeSubtests, activeBloodAttrs, activeSpecimenTypes);
+        var activePhases = await LoadActivePhasesAsync(ct);
+
+        var evaluation = TestDefinitionValidator.Validate(entity, duplicate, activeSubtests, activeBloodAttrs, activeSpecimenTypes, activePhases);
 
         if (evaluation.IsHardStopped)
 
@@ -485,6 +497,22 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
 
 
+    private async Task<Dictionary<string, PhaseDefinition>> LoadActivePhasesAsync(CancellationToken ct)
+
+    {
+
+        var phases = await _phaseRepo.ListAsync(p => p.IsActive && !p.IsDraft, ct);
+
+        return phases
+
+            .GroupBy(p => p.Code, StringComparer.OrdinalIgnoreCase)
+
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Version).First(), StringComparer.OrdinalIgnoreCase);
+
+    }
+
+
+
     private async Task<bool> HasActiveDuplicateAsync(string code, long selfId, CancellationToken ct)
 
     {
@@ -599,7 +627,7 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
     private static IReadOnlyList<PanelSubtestAssignment> MapAssignments(IReadOnlyList<PanelSubtestAssignmentDto>? items) =>
 
-        items?.Select(s => new PanelSubtestAssignment(s.SubtestCode.Trim(), s.Required, s.SortOrder)).ToList() ?? [];
+        items?.Select(s => new PanelSubtestAssignment(s.SubtestCode.Trim(), s.Required, s.SortOrder, s.PhaseCodes)).ToList() ?? [];
 
 
 
@@ -607,7 +635,7 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         PanelSubtestAssignments.Parse(json)
 
-            .Select(s => new PanelSubtestAssignmentDto(s.SubtestCode, s.Required, s.SortOrder))
+            .Select(s => new PanelSubtestAssignmentDto(s.SubtestCode, s.Required, s.SortOrder, s.PhaseCodes))
 
             .ToList();
 
@@ -621,7 +649,9 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
             r.Label.Trim(),
 
-            r.SubtestExpectations))
+            r.SubtestExpectations,
+
+            r.MatchMode))
 
             .ToList() ?? [];
 
@@ -631,7 +661,7 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         InterpretationLogicDefinitions.Parse(json)
 
-            .Select(r => new InterpretationLogicRowDto(r.InterpretationKey, r.Label, r.SubtestExpectations))
+            .Select(r => new InterpretationLogicRowDto(r.InterpretationKey, r.Label, r.SubtestExpectations, r.MatchMode))
 
             .ToList();
 

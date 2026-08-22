@@ -50,7 +50,53 @@
                 </div>
             }
 
-            @if (ShowsPanelSubtests && _panelSubtests.Count > 0)
+            @if (ShowsPanelSubtests && _panelSubtests.Count > 0 && HasPhases)
+            {
+                <table class="bb" style="margin-top:.5rem;">
+                    <thead>
+                        <tr>
+                            <th>Cell</th>
+                            @foreach (var phase in PhaseColumns)
+                            {
+                                <th class="mono">@phase.Label@(phase.IsCheckCell ? " (opt)" : "")</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var st in _panelSubtests)
+                        {
+                            <tr>
+                                <td>@st.Label <span class="mono muted">@st.SubtestCode</span></td>
+                                @foreach (var phase in PhaseColumns)
+                                {
+                                    var assigned = AssignedPhase(st, phase.PhaseCode);
+                                    <td>
+                                        @if (assigned is not null)
+                                        {
+                                            <select value="@GetSubtestValue(PhaseKey(st.SubtestCode, phase.PhaseCode))" @onchange="e => SetSubtestValue(PhaseKey(st.SubtestCode, phase.PhaseCode), e)">
+                                                @if (!assigned.Required)
+                                                {
+                                                    <option value="">—</option>
+                                                    <option value="NT">NT</option>
+                                                }
+                                                @foreach (var c in st.Choices)
+                                                {
+                                                    <option value="@c.Code">@c.Label</option>
+                                                }
+                                            </select>
+                                        }
+                                        else
+                                        {
+                                            <span class="muted">—</span>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else if (ShowsPanelSubtests && _panelSubtests.Count > 0)
             {
                 <table class="bb" style="margin-top:.5rem;">
                     <thead><tr><th>@(IsCrossmatchType ? "Cell reaction" : "Subtest")</th><th>Result</th><th></th></tr></thead>
@@ -447,6 +493,19 @@
         {
             foreach (var st in _panelSubtests)
             {
+                if (st.Phases is { Count: > 0 })
+                {
+                    foreach (var phase in st.Phases)
+                    {
+                        var key = PhaseKey(st.SubtestCode, phase.PhaseCode);
+                        if (subtests.TryGetValue(key, out var phasedGrade))
+                        {
+                            _subtestValues[key] = phasedGrade;
+                        }
+                    }
+                    continue;
+                }
+
                 if (subtests.TryGetValue(st.SubtestCode, out var grade))
                 {
                     _subtestValues[st.SubtestCode] = grade;
@@ -517,6 +576,25 @@
             or ResultValueType.Subtest
             or ResultValueType.Crossmatch
             or ResultValueType.ComplexCrossmatch;
+
+    private bool HasPhases =>
+        _panelSubtests.Any(s => s.Phases is { Count: > 0 });
+
+    private IReadOnlyList<ResolvedPanelPhaseDto> PhaseColumns =>
+        _panelSubtests
+            .SelectMany(s => s.Phases ?? Array.Empty<ResolvedPanelPhaseDto>())
+            .GroupBy(p => p.PhaseCode, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderBy(p => p.SortOrder).First())
+            .OrderBy(p => p.SortOrder)
+            .ThenBy(p => p.PhaseCode)
+            .ToList();
+
+    private static ResolvedPanelPhaseDto? AssignedPhase(ResolvedPanelSubtestDto st, string phaseCode) =>
+        (st.Phases ?? Array.Empty<ResolvedPanelPhaseDto>())
+            .FirstOrDefault(p => string.Equals(p.PhaseCode, phaseCode, StringComparison.OrdinalIgnoreCase));
+
+    private static string PhaseKey(string subtestCode, string phaseCode) =>
+        PhaseResultKeys.Compose(subtestCode, phaseCode);
 
     private bool IsAntibodyScope =>
         _definition?.BloodAttributeScopeKind == BloodAttributeKind.Antibody;
@@ -687,6 +765,23 @@
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var st in _panelSubtests)
         {
+            if (st.Phases is { Count: > 0 })
+            {
+                foreach (var phase in st.Phases)
+                {
+                    var key = PhaseKey(st.SubtestCode, phase.PhaseCode);
+                    var value = GetSubtestValue(key);
+                    if (string.IsNullOrWhiteSpace(value))
+                    {
+                        continue;
+                    }
+
+                    map[key] = value;
+                }
+
+                continue;
+            }
+
             if (!st.Required && !IsOptionalPerformed(st.SubtestCode))
             {
                 continue;
@@ -733,10 +828,23 @@
 
     private void ResetSubtestValues()
     {
-        _subtestValues = _panelSubtests.ToDictionary(
-            s => s.SubtestCode,
-            s => DefaultValueFor(s),
-            StringComparer.OrdinalIgnoreCase);
+        _subtestValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var s in _panelSubtests)
+        {
+            if (s.Phases is { Count: > 0 })
+            {
+                foreach (var phase in s.Phases)
+                {
+                    _subtestValues[PhaseKey(s.SubtestCode, phase.PhaseCode)] = phase.Required
+                        ? DefaultValueFor(s)
+                        : string.Empty;
+                }
+            }
+            else
+            {
+                _subtestValues[s.SubtestCode] = DefaultValueFor(s);
+            }
+        }
         _optionalSubtestPerformed = _panelSubtests
             .Where(s => !s.Required)
             .ToDictionary(s => s.SubtestCode, _ => false, StringComparer.OrdinalIgnoreCase);

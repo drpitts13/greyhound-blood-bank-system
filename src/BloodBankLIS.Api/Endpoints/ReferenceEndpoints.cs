@@ -83,6 +83,17 @@ public static class ReferenceEndpoints
             return Results.Ok(subtests.Select(s => new SubtestListItemDto(s.Code, s.Name, s.ResultType)));
         });
 
+        group.MapGet("/phases", async (BloodBankDbContext context, CancellationToken ct) =>
+        {
+            var phases = await context.PhaseDefinitions.AsNoTracking()
+                .Where(p => p.IsActive && !p.IsDraft)
+                .OrderBy(p => p.SortOrder)
+                .ThenBy(p => p.Code)
+                .ToListAsync(ct);
+            return Results.Ok(phases.Select(p => new PhaseListItemDto(
+                p.Code, p.Name, p.SortOrder, p.IncludeInInterpretation, p.IsCheckCell, p.ValidatesPhaseCode)));
+        });
+
         group.MapGet("/test-groupers", async (BloodBankDbContext context, CancellationToken ct) =>
         {
             var groupers = await context.TestGroupers.AsNoTracking()
@@ -117,10 +128,12 @@ public static class ReferenceEndpoints
             }
 
             var catalog = await LoadSubtestCatalogAsync(context, ct);
+            var phases = await LoadPhaseCatalogAsync(context, ct);
             var resolved = PanelSubtestAssignments.ResolveForEntry(
                 def.PanelSubtestsJson,
                 catalog,
-                useAboRhDefaultsWhenEmpty: def.ResultValueType == ResultValueType.AboRh);
+                useAboRhDefaultsWhenEmpty: def.ResultValueType == ResultValueType.AboRh,
+                phases);
 
             var interpretationOptions = InterpretationLogicDefinitions.Parse(def.InterpretationLogicJson)
                 .Select(r => new InterpretationOptionDto(r.InterpretationKey, r.Label))
@@ -150,7 +163,12 @@ public static class ReferenceEndpoints
                     s.ResultType,
                     s.Choices.Select(c => new SubtestChoiceDto(c.Code, c.Label, c.Polarity)).ToList(),
                     s.Required,
-                    s.SortOrder)).ToList(),
+                    s.SortOrder,
+                    (s.Phases ?? Array.Empty<ResolvedPanelPhase>())
+                        .Select(p => new ResolvedPanelPhaseDto(
+                            p.PhaseCode, p.Label, p.Required, p.IncludeInInterpretation,
+                            p.IsCheckCell, p.ValidatesPhaseCode, p.SortOrder))
+                        .ToList())).ToList(),
                 interpretationOptions,
                 scopedBloodAttrs,
                 def.BloodAttributeScopeKind,
@@ -167,5 +185,16 @@ public static class ReferenceEndpoints
         return items
             .GroupBy(s => s.Code, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.Version).First(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static async Task<Dictionary<string, PhaseDefinition>> LoadPhaseCatalogAsync(
+        BloodBankDbContext context, CancellationToken ct)
+    {
+        var items = await context.PhaseDefinitions.AsNoTracking()
+            .Where(p => p.IsActive && !p.IsDraft)
+            .ToListAsync(ct);
+        return items
+            .GroupBy(p => p.Code, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Version).First(), StringComparer.OrdinalIgnoreCase);
     }
 }

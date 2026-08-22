@@ -111,6 +111,7 @@
                         <label style="margin:0;"><strong>@( _editing.ResultValueType is ResultValueType.Crossmatch or ResultValueType.ComplexCrossmatch ? "Cell reaction subtests" : "Panel subtests" )</strong> (from subtest catalog)</label>
                         <div class="flex gap">
                             <button type="button" class="btn btn-ghost btn-sm" @onclick="LoadDefaultAboRhSubtests">Load ABORH defaults</button>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="ApplyPhasesToAll">Apply first-row phases to all</button>
                             <button type="button" class="btn btn-ghost btn-sm" @onclick="AddSubtest">Add subtest</button>
                         </div>
                     </div>
@@ -121,7 +122,7 @@
                     else
                     {
                         <table class="bb">
-                            <thead><tr><th>Subtest</th><th>Type</th><th>Required</th><th>Order</th><th></th></tr></thead>
+                            <thead><tr><th>Subtest</th><th>Type</th><th>Required</th><th>Phases</th><th>Order</th><th></th></tr></thead>
                             <tbody>
                                 @for (var i = 0; i < _editing.PanelSubtestAssignments.Count; i++)
                                 {
@@ -136,6 +137,29 @@
                                         </td>
                                         <td class="muted">@(catalog?.ResultType.ToString() ?? "—")</td>
                                         <td><input type="checkbox" @bind="row.Required" /></td>
+                                        <td>
+                                            @if (_catalogPhases.Count == 0)
+                                            {
+                                                <span class="muted">No phases</span>
+                                            }
+                                            else
+                                            {
+                                                <div class="flex" style="flex-wrap:wrap;gap:.35rem;">
+                                                    @foreach (var phase in _catalogPhases)
+                                                    {
+                                                        var selected = row.PhaseCodes.Contains(phase.Code, StringComparer.OrdinalIgnoreCase);
+                                                        <label class="flex" style="gap:.2rem;font-size:.85rem;">
+                                                            <input type="checkbox" checked="@selected" @onchange="e => TogglePhase(row, phase.Code, (bool)(e.Value ?? false))" />
+                                                            @phase.Code
+                                                            @if (phase.IsCheckCell)
+                                                            {
+                                                                <span class="muted">(CC)</span>
+                                                            }
+                                                        </label>
+                                                    }
+                                                </div>
+                                            }
+                                        </td>
                                         <td><input type="number" style="width:4rem;" @bind="row.SortOrder" /></td>
                                         <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveSubtest(i)">Remove</button></td>
                                     </tr>
@@ -169,17 +193,42 @@
                         {
                             <table class="bb">
                                 <thead>
-                                    <tr>
-                                        <th>Interpretation</th>
-                                        @foreach (var col in LogicTableColumns)
-                                        {
-                                            <th class="mono">@(col)</th>
-                                        }
-                                        @if (_editing.ResultValueType == ResultValueType.Subtest)
-                                        {
-                                            <th></th>
-                                        }
-                                    </tr>
+                                    @if (LogicColumnGroups.Any(g => g.Phases.Count > 0))
+                                    {
+                                        <tr>
+                                            <th rowspan="2">Interpretation</th>
+                                            <th rowspan="2">Match</th>
+                                            @foreach (var group in LogicColumnGroups)
+                                            {
+                                                <th colspan="@(group.Phases.Count == 0 ? 1 : group.Phases.Count)" class="mono">@group.SubtestCode</th>
+                                            }
+                                            @if (_editing.ResultValueType == ResultValueType.Subtest)
+                                            {
+                                                <th rowspan="2"></th>
+                                            }
+                                        </tr>
+                                        <tr>
+                                            @foreach (var col in LogicTableColumns)
+                                            {
+                                                <th class="mono">@(string.IsNullOrEmpty(col.PhaseCode) ? "—" : col.PhaseCode)</th>
+                                            }
+                                        </tr>
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <th>Interpretation</th>
+                                            <th>Match</th>
+                                            @foreach (var col in LogicTableColumns)
+                                            {
+                                                <th class="mono">@col.Header</th>
+                                            }
+                                            @if (_editing.ResultValueType == ResultValueType.Subtest)
+                                            {
+                                                <th></th>
+                                            }
+                                        </tr>
+                                    }
                                 </thead>
                                 <tbody>
                                     @for (var ri = 0; ri < _editing.InterpretationLogic.Count; ri++)
@@ -197,10 +246,18 @@
                                                     <input @bind="row.InterpretationKey" placeholder="Key" class="mono" />
                                                 }
                                             </td>
+                                            <td>
+                                                <select @bind="row.MatchMode">
+                                                    @foreach (var mode in Enum.GetValues<InterpretationMatchMode>())
+                                                    {
+                                                        <option value="@mode">@mode</option>
+                                                    }
+                                                </select>
+                                            </td>
                                             @foreach (var col in LogicTableColumns)
                                             {
                                                 <td>
-                                                    <select value="@GetLogicExpectation(row, col)" @onchange="e => SetLogicExpectation(row, col, e)">
+                                                    <select value="@GetLogicExpectation(row, col.Key)" @onchange="e => SetLogicExpectation(row, col.Key, e)">
                                                         <option value="">—</option>
                                                         <option value="@ReactionPolarity.Negative">Neg</option>
                                                         <option value="@ReactionPolarity.Positive">Pos</option>
@@ -287,6 +344,7 @@
 @code {
     private List<TestDefinitionDto> _items = new();
     private List<SubtestListItemDto> _catalogSubtests = new();
+    private List<PhaseListItemDto> _catalogPhases = new();
     private List<BloodAttributeListItemDto> _catalogBloodAttributes = new();
     private List<SpecimenTypeListItemDto> _catalogSpecimenTypes = new();
     private bool _loading = true;
@@ -327,8 +385,58 @@
             .Distinct(StringComparer.OrdinalIgnoreCase)
         ?? Enumerable.Empty<string>();
 
-    private IEnumerable<string> LogicTableColumns =>
-        _editing?.ResultValueType == ResultValueType.AboRh ? GradedAssignmentCodes : AssignedSubtestCodes;
+    private IReadOnlyList<LogicColumn> LogicTableColumns
+    {
+        get
+        {
+            if (_editing is null)
+            {
+                return Array.Empty<LogicColumn>();
+            }
+
+            var columns = new List<LogicColumn>();
+            foreach (var assignment in _editing.PanelSubtestAssignments.Where(a => !string.IsNullOrWhiteSpace(a.SubtestCode)))
+            {
+                if (_editing.ResultValueType == ResultValueType.AboRh
+                    && !GradedAssignmentCodes.Contains(assignment.SubtestCode, StringComparer.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var interpretive = assignment.PhaseCodes
+                    .Where(code =>
+                    {
+                        var phase = _catalogPhases.FirstOrDefault(p =>
+                            string.Equals(p.Code, code, StringComparison.OrdinalIgnoreCase));
+                        return phase is null || (phase.IncludeInInterpretation && !phase.IsCheckCell);
+                    })
+                    .ToList();
+
+                if (interpretive.Count == 0)
+                {
+                    columns.Add(new LogicColumn(assignment.SubtestCode, assignment.SubtestCode, string.Empty, assignment.SubtestCode));
+                    continue;
+                }
+
+                foreach (var phaseCode in interpretive)
+                {
+                    columns.Add(new LogicColumn(
+                        PhaseResultKeys.Compose(assignment.SubtestCode, phaseCode),
+                        assignment.SubtestCode,
+                        phaseCode,
+                        $"{assignment.SubtestCode} {phaseCode}"));
+                }
+            }
+
+            return columns;
+        }
+    }
+
+    private IReadOnlyList<LogicColumnGroup> LogicColumnGroups =>
+        LogicTableColumns
+            .GroupBy(c => c.SubtestCode, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new LogicColumnGroup(g.Key, g.Select(c => c.PhaseCode).ToList()))
+            .ToList();
 
     private static string DisplayValueType(ResultValueType valueType) =>
         valueType switch
@@ -358,6 +466,8 @@
     {
         var subtests = await Api.GetReferenceSubtestsAsync();
         _catalogSubtests = subtests.Value ?? new();
+        var phases = await Api.GetReferencePhasesAsync();
+        _catalogPhases = phases.Value ?? new();
         var bloodAttrs = await Api.GetReferenceBloodAttributesAsync();
         _catalogBloodAttributes = bloodAttrs.Value ?? new();
         var specimenTypes = await Api.GetReferenceSpecimenTypesAsync();
@@ -482,6 +592,31 @@
         _editing.PanelSubtestAssignments.RemoveAt(index);
     }
 
+    private static void TogglePhase(AssignmentRow row, string phaseCode, bool selected)
+    {
+        if (selected)
+        {
+            if (!row.PhaseCodes.Contains(phaseCode, StringComparer.OrdinalIgnoreCase))
+            {
+                row.PhaseCodes.Add(phaseCode);
+            }
+        }
+        else
+        {
+            row.PhaseCodes.RemoveAll(c => string.Equals(c, phaseCode, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private void ApplyPhasesToAll()
+    {
+        if (_editing is null || _editing.PanelSubtestAssignments.Count == 0) return;
+        var source = _editing.PanelSubtestAssignments[0].PhaseCodes.ToList();
+        foreach (var row in _editing.PanelSubtestAssignments)
+        {
+            row.PhaseCodes = source.ToList();
+        }
+    }
+
     private void LoadDefaultAboRhSubtests()
     {
         if (_editing is null) return;
@@ -545,14 +680,20 @@
         public string SubtestCode { get; set; } = string.Empty;
         public bool Required { get; set; }
         public int SortOrder { get; set; }
+        public List<string> PhaseCodes { get; set; } = new();
     }
 
     private sealed class LogicRow
     {
         public string InterpretationKey { get; set; } = string.Empty;
         public string Label { get; set; } = string.Empty;
+        public InterpretationMatchMode MatchMode { get; set; } = InterpretationMatchMode.AllMatch;
         public Dictionary<string, ReactionPolarity> Expectations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
+
+    private sealed record LogicColumn(string Key, string SubtestCode, string PhaseCode, string Header);
+
+    private sealed record LogicColumnGroup(string SubtestCode, IReadOnlyList<string> Phases);
 
     private sealed class EditModel
     {
@@ -589,12 +730,16 @@
             AllowedResultValues = t.AllowedResultValues,
             PanelSubtestAssignments = t.PanelSubtestAssignments.Select(s => new AssignmentRow
             {
-                SubtestCode = s.SubtestCode, Required = s.Required, SortOrder = s.SortOrder
+                SubtestCode = s.SubtestCode,
+                Required = s.Required,
+                SortOrder = s.SortOrder,
+                PhaseCodes = (s.PhaseCodes ?? Array.Empty<string>()).ToList()
             }).ToList(),
             InterpretationLogic = t.InterpretationLogic.Select(r => new LogicRow
             {
                 InterpretationKey = r.InterpretationKey,
                 Label = r.Label,
+                MatchMode = r.MatchMode,
                 Expectations = new Dictionary<string, ReactionPolarity>(r.SubtestExpectations, StringComparer.OrdinalIgnoreCase)
             }).ToList(),
             RequiredSpecimenType = t.RequiredSpecimenType,
@@ -609,9 +754,9 @@
 
         public SaveTestDefinitionRequest ToRequest(string? reason) => new(
             Code, Name, Category, ResultValueType, AllowedResultValues,
-            PanelSubtestAssignments.Select(s => new PanelSubtestAssignmentDto(s.SubtestCode, s.Required, s.SortOrder)).ToList(),
+            PanelSubtestAssignments.Select(s => new PanelSubtestAssignmentDto(s.SubtestCode, s.Required, s.SortOrder, s.PhaseCodes)).ToList(),
             InterpretationLogic.Select(r => new InterpretationLogicRowDto(
-                r.InterpretationKey, r.Label, r.Expectations)).ToList(),
+                r.InterpretationKey, r.Label, r.Expectations, r.MatchMode)).ToList(),
             RequiredSpecimenType, TestingMethod, PerformingDepartment, SortOrder, Billable, ChargeCodeMapping,
             VerificationRequired, ContributesToAboRhHistory, ContributesToAntibodyHistory, ContributesToCompatibility,
             BloodAttributeScopeCodes,

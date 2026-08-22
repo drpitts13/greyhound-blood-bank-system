@@ -22,9 +22,11 @@ public class AdminConfigTests : IClassFixture<SqliteContextFactory>
         var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser, env);
         var history = new ConfigurationHistoryWriter(context, _factory.Clock, _factory.CurrentUser, env);
         var subtestRepo = new EfRepository<SubtestDefinition>(context);
+        var phaseRepo = new EfRepository<PhaseDefinition>(context);
         return new TestDefinitionAdminService(
             repo,
             subtestRepo,
+            phaseRepo,
             new EfRepository<BloodAttributeDefinition>(context),
             new EfRepository<SpecimenTypeDefinition>(context),
             context,

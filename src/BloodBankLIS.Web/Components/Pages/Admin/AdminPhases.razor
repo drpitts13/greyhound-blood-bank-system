@@ -1,0 +1,254 @@
+@page "/admin/phases"
+@using BloodBankLIS.Application.Admin
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Phases &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Phase Definitions</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New phase</button>
+    }
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code or name" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (Filtered.Count == 0)
+    {
+        <div class="empty">No phase definitions.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Order</th><th>Interpretation</th><th>Check cell</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var p in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@p.Code</td>
+                        <td>@p.Name</td>
+                        <td>@p.SortOrder</td>
+                        <td>@(p.IncludeInInterpretation ? "Yes" : "No")</td>
+                        <td>@(p.IsCheckCell ? (string.IsNullOrWhiteSpace(p.ValidatesPhaseCode) ? "Yes" : $"Yes → {p.ValidatesPhaseCode}") : "No")</td>
+                        <td>@p.Version</td>
+                        <td>@StatusBadge(p)</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(p.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(p.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New phase" : $"Edit: {_editing.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input @bind="_editing.Code" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
+            <div class="field"><label>Sort order</label><input type="number" @bind="_editing.SortOrder" /></div>
+        </div>
+        <div class="flex gap" style="margin-top:.6rem;">
+            <label class="flex" style="gap:.35rem;">
+                <input type="checkbox" @bind="_editing.IncludeInInterpretation" disabled="@_editing.IsCheckCell" /> Include in interpretation
+            </label>
+            <label class="flex" style="gap:.35rem;">
+                <input type="checkbox" @bind="_editing.IsCheckCell" @bind:after="OnCheckCellChanged" /> Check cell
+            </label>
+        </div>
+        @if (_editing.IsCheckCell)
+        {
+            <div class="field" style="margin-top:.6rem;"><label>Validates phase</label>
+                <input class="mono" @bind="_editing.ValidatesPhaseCode" placeholder="AHG" />
+            </div>
+        }
+
+        <div class="field"><label>Change reason @(EditingActive ? "(required)" : "(optional)")</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && CanActivate)
+            {
+                @if (!_currentIsActive)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ActivateAsync">Activate</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DeactivateAsync">Deactivate</button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_history is not null)
+{
+    <ConfigHistoryPanel Title="@($"History: {_historyTitle}")" Rows="_history" OnClose="() => _history = null" />
+}
+
+@code {
+    private List<PhaseDefinitionDto> _items = new();
+    private bool _loading = true;
+    private bool _includeInactive = true;
+    private string _filter = string.Empty;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private bool _currentIsActive;
+    private string? _changeReason;
+
+    private List<ConfigHistoryDto>? _history;
+    private string _historyTitle = string.Empty;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminTestsManage);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private bool EditingActive => _currentIsActive;
+
+    private List<PhaseDefinitionDto> Filtered => string.IsNullOrWhiteSpace(_filter)
+        ? _items
+        : _items.Where(p => p.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || p.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminPhasesAsync(_includeInactive);
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _currentIsActive = false;
+        _changeReason = null;
+        _editing = new EditModel { IncludeInInterpretation = true };
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminPhaseAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = r.Value.Id;
+        _currentIsActive = r.Value.IsActive;
+        _changeReason = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null
+            ? await Api.CreateAdminPhaseAsync(req)
+            : await Api.UpdateAdminPhaseAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Draft created." : "Saved.");
+        if (r.Succeeded)
+        {
+            _editId = r.Value!.Id;
+            _currentIsActive = r.Value.IsActive;
+            await LoadAsync();
+        }
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ActivateAdminPhaseAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Activated.");
+        if (r.Succeeded) { _currentIsActive = true; await LoadAsync(); }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAdminPhaseAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Deactivated.");
+        if (r.Succeeded) { _currentIsActive = false; await LoadAsync(); }
+    }
+
+    private async Task ShowHistoryAsync(long id)
+    {
+        var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.PhaseDefinition), id);
+        _history = r.Value ?? new();
+        _historyTitle = _items.FirstOrDefault(p => p.Id == id)?.Code ?? id.ToString();
+    }
+
+    private void OnCheckCellChanged()
+    {
+        if (_editing is null) return;
+        if (_editing.IsCheckCell)
+        {
+            _editing.IncludeInInterpretation = false;
+            if (string.IsNullOrWhiteSpace(_editing.ValidatesPhaseCode))
+            {
+                _editing.ValidatesPhaseCode = "AHG";
+            }
+        }
+    }
+
+    private static RenderFragment StatusBadge(PhaseDefinitionDto p) => builder =>
+    {
+        var (cls, text) = p.IsActive ? ("badge-green", "Active") : p.IsDraft ? ("badge-gray", "Draft") : ("badge-amber", "Inactive");
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", $"badge {cls}");
+        builder.AddContent(2, text);
+        builder.CloseElement();
+    };
+
+    private sealed class EditModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int SortOrder { get; set; }
+        public bool IncludeInInterpretation { get; set; } = true;
+        public bool IsCheckCell { get; set; }
+        public string? ValidatesPhaseCode { get; set; }
+
+        public static EditModel From(PhaseDefinitionDto p) => new()
+        {
+            Code = p.Code,
+            Name = p.Name,
+            SortOrder = p.SortOrder,
+            IncludeInInterpretation = p.IncludeInInterpretation,
+            IsCheckCell = p.IsCheckCell,
+            ValidatesPhaseCode = p.ValidatesPhaseCode
+        };
+
+        public SavePhaseDefinitionRequest ToRequest(string? reason) => new(
+            Code, Name, SortOrder, IncludeInInterpretation, IsCheckCell, ValidatesPhaseCode, reason);
+    }
+}

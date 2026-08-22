@@ -93,6 +93,7 @@ public static class DependencyInjection
         services.AddScoped<BloodAttributeAdminService>();
         services.AddScoped<SpecimenTypeAdminService>();
         services.AddScoped<SubtestDefinitionAdminService>();
+        services.AddScoped<PhaseDefinitionAdminService>();
         services.AddScoped<TestGrouperAdminService>();
         services.AddScoped<ReflexRuleAdminService>();
         services.AddScoped<RuleDefinitionAdminService>();

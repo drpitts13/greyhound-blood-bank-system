@@ -7,7 +7,8 @@ namespace BloodBankLIS.Domain.ValueObjects;
 public sealed record InterpretationLogicRow(
     string InterpretationKey,
     string Label,
-    IReadOnlyDictionary<string, ReactionPolarity> SubtestExpectations);
+    IReadOnlyDictionary<string, ReactionPolarity> SubtestExpectations,
+    InterpretationMatchMode MatchMode = InterpretationMatchMode.AllMatch);
 
 public static class InterpretationLogicDefinitions
 {
@@ -46,7 +47,8 @@ public static class InterpretationLogicDefinitions
             return items.Select(i => new InterpretationLogicRow(
                 i.InterpretationKey ?? string.Empty,
                 i.Label ?? string.Empty,
-                i.SubtestExpectations ?? new Dictionary<string, ReactionPolarity>(StringComparer.OrdinalIgnoreCase)))
+                i.SubtestExpectations ?? new Dictionary<string, ReactionPolarity>(StringComparer.OrdinalIgnoreCase),
+                i.MatchMode ?? InterpretationMatchMode.AllMatch))
                 .ToList();
         }
         catch (JsonException)
@@ -58,6 +60,29 @@ public static class InterpretationLogicDefinitions
     public static string BuildAboRhKey(AboGroup abo, RhType rh) => $"{abo}|{rh}";
 
     /// <summary>Standard ABO/Rh logic rows using the Type O Positive reaction pattern as template.</summary>
+    public static IReadOnlyList<InterpretationLogicRow> DefaultAntibodyScreenLogic(
+        IReadOnlyList<string> cellCodes,
+        IReadOnlyList<string> interpretivePhaseCodes)
+    {
+        var negative = new Dictionary<string, ReactionPolarity>(StringComparer.OrdinalIgnoreCase);
+        var positive = new Dictionary<string, ReactionPolarity>(StringComparer.OrdinalIgnoreCase);
+        foreach (var cell in cellCodes)
+        {
+            foreach (var phase in interpretivePhaseCodes)
+            {
+                var key = PhaseResultKeys.Compose(cell, phase);
+                negative[key] = ReactionPolarity.Negative;
+                positive[key] = ReactionPolarity.Positive;
+            }
+        }
+
+        return
+        [
+            new InterpretationLogicRow("Negative", "Negative", negative, InterpretationMatchMode.AllMatch),
+            new InterpretationLogicRow("Positive", "Positive", positive, InterpretationMatchMode.AnyPositive)
+        ];
+    }
+
     public static IReadOnlyList<InterpretationLogicRow> DefaultAboRhLogic()
     {
         var rows = new List<InterpretationLogicRow>();
@@ -99,5 +124,6 @@ public static class InterpretationLogicDefinitions
         public string? InterpretationKey { get; set; }
         public string? Label { get; set; }
         public Dictionary<string, ReactionPolarity>? SubtestExpectations { get; set; }
+        public InterpretationMatchMode? MatchMode { get; set; }
     }
 }

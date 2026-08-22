@@ -38,6 +38,7 @@ public sealed class ResultService
     private readonly IAuditWriter _audit;
     private readonly IRepository<TestDefinition>? _testDefinitions;
     private readonly IRepository<SubtestDefinition>? _subtestDefinitions;
+    private readonly IRepository<PhaseDefinition>? _phaseDefinitions;
     private readonly IRepository<AntibodyHistory>? _antibodies;
     private readonly IRepository<AntigenProfile>? _antigenProfiles;
     private readonly IRepository<BloodAttributeDefinition>? _bloodAttributes;
@@ -76,7 +77,8 @@ public sealed class ResultService
         IRepository<ReflexRule>? reflexRules = null,
         RuleEngineService? ruleEngine = null,
         IRepository<Allocation>? allocations = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IRepository<PhaseDefinition>? phaseDefinitions = null)
     {
         _ruleEngine = ruleEngine;
         _allocations = allocations;
@@ -94,6 +96,7 @@ public sealed class ResultService
         _audit = audit;
         _testDefinitions = testDefinitions;
         _subtestDefinitions = subtestDefinitions;
+        _phaseDefinitions = phaseDefinitions;
         _antibodies = antibodies;
         _antigenProfiles = antigenProfiles;
         _bloodAttributes = bloodAttributes;
@@ -418,10 +421,36 @@ public sealed class ResultService
         }
 
         var logicRows = InterpretationLogicDefinitions.Parse(def.InterpretationLogicJson);
-        var catalogItems = await _subtestDefinitions.ListAsync(s => s.IsActive && !s.IsDraft, ct);
-        var catalog = catalogItems.ToDictionary(s => s.Code, StringComparer.OrdinalIgnoreCase);
+        var catalog = await LoadActiveSubtestCatalogAsync(ct);
+        var phases = await LoadActivePhasesAsync(ct);
 
-        return InterpretationLogicValidator.Validate(logicRows, catalog, interpretationKey, subtests);
+        return InterpretationLogicValidator.Validate(logicRows, catalog, interpretationKey, subtests, phases);
+    }
+
+    private async Task<Dictionary<string, SubtestDefinition>> LoadActiveSubtestCatalogAsync(CancellationToken ct)
+    {
+        if (_subtestDefinitions is null)
+        {
+            return new Dictionary<string, SubtestDefinition>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var items = await _subtestDefinitions.ListAsync(s => s.IsActive && !s.IsDraft, ct);
+        return items
+            .GroupBy(s => s.Code, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(s => s.Version).First(), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private async Task<Dictionary<string, PhaseDefinition>> LoadActivePhasesAsync(CancellationToken ct)
+    {
+        if (_phaseDefinitions is null)
+        {
+            return new Dictionary<string, PhaseDefinition>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var items = await _phaseDefinitions.ListAsync(p => p.IsActive && !p.IsDraft, ct);
+        return items
+            .GroupBy(p => p.Code, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.Version).First(), StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -583,20 +612,26 @@ public sealed class ResultService
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(result.TestCode) || string.IsNullOrWhiteSpace(result.Value))
+        if (string.IsNullOrWhiteSpace(result.TestCode))
         {
             return;
         }
 
         var triggerCode = result.TestCode.Trim().ToUpperInvariant();
-        var resultValue = result.Value.Trim();
+        var resultValue = result.Value?.Trim() ?? string.Empty;
+        var interpretation = ResultInterpretation.Resolve(result.Interpretation, result.Value)?.Trim() ?? string.Empty;
 
         var rules = await _reflexRules.ListAsync(
             r => r.IsActive && !r.IsDraft && r.TriggerTestCode == triggerCode,
             ct);
 
         var matches = rules
-            .Where(r => string.Equals(r.TriggerResultValue.Trim(), resultValue, StringComparison.OrdinalIgnoreCase))
+            .Where(r =>
+            {
+                var trigger = r.TriggerResultValue.Trim();
+                return string.Equals(trigger, interpretation, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(trigger, resultValue, StringComparison.OrdinalIgnoreCase);
+            })
             .ToList();
         if (matches.Count == 0)
         {
@@ -964,6 +999,29 @@ public sealed class ResultService
             if (hasLogic && string.IsNullOrWhiteSpace(request.Interpretation))
             {
                 return OperationResult<(string, string?, string?)>.Fail("Interpretation is required for this subtest panel.");
+            }
+
+            if (subtestDef is not null)
+            {
+                var assignments = PanelSubtestAssignments.Parse(subtestDef.PanelSubtestsJson);
+                var phases = await LoadActivePhasesAsync(ct);
+                var requiredEval = PanelPhaseEntryValidator.ValidateRequired(assignments, phases, request.Subtests);
+                if (requiredEval.IsHardStopped)
+                {
+                    return OperationResult<(string, string?, string?)>.Fail(
+                        string.Join("; ", requiredEval.HardStops.Select(h => h.Message)));
+                }
+
+                if (_subtestDefinitions is not null)
+                {
+                    var catalog = await LoadActiveSubtestCatalogAsync(ct);
+                    var qcEval = CheckCellQcValidator.Validate(assignments, phases, catalog, request.Subtests);
+                    if (qcEval.IsHardStopped)
+                    {
+                        return OperationResult<(string, string?, string?)>.Fail(
+                            string.Join("; ", qcEval.HardStops.Select(h => h.Message)));
+                    }
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(request.Interpretation))

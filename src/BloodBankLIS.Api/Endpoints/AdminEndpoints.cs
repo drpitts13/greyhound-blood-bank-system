@@ -18,6 +18,7 @@ public static class AdminEndpoints
         MapBloodAttributes(app);
         MapSpecimenTypes(app);
         MapSubtests(app);
+        MapPhases(app);
         MapTestGroupers(app);
         MapReflexRules(app);
         MapRules(app);
@@ -156,6 +157,37 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
         group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, SubtestDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.From(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapPhases(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/phases").WithTags("Admin: Phases").RequireAuthenticatedUser();
+
+        group.MapGet("", async (PhaseDefinitionAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, PhaseDefinitionAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Phase definition not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SavePhaseDefinitionRequest req, PhaseDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminTestsManage);
+
+        group.MapPut("/{id:long}", async (long id, SavePhaseDefinitionRequest req, PhaseDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminTestsManage);
+
+        group.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, PhaseDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ActivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, PhaseDefinitionAdminService svc, CancellationToken ct) =>
             EndpointResults.From(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }

@@ -9,7 +9,18 @@ namespace BloodBankLIS.Domain.ValueObjects;
 public sealed record PanelSubtestAssignment(
     string SubtestCode,
     bool Required,
-    int SortOrder = 0);
+    int SortOrder = 0,
+    IReadOnlyList<string>? PhaseCodes = null);
+
+/// <summary>Resolved phase for result entry (catalog joined with assignment).</summary>
+public sealed record ResolvedPanelPhase(
+    string PhaseCode,
+    string Label,
+    bool Required,
+    bool IncludeInInterpretation,
+    bool IsCheckCell,
+    string? ValidatesPhaseCode,
+    int SortOrder);
 
 /// <summary>Resolved subtest for result entry (catalog joined with assignment).</summary>
 public sealed record ResolvedPanelSubtest(
@@ -18,7 +29,8 @@ public sealed record ResolvedPanelSubtest(
     SubtestResultType ResultType,
     IReadOnlyList<SubtestChoiceDefinition> Choices,
     bool Required,
-    int SortOrder);
+    int SortOrder,
+    IReadOnlyList<ResolvedPanelPhase>? Phases = null);
 
 public static class PanelSubtestAssignments
 {
@@ -61,14 +73,14 @@ public static class PanelSubtestAssignments
                     var code = subtestCodeProp.GetString() ?? string.Empty;
                     var required = el.TryGetProperty("required", out var req) && req.GetBoolean();
                     var sort = el.TryGetProperty("sortOrder", out var so) ? so.GetInt32() : 0;
-                    results.Add(new PanelSubtestAssignment(code, required, sort));
+                    results.Add(new PanelSubtestAssignment(code, required, sort, ReadPhaseCodes(el)));
                 }
                 else if (el.TryGetProperty("code", out var codeProp))
                 {
                     var code = codeProp.GetString() ?? string.Empty;
                     var required = el.TryGetProperty("required", out var req) && req.GetBoolean();
                     var sort = el.TryGetProperty("sortOrder", out var so) ? so.GetInt32() : 0;
-                    results.Add(new PanelSubtestAssignment(code, required, sort));
+                    results.Add(new PanelSubtestAssignment(code, required, sort, ReadPhaseCodes(el)));
                 }
             }
 
@@ -82,10 +94,25 @@ public static class PanelSubtestAssignments
         }
     }
 
+    private static IReadOnlyList<string>? ReadPhaseCodes(JsonElement el)
+    {
+        if (!el.TryGetProperty("phaseCodes", out var phases) || phases.ValueKind != JsonValueKind.Array)
+        {
+            return null;
+        }
+
+        var codes = phases.EnumerateArray()
+            .Select(p => p.GetString()?.Trim() ?? string.Empty)
+            .Where(c => c.Length > 0)
+            .ToList();
+        return codes.Count == 0 ? null : codes;
+    }
+
     public static IReadOnlyList<ResolvedPanelSubtest> ResolveForEntry(
         string? panelSubtestsJson,
         IReadOnlyDictionary<string, SubtestDefinition> catalogByCode,
-        bool useAboRhDefaultsWhenEmpty)
+        bool useAboRhDefaultsWhenEmpty,
+        IReadOnlyDictionary<string, PhaseDefinition>? phasesByCode = null)
     {
         var assignments = Parse(panelSubtestsJson);
         if (assignments.Count == 0 && useAboRhDefaultsWhenEmpty)
@@ -111,7 +138,8 @@ public static class PanelSubtestAssignments
                     SubtestResultType.GradedReaction,
                     SubtestChoiceDefinitions.DefaultGradedReaction(),
                     a.Required,
-                    a.SortOrder));
+                    a.SortOrder,
+                    ResolvePhases(a, phasesByCode)));
                 continue;
             }
 
@@ -130,9 +158,56 @@ public static class PanelSubtestAssignments
                 def.ResultType,
                 choices,
                 a.Required,
-                a.SortOrder));
+                a.SortOrder,
+                ResolvePhases(a, phasesByCode)));
         }
 
         return resolved.OrderBy(r => r.SortOrder).ThenBy(r => r.SubtestCode).ToList();
+    }
+
+    private static IReadOnlyList<ResolvedPanelPhase> ResolvePhases(
+        PanelSubtestAssignment assignment,
+        IReadOnlyDictionary<string, PhaseDefinition>? phasesByCode)
+    {
+        if (assignment.PhaseCodes is not { Count: > 0 })
+        {
+            return Array.Empty<ResolvedPanelPhase>();
+        }
+
+        var resolved = new List<ResolvedPanelPhase>();
+        var order = 0;
+        foreach (var raw in assignment.PhaseCodes)
+        {
+            var code = raw.Trim();
+            if (code.Length == 0)
+            {
+                continue;
+            }
+
+            order++;
+            if (phasesByCode is not null && phasesByCode.TryGetValue(code, out var def))
+            {
+                resolved.Add(new ResolvedPanelPhase(
+                    def.Code,
+                    def.Name,
+                    Required: assignment.Required && def.IncludeInInterpretation && !def.IsCheckCell,
+                    def.IncludeInInterpretation,
+                    def.IsCheckCell,
+                    def.ValidatesPhaseCode,
+                    def.SortOrder != 0 ? def.SortOrder : order));
+                continue;
+            }
+
+            resolved.Add(new ResolvedPanelPhase(
+                code,
+                code,
+                Required: assignment.Required,
+                IncludeInInterpretation: true,
+                IsCheckCell: false,
+                ValidatesPhaseCode: null,
+                order));
+        }
+
+        return resolved.OrderBy(p => p.SortOrder).ThenBy(p => p.PhaseCode).ToList();
     }
 }

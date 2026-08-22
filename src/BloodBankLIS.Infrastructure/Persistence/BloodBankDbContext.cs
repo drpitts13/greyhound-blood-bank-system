@@ -85,6 +85,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<SpecimenTypeDefinition> SpecimenTypeDefinitions => Set<SpecimenTypeDefinition>();
     public DbSet<TestDefinition> TestDefinitions => Set<TestDefinition>();
     public DbSet<SubtestDefinition> SubtestDefinitions => Set<SubtestDefinition>();
+    public DbSet<PhaseDefinition> PhaseDefinitions => Set<PhaseDefinition>();
     public DbSet<TestGrouper> TestGroupers => Set<TestGrouper>();
     public DbSet<ReflexRule> ReflexRules => Set<ReflexRule>();
     public DbSet<RuleDefinition> RuleDefinitions => Set<RuleDefinition>();

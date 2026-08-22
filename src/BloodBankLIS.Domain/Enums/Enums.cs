@@ -552,6 +552,15 @@ public enum ReactionPolarity
 }
 
 /// <summary>
+/// How an interpretation logic row compares entered cell/phase reactions.
+/// </summary>
+public enum InterpretationMatchMode
+{
+    AllMatch = 0,
+    AnyPositive = 1
+}
+
+/// <summary>
 /// Which workflow stage a configurable <c>RuleDefinition</c> is evaluated at.
 /// Order rules run when an order is created or updated; test rules run when a
 /// result is verified. See docs/safety-rules.md.

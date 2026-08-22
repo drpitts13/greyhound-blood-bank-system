@@ -194,7 +194,7 @@ public sealed class TestResultConfiguration : IEntityTypeConfiguration<TestResul
         b.ToTable("TestResults");
         b.HasKey(r => r.Id);
         b.Property(r => r.TestCode).HasMaxLength(50).IsRequired();
-        b.Property(r => r.Value).HasMaxLength(500);
+        b.Property(r => r.Value).HasMaxLength(4000);
         b.Property(r => r.Units).HasMaxLength(50);
         b.Property(r => r.Interpretation).HasMaxLength(500);
         b.Property(r => r.EnteredBy).HasMaxLength(100);
@@ -916,6 +916,24 @@ public sealed class SubtestDefinitionConfiguration : IEntityTypeConfiguration<Su
         b.Property(s => s.ModifiedBy).HasMaxLength(100);
 
         b.HasIndex(s => s.Code);
+    }
+}
+
+public sealed class PhaseDefinitionConfiguration : IEntityTypeConfiguration<PhaseDefinition>
+{
+    public void Configure(EntityTypeBuilder<PhaseDefinition> b)
+    {
+        b.ToTable("PhaseDefinitions");
+        b.HasKey(p => p.Id);
+        b.Property(p => p.Code).HasMaxLength(50).IsRequired();
+        b.Property(p => p.Name).HasMaxLength(200).IsRequired();
+        b.Property(p => p.ValidatesPhaseCode).HasMaxLength(50);
+        b.Property(p => p.ChangeReason).HasMaxLength(1000);
+        b.Property(p => p.ApprovedBy).HasMaxLength(100);
+        b.Property(p => p.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(p => p.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(p => p.Code);
     }
 }
 

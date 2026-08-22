@@ -19,7 +19,8 @@ public static class TestDefinitionValidator
         bool duplicateActiveCode,
         IReadOnlySet<string>? activeSubtestCodes = null,
         IReadOnlySet<string>? activeBloodAttributeCodes = null,
-        IReadOnlySet<string>? activeSpecimenTypeCodes = null)
+        IReadOnlySet<string>? activeSpecimenTypeCodes = null,
+        IReadOnlyDictionary<string, PhaseDefinition>? phasesByCode = null)
     {
         var results = new List<RuleResult>();
 
@@ -70,16 +71,70 @@ public static class TestDefinitionValidator
                 }
             }
 
+            if (phasesByCode is not null)
+            {
+                foreach (var assignment in assignments)
+                {
+                    foreach (var raw in assignment.PhaseCodes ?? Array.Empty<string>())
+                    {
+                        var phaseCode = raw.Trim();
+                        if (phaseCode.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        if (!phasesByCode.ContainsKey(phaseCode))
+                        {
+                            results.Add(RuleResult.HardStop("TESTDEF.PANEL.PHASE.MISSING",
+                                $"Panel subtest '{assignment.SubtestCode}' references phase '{phaseCode}' which is not in the active phase catalog."));
+                        }
+                    }
+                }
+            }
+
             var logicRows = InterpretationLogicDefinitions.Parse(d.InterpretationLogicJson);
             var assignedCodes = assignments.Select(a => a.SubtestCode.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var assignedPhasesBySubtest = assignments.ToDictionary(
+                a => a.SubtestCode.Trim(),
+                a => (a.PhaseCodes ?? Array.Empty<string>())
+                    .Select(p => p.Trim())
+                    .Where(p => p.Length > 0)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
+
             foreach (var row in logicRows)
             {
-                foreach (var subtestCode in row.SubtestExpectations.Keys)
+                foreach (var expectationKey in row.SubtestExpectations.Keys)
                 {
-                    if (!assignedCodes.Contains(subtestCode))
+                    if (PhaseResultKeys.TrySplit(expectationKey, out var subtestCode, out var phaseCode))
+                    {
+                        if (!assignedCodes.Contains(subtestCode))
+                        {
+                            results.Add(RuleResult.HardStop("TESTDEF.LOGIC.SUBTEST.UNASSIGNED",
+                                $"Logic row '{row.Label}' references unassigned subtest '{subtestCode}'."));
+                            continue;
+                        }
+
+                        if (assignedPhasesBySubtest.TryGetValue(subtestCode, out var phases)
+                            && phases.Count > 0
+                            && !phases.Contains(phaseCode))
+                        {
+                            results.Add(RuleResult.HardStop("TESTDEF.LOGIC.PHASE.UNASSIGNED",
+                                $"Logic row '{row.Label}' references phase '{phaseCode}' not assigned to '{subtestCode}'."));
+                        }
+
+                        if (phasesByCode is not null
+                            && phasesByCode.TryGetValue(phaseCode, out var phase)
+                            && (phase.IsCheckCell || !phase.IncludeInInterpretation))
+                        {
+                            results.Add(RuleResult.HardStop("TESTDEF.LOGIC.PHASE.CHECKCELL",
+                                $"Logic row '{row.Label}' cannot reference check-cell phase '{phaseCode}'."));
+                        }
+                    }
+                    else if (!assignedCodes.Contains(expectationKey))
                     {
                         results.Add(RuleResult.HardStop("TESTDEF.LOGIC.SUBTEST.UNASSIGNED",
-                            $"Logic row '{row.Label}' references unassigned subtest '{subtestCode}'."));
+                            $"Logic row '{row.Label}' references unassigned subtest '{expectationKey}'."));
                     }
                 }
             }
@@ -212,6 +267,47 @@ public static class SpecimenTypeDefinitionValidator
                     results.Add(RuleResult.HardStop("SPECTYPE.EXCLUDED.TEST.MISSING",
                         $"Excluded test '{code}' is not in the active test catalog."));
                 }
+            }
+        }
+
+        return new RuleEvaluation(results);
+    }
+}
+
+public static class PhaseDefinitionValidator
+{
+    public static RuleEvaluation Validate(PhaseDefinition p, bool duplicateActiveCode)
+    {
+        var results = new List<RuleResult>();
+
+        if (string.IsNullOrWhiteSpace(p.Code))
+        {
+            results.Add(RuleResult.HardStop("PHASE.CODE.REQUIRED", "Phase code is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(p.Name))
+        {
+            results.Add(RuleResult.HardStop("PHASE.NAME.REQUIRED", "Phase name is required."));
+        }
+
+        if (duplicateActiveCode)
+        {
+            results.Add(RuleResult.HardStop("PHASE.CODE.DUPLICATE",
+                $"Another active phase already uses code '{p.Code}'."));
+        }
+
+        if (p.IsCheckCell)
+        {
+            if (p.IncludeInInterpretation)
+            {
+                results.Add(RuleResult.HardStop("PHASE.CHECKCELL.INTERP",
+                    "Check-cell phases cannot be included in interpretation."));
+            }
+
+            if (string.IsNullOrWhiteSpace(p.ValidatesPhaseCode))
+            {
+                results.Add(RuleResult.Warning("PHASE.CHECKCELL.VALIDATES",
+                    "Check-cell phases should specify which phase they validate (typically AHG)."));
             }
         }
 

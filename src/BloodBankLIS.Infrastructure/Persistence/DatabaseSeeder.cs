@@ -30,11 +30,13 @@ public static partial class DatabaseSeeder
         await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
         await SeedSpecimenTypeDefinitionsAsync(context, cancellationToken);
         await SeedSubtestDefinitionsAsync(context, cancellationToken);
+        await SeedPhaseDefinitionsAsync(context, cancellationToken);
         await SeedTestDefinitionsAsync(context, cancellationToken);
         await EnsureAgtypeTestAsync(context, cancellationToken);
         await EnsureWeakDTestAsync(context, cancellationToken);
         await EnsureNeonatalTypeAndScreenTestAsync(context, cancellationToken);
         await EnsureCrossmatchTestsAsync(context, cancellationToken);
+        await EnsureAbscPanelAsync(context, cancellationToken);
         await MigrateExistingTestPanelConfigAsync(context, cancellationToken);
         await SeedTestGroupersAsync(context, cancellationToken);
         await SeedReflexRulesAsync(context, cancellationToken);
@@ -827,9 +829,43 @@ public static partial class DatabaseSeeder
             Sub("AHG", "AHG"),
             Sub("CC", "Check cells", required: false),
             Sub("PEG", "PEG", required: false),
-            Sub("ENZ", "Enzyme", required: false));
+            Sub("ENZ", "Enzyme", required: false),
+            Sub("Cell1", "Screening cell 1"),
+            Sub("Cell2", "Screening cell 2"),
+            Sub("Cell3", "Screening cell 3"));
 
         await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedPhaseDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.PhaseDefinitions.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        context.PhaseDefinitions.AddRange(
+            Phase("IS", "Immediate spin", 1),
+            Phase("37C", "37°C", 2),
+            Phase("AHG", "AHG", 3),
+            Phase("CC", "Check cells", 4, includeInInterpretation: false, isCheckCell: true, validates: "AHG"));
+        await context.SaveChangesAsync(ct);
+
+        PhaseDefinition Phase(string code, string name, int sort, bool includeInInterpretation = true,
+            bool isCheckCell = false, string? validates = null) => new()
+        {
+            Code = code,
+            Name = name,
+            SortOrder = sort,
+            IncludeInInterpretation = includeInInterpretation,
+            IsCheckCell = isCheckCell,
+            ValidatesPhaseCode = validates,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1
+        };
     }
 
     private static async Task EnsureCrossmatchSubtestsAsync(BloodBankDbContext context, CancellationToken ct)
@@ -922,7 +958,7 @@ public static partial class DatabaseSeeder
 
         context.TestDefinitions.AddRange(
             aboRh,
-            Def("ABSC", "Antibody Screen", TestCategory.AntibodyScreen, ResultValueType.Coded, antibody: true, compatibility: true, allowed: "Negative\nPositive", billable: true, charge: "BB-SCREEN"),
+            CreateAntibodyScreenDefinition(now),
             Def("ABID", "Antibody Identification", TestCategory.AntibodyIdentification, ResultValueType.FreeText, antibody: true, compatibility: true),
             xm,
             cxm,
@@ -948,6 +984,150 @@ public static partial class DatabaseSeeder
             new PanelSubtestAssignment("ENZ", false, 5),
             new PanelSubtestAssignment("CC", false, 6)
         ])!;
+
+    private static readonly string[] AntibodyScreenCells = ["Cell1", "Cell2", "Cell3"];
+    private static readonly string[] AntibodyScreenPhases = ["IS", "37C", "AHG", "CC"];
+    private static readonly string[] AntibodyScreenInterpretivePhases = ["IS", "37C", "AHG"];
+
+    private static TestDefinition CreateAntibodyScreenDefinition(DateTime now)
+    {
+        return new TestDefinition
+        {
+            Code = "ABSC",
+            Name = "Antibody Screen",
+            Category = TestCategory.AntibodyScreen,
+            ResultValueType = ResultValueType.Subtest,
+            VerificationRequired = true,
+            ContributesToAntibodyHistory = true,
+            ContributesToCompatibility = true,
+            Billable = true,
+            ChargeCodeMapping = "BB-SCREEN",
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1,
+            PanelSubtestsJson = DefaultAntibodyScreenPanelJson(),
+            InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(
+                InterpretationLogicDefinitions.DefaultAntibodyScreenLogic(
+                    AntibodyScreenCells, AntibodyScreenInterpretivePhases))
+        };
+    }
+
+    private static string DefaultAntibodyScreenPanelJson() =>
+        PanelSubtestAssignments.ToJson(
+            AntibodyScreenCells.Select((code, i) =>
+                new PanelSubtestAssignment(code, true, i + 1, AntibodyScreenPhases)).ToList())!;
+
+    private static async Task EnsureAbscPanelAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await EnsureAntibodyScreenSubtestsAsync(context, ct);
+        await EnsurePhaseDefinitionsAsync(context, ct);
+
+        var now = DateTime.UtcNow;
+        var absc = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == "ABSC", ct);
+        if (absc is null)
+        {
+            context.TestDefinitions.Add(CreateAntibodyScreenDefinition(now));
+            await context.SaveChangesAsync(ct);
+            return;
+        }
+
+        var assignments = PanelSubtestAssignments.Parse(absc.PanelSubtestsJson);
+        var alreadyPhased = assignments.Any(a => a.PhaseCodes is { Count: > 0 });
+        if (absc.ResultValueType == ResultValueType.Subtest && alreadyPhased
+            && !string.IsNullOrWhiteSpace(absc.InterpretationLogicJson))
+        {
+            return;
+        }
+
+        absc.ResultValueType = ResultValueType.Subtest;
+        absc.AllowedResultValues = null;
+        absc.PanelSubtestsJson = DefaultAntibodyScreenPanelJson();
+        absc.InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(
+            InterpretationLogicDefinitions.DefaultAntibodyScreenLogic(
+                AntibodyScreenCells, AntibodyScreenInterpretivePhases));
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureAntibodyScreenSubtestsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var choicesJson = SubtestChoiceDefinitions.ToJson(SubtestChoiceDefinitions.DefaultGradedReaction());
+        var needed = new (string Code, string Name)[]
+        {
+            ("Cell1", "Screening cell 1"),
+            ("Cell2", "Screening cell 2"),
+            ("Cell3", "Screening cell 3")
+        };
+
+        var changed = false;
+        foreach (var (code, name) in needed)
+        {
+            if (await context.SubtestDefinitions.AnyAsync(s => s.Code == code, ct))
+            {
+                continue;
+            }
+
+            context.SubtestDefinitions.Add(new SubtestDefinition
+            {
+                Code = code,
+                Name = name,
+                ResultType = SubtestResultType.GradedReaction,
+                ChoicesJson = choicesJson,
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = now,
+                Version = 1
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    private static async Task EnsurePhaseDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+        var needed = new (string Code, string Name, int Sort, bool Interp, bool Check, string? Validates)[]
+        {
+            ("IS", "Immediate spin", 1, true, false, null),
+            ("37C", "37°C", 2, true, false, null),
+            ("AHG", "AHG", 3, true, false, null),
+            ("CC", "Check cells", 4, false, true, "AHG")
+        };
+
+        var changed = false;
+        foreach (var (code, name, sort, interp, check, validates) in needed)
+        {
+            if (await context.PhaseDefinitions.AnyAsync(p => p.Code == code, ct))
+            {
+                continue;
+            }
+
+            context.PhaseDefinitions.Add(new PhaseDefinition
+            {
+                Code = code,
+                Name = name,
+                SortOrder = sort,
+                IncludeInInterpretation = interp,
+                IsCheckCell = check,
+                ValidatesPhaseCode = validates,
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = now,
+                Version = 1
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
 
     /// <summary>
     /// Migrates legacy coded XM to Crossmatch result type with cell panel, and ensures CXM exists.

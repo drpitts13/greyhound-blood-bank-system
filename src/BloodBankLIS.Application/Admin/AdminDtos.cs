@@ -29,12 +29,46 @@ public sealed record SaveSubtestDefinitionRequest(
 public sealed record PanelSubtestAssignmentDto(
     string SubtestCode,
     bool Required,
-    int SortOrder = 0);
+    int SortOrder = 0,
+    IReadOnlyList<string>? PhaseCodes = null);
 
 public sealed record InterpretationLogicRowDto(
     string InterpretationKey,
     string Label,
-    IReadOnlyDictionary<string, ReactionPolarity> SubtestExpectations);
+    IReadOnlyDictionary<string, ReactionPolarity> SubtestExpectations,
+    InterpretationMatchMode MatchMode = InterpretationMatchMode.AllMatch);
+
+public sealed record PhaseDefinitionDto(
+    long Id,
+    string Code,
+    string Name,
+    int SortOrder,
+    bool IncludeInInterpretation,
+    bool IsCheckCell,
+    string? ValidatesPhaseCode,
+    int Version,
+    bool IsActive,
+    bool IsDraft,
+    DateTime? EffectiveUtc,
+    DateTime? RetiredUtc,
+    string? ChangeReason);
+
+public sealed record SavePhaseDefinitionRequest(
+    string Code,
+    string Name,
+    int SortOrder,
+    bool IncludeInInterpretation,
+    bool IsCheckCell,
+    string? ValidatesPhaseCode,
+    string? ChangeReason);
+
+public sealed record PhaseListItemDto(
+    string Code,
+    string Name,
+    int SortOrder,
+    bool IncludeInInterpretation,
+    bool IsCheckCell,
+    string? ValidatesPhaseCode);
 
 /// <summary>Legacy inline panel row; retained for backward-compatible API responses.</summary>
 public sealed record PanelSubtestDefinitionDto(

@@ -505,6 +505,27 @@ public sealed class BloodBankApiClient
         SendAsync<List<SpecimenTypeListItemDto>>(HttpMethod.Get, "api/reference/specimen-types", ct: ct);
 
     // ---- Admin: Subtests ----
+    public Task<ApiResult<List<PhaseDefinitionDto>>> GetAdminPhasesAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<PhaseDefinitionDto>>(HttpMethod.Get, $"api/admin/phases?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<PhaseDefinitionDto>> GetAdminPhaseAsync(long id, CancellationToken ct = default) =>
+        SendAsync<PhaseDefinitionDto>(HttpMethod.Get, $"api/admin/phases/{id}", ct: ct);
+
+    public Task<ApiResult<PhaseDefinitionDto>> CreateAdminPhaseAsync(SavePhaseDefinitionRequest req, CancellationToken ct = default) =>
+        SendAsync<PhaseDefinitionDto>(HttpMethod.Post, "api/admin/phases", req, ct);
+
+    public Task<ApiResult<PhaseDefinitionDto>> UpdateAdminPhaseAsync(long id, SavePhaseDefinitionRequest req, CancellationToken ct = default) =>
+        SendAsync<PhaseDefinitionDto>(HttpMethod.Put, $"api/admin/phases/{id}", req, ct);
+
+    public Task<ApiResult<PhaseDefinitionDto>> ActivateAdminPhaseAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<PhaseDefinitionDto>(HttpMethod.Post, $"api/admin/phases/{id}/activate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<PhaseDefinitionDto>> DeactivateAdminPhaseAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<PhaseDefinitionDto>(HttpMethod.Post, $"api/admin/phases/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<List<PhaseListItemDto>>> GetReferencePhasesAsync(CancellationToken ct = default) =>
+        SendAsync<List<PhaseListItemDto>>(HttpMethod.Get, "api/reference/phases", ct: ct);
+
     public Task<ApiResult<List<SubtestDefinitionDto>>> GetAdminSubtestsAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<SubtestDefinitionDto>>(HttpMethod.Get, $"api/admin/subtests?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
 

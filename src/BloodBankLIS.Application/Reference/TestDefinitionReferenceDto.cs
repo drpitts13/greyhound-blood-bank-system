@@ -17,13 +17,23 @@ public sealed record TestDefinitionForEntryDto(
 
 public sealed record InterpretationOptionDto(string Key, string Label);
 
+public sealed record ResolvedPanelPhaseDto(
+    string PhaseCode,
+    string Label,
+    bool Required,
+    bool IncludeInInterpretation,
+    bool IsCheckCell,
+    string? ValidatesPhaseCode,
+    int SortOrder);
+
 public sealed record ResolvedPanelSubtestDto(
     string SubtestCode,
     string Label,
     SubtestResultType ResultType,
     IReadOnlyList<SubtestChoiceDto> Choices,
     bool Required,
-    int SortOrder);
+    int SortOrder,
+    IReadOnlyList<ResolvedPanelPhaseDto>? Phases = null);
 
 public sealed record SubtestListItemDto(string Code, string Name, SubtestResultType ResultType);
 

@@ -34,6 +34,7 @@ public sealed class SqliteToSqlServerMigrator
         "SpecimenTypeDefinitions",
         "TestDefinitions",
         "SubtestDefinitions",
+        "PhaseDefinitions",
         "TestGroupers",
         "ReflexRules",
         "RuleDefinitions",
