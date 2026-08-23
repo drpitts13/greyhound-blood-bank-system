@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Modifications;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,7 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             new InventoryRepository(context),
             new EfRepository<ModificationRule>(context),
             new EfRepository<ProductType>(context),
+            new EfRepository<ExpirationModificationCode>(context),
             new EfRepository<UnitModification>(context),
             new EfRepository<UnitModificationUnit>(context),
             context,
@@ -39,15 +41,52 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         return (source.Id, target.Id);
     }
 
-    private async Task<long> CreateRuleAsync(long sourceProductId, long targetProductId, ModificationType type, string offset = "24H")
+    private async Task<long> CreateExpirationCodeAsync(
+        string code,
+        ExpirationRelativeTo relativeTo = ExpirationRelativeTo.ModificationDateTime)
     {
+        if (!ExpirationOffsetCode.TryParse(code, out var offset))
+        {
+            throw new ArgumentException($"Invalid offset code '{code}'.", nameof(code));
+        }
+
+        var storedCode = relativeTo == ExpirationRelativeTo.CollectionDateTime ? $"{code}-COL" : code;
+        await using var context = _factory.Create();
+        var existing = context.ExpirationModificationCodes.FirstOrDefault(c => c.Code == storedCode);
+        if (existing is not null)
+        {
+            return existing.Id;
+        }
+
+        var entity = new ExpirationModificationCode
+        {
+            Code = storedCode,
+            OffsetAmount = offset.Amount,
+            OffsetUnit = offset.Unit,
+            RelativeTo = relativeTo,
+            IsActive = true,
+            Version = 1
+        };
+        context.ExpirationModificationCodes.Add(entity);
+        await context.SaveChangesAsync();
+        return entity.Id;
+    }
+
+    private async Task<long> CreateRuleAsync(
+        long sourceProductId,
+        long targetProductId,
+        ModificationType type,
+        string offset = "24H",
+        ExpirationRelativeTo relativeTo = ExpirationRelativeTo.ModificationDateTime)
+    {
+        var codeId = await CreateExpirationCodeAsync(offset, relativeTo);
         await using var context = _factory.Create();
         var rule = new ModificationRule
         {
             SourceProductTypeId = sourceProductId,
             TargetProductTypeId = targetProductId,
             ModificationType = type,
-            ExpirationOffsetCode = offset,
+            ExpirationModificationCodeId = codeId,
             IsActive = true,
             Version = 1
         };
@@ -63,7 +102,8 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         AboGroup abo = AboGroup.O,
         RhType rh = RhType.Positive,
         DateTime? expiresUtc = null,
-        decimal? volume = null)
+        decimal? volume = null,
+        DateTime? collectedUtc = null)
     {
         await using var context = _factory.Create();
         var unit = new BloodUnit
@@ -74,7 +114,8 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             RhD = rh,
             ExpiresUtc = expiresUtc ?? _factory.Clock.UtcNow.AddDays(30),
             Status = status,
-            Volume = volume
+            Volume = volume,
+            CollectedUtc = collectedUtc
         };
         context.BloodUnits.Add(unit);
         await context.SaveChangesAsync();
@@ -405,5 +446,60 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         var resultHistory = await verifyService.GetHistoryAsync(resultUnitId);
         Assert.Single(resultHistory);
         Assert.Equal(sourceHistory[0].Id, resultHistory[0].Id);
+    }
+
+    [Fact]
+    public async Task ApplySingle_CollectionRelative_DatesFromCollection()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("COLREL");
+        var ruleId = await CreateRuleAsync(
+            sourceProductId, targetProductId, ModificationType.Leukoreduction, "10D", ExpirationRelativeTo.CollectionDateTime);
+        var collected = _factory.Clock.UtcNow.AddDays(-2);
+        var sourceId = await CreateUnitAsync(
+            "U-COLREL-SRC", sourceProductId, expiresUtc: _factory.Clock.UtcNow.AddDays(40), collectedUtc: collected);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "Collection dating"));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(collected.AddDays(10), result.ResultUnits!.Single().ExpiresUtc);
+    }
+
+    [Fact]
+    public async Task ApplySingle_CollectionRelativeMissingCollection_IsBlocked()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("COLMISS");
+        var ruleId = await CreateRuleAsync(
+            sourceProductId, targetProductId, ModificationType.Leukoreduction, "42D", ExpirationRelativeTo.CollectionDateTime);
+        var sourceId = await CreateUnitAsync("U-COLMISS-SRC", sourceProductId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "Missing collection"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == "MOD-COLLECTION-REQUIRED");
+    }
+
+    [Fact]
+    public async Task GetEligibleModifications_CollectionRelativeWithoutCollection_IsUnavailable()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("ELIGCOL");
+        await CreateRuleAsync(
+            sourceProductId, targetProductId, ModificationType.Leukoreduction, "42D", ExpirationRelativeTo.CollectionDateTime);
+        var unitId = await CreateUnitAsync("U-ELIGCOL-1", sourceProductId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var eligible = await service.GetEligibleModificationsAsync(unitId);
+
+        var only = Assert.Single(eligible);
+        Assert.False(only.IsAvailable);
+        Assert.True(only.RequiresCollectionDate);
+        Assert.Null(only.PreviewExpiresUtc);
     }
 }

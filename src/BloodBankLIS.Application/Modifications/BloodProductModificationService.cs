@@ -3,7 +3,6 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
-using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Modifications;
 
@@ -21,6 +20,7 @@ public sealed class BloodProductModificationService
     private readonly IInventoryRepository _inventory;
     private readonly IRepository<ModificationRule> _rules;
     private readonly IRepository<ProductType> _products;
+    private readonly IRepository<ExpirationModificationCode> _expirationCodes;
     private readonly IRepository<UnitModification> _modifications;
     private readonly IRepository<UnitModificationUnit> _modificationUnits;
     private readonly IUnitOfWork _unitOfWork;
@@ -32,6 +32,7 @@ public sealed class BloodProductModificationService
         IInventoryRepository inventory,
         IRepository<ModificationRule> rules,
         IRepository<ProductType> products,
+        IRepository<ExpirationModificationCode> expirationCodes,
         IRepository<UnitModification> modifications,
         IRepository<UnitModificationUnit> modificationUnits,
         IUnitOfWork unitOfWork,
@@ -42,6 +43,7 @@ public sealed class BloodProductModificationService
         _inventory = inventory;
         _rules = rules;
         _products = products;
+        _expirationCodes = expirationCodes;
         _modifications = modifications;
         _modificationUnits = modificationUnits;
         _unitOfWork = unitOfWork;
@@ -66,12 +68,31 @@ public sealed class BloodProductModificationService
         }
 
         var products = await _products.ListAsync(ct);
+        var codes = await _expirationCodes.ListAsync(ct);
+        var now = _clock.UtcNow;
+        var collection = ModificationExpirationRule.ResolveCollectionUtc(unit.CollectedUtc, unit.CollectionDateTime);
         return rules
             .OrderBy(r => r.ModificationType)
-            .Select(r => new EligibleModificationDto(
-                r.Id, r.ModificationType, r.TargetProductTypeId,
-                products.FirstOrDefault(p => p.Id == r.TargetProductTypeId)?.ProductCode ?? string.Empty,
-                r.ExpirationOffsetCode, r.Description))
+            .Select(r =>
+            {
+                var code = codes.FirstOrDefault(c => c.Id == r.ExpirationModificationCodeId);
+                var requiresCollection = code?.RelativeTo == ExpirationRelativeTo.CollectionDateTime;
+                DateTime? preview = null;
+                var available = false;
+                if (code is not null
+                    && ModificationExpirationRule.TryResolveAnchorUtc(
+                        code.RelativeTo, now, new[] { collection }, out var anchor, out _))
+                {
+                    available = true;
+                    preview = ModificationExpirationRule.ComputeNewExpiresUtc(anchor, code.ToOffset(), unit.ExpiresUtc);
+                }
+                return new EligibleModificationDto(
+                    r.Id, r.ModificationType, r.TargetProductTypeId,
+                    products.FirstOrDefault(p => p.Id == r.TargetProductTypeId)?.ProductCode ?? string.Empty,
+                    code?.Code ?? string.Empty,
+                    code?.RelativeTo ?? ExpirationRelativeTo.ModificationDateTime,
+                    r.Description, preview, requiresCollection, available);
+            })
             .ToList();
     }
 
@@ -252,10 +273,11 @@ public sealed class BloodProductModificationService
         string reason,
         CancellationToken ct)
     {
-        if (!ExpirationOffsetCode.TryParse(rule.ExpirationOffsetCode, out var offset))
+        var expCode = await _expirationCodes.GetByIdAsync(rule.ExpirationModificationCodeId, ct);
+        if (expCode is null)
         {
             return ModificationActionResult.Fail(
-                $"Modification rule has an invalid expiration offset code '{rule.ExpirationOffsetCode}'.");
+                $"Modification rule is missing expiration modification code '{rule.ExpirationModificationCodeId}'.");
         }
 
         foreach (var source in sources)
@@ -268,14 +290,27 @@ public sealed class BloodProductModificationService
         }
 
         var now = _clock.UtcNow;
+        var collections = sources.Select(s =>
+            ModificationExpirationRule.ResolveCollectionUtc(s.CollectedUtc, s.CollectionDateTime));
+        if (!ModificationExpirationRule.TryResolveAnchorUtc(
+                expCode.RelativeTo, now, collections, out var anchorUtc, out var collectionError))
+        {
+            return ModificationActionResult.Blocked(new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(
+                    collectionError ?? ModificationExpirationRule.CollectionRequiredCode,
+                    "This expiration code is relative to collection date/time, but a source unit has no collection date/time.")
+            }));
+        }
+
         var originalExpiresUtc = ModificationExpirationRule.EarliestExpiration(sources.Select(s => s.ExpiresUtc));
-        var resultExpiresUtc = ModificationExpirationRule.ComputeNewExpiresUtc(now, offset, originalExpiresUtc);
+        var resultExpiresUtc = ModificationExpirationRule.ComputeNewExpiresUtc(anchorUtc, expCode.ToOffset(), originalExpiresUtc);
 
         var header = new UnitModification
         {
             ModificationRuleId = rule.Id,
             ModificationType = rule.ModificationType,
-            ExpirationOffsetCodeApplied = rule.ExpirationOffsetCode,
+            ExpirationOffsetCodeApplied = expCode.Code,
             ResultExpiresUtc = resultExpiresUtc,
             Reason = reason,
             PerformedBy = _currentUser.UserName,
@@ -335,6 +370,7 @@ public sealed class BloodProductModificationService
                 CollectionFacility = primarySource.CollectionFacility,
                 Supplier = primarySource.Supplier,
                 CollectedUtc = primarySource.CollectedUtc,
+                CollectionDateTime = primarySource.CollectionDateTime,
                 DerivedFromModification = header
             };
 

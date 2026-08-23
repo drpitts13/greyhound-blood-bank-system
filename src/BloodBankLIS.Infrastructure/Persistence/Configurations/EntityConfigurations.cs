@@ -368,22 +368,40 @@ public sealed class BloodUnitConfiguration : IEntityTypeConfiguration<BloodUnit>
     }
 }
 
+public sealed class ExpirationModificationCodeConfiguration : IEntityTypeConfiguration<ExpirationModificationCode>
+{
+    public void Configure(EntityTypeBuilder<ExpirationModificationCode> b)
+    {
+        b.ToTable("ExpirationModificationCodes");
+        b.HasKey(c => c.Id);
+        b.Property(c => c.Code).HasMaxLength(20).IsRequired();
+        b.Property(c => c.Description).HasMaxLength(500);
+        b.Property(c => c.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(c => c.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(c => c.Code).IsUnique();
+        b.HasIndex(c => c.IsActive);
+    }
+}
+
 public sealed class ModificationRuleConfiguration : IEntityTypeConfiguration<ModificationRule>
 {
     public void Configure(EntityTypeBuilder<ModificationRule> b)
     {
         b.ToTable("ModificationRules");
         b.HasKey(r => r.Id);
-        b.Property(r => r.ExpirationOffsetCode).HasMaxLength(10).IsRequired();
         b.Property(r => r.Description).HasMaxLength(500);
         b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(r => r.ModifiedBy).HasMaxLength(100);
 
         b.HasOne(r => r.SourceProductType).WithMany().HasForeignKey(r => r.SourceProductTypeId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(r => r.TargetProductType).WithMany().HasForeignKey(r => r.TargetProductTypeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(r => r.ExpirationModificationCode).WithMany(c => c.ModificationRules)
+            .HasForeignKey(r => r.ExpirationModificationCodeId).OnDelete(DeleteBehavior.Restrict);
 
         b.HasIndex(r => new { r.SourceProductTypeId, r.ModificationType, r.TargetProductTypeId });
         b.HasIndex(r => r.IsActive);
+        b.HasIndex(r => r.ExpirationModificationCodeId);
     }
 }
 
@@ -393,7 +411,7 @@ public sealed class UnitModificationConfiguration : IEntityTypeConfiguration<Uni
     {
         b.ToTable("UnitModifications");
         b.HasKey(m => m.Id);
-        b.Property(m => m.ExpirationOffsetCodeApplied).HasMaxLength(10).IsRequired();
+        b.Property(m => m.ExpirationOffsetCodeApplied).HasMaxLength(20).IsRequired();
         b.Property(m => m.Reason).HasMaxLength(500).IsRequired();
         b.Property(m => m.PerformedBy).HasMaxLength(100).IsRequired();
         b.Property(m => m.CreatedBy).HasMaxLength(100).IsRequired();

@@ -2,6 +2,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules.Config;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Domain.Tests;
 
@@ -307,15 +308,9 @@ public class ConfigValidatorsTests
     [Fact]
     public void ModificationRule_Valid_Passes()
     {
-        var rule = new ModificationRule
-        {
-            SourceProductTypeId = 1,
-            TargetProductTypeId = 2,
-            ModificationType = ModificationType.Irradiate,
-            ExpirationOffsetCode = "24H"
-        };
+        var rule = ValidModificationRule();
 
-        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true);
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true, expirationCodeActive: true);
 
         Assert.False(eval.IsHardStopped);
     }
@@ -328,7 +323,7 @@ public class ConfigValidatorsTests
             SourceProductTypeId = 0,
             TargetProductTypeId = 0,
             ModificationType = ModificationType.Divide,
-            ExpirationOffsetCode = "24H"
+            ExpirationModificationCodeId = 1
         };
 
         var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false);
@@ -338,39 +333,41 @@ public class ConfigValidatorsTests
         Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.TARGET.REQUIRED");
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("24")]
-    [InlineData("bogus")]
-    [InlineData("0H")]
-    public void ModificationRule_InvalidOffsetCode_HardStops(string offsetCode)
+    [Fact]
+    public void ModificationRule_MissingExpirationCode_HardStops()
     {
         var rule = new ModificationRule
         {
             SourceProductTypeId = 1,
             TargetProductTypeId = 2,
             ModificationType = ModificationType.Thaw,
-            ExpirationOffsetCode = offsetCode
+            ExpirationModificationCodeId = 0
         };
 
         var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true);
 
         Assert.True(eval.IsHardStopped);
-        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.OFFSET.INVALID");
+        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.EXPCODE.REQUIRED");
+    }
+
+    [Fact]
+    public void ModificationRule_InactiveExpirationCode_HardStops()
+    {
+        var rule = ValidModificationRule();
+
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true, expirationCodeActive: false);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.EXPCODE.INACTIVE");
     }
 
     [Fact]
     public void ModificationRule_DuplicateActiveTriple_HardStops()
     {
-        var rule = new ModificationRule
-        {
-            SourceProductTypeId = 1,
-            TargetProductTypeId = 2,
-            ModificationType = ModificationType.Pool,
-            ExpirationOffsetCode = "5D"
-        };
+        var rule = ValidModificationRule();
+        rule.ModificationType = ModificationType.Pool;
 
-        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: true, sourceProductActive: true, targetProductActive: true);
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: true, sourceProductActive: true, targetProductActive: true, expirationCodeActive: true);
 
         Assert.True(eval.IsHardStopped);
         Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.TRIPLE.DUPLICATE");
@@ -379,15 +376,10 @@ public class ConfigValidatorsTests
     [Fact]
     public void ModificationRule_InactiveSourceOrTargetProduct_HardStops()
     {
-        var rule = new ModificationRule
-        {
-            SourceProductTypeId = 1,
-            TargetProductTypeId = 2,
-            ModificationType = ModificationType.VolumeReduction,
-            ExpirationOffsetCode = "24H"
-        };
+        var rule = ValidModificationRule();
+        rule.ModificationType = ModificationType.VolumeReduction;
 
-        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: false, targetProductActive: false);
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: false, targetProductActive: false, expirationCodeActive: true);
 
         Assert.True(eval.IsHardStopped);
         Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.SOURCE.INACTIVE");
@@ -397,15 +389,11 @@ public class ConfigValidatorsTests
     [Fact]
     public void ModificationRule_DivideSameSourceAndTarget_Warns()
     {
-        var rule = new ModificationRule
-        {
-            SourceProductTypeId = 1,
-            TargetProductTypeId = 1,
-            ModificationType = ModificationType.Divide,
-            ExpirationOffsetCode = "24H"
-        };
+        var rule = ValidModificationRule();
+        rule.TargetProductTypeId = 1;
+        rule.ModificationType = ModificationType.Divide;
 
-        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true);
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true, expirationCodeActive: true);
 
         Assert.False(eval.IsHardStopped);
         Assert.Contains(eval.Warnings, r => r.Code == "MODRULE.SAMEPRODUCT");
@@ -414,19 +402,67 @@ public class ConfigValidatorsTests
     [Fact]
     public void ModificationRule_IrradiateSameSourceAndTarget_DoesNotWarn()
     {
-        var rule = new ModificationRule
-        {
-            SourceProductTypeId = 1,
-            TargetProductTypeId = 1,
-            ModificationType = ModificationType.Irradiate,
-            ExpirationOffsetCode = "24H"
-        };
+        var rule = ValidModificationRule();
+        rule.TargetProductTypeId = 1;
 
-        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true);
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true, expirationCodeActive: true);
 
         Assert.False(eval.IsHardStopped);
         Assert.DoesNotContain(eval.Warnings, r => r.Code == "MODRULE.SAMEPRODUCT");
     }
+
+    [Fact]
+    public void ExpirationModificationCode_Valid_Passes()
+    {
+        var code = new ExpirationModificationCode
+        {
+            Code = "24H",
+            OffsetAmount = 24,
+            OffsetUnit = ExpirationOffsetUnit.Hours,
+            RelativeTo = ExpirationRelativeTo.ModificationDateTime
+        };
+
+        var eval = ExpirationModificationCodeValidator.Validate(code, duplicateActiveCode: false);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void ExpirationModificationCode_MissingCodeAndZeroAmount_HardStops()
+    {
+        var code = new ExpirationModificationCode { Code = "", OffsetAmount = 0 };
+
+        var eval = ExpirationModificationCodeValidator.Validate(code, duplicateActiveCode: false);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "EXPCODE.CODE.REQUIRED");
+        Assert.Contains(eval.HardStops, r => r.Code == "EXPCODE.AMOUNT.INVALID");
+    }
+
+    [Fact]
+    public void ExpirationModificationCode_DuplicateActiveCode_HardStops()
+    {
+        var code = new ExpirationModificationCode
+        {
+            Code = "28D",
+            OffsetAmount = 28,
+            OffsetUnit = ExpirationOffsetUnit.Days,
+            RelativeTo = ExpirationRelativeTo.ModificationDateTime
+        };
+
+        var eval = ExpirationModificationCodeValidator.Validate(code, duplicateActiveCode: true);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "EXPCODE.CODE.DUPLICATE");
+    }
+
+    private static ModificationRule ValidModificationRule() => new()
+    {
+        SourceProductTypeId = 1,
+        TargetProductTypeId = 2,
+        ModificationType = ModificationType.Irradiate,
+        ExpirationModificationCodeId = 1
+    };
 
     private static RuleDefinition NeonatalRule() => new()
     {

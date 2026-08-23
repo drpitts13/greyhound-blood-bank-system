@@ -9,7 +9,11 @@ public sealed record EligibleModificationDto(
     long TargetProductTypeId,
     string TargetProductCode,
     string ExpirationOffsetCode,
-    string? Description);
+    ExpirationRelativeTo ExpirationRelativeTo,
+    string? Description,
+    DateTime? PreviewExpiresUtc,
+    bool RequiresCollectionDate,
+    bool IsAvailable);
 
 /// <summary>One requested result unit of a Divide (an operator-chosen unit-number suffix and/or volume).</summary>
 public sealed record DivideChildSpec(string? UnitNumberSuffix, decimal? Volume);

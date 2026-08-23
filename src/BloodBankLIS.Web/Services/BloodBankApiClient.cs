@@ -725,6 +725,25 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ModificationRuleDto>> DeactivateAdminModificationRuleAsync(long id, string? reason, CancellationToken ct = default) =>
         SendAsync<ModificationRuleDto>(HttpMethod.Post, $"api/admin/modification-rules/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
 
+    // ---- Admin: Expiration modification codes ----
+    public Task<ApiResult<List<ExpirationModificationCodeDto>>> GetAdminExpirationCodesAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<ExpirationModificationCodeDto>>(HttpMethod.Get, $"api/admin/expiration-codes?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<ExpirationModificationCodeDto>> GetAdminExpirationCodeAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ExpirationModificationCodeDto>(HttpMethod.Get, $"api/admin/expiration-codes/{id}", ct: ct);
+
+    public Task<ApiResult<ExpirationModificationCodeDto>> CreateAdminExpirationCodeAsync(SaveExpirationModificationCodeRequest req, CancellationToken ct = default) =>
+        SendAsync<ExpirationModificationCodeDto>(HttpMethod.Post, "api/admin/expiration-codes", req, ct);
+
+    public Task<ApiResult<ExpirationModificationCodeDto>> UpdateAdminExpirationCodeAsync(long id, SaveExpirationModificationCodeRequest req, CancellationToken ct = default) =>
+        SendAsync<ExpirationModificationCodeDto>(HttpMethod.Put, $"api/admin/expiration-codes/{id}", req, ct);
+
+    public Task<ApiResult<ExpirationModificationCodeDto>> ActivateAdminExpirationCodeAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<ExpirationModificationCodeDto>(HttpMethod.Post, $"api/admin/expiration-codes/{id}/activate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<ExpirationModificationCodeDto>> DeactivateAdminExpirationCodeAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<ExpirationModificationCodeDto>(HttpMethod.Post, $"api/admin/expiration-codes/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
+
     // ---- Admin: ISBT product description codes ----
     public Task<ApiResult<List<IsbtProductCodeDto>>> GetAdminIsbtProductCodesAsync(CancellationToken ct = default) =>
         SendAsync<List<IsbtProductCodeDto>>(HttpMethod.Get, "api/admin/isbt-product-codes", ct: ct);

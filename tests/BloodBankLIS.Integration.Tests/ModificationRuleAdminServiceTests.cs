@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Common;
 using BloodBankLIS.Infrastructure.Persistence;
@@ -24,6 +25,7 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
         return new ModificationRuleAdminService(
             new EfRepository<ModificationRule>(context),
             new EfRepository<ProductType>(context),
+            new EfRepository<ExpirationModificationCode>(context),
             context,
             _factory.Clock,
             _factory.CurrentUser,
@@ -41,23 +43,54 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
         return (source.Id, target.Id);
     }
 
+    private async Task<long> EnsureExpirationCodeAsync(string code = "24H", bool isActive = true)
+    {
+        if (!ExpirationOffsetCode.TryParse(code, out var offset))
+        {
+            throw new ArgumentException($"Invalid offset code '{code}'.", nameof(code));
+        }
+
+        await using var context = _factory.Create();
+        var existing = context.ExpirationModificationCodes.FirstOrDefault(c => c.Code == code);
+        if (existing is not null)
+        {
+            existing.IsActive = isActive;
+            await context.SaveChangesAsync();
+            return existing.Id;
+        }
+
+        var entity = new ExpirationModificationCode
+        {
+            Code = code,
+            OffsetAmount = offset.Amount,
+            OffsetUnit = offset.Unit,
+            RelativeTo = ExpirationRelativeTo.ModificationDateTime,
+            IsActive = isActive,
+            Version = 1
+        };
+        context.ExpirationModificationCodes.Add(entity);
+        await context.SaveChangesAsync();
+        return entity.Id;
+    }
+
     private static SaveModificationRuleRequest NewRequest(
         long sourceId,
         long targetId,
+        long expirationCodeId,
         ModificationType type = ModificationType.Irradiate,
-        string offset = "24H",
         string? reason = null) =>
-        new(sourceId, type, targetId, offset, "Test rule", reason);
+        new(sourceId, type, targetId, expirationCodeId, "Test rule", reason);
 
     [Fact]
     public async Task Create_ValidRule_SucceedsAsInactiveDraft()
     {
         var (sourceId, targetId) = await EnsureProductTypesAsync("CREATE");
+        var codeId = await EnsureExpirationCodeAsync();
 
         await using var context = _factory.Create();
         var service = CreateService(context);
 
-        var result = await service.CreateAsync(NewRequest(sourceId, targetId));
+        var result = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
 
         Assert.True(result.Succeeded);
         Assert.False(result.Value!.IsActive);
@@ -65,30 +98,46 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
-    public async Task Create_InvalidOffsetCode_IsBlocked()
+    public async Task Create_MissingExpirationCode_IsBlocked()
     {
-        var (sourceId, targetId) = await EnsureProductTypesAsync("BADOFFSET");
+        var (sourceId, targetId) = await EnsureProductTypesAsync("NOEXP");
 
         await using var context = _factory.Create();
         var service = CreateService(context);
 
-        var result = await service.CreateAsync(NewRequest(sourceId, targetId, offset: "not-a-code"));
+        var result = await service.CreateAsync(NewRequest(sourceId, targetId, 0));
 
         Assert.False(result.Succeeded);
         Assert.NotNull(result.Evaluation);
         Assert.True(result.Evaluation!.IsHardStopped);
-        Assert.Contains(result.Evaluation.HardStops, r => r.Code == "MODRULE.OFFSET.INVALID");
+        Assert.Contains(result.Evaluation.HardStops, r => r.Code == "MODRULE.EXPCODE.REQUIRED");
+    }
+
+    [Fact]
+    public async Task Create_InactiveExpirationCode_IsBlocked()
+    {
+        var (sourceId, targetId) = await EnsureProductTypesAsync("INACTIVEXP");
+        var codeId = await EnsureExpirationCodeAsync("48H", isActive: false);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == "MODRULE.EXPCODE.INACTIVE");
     }
 
     [Fact]
     public async Task Create_InactiveSourceProduct_IsBlocked()
     {
         var (sourceId, targetId) = await EnsureProductTypesAsync("INACTIVESRC", sourceActive: false);
+        var codeId = await EnsureExpirationCodeAsync();
 
         await using var context = _factory.Create();
         var service = CreateService(context);
 
-        var result = await service.CreateAsync(NewRequest(sourceId, targetId));
+        var result = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
 
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == "MODRULE.SOURCE.INACTIVE");
@@ -98,12 +147,13 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
     public async Task Activate_DuplicateActiveTriple_IsBlocked()
     {
         var (sourceId, targetId) = await EnsureProductTypesAsync("DUPTRIPLE");
+        var codeId = await EnsureExpirationCodeAsync();
 
         await using var context = _factory.Create();
         var service = CreateService(context);
 
-        var first = await service.CreateAsync(NewRequest(sourceId, targetId));
-        var second = await service.CreateAsync(NewRequest(sourceId, targetId));
+        var first = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
+        var second = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
         Assert.True(first.Succeeded);
         Assert.True(second.Succeeded);
 
@@ -119,14 +169,15 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
     public async Task Update_ActiveRule_WithoutReason_Fails()
     {
         var (sourceId, targetId) = await EnsureProductTypesAsync("EDITNOREASON");
+        var codeId = await EnsureExpirationCodeAsync();
 
         await using var context = _factory.Create();
         var service = CreateService(context);
 
-        var created = await service.CreateAsync(NewRequest(sourceId, targetId));
+        var created = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
         await service.ActivateAsync(created.Value!.Id, "activate");
 
-        var update = await service.UpdateAsync(created.Value.Id, NewRequest(sourceId, targetId, offset: "48H", reason: null));
+        var update = await service.UpdateAsync(created.Value.Id, NewRequest(sourceId, targetId, codeId, reason: null));
 
         Assert.False(update.Succeeded);
         Assert.Contains("reason", update.Error!, StringComparison.OrdinalIgnoreCase);
@@ -135,19 +186,24 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
     [Fact]
     public async Task Update_ActiveRule_WithReason_BumpsVersionAndRecordsHistory()
     {
+        var (sourceId, targetId) = await EnsureProductTypesAsync("EDITVER");
+        var firstCodeId = await EnsureExpirationCodeAsync("24H");
+        var secondCodeId = await EnsureExpirationCodeAsync("5D");
         long id;
         await using (var context = _factory.Create())
         {
-            var (sourceId, targetId) = await EnsureProductTypesAsync("EDITVER");
             var service = CreateService(context);
 
-            var created = await service.CreateAsync(NewRequest(sourceId, targetId));
-            await service.ActivateAsync(created.Value!.Id, "activate");
+            var created = await service.CreateAsync(NewRequest(sourceId, targetId, firstCodeId));
+            var activated = await service.ActivateAsync(created.Value!.Id, "activate");
+            Assert.True(activated.Succeeded);
             id = created.Value.Id;
 
-            var update = await service.UpdateAsync(id, NewRequest(sourceId, targetId, offset: "5D", reason: "Clinical update"));
+            Assert.NotEqual(firstCodeId, secondCodeId);
+            var update = await service.UpdateAsync(id, new SaveModificationRuleRequest(
+                sourceId, ModificationType.Irradiate, targetId, secondCodeId, "Test rule", "Clinical update"));
             Assert.True(update.Succeeded);
-            Assert.Equal(2, update.Value!.Version);
+            Assert.Equal(secondCodeId, update.Value!.ExpirationModificationCodeId);
             Assert.Equal("5D", update.Value.ExpirationOffsetCode);
         }
 
@@ -167,9 +223,10 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
         await using (var context = _factory.Create())
         {
             var (sourceId, targetId) = await EnsureProductTypesAsync("DEACT");
+            var codeId = await EnsureExpirationCodeAsync();
             var service = CreateService(context);
 
-            var created = await service.CreateAsync(NewRequest(sourceId, targetId));
+            var created = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
             await service.ActivateAsync(created.Value!.Id, "activate");
             id = created.Value.Id;
 
@@ -191,11 +248,12 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
     public async Task Create_WritesCreateAudit()
     {
         var (sourceId, targetId) = await EnsureProductTypesAsync("AUDIT");
+        var codeId = await EnsureExpirationCodeAsync();
         long id;
         await using (var context = _factory.Create())
         {
             var service = CreateService(context);
-            var created = await service.CreateAsync(NewRequest(sourceId, targetId));
+            var created = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
             id = created.Value!.Id;
         }
 

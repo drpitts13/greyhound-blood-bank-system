@@ -8,7 +8,7 @@
 <p class="muted">
     Divide, pool, irradiate, thaw, volume-reduce, or leukoreduce a unit into a new product under an
     admin-configured modification rule. The source unit(s) are retired and new result unit(s) are created
-    in Quarantine with a recalculated expiration.
+    in Quarantine with the rule's target product code and a recalculated expiration.
 </p>
 
 <div class="bb-card">
@@ -60,7 +60,9 @@
                     <option value="0">-- select a modification --</option>
                     @foreach (var e in _eligible)
                     {
-                        <option value="@e.RuleId">@e.ModificationType &rarr; @e.TargetProductCode (offset @e.ExpirationOffsetCode)</option>
+                        <option value="@e.RuleId" disabled="@(!e.IsAvailable)">
+                            @e.ModificationType &rarr; @e.TargetProductCode (@e.ExpirationOffsetCode from @RelativeLabel(e.ExpirationRelativeTo))@(e.IsAvailable ? "" : " — collection date required")
+                        </option>
                     }
                 </select>
             </div>
@@ -68,10 +70,26 @@
     </div>
 }
 
-@if (_unit is not null && _selectedRule is not null)
+@if (_unit is not null && _selectedRule is not null && !_selectedRule.IsAvailable)
+{
+    <div class="bb-card">
+        <div class="empty">
+            This expiration code is relative to collection date/time, but the selected unit has no collection date/time.
+        </div>
+    </div>
+}
+
+@if (_unit is not null && _selectedRule is not null && _selectedRule.IsAvailable)
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>3. Modification details</h3></div>
+        <div class="form-row">
+            <div class="field"><label>New product</label><div class="mono">@_selectedRule.TargetProductCode</div></div>
+            <div class="field"><label>New expiration</label>
+                <div>@(_selectedRule.PreviewExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</div>
+                <div class="muted">@_selectedRule.ExpirationOffsetCode from @RelativeLabel(_selectedRule.ExpirationRelativeTo), capped at source expiration</div>
+            </div>
+        </div>
         <Outcome Value="_actionFb" />
 
         @if (_selectedRule.ModificationType == ModificationType.Divide)
@@ -213,6 +231,9 @@
     private ModificationResultVm? _lastResult;
 
     private List<UnitModificationDto> _history = new();
+
+    private static string RelativeLabel(ExpirationRelativeTo relativeTo) =>
+        relativeTo == ExpirationRelativeTo.CollectionDateTime ? "collection" : "modification";
 
     private async Task SearchAsync()
     {

@@ -466,6 +466,16 @@ public enum ModificationUnitRole
 }
 
 /// <summary>
+/// Anchor for an <c>ExpirationModificationCode</c> offset: either the modification
+/// date/time or the unit's collection date/time.
+/// </summary>
+public enum ExpirationRelativeTo
+{
+    ModificationDateTime = 0,
+    CollectionDateTime = 1
+}
+
+/// <summary>
 /// Action recorded against a versioned configuration record in
 /// <c>ConfigurationChangeHistory</c>. Mirrors the admin lifecycle.
 /// </summary>

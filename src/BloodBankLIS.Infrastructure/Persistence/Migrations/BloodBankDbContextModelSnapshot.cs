@@ -1519,6 +1519,68 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("ExceptionDefinitions", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.ExpirationModificationCode", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("OffsetAmount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OffsetUnit")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RelativeTo")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("IsActive");
+
+                    b.ToTable("ExpirationModificationCodes", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.ModificationRule", b =>
                 {
                     b.Property<long>("Id")
@@ -1539,10 +1601,8 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("ExpirationOffsetCode")
-                        .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                    b.Property<long>("ExpirationModificationCodeId")
+                        .HasColumnType("bigint");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -1572,6 +1632,8 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ExpirationModificationCodeId");
 
                     b.HasIndex("IsActive");
 
@@ -4822,8 +4884,8 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ExpirationOffsetCodeApplied")
                         .IsRequired()
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<long>("ModificationRuleId")
                         .HasColumnType("bigint");
@@ -5052,8 +5114,19 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Navigation("Version");
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.ExpirationModificationCode", b =>
+                {
+                    b.Navigation("ModificationRules");
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.ModificationRule", b =>
                 {
+                    b.HasOne("BloodBankLIS.Domain.Entities.Configuration.ExpirationModificationCode", "ExpirationModificationCode")
+                        .WithMany("ModificationRules")
+                        .HasForeignKey("ExpirationModificationCodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("BloodBankLIS.Domain.Entities.ProductType", "SourceProductType")
                         .WithMany()
                         .HasForeignKey("SourceProductTypeId")
@@ -5065,6 +5138,8 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TargetProductTypeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("ExpirationModificationCode");
 
                     b.Navigation("SourceProductType");
 

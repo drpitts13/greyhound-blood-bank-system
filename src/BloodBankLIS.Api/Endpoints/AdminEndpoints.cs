@@ -24,6 +24,7 @@ public static class AdminEndpoints
         MapRules(app);
         MapProducts(app);
         MapModificationRules(app);
+        MapExpirationModificationCodes(app);
         MapIsbtProductCodes(app);
         MapProviders(app);
         MapLocations(app);
@@ -359,6 +360,37 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
         group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, ModificationRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.From(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapExpirationModificationCodes(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/expiration-codes").WithTags("Admin: Expiration Codes").RequireAuthenticatedUser();
+
+        group.MapGet("", async (ExpirationModificationCodeAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, ExpirationModificationCodeAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Expiration modification code not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveExpirationModificationCodeRequest req, ExpirationModificationCodeAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminModificationRulesManage);
+
+        group.MapPut("/{id:long}", async (long id, SaveExpirationModificationCodeRequest req, ExpirationModificationCodeAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminModificationRulesManage);
+
+        group.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, ExpirationModificationCodeAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ActivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, ExpirationModificationCodeAdminService svc, CancellationToken ct) =>
             EndpointResults.From(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }

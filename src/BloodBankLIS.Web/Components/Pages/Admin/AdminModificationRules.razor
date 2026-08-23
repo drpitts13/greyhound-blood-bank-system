@@ -13,9 +13,9 @@
 </div>
 
 <p class="muted">
-    Maps a source product code and modification type (Divide, Pool, Irradiate, Thaw, Volume Reduction,
-    Leukoreduction) to a resulting target product code, plus an expiration offset (e.g. <code>24H</code>,
-    <code>5D</code>) applied from the modification date/time and capped at the source unit's original expiration.
+    Maps a source product code and modification type to a resulting target product code and an
+    expiration modification code. The expiration code's offset is applied from modification or
+    collection date/time and capped at the source unit's original expiration.
 </p>
 
 <Outcome Value="_feedback" />
@@ -40,7 +40,7 @@
                         <td class="mono">@r.SourceProductCode</td>
                         <td>@r.ModificationType</td>
                         <td class="mono">@r.TargetProductCode</td>
-                        <td class="mono">@r.ExpirationOffsetCode</td>
+                        <td class="mono">@r.ExpirationOffsetCode <span class="muted">(@RelativeLabel(r.ExpirationRelativeTo))</span></td>
                         <td>@r.Version</td>
                         <td>
                             @if (r.IsActive) { <span class="badge badge-green">Active</span> }
@@ -77,7 +77,15 @@
                     @foreach (var p in _products) { <option value="@p.Id">@p.ProductCode &mdash; @p.Name</option> }
                 </select>
             </div>
-            <div class="field"><label>Expiration offset (e.g. 24H, 5D)</label><input @bind="_editing.ExpirationOffsetCode" placeholder="24H" /></div>
+            <div class="field"><label>Expiration code</label>
+                <select @bind="_editing.ExpirationModificationCodeId">
+                    <option value="0">-- select --</option>
+                    @foreach (var c in ExpirationChoices)
+                    {
+                        <option value="@c.Id">@c.DisplayLabel</option>
+                    }
+                </select>
+            </div>
             <div class="field" style="grid-column:1/3;"><label>Description</label><input @bind="_editing.Description" /></div>
         </div>
 
@@ -111,6 +119,7 @@
 @code {
     private List<ModificationRuleDto> _items = new();
     private List<ProductTypeDto> _products = new();
+    private List<ExpirationModificationCodeDto> _expirationCodes = new();
     private bool _loading = true;
     private Feedback? _feedback;
     private bool _busy;
@@ -126,10 +135,18 @@
     private bool CanManage => Session.Has(PermissionCodes.AdminModificationRulesManage);
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
 
+    private IEnumerable<ExpirationModificationCodeDto> ExpirationChoices =>
+        _expirationCodes.Where(c => c.IsActive || c.Id == _editing?.ExpirationModificationCodeId);
+
+    private static string RelativeLabel(ExpirationRelativeTo relativeTo) =>
+        relativeTo == ExpirationRelativeTo.CollectionDateTime ? "collection" : "modification";
+
     protected override async Task OnInitializedAsync()
     {
         var products = await Api.GetProductTypesAsync();
         _products = products.Value ?? new();
+        var codes = await Api.GetAdminExpirationCodesAsync();
+        _expirationCodes = codes.Value ?? new();
         await LoadAsync();
     }
 
@@ -201,7 +218,7 @@
         public long SourceProductTypeId { get; set; }
         public ModificationType ModificationType { get; set; } = ModificationType.Divide;
         public long TargetProductTypeId { get; set; }
-        public string ExpirationOffsetCode { get; set; } = string.Empty;
+        public long ExpirationModificationCodeId { get; set; }
         public string? Description { get; set; }
 
         public static EditModel From(ModificationRuleDto r) => new()
@@ -209,11 +226,11 @@
             SourceProductTypeId = r.SourceProductTypeId,
             ModificationType = r.ModificationType,
             TargetProductTypeId = r.TargetProductTypeId,
-            ExpirationOffsetCode = r.ExpirationOffsetCode,
+            ExpirationModificationCodeId = r.ExpirationModificationCodeId,
             Description = r.Description
         };
 
         public SaveModificationRuleRequest ToRequest(string? reason) => new(
-            SourceProductTypeId, ModificationType, TargetProductTypeId, ExpirationOffsetCode, Description, reason);
+            SourceProductTypeId, ModificationType, TargetProductTypeId, ExpirationModificationCodeId, Description, reason);
     }
 }

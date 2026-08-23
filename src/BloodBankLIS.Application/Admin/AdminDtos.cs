@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Admin;
 
@@ -306,6 +307,39 @@ public sealed record ProductAttributeSelection(long AttributeId, bool IsRequired
 
 public sealed record ProductAttributeDto(long Id, string Code, string Name, string? Description, bool IsActive);
 
+// ---- Expiration modification codes ----
+
+public sealed record ExpirationModificationCodeDto(
+    long Id,
+    string Code,
+    int OffsetAmount,
+    ExpirationOffsetUnit OffsetUnit,
+    ExpirationRelativeTo RelativeTo,
+    string? Description,
+    int Version,
+    bool IsActive)
+{
+    public string DisplayLabel => FormatLabel(Code, OffsetAmount, OffsetUnit, RelativeTo);
+
+    public static string FormatLabel(
+        string code, int amount, ExpirationOffsetUnit unit, ExpirationRelativeTo relativeTo)
+    {
+        var unitWord = unit == ExpirationOffsetUnit.Hours
+            ? (amount == 1 ? "hour" : "hours")
+            : (amount == 1 ? "day" : "days");
+        var from = relativeTo == ExpirationRelativeTo.ModificationDateTime ? "modification" : "collection";
+        return $"{code} — {amount} {unitWord} from {from}";
+    }
+}
+
+public sealed record SaveExpirationModificationCodeRequest(
+    string Code,
+    int OffsetAmount,
+    ExpirationOffsetUnit OffsetUnit,
+    ExpirationRelativeTo RelativeTo,
+    string? Description,
+    string? ChangeReason);
+
 // ---- Modification rules ----
 
 public sealed record ModificationRuleDto(
@@ -315,7 +349,9 @@ public sealed record ModificationRuleDto(
     ModificationType ModificationType,
     long TargetProductTypeId,
     string TargetProductCode,
+    long ExpirationModificationCodeId,
     string ExpirationOffsetCode,
+    ExpirationRelativeTo ExpirationRelativeTo,
     string? Description,
     int Version,
     bool IsActive);
@@ -324,7 +360,7 @@ public sealed record SaveModificationRuleRequest(
     long SourceProductTypeId,
     ModificationType ModificationType,
     long TargetProductTypeId,
-    string ExpirationOffsetCode,
+    long ExpirationModificationCodeId,
     string? Description,
     string? ChangeReason);
 

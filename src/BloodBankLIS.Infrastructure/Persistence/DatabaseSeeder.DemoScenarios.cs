@@ -122,6 +122,61 @@ public static partial class DatabaseSeeder
     }
 
     /// <summary>
+    /// Catalog of expiration offsets used by modification rules. 24H / 5D / 28D are
+    /// relative to modification time; 42D is relative to collection.
+    /// </summary>
+    private static async Task SeedExpirationModificationCodesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await AddMissingByCodeAsync(
+            context,
+            context.ExpirationModificationCodes,
+            c => c.Code,
+            [
+                new ExpirationModificationCode
+                {
+                    Code = "24H",
+                    OffsetAmount = 24,
+                    OffsetUnit = ExpirationOffsetUnit.Hours,
+                    RelativeTo = ExpirationRelativeTo.ModificationDateTime,
+                    Description = "24 hours from modification",
+                    IsActive = true,
+                    Version = 1
+                },
+                new ExpirationModificationCode
+                {
+                    Code = "5D",
+                    OffsetAmount = 5,
+                    OffsetUnit = ExpirationOffsetUnit.Days,
+                    RelativeTo = ExpirationRelativeTo.ModificationDateTime,
+                    Description = "5 days from modification",
+                    IsActive = true,
+                    Version = 1
+                },
+                new ExpirationModificationCode
+                {
+                    Code = "28D",
+                    OffsetAmount = 28,
+                    OffsetUnit = ExpirationOffsetUnit.Days,
+                    RelativeTo = ExpirationRelativeTo.ModificationDateTime,
+                    Description = "28 days from modification",
+                    IsActive = true,
+                    Version = 1
+                },
+                new ExpirationModificationCode
+                {
+                    Code = "42D",
+                    OffsetAmount = 42,
+                    OffsetUnit = ExpirationOffsetUnit.Days,
+                    RelativeTo = ExpirationRelativeTo.CollectionDateTime,
+                    Description = "42 days from collection",
+                    IsActive = true,
+                    Version = 1
+                }
+            ],
+            ct);
+    }
+
+    /// <summary>
     /// Active modification paths so the modifications workspace has something to run.
     /// Expiration offsets follow AABB practice: irradiation caps at 28 days, washing at
     /// 24 hours, thawed plasma at 5 days. Each is still capped at the source expiration.
@@ -134,11 +189,15 @@ public static partial class DatabaseSeeder
         }
 
         var products = await context.ProductTypes.ToDictionaryAsync(p => p.ProductCode, ct);
+        var codes = await context.ExpirationModificationCodes.ToDictionaryAsync(c => c.Code, ct);
         if (!products.TryGetValue("RBC-LR", out var redCells)
             || !products.TryGetValue("FFP", out var plasma)
             || !products.TryGetValue(IrradiatedRedCellsCode, out var irradiated)
             || !products.TryGetValue(WashedRedCellsCode, out var washed)
-            || !products.TryGetValue(ThawedPlasmaCode, out var thawed))
+            || !products.TryGetValue(ThawedPlasmaCode, out var thawed)
+            || !codes.TryGetValue("28D", out var irradiateExpiry)
+            || !codes.TryGetValue("24H", out var washExpiry)
+            || !codes.TryGetValue("5D", out var thawExpiry))
         {
             return;
         }
@@ -149,7 +208,7 @@ public static partial class DatabaseSeeder
                 SourceProductTypeId = redCells.Id,
                 ModificationType = ModificationType.Irradiate,
                 TargetProductTypeId = irradiated.Id,
-                ExpirationOffsetCode = "28D",
+                ExpirationModificationCodeId = irradiateExpiry.Id,
                 Description = "Irradiate leukoreduced red cells for cellular immunodeficiency or directed donation.",
                 IsActive = true,
                 Version = 1
@@ -159,7 +218,7 @@ public static partial class DatabaseSeeder
                 SourceProductTypeId = redCells.Id,
                 ModificationType = ModificationType.Wash,
                 TargetProductTypeId = washed.Id,
-                ExpirationOffsetCode = "24H",
+                ExpirationModificationCodeId = washExpiry.Id,
                 Description = "Saline wash red cells to remove plasma proteins for IgA deficient recipients.",
                 IsActive = true,
                 Version = 1
@@ -169,7 +228,7 @@ public static partial class DatabaseSeeder
                 SourceProductTypeId = plasma.Id,
                 ModificationType = ModificationType.Thaw,
                 TargetProductTypeId = thawed.Id,
-                ExpirationOffsetCode = "5D",
+                ExpirationModificationCodeId = thawExpiry.Id,
                 Description = "Thaw fresh frozen plasma for transfusion.",
                 IsActive = true,
                 Version = 1
@@ -865,9 +924,11 @@ public static partial class DatabaseSeeder
             return;
         }
 
-        var resultExpires = ExpirationOffsetCode.TryParse(rule.ExpirationOffsetCode, out var offset)
-            ? Earliest(Apply(offset, performedUtc), source.ExpiresUtc)
-            : source.ExpiresUtc;
+        var expCode = await context.ExpirationModificationCodes.FindAsync([rule.ExpirationModificationCodeId], ct);
+        var offset = expCode is not null
+            ? new ExpirationOffsetCode(expCode.OffsetAmount, expCode.OffsetUnit)
+            : new ExpirationOffsetCode(24, ExpirationOffsetUnit.Hours);
+        var resultExpires = Earliest(Apply(offset, performedUtc), source.ExpiresUtc);
 
         source.Status = UnitStatus.Modified;
 
@@ -875,7 +936,7 @@ public static partial class DatabaseSeeder
         {
             ModificationRuleId = rule.Id,
             ModificationType = rule.ModificationType,
-            ExpirationOffsetCodeApplied = rule.ExpirationOffsetCode,
+            ExpirationOffsetCodeApplied = expCode?.Code ?? "24H",
             ResultExpiresUtc = resultExpires,
             Reason = reason,
             PerformedBy = "tech1",

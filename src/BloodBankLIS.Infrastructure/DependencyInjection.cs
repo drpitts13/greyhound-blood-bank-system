@@ -99,6 +99,7 @@ public static class DependencyInjection
         services.AddScoped<RuleDefinitionAdminService>();
         services.AddScoped<ProductAdminService>();
         services.AddScoped<ModificationRuleAdminService>();
+        services.AddScoped<ExpirationModificationCodeAdminService>();
         services.AddScoped<IsbtProductCodeAdminService>();
         services.AddScoped<OrderingProviderAdminService>();
         services.AddScoped<OrderingLocationAdminService>();

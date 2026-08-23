@@ -5,10 +5,10 @@ namespace BloodBankLIS.Domain.Entities.Configuration;
 
 /// <summary>
 /// Admin-configured allowed modification path: a source product code, a modification
-/// type, the resulting target product code, and an expiration offset code (e.g. "24H",
-/// "5D") applied relative to the modification date/time and capped at the original
-/// unit's expiration date/time. Drives <c>BloodProductModificationService</c>.
-/// See docs/erd.md and docs/workflows.md.
+/// type, the resulting target product code, and an expiration modification code.
+/// The expiration code's offset is applied relative to modification or collection
+/// date/time and capped at the original unit's expiration. Drives
+/// <c>BloodProductModificationService</c>. See docs/erd.md and docs/workflows.md.
 /// </summary>
 public class ModificationRule : BaseEntity
 {
@@ -22,11 +22,9 @@ public class ModificationRule : BaseEntity
 
     public ProductType? TargetProductType { get; set; }
 
-    /// <summary>
-    /// Expiration offset, e.g. "24H" (24 hours) or "5D" (5 days). Parsed by
-    /// <see cref="ValueObjects.ExpirationOffsetCode"/>.
-    /// </summary>
-    public string ExpirationOffsetCode { get; set; } = string.Empty;
+    public long ExpirationModificationCodeId { get; set; }
+
+    public ExpirationModificationCode? ExpirationModificationCode { get; set; }
 
     public string? Description { get; set; }
 

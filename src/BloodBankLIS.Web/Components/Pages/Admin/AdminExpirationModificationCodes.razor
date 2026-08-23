@@ -1,0 +1,212 @@
+@page "/admin/expiration-codes"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Domain.ValueObjects
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Expiration Codes &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Expiration Modification Codes</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New code</button>
+    }
+</div>
+
+<p class="muted">
+    Defines a numeric expiration offset applied from either the modification date/time or the
+    collection date/time. Modification rules select one of these codes; the result unit is still
+    capped at the source unit's original expiration.
+</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="empty">No expiration modification codes.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Offset</th><th>Relative to</th><th>Description</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var c in _items)
+                {
+                    <tr>
+                        <td class="mono">@c.Code</td>
+                        <td>@c.OffsetAmount @c.OffsetUnit</td>
+                        <td>@(c.RelativeTo == ExpirationRelativeTo.CollectionDateTime ? "Collection" : "Modification")</td>
+                        <td>@c.Description</td>
+                        <td>@c.Version</td>
+                        <td>
+                            @if (c.IsActive) { <span class="badge badge-green">Active</span> }
+                            else { <span class="badge badge-gray">Inactive</span> }
+                        </td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(c.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(c.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New expiration code" : $"Edit code #{_editId}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input @bind="_editing.Code" placeholder="24H" class="mono" /></div>
+            <div class="field"><label>Offset amount</label><input type="number" min="1" @bind="_editing.OffsetAmount" /></div>
+            <div class="field"><label>Unit</label>
+                <select @bind="_editing.OffsetUnit">
+                    @foreach (var u in Enum.GetValues<ExpirationOffsetUnit>()) { <option value="@u">@u</option> }
+                </select>
+            </div>
+            <div class="field"><label>Relative to</label>
+                <select @bind="_editing.RelativeTo">
+                    <option value="@ExpirationRelativeTo.ModificationDateTime">Modification date/time</option>
+                    <option value="@ExpirationRelativeTo.CollectionDateTime">Collection date/time</option>
+                </select>
+            </div>
+            <div class="field" style="grid-column:1/3;"><label>Description</label><input @bind="_editing.Description" /></div>
+        </div>
+
+        <div class="field"><label>Change reason @(_currentIsActive ? "(required)" : "(optional)")</label>
+            <input @bind="_changeReason" placeholder="Why is this change being made?" />
+        </div>
+
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            @if (_editId is not null && CanActivate)
+            {
+                @if (!_currentIsActive)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="ActivateAsync">Activate</button>
+                }
+                else
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="DeactivateAsync">Deactivate</button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_history is not null)
+{
+    <ConfigHistoryPanel Title="@($"History: code #{_historyId}")" Rows="_history" OnClose="() => _history = null" />
+}
+
+@code {
+    private List<ExpirationModificationCodeDto> _items = new();
+    private bool _loading = true;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private EditModel? _editing;
+    private long? _editId;
+    private bool _currentIsActive;
+    private string? _changeReason;
+
+    private List<ConfigHistoryDto>? _history;
+    private long _historyId;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminModificationRulesManage);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminExpirationCodesAsync();
+        _items = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null; _currentIsActive = false; _changeReason = null;
+        _editing = new EditModel();
+        _feedback = null;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var r = await Api.GetAdminExpirationCodeAsync(id);
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+        _editId = r.Value.Id; _currentIsActive = r.Value.IsActive; _changeReason = null;
+        _editing = EditModel.From(r.Value);
+        _feedback = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var r = _editId is null ? await Api.CreateAdminExpirationCodeAsync(req) : await Api.UpdateAdminExpirationCodeAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Draft created." : "Saved.");
+        if (r.Succeeded) { _editId = r.Value!.Id; _currentIsActive = r.Value.IsActive; await LoadAsync(); }
+    }
+
+    private async Task ActivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ActivateAdminExpirationCodeAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Activated.");
+        if (r.Succeeded) { _currentIsActive = true; await LoadAsync(); }
+    }
+
+    private async Task DeactivateAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.DeactivateAdminExpirationCodeAsync(_editId.Value, _changeReason);
+        _busy = false;
+        _feedback = r.ToFeedback("Deactivated.");
+        if (r.Succeeded) { _currentIsActive = false; await LoadAsync(); }
+    }
+
+    private async Task ShowHistoryAsync(long id)
+    {
+        var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.ExpirationModificationCode), id);
+        _history = r.Value ?? new();
+        _historyId = id;
+    }
+
+    private sealed class EditModel
+    {
+        public string Code { get; set; } = string.Empty;
+        public int OffsetAmount { get; set; } = 24;
+        public ExpirationOffsetUnit OffsetUnit { get; set; } = ExpirationOffsetUnit.Hours;
+        public ExpirationRelativeTo RelativeTo { get; set; } = ExpirationRelativeTo.ModificationDateTime;
+        public string? Description { get; set; }
+
+        public static EditModel From(ExpirationModificationCodeDto c) => new()
+        {
+            Code = c.Code,
+            OffsetAmount = c.OffsetAmount,
+            OffsetUnit = c.OffsetUnit,
+            RelativeTo = c.RelativeTo,
+            Description = c.Description
+        };
+
+        public SaveExpirationModificationCodeRequest ToRequest(string? reason) =>
+            new(Code, OffsetAmount, OffsetUnit, RelativeTo, Description, reason);
+    }
+}

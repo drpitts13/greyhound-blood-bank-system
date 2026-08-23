@@ -45,6 +45,7 @@ public static partial class DatabaseSeeder
         await SeedOrderingLocationsAsync(context, cancellationToken);
         await SeedOrderingProvidersAsync(context, cancellationToken);
         await SeedChargeMasterAsync(context, cancellationToken);
+        await SeedExpirationModificationCodesAsync(context, cancellationToken);
         await SeedModificationRulesAsync(context, cancellationToken);
         await SeedDemoClinicalDataAsync(context, cancellationToken);
         await EnsureIsbtPermissionsAsync(context, cancellationToken);

@@ -10,9 +10,9 @@ namespace BloodBankLIS.Application.Admin;
 
 /// <summary>
 /// Admin management of the allowed blood-product modification paths: source product
-/// code, modification type, target product code, and the expiration offset code
-/// applied on execution. Validation gates activation; every change is audited and
-/// snapshotted (mirrors <see cref="ProductAdminService"/>).
+/// code, modification type, target product code, and the expiration modification
+/// code applied on execution. Validation gates activation; every change is audited
+/// and snapshotted (mirrors <see cref="ProductAdminService"/>).
 /// </summary>
 public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
 {
@@ -20,10 +20,12 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
 
     private readonly IRepository<ModificationRule> _rules;
     private readonly IRepository<ProductType> _products;
+    private readonly IRepository<ExpirationModificationCode> _expirationCodes;
 
     public ModificationRuleAdminService(
         IRepository<ModificationRule> rules,
         IRepository<ProductType> products,
+        IRepository<ExpirationModificationCode> expirationCodes,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
@@ -33,16 +35,18 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
     {
         _rules = rules;
         _products = products;
+        _expirationCodes = expirationCodes;
     }
 
     public async Task<IReadOnlyList<ModificationRuleDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
     {
         var rules = includeInactive ? await _rules.ListAsync(ct) : await _rules.ListAsync(r => r.IsActive, ct);
         var products = await _products.ListAsync(ct);
+        var codes = await _expirationCodes.ListAsync(ct);
         return rules
             .OrderBy(r => r.ModificationType)
             .ThenBy(r => r.Id)
-            .Select(r => Map(r, products))
+            .Select(r => Map(r, products, codes))
             .ToList();
     }
 
@@ -55,7 +59,8 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
         }
 
         var products = await _products.ListAsync(ct);
-        return Map(r, products);
+        var codes = await _expirationCodes.ListAsync(ct);
+        return Map(r, products, codes);
     }
 
     /// <summary>Active rules applicable to a unit currently classified under <paramref name="productTypeId"/>.</summary>
@@ -63,7 +68,8 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
     {
         var rules = await _rules.ListAsync(r => r.IsActive && r.SourceProductTypeId == productTypeId, ct);
         var products = await _products.ListAsync(ct);
-        return rules.OrderBy(r => r.ModificationType).Select(r => Map(r, products)).ToList();
+        var codes = await _expirationCodes.ListAsync(ct);
+        return rules.OrderBy(r => r.ModificationType).Select(r => Map(r, products, codes)).ToList();
     }
 
     public async Task<EvaluationResult<ModificationRuleDto>> CreateAsync(SaveModificationRuleRequest req, CancellationToken ct = default)
@@ -120,12 +126,14 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
 
         _rules.Update(entity);
 
-        var after = await GetAsync(id, ct);
+        var products = await _products.ListAsync(ct);
+        var codes = await _expirationCodes.ListAsync(ct);
+        var after = Map(entity, products, codes);
         RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Update,
             oldValue: before, newValue: after, reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        return EvaluationResult<ModificationRuleDto>.Ok(after!, evaluation);
+        return EvaluationResult<ModificationRuleDto>.Ok(after, evaluation);
     }
 
     public async Task<EvaluationResult<ModificationRuleDto>> ActivateAsync(long id, string? reason, CancellationToken ct = default)
@@ -145,12 +153,14 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
         entity.IsActive = true;
         _rules.Update(entity);
 
-        var dto = await GetAsync(id, ct);
+        var products = await _products.ListAsync(ct);
+        var codes = await _expirationCodes.ListAsync(ct);
+        var dto = Map(entity, products, codes);
         RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Activate, AuditEventType.Activate,
             oldValue: null, newValue: dto, reason: reason);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        return EvaluationResult<ModificationRuleDto>.Ok(dto!, evaluation);
+        return EvaluationResult<ModificationRuleDto>.Ok(dto, evaluation);
     }
 
     public async Task<OperationResult<ModificationRuleDto>> DeactivateAsync(long id, string? reason, CancellationToken ct = default)
@@ -181,13 +191,16 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
             && r.TargetProductTypeId == entity.TargetProductTypeId, ct);
 
         bool? sourceActive = entity.SourceProductTypeId > 0
-            ? (await _products.GetByIdAsync(entity.SourceProductTypeId, ct))?.IsActive ?? false
+            ? (await _products.ListAsync(p => p.Id == entity.SourceProductTypeId, ct)).FirstOrDefault()?.IsActive ?? false
             : null;
         bool? targetActive = entity.TargetProductTypeId > 0
-            ? (await _products.GetByIdAsync(entity.TargetProductTypeId, ct))?.IsActive ?? false
+            ? (await _products.ListAsync(p => p.Id == entity.TargetProductTypeId, ct)).FirstOrDefault()?.IsActive ?? false
+            : null;
+        bool? expCodeActive = entity.ExpirationModificationCodeId > 0
+            ? (await _expirationCodes.ListAsync(c => c.Id == entity.ExpirationModificationCodeId, ct)).FirstOrDefault()?.IsActive ?? false
             : null;
 
-        return ModificationRuleValidator.Validate(entity, duplicate, sourceActive, targetActive);
+        return ModificationRuleValidator.Validate(entity, duplicate, sourceActive, targetActive, expCodeActive);
     }
 
     private static void Apply(ModificationRule e, SaveModificationRuleRequest req)
@@ -195,17 +208,23 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
         e.SourceProductTypeId = req.SourceProductTypeId;
         e.ModificationType = req.ModificationType;
         e.TargetProductTypeId = req.TargetProductTypeId;
-        e.ExpirationOffsetCode = (req.ExpirationOffsetCode ?? string.Empty).Trim().ToUpperInvariant();
+        e.ExpirationModificationCodeId = req.ExpirationModificationCodeId;
         e.Description = req.Description?.Trim();
     }
 
-    private static ModificationRuleDto Map(ModificationRule r, IReadOnlyList<ProductType> products)
+    private static ModificationRuleDto Map(
+        ModificationRule r,
+        IReadOnlyList<ProductType> products,
+        IReadOnlyList<ExpirationModificationCode> codes)
     {
         var source = products.FirstOrDefault(p => p.Id == r.SourceProductTypeId);
         var target = products.FirstOrDefault(p => p.Id == r.TargetProductTypeId);
+        var code = codes.FirstOrDefault(c => c.Id == r.ExpirationModificationCodeId);
         return new ModificationRuleDto(
             r.Id, r.SourceProductTypeId, source?.ProductCode ?? string.Empty,
             r.ModificationType, r.TargetProductTypeId, target?.ProductCode ?? string.Empty,
-            r.ExpirationOffsetCode, r.Description, r.Version, r.IsActive);
+            r.ExpirationModificationCodeId, code?.Code ?? string.Empty,
+            code?.RelativeTo ?? ExpirationRelativeTo.ModificationDateTime,
+            r.Description, r.Version, r.IsActive);
     }
 }

@@ -85,7 +85,8 @@ public static class DevelopmentSqliteBootstrap
         ("ElectronicSignatures", "AuthenticationMethod", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "AuthenticationMethod" INTEGER NOT NULL DEFAULT 2"""),
         ("ElectronicSignatures", "SignatureHash", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "SignatureHash" TEXT NULL"""),
         ("ElectronicSignatures", "ExpiresUtc", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "ExpiresUtc" TEXT NULL"""),
-        ("ElectronicSignatures", "ConsumedUtc", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "ConsumedUtc" TEXT NULL""")
+        ("ElectronicSignatures", "ConsumedUtc", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "ConsumedUtc" TEXT NULL"""),
+        ("ModificationRules", "ExpirationModificationCodeId", """ALTER TABLE "ModificationRules" ADD COLUMN "ExpirationModificationCodeId" INTEGER NOT NULL DEFAULT 0""")
     ];
 
     public static async Task InitializeAsync(

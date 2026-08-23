@@ -527,13 +527,50 @@ public static class ProductDefinitionValidator
     }
 }
 
+public static class ExpirationModificationCodeValidator
+{
+    public static RuleEvaluation Validate(ExpirationModificationCode code, bool duplicateActiveCode)
+    {
+        var results = new List<RuleResult>();
+
+        if (string.IsNullOrWhiteSpace(code.Code))
+        {
+            results.Add(RuleResult.HardStop("EXPCODE.CODE.REQUIRED", "An expiration modification code is required."));
+        }
+
+        if (code.OffsetAmount <= 0)
+        {
+            results.Add(RuleResult.HardStop("EXPCODE.AMOUNT.INVALID", "Offset amount must be a positive number."));
+        }
+
+        if (!Enum.IsDefined(code.OffsetUnit))
+        {
+            results.Add(RuleResult.HardStop("EXPCODE.UNIT.INVALID", "Offset unit must be Hours or Days."));
+        }
+
+        if (!Enum.IsDefined(code.RelativeTo))
+        {
+            results.Add(RuleResult.HardStop("EXPCODE.RELATIVE.INVALID", "Relative-to must be modification or collection date/time."));
+        }
+
+        if (duplicateActiveCode)
+        {
+            results.Add(RuleResult.HardStop("EXPCODE.CODE.DUPLICATE",
+                "Another expiration modification code already uses this code."));
+        }
+
+        return new RuleEvaluation(results);
+    }
+}
+
 public static class ModificationRuleValidator
 {
     public static RuleEvaluation Validate(
         ModificationRule r,
         bool duplicateActiveTriple,
         bool? sourceProductActive = null,
-        bool? targetProductActive = null)
+        bool? targetProductActive = null,
+        bool? expirationCodeActive = null)
     {
         var results = new List<RuleResult>();
 
@@ -547,10 +584,9 @@ public static class ModificationRuleValidator
             results.Add(RuleResult.HardStop("MODRULE.TARGET.REQUIRED", "A target product is required."));
         }
 
-        if (!ExpirationOffsetCode.TryParse(r.ExpirationOffsetCode, out _))
+        if (r.ExpirationModificationCodeId <= 0)
         {
-            results.Add(RuleResult.HardStop("MODRULE.OFFSET.INVALID",
-                $"Expiration offset code '{r.ExpirationOffsetCode}' is not valid. Use a format such as '24H' or '5D'."));
+            results.Add(RuleResult.HardStop("MODRULE.EXPCODE.REQUIRED", "An expiration modification code is required."));
         }
 
         if (duplicateActiveTriple)
@@ -567,6 +603,11 @@ public static class ModificationRuleValidator
         if (targetProductActive == false)
         {
             results.Add(RuleResult.HardStop("MODRULE.TARGET.INACTIVE", "The target product is not an active product definition."));
+        }
+
+        if (expirationCodeActive == false)
+        {
+            results.Add(RuleResult.HardStop("MODRULE.EXPCODE.INACTIVE", "The expiration modification code is not active."));
         }
 
         if (r.ModificationType is ModificationType.Divide or ModificationType.Pool

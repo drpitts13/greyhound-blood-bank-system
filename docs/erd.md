@@ -33,6 +33,7 @@ erDiagram
     BloodProducts ||--o{ InventoryStatusHistory : tracks
     ProductTypes ||--o{ ModificationRules : sourceOf
     ProductTypes ||--o{ ModificationRules : targetOf
+    ExpirationModificationCodes ||--o{ ModificationRules : expiresAs
     ModificationRules ||--o{ UnitModifications : executedAs
     UnitModifications ||--o{ UnitModificationUnits : links
     BloodProducts ||--o{ UnitModificationUnits : participatesIn
@@ -174,12 +175,16 @@ Index: (`BloodProductId`,`ChangedUtc`).
 
 Every modification (Divide, Pool, Irradiate, Thaw, Volume Reduction, Leukoreduction) is executed under an admin-configured `ModificationRules` row, retires its source unit(s) into the terminal `Modified` status, and produces new result unit(s) in `Quarantine`. See `docs/workflows.md` §"Product modification" and `docs/safety-rules.md`.
 
+#### ExpirationModificationCodes (admin config)
+`Id`, `Code` (unique, e.g. `24H`, `28D`, `42D`), `OffsetAmount`, `OffsetUnit` (Hours/Days), `RelativeTo` (`ModificationDateTime` / `CollectionDateTime`), `Description NULL`, `IsActive`, `Version`, audit metadata.
+Indexes: (`Code` unique), (`IsActive`).
+
 #### ModificationRules (admin config)
-`Id`, `SourceProductTypeId` (FK ProductTypes), `ModificationType` (Divide/Pool/Irradiate/Thaw/VolumeReduction/Leukoreduction), `TargetProductTypeId` (FK ProductTypes), `ExpirationOffsetCode` (e.g. `24H`, `5D`), `Description NULL`, `IsActive`, `Version`, audit metadata.
-Indexes: (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`), (`IsActive`). App-layer guard prevents more than one **active** rule per (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`) triple.
+`Id`, `SourceProductTypeId` (FK ProductTypes), `ModificationType` (Divide/Pool/Irradiate/Thaw/VolumeReduction/Leukoreduction/Wash), `TargetProductTypeId` (FK ProductTypes), `ExpirationModificationCodeId` (FK ExpirationModificationCodes), `Description NULL`, `IsActive`, `Version`, audit metadata.
+Indexes: (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`), (`ExpirationModificationCodeId`), (`IsActive`). App-layer guard prevents more than one **active** rule per (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`) triple.
 
 #### UnitModifications (header, append-only)
-`Id`, `ModificationRuleId` (FK ModificationRules), `ModificationType` (denormalized), `ExpirationOffsetCodeApplied` (denormalized), `ResultExpiresUtc` (= `min(PerformedUtc + offset, earliest source ExpiresUtc)`), `Reason`, `PerformedBy`, `PerformedUtc`, audit metadata.
+`Id`, `ModificationRuleId` (FK ModificationRules), `ModificationType` (denormalized), `ExpirationOffsetCodeApplied` (denormalized snapshot of the expiration code), `ResultExpiresUtc` (= `min(anchor + offset, earliest source ExpiresUtc)` where the anchor is modification time or the earliest source collection time), `Reason`, `PerformedBy`, `PerformedUtc`, audit metadata.
 Indexes: (`ModificationRuleId`), (`PerformedUtc`).
 
 #### UnitModificationUnits (link, append-only)

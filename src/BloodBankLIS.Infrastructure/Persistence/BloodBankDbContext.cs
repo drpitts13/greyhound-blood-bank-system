@@ -93,6 +93,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<ProductAttribute> ProductAttributes => Set<ProductAttribute>();
     public DbSet<ProductAttributeAssignment> ProductAttributeAssignments => Set<ProductAttributeAssignment>();
     public DbSet<ExceptionDefinition> ExceptionDefinitions => Set<ExceptionDefinition>();
+    public DbSet<ExpirationModificationCode> ExpirationModificationCodes => Set<ExpirationModificationCode>();
     public DbSet<ModificationRule> ModificationRules => Set<ModificationRule>();
     public DbSet<UnitModification> UnitModifications => Set<UnitModification>();
     public DbSet<UnitModificationUnit> UnitModificationUnits => Set<UnitModificationUnit>();
