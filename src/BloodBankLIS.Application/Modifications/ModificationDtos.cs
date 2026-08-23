@@ -5,6 +5,7 @@ namespace BloodBankLIS.Application.Modifications;
 /// <summary>An active <c>ModificationRule</c> applicable to a specific unit's current product code.</summary>
 public sealed record EligibleModificationDto(
     long RuleId,
+    string ModificationCode,
     ModificationType ModificationType,
     long TargetProductTypeId,
     string TargetProductCode,

@@ -320,6 +320,7 @@ public class ConfigValidatorsTests
     {
         var rule = new ModificationRule
         {
+            ModificationCode = "DIV-TEST",
             SourceProductTypeId = 0,
             TargetProductTypeId = 0,
             ModificationType = ModificationType.Divide,
@@ -338,6 +339,7 @@ public class ConfigValidatorsTests
     {
         var rule = new ModificationRule
         {
+            ModificationCode = "THAW-TEST",
             SourceProductTypeId = 1,
             TargetProductTypeId = 2,
             ModificationType = ModificationType.Thaw,
@@ -412,6 +414,29 @@ public class ConfigValidatorsTests
     }
 
     [Fact]
+    public void ModificationRule_MissingCode_HardStops()
+    {
+        var rule = ValidModificationRule();
+        rule.ModificationCode = " ";
+
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true, expirationCodeActive: true);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.CODE.REQUIRED");
+    }
+
+    [Fact]
+    public void ModificationRule_DuplicateCode_HardStops()
+    {
+        var rule = ValidModificationRule();
+
+        var eval = ModificationRuleValidator.Validate(rule, duplicateActiveTriple: false, sourceProductActive: true, targetProductActive: true, expirationCodeActive: true, duplicateCode: true);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "MODRULE.CODE.DUPLICATE");
+    }
+
+    [Fact]
     public void ExpirationModificationCode_Valid_Passes()
     {
         var code = new ExpirationModificationCode
@@ -458,6 +483,7 @@ public class ConfigValidatorsTests
 
     private static ModificationRule ValidModificationRule() => new()
     {
+        ModificationCode = "IRR-RBC-LR",
         SourceProductTypeId = 1,
         TargetProductTypeId = 2,
         ModificationType = ModificationType.Irradiate,

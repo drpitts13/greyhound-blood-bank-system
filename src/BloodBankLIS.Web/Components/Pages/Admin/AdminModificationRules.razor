@@ -13,9 +13,9 @@
 </div>
 
 <p class="muted">
-    Maps a source product code and modification type to a resulting target product code and an
-    expiration modification code. The expiration code's offset is applied from modification or
-    collection date/time and capped at the source unit's original expiration.
+    Each rule has a unique modification code and maps a source product code and modification type
+    to a target product code and an expiration modification code. The expiration code's offset is
+    applied from modification or collection date/time and capped at the source unit's original expiration.
 </p>
 
 <Outcome Value="_feedback" />
@@ -32,11 +32,12 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Source</th><th>Type</th><th>Target</th><th>Offset</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Modification Code</th><th>Source Product Code</th><th>Type</th><th>Target Product Code</th><th>Offset</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var r in _items)
                 {
                     <tr>
+                        <td class="mono">@r.ModificationCode</td>
                         <td class="mono">@r.SourceProductCode</td>
                         <td>@r.ModificationType</td>
                         <td class="mono">@r.TargetProductCode</td>
@@ -62,6 +63,9 @@
     <div class="bb-card" style="margin-top:1rem;">
         <h2>@(_editId is null ? "New modification rule" : $"Edit rule #{_editId}")</h2>
         <div class="form-row">
+            <div class="field"><label>Modification code</label>
+                <input class="mono" @bind="_editing.ModificationCode" placeholder="IRR-RBC-LR" />
+            </div>
             <div class="field"><label>Source product</label>
                 <select @bind="_editing.SourceProductTypeId">
                     <option value="0">-- select --</option>
@@ -215,6 +219,7 @@
 
     private sealed class EditModel
     {
+        public string ModificationCode { get; set; } = string.Empty;
         public long SourceProductTypeId { get; set; }
         public ModificationType ModificationType { get; set; } = ModificationType.Divide;
         public long TargetProductTypeId { get; set; }
@@ -223,6 +228,7 @@
 
         public static EditModel From(ModificationRuleDto r) => new()
         {
+            ModificationCode = r.ModificationCode,
             SourceProductTypeId = r.SourceProductTypeId,
             ModificationType = r.ModificationType,
             TargetProductTypeId = r.TargetProductTypeId,
@@ -231,6 +237,6 @@
         };
 
         public SaveModificationRuleRequest ToRequest(string? reason) => new(
-            SourceProductTypeId, ModificationType, TargetProductTypeId, ExpirationModificationCodeId, Description, reason);
+            ModificationCode, SourceProductTypeId, ModificationType, TargetProductTypeId, ExpirationModificationCodeId, Description, reason);
     }
 }

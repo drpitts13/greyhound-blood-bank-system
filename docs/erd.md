@@ -180,8 +180,8 @@ Every modification (Divide, Pool, Irradiate, Thaw, Volume Reduction, Leukoreduct
 Indexes: (`Code` unique), (`IsActive`).
 
 #### ModificationRules (admin config)
-`Id`, `SourceProductTypeId` (FK ProductTypes), `ModificationType` (Divide/Pool/Irradiate/Thaw/VolumeReduction/Leukoreduction/Wash), `TargetProductTypeId` (FK ProductTypes), `ExpirationModificationCodeId` (FK ExpirationModificationCodes), `Description NULL`, `IsActive`, `Version`, audit metadata.
-Indexes: (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`), (`ExpirationModificationCodeId`), (`IsActive`). App-layer guard prevents more than one **active** rule per (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`) triple.
+`Id`, `ModificationCode` (unique, e.g. `IRR-RBC-LR`), `SourceProductTypeId` (FK ProductTypes), `ModificationType` (Divide/Pool/Irradiate/Thaw/VolumeReduction/Leukoreduction/Wash), `TargetProductTypeId` (FK ProductTypes), `ExpirationModificationCodeId` (FK ExpirationModificationCodes), `Description NULL`, `IsActive`, `Version`, audit metadata.
+Indexes: (`ModificationCode` unique), (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`), (`ExpirationModificationCodeId`), (`IsActive`). App-layer guard prevents more than one **active** rule per (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`) triple.
 
 #### UnitModifications (header, append-only)
 `Id`, `ModificationRuleId` (FK ModificationRules), `ModificationType` (denormalized), `ExpirationOffsetCodeApplied` (denormalized snapshot of the expiration code), `ResultExpiresUtc` (= `min(anchor + offset, earliest source ExpiresUtc)` where the anchor is modification time or the earliest source collection time), `Reason`, `PerformedBy`, `PerformedUtc`, audit metadata.

@@ -112,6 +112,7 @@ public class ExpirationModificationCodeAdminServiceTests : IClassFixture<SqliteC
             var products = context.ProductTypes.ToList();
             context.ModificationRules.Add(new ModificationRule
             {
+                ModificationCode = "IRR-EXP-SRC",
                 SourceProductTypeId = products[0].Id,
                 TargetProductTypeId = products[1].Id,
                 ModificationType = ModificationType.Irradiate,

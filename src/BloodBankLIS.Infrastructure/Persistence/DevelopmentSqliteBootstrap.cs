@@ -86,7 +86,8 @@ public static class DevelopmentSqliteBootstrap
         ("ElectronicSignatures", "SignatureHash", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "SignatureHash" TEXT NULL"""),
         ("ElectronicSignatures", "ExpiresUtc", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "ExpiresUtc" TEXT NULL"""),
         ("ElectronicSignatures", "ConsumedUtc", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "ConsumedUtc" TEXT NULL"""),
-        ("ModificationRules", "ExpirationModificationCodeId", """ALTER TABLE "ModificationRules" ADD COLUMN "ExpirationModificationCodeId" INTEGER NOT NULL DEFAULT 0""")
+        ("ModificationRules", "ExpirationModificationCodeId", """ALTER TABLE "ModificationRules" ADD COLUMN "ExpirationModificationCodeId" INTEGER NOT NULL DEFAULT 0"""),
+        ("ModificationRules", "ModificationCode", """ALTER TABLE "ModificationRules" ADD COLUMN "ModificationCode" TEXT NOT NULL DEFAULT ''""")
     ];
 
     public static async Task InitializeAsync(
@@ -141,6 +142,34 @@ public static class DevelopmentSqliteBootstrap
 
             await context.Database.ExecuteSqlRawAsync(alterSql, ct);
         }
+
+        await BackfillModificationCodesAsync(context, ct);
+    }
+
+    private static async Task BackfillModificationCodesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await TableExistsAsync(context, "ModificationRules", ct)
+            || !await ColumnExistsAsync(context, "ModificationRules", "ModificationCode", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE ModificationRules
+            SET ModificationCode = CASE ModificationType
+                WHEN 0 THEN 'DIV-'
+                WHEN 1 THEN 'POOL-'
+                WHEN 2 THEN 'IRR-'
+                WHEN 3 THEN 'THAW-'
+                WHEN 4 THEN 'VR-'
+                WHEN 5 THEN 'LR-'
+                WHEN 6 THEN 'WASH-'
+                ELSE 'MOD-'
+            END || COALESCE((SELECT ProductCode FROM ProductTypes WHERE Id = ModificationRules.SourceProductTypeId), CAST(Id AS TEXT))
+            WHERE TRIM(ModificationCode) = ''
+            """,
+            ct);
     }
 
     /// <summary>

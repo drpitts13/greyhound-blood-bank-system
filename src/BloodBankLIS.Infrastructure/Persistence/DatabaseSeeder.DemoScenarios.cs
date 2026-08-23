@@ -205,6 +205,7 @@ public static partial class DatabaseSeeder
         context.ModificationRules.AddRange(
             new ModificationRule
             {
+                ModificationCode = "IRR-RBC-LR",
                 SourceProductTypeId = redCells.Id,
                 ModificationType = ModificationType.Irradiate,
                 TargetProductTypeId = irradiated.Id,
@@ -215,6 +216,7 @@ public static partial class DatabaseSeeder
             },
             new ModificationRule
             {
+                ModificationCode = "WASH-RBC-LR",
                 SourceProductTypeId = redCells.Id,
                 ModificationType = ModificationType.Wash,
                 TargetProductTypeId = washed.Id,
@@ -225,6 +227,7 @@ public static partial class DatabaseSeeder
             },
             new ModificationRule
             {
+                ModificationCode = "THAW-FFP",
                 SourceProductTypeId = plasma.Id,
                 ModificationType = ModificationType.Thaw,
                 TargetProductTypeId = thawed.Id,

@@ -87,7 +87,7 @@ public sealed class BloodProductModificationService
                     preview = ModificationExpirationRule.ComputeNewExpiresUtc(anchor, code.ToOffset(), unit.ExpiresUtc);
                 }
                 return new EligibleModificationDto(
-                    r.Id, r.ModificationType, r.TargetProductTypeId,
+                    r.Id, r.ModificationCode, r.ModificationType, r.TargetProductTypeId,
                     products.FirstOrDefault(p => p.Id == r.TargetProductTypeId)?.ProductCode ?? string.Empty,
                     code?.Code ?? string.Empty,
                     code?.RelativeTo ?? ExpirationRelativeTo.ModificationDateTime,

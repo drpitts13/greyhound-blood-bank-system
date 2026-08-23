@@ -176,7 +176,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    admin["Admin: ModificationRules + ExpirationModificationCodes\n(source, type, target, expiration code)"] --> eligible
+    admin["Admin: ModificationRules + ExpirationModificationCodes\n(code, source product, type, target product, expiration code)"] --> eligible
     tech["Technologist selects source unit(s)"] --> eligible["GET eligible-modifications\n(active rules matching unit's product)"]
     eligible --> guard["UnitModificationEligibilityRule:\nstatus=Available, unexpired, product match;\nPool: >=2 sources + same product/ABO/Rh;\nDivide: >=2 result units, volumes <= source"]
     guard -->|HardStop| blocked[422 blocked, hardStops/warnings]

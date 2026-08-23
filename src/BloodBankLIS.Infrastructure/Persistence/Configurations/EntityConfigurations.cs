@@ -390,6 +390,7 @@ public sealed class ModificationRuleConfiguration : IEntityTypeConfiguration<Mod
     {
         b.ToTable("ModificationRules");
         b.HasKey(r => r.Id);
+        b.Property(r => r.ModificationCode).HasMaxLength(20).IsRequired();
         b.Property(r => r.Description).HasMaxLength(500);
         b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(r => r.ModifiedBy).HasMaxLength(100);
@@ -399,6 +400,7 @@ public sealed class ModificationRuleConfiguration : IEntityTypeConfiguration<Mod
         b.HasOne(r => r.ExpirationModificationCode).WithMany(c => c.ModificationRules)
             .HasForeignKey(r => r.ExpirationModificationCodeId).OnDelete(DeleteBehavior.Restrict);
 
+        b.HasIndex(r => r.ModificationCode).IsUnique();
         b.HasIndex(r => new { r.SourceProductTypeId, r.ModificationType, r.TargetProductTypeId });
         b.HasIndex(r => r.IsActive);
         b.HasIndex(r => r.ExpirationModificationCodeId);

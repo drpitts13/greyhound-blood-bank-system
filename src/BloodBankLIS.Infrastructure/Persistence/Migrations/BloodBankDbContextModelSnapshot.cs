@@ -1607,6 +1607,11 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<string>("ModificationCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<int>("ModificationType")
                         .HasColumnType("int");
 
@@ -1636,6 +1641,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.HasIndex("ExpirationModificationCodeId");
 
                     b.HasIndex("IsActive");
+
+                    b.HasIndex("ModificationCode")
+                        .IsUnique();
 
                     b.HasIndex("TargetProductTypeId");
 

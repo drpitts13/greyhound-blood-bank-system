@@ -61,7 +61,7 @@
                     @foreach (var e in _eligible)
                     {
                         <option value="@e.RuleId" disabled="@(!e.IsAvailable)">
-                            @e.ModificationType &rarr; @e.TargetProductCode (@e.ExpirationOffsetCode from @RelativeLabel(e.ExpirationRelativeTo))@(e.IsAvailable ? "" : " — collection date required")
+                            @e.ModificationCode — @e.ModificationType &rarr; @e.TargetProductCode (@e.ExpirationOffsetCode from @RelativeLabel(e.ExpirationRelativeTo))@(e.IsAvailable ? "" : " — collection date required")
                         </option>
                     }
                 </select>
@@ -84,6 +84,7 @@
     <div class="bb-card">
         <div class="bb-card-title"><h3>3. Modification details</h3></div>
         <div class="form-row">
+            <div class="field"><label>Modification code</label><div class="mono">@_selectedRule.ModificationCode</div></div>
             <div class="field"><label>New product</label><div class="mono">@_selectedRule.TargetProductCode</div></div>
             <div class="field"><label>New expiration</label>
                 <div>@(_selectedRule.PreviewExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</div>

@@ -344,6 +344,7 @@ public sealed record SaveExpirationModificationCodeRequest(
 
 public sealed record ModificationRuleDto(
     long Id,
+    string ModificationCode,
     long SourceProductTypeId,
     string SourceProductCode,
     ModificationType ModificationType,
@@ -357,6 +358,7 @@ public sealed record ModificationRuleDto(
     bool IsActive);
 
 public sealed record SaveModificationRuleRequest(
+    string ModificationCode,
     long SourceProductTypeId,
     ModificationType ModificationType,
     long TargetProductTypeId,

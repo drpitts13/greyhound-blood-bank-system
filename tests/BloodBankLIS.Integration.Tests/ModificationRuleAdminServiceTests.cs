@@ -78,8 +78,9 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
         long targetId,
         long expirationCodeId,
         ModificationType type = ModificationType.Irradiate,
-        string? reason = null) =>
-        new(sourceId, type, targetId, expirationCodeId, "Test rule", reason);
+        string? reason = null,
+        string? modificationCode = null) =>
+        new(modificationCode ?? $"MOD-{sourceId}-{targetId}-{(int)type}", sourceId, type, targetId, expirationCodeId, "Test rule", reason);
 
     [Fact]
     public async Task Create_ValidRule_SucceedsAsInactiveDraft()
@@ -95,6 +96,29 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
         Assert.True(result.Succeeded);
         Assert.False(result.Value!.IsActive);
         Assert.Equal(1, result.Value.Version);
+        Assert.Equal($"MOD-{sourceId}-{targetId}-{(int)ModificationType.Irradiate}", result.Value.ModificationCode);
+    }
+
+    [Fact]
+    public async Task Create_DuplicateModificationCode_IsBlocked()
+    {
+        var (sourceId, targetId) = await EnsureProductTypesAsync("DUPCODE");
+        var codeId = await EnsureExpirationCodeAsync();
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var first = await service.CreateAsync(NewRequest(sourceId, targetId, codeId, modificationCode: "SAME-CODE"));
+        Assert.True(first.Succeeded);
+
+        var otherSource = new ProductType { ProductCode = "MRSRC-DUPCODE2", Name = "Other", IsActive = true };
+        context.ProductTypes.Add(otherSource);
+        await context.SaveChangesAsync();
+
+        var second = await service.CreateAsync(NewRequest(otherSource.Id, targetId, codeId, modificationCode: "SAME-CODE"));
+
+        Assert.False(second.Succeeded);
+        Assert.Contains(second.Evaluation!.HardStops, r => r.Code == "MODRULE.CODE.DUPLICATE");
     }
 
     [Fact]
@@ -152,8 +176,8 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
         await using var context = _factory.Create();
         var service = CreateService(context);
 
-        var first = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
-        var second = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
+        var first = await service.CreateAsync(NewRequest(sourceId, targetId, codeId, modificationCode: "DUP-A"));
+        var second = await service.CreateAsync(NewRequest(sourceId, targetId, codeId, modificationCode: "DUP-B"));
         Assert.True(first.Succeeded);
         Assert.True(second.Succeeded);
 
@@ -201,7 +225,7 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
 
             Assert.NotEqual(firstCodeId, secondCodeId);
             var update = await service.UpdateAsync(id, new SaveModificationRuleRequest(
-                sourceId, ModificationType.Irradiate, targetId, secondCodeId, "Test rule", "Clinical update"));
+                "MOD-EDITVER", sourceId, ModificationType.Irradiate, targetId, secondCodeId, "Test rule", "Clinical update"));
             Assert.True(update.Succeeded);
             Assert.Equal(secondCodeId, update.Value!.ExpirationModificationCodeId);
             Assert.Equal("5D", update.Value.ExpirationOffsetCode);

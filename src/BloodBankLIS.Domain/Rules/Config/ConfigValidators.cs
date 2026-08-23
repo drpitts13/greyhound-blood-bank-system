@@ -570,9 +570,21 @@ public static class ModificationRuleValidator
         bool duplicateActiveTriple,
         bool? sourceProductActive = null,
         bool? targetProductActive = null,
-        bool? expirationCodeActive = null)
+        bool? expirationCodeActive = null,
+        bool duplicateCode = false)
     {
         var results = new List<RuleResult>();
+
+        if (string.IsNullOrWhiteSpace(r.ModificationCode))
+        {
+            results.Add(RuleResult.HardStop("MODRULE.CODE.REQUIRED", "A modification code is required."));
+        }
+
+        if (duplicateCode)
+        {
+            results.Add(RuleResult.HardStop("MODRULE.CODE.DUPLICATE",
+                "Another modification rule already uses this modification code."));
+        }
 
         if (r.SourceProductTypeId <= 0)
         {

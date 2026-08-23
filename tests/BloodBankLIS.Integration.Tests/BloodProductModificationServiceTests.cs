@@ -83,6 +83,7 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         await using var context = _factory.Create();
         var rule = new ModificationRule
         {
+            ModificationCode = $"T{Guid.NewGuid():N}"[..20],
             SourceProductTypeId = sourceProductId,
             TargetProductTypeId = targetProductId,
             ModificationType = type,

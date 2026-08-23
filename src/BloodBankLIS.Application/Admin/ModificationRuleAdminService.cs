@@ -44,7 +44,8 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
         var products = await _products.ListAsync(ct);
         var codes = await _expirationCodes.ListAsync(ct);
         return rules
-            .OrderBy(r => r.ModificationType)
+            .OrderBy(r => r.ModificationCode)
+            .ThenBy(r => r.ModificationType)
             .ThenBy(r => r.Id)
             .Select(r => Map(r, products, codes))
             .ToList();
@@ -189,6 +190,8 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
             && r.SourceProductTypeId == entity.SourceProductTypeId
             && r.ModificationType == entity.ModificationType
             && r.TargetProductTypeId == entity.TargetProductTypeId, ct);
+        var duplicateCode = await _rules.AnyAsync(r =>
+            r.Id != selfId && r.ModificationCode == entity.ModificationCode, ct);
 
         bool? sourceActive = entity.SourceProductTypeId > 0
             ? (await _products.ListAsync(p => p.Id == entity.SourceProductTypeId, ct)).FirstOrDefault()?.IsActive ?? false
@@ -200,11 +203,12 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
             ? (await _expirationCodes.ListAsync(c => c.Id == entity.ExpirationModificationCodeId, ct)).FirstOrDefault()?.IsActive ?? false
             : null;
 
-        return ModificationRuleValidator.Validate(entity, duplicate, sourceActive, targetActive, expCodeActive);
+        return ModificationRuleValidator.Validate(entity, duplicate, sourceActive, targetActive, expCodeActive, duplicateCode);
     }
 
     private static void Apply(ModificationRule e, SaveModificationRuleRequest req)
     {
+        e.ModificationCode = (req.ModificationCode ?? string.Empty).Trim().ToUpperInvariant();
         e.SourceProductTypeId = req.SourceProductTypeId;
         e.ModificationType = req.ModificationType;
         e.TargetProductTypeId = req.TargetProductTypeId;
@@ -221,7 +225,7 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
         var target = products.FirstOrDefault(p => p.Id == r.TargetProductTypeId);
         var code = codes.FirstOrDefault(c => c.Id == r.ExpirationModificationCodeId);
         return new ModificationRuleDto(
-            r.Id, r.SourceProductTypeId, source?.ProductCode ?? string.Empty,
+            r.Id, r.ModificationCode, r.SourceProductTypeId, source?.ProductCode ?? string.Empty,
             r.ModificationType, r.TargetProductTypeId, target?.ProductCode ?? string.Empty,
             r.ExpirationModificationCodeId, code?.Code ?? string.Empty,
             code?.RelativeTo ?? ExpirationRelativeTo.ModificationDateTime,
