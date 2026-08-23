@@ -33,7 +33,7 @@
             <div class="field"><label>Product type</label>
                 <select @bind="_rec.ProductTypeId">
                     <option value="0">— select —</option>
-                    @foreach (var t in _productTypes) { <option value="@t.Id">@t.ProductCode — @t.Name</option> }
+                    @foreach (var t in _productTypes) { <option value="@t.Id">@t.DisplayProductCode — @t.Name</option> }
                 </select>
             </div>
             <div class="field"><label>ABO</label><select @bind="_rec.Abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select></div>
@@ -84,13 +84,13 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Unit #</th><th>Type</th><th>Type</th><th>Expires</th><th>Status</th><th>Location</th><th></th></tr></thead>
+            <thead><tr><th>Unit #</th><th>Product</th><th>ABO/Rh</th><th>Expires</th><th>Status</th><th>Location</th><th></th></tr></thead>
             <tbody>
                 @foreach (var u in _units)
                 {
                     <tr>
                         <td class="mono">@u.UnitNumber</td>
-                        <td>@ProductName(u.ProductTypeId)</td>
+                        <td class="mono">@ProductCode(u)</td>
                         <td><strong>@Ui.BloodType(u.Abo, u.RhD)</strong></td>
                         <td class="nowrap @(u.ExpiresUtc < DateTime.UtcNow ? "" : "")">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
@@ -143,7 +143,26 @@
         await SearchAsync();
     }
 
-    private string ProductName(long id) => _productTypes.FirstOrDefault(t => t.Id == id)?.ProductCode ?? id.ToString();
+    private string ProductCode(BloodUnitDto u)
+    {
+        if (!string.IsNullOrWhiteSpace(u.ProductDescriptionCode))
+        {
+            return u.ProductDescriptionCode;
+        }
+
+        if (!string.IsNullOrWhiteSpace(u.ProductCodeData) && u.ProductCodeData.Length >= 5)
+        {
+            return u.ProductCodeData[..5];
+        }
+
+        if (!string.IsNullOrWhiteSpace(u.Isbt128ProductCode))
+        {
+            return u.Isbt128ProductCode.Length >= 5 ? u.Isbt128ProductCode[..5] : u.Isbt128ProductCode;
+        }
+
+        return _productTypes.FirstOrDefault(t => t.Id == u.ProductTypeId)?.DisplayProductCode
+            ?? u.ProductTypeId.ToString();
+    }
     private string LocationName(long? id) => id is null ? "—" : (_locations.FirstOrDefault(l => l.Id == id)?.Code ?? id.Value.ToString());
 
     private async Task SearchAsync()

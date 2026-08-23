@@ -19,6 +19,8 @@ public sealed record BloodUnitDto(
     string? ComponentIdentity,
     string? Din,
     string? ProductCodeData,
+    string? ProductDescriptionCode,
+    string? Isbt128ProductCode,
     string? AboRhdCode,
     string? ExpirationEncoded,
     DateTime? ExpirationLocal,
@@ -36,7 +38,8 @@ public sealed record BloodUnitDto(
     string CreatedBy)
 {
     public static BloodUnitDto From(BloodUnit u) => new(
-        u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData, u.AboRhdCode,
+        u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
+        u.ProductDescriptionCode, u.Isbt128ProductCode, u.AboRhdCode,
         u.ExpirationEncoded, u.ExpirationLocal, u.ExpirationTimezone, u.ExpirationHasExplicitTime,
         u.ProductTypeId, u.Abo, u.RhD, u.BloodType.ToString(),
         u.ExpiresUtc, u.Status, u.CurrentLocationId, u.Source, u.CreatedUtc, u.CreatedBy);
