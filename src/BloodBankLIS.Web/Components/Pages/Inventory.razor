@@ -84,13 +84,14 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Unit #</th><th>Product</th><th>ABO/Rh</th><th>Expires</th><th>Status</th><th>Location</th><th></th></tr></thead>
+            <thead><tr><th>Unit #</th><th>Product</th><th>Name</th><th>ABO/Rh</th><th>Expires</th><th>Status</th><th>Location</th><th></th></tr></thead>
             <tbody>
                 @foreach (var u in _units)
                 {
                     <tr>
                         <td class="mono">@u.UnitNumber</td>
                         <td class="mono">@ProductCode(u)</td>
+                        <td>@ProductName(u.ProductTypeId)</td>
                         <td><strong>@Ui.BloodType(u.Abo, u.RhD)</strong></td>
                         <td class="nowrap @(u.ExpiresUtc < DateTime.UtcNow ? "" : "")">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
@@ -99,7 +100,7 @@
                     </tr>
                     @if (_selected?.Id == u.Id)
                     {
-                        <tr><td colspan="7">@RenderActions(u)</td></tr>
+                        <tr><td colspan="8">@RenderActions(u)</td></tr>
                     }
                 }
             </tbody>
@@ -163,6 +164,10 @@
         return _productTypes.FirstOrDefault(t => t.Id == u.ProductTypeId)?.DisplayProductCode
             ?? u.ProductTypeId.ToString();
     }
+
+    private string ProductName(long productTypeId) =>
+        _productTypes.FirstOrDefault(t => t.Id == productTypeId)?.Name ?? "—";
+
     private string LocationName(long? id) => id is null ? "—" : (_locations.FirstOrDefault(l => l.Id == id)?.Code ?? id.Value.ToString());
 
     private async Task SearchAsync()
