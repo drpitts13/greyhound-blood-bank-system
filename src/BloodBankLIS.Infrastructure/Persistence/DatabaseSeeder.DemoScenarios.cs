@@ -95,7 +95,8 @@ public static partial class DatabaseSeeder
                     RequiresAboMatch = true,
                     RequiresRhMatch = true,
                     StorageRequirements = "1-6C",
-                    DefaultShelfLifeHours = 28 * 24
+                    DefaultShelfLifeHours = 28 * 24,
+                    Isbt128ProductCode = "E0332"
                 },
                 new ProductType
                 {
@@ -106,7 +107,8 @@ public static partial class DatabaseSeeder
                     RequiresAboMatch = true,
                     RequiresRhMatch = true,
                     StorageRequirements = "1-6C",
-                    DefaultShelfLifeHours = 24
+                    DefaultShelfLifeHours = 24,
+                    Isbt128ProductCode = "E5169"
                 },
                 new ProductType
                 {
@@ -115,10 +117,48 @@ public static partial class DatabaseSeeder
                     ComponentClass = ComponentClass.Plasma,
                     RequiresCrossmatch = false,
                     StorageRequirements = "1-6C",
-                    DefaultShelfLifeHours = 5 * 24
+                    DefaultShelfLifeHours = 5 * 24,
+                    Isbt128ProductCode = "E0701"
                 }
             ],
             ct);
+    }
+
+    /// <summary>
+    /// Stamps ISBT product description codes on facility product types so modification
+    /// rules and inventory show E-codes (e.g. E0336) instead of internal aliases.
+    /// </summary>
+    private static async Task EnsureProductTypeIsbtCodesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var assigned = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["RBC-LR"] = "E0336",
+            [IrradiatedRedCellsCode] = "E0332",
+            [WashedRedCellsCode] = "E5169",
+            ["FFP"] = "E0701",
+            [ThawedPlasmaCode] = "E0701",
+            ["WB"] = "E0023",
+            ["PLT-A"] = "E3077"
+        };
+
+        var products = await context.ProductTypes.ToListAsync(ct);
+        var changed = false;
+        foreach (var product in products)
+        {
+            if (!assigned.TryGetValue(product.ProductCode, out var pdc)
+                || string.Equals(product.Isbt128ProductCode, pdc, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            product.Isbt128ProductCode = pdc;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
     }
 
     /// <summary>

@@ -88,7 +88,7 @@ public sealed class BloodProductModificationService
                 }
                 return new EligibleModificationDto(
                     r.Id, r.ModificationCode, r.ModificationType, r.TargetProductTypeId,
-                    products.FirstOrDefault(p => p.Id == r.TargetProductTypeId)?.ProductCode ?? string.Empty,
+                    DisplayProductCode(products.FirstOrDefault(p => p.Id == r.TargetProductTypeId)),
                     code?.Code ?? string.Empty,
                     code?.RelativeTo ?? ExpirationRelativeTo.ModificationDateTime,
                     r.Description, preview, requiresCollection, available);
@@ -122,8 +122,12 @@ public sealed class BloodProductModificationService
             {
                 var links = allLinks.Where(l => l.UnitModificationId == m.Id).OrderBy(l => l.SortOrder).ToList();
                 ruleById.TryGetValue(m.ModificationRuleId, out var rule);
-                var sourceCode = rule is not null ? products.FirstOrDefault(p => p.Id == rule.SourceProductTypeId)?.ProductCode : null;
-                var targetCode = rule is not null ? products.FirstOrDefault(p => p.Id == rule.TargetProductTypeId)?.ProductCode : null;
+                var sourceCode = rule is not null
+                    ? DisplayProductCode(products.FirstOrDefault(p => p.Id == rule.SourceProductTypeId))
+                    : null;
+                var targetCode = rule is not null
+                    ? DisplayProductCode(products.FirstOrDefault(p => p.Id == rule.TargetProductTypeId))
+                    : null;
 
                 return new UnitModificationDto(
                     m.Id, m.ModificationType, sourceCode ?? string.Empty, targetCode ?? string.Empty,
@@ -352,6 +356,7 @@ public sealed class BloodProductModificationService
         var resultUnits = new List<BloodUnit>();
         var usedUnitNumbers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         sortOrder = 0;
+        var targetProduct = await _products.GetByIdAsync(rule.TargetProductTypeId, ct);
 
         foreach (var spec in resultSpecs)
         {
@@ -360,6 +365,8 @@ public sealed class BloodProductModificationService
             {
                 UnitNumber = unitNumber,
                 ProductTypeId = rule.TargetProductTypeId,
+                Isbt128ProductCode = targetProduct?.Isbt128ProductCode,
+                ProductDescriptionCode = targetProduct?.Isbt128ProductCode,
                 Abo = primarySource.Abo,
                 RhD = primarySource.RhD,
                 ExpiresUtc = resultExpiresUtc,
@@ -450,6 +457,11 @@ public sealed class BloodProductModificationService
         usedThisRun.Add(candidate);
         return candidate;
     }
+
+    private static string DisplayProductCode(ProductType? product) =>
+        string.IsNullOrWhiteSpace(product?.Isbt128ProductCode)
+            ? product?.ProductCode ?? string.Empty
+            : product.Isbt128ProductCode;
 
     private static UnitModificationEligibilityRule.SourceUnitSnapshot ToSnapshot(BloodUnit unit) => new(
         unit.Id, unit.Status, unit.ProductTypeId, unit.Abo, unit.RhD, unit.ExpiresUtc, unit.Volume);

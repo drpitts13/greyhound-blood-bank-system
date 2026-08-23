@@ -225,10 +225,15 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
         var target = products.FirstOrDefault(p => p.Id == r.TargetProductTypeId);
         var code = codes.FirstOrDefault(c => c.Id == r.ExpirationModificationCodeId);
         return new ModificationRuleDto(
-            r.Id, r.ModificationCode, r.SourceProductTypeId, source?.ProductCode ?? string.Empty,
-            r.ModificationType, r.TargetProductTypeId, target?.ProductCode ?? string.Empty,
+            r.Id, r.ModificationCode, r.SourceProductTypeId, DisplayProductCode(source),
+            r.ModificationType, r.TargetProductTypeId, DisplayProductCode(target),
             r.ExpirationModificationCodeId, code?.Code ?? string.Empty,
             code?.RelativeTo ?? ExpirationRelativeTo.ModificationDateTime,
             r.Description, r.Version, r.IsActive);
     }
+
+    private static string DisplayProductCode(ProductType? product) =>
+        string.IsNullOrWhiteSpace(product?.Isbt128ProductCode)
+            ? product?.ProductCode ?? string.Empty
+            : product.Isbt128ProductCode;
 }

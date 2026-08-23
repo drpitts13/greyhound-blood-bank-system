@@ -26,6 +26,7 @@ public static partial class DatabaseSeeder
         await SeedProductTypesAsync(context, cancellationToken);
         await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
         await EnsureModificationProductTypesAsync(context, cancellationToken);
+        await EnsureProductTypeIsbtCodesAsync(context, cancellationToken);
         await SeedProductAttributesAsync(context, cancellationToken);
         await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
         await SeedSpecimenTypeDefinitionsAsync(context, cancellationToken);
@@ -665,10 +666,10 @@ public static partial class DatabaseSeeder
         }
 
         context.ProductTypes.AddRange(
-            new ProductType { ProductCode = "RBC-LR", Name = "Red Blood Cells, Leukoreduced", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true, RequiresAboMatch = true, RequiresRhMatch = true, DefaultShelfLifeHours = 42 * 24 },
-            new ProductType { ProductCode = "WB", Name = "Whole Blood", ComponentClass = ComponentClass.WholeBlood, RequiresCrossmatch = true, RequiresAboMatch = true, RequiresRhMatch = true, DefaultShelfLifeHours = 35 * 24 },
-            new ProductType { ProductCode = "FFP", Name = "Fresh Frozen Plasma", ComponentClass = ComponentClass.Plasma, RequiresCrossmatch = false, DefaultShelfLifeHours = 365 * 24 },
-            new ProductType { ProductCode = "PLT-A", Name = "Apheresis Platelets", ComponentClass = ComponentClass.Platelets, RequiresCrossmatch = false, DefaultShelfLifeHours = 5 * 24 });
+            new ProductType { ProductCode = "RBC-LR", Name = "Red Blood Cells, Leukoreduced", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true, RequiresAboMatch = true, RequiresRhMatch = true, DefaultShelfLifeHours = 42 * 24, Isbt128ProductCode = "E0336" },
+            new ProductType { ProductCode = "WB", Name = "Whole Blood", ComponentClass = ComponentClass.WholeBlood, RequiresCrossmatch = true, RequiresAboMatch = true, RequiresRhMatch = true, DefaultShelfLifeHours = 35 * 24, Isbt128ProductCode = "E0023" },
+            new ProductType { ProductCode = "FFP", Name = "Fresh Frozen Plasma", ComponentClass = ComponentClass.Plasma, RequiresCrossmatch = false, DefaultShelfLifeHours = 365 * 24, Isbt128ProductCode = "E0701" },
+            new ProductType { ProductCode = "PLT-A", Name = "Apheresis Platelets", ComponentClass = ComponentClass.Platelets, RequiresCrossmatch = false, DefaultShelfLifeHours = 5 * 24, Isbt128ProductCode = "E3077" });
 
         await context.SaveChangesAsync(ct);
     }
@@ -690,7 +691,8 @@ public static partial class DatabaseSeeder
                 RequiresCrossmatch = true,
                 RequiresAboMatch = true,
                 RequiresRhMatch = true,
-                DefaultShelfLifeHours = 35 * 24
+                DefaultShelfLifeHours = 35 * 24,
+                Isbt128ProductCode = "E0023"
             });
             changed = true;
         }

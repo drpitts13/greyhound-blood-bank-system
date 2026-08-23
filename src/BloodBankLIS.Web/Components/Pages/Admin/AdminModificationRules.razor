@@ -69,7 +69,7 @@
             <div class="field"><label>Source product</label>
                 <select @bind="_editing.SourceProductTypeId">
                     <option value="0">-- select --</option>
-                    @foreach (var p in _products) { <option value="@p.Id">@p.ProductCode &mdash; @p.Name</option> }
+                    @foreach (var p in _products) { <option value="@p.Id">@p.DisplayProductCode &mdash; @p.Name</option> }
                 </select>
             </div>
             <div class="field"><label>Modification type</label>
@@ -78,7 +78,7 @@
             <div class="field"><label>Target product</label>
                 <select @bind="_editing.TargetProductTypeId">
                     <option value="0">-- select --</option>
-                    @foreach (var p in _products) { <option value="@p.Id">@p.ProductCode &mdash; @p.Name</option> }
+                    @foreach (var p in _products) { <option value="@p.Id">@p.DisplayProductCode &mdash; @p.Name</option> }
                 </select>
             </div>
             <div class="field"><label>Expiration code</label>

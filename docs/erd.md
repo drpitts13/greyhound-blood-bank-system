@@ -180,7 +180,7 @@ Every modification (Divide, Pool, Irradiate, Thaw, Volume Reduction, Leukoreduct
 Indexes: (`Code` unique), (`IsActive`).
 
 #### ModificationRules (admin config)
-`Id`, `ModificationCode` (unique, e.g. `IRR-RBC-LR`), `SourceProductTypeId` (FK ProductTypes), `ModificationType` (Divide/Pool/Irradiate/Thaw/VolumeReduction/Leukoreduction/Wash), `TargetProductTypeId` (FK ProductTypes), `ExpirationModificationCodeId` (FK ExpirationModificationCodes), `Description NULL`, `IsActive`, `Version`, audit metadata.
+`Id`, `ModificationCode` (unique, e.g. `IRR-RBC-LR`), `SourceProductTypeId` (FK ProductTypes), `ModificationType` (Divide/Pool/Irradiate/Thaw/VolumeReduction/Leukoreduction/Wash), `TargetProductTypeId` (FK ProductTypes), `ExpirationModificationCodeId` (FK ExpirationModificationCodes), `Description NULL`, `IsActive`, `Version`, audit metadata. Admin and modify screens display each product's ISBT description code (`ProductTypes.Isbt128ProductCode`, e.g. `E0336`) when one is configured.
 Indexes: (`ModificationCode` unique), (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`), (`ExpirationModificationCodeId`), (`IsActive`). App-layer guard prevents more than one **active** rule per (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`) triple.
 
 #### UnitModifications (header, append-only)
