@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 
 namespace BloodBankLIS.Infrastructure.Persistence;
@@ -95,14 +96,15 @@ public static class DevelopmentSqliteBootstrap
         ILogger logger,
         CancellationToken cancellationToken = default)
     {
-        var missingTable = await FindMissingTableAsync(context, cancellationToken);
-        var recreate = missingTable is not null;
+        var missing = await FindMissingTableAsync(context, cancellationToken)
+            ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
+        var recreate = missing is not null;
         if (recreate)
         {
             logger.LogWarning(
-                "SQLite development database is missing table {Table}, so its schema is out of date. " +
+                "SQLite development database is missing {Missing}, so its schema is out of date. " +
                 "Recreating from the current EF model. Demo data will be re-seeded on startup.",
-                missingTable);
+                missing);
             await context.Database.EnsureDeletedAsync(cancellationToken);
         }
 
@@ -206,6 +208,76 @@ public static class DevelopmentSqliteBootstrap
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// EnsureCreated does not rewrite existing tables. A required column added after the
+    /// file was first created (for example TestServiceBillings.ChargeCodeId) must force a
+    /// recreate; ALTER TABLE cannot introduce a non-null FK cleanly on populated rows.
+    /// </summary>
+    private static async Task<string?> FindMissingRequiredColumnAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct) || !await TableExistsAsync(context, "Patients", ct))
+        {
+            return null;
+        }
+
+        foreach (var entityType in context.Model.GetEntityTypes())
+        {
+            var table = entityType.GetTableName();
+            if (string.IsNullOrWhiteSpace(table) || !await TableExistsAsync(context, table, ct))
+            {
+                continue;
+            }
+
+            var existing = await GetColumnNamesAsync(context, table, ct);
+            var storeObject = StoreObjectIdentifier.Table(table, entityType.GetSchema());
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.IsColumnNullable())
+                {
+                    continue;
+                }
+
+                var column = property.GetColumnName(storeObject);
+                if (string.IsNullOrWhiteSpace(column))
+                {
+                    continue;
+                }
+
+                if (!existing.Contains(column))
+                {
+                    return $"{table}.{column}";
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<HashSet<string>> GetColumnNamesAsync(
+        BloodBankDbContext context,
+        string tableName,
+        CancellationToken ct)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        await context.Database.OpenConnectionAsync(ct);
+        try
+        {
+            await using var command = context.Database.GetDbConnection().CreateCommand();
+            command.CommandText = $"PRAGMA table_info(\"{tableName}\")";
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                names.Add(reader.GetString(1));
+            }
+        }
+        finally
+        {
+            await context.Database.CloseConnectionAsync();
+        }
+
+        return names;
     }
 
     private static async Task<bool> TableExistsAsync(
