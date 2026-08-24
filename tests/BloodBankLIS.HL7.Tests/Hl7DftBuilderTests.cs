@@ -1,5 +1,6 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.HL7.Messaging;
 using BloodBankLIS.HL7.Parsing;
 
@@ -58,5 +59,25 @@ public class Hl7DftBuilderTests
         Assert.Equal("BB-RBC-ISSUE", message.Get("FT1-7-1"));
         Assert.Equal(string.Empty, message.Get("PID-3"));
         Assert.Equal(string.Empty, message.Get("FT1-10"));
+    }
+
+    [Fact]
+    public void Build_HonorsCustomBillingCodePath()
+    {
+        var billing = new BillingEvent
+        {
+            BillingCode = "BB-XM",
+            ServiceDateUtc = new DateTime(2026, 8, 24, 12, 0, 0, DateTimeKind.Utc)
+        };
+        var map = Hl7FieldMap.From(InterfaceType.Billing, Hl7Direction.Outbound,
+        [
+            new InterfaceFieldMapping { DataItemKey = InterfaceDataItemKeys.BillingCode, Hl7Path = "FT1-8" }
+        ]);
+
+        var raw = Hl7DftBuilder.Build(null, billing, "DFT3", new DateTime(2026, 8, 24, 12, 0, 0, DateTimeKind.Utc), map: map);
+        var message = Hl7Parser.Parse(raw);
+
+        Assert.Equal("BB-XM", message.Get("FT1-8"));
+        Assert.Equal(string.Empty, message.Get("FT1-7"));
     }
 }

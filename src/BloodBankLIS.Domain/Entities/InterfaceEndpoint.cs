@@ -27,6 +27,16 @@ public class InterfaceEndpoint : BaseEntity
 
     public string? MappingProfile { get; set; }
 
+    /// <summary>Clinical purpose of this interface (ADT, billing, orders, results, BPAM).</summary>
+    public InterfaceType InterfaceType { get; set; } = InterfaceType.Adt;
+
+    /// <summary>Vendor preset code (Epic, Cerner, Custom, …). Mirrored onto <see cref="MappingProfile"/>.</summary>
+    public string? VendorCode { get; set; }
+
+    public InterfaceMappingMode MappingMode { get; set; } = InterfaceMappingMode.Custom;
+
+    public ICollection<InterfaceFieldMapping> FieldMappings { get; set; } = new List<InterfaceFieldMapping>();
+
     public bool IsEnabled { get; set; } = true;
 
     // --- Extended interface configuration (admin) ---

@@ -633,6 +633,24 @@ public static class AdminEndpoints
 
     private static void MapHl7(WebApplication app)
     {
+        var meta = app.MapGroup("/api/admin/hl7").WithTags("Admin: HL7").RequireAuthenticatedUser();
+
+        meta.MapGet("/data-items", (InterfaceType interfaceType, Hl7Direction direction) =>
+            Results.Ok(Hl7ConfigAdminService.DataItems(interfaceType, direction)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        meta.MapGet("/vendors", (InterfaceType? interfaceType) =>
+            Results.Ok(Hl7ConfigAdminService.Vendors(interfaceType)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        meta.MapGet("/vendors/{code}/preset", (string code, InterfaceType interfaceType, Hl7Direction direction) =>
+        {
+            var preset = Hl7ConfigAdminService.VendorPreset(code, interfaceType, direction);
+            return preset is null
+                ? Results.NotFound(new { error = "Vendor preset not found for this interface type." })
+                : Results.Ok(preset);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
         var group = app.MapGroup("/api/admin/hl7/endpoints").WithTags("Admin: HL7").RequireAuthenticatedUser();
 
         group.MapGet("", async (Hl7ConfigAdminService svc, CancellationToken ct) =>

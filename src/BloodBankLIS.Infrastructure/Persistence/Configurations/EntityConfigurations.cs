@@ -601,6 +601,7 @@ public sealed class InterfaceEndpointConfiguration : IEntityTypeConfiguration<In
         b.Property(e => e.Path).HasMaxLength(500);
         b.Property(e => e.MessageTypes).HasMaxLength(200).IsRequired();
         b.Property(e => e.MappingProfile).HasMaxLength(100);
+        b.Property(e => e.VendorCode).HasMaxLength(50);
         b.Property(e => e.Environment).HasMaxLength(50);
         b.Property(e => e.SendingApplication).HasMaxLength(100);
         b.Property(e => e.SendingFacility).HasMaxLength(100);
@@ -611,6 +612,22 @@ public sealed class InterfaceEndpointConfiguration : IEntityTypeConfiguration<In
         b.Property(e => e.ModifiedBy).HasMaxLength(100);
 
         b.HasIndex(e => e.Name).IsUnique();
+        b.HasMany(e => e.FieldMappings).WithOne(m => m.Endpoint!).HasForeignKey(m => m.EndpointId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class InterfaceFieldMappingConfiguration : IEntityTypeConfiguration<InterfaceFieldMapping>
+{
+    public void Configure(EntityTypeBuilder<InterfaceFieldMapping> b)
+    {
+        b.ToTable("InterfaceFieldMappings");
+        b.HasKey(m => m.Id);
+        b.Property(m => m.DataItemKey).HasMaxLength(100).IsRequired();
+        b.Property(m => m.Hl7Path).HasMaxLength(40).IsRequired();
+        b.Property(m => m.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(m => m.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(m => new { m.EndpointId, m.DataItemKey }).IsUnique();
     }
 }
 

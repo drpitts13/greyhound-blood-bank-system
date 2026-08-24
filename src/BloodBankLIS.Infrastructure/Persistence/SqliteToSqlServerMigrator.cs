@@ -43,6 +43,7 @@ public sealed class SqliteToSqlServerMigrator
         "RuleDefinitions",
         "ProductAttributes",
         "InterfaceEndpoints",
+        "InterfaceFieldMappings",
         "Patients",
         "Encounters",
         "ProductAttributeAssignments",

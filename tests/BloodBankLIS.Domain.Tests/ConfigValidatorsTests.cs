@@ -145,6 +145,70 @@ public class ConfigValidatorsTests
     }
 
     [Fact]
+    public void Hl7Endpoint_RequiredMappingBlank_HardStops()
+    {
+        var endpoint = new InterfaceEndpoint
+        {
+            Name = "Epic ADT",
+            InterfaceType = InterfaceType.Adt,
+            Direction = Hl7Direction.Inbound,
+            MessageTypes = "ADT",
+            Transport = InterfaceTransport.File
+        };
+
+        var mappings = new List<InterfaceFieldMapping>
+        {
+            new() { DataItemKey = "Patient.MedicalRecordNumber", Hl7Path = "", IsRequired = true }
+        };
+
+        var eval = Hl7EndpointValidator.Validate(endpoint, duplicateActiveName: false, duplicateActiveHostPort: false, mappings);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "HL7EP.MAP.REQUIRED");
+    }
+
+    [Fact]
+    public void Hl7Endpoint_InvalidHl7Path_HardStops()
+    {
+        var endpoint = new InterfaceEndpoint
+        {
+            Name = "Epic ADT",
+            InterfaceType = InterfaceType.Adt,
+            Direction = Hl7Direction.Inbound,
+            MessageTypes = "ADT",
+            Transport = InterfaceTransport.File
+        };
+
+        var mappings = new List<InterfaceFieldMapping>
+        {
+            new() { DataItemKey = "Patient.MedicalRecordNumber", Hl7Path = "PID3", IsRequired = true }
+        };
+
+        var eval = Hl7EndpointValidator.Validate(endpoint, duplicateActiveName: false, duplicateActiveHostPort: false, mappings);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "HL7EP.MAP.PATH");
+    }
+
+    [Fact]
+    public void Hl7Endpoint_UnusualDirection_Warns()
+    {
+        var endpoint = new InterfaceEndpoint
+        {
+            Name = "ADT out",
+            InterfaceType = InterfaceType.Adt,
+            Direction = Hl7Direction.Outbound,
+            MessageTypes = "ADT",
+            Transport = InterfaceTransport.File
+        };
+
+        var eval = Hl7EndpointValidator.Validate(endpoint, duplicateActiveName: false, duplicateActiveHostPort: false);
+
+        Assert.False(eval.IsHardStopped);
+        Assert.Contains(eval.Warnings, r => r.Code == "HL7EP.DIRECTION.UNUSUAL");
+    }
+
+    [Fact]
     public void TestDefinition_BloodAttributeWithoutScope_HardStops()
     {
         var def = new TestDefinition

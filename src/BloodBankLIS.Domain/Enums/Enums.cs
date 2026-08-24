@@ -395,6 +395,23 @@ public enum InterfaceTransport
     File = 1
 }
 
+/// <summary>Clinical purpose of an HL7 interface endpoint.</summary>
+public enum InterfaceType
+{
+    Adt = 0,
+    Billing = 1,
+    Orders = 2,
+    Results = 3,
+    Bpam = 4
+}
+
+/// <summary>Whether field mappings were applied from a vendor preset or edited by hand.</summary>
+public enum InterfaceMappingMode
+{
+    Vendor = 0,
+    Custom = 1
+}
+
 public enum ComponentClass
 {
     RedBloodCells = 0,

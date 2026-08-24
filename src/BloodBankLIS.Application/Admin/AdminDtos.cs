@@ -382,11 +382,46 @@ public sealed record IsbtProductCodeDto(
     bool IsPlaceholder,
     bool IsRetired);
 
-// ---- HL7 endpoints ----
+// ---- HL7 endpoints / interface setup ----
+
+public sealed record InterfaceFieldMappingDto(
+    string DataItemKey,
+    string Hl7Path,
+    bool IsRequired,
+    string? DisplayName = null,
+    string? Description = null);
+
+public sealed record InterfaceDataItemDto(
+    string Key,
+    string DisplayName,
+    string Description,
+    string DefaultHl7Path,
+    bool Required);
+
+public sealed record InterfaceVendorDto(
+    string Code,
+    string Name,
+    string Description,
+    IReadOnlyList<InterfaceType> InterfaceTypes);
+
+public sealed record InterfaceVendorConnectionDto(
+    string? SendingApplication,
+    string? SendingFacility,
+    string? ReceivingApplication,
+    string? ReceivingFacility);
+
+public sealed record InterfaceVendorPresetDto(
+    string VendorCode,
+    string VendorName,
+    InterfaceType InterfaceType,
+    Hl7Direction Direction,
+    InterfaceVendorConnectionDto Connection,
+    IReadOnlyList<InterfaceFieldMappingDto> Mappings);
 
 public sealed record Hl7EndpointDto(
     long Id,
     string Name,
+    InterfaceType InterfaceType,
     Hl7Direction Direction,
     InterfaceTransport Transport,
     string? Host,
@@ -394,6 +429,8 @@ public sealed record Hl7EndpointDto(
     string? Path,
     string MessageTypes,
     string? MappingProfile,
+    string? VendorCode,
+    InterfaceMappingMode MappingMode,
     bool IsEnabled,
     string? Environment,
     string? SendingApplication,
@@ -405,17 +442,21 @@ public sealed record Hl7EndpointDto(
     int? RetryDelaySeconds,
     string? MessageLoggingLevel,
     bool ReplayAllowed,
-    int Version);
+    int Version,
+    IReadOnlyList<InterfaceFieldMappingDto> FieldMappings);
 
 public sealed record SaveHl7EndpointRequest(
     string Name,
+    InterfaceType InterfaceType,
     Hl7Direction Direction,
     InterfaceTransport Transport,
     string? Host,
     int? Port,
     string? Path,
-    string MessageTypes,
+    string? MessageTypes,
     string? MappingProfile,
+    string? VendorCode,
+    InterfaceMappingMode MappingMode,
     string? Environment,
     string? SendingApplication,
     string? SendingFacility,
@@ -426,6 +467,7 @@ public sealed record SaveHl7EndpointRequest(
     int? RetryDelaySeconds,
     string? MessageLoggingLevel,
     bool ReplayAllowed,
+    IReadOnlyList<InterfaceFieldMappingDto>? FieldMappings,
     string? ChangeReason);
 
 // ---- Users & roles ----

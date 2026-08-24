@@ -2,8 +2,11 @@ using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.HL7.Messaging;
 using BloodBankLIS.HL7.Parsing;
+using BloodBankLIS.Infrastructure.Audit;
+using BloodBankLIS.Infrastructure.Common;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -51,7 +54,9 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             providerSvc,
             locationSvc,
             c,
-            _factory.Clock);
+            _factory.Clock,
+            new EfRepository<InterfaceEndpoint>(c),
+            new InterfaceFieldMappingRepository(c));
     }
 
     private Hl7OutboundService Outbound(BloodBankDbContext c) =>
@@ -275,5 +280,47 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Equal("ORU", oru.MessageType);
         Assert.Equal("HL7-600", oru.Get("PID-3-1"));
         Assert.Equal("A POS", oru.Get("OBX-5"));
+    }
+
+    [Fact]
+    public async Task InboundAdt_HonorsCustomMrnMapping()
+    {
+        long endpointId;
+        await using (var setup = _factory.Create())
+        {
+            var endpoint = new InterfaceEndpoint
+            {
+                Name = "Meditech ADT",
+                InterfaceType = InterfaceType.Adt,
+                Direction = Hl7Direction.Inbound,
+                Transport = InterfaceTransport.File,
+                MessageTypes = "ADT",
+                VendorCode = InterfaceVendorCodes.Meditech,
+                MappingMode = InterfaceMappingMode.Custom,
+                IsEnabled = false
+            };
+            setup.InterfaceEndpoints.Add(endpoint);
+            await setup.SaveChangesAsync();
+            setup.InterfaceFieldMappings.Add(new InterfaceFieldMapping
+            {
+                EndpointId = endpoint.Id,
+                DataItemKey = InterfaceDataItemKeys.PatientMrn,
+                Hl7Path = "PID-2",
+                IsRequired = true
+            });
+            await setup.SaveChangesAsync();
+            endpointId = endpoint.Id;
+        }
+
+        await using var context = _factory.Create();
+        var raw =
+            "MSH|^~\\&|MEDITECH|HOSP|BBLIS|LAB|20260530120000||ADT^A08|CTRL-MAP|P|2.5\r" +
+            "PID|1|MAP-MRN||IGNORED^^^HOSP^MR||Mapped^Pat||19800101|M";
+        var result = await Processor(context).ProcessAsync(raw, endpointId);
+
+        Assert.True(result.Accepted);
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MAP-MRN");
+        Assert.NotNull(patient);
+        Assert.Null(await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "IGNORED"));
     }
 }

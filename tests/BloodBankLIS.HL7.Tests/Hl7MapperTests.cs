@@ -1,4 +1,6 @@
+using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.HL7.Messaging;
 using BloodBankLIS.HL7.Parsing;
 
@@ -59,5 +61,36 @@ public class Hl7MapperTests
     public void OrmMapper_MapsOrderTypes(string code, OrderType expected)
     {
         Assert.Equal(expected, Hl7OrmMapper.MapOrderType(code));
+    }
+
+    [Fact]
+    public void AdtMapper_UsesCustomMrnPath()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|C3|P|2.5\r" +
+            "PID|1|ALT-MRN|IGNORED^^^HOSP^MR||Lee^Sam");
+
+        var map = Hl7FieldMap.From(InterfaceType.Adt, Hl7Direction.Inbound,
+        [
+            new InterfaceFieldMapping { DataItemKey = InterfaceDataItemKeys.PatientMrn, Hl7Path = "PID-2" }
+        ]);
+
+        var data = Hl7AdtMapper.Map(message, map);
+        Assert.Equal("ALT-MRN", data.Mrn);
+        Assert.Equal("Lee", data.LastName);
+    }
+
+    [Fact]
+    public void BpamMapper_ExtractsUnitAndVolume()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20260530120000||RAS^O17|C4|P|2.5\r" +
+            "PID|1||MRN900^^^HOSP^MR||Blood^Pat\r" +
+            "RXA|0|1|20260530100000|20260530103000|CODE^RBC|350||||12345^Nurse^Pat|||||W0001-00");
+
+        var data = Hl7BpamMapper.Map(message);
+        Assert.Equal("MRN900", data.Mrn);
+        Assert.Equal("W0001-00", data.UnitNumber);
+        Assert.Equal(350m, data.VolumeTransfused);
     }
 }

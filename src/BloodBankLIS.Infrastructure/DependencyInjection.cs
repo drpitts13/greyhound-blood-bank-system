@@ -51,6 +51,7 @@ public static class DependencyInjection
         // and their audit events commit together.
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<BloodBankDbContext>());
         services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
+        services.AddScoped<IInterfaceFieldMappingRepository, InterfaceFieldMappingRepository>();
         services.AddScoped(typeof(EntityCrudService<>));
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<IConfigurationHistoryWriter, ConfigurationHistoryWriter>();
@@ -86,6 +87,7 @@ public static class DependencyInjection
         services.AddScoped<AntibodyScreenCompatLoader>();
         services.AddScoped<CompatibilityService>();
         services.AddScoped<IssuingService>();
+        services.AddScoped<InterfaceTransfusionService>();
         services.AddScoped<BillingService>();
         services.TryAddScoped<IBillingInterfacePublisher, NoOpBillingInterfacePublisher>();
 

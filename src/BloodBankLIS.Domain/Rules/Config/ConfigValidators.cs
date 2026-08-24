@@ -1,6 +1,7 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.Domain.Rules.Engine;
 using BloodBankLIS.Domain.ValueObjects;
 
@@ -635,13 +636,22 @@ public static class ModificationRuleValidator
 
 public static class Hl7EndpointValidator
 {
-    public static RuleEvaluation Validate(InterfaceEndpoint e, bool duplicateActiveName, bool duplicateActiveHostPort)
+    public static RuleEvaluation Validate(
+        InterfaceEndpoint e,
+        bool duplicateActiveName,
+        bool duplicateActiveHostPort,
+        IReadOnlyList<InterfaceFieldMapping>? mappings = null)
     {
         var results = new List<RuleResult>();
 
         if (string.IsNullOrWhiteSpace(e.Name))
         {
             results.Add(RuleResult.HardStop("HL7EP.NAME.REQUIRED", "Endpoint name is required."));
+        }
+
+        if (!Enum.IsDefined(e.InterfaceType))
+        {
+            results.Add(RuleResult.HardStop("HL7EP.TYPE.REQUIRED", "Interface type is required."));
         }
 
         if (string.IsNullOrWhiteSpace(e.MessageTypes))
@@ -682,7 +692,66 @@ public static class Hl7EndpointValidator
             results.Add(RuleResult.HardStop("HL7EP.RETRY.INVALID", "Max retry count cannot be negative."));
         }
 
+        var expectedDirection = InterfaceTypeDefaults.Direction(e.InterfaceType);
+        if (e.Direction != expectedDirection)
+        {
+            results.Add(RuleResult.Warning(
+                "HL7EP.DIRECTION.UNUSUAL",
+                $"{e.InterfaceType} interfaces are typically {expectedDirection.ToString().ToLowerInvariant()}."));
+        }
+
+        var catalog = InterfaceDataItemCatalog.For(e.InterfaceType, e.Direction);
+        var rows = mappings ?? e.FieldMappings?.ToList() ?? [];
+        var byKey = rows
+            .Where(m => !string.IsNullOrWhiteSpace(m.DataItemKey))
+            .GroupBy(m => m.DataItemKey, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Last(), StringComparer.Ordinal);
+
+        if (rows.Count > 0)
+        {
+            foreach (var item in catalog.Where(i => i.Required))
+            {
+                if (!byKey.TryGetValue(item.Key, out var row) || string.IsNullOrWhiteSpace(row.Hl7Path))
+                {
+                    results.Add(RuleResult.HardStop(
+                        "HL7EP.MAP.REQUIRED",
+                        $"Required data item '{item.DisplayName}' must map to an HL7 path."));
+                }
+            }
+        }
+
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.Hl7Path))
+            {
+                continue;
+            }
+
+            if (!LooksLikeHl7Path(row.Hl7Path))
+            {
+                results.Add(RuleResult.HardStop(
+                    "HL7EP.MAP.PATH",
+                    $"'{row.DataItemKey}' has an invalid HL7 path '{row.Hl7Path}'. Use SEG-field[-component]."));
+            }
+        }
+
         return new RuleEvaluation(results);
+    }
+
+    private static bool LooksLikeHl7Path(string path)
+    {
+        var parts = path.Trim().Split('-');
+        if (parts.Length is < 2 or > 4)
+        {
+            return false;
+        }
+
+        if (parts[0].Length != 3 || !parts[0].All(char.IsLetterOrDigit))
+        {
+            return false;
+        }
+
+        return parts.Skip(1).All(p => int.TryParse(p, out var n) && n > 0);
     }
 }
 

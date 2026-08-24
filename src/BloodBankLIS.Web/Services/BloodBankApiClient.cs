@@ -800,7 +800,7 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<IsbtProductCodeDto>>> GetAdminIsbtProductCodesAsync(CancellationToken ct = default) =>
         SendAsync<List<IsbtProductCodeDto>>(HttpMethod.Get, "api/admin/isbt-product-codes", ct: ct);
 
-    // ---- Admin: HL7 endpoints ----
+    // ---- Admin: HL7 endpoints / interface setup ----
     public Task<ApiResult<List<Hl7EndpointDto>>> GetAdminHl7EndpointsAsync(CancellationToken ct = default) =>
         SendAsync<List<Hl7EndpointDto>>(HttpMethod.Get, "api/admin/hl7/endpoints", ct: ct);
 
@@ -815,6 +815,22 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<Hl7EndpointDto>> SetHl7EndpointEnabledAsync(long id, bool enabled, string? reason, CancellationToken ct = default) =>
         SendAsync<Hl7EndpointDto>(HttpMethod.Post, $"api/admin/hl7/endpoints/{id}/{(enabled ? "enable" : "disable")}", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<List<InterfaceDataItemDto>>> GetAdminHl7DataItemsAsync(InterfaceType type, Hl7Direction direction, CancellationToken ct = default) =>
+        SendAsync<List<InterfaceDataItemDto>>(HttpMethod.Get, $"api/admin/hl7/data-items?interfaceType={type}&direction={direction}", ct: ct);
+
+    public Task<ApiResult<List<InterfaceVendorDto>>> GetAdminHl7VendorsAsync(InterfaceType? type = null, CancellationToken ct = default)
+    {
+        var qs = type is null ? "" : $"?interfaceType={type}";
+        return SendAsync<List<InterfaceVendorDto>>(HttpMethod.Get, $"api/admin/hl7/vendors{qs}", ct: ct);
+    }
+
+    public Task<ApiResult<InterfaceVendorPresetDto>> GetAdminHl7VendorPresetAsync(
+        string code, InterfaceType type, Hl7Direction direction, CancellationToken ct = default) =>
+        SendAsync<InterfaceVendorPresetDto>(
+            HttpMethod.Get,
+            $"api/admin/hl7/vendors/{Uri.EscapeDataString(code)}/preset?interfaceType={type}&direction={direction}",
+            ct: ct);
 
     // ---- Admin: Users & roles ----
     public Task<ApiResult<List<AdminUserDto>>> GetAdminUsersAsync(bool includeInactive = true, CancellationToken ct = default) =>

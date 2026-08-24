@@ -1,3 +1,5 @@
+using BloodBankLIS.Domain.Interfaces;
+
 namespace BloodBankLIS.HL7.Parsing;
 
 /// <summary>
@@ -5,7 +7,7 @@ namespace BloodBankLIS.HL7.Parsing;
 /// <c>Get("PID-3-1")</c>) that return an empty string for anything missing rather
 /// than throwing or returning null (see docs/hl7-design.md section 1.2).
 /// </summary>
-public sealed class Hl7Message
+public sealed class Hl7Message : Hl7MessageReader
 {
     private readonly List<Hl7Segment> _segments;
 

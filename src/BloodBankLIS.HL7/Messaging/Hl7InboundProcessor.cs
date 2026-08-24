@@ -1,7 +1,9 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.HL7.Parsing;
 
 namespace BloodBankLIS.HL7.Messaging;
@@ -32,6 +34,9 @@ public sealed class Hl7InboundProcessor
     private readonly OrderingLocationService _orderingLocationCatalog;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly IRepository<InterfaceEndpoint>? _endpoints;
+    private readonly IInterfaceFieldMappingRepository? _mappings;
+    private readonly InterfaceTransfusionService? _bpam;
 
     public Hl7InboundProcessor(
         IRepository<Hl7MessageLog> logs,
@@ -44,7 +49,10 @@ public sealed class Hl7InboundProcessor
         OrderingProviderService orderingProviders,
         OrderingLocationService orderingLocationCatalog,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        IRepository<InterfaceEndpoint>? endpoints = null,
+        IInterfaceFieldMappingRepository? mappings = null,
+        InterfaceTransfusionService? bpam = null)
     {
         _logs = logs;
         _errors = errors;
@@ -57,6 +65,9 @@ public sealed class Hl7InboundProcessor
         _orderingLocationCatalog = orderingLocationCatalog;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _endpoints = endpoints;
+        _mappings = mappings;
+        _bpam = bpam;
     }
 
     /// <summary>
@@ -135,7 +146,9 @@ public sealed class Hl7InboundProcessor
 
         try
         {
-            var text = await DispatchAsync(message, ct);
+            var (map, resolvedId) = await ResolveInboundAsync(message.MessageType, endpointId, ct);
+            log.EndpointId ??= resolvedId;
+            var text = await DispatchAsync(message, map, ct);
             log.Status = isReplay ? Hl7MessageStatus.Replayed : Hl7MessageStatus.Processed;
             log.AckCode = AckCode.Accept;
             log.ProcessedUtc = now;
@@ -168,17 +181,18 @@ public sealed class Hl7InboundProcessor
         }
     }
 
-    private async Task<string> DispatchAsync(Hl7Message message, CancellationToken ct) =>
+    private async Task<string> DispatchAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct) =>
         message.MessageType switch
         {
-            "ADT" => await HandleAdtAsync(message, ct),
-            "ORM" or "OML" => await HandleOrmAsync(message, ct),
+            "ADT" => await HandleAdtAsync(message, map, ct),
+            "ORM" or "OML" => await HandleOrmAsync(message, map, ct),
+            "RAS" or "BPS" => await HandleBpamAsync(message, map, ct),
             _ => throw new Hl7MappingException($"Unsupported message type '{message.MessageType}'.")
         };
 
-    private async Task<string> HandleAdtAsync(Hl7Message message, CancellationToken ct)
+    private async Task<string> HandleAdtAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)
     {
-        var data = Hl7AdtMapper.Map(message);
+        var data = Hl7AdtMapper.Map(message, map);
         if (string.IsNullOrWhiteSpace(data.Mrn))
         {
             throw new Hl7MappingException("ADT message has no patient identifier (PID-3).");
@@ -233,9 +247,9 @@ public sealed class Hl7InboundProcessor
         return created ? $"Patient {data.Mrn} created." : $"Patient {data.Mrn} updated.";
     }
 
-    private async Task<string> HandleOrmAsync(Hl7Message message, CancellationToken ct)
+    private async Task<string> HandleOrmAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)
     {
-        var data = Hl7OrmMapper.Map(message);
+        var data = Hl7OrmMapper.Map(message, map);
         if (string.IsNullOrWhiteSpace(data.PlacerOrderId))
         {
             throw new Hl7MappingException("Order message has no placer order id (ORC-2/OBR-2).");
@@ -308,6 +322,81 @@ public sealed class Hl7InboundProcessor
         return $"Order {data.PlacerOrderId} created.";
     }
 
+    private async Task<string> HandleBpamAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)
+    {
+        if (_bpam is null)
+        {
+            throw new Hl7MappingException("BPAM documentation is not configured.");
+        }
+
+        var data = Hl7BpamMapper.Map(message, map);
+        try
+        {
+            return await _bpam.DocumentAsync(new InterfaceTransfusionRequest(
+                data.Mrn,
+                data.UnitNumber,
+                data.Din,
+                data.StartUtc,
+                data.StopUtc,
+                data.VolumeTransfused,
+                data.Location,
+                data.Transfusionist,
+                data.ReactionSuspected), ct);
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new Hl7MappingException(ex.Message);
+        }
+    }
+
+    private async Task<(Hl7FieldMap Map, long? EndpointId)> ResolveInboundAsync(
+        string messageType,
+        long? requestedId,
+        CancellationToken ct)
+    {
+        var fallbackType = messageType switch
+        {
+            "ADT" => InterfaceType.Adt,
+            "ORM" or "OML" => InterfaceType.Orders,
+            "RAS" or "BPS" => InterfaceType.Bpam,
+            _ => InterfaceType.Adt
+        };
+
+        if (_endpoints is null)
+        {
+            return (Hl7FieldMap.Default(fallbackType, Hl7Direction.Inbound), requestedId);
+        }
+
+        InterfaceEndpoint? endpoint = null;
+        if (requestedId is long id)
+        {
+            endpoint = await _endpoints.GetByIdAsync(id, ct);
+        }
+
+        if (endpoint is null)
+        {
+            var inbound = await _endpoints.ListAsync(
+                e => e.IsEnabled && e.Direction == Hl7Direction.Inbound, ct);
+            endpoint = inbound
+                .Where(e => InterfaceTypeDefaults.SupportsMessageType(e.InterfaceType, messageType)
+                    || e.MessageTypes.Contains(messageType, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(e => e.Name)
+                .FirstOrDefault();
+        }
+
+        if (endpoint is null)
+        {
+            return (Hl7FieldMap.Default(fallbackType, Hl7Direction.Inbound), requestedId);
+        }
+
+        if (_mappings is not null)
+        {
+            var rows = await _mappings.ListAsync(m => m.EndpointId == endpoint.Id, ct);
+            endpoint.FieldMappings = rows.ToList();
+        }
+
+        return (Hl7FieldMap.From(endpoint), endpoint.Id);
+    }
 }
 
 /// <summary>An application-level mapping/execution failure that yields an AE (retryable) NAK.</summary>

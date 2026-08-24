@@ -2,15 +2,16 @@
 @inject UserSession Session
 @inject BloodBankApiClient Api
 
-<PageTitle>HL7 Endpoints &middot; Admin</PageTitle>
+<PageTitle>Interface Setup &middot; Admin</PageTitle>
 
 <div class="flex-between">
-    <h1>HL7 Endpoints</h1>
+    <h1>Interface Setup</h1>
     @if (CanManage)
     {
-        <button class="btn btn-primary" @onclick="NewDraft">New endpoint</button>
+        <button class="btn btn-primary" @onclick="NewDraft">New interface</button>
     }
 </div>
+<p class="muted">Define HL7 interfaces by type, direction, and IP/port. Apply an EHR or billing preset, or map this application's data items to HL7 fields.</p>
 
 <Outcome Value="_feedback" />
 
@@ -21,22 +22,21 @@
     }
     else if (_items.Count == 0)
     {
-        <div class="empty">No endpoints configured.</div>
+        <div class="empty">No interfaces configured.</div>
     }
     else
     {
         <table class="bb">
-            <thead><tr><th>Name</th><th>Direction</th><th>Transport</th><th>Host:Port</th><th>Messages</th><th>Env</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Type</th><th>Vendor</th><th>Direction</th><th>Host:Port</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var e in _items)
                 {
                     <tr>
                         <td>@e.Name</td>
+                        <td>@e.InterfaceType</td>
+                        <td>@(string.IsNullOrWhiteSpace(e.VendorCode) ? "Custom" : e.VendorCode)</td>
                         <td>@e.Direction</td>
-                        <td>@e.Transport</td>
                         <td class="mono">@(e.Host is null ? "—" : $"{e.Host}:{e.Port}")</td>
-                        <td>@e.MessageTypes</td>
-                        <td>@e.Environment</td>
                         <td>
                             @if (e.IsEnabled) { <span class="badge badge-green">Enabled</span> }
                             else { <span class="badge badge-gray">Disabled</span> }
@@ -55,36 +55,111 @@
 @if (_editing is not null)
 {
     <div class="bb-card" style="margin-top:1rem;">
-        <h2>@(_editId is null ? "New endpoint" : $"Edit: {_editing.Name}")</h2>
-        <div class="form-row">
-            <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
-            <div class="field"><label>Direction</label>
-                <select @bind="_editing.Direction">@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@d</option> }</select>
-            </div>
-            <div class="field"><label>Transport</label>
-                <select @bind="_editing.Transport">@foreach (var t in Enum.GetValues<InterfaceTransport>()) { <option value="@t">@t</option> }</select>
-            </div>
-            <div class="field"><label>Message types (comma-separated)</label><input @bind="_editing.MessageTypes" placeholder="ADT,ORM,ORU" /></div>
-            <div class="field"><label>Host</label><input @bind="_editing.Host" /></div>
-            <div class="field"><label>Port</label><input type="number" @bind="_editing.Port" /></div>
-            <div class="field"><label>Path (HTTP)</label><input @bind="_editing.Path" /></div>
-            <div class="field"><label>Environment</label><input @bind="_editing.Environment" placeholder="Development / Test / Production" /></div>
-            <div class="field"><label>Sending application</label><input @bind="_editing.SendingApplication" /></div>
-            <div class="field"><label>Sending facility</label><input @bind="_editing.SendingFacility" /></div>
-            <div class="field"><label>Receiving application</label><input @bind="_editing.ReceivingApplication" /></div>
-            <div class="field"><label>Receiving facility</label><input @bind="_editing.ReceivingFacility" /></div>
-            <div class="field"><label>ACK timeout (s)</label><input type="number" @bind="_editing.AckTimeoutSeconds" /></div>
-            <div class="field"><label>Max retries</label><input type="number" @bind="_editing.MaxRetryCount" /></div>
-            <div class="field"><label>Retry delay (s)</label><input type="number" @bind="_editing.RetryDelaySeconds" /></div>
-            <div class="field"><label>Logging level</label><input @bind="_editing.MessageLoggingLevel" placeholder="None / Errors / All" /></div>
-            <div class="field"><label>Mapping profile</label><input @bind="_editing.MappingProfile" /></div>
+        <h2>@(_editId is null ? "New interface" : $"Edit: {_editing.Name}")</h2>
+
+        <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
+            <button type="button" class="btn @TabClass("connection")" @onclick='() => _tab = "connection"'>Connection</button>
+            <button type="button" class="btn @TabClass("vendor")" @onclick='() => _tab = "vendor"'>Vendor preset</button>
+            <button type="button" class="btn @TabClass("mapping")" @onclick='() => _tab = "mapping"'>Custom mapping</button>
         </div>
 
-        <div class="flex gap" style="margin:.6rem 0;">
-            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.ReplayAllowed" /> Replay allowed</label>
-        </div>
+        @if (_tab == "connection")
+        {
+            <div class="form-row">
+                <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
+                <div class="field"><label>Interface type</label>
+                    <select value="@_editing.InterfaceType" @onchange="OnTypeChanged">
+                        @foreach (var t in Enum.GetValues<InterfaceType>()) { <option value="@t">@t</option> }
+                    </select>
+                </div>
+                <div class="field"><label>Direction</label>
+                    <select @bind="_editing.Direction">@foreach (var d in Enum.GetValues<Hl7Direction>()) { <option value="@d">@d</option> }</select>
+                </div>
+                <div class="field"><label>Transport</label>
+                    <select @bind="_editing.Transport">@foreach (var t in Enum.GetValues<InterfaceTransport>()) { <option value="@t">@t</option> }</select>
+                </div>
+                <div class="field"><label>Host / IP</label><input @bind="_editing.Host" placeholder="10.0.0.12" /></div>
+                <div class="field"><label>Port</label><input type="number" @bind="_editing.Port" /></div>
+                <div class="field"><label>Path (file / HTTP)</label><input @bind="_editing.Path" /></div>
+                <div class="field"><label>Environment</label><input @bind="_editing.Environment" placeholder="Development / Test / Production" /></div>
+                <div class="field"><label>Sending application</label><input @bind="_editing.SendingApplication" /></div>
+                <div class="field"><label>Sending facility</label><input @bind="_editing.SendingFacility" /></div>
+                <div class="field"><label>Receiving application</label><input @bind="_editing.ReceivingApplication" /></div>
+                <div class="field"><label>Receiving facility</label><input @bind="_editing.ReceivingFacility" /></div>
+                <div class="field"><label>ACK timeout (s)</label><input type="number" @bind="_editing.AckTimeoutSeconds" /></div>
+                <div class="field"><label>Max retries</label><input type="number" @bind="_editing.MaxRetryCount" /></div>
+                <div class="field"><label>Retry delay (s)</label><input type="number" @bind="_editing.RetryDelaySeconds" /></div>
+                <div class="field"><label>Logging level</label><input @bind="_editing.MessageLoggingLevel" placeholder="None / Errors / All" /></div>
+            </div>
+            <div class="flex gap" style="margin:.6rem 0;">
+                <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.ReplayAllowed" /> Replay allowed</label>
+            </div>
+        }
 
-        <div class="field"><label>Change reason (required for enabled/production)</label>
+        @if (_tab == "vendor")
+        {
+            <p class="muted">Apply a pre-setting for the EHR or billing system connected to this interface. Host and port stay facility-specific.</p>
+            <div class="form-row">
+                <div class="field" style="min-width:16rem;">
+                    <label>Connecting software</label>
+                    <select @bind="_selectedVendor">
+                        <option value="">Select…</option>
+                        @foreach (var v in _vendors)
+                        {
+                            <option value="@v.Code">@v.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            @if (_vendors.Count == 0)
+            {
+                <p class="muted">Loading vendors…</p>
+            }
+            else
+            {
+                <div class="muted" style="margin:.5rem 0 1rem;">
+                    @(_vendors.FirstOrDefault(v => v.Code == _selectedVendor)?.Description)
+                </div>
+            }
+            @if (CanManage)
+            {
+                <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_selectedVendor))" @onclick="ApplyVendorAsync">Apply preset</button>
+            }
+        }
+
+        @if (_tab == "mapping")
+        {
+            <p class="muted">Match data items in this application to the HL7 fields that will receive or send them. Applying a vendor preset fills this grid; you can then customize paths.</p>
+            @if (_editing.Mappings.Count == 0)
+            {
+                <div class="empty">No mapping rows. Apply a vendor preset or they will be created from catalog defaults on save.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Data item</th><th>HL7 path</th><th>Required</th></tr></thead>
+                    <tbody>
+                        @foreach (var row in _editing.Mappings)
+                        {
+                            <tr>
+                                <td>
+                                    <div>@(row.DisplayName ?? row.DataItemKey)</div>
+                                    @if (!string.IsNullOrWhiteSpace(row.Description))
+                                    {
+                                        <div class="muted" style="font-size:.82rem;">@row.Description</div>
+                                    }
+                                    <div class="mono muted" style="font-size:.75rem;">@row.DataItemKey</div>
+                                </td>
+                                <td><input class="mono" @bind="row.Hl7Path" placeholder="PID-3-1" /></td>
+                                <td>@(row.IsRequired ? "Yes" : "No")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+
+        <div class="field" style="margin-top:1rem;"><label>Change reason (required for enabled/production)</label>
             <input @bind="_changeReason" placeholder="Why is this change being made?" />
         </div>
 
@@ -113,9 +188,12 @@
 
 @code {
     private List<Hl7EndpointDto> _items = new();
+    private List<InterfaceVendorDto> _vendors = new();
     private bool _loading = true;
     private Feedback? _feedback;
     private bool _busy;
+    private string _tab = "connection";
+    private string _selectedVendor = string.Empty;
 
     private EditModel? _editing;
     private long? _editId;
@@ -126,6 +204,8 @@
     private string _historyTitle = string.Empty;
 
     private bool CanManage => Session.Has(PermissionCodes.AdminHl7Manage);
+
+    private string TabClass(string tab) => _tab == tab ? "btn-primary" : "btn-secondary";
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -138,20 +218,102 @@
         _loading = false;
     }
 
-    private void NewDraft()
+    private async Task NewDraft()
     {
-        _editId = null; _currentEnabled = false; _changeReason = null;
-        _editing = new EditModel { MessageTypes = "ADT" };
+        _editId = null; _currentEnabled = false; _changeReason = null; _tab = "connection";
+        _editing = new EditModel { MessageTypes = "ADT", InterfaceType = InterfaceType.Adt, Direction = Hl7Direction.Inbound };
         _feedback = null;
+        await EnsureCatalogAsync(resetMappings: true);
     }
 
     private async Task EditAsync(long id)
     {
         var r = await Api.GetAdminHl7EndpointAsync(id);
         if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
-        _editId = r.Value.Id; _currentEnabled = r.Value.IsEnabled; _changeReason = null;
+        _editId = r.Value.Id; _currentEnabled = r.Value.IsEnabled; _changeReason = null; _tab = "connection";
         _editing = EditModel.From(r.Value);
+        _selectedVendor = r.Value.VendorCode ?? string.Empty;
         _feedback = null;
+        await EnsureCatalogAsync(resetMappings: false);
+    }
+
+    private async Task OnTypeChanged(ChangeEventArgs e)
+    {
+        if (_editing is null) return;
+        if (Enum.TryParse<InterfaceType>(e.Value?.ToString(), out var type))
+        {
+            _editing.InterfaceType = type;
+            _editing.Direction = type is InterfaceType.Results or InterfaceType.Billing
+                ? Hl7Direction.Outbound
+                : Hl7Direction.Inbound;
+            _selectedVendor = string.Empty;
+            await EnsureCatalogAsync(resetMappings: true);
+        }
+    }
+
+    private async Task EnsureCatalogAsync(bool resetMappings)
+    {
+        if (_editing is null) return;
+        var items = await Api.GetAdminHl7DataItemsAsync(_editing.InterfaceType, _editing.Direction);
+        var vendors = await Api.GetAdminHl7VendorsAsync(_editing.InterfaceType);
+        _vendors = vendors.Value ?? new();
+        var catalog = items.Value ?? new();
+        if (resetMappings || _editing.Mappings.Count == 0)
+        {
+            _editing.Mappings = catalog.Select(i => new MappingRow
+            {
+                DataItemKey = i.Key,
+                DisplayName = i.DisplayName,
+                Description = i.Description,
+                Hl7Path = i.DefaultHl7Path,
+                IsRequired = i.Required
+            }).ToList();
+            _editing.MappingMode = InterfaceMappingMode.Custom;
+        }
+        else
+        {
+            var byKey = _editing.Mappings.ToDictionary(m => m.DataItemKey, StringComparer.Ordinal);
+            _editing.Mappings = catalog.Select(i =>
+            {
+                if (byKey.TryGetValue(i.Key, out var existing))
+                {
+                    existing.DisplayName = i.DisplayName;
+                    existing.Description = i.Description;
+                    existing.IsRequired = i.Required || existing.IsRequired;
+                    return existing;
+                }
+                return new MappingRow
+                {
+                    DataItemKey = i.Key,
+                    DisplayName = i.DisplayName,
+                    Description = i.Description,
+                    Hl7Path = i.DefaultHl7Path,
+                    IsRequired = i.Required
+                };
+            }).ToList();
+        }
+    }
+
+    private async Task ApplyVendorAsync()
+    {
+        if (_editing is null || string.IsNullOrWhiteSpace(_selectedVendor)) return;
+        _busy = true;
+        var r = await Api.GetAdminHl7VendorPresetAsync(_selectedVendor, _editing.InterfaceType, _editing.Direction);
+        _busy = false;
+        if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
+
+        var preset = r.Value;
+        _editing.VendorCode = preset.VendorCode;
+        _editing.MappingMode = string.Equals(preset.VendorCode, "Custom", StringComparison.OrdinalIgnoreCase)
+            ? InterfaceMappingMode.Custom
+            : InterfaceMappingMode.Vendor;
+        _editing.SendingApplication = preset.Connection.SendingApplication;
+        _editing.SendingFacility = preset.Connection.SendingFacility;
+        _editing.ReceivingApplication = preset.Connection.ReceivingApplication;
+        _editing.ReceivingFacility = preset.Connection.ReceivingFacility;
+        _editing.Mappings = preset.Mappings.Select(MappingRow.From).ToList();
+        _tab = "mapping";
+        _feedback = Feedback.Succeed($"Applied {preset.VendorName} preset. Review or customize the field map.");
     }
 
     private async Task SaveAsync()
@@ -162,7 +324,7 @@
         var r = _editId is null ? await Api.CreateAdminHl7EndpointAsync(req) : await Api.UpdateAdminHl7EndpointAsync(_editId.Value, req);
         _busy = false;
         _feedback = r.ToFeedback(_editId is null ? "Created." : "Saved.");
-        if (r.Succeeded) { _editId = r.Value!.Id; _currentEnabled = r.Value.IsEnabled; await LoadAsync(); }
+        if (r.Succeeded) { _editId = r.Value!.Id; _currentEnabled = r.Value.IsEnabled; _editing = EditModel.From(r.Value); await LoadAsync(); }
     }
 
     private async Task SetEnabledAsync(bool enabled)
@@ -182,9 +344,27 @@
         _historyTitle = _items.FirstOrDefault(e => e.Id == id)?.Name ?? id.ToString();
     }
 
+    private sealed class MappingRow
+    {
+        public string DataItemKey { get; set; } = string.Empty;
+        public string? DisplayName { get; set; }
+        public string? Description { get; set; }
+        public string Hl7Path { get; set; } = string.Empty;
+        public bool IsRequired { get; set; }
+
+        public static MappingRow From(InterfaceFieldMappingDto d) => new()
+        {
+            DataItemKey = d.DataItemKey, DisplayName = d.DisplayName, Description = d.Description,
+            Hl7Path = d.Hl7Path, IsRequired = d.IsRequired
+        };
+
+        public InterfaceFieldMappingDto ToDto() => new(DataItemKey, Hl7Path, IsRequired, DisplayName, Description);
+    }
+
     private sealed class EditModel
     {
         public string Name { get; set; } = string.Empty;
+        public InterfaceType InterfaceType { get; set; } = InterfaceType.Adt;
         public Hl7Direction Direction { get; set; } = Hl7Direction.Inbound;
         public InterfaceTransport Transport { get; set; } = InterfaceTransport.Mllp;
         public string? Host { get; set; }
@@ -192,6 +372,8 @@
         public string? Path { get; set; }
         public string MessageTypes { get; set; } = string.Empty;
         public string? MappingProfile { get; set; }
+        public string? VendorCode { get; set; }
+        public InterfaceMappingMode MappingMode { get; set; } = InterfaceMappingMode.Custom;
         public string? Environment { get; set; }
         public string? SendingApplication { get; set; }
         public string? SendingFacility { get; set; }
@@ -202,20 +384,24 @@
         public int? RetryDelaySeconds { get; set; }
         public string? MessageLoggingLevel { get; set; }
         public bool ReplayAllowed { get; set; }
+        public List<MappingRow> Mappings { get; set; } = new();
 
         public static EditModel From(Hl7EndpointDto e) => new()
         {
-            Name = e.Name, Direction = e.Direction, Transport = e.Transport, Host = e.Host, Port = e.Port, Path = e.Path,
-            MessageTypes = e.MessageTypes, MappingProfile = e.MappingProfile, Environment = e.Environment,
-            SendingApplication = e.SendingApplication, SendingFacility = e.SendingFacility,
+            Name = e.Name, InterfaceType = e.InterfaceType, Direction = e.Direction, Transport = e.Transport,
+            Host = e.Host, Port = e.Port, Path = e.Path, MessageTypes = e.MessageTypes,
+            MappingProfile = e.MappingProfile, VendorCode = e.VendorCode, MappingMode = e.MappingMode,
+            Environment = e.Environment, SendingApplication = e.SendingApplication, SendingFacility = e.SendingFacility,
             ReceivingApplication = e.ReceivingApplication, ReceivingFacility = e.ReceivingFacility,
             AckTimeoutSeconds = e.AckTimeoutSeconds, MaxRetryCount = e.MaxRetryCount, RetryDelaySeconds = e.RetryDelaySeconds,
-            MessageLoggingLevel = e.MessageLoggingLevel, ReplayAllowed = e.ReplayAllowed
+            MessageLoggingLevel = e.MessageLoggingLevel, ReplayAllowed = e.ReplayAllowed,
+            Mappings = e.FieldMappings.Select(MappingRow.From).ToList()
         };
 
         public SaveHl7EndpointRequest ToRequest(string? reason) => new(
-            Name, Direction, Transport, Host, Port, Path, MessageTypes, MappingProfile, Environment, SendingApplication,
-            SendingFacility, ReceivingApplication, ReceivingFacility, AckTimeoutSeconds, MaxRetryCount, RetryDelaySeconds,
-            MessageLoggingLevel, ReplayAllowed, reason);
+            Name, InterfaceType, Direction, Transport, Host, Port, Path, MessageTypes, MappingProfile, VendorCode,
+            MappingMode, Environment, SendingApplication, SendingFacility, ReceivingApplication, ReceivingFacility,
+            AckTimeoutSeconds, MaxRetryCount, RetryDelaySeconds, MessageLoggingLevel, ReplayAllowed,
+            Mappings.Select(m => m.ToDto()).ToList(), reason);
     }
 }

@@ -26,36 +26,40 @@ Scope for the project: inbound **ADT** (demographics/encounter) and **ORM/OML** 
 
 ## 2. Message mapping (configurable, not hard-coded)
 
-Field mappings and facility constants live in `InterfaceEndpoints.MappingProfile` and `SystemConfiguration`, so the same parser serves different facilities.
+Field mappings live on each `InterfaceEndpoint` as `InterfaceFieldMappings` rows (data item key → HL7 path such as `PID-3-1`). Admin **Interface Setup** (`/admin/hl7`) can apply an EHR/billing vendor preset (Epic, Cerner, Meditech, Epic Resolute, Cerner Patient Accounting) or edit paths by hand. Inbound ADT/ORM/BPAM mappers and outbound ORU/DFT builders read those paths; catalog defaults match the original hard-coded locations when no rows are stored.
 
 ### 2.1 Inbound ADT (A01 admit, A04 register, A08 update)
-| HL7 | Maps to |
+Default catalog (customizable per endpoint):
+| Data item | Default HL7 |
 |---|---|
-| `PID-3` | `PatientIdentifiers` (MRN + alternates with assigning authority) |
-| `PID-5` | name (last/first/middle) |
-| `PID-7` | date of birth |
-| `PID-8` | sex |
-| `PV1-19` | `Encounters.VisitNumber` |
-| `PV1-2` | encounter type |
-| `PV1-3` | location |
+| `Patient.MedicalRecordNumber` | `PID-3-1` |
+| `Patient.LastName` / `FirstName` / `MiddleName` | `PID-5-1` / `PID-5-2` / `PID-5-3` |
+| `Patient.DateOfBirth` | `PID-7` |
+| `Patient.Sex` | `PID-8` |
+| `Encounter.AccountNumber` | `PID-18-1` |
+| `Encounter.VisitNumber` | `PV1-19-1` |
+| `Encounter.CurrentLocation` | `PV1-3-1` |
 
-Action: `UpsertPatientFromHl7Command` / `UpsertEncounterFromHl7Command`. Demographics updates never overwrite clinical immunohematology history.
+Action: upsert patient demographics and visit. Demographics updates never overwrite clinical immunohematology history.
 
 ### 2.2 Inbound ORM/OML (orders)
-| HL7 | Maps to |
+| Data item | Default HL7 |
 |---|---|
-| `ORC-1` | order control (NW new, CA cancel) |
-| `ORC-2` / `OBR-2` | placer order id -> `Orders.OrderId` |
-| `OBR-4` | universal service id -> order type |
-| `SPM` / `OBR-15` | specimen + collection info |
+| `Order.OrderControl` | `ORC-1` |
+| `Order.OrderNumber` | `ORC-2-1` |
+| `Patient.MedicalRecordNumber` | `PID-3-1` |
+| `Order.TestCode` | `OBR-4-1` |
 
-Action: `CreateOrderFromHl7Command` / `CancelOrderFromHl7Command`.
+Action: create or cancel the order through `OrderService` (same safety checks as the UI).
 
 ### 2.3 Outbound ORU (results)
-Triggered when a `TestResult` is verified (`VerifyResultCommand` raises a domain event). Builds `MSH + PID + OBR + OBX[]` from verified results and sends via the configured outbound endpoint. Stored in `HL7Messages` with direction Outbound.
+Builds `MSH + PID + OBR + OBX` from a verified `TestResult` using the enabled Results outbound endpoint's MSH identity and field map. Stored in `HL7Messages` with direction Outbound.
 
 ### 2.4 Outbound DFT (billing)
-Triggered when charge capture creates a `BillingEvent` (charge rule and/or test/service or product billing catalog). Builds a standard `MSH + EVN + PID + FT1` DFT^P03. `FT1-6` is `CG`, `FT1-7` is the billing code, `FT1-4` is the service date. Transaction amount (`FT1-10`) is left empty — catalog price is internal only. Stored in `HL7Messages` with direction Outbound, `MessageType=DFT`, `TriggerEvent=P03`.
+Triggered when charge capture creates a `BillingEvent`. Builds `MSH + EVN + PID + FT1` DFT^P03. Default `FT1-6` is `CG`, `FT1-7` is the billing code, `FT1-4` is the service date. Transaction amount is omitted — catalog price is internal only.
+
+### 2.5 Inbound BPAM (RAS/BPS)
+Thin blood-product administration intake (not IHE/Epic certification). Mapped fields include patient MRN, unit number/DIN, start/stop, volume, location, transfusionist, and reaction flag. When an issued unit for that patient can be matched, a `TransfusionEvent` is documented; otherwise the message is NAK/`AE` and queued.
 
 ---
 
@@ -99,4 +103,10 @@ flowchart TD
 
 ## 6. Endpoint configuration
 
-`InterfaceEndpoints`: name, direction, transport, host/port or path, supported message types, mapping profile, enabled flag. No facility-specific values (sending/receiving application/facility, MRN assigning authority, etc.) are hard-coded; all live in configuration so deployments differ only by data.
+Admin **Interface Setup** (`/admin/hl7`, permission `admin.hl7.manage`) configures each `InterfaceEndpoint`:
+
+- **Connection** — name, interface type (`ADT`, `Billing`, `Orders`, `Results`, `BPAM`), direction, transport, host/IP and port, MSH sending/receiving application and facility, ACK/retry/logging.
+- **Vendor preset** — Epic, Cerner, Meditech (and billing variants Epic Resolute / Cerner Patient Accounting) fill MSH identities and a field map for the selected type.
+- **Custom mapping** — each application data item is paired with an HL7 path (`PID-3-1`, `OBR-4-1`, `FT1-7`, `RXA-15`, …).
+
+`MessageTypes` is derived from interface type (`ADT`; `ORM,OML`; `ORU`; `DFT`; `RAS,BPS`) so inbound dispatch still keys off `MSH-9`. `VendorCode` is also stored on `MappingProfile` for backward compatibility. Host/port remain facility-entered; no sending/receiving identifiers are hard-coded.
