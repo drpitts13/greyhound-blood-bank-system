@@ -24,14 +24,20 @@ public class Phase7BillingTests : IDisposable
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
             publisher ?? new CapturingPublisher());
 
-    private async Task<long> SeedChargeRuleAsync(BloodBankDbContext c, BillingTriggerType trigger, string? key, string code, decimal amount)
+    private async Task<long> SeedChargeCodeAsync(BloodBankDbContext c, string code, decimal amount)
     {
         var chargeCode = new ChargeCode { Code = code, Description = code, DefaultAmount = amount };
         c.ChargeCodes.Add(chargeCode);
         await c.SaveChangesAsync();
-        c.ChargeRules.Add(new ChargeRule { TriggerType = trigger, TriggerKey = key, ChargeCodeId = chargeCode.Id });
-        await c.SaveChangesAsync();
         return chargeCode.Id;
+    }
+
+    private async Task<long> SeedChargeRuleAsync(BloodBankDbContext c, BillingTriggerType trigger, string? key, string code, decimal amount)
+    {
+        var chargeCodeId = await SeedChargeCodeAsync(c, code, amount);
+        c.ChargeRules.Add(new ChargeRule { TriggerType = trigger, TriggerKey = key, ChargeCodeId = chargeCodeId });
+        await c.SaveChangesAsync();
+        return chargeCodeId;
     }
 
     private async Task<long> CreateVerifiedResultAsync(BloodBankDbContext c, string mrn, string testCode)
@@ -195,12 +201,12 @@ public class Phase7BillingTests : IDisposable
         long resultId;
         await using (var setup = _factory.Create())
         {
+            var chargeCodeId = await SeedChargeCodeAsync(setup, "CAT-ABORH", 12.50m);
             setup.TestServiceBillings.Add(new TestServiceBilling
             {
-                BillingCode = "CAT-ABORH",
+                ChargeCodeId = chargeCodeId,
                 TestCode = "ABORH",
-                Trigger = BillingTriggerType.TestVerified,
-                Price = 12.50m
+                Trigger = BillingTriggerType.TestVerified
             });
             await setup.SaveChangesAsync();
             resultId = await CreateVerifiedResultAsync(setup, "BILL-CAT-1", "ABORH");
@@ -215,22 +221,23 @@ public class Phase7BillingTests : IDisposable
         Assert.Equal("CAT-ABORH", charge.BillingCode);
         Assert.Equal(12.50m, charge.Amount);
         Assert.Equal(BillingChargeSourceKind.TestService, charge.SourceKind);
+        Assert.NotNull(charge.ChargeCodeId);
         Assert.Single(publisher.Published);
         Assert.Equal(charge.Id, publisher.Published[0].Id);
     }
 
     [Fact]
-    public async Task CaptureForResult_OptionalPrice_LeavesAmountNull_AndStillQueuesDft()
+    public async Task CaptureForResult_CatalogSnapshotsChargeCodeAmount()
     {
         long resultId;
         await using (var setup = _factory.Create())
         {
+            var chargeCodeId = await SeedChargeCodeAsync(setup, "CAT-DAT", 18.00m);
             setup.TestServiceBillings.Add(new TestServiceBilling
             {
-                BillingCode = "CAT-FREE",
+                ChargeCodeId = chargeCodeId,
                 TestCode = "DAT",
-                Trigger = BillingTriggerType.TestVerified,
-                Price = null
+                Trigger = BillingTriggerType.TestVerified
             });
             await setup.SaveChangesAsync();
             resultId = await CreateVerifiedResultAsync(setup, "BILL-CAT-2", "DAT");
@@ -242,8 +249,8 @@ public class Phase7BillingTests : IDisposable
 
         Assert.True(result.Succeeded);
         var charge = Assert.Single(result.Value!);
-        Assert.Null(charge.Amount);
-        Assert.Equal("CAT-FREE", charge.BillingCode);
+        Assert.Equal(18.00m, charge.Amount);
+        Assert.Equal("CAT-DAT", charge.BillingCode);
         Assert.Single(publisher.Published);
     }
 
@@ -254,12 +261,12 @@ public class Phase7BillingTests : IDisposable
         await using (var setup = _factory.Create())
         {
             await SeedChargeRuleAsync(setup, BillingTriggerType.TestVerified, "ABORH", "RULE-ABORH", 35m);
+            var catalogCodeId = await SeedChargeCodeAsync(setup, "CAT-ABORH-2", 40m);
             setup.TestServiceBillings.Add(new TestServiceBilling
             {
-                BillingCode = "CAT-ABORH-2",
+                ChargeCodeId = catalogCodeId,
                 TestCode = "ABORH",
-                Trigger = BillingTriggerType.TestVerified,
-                Price = 40m
+                Trigger = BillingTriggerType.TestVerified
             });
             await setup.SaveChangesAsync();
             resultId = await CreateVerifiedResultAsync(setup, "BILL-BOTH", "ABORH");
@@ -282,12 +289,12 @@ public class Phase7BillingTests : IDisposable
         long issueId;
         await using (var setup = _factory.Create())
         {
+            var chargeCodeId = await SeedChargeCodeAsync(setup, "CAT-E0336", 250m);
             setup.ProductBillings.Add(new ProductBilling
             {
-                BillingCode = "CAT-E0336",
+                ChargeCodeId = chargeCodeId,
                 IsbtProductCode = "E0336",
-                Trigger = BillingTriggerType.UnitIssued,
-                Price = 250m
+                Trigger = BillingTriggerType.UnitIssued
             });
             await setup.SaveChangesAsync();
             issueId = await CreateIssuedUnitAsync(setup, "BILL-ISSUE-1", "RBC-LR", "E0336");
@@ -330,9 +337,10 @@ public class Phase7BillingTests : IDisposable
         long issueId;
         await using (var setup = _factory.Create())
         {
+            var chargeCodeId = await SeedChargeCodeAsync(setup, "CAT-E9999", 10m);
             setup.ProductBillings.Add(new ProductBilling
             {
-                BillingCode = "CAT-E9999",
+                ChargeCodeId = chargeCodeId,
                 IsbtProductCode = "E9999",
                 Trigger = BillingTriggerType.UnitIssued
             });
@@ -355,9 +363,10 @@ public class Phase7BillingTests : IDisposable
         long resultId;
         await using (var setup = _factory.Create())
         {
+            var chargeCodeId = await SeedChargeCodeAsync(setup, "CAT-IDEM", 20m);
             setup.TestServiceBillings.Add(new TestServiceBilling
             {
-                BillingCode = "CAT-IDEM",
+                ChargeCodeId = chargeCodeId,
                 TestCode = "ABSC",
                 Trigger = BillingTriggerType.TestVerified
             });

@@ -11,13 +11,13 @@
         <button class="btn btn-primary" @onclick="NewDraft">New row</button>
     }
 </div>
-<p class="muted">When a unit is issued and the ISBT product description code matches, a charge drops and a DFT is queued. Price is optional internal tracking and is not sent on the interface.</p>
+<p class="muted">When a unit is issued and the ISBT product description code matches, a charge drops and a DFT is queued. Amount comes from the selected charge code.</p>
 
 <Outcome Value="_feedback" />
 
 <div class="bb-card" style="margin-top:1rem;">
     <div class="flex gap" style="margin-bottom:.6rem;">
-        <input style="flex:1;" placeholder="Filter by billing code or ISBT code" @bind="_filter" @bind:event="oninput" />
+        <input style="flex:1;" placeholder="Filter by charge code or ISBT code" @bind="_filter" @bind:event="oninput" />
         <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
     </div>
 
@@ -32,15 +32,21 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Billing code</th><th>ISBT PDC</th><th>Trigger</th><th class="right">Price</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Charge code</th><th>ISBT PDC</th><th>Trigger</th><th class="right">Amount</th><th>Description</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var row in Filtered)
                 {
                     <tr>
-                        <td class="mono">@row.BillingCode</td>
+                        <td>
+                            <span class="mono">@row.ChargeCode</span>
+                            @if (!string.IsNullOrWhiteSpace(row.ChargeCodeDescription))
+                            {
+                                <span class="muted"> — @row.ChargeCodeDescription</span>
+                            }
+                        </td>
                         <td class="mono">@row.IsbtProductCode</td>
                         <td>@row.Trigger</td>
-                        <td class="right">@(row.Price?.ToString("C") ?? "—")</td>
+                        <td class="right">@(row.ChargeCodeAmount?.ToString("C") ?? "—")</td>
                         <td>@(row.Description ?? "—")</td>
                         <td>@(row.IsActive ? "Active" : "Inactive")</td>
                         <td class="right nowrap">
@@ -67,16 +73,24 @@
 @if (_draft is not null && CanEdit)
 {
     <div class="bb-card" style="margin-top:1rem;">
-        <h2>@(_editId is null ? "New product billing" : $"Edit: {_draft.BillingCode}")</h2>
+        <h2>@(_editId is null ? "New product billing" : $"Edit: {_draft.ChargeCodeLabel}")</h2>
         <div class="form-row">
-            <div class="field"><label>Billing code</label><input class="mono" @bind="_draft.BillingCode" /></div>
+            <div class="field">
+                <label>Charge code</label>
+                <select @bind="_draft.ChargeCodeId">
+                    <option value="0">Select charge code...</option>
+                    @foreach (var c in _chargeCodes)
+                    {
+                        <option value="@c.Id">@c.Code — @c.Description</option>
+                    }
+                </select>
+            </div>
             <div class="field"><label>ISBT product code</label><input class="mono" maxlength="5" @bind="_draft.IsbtProductCode" placeholder="E0336" /></div>
             <div class="field"><label>Trigger</label>
                 <select @bind="_draft.Trigger">
                     <option value="@BillingTriggerType.UnitIssued">UnitIssued</option>
                 </select>
             </div>
-            <div class="field"><label>Price (optional)</label><input type="number" step="0.01" min="0" @bind="_draft.PriceText" /></div>
             <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>
         </div>
         <div class="flex gap">
@@ -92,6 +106,7 @@
     private string _filter = string.Empty;
     private bool _includeInactive;
     private List<ProductBillingDto> _list = new();
+    private List<ChargeCodeDto> _chargeCodes = new();
     private Feedback? _feedback;
     private long? _editId;
     private BillingDraft? _draft;
@@ -103,11 +118,24 @@
         string.IsNullOrWhiteSpace(_filter)
             ? _list
             : _list.Where(r =>
-                r.BillingCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                r.ChargeCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || (r.ChargeCodeDescription?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false)
                 || r.IsbtProductCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || (r.Description?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCatalogsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadCatalogsAsync()
+    {
+        var codes = await Api.GetAdminChargeCodesAsync(includeInactive: true);
+        _chargeCodes = (codes.Succeeded ? codes.Value ?? new() : new())
+            .OrderBy(c => c.Code)
+            .ToList();
+    }
 
     private async Task LoadAsync()
     {
@@ -125,10 +153,10 @@
         _editId = row.Id;
         _draft = new BillingDraft
         {
-            BillingCode = row.BillingCode,
+            ChargeCodeId = row.ChargeCodeId,
+            ChargeCodeLabel = row.ChargeCode,
             IsbtProductCode = row.IsbtProductCode,
             Trigger = row.Trigger,
-            PriceText = row.Price?.ToString("0.00"),
             Description = row.Description
         };
     }
@@ -138,25 +166,14 @@
     private async Task SaveAsync()
     {
         if (_draft is null) return;
-        if (string.IsNullOrWhiteSpace(_draft.BillingCode) || string.IsNullOrWhiteSpace(_draft.IsbtProductCode))
+        if (_draft.ChargeCodeId <= 0 || string.IsNullOrWhiteSpace(_draft.IsbtProductCode))
         {
-            _feedback = Feedback.Fail("Billing code and ISBT product code are required.");
+            _feedback = Feedback.Fail("A charge code and ISBT product code are required.");
             return;
         }
 
-        decimal? price = null;
-        if (!string.IsNullOrWhiteSpace(_draft.PriceText))
-        {
-            if (!decimal.TryParse(_draft.PriceText, out var parsed) || parsed < 0)
-            {
-                _feedback = Feedback.Fail("Price must be a non-negative number when provided.");
-                return;
-            }
-            price = parsed;
-        }
-
         _busy = true;
-        var req = new SaveProductBillingRequest(_draft.BillingCode, _draft.Description, price, _draft.Trigger, _draft.IsbtProductCode);
+        var req = new SaveProductBillingRequest(_draft.ChargeCodeId, _draft.Description, _draft.Trigger, _draft.IsbtProductCode);
         var r = _editId is null
             ? await Api.CreateAdminProductBillingAsync(req)
             : await Api.UpdateAdminProductBillingAsync(_editId.Value, req);
@@ -185,10 +202,10 @@
 
     private sealed class BillingDraft
     {
-        public string BillingCode { get; set; } = string.Empty;
+        public long ChargeCodeId { get; set; }
+        public string ChargeCodeLabel { get; set; } = string.Empty;
         public string IsbtProductCode { get; set; } = string.Empty;
         public BillingTriggerType Trigger { get; set; } = BillingTriggerType.UnitIssued;
-        public string? PriceText { get; set; }
         public string? Description { get; set; }
     }
 }

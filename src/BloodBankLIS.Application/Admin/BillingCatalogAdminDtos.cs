@@ -5,40 +5,58 @@ namespace BloodBankLIS.Application.Admin;
 
 public sealed record TestServiceBillingDto(
     long Id,
-    string BillingCode,
+    long ChargeCodeId,
+    string ChargeCode,
+    string? ChargeCodeDescription,
+    decimal? ChargeCodeAmount,
     string? Description,
-    decimal? Price,
     BillingTriggerType Trigger,
     string TestCode,
     bool IsActive)
 {
-    public static TestServiceBillingDto From(TestServiceBilling e) => new(
-        e.Id, e.BillingCode, e.Description, e.Price, e.Trigger, e.TestCode, e.IsActive);
+    public static TestServiceBillingDto From(TestServiceBilling e, ChargeCode? code) => new(
+        e.Id,
+        e.ChargeCodeId,
+        code?.Code ?? string.Empty,
+        code?.Description,
+        code?.DefaultAmount,
+        e.Description,
+        e.Trigger,
+        e.TestCode,
+        e.IsActive);
 }
 
 public sealed record SaveTestServiceBillingRequest(
-    string BillingCode,
+    long ChargeCodeId,
     string? Description,
-    decimal? Price,
     BillingTriggerType Trigger,
     string TestCode);
 
 public sealed record ProductBillingDto(
     long Id,
-    string BillingCode,
+    long ChargeCodeId,
+    string ChargeCode,
+    string? ChargeCodeDescription,
+    decimal? ChargeCodeAmount,
     string? Description,
-    decimal? Price,
     BillingTriggerType Trigger,
     string IsbtProductCode,
     bool IsActive)
 {
-    public static ProductBillingDto From(ProductBilling e) => new(
-        e.Id, e.BillingCode, e.Description, e.Price, e.Trigger, e.IsbtProductCode, e.IsActive);
+    public static ProductBillingDto From(ProductBilling e, ChargeCode? code) => new(
+        e.Id,
+        e.ChargeCodeId,
+        code?.Code ?? string.Empty,
+        code?.Description,
+        code?.DefaultAmount,
+        e.Description,
+        e.Trigger,
+        e.IsbtProductCode,
+        e.IsActive);
 }
 
 public sealed record SaveProductBillingRequest(
-    string BillingCode,
+    long ChargeCodeId,
     string? Description,
-    decimal? Price,
     BillingTriggerType Trigger,
     string IsbtProductCode);

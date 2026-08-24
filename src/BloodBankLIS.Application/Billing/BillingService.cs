@@ -288,13 +288,19 @@ public sealed class BillingService
 
         foreach (var row in rows)
         {
+            var code = await _codes.GetByIdAsync(row.ChargeCodeId, ct);
+            if (code is null || !code.IsActive)
+            {
+                continue;
+            }
+
             await TryAddEventAsync(
                 context,
                 BillingChargeSourceKind.TestService,
                 row.Id,
-                chargeCodeId: null,
-                row.BillingCode,
-                row.Price,
+                code.Id,
+                code.Code,
+                code.DefaultAmount,
                 created,
                 ct);
         }
@@ -315,13 +321,19 @@ public sealed class BillingService
 
         foreach (var row in rows)
         {
+            var code = await _codes.GetByIdAsync(row.ChargeCodeId, ct);
+            if (code is null || !code.IsActive)
+            {
+                continue;
+            }
+
             await TryAddEventAsync(
                 context,
                 BillingChargeSourceKind.Product,
                 row.Id,
-                chargeCodeId: null,
-                row.BillingCode,
-                row.Price,
+                code.Id,
+                code.Code,
+                code.DefaultAmount,
                 created,
                 ct);
         }

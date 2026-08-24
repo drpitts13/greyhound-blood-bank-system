@@ -44,9 +44,9 @@ Charge capture is event-driven and isolated from clinical decisions: clinical us
 - `ChargeCodes` map internal codes to descriptions, default amounts, and a **CPT mapping placeholder** (`CptCode`).
 - Charge rules associate a trigger type (test verified, unit issued, procedure, specific issue event) with one or more charge codes; rules are data, not hard-coded.
 - Two additional catalogs run **in parallel** with charge rules:
-  - `TestServiceBillings`: billing code, optional price, `TestVerified` trigger, and test code (e.g. `ABORH`).
-  - `ProductBillings`: billing code, optional price, `UnitIssued` trigger, and ISBT product description code (e.g. `E0336`).
-- Price on either catalog is optional internal tracking for reporting. It is snapshotted onto `BillingEvents.Amount` when present and is **not** sent on the DFT.
+  - `TestServiceBillings`: charge code (`ChargeCodes`), `TestVerified` trigger, and test code (e.g. `ABORH`).
+  - `ProductBillings`: charge code (`ChargeCodes`), `UnitIssued` trigger, and ISBT product description code (e.g. `E0336`).
+- Amount is taken from `ChargeCodes.DefaultAmount` and snapshotted onto `BillingEvents.Amount`. It is **not** sent on the DFT.
 - Because both sources can drop a charge for the same clinical event, deactivate overlapping `ChargeRules` when you do not want two charges / two DFTs.
 
 ## B.2 Trigger events

@@ -46,6 +46,8 @@ erDiagram
     Issues ||--o{ TransfusionEvents : documentedBy
     TransfusionEvents ||--o{ ReactionInvestigations : mayTrigger
     ChargeCodes ||--o{ BillingEvents : classifies
+    ChargeCodes ||--o{ TestServiceBillings : pricedAs
+    ChargeCodes ||--o{ ProductBillings : pricedAs
     TestServiceBillings ||--o{ BillingEvents : canDrop
     ProductBillings ||--o{ BillingEvents : canDrop
 ```
@@ -238,13 +240,13 @@ Indexes: (`BloodProductId`,`Status`), (`PatientId`).
 `Id`, `Code` (unique, internal), `CptCode NULL` (placeholder mapping), `Description`, `DefaultAmount DECIMAL NULL`, `IsActive`.
 
 ### TestServiceBillings
-`Id`, `BillingCode`, `Description NULL`, `Price DECIMAL NULL`, `Trigger` (TestVerified), `TestCode`, `IsActive`. Unique (`Trigger`, `TestCode`, `BillingCode`).
+`Id`, `ChargeCodeId` (FK ChargeCodes), `Description NULL`, `Trigger` (TestVerified), `TestCode`, `IsActive`. Unique (`Trigger`, `TestCode`, `ChargeCodeId`).
 
 ### ProductBillings
-`Id`, `BillingCode`, `Description NULL`, `Price DECIMAL NULL`, `Trigger` (UnitIssued), `IsbtProductCode` (ISBT PDC), `IsActive`. Unique (`Trigger`, `IsbtProductCode`, `BillingCode`).
+`Id`, `ChargeCodeId` (FK ChargeCodes), `Description NULL`, `Trigger` (UnitIssued), `IsbtProductCode` (ISBT PDC), `IsActive`. Unique (`Trigger`, `IsbtProductCode`, `ChargeCodeId`).
 
 ### BillingEvents
-`Id`, `ChargeCodeId NULL` (FK ChargeCodes; set for ChargeRule-sourced events), `BillingCode`, `PatientId` (FK Patients), `TriggerType` (TestVerified/UnitIssued/Procedure/...), `TriggerEntityType`, `TriggerEntityId`, `SourceKind` (ChargeRule/TestService/Product), `SourceId`, `Hl7MessageId NULL`, `DedupeKey` (unique), `Amount DECIMAL NULL`, `Status` (Pending/Reviewed/Exported/Cancelled), `CreatedBy`, `CancelReason NULL`, audit metadata.
+`Id`, `ChargeCodeId NULL` (FK ChargeCodes), `BillingCode`, `PatientId` (FK Patients), `TriggerType` (TestVerified/UnitIssued/Procedure/...), `TriggerEntityType`, `TriggerEntityId`, `SourceKind` (ChargeRule/TestService/Product), `SourceId`, `Hl7MessageId NULL`, `DedupeKey` (unique), `Amount DECIMAL NULL`, `Status` (Pending/Reviewed/Exported/Cancelled), `CreatedBy`, `CancelReason NULL`, audit metadata.
 Indexes: unique(`DedupeKey`), (`Status`), (`PatientId`), (`SourceKind`, `SourceId`).
 
 ---

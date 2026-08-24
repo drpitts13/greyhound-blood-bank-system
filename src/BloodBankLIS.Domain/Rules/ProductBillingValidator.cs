@@ -5,13 +5,13 @@ namespace BloodBankLIS.Domain.Rules;
 
 public static class ProductBillingValidator
 {
-    public static RuleEvaluation Validate(ProductBilling row, bool duplicateActive)
+    public static RuleEvaluation Validate(ProductBilling row, bool chargeCodeMissing, bool duplicateActive)
     {
         var results = new List<RuleResult>();
 
-        if (string.IsNullOrWhiteSpace(row.BillingCode))
+        if (row.ChargeCodeId <= 0 || chargeCodeMissing)
         {
-            results.Add(RuleResult.HardStop("PRODBILL.CODE.REQUIRED", "Billing code is required."));
+            results.Add(RuleResult.HardStop("PRODBILL.CODE.REQUIRED", "A charge code is required."));
         }
 
         if (string.IsNullOrWhiteSpace(row.IsbtProductCode))
@@ -30,15 +30,10 @@ public static class ProductBillingValidator
                 "Product billing rows must use the UnitIssued trigger."));
         }
 
-        if (row.Price is < 0)
-        {
-            results.Add(RuleResult.HardStop("PRODBILL.PRICE.NEGATIVE", "Price cannot be negative."));
-        }
-
         if (duplicateActive)
         {
             results.Add(RuleResult.HardStop("PRODBILL.DUPLICATE",
-                $"An active product billing row already uses trigger '{row.Trigger}', ISBT code '{row.IsbtProductCode}', and billing code '{row.BillingCode}'."));
+                $"An active product billing row already uses trigger '{row.Trigger}', ISBT code '{row.IsbtProductCode}', and this charge code."));
         }
 
         return new RuleEvaluation(results);

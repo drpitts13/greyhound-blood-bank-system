@@ -638,22 +638,27 @@ public static partial class DatabaseSeeder
 
     private static async Task SeedBillingCatalogsAsync(BloodBankDbContext context, CancellationToken ct)
     {
-        if (!await context.TestServiceBillings.AnyAsync(ct))
+        var codes = await context.ChargeCodes.ToDictionaryAsync(c => c.Code, ct);
+
+        if (!await context.TestServiceBillings.AnyAsync(ct)
+            && codes.TryGetValue("BB-ABORH", out var aboRh)
+            && codes.TryGetValue("BB-SCREEN", out var screen)
+            && codes.TryGetValue("BB-XM", out var xm))
         {
             context.TestServiceBillings.AddRange(
-                new TestServiceBilling { BillingCode = "BB-ABORH", Description = "ABO/Rh typing", Price = 35.00m, Trigger = BillingTriggerType.TestVerified, TestCode = "ABORH" },
-                new TestServiceBilling { BillingCode = "BB-SCREEN", Description = "Antibody screen", Price = 55.00m, Trigger = BillingTriggerType.TestVerified, TestCode = "ABSC" },
-                new TestServiceBilling { BillingCode = "BB-XM", Description = "Crossmatch", Price = 75.00m, Trigger = BillingTriggerType.TestVerified, TestCode = "XM" },
-                new TestServiceBilling { BillingCode = "BB-XM", Description = "Computer crossmatch", Price = 75.00m, Trigger = BillingTriggerType.TestVerified, TestCode = "CXM" });
+                new TestServiceBilling { ChargeCodeId = aboRh.Id, Description = "ABO/Rh typing", Trigger = BillingTriggerType.TestVerified, TestCode = "ABORH" },
+                new TestServiceBilling { ChargeCodeId = screen.Id, Description = "Antibody screen", Trigger = BillingTriggerType.TestVerified, TestCode = "ABSC" },
+                new TestServiceBilling { ChargeCodeId = xm.Id, Description = "Crossmatch", Trigger = BillingTriggerType.TestVerified, TestCode = "XM" },
+                new TestServiceBilling { ChargeCodeId = xm.Id, Description = "Computer crossmatch", Trigger = BillingTriggerType.TestVerified, TestCode = "CXM" });
         }
 
-        if (!await context.ProductBillings.AnyAsync(ct))
+        if (!await context.ProductBillings.AnyAsync(ct)
+            && codes.TryGetValue("BB-RBC-ISSUE", out var rbcIssue))
         {
             context.ProductBillings.Add(new ProductBilling
             {
-                BillingCode = "BB-RBC-ISSUE",
+                ChargeCodeId = rbcIssue.Id,
                 Description = "Red blood cell unit issued",
-                Price = 250.00m,
                 Trigger = BillingTriggerType.UnitIssued,
                 IsbtProductCode = "E0336"
             });

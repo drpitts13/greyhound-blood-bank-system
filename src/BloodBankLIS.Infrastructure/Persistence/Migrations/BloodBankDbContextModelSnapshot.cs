@@ -4326,10 +4326,8 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<string>("BillingCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                    b.Property<long>("ChargeCodeId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("CreatedBy")
                         .IsRequired()
@@ -4358,10 +4356,6 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal?>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -4372,9 +4366,11 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ChargeCodeId");
+
                     b.HasIndex("Trigger", "IsbtProductCode");
 
-                    b.HasIndex("Trigger", "IsbtProductCode", "BillingCode")
+                    b.HasIndex("Trigger", "IsbtProductCode", "ChargeCodeId")
                         .IsUnique();
 
                     b.ToTable("ProductBillings", (string)null);
@@ -4800,10 +4796,8 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<string>("BillingCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                    b.Property<long>("ChargeCodeId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("CreatedBy")
                         .IsRequired()
@@ -4827,10 +4821,6 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ModifiedUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal?>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -4846,9 +4836,11 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ChargeCodeId");
+
                     b.HasIndex("Trigger", "TestCode");
 
-                    b.HasIndex("Trigger", "TestCode", "BillingCode")
+                    b.HasIndex("Trigger", "TestCode", "ChargeCodeId")
                         .IsUnique();
 
                     b.ToTable("TestServiceBillings", (string)null);
@@ -5240,6 +5232,28 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                 });
 
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.ChargeRule", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.ChargeCode", "ChargeCode")
+                        .WithMany()
+                        .HasForeignKey("ChargeCodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ChargeCode");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductBilling", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.ChargeCode", "ChargeCode")
+                        .WithMany()
+                        .HasForeignKey("ChargeCodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ChargeCode");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.TestServiceBilling", b =>
                 {
                     b.HasOne("BloodBankLIS.Domain.Entities.ChargeCode", "ChargeCode")
                         .WithMany()

@@ -734,14 +734,13 @@ public sealed class TestServiceBillingConfiguration : IEntityTypeConfiguration<T
     {
         b.ToTable("TestServiceBillings");
         b.HasKey(t => t.Id);
-        b.Property(t => t.BillingCode).HasMaxLength(50).IsRequired();
         b.Property(t => t.Description).HasMaxLength(300);
-        b.Property(t => t.Price).HasPrecision(18, 2);
         b.Property(t => t.TestCode).HasMaxLength(50).IsRequired();
         b.Property(t => t.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(t => t.ModifiedBy).HasMaxLength(100);
 
-        b.HasIndex(t => new { t.Trigger, t.TestCode, t.BillingCode }).IsUnique();
+        b.HasOne(t => t.ChargeCode).WithMany().HasForeignKey(t => t.ChargeCodeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(t => new { t.Trigger, t.TestCode, t.ChargeCodeId }).IsUnique();
         b.HasIndex(t => new { t.Trigger, t.TestCode });
     }
 }
@@ -752,14 +751,13 @@ public sealed class ProductBillingConfiguration : IEntityTypeConfiguration<Produ
     {
         b.ToTable("ProductBillings");
         b.HasKey(t => t.Id);
-        b.Property(t => t.BillingCode).HasMaxLength(50).IsRequired();
         b.Property(t => t.Description).HasMaxLength(300);
-        b.Property(t => t.Price).HasPrecision(18, 2);
         b.Property(t => t.IsbtProductCode).HasMaxLength(5).IsRequired();
         b.Property(t => t.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(t => t.ModifiedBy).HasMaxLength(100);
 
-        b.HasIndex(t => new { t.Trigger, t.IsbtProductCode, t.BillingCode }).IsUnique();
+        b.HasOne(t => t.ChargeCode).WithMany().HasForeignKey(t => t.ChargeCodeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(t => new { t.Trigger, t.IsbtProductCode, t.ChargeCodeId }).IsUnique();
         b.HasIndex(t => new { t.Trigger, t.IsbtProductCode });
     }
 }
