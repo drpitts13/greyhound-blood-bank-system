@@ -71,6 +71,8 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<ChargeCode> ChargeCodes => Set<ChargeCode>();
     public DbSet<ChargeRule> ChargeRules => Set<ChargeRule>();
     public DbSet<BillingEvent> BillingEvents => Set<BillingEvent>();
+    public DbSet<TestServiceBilling> TestServiceBillings => Set<TestServiceBilling>();
+    public DbSet<ProductBilling> ProductBillings => Set<ProductBilling>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<Permission> Permissions => Set<Permission>();

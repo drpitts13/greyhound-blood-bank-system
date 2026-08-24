@@ -31,6 +31,8 @@ public sealed class SqliteToSqlServerMigrator
         "OrderingProviders",
         "ExceptionDefinitions",
         "ChargeCodes",
+        "TestServiceBillings",
+        "ProductBillings",
         "BloodAttributeDefinitions",
         "SpecimenTypeDefinitions",
         "TestDefinitions",

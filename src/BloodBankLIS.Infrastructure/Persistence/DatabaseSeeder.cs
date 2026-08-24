@@ -46,6 +46,7 @@ public static partial class DatabaseSeeder
         await SeedOrderingLocationsAsync(context, cancellationToken);
         await SeedOrderingProvidersAsync(context, cancellationToken);
         await SeedChargeMasterAsync(context, cancellationToken);
+        await SeedBillingCatalogsAsync(context, cancellationToken);
         await SeedExpirationModificationCodesAsync(context, cancellationToken);
         await SeedModificationRulesAsync(context, cancellationToken);
         await SeedDemoClinicalDataAsync(context, cancellationToken);
@@ -631,6 +632,32 @@ public static partial class DatabaseSeeder
             // Product-specific rule plus a catch-all for any other issued unit.
             new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = "RBC-LR", ChargeCodeId = rbcIssue.Id },
             new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = null, ChargeCodeId = unitIssue.Id });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedBillingCatalogsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.TestServiceBillings.AnyAsync(ct))
+        {
+            context.TestServiceBillings.AddRange(
+                new TestServiceBilling { BillingCode = "BB-ABORH", Description = "ABO/Rh typing", Price = 35.00m, Trigger = BillingTriggerType.TestVerified, TestCode = "ABORH" },
+                new TestServiceBilling { BillingCode = "BB-SCREEN", Description = "Antibody screen", Price = 55.00m, Trigger = BillingTriggerType.TestVerified, TestCode = "ABSC" },
+                new TestServiceBilling { BillingCode = "BB-XM", Description = "Crossmatch", Price = 75.00m, Trigger = BillingTriggerType.TestVerified, TestCode = "XM" },
+                new TestServiceBilling { BillingCode = "BB-XM", Description = "Computer crossmatch", Price = 75.00m, Trigger = BillingTriggerType.TestVerified, TestCode = "CXM" });
+        }
+
+        if (!await context.ProductBillings.AnyAsync(ct))
+        {
+            context.ProductBillings.Add(new ProductBilling
+            {
+                BillingCode = "BB-RBC-ISSUE",
+                Description = "Red blood cell unit issued",
+                Price = 250.00m,
+                Trigger = BillingTriggerType.UnitIssued,
+                IsbtProductCode = "E0336"
+            });
+        }
 
         await context.SaveChangesAsync(ct);
     }

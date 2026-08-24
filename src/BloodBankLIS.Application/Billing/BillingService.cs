@@ -15,20 +15,25 @@ public readonly record struct BillingTriggerContext(
     long TriggerEntityId,
     DateTime ServiceDateUtc,
     long? PatientId,
-    string? Key);
+    string? Key,
+    string? IsbtProductCode = null);
 
 /// <summary>
 /// Event-driven charge capture (docs/printing-billing.md Part B). Translates triggers
-/// into <see cref="BillingEvent"/> rows via data-driven <see cref="ChargeRule"/>s.
-/// Each event carries a deterministic dedupe key so a repeated trigger cannot create a
-/// duplicate charge. Creation and cancellation are audited; no charge is silently made
-/// or removed. Charges are only captured for actions that committed, never blocked ones.
+/// into <see cref="BillingEvent"/> rows via data-driven <see cref="ChargeRule"/>s and
+/// the test/service and product billing catalogs. Each event carries a deterministic
+/// dedupe key so a repeated trigger cannot create a duplicate charge. Creation and
+/// cancellation are audited; no charge is silently made or removed. Charges are only
+/// captured for actions that committed, never blocked ones. Newly created events also
+/// queue a standard outbound DFT.
 /// </summary>
 public sealed class BillingService
 {
     private readonly IRepository<BillingEvent> _events;
     private readonly IRepository<ChargeRule> _rules;
     private readonly IRepository<ChargeCode> _codes;
+    private readonly IRepository<TestServiceBilling> _testBillings;
+    private readonly IRepository<ProductBilling> _productBillings;
     private readonly IRepository<TestResult> _results;
     private readonly IRepository<Issue> _issues;
     private readonly IRepository<BloodUnit> _units;
@@ -37,11 +42,14 @@ public sealed class BillingService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IBillingInterfacePublisher _publisher;
 
     public BillingService(
         IRepository<BillingEvent> events,
         IRepository<ChargeRule> rules,
         IRepository<ChargeCode> codes,
+        IRepository<TestServiceBilling> testBillings,
+        IRepository<ProductBilling> productBillings,
         IRepository<TestResult> results,
         IRepository<Issue> issues,
         IRepository<BloodUnit> units,
@@ -49,11 +57,14 @@ public sealed class BillingService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IBillingInterfacePublisher publisher)
     {
         _events = events;
         _rules = rules;
         _codes = codes;
+        _testBillings = testBillings;
+        _productBillings = productBillings;
         _results = results;
         _issues = issues;
         _units = units;
@@ -62,6 +73,7 @@ public sealed class BillingService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _publisher = publisher;
     }
 
     /// <summary>Captures charges for a verified result. Safe to call repeatedly (idempotent).</summary>
@@ -84,7 +96,7 @@ public sealed class BillingService
             result.Id,
             result.VerifiedUtc ?? _clock.UtcNow,
             result.PatientId,
-            result.TestCode);
+            NormalizeKey(result.TestCode));
 
         return await CaptureAsync(context, ct);
     }
@@ -99,11 +111,13 @@ public sealed class BillingService
         }
 
         string? key = null;
+        string? isbt = null;
         var unit = await _units.GetByIdAsync(issue.BloodProductId, ct);
         if (unit is not null)
         {
             var product = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
             key = product?.ProductCode;
+            isbt = FirstNonEmpty(unit.ProductDescriptionCode, unit.Isbt128ProductCode, product?.Isbt128ProductCode);
         }
 
         var context = new BillingTriggerContext(
@@ -112,55 +126,38 @@ public sealed class BillingService
             issue.Id,
             issue.IssuedUtc,
             issue.PatientId,
-            key);
+            NormalizeKey(key),
+            NormalizeKey(isbt));
 
         return await CaptureAsync(context, ct);
     }
 
     public async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureAsync(BillingTriggerContext context, CancellationToken ct = default)
     {
-        var rules = await _rules.ListAsync(
-            r => r.IsActive && r.TriggerType == context.TriggerType
-                 && (r.TriggerKey == null || r.TriggerKey == context.Key), ct);
+        var created = new List<BillingEvent>();
 
-        if (rules.Count == 0)
+        await CaptureFromChargeRulesAsync(context, created, ct);
+        await CaptureFromTestServiceCatalogAsync(context, created, ct);
+        await CaptureFromProductCatalogAsync(context, created, ct);
+
+        if (created.Count == 0)
         {
             return OperationResult<IReadOnlyList<BillingEvent>>.Ok(Array.Empty<BillingEvent>());
         }
 
-        var created = new List<BillingEvent>();
-        foreach (var rule in rules)
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        foreach (var billingEvent in created)
         {
-            var code = await _codes.GetByIdAsync(rule.ChargeCodeId, ct);
-            if (code is null || !code.IsActive)
+            var messageId = await _publisher.PublishChargeAsync(billingEvent, ct);
+            if (messageId is not null)
             {
-                continue;
+                billingEvent.Hl7MessageId = messageId;
+                _events.Update(billingEvent);
             }
-
-            var dedupeKey = BuildDedupeKey(context, code.Id);
-            if (await _events.AnyAsync(e => e.DedupeKey == dedupeKey, ct))
-            {
-                continue; // duplicate trigger; charge already captured
-            }
-
-            var billingEvent = new BillingEvent
-            {
-                ChargeCodeId = code.Id,
-                TriggerType = context.TriggerType,
-                TriggerEntityType = context.TriggerEntityType,
-                TriggerEntityId = context.TriggerEntityId,
-                PatientId = context.PatientId,
-                ServiceDateUtc = context.ServiceDateUtc,
-                Amount = code.DefaultAmount,
-                DedupeKey = dedupeKey,
-                Status = BillingEventStatus.Pending
-            };
-
-            await _events.AddAsync(billingEvent, ct);
-            created.Add(billingEvent);
         }
 
-        if (created.Count > 0)
+        if (created.Any(e => e.Hl7MessageId is not null))
         {
             await _unitOfWork.SaveChangesAsync(ct);
         }
@@ -247,6 +244,134 @@ public sealed class BillingService
     public async Task<IReadOnlyList<BillingEvent>> GetReviewQueueAsync(CancellationToken ct = default) =>
         await _events.ListAsync(e => e.Status == BillingEventStatus.Pending, ct);
 
-    private static string BuildDedupeKey(BillingTriggerContext context, long chargeCodeId) =>
-        $"{context.TriggerType}|{context.TriggerEntityType}|{context.TriggerEntityId}|{chargeCodeId}|{context.ServiceDateUtc:yyyyMMdd}";
+    private async Task CaptureFromChargeRulesAsync(
+        BillingTriggerContext context,
+        List<BillingEvent> created,
+        CancellationToken ct)
+    {
+        var rules = await _rules.ListAsync(
+            r => r.IsActive && r.TriggerType == context.TriggerType
+                 && (r.TriggerKey == null || r.TriggerKey == context.Key), ct);
+
+        foreach (var rule in rules)
+        {
+            var code = await _codes.GetByIdAsync(rule.ChargeCodeId, ct);
+            if (code is null || !code.IsActive)
+            {
+                continue;
+            }
+
+            await TryAddEventAsync(
+                context,
+                BillingChargeSourceKind.ChargeRule,
+                rule.Id,
+                code.Id,
+                code.Code,
+                code.DefaultAmount,
+                created,
+                ct);
+        }
+    }
+
+    private async Task CaptureFromTestServiceCatalogAsync(
+        BillingTriggerContext context,
+        List<BillingEvent> created,
+        CancellationToken ct)
+    {
+        if (context.TriggerType != BillingTriggerType.TestVerified || string.IsNullOrWhiteSpace(context.Key))
+        {
+            return;
+        }
+
+        var rows = await _testBillings.ListAsync(
+            r => r.IsActive && r.Trigger == context.TriggerType && r.TestCode == context.Key, ct);
+
+        foreach (var row in rows)
+        {
+            await TryAddEventAsync(
+                context,
+                BillingChargeSourceKind.TestService,
+                row.Id,
+                chargeCodeId: null,
+                row.BillingCode,
+                row.Price,
+                created,
+                ct);
+        }
+    }
+
+    private async Task CaptureFromProductCatalogAsync(
+        BillingTriggerContext context,
+        List<BillingEvent> created,
+        CancellationToken ct)
+    {
+        if (context.TriggerType != BillingTriggerType.UnitIssued || string.IsNullOrWhiteSpace(context.IsbtProductCode))
+        {
+            return;
+        }
+
+        var rows = await _productBillings.ListAsync(
+            r => r.IsActive && r.Trigger == context.TriggerType && r.IsbtProductCode == context.IsbtProductCode, ct);
+
+        foreach (var row in rows)
+        {
+            await TryAddEventAsync(
+                context,
+                BillingChargeSourceKind.Product,
+                row.Id,
+                chargeCodeId: null,
+                row.BillingCode,
+                row.Price,
+                created,
+                ct);
+        }
+    }
+
+    private async Task TryAddEventAsync(
+        BillingTriggerContext context,
+        BillingChargeSourceKind sourceKind,
+        long sourceId,
+        long? chargeCodeId,
+        string billingCode,
+        decimal? amount,
+        List<BillingEvent> created,
+        CancellationToken ct)
+    {
+        var dedupeKey = BuildDedupeKey(context, sourceKind, sourceId);
+        if (await _events.AnyAsync(e => e.DedupeKey == dedupeKey, ct))
+        {
+            return;
+        }
+
+        var billingEvent = new BillingEvent
+        {
+            ChargeCodeId = chargeCodeId,
+            BillingCode = billingCode,
+            TriggerType = context.TriggerType,
+            TriggerEntityType = context.TriggerEntityType,
+            TriggerEntityId = context.TriggerEntityId,
+            PatientId = context.PatientId,
+            ServiceDateUtc = context.ServiceDateUtc,
+            Amount = amount,
+            SourceKind = sourceKind,
+            SourceId = sourceId,
+            DedupeKey = dedupeKey,
+            Status = BillingEventStatus.Pending
+        };
+
+        await _events.AddAsync(billingEvent, ct);
+        created.Add(billingEvent);
+    }
+
+    private static string BuildDedupeKey(
+        BillingTriggerContext context,
+        BillingChargeSourceKind sourceKind,
+        long sourceId) =>
+        $"{context.TriggerType}|{context.TriggerEntityType}|{context.TriggerEntityId}|{sourceKind}|{sourceId}|{context.ServiceDateUtc:yyyyMMdd}";
+
+    private static string? NormalizeKey(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToUpperInvariant();
+
+    private static string? FirstNonEmpty(params string?[] values) =>
+        values.Select(NormalizeKey).FirstOrDefault(v => v is not null);
 }

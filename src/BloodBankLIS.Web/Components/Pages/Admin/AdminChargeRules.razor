@@ -1,0 +1,267 @@
+@page "/admin/charge-rules"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Application.Billing
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Charge Rules &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Charge Rules</h1>
+    @if (CanEdit)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New charge rule</button>
+    }
+</div>
+<p class="muted">Map a billing trigger to a charge code. Leave the trigger key blank to apply to every event of that type; otherwise match a test code (result verified) or product code (unit issued).</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by trigger, key, or charge code" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No charge rules.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Trigger</th><th>Key</th><th>Charge code</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var r in Filtered)
+                {
+                    <tr>
+                        <td>@r.TriggerType</td>
+                        <td class="mono">@(r.TriggerKey ?? "(any)")</td>
+                        <td>
+                            <span class="mono">@r.ChargeCode</span>
+                            @if (!string.IsNullOrWhiteSpace(r.ChargeCodeDescription))
+                            {
+                                <span class="muted"> — @r.ChargeCodeDescription</span>
+                            }
+                        </td>
+                        <td>@(r.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => Edit(r)">Edit</button>
+                                @if (r.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(r.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(r.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_draft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New charge rule" : "Edit charge rule")</h2>
+        <div class="form-row">
+            <div class="field">
+                <label>Trigger type</label>
+                <select @bind="_draft.TriggerType">
+                    @foreach (var t in Enum.GetValues<BillingTriggerType>())
+                    {
+                        <option value="@t">@t</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Trigger key (optional)</label>
+                @if (_draft.TriggerType == BillingTriggerType.TestVerified)
+                {
+                    <FilterableComboBox TItem="TestDefinitionDto" TValue="string?"
+                                        Items="_tests"
+                                        @bind-Value="_draft.TriggerKey"
+                                        DisplayText="@FormatTest"
+                                        SearchText="@SearchTest"
+                                        ItemValue="@(t => t.Code)"
+                                        AllowCustom="true"
+                                        Clearable="true"
+                                        Placeholder="Any test, or pick a test code..." />
+                }
+                else if (_draft.TriggerType == BillingTriggerType.UnitIssued)
+                {
+                    <FilterableComboBox TItem="ProductDefinitionDto" TValue="string?"
+                                        Items="_products"
+                                        @bind-Value="_draft.TriggerKey"
+                                        DisplayText="@FormatProduct"
+                                        SearchText="@SearchProduct"
+                                        ItemValue="@(p => p.ProductCode)"
+                                        AllowCustom="true"
+                                        Clearable="true"
+                                        Placeholder="Any product, or pick a product code..." />
+                }
+                else
+                {
+                    <input class="mono" @bind="_draft.TriggerKey" placeholder="Optional procedure key" />
+                }
+            </div>
+            <div class="field">
+                <label>Charge code</label>
+                <select @bind="_draft.ChargeCodeId">
+                    <option value="0">Select charge code...</option>
+                    @foreach (var c in _chargeCodes)
+                    {
+                        <option value="@c.Id">@c.Code — @c.Description</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private bool _includeInactive;
+    private List<ChargeRuleDto> _list = new();
+    private List<ChargeCodeDto> _chargeCodes = new();
+    private List<TestDefinitionDto> _tests = new();
+    private List<ProductDefinitionDto> _products = new();
+    private Feedback? _feedback;
+    private long? _editId;
+    private ChargeRuleDraft? _draft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<ChargeRuleDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _list
+            : _list.Where(r =>
+                r.TriggerType.ToString().Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || (r.TriggerKey?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false)
+                || r.ChargeCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || (r.ChargeCodeDescription?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCatalogsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadCatalogsAsync()
+    {
+        var codes = await Api.GetAdminChargeCodesAsync(includeInactive: true);
+        _chargeCodes = (codes.Succeeded ? codes.Value ?? new() : new())
+            .OrderBy(c => c.Code)
+            .ToList();
+
+        var tests = await Api.GetAdminTestsAsync(includeInactive: false);
+        _tests = (tests.Succeeded ? tests.Value ?? new() : new())
+            .Where(t => t.IsActive)
+            .OrderBy(t => t.Code)
+            .ToList();
+
+        var products = await Api.GetAdminProductsAsync(includeInactive: false);
+        _products = (products.Succeeded ? products.Value ?? new() : new())
+            .Where(p => p.IsActive)
+            .OrderBy(p => p.ProductCode)
+            .ToList();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminChargeRulesAsync(_includeInactive);
+        _list = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _draft = new ChargeRuleDraft();
+    }
+
+    private void Edit(ChargeRuleDto r)
+    {
+        _editId = r.Id;
+        _draft = new ChargeRuleDraft
+        {
+            TriggerType = r.TriggerType,
+            TriggerKey = r.TriggerKey,
+            ChargeCodeId = r.ChargeCodeId
+        };
+    }
+
+    private void CancelEdit()
+    {
+        _editId = null;
+        _draft = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        if (_draft.ChargeCodeId <= 0)
+        {
+            _feedback = Feedback.Fail("A charge code is required.");
+            return;
+        }
+
+        _busy = true;
+        var req = new SaveChargeRuleRequest(_draft.TriggerType, _draft.TriggerKey, _draft.ChargeCodeId);
+        var r = _editId is null
+            ? await Api.CreateAdminChargeRuleAsync(req)
+            : await Api.UpdateAdminChargeRuleAsync(_editId.Value, req);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _feedback = r.ToFeedback("Charge rule saved.");
+            _editId = null;
+            _draft = null;
+            await LoadAsync();
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+    }
+
+    private async Task SetActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminChargeRuleActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.Succeeded ? r.ToFeedback(active ? "Activated." : "Deactivated.") : r.ToFeedback();
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private static string FormatTest(TestDefinitionDto t) => $"{t.Code} — {t.Name}";
+    private static string SearchTest(TestDefinitionDto t) => $"{t.Code} {t.Name}";
+    private static string FormatProduct(ProductDefinitionDto p) => $"{p.ProductCode} — {p.Name}";
+    private static string SearchProduct(ProductDefinitionDto p) => $"{p.ProductCode} {p.Name}";
+
+    private sealed class ChargeRuleDraft
+    {
+        public BillingTriggerType TriggerType { get; set; } = BillingTriggerType.TestVerified;
+        public string? TriggerKey { get; set; }
+        public long ChargeCodeId { get; set; }
+    }
+}

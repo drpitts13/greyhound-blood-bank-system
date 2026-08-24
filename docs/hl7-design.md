@@ -2,7 +2,7 @@
 
 Status: Implemented in Phase 5. The HL7 layer (`BloodBankLIS.HL7`) is an **original, in-house** HL7 v2.x parser/generator. It is fully isolated from business logic: it parses/serializes messages and maps fields, but all clinical actions go through the same Application use cases the API uses, so the safety checks in `safety-rules.md` always apply.
 
-Scope for the project: inbound **ADT** (demographics/encounter) and **ORM/OML** (orders); outbound **ORU** (results). Outbound **DFT** (billing) is a later-phase placeholder.
+Scope for the project: inbound **ADT** (demographics/encounter) and **ORM/OML** (orders); outbound **ORU** (results) and a standard outbound **DFT^P03** (billing). MLLP send of outbound DFT (and ORU) remains a later-phase transport item.
 
 ---
 
@@ -53,6 +53,9 @@ Action: `CreateOrderFromHl7Command` / `CancelOrderFromHl7Command`.
 
 ### 2.3 Outbound ORU (results)
 Triggered when a `TestResult` is verified (`VerifyResultCommand` raises a domain event). Builds `MSH + PID + OBR + OBX[]` from verified results and sends via the configured outbound endpoint. Stored in `HL7Messages` with direction Outbound.
+
+### 2.4 Outbound DFT (billing)
+Triggered when charge capture creates a `BillingEvent` (charge rule and/or test/service or product billing catalog). Builds a standard `MSH + EVN + PID + FT1` DFT^P03. `FT1-6` is `CG`, `FT1-7` is the billing code, `FT1-4` is the service date. Transaction amount (`FT1-10`) is left empty — catalog price is internal only. Stored in `HL7Messages` with direction Outbound, `MessageType=DFT`, `TriggerEvent=P03`.
 
 ---
 

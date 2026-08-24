@@ -6,11 +6,11 @@ using BloodBankLIS.Domain.Enums;
 namespace BloodBankLIS.HL7.Messaging;
 
 /// <summary>
-/// Builds outbound ORU result messages and persists them to <c>HL7Messages</c>
-/// (direction Outbound). The transport (MLLP sender hosted service) picks them up;
-/// this service performs no network I/O, keeping it deterministic and testable.
+/// Builds outbound ORU result messages and DFT billing messages and persists them
+/// to <c>HL7Messages</c> (direction Outbound). The transport (MLLP sender hosted
+/// service) picks them up; this service performs no network I/O.
 /// </summary>
-public sealed class Hl7OutboundService
+public sealed class Hl7OutboundService : IBillingInterfacePublisher
 {
     private readonly IRepository<TestResult> _results;
     private readonly IRepository<Patient> _patients;
@@ -69,5 +69,34 @@ public sealed class Hl7OutboundService
         await _unitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<Hl7MessageLog>.Ok(log);
+    }
+
+    public async Task<long?> PublishChargeAsync(BillingEvent billingEvent, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(billingEvent);
+
+        Patient? patient = null;
+        if (billingEvent.PatientId is { } patientId)
+        {
+            patient = await _patients.GetByIdAsync(patientId, ct);
+        }
+
+        var now = _clock.UtcNow;
+        var controlId = $"DFT{now:yyyyMMddHHmmssfff}{billingEvent.Id}";
+        var raw = Hl7DftBuilder.Build(patient, billingEvent, controlId, now);
+
+        var log = new Hl7MessageLog
+        {
+            Direction = Hl7Direction.Outbound,
+            MessageType = "DFT",
+            TriggerEvent = "P03",
+            MessageControlId = controlId,
+            RawMessage = raw,
+            Status = Hl7MessageStatus.Received,
+            ReceivedUtc = now
+        };
+        await _logs.AddAsync(log, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return log.Id;
     }
 }

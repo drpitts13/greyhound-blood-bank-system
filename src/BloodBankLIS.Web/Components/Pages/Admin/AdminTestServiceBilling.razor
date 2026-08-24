@@ -1,0 +1,194 @@
+@page "/admin/test-service-billing"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Test/Service Billing &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Test/Service Billing</h1>
+    @if (CanEdit)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New row</button>
+    }
+</div>
+<p class="muted">When a test is verified and the test code matches, a charge drops and a DFT is queued. Price is optional internal tracking and is not sent on the interface.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by billing code or test code" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No test/service billing rows.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Billing code</th><th>Test code</th><th>Trigger</th><th class="right">Price</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var row in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@row.BillingCode</td>
+                        <td class="mono">@row.TestCode</td>
+                        <td>@row.Trigger</td>
+                        <td class="right">@(row.Price?.ToString("C") ?? "—")</td>
+                        <td>@(row.Description ?? "—")</td>
+                        <td>@(row.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => Edit(row)">Edit</button>
+                                @if (row.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(row.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(row.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_draft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New test/service billing" : $"Edit: {_draft.BillingCode}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Billing code</label><input class="mono" @bind="_draft.BillingCode" /></div>
+            <div class="field"><label>Test code</label><input class="mono" @bind="_draft.TestCode" placeholder="ABORH" /></div>
+            <div class="field"><label>Trigger</label>
+                <select @bind="_draft.Trigger">
+                    <option value="@BillingTriggerType.TestVerified">TestVerified</option>
+                </select>
+            </div>
+            <div class="field"><label>Price (optional)</label><input type="number" step="0.01" min="0" @bind="_draft.PriceText" /></div>
+            <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>
+        </div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private bool _includeInactive;
+    private List<TestServiceBillingDto> _list = new();
+    private Feedback? _feedback;
+    private long? _editId;
+    private BillingDraft? _draft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<TestServiceBillingDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _list
+            : _list.Where(r =>
+                r.BillingCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || r.TestCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || (r.Description?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminTestServiceBillingsAsync(_includeInactive);
+        _list = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft() { _editId = null; _draft = new BillingDraft(); }
+
+    private void Edit(TestServiceBillingDto row)
+    {
+        _editId = row.Id;
+        _draft = new BillingDraft
+        {
+            BillingCode = row.BillingCode,
+            TestCode = row.TestCode,
+            Trigger = row.Trigger,
+            PriceText = row.Price?.ToString("0.00"),
+            Description = row.Description
+        };
+    }
+
+    private void CancelEdit() { _editId = null; _draft = null; }
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        if (string.IsNullOrWhiteSpace(_draft.BillingCode) || string.IsNullOrWhiteSpace(_draft.TestCode))
+        {
+            _feedback = Feedback.Fail("Billing code and test code are required.");
+            return;
+        }
+
+        decimal? price = null;
+        if (!string.IsNullOrWhiteSpace(_draft.PriceText))
+        {
+            if (!decimal.TryParse(_draft.PriceText, out var parsed) || parsed < 0)
+            {
+                _feedback = Feedback.Fail("Price must be a non-negative number when provided.");
+                return;
+            }
+            price = parsed;
+        }
+
+        _busy = true;
+        var req = new SaveTestServiceBillingRequest(_draft.BillingCode, _draft.Description, price, _draft.Trigger, _draft.TestCode);
+        var r = _editId is null
+            ? await Api.CreateAdminTestServiceBillingAsync(req)
+            : await Api.UpdateAdminTestServiceBillingAsync(_editId.Value, req);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _feedback = r.ToFeedback("Test/service billing saved.");
+            _editId = null;
+            _draft = null;
+            await LoadAsync();
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+    }
+
+    private async Task SetActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminTestServiceBillingActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.Succeeded ? r.ToFeedback(active ? "Activated." : "Deactivated.") : r.ToFeedback();
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private sealed class BillingDraft
+    {
+        public string BillingCode { get; set; } = string.Empty;
+        public string TestCode { get; set; } = string.Empty;
+        public BillingTriggerType Trigger { get; set; } = BillingTriggerType.TestVerified;
+        public string? PriceText { get; set; }
+        public string? Description { get; set; }
+    }
+}

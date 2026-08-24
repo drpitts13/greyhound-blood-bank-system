@@ -28,6 +28,10 @@ public static class AdminEndpoints
         MapIsbtProductCodes(app);
         MapProviders(app);
         MapLocations(app);
+        MapChargeCodes(app);
+        MapChargeRules(app);
+        MapTestServiceBillings(app);
+        MapProductBillings(app);
         MapExceptions(app);
         MapHl7(app);
         MapUsersAndRoles(app);
@@ -499,6 +503,130 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
         group.MapPost("/{id:long}/deactivate", async (long id, OrderingLocationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapChargeCodes(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/charge-codes").WithTags("Admin: Charge Codes").RequireAuthenticatedUser();
+
+        group.MapGet("", async (ChargeCodeAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, ChargeCodeAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Charge code not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveChargeCodeRequest req, ChargeCodeAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveChargeCodeRequest req, ChargeCodeAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, ChargeCodeAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ChargeCodeAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapChargeRules(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/charge-rules").WithTags("Admin: Charge Rules").RequireAuthenticatedUser();
+
+        group.MapGet("", async (ChargeRuleAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, ChargeRuleAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Charge rule not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveChargeRuleRequest req, ChargeRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveChargeRuleRequest req, ChargeRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, ChargeRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ChargeRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapTestServiceBillings(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/test-service-billings").WithTags("Admin: Test Service Billing").RequireAuthenticatedUser();
+
+        group.MapGet("", async (TestServiceBillingAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, TestServiceBillingAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Test/service billing row not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveTestServiceBillingRequest req, TestServiceBillingAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveTestServiceBillingRequest req, TestServiceBillingAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, TestServiceBillingAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, TestServiceBillingAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapProductBillings(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/product-billings").WithTags("Admin: Product Billing").RequireAuthenticatedUser();
+
+        group.MapGet("", async (ProductBillingAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, ProductBillingAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Product billing row not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveProductBillingRequest req, ProductBillingAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveProductBillingRequest req, ProductBillingAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, ProductBillingAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ProductBillingAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }

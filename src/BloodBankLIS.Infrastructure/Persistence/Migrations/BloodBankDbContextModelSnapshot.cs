@@ -355,15 +355,23 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
-                    b.Property<decimal>("Amount")
+                    b.Property<decimal?>("Amount")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("BillingCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("CancellationReason")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
-                    b.Property<long>("ChargeCodeId")
+                    b.Property<long?>("ChargeCodeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("Hl7MessageId")
                         .HasColumnType("bigint");
 
                     b.Property<string>("CreatedBy")
@@ -407,6 +415,12 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("ServiceDateUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<long>("SourceId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("SourceKind")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -429,6 +443,8 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("PatientId");
+
+                    b.HasIndex("SourceKind", "SourceId");
 
                     b.HasIndex("Status");
 
@@ -4302,6 +4318,68 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("PrintJobs", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductBilling", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("BillingCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("IsbtProductCode")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("nvarchar(5)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Trigger")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Trigger", "IsbtProductCode");
+
+                    b.HasIndex("Trigger", "IsbtProductCode", "BillingCode")
+                        .IsUnique();
+
+                    b.ToTable("ProductBillings", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductType", b =>
                 {
                     b.Property<long>("Id")
@@ -4714,6 +4792,68 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("TestResults", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.TestServiceBilling", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("BillingCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("TestCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("Trigger")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Trigger", "TestCode");
+
+                    b.HasIndex("Trigger", "TestCode", "BillingCode")
+                        .IsUnique();
+
+                    b.ToTable("TestServiceBillings", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.TransfusionEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -5003,8 +5143,7 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.HasOne("BloodBankLIS.Domain.Entities.ChargeCode", "ChargeCode")
                         .WithMany()
                         .HasForeignKey("ChargeCodeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("ChargeCode");
                 });

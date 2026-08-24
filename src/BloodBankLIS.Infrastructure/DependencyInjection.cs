@@ -87,6 +87,7 @@ public static class DependencyInjection
         services.AddScoped<CompatibilityService>();
         services.AddScoped<IssuingService>();
         services.AddScoped<BillingService>();
+        services.TryAddScoped<IBillingInterfacePublisher, NoOpBillingInterfacePublisher>();
 
         // Admin configuration services.
         services.AddScoped<TestDefinitionAdminService>();
@@ -103,6 +104,10 @@ public static class DependencyInjection
         services.AddScoped<IsbtProductCodeAdminService>();
         services.AddScoped<OrderingProviderAdminService>();
         services.AddScoped<OrderingLocationAdminService>();
+        services.AddScoped<ChargeCodeAdminService>();
+        services.AddScoped<ChargeRuleAdminService>();
+        services.AddScoped<TestServiceBillingAdminService>();
+        services.AddScoped<ProductBillingAdminService>();
         services.AddScoped<ExceptionDefinitionAdminService>();
         services.AddScoped<Hl7ConfigAdminService>();
         services.AddScoped<UserAdminService>();

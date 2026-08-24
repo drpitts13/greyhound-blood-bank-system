@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -15,11 +16,13 @@ public class Phase7BillingTests : IDisposable
 
     public void Dispose() => _factory.Dispose();
 
-    private BillingService Billing(BloodBankDbContext c) =>
+    private BillingService Billing(BloodBankDbContext c, CapturingPublisher? publisher = null) =>
         new(new EfRepository<BillingEvent>(c), new EfRepository<ChargeRule>(c), new EfRepository<ChargeCode>(c),
+            new EfRepository<TestServiceBilling>(c), new EfRepository<ProductBilling>(c),
             new EfRepository<TestResult>(c), new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c),
             new EfRepository<ProductType>(c), c, _factory.Clock, _factory.CurrentUser,
-            new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            publisher ?? new CapturingPublisher());
 
     private async Task<long> SeedChargeRuleAsync(BloodBankDbContext c, BillingTriggerType trigger, string? key, string code, decimal amount)
     {
@@ -59,6 +62,48 @@ public class Phase7BillingTests : IDisposable
         return result.Id;
     }
 
+    private async Task<long> CreateIssuedUnitAsync(BloodBankDbContext c, string mrn, string productCode, string? isbtProductCode)
+    {
+        var patient = new Patient
+        {
+            MedicalRecordNumber = mrn, LastName = "Bill", FirstName = "Issue",
+            DateOfBirth = new DateOnly(1979, 6, 8), Sex = Sex.Female
+        };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+
+        var product = new ProductType
+        {
+            ProductCode = productCode,
+            Name = productCode,
+            Isbt128ProductCode = isbtProductCode
+        };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-{mrn}",
+            ProductTypeId = product.Id,
+            ProductDescriptionCode = isbtProductCode,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Issued
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+
+        var issue = new Issue
+        {
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            IssuedUtc = _factory.Clock.UtcNow,
+            IssuedBy = "tech"
+        };
+        c.Issues.Add(issue);
+        await c.SaveChangesAsync();
+        return issue.Id;
+    }
+
     [Fact]
     public async Task CaptureForResult_CreatesPendingChargeFromMatchingRule()
     {
@@ -76,6 +121,8 @@ public class Phase7BillingTests : IDisposable
         var charge = Assert.Single(result.Value!);
         Assert.Equal(BillingEventStatus.Pending, charge.Status);
         Assert.Equal(35m, charge.Amount);
+        Assert.Equal("BILL-ABORH-1", charge.BillingCode);
+        Assert.Equal(BillingChargeSourceKind.ChargeRule, charge.SourceKind);
         Assert.Equal(nameof(TestResult), charge.TriggerEntityType);
     }
 
@@ -117,10 +164,12 @@ public class Phase7BillingTests : IDisposable
         }
 
         await using var context = _factory.Create();
-        var result = await Billing(context).CaptureForResultAsync(resultId);
+        var publisher = new CapturingPublisher();
+        var result = await Billing(context, publisher).CaptureForResultAsync(resultId);
 
         Assert.True(result.Succeeded);
         Assert.Empty(result.Value!);
+        Assert.Empty(publisher.Published);
     }
 
     [Fact]
@@ -138,6 +187,195 @@ public class Phase7BillingTests : IDisposable
 
         Assert.True(result.Succeeded);
         Assert.Single(result.Value!);
+    }
+
+    [Fact]
+    public async Task CaptureForResult_TestCatalogMatch_CreatesChargeAndQueuesDft()
+    {
+        long resultId;
+        await using (var setup = _factory.Create())
+        {
+            setup.TestServiceBillings.Add(new TestServiceBilling
+            {
+                BillingCode = "CAT-ABORH",
+                TestCode = "ABORH",
+                Trigger = BillingTriggerType.TestVerified,
+                Price = 12.50m
+            });
+            await setup.SaveChangesAsync();
+            resultId = await CreateVerifiedResultAsync(setup, "BILL-CAT-1", "ABORH");
+        }
+
+        await using var context = _factory.Create();
+        var publisher = new CapturingPublisher();
+        var result = await Billing(context, publisher).CaptureForResultAsync(resultId);
+
+        Assert.True(result.Succeeded);
+        var charge = Assert.Single(result.Value!);
+        Assert.Equal("CAT-ABORH", charge.BillingCode);
+        Assert.Equal(12.50m, charge.Amount);
+        Assert.Equal(BillingChargeSourceKind.TestService, charge.SourceKind);
+        Assert.Single(publisher.Published);
+        Assert.Equal(charge.Id, publisher.Published[0].Id);
+    }
+
+    [Fact]
+    public async Task CaptureForResult_OptionalPrice_LeavesAmountNull_AndStillQueuesDft()
+    {
+        long resultId;
+        await using (var setup = _factory.Create())
+        {
+            setup.TestServiceBillings.Add(new TestServiceBilling
+            {
+                BillingCode = "CAT-FREE",
+                TestCode = "DAT",
+                Trigger = BillingTriggerType.TestVerified,
+                Price = null
+            });
+            await setup.SaveChangesAsync();
+            resultId = await CreateVerifiedResultAsync(setup, "BILL-CAT-2", "DAT");
+        }
+
+        await using var context = _factory.Create();
+        var publisher = new CapturingPublisher();
+        var result = await Billing(context, publisher).CaptureForResultAsync(resultId);
+
+        Assert.True(result.Succeeded);
+        var charge = Assert.Single(result.Value!);
+        Assert.Null(charge.Amount);
+        Assert.Equal("CAT-FREE", charge.BillingCode);
+        Assert.Single(publisher.Published);
+    }
+
+    [Fact]
+    public async Task CaptureForResult_ChargeRuleAndCatalog_BothDrop()
+    {
+        long resultId;
+        await using (var setup = _factory.Create())
+        {
+            await SeedChargeRuleAsync(setup, BillingTriggerType.TestVerified, "ABORH", "RULE-ABORH", 35m);
+            setup.TestServiceBillings.Add(new TestServiceBilling
+            {
+                BillingCode = "CAT-ABORH-2",
+                TestCode = "ABORH",
+                Trigger = BillingTriggerType.TestVerified,
+                Price = 40m
+            });
+            await setup.SaveChangesAsync();
+            resultId = await CreateVerifiedResultAsync(setup, "BILL-BOTH", "ABORH");
+        }
+
+        await using var context = _factory.Create();
+        var publisher = new CapturingPublisher();
+        var result = await Billing(context, publisher).CaptureForResultAsync(resultId);
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(2, result.Value!.Count);
+        Assert.Contains(result.Value, e => e.SourceKind == BillingChargeSourceKind.ChargeRule && e.BillingCode == "RULE-ABORH");
+        Assert.Contains(result.Value, e => e.SourceKind == BillingChargeSourceKind.TestService && e.BillingCode == "CAT-ABORH-2");
+        Assert.Equal(2, publisher.Published.Count);
+    }
+
+    [Fact]
+    public async Task CaptureForIssue_ProductCatalogMatchesIsbtNotInternalCode()
+    {
+        long issueId;
+        await using (var setup = _factory.Create())
+        {
+            setup.ProductBillings.Add(new ProductBilling
+            {
+                BillingCode = "CAT-E0336",
+                IsbtProductCode = "E0336",
+                Trigger = BillingTriggerType.UnitIssued,
+                Price = 250m
+            });
+            await setup.SaveChangesAsync();
+            issueId = await CreateIssuedUnitAsync(setup, "BILL-ISSUE-1", "RBC-LR", "E0336");
+        }
+
+        await using var context = _factory.Create();
+        var publisher = new CapturingPublisher();
+        var result = await Billing(context, publisher).CaptureForIssueAsync(issueId);
+
+        Assert.True(result.Succeeded);
+        var charge = Assert.Single(result.Value!);
+        Assert.Equal("CAT-E0336", charge.BillingCode);
+        Assert.Equal(BillingChargeSourceKind.Product, charge.SourceKind);
+        Assert.Equal(250m, charge.Amount);
+        Assert.Single(publisher.Published);
+    }
+
+    [Fact]
+    public async Task CaptureForIssue_ChargeRuleStillMatchesInternalProductCode()
+    {
+        long issueId;
+        await using (var setup = _factory.Create())
+        {
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitIssued, "RBC-LR", "RULE-RBC", 200m);
+            issueId = await CreateIssuedUnitAsync(setup, "BILL-ISSUE-2", "RBC-LR", "E0336");
+        }
+
+        await using var context = _factory.Create();
+        var result = await Billing(context).CaptureForIssueAsync(issueId);
+
+        Assert.True(result.Succeeded);
+        var charge = Assert.Single(result.Value!);
+        Assert.Equal("RULE-RBC", charge.BillingCode);
+        Assert.Equal(BillingChargeSourceKind.ChargeRule, charge.SourceKind);
+    }
+
+    [Fact]
+    public async Task CaptureForIssue_NoIsbtMatch_CreatesNothingFromCatalog()
+    {
+        long issueId;
+        await using (var setup = _factory.Create())
+        {
+            setup.ProductBillings.Add(new ProductBilling
+            {
+                BillingCode = "CAT-E9999",
+                IsbtProductCode = "E9999",
+                Trigger = BillingTriggerType.UnitIssued
+            });
+            await setup.SaveChangesAsync();
+            issueId = await CreateIssuedUnitAsync(setup, "BILL-ISSUE-3", "FFP", "E0701");
+        }
+
+        await using var context = _factory.Create();
+        var publisher = new CapturingPublisher();
+        var result = await Billing(context, publisher).CaptureForIssueAsync(issueId);
+
+        Assert.True(result.Succeeded);
+        Assert.Empty(result.Value!);
+        Assert.Empty(publisher.Published);
+    }
+
+    [Fact]
+    public async Task CaptureForResult_TestCatalog_IsIdempotent()
+    {
+        long resultId;
+        await using (var setup = _factory.Create())
+        {
+            setup.TestServiceBillings.Add(new TestServiceBilling
+            {
+                BillingCode = "CAT-IDEM",
+                TestCode = "ABSC",
+                Trigger = BillingTriggerType.TestVerified
+            });
+            await setup.SaveChangesAsync();
+            resultId = await CreateVerifiedResultAsync(setup, "BILL-IDEM", "ABSC");
+        }
+
+        await using (var c1 = _factory.Create())
+        {
+            var first = await Billing(c1).CaptureForResultAsync(resultId);
+            Assert.Single(first.Value!);
+        }
+
+        await using (var c2 = _factory.Create())
+        {
+            var second = await Billing(c2).CaptureForResultAsync(resultId);
+            Assert.Empty(second.Value!);
+        }
     }
 
     [Fact]
@@ -209,5 +447,16 @@ public class Phase7BillingTests : IDisposable
         await using var context = _factory.Create();
         var result = await Billing(context).CaptureForResultAsync(resultId);
         return Assert.Single(result.Value!).Id;
+    }
+
+    private sealed class CapturingPublisher : IBillingInterfacePublisher
+    {
+        public List<BillingEvent> Published { get; } = new();
+
+        public Task<long?> PublishChargeAsync(BillingEvent billingEvent, CancellationToken ct = default)
+        {
+            Published.Add(billingEvent);
+            return Task.FromResult<long?>(null);
+        }
     }
 }

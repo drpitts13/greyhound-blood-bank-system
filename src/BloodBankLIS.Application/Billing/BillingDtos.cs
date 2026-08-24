@@ -12,13 +12,17 @@ public sealed record ChargeCodeDto(long Id, string Code, string Description, dec
 
 public sealed record BillingEventDto(
     long Id,
-    long ChargeCodeId,
+    long? ChargeCodeId,
+    string BillingCode,
     BillingTriggerType TriggerType,
     string TriggerEntityType,
     long TriggerEntityId,
     long? PatientId,
     DateTime ServiceDateUtc,
-    decimal Amount,
+    decimal? Amount,
+    BillingChargeSourceKind SourceKind,
+    long SourceId,
+    long? Hl7MessageId,
     string DedupeKey,
     BillingEventStatus Status,
     string? ReviewedBy,
@@ -27,6 +31,7 @@ public sealed record BillingEventDto(
     string? CancellationReason)
 {
     public static BillingEventDto From(BillingEvent e) => new(
-        e.Id, e.ChargeCodeId, e.TriggerType, e.TriggerEntityType, e.TriggerEntityId, e.PatientId,
-        e.ServiceDateUtc, e.Amount, e.DedupeKey, e.Status, e.ReviewedBy, e.ReviewedUtc, e.ExportedUtc, e.CancellationReason);
+        e.Id, e.ChargeCodeId, e.BillingCode, e.TriggerType, e.TriggerEntityType, e.TriggerEntityId, e.PatientId,
+        e.ServiceDateUtc, e.Amount, e.SourceKind, e.SourceId, e.Hl7MessageId, e.DedupeKey, e.Status,
+        e.ReviewedBy, e.ReviewedUtc, e.ExportedUtc, e.CancellationReason);
 }

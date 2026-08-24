@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.HL7.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,6 +15,7 @@ public static class DependencyInjection
     {
         services.AddScoped<Hl7InboundProcessor>();
         services.AddScoped<Hl7OutboundService>();
+        services.AddScoped<IBillingInterfacePublisher>(sp => sp.GetRequiredService<Hl7OutboundService>());
         return services;
     }
 }

@@ -1,6 +1,6 @@
 # Blood Bank LIS — Printing and Billing Design
 
-Status: Part A (Printing) implemented in Phase 6. Part B (Billing) implemented in Phase 7 (HL7 DFT/batch export remains a documented placeholder).
+Status: Part A (Printing) implemented in Phase 6. Part B (Billing) implemented in Phase 7; test/service and product billing catalogs plus outbound DFT^P03 generation were added later. MLLP send of queued DFT messages remains a later-phase transport item.
 
 ---
 
@@ -39,10 +39,15 @@ The P-tag data model includes: patient name + MRN + DOB, patient ABO/Rh, unit nu
 
 Charge capture is event-driven and isolated from clinical decisions: clinical use cases emit billing triggers; a billing service translates triggers into `BillingEvents`.
 
-## B.1 Charge rules
+## B.1 Charge rules and billing catalogs
 
 - `ChargeCodes` map internal codes to descriptions, default amounts, and a **CPT mapping placeholder** (`CptCode`).
 - Charge rules associate a trigger type (test verified, unit issued, procedure, specific issue event) with one or more charge codes; rules are data, not hard-coded.
+- Two additional catalogs run **in parallel** with charge rules:
+  - `TestServiceBillings`: billing code, optional price, `TestVerified` trigger, and test code (e.g. `ABORH`).
+  - `ProductBillings`: billing code, optional price, `UnitIssued` trigger, and ISBT product description code (e.g. `E0336`).
+- Price on either catalog is optional internal tracking for reporting. It is snapshotted onto `BillingEvents.Amount` when present and is **not** sent on the DFT.
+- Because both sources can drop a charge for the same clinical event, deactivate overlapping `ChargeRules` when you do not want two charges / two DFTs.
 
 ## B.2 Trigger events
 
@@ -67,7 +72,7 @@ flowchart LR
 
 - `BillingEvents.Status`: `Pending -> Reviewed -> Exported` (or `Cancelled`).
 - A **charge review queue** lets billing staff review/approve/cancel pending charges; create and cancel both write audit events (`Create`/`Update` with reason).
-- **Export placeholder**: a future phase emits HL7 **DFT** (or a batch file) for reviewed charges; the model and status flow are designed now so export is additive.
+- When a trigger is met, capture also queues a standard outbound **DFT^P03** into `HL7Messages` (price omitted from FT1). The review-queue Export action remains a status flip; it does not build a second message. Transport send of queued DFT rows is a later phase.
 
 ## B.5 Audit
 

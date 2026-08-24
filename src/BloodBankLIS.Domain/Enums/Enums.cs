@@ -336,6 +336,14 @@ public enum BillingTriggerType
     Procedure = 2
 }
 
+/// <summary>Which catalog produced a captured billing event.</summary>
+public enum BillingChargeSourceKind
+{
+    ChargeRule = 0,
+    TestService = 1,
+    Product = 2
+}
+
 public enum BillingEventStatus
 {
     Pending = 0,

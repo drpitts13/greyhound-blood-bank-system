@@ -80,7 +80,7 @@ flowchart TD
 | Inventory | Units, attributes, location, status history, modification | `BloodProducts`, `ProductTypes`, `InventoryStatusHistory` |
 | Compatibility & Issuing | Crossmatch, allocation, issue, return, emergency release | `Crossmatches`, `Allocations`, `Issues`, `Returns`, `Overrides` |
 | Transfusion & Reaction | Transfusion documentation, reaction investigation | `TransfusionEvents`, `ReactionInvestigations` |
-| Billing | Charge rules, charge events, review queue | `ChargeCodes`, `BillingEvents` |
+| Billing | Charge rules, test/service and product catalogs, charge events, review queue, DFT queue | `ChargeCodes`, `ChargeRules`, `TestServiceBillings`, `ProductBillings`, `BillingEvents` |
 | Interfaces | HL7 messaging, endpoints, error queue | `HL7Messages`, `InterfaceEndpoints`, `InterfaceErrorQueue` |
 | Printing | Labels, P-tags, print history | `PrintJobs` |
 | System Configuration | Facility/config values, mapping config | `SystemConfiguration` |

@@ -710,6 +710,7 @@ public sealed class BillingEventConfiguration : IEntityTypeConfiguration<Billing
     {
         b.ToTable("BillingEvents");
         b.HasKey(e => e.Id);
+        b.Property(e => e.BillingCode).HasMaxLength(50).IsRequired();
         b.Property(e => e.TriggerEntityType).HasMaxLength(100).IsRequired();
         b.Property(e => e.Amount).HasPrecision(18, 2);
         b.Property(e => e.DedupeKey).HasMaxLength(200).IsRequired();
@@ -718,11 +719,48 @@ public sealed class BillingEventConfiguration : IEntityTypeConfiguration<Billing
         b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(e => e.ModifiedBy).HasMaxLength(100);
 
-        b.HasOne(e => e.ChargeCode).WithMany().HasForeignKey(e => e.ChargeCodeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(e => e.ChargeCode).WithMany().HasForeignKey(e => e.ChargeCodeId).IsRequired(false).OnDelete(DeleteBehavior.Restrict);
         // Duplicate-charge prevention (docs B.3).
         b.HasIndex(e => e.DedupeKey).IsUnique();
         b.HasIndex(e => e.Status);
         b.HasIndex(e => e.PatientId);
+        b.HasIndex(e => new { e.SourceKind, e.SourceId });
+    }
+}
+
+public sealed class TestServiceBillingConfiguration : IEntityTypeConfiguration<TestServiceBilling>
+{
+    public void Configure(EntityTypeBuilder<TestServiceBilling> b)
+    {
+        b.ToTable("TestServiceBillings");
+        b.HasKey(t => t.Id);
+        b.Property(t => t.BillingCode).HasMaxLength(50).IsRequired();
+        b.Property(t => t.Description).HasMaxLength(300);
+        b.Property(t => t.Price).HasPrecision(18, 2);
+        b.Property(t => t.TestCode).HasMaxLength(50).IsRequired();
+        b.Property(t => t.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(t => t.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(t => new { t.Trigger, t.TestCode, t.BillingCode }).IsUnique();
+        b.HasIndex(t => new { t.Trigger, t.TestCode });
+    }
+}
+
+public sealed class ProductBillingConfiguration : IEntityTypeConfiguration<ProductBilling>
+{
+    public void Configure(EntityTypeBuilder<ProductBilling> b)
+    {
+        b.ToTable("ProductBillings");
+        b.HasKey(t => t.Id);
+        b.Property(t => t.BillingCode).HasMaxLength(50).IsRequired();
+        b.Property(t => t.Description).HasMaxLength(300);
+        b.Property(t => t.Price).HasPrecision(18, 2);
+        b.Property(t => t.IsbtProductCode).HasMaxLength(5).IsRequired();
+        b.Property(t => t.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(t => t.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(t => new { t.Trigger, t.IsbtProductCode, t.BillingCode }).IsUnique();
+        b.HasIndex(t => new { t.Trigger, t.IsbtProductCode });
     }
 }
 

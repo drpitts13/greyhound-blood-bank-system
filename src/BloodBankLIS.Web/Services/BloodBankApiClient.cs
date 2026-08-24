@@ -668,6 +668,58 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<OrderingLocationDto>> SetAdminLocationActiveAsync(long id, bool active, CancellationToken ct = default) =>
         SendAsync<OrderingLocationDto>(HttpMethod.Post, $"api/admin/locations/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
 
+    // ---- Admin: Test/service billing ----
+    public Task<ApiResult<List<TestServiceBillingDto>>> GetAdminTestServiceBillingsAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<TestServiceBillingDto>>(HttpMethod.Get, $"api/admin/test-service-billings?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<TestServiceBillingDto>> CreateAdminTestServiceBillingAsync(SaveTestServiceBillingRequest req, CancellationToken ct = default) =>
+        SendAsync<TestServiceBillingDto>(HttpMethod.Post, "api/admin/test-service-billings", req, ct);
+
+    public Task<ApiResult<TestServiceBillingDto>> UpdateAdminTestServiceBillingAsync(long id, SaveTestServiceBillingRequest req, CancellationToken ct = default) =>
+        SendAsync<TestServiceBillingDto>(HttpMethod.Put, $"api/admin/test-service-billings/{id}", req, ct);
+
+    public Task<ApiResult<TestServiceBillingDto>> SetAdminTestServiceBillingActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<TestServiceBillingDto>(HttpMethod.Post, $"api/admin/test-service-billings/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    // ---- Admin: Product billing ----
+    public Task<ApiResult<List<ProductBillingDto>>> GetAdminProductBillingsAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<ProductBillingDto>>(HttpMethod.Get, $"api/admin/product-billings?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<ProductBillingDto>> CreateAdminProductBillingAsync(SaveProductBillingRequest req, CancellationToken ct = default) =>
+        SendAsync<ProductBillingDto>(HttpMethod.Post, "api/admin/product-billings", req, ct);
+
+    public Task<ApiResult<ProductBillingDto>> UpdateAdminProductBillingAsync(long id, SaveProductBillingRequest req, CancellationToken ct = default) =>
+        SendAsync<ProductBillingDto>(HttpMethod.Put, $"api/admin/product-billings/{id}", req, ct);
+
+    public Task<ApiResult<ProductBillingDto>> SetAdminProductBillingActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<ProductBillingDto>(HttpMethod.Post, $"api/admin/product-billings/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    // ---- Admin: Charge codes ----
+    public Task<ApiResult<List<ChargeCodeDto>>> GetAdminChargeCodesAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<ChargeCodeDto>>(HttpMethod.Get, $"api/admin/charge-codes?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<ChargeCodeDto>> CreateAdminChargeCodeAsync(SaveChargeCodeRequest req, CancellationToken ct = default) =>
+        SendAsync<ChargeCodeDto>(HttpMethod.Post, "api/admin/charge-codes", req, ct);
+
+    public Task<ApiResult<ChargeCodeDto>> UpdateAdminChargeCodeAsync(long id, SaveChargeCodeRequest req, CancellationToken ct = default) =>
+        SendAsync<ChargeCodeDto>(HttpMethod.Put, $"api/admin/charge-codes/{id}", req, ct);
+
+    public Task<ApiResult<ChargeCodeDto>> SetAdminChargeCodeActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<ChargeCodeDto>(HttpMethod.Post, $"api/admin/charge-codes/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    // ---- Admin: Charge rules ----
+    public Task<ApiResult<List<ChargeRuleDto>>> GetAdminChargeRulesAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<ChargeRuleDto>>(HttpMethod.Get, $"api/admin/charge-rules?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<ChargeRuleDto>> CreateAdminChargeRuleAsync(SaveChargeRuleRequest req, CancellationToken ct = default) =>
+        SendAsync<ChargeRuleDto>(HttpMethod.Post, "api/admin/charge-rules", req, ct);
+
+    public Task<ApiResult<ChargeRuleDto>> UpdateAdminChargeRuleAsync(long id, SaveChargeRuleRequest req, CancellationToken ct = default) =>
+        SendAsync<ChargeRuleDto>(HttpMethod.Put, $"api/admin/charge-rules/{id}", req, ct);
+
+    public Task<ApiResult<ChargeRuleDto>> SetAdminChargeRuleActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<ChargeRuleDto>(HttpMethod.Post, $"api/admin/charge-rules/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
     // ---- Admin: Products ----
     public Task<ApiResult<List<ProductAttributeDto>>> GetProductAttributesAsync(CancellationToken ct = default) =>
         SendAsync<List<ProductAttributeDto>>(HttpMethod.Get, "api/admin/products/attributes", ct: ct);

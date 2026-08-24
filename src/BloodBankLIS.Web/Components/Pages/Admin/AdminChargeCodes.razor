@@ -1,0 +1,185 @@
+@page "/admin/charge-codes"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Application.Billing
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Charge Codes &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Charge Codes</h1>
+    @if (CanEdit)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New charge code</button>
+    }
+</div>
+<p class="muted">Internal charge master used by charge rules. CPT is a mapping placeholder for a later billing export phase.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code, description, or CPT" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No charge codes.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Description</th><th>Amount</th><th>CPT</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var c in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@c.Code</td>
+                        <td>@c.Description</td>
+                        <td class="mono">@c.DefaultAmount.ToString("0.00")</td>
+                        <td class="mono">@(c.CptCode ?? "—")</td>
+                        <td>@(c.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => Edit(c)">Edit</button>
+                                @if (c.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(c.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(c.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_draft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New charge code" : $"Edit: {_draft.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_draft.Code" disabled="@(_editId is not null)" /></div>
+            <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>
+            <div class="field"><label>Default amount</label><input type="number" step="0.01" @bind="_draft.DefaultAmount" /></div>
+            <div class="field"><label>CPT (optional)</label><input class="mono" @bind="_draft.CptCode" /></div>
+        </div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private bool _includeInactive;
+    private List<ChargeCodeDto> _list = new();
+    private Feedback? _feedback;
+    private long? _editId;
+    private ChargeCodeDraft? _draft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<ChargeCodeDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _list
+            : _list.Where(c =>
+                c.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || c.Description.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || (c.CptCode?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminChargeCodesAsync(_includeInactive);
+        _list = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _draft = new ChargeCodeDraft();
+    }
+
+    private void Edit(ChargeCodeDto c)
+    {
+        _editId = c.Id;
+        _draft = new ChargeCodeDraft
+        {
+            Code = c.Code,
+            Description = c.Description,
+            DefaultAmount = c.DefaultAmount,
+            CptCode = c.CptCode
+        };
+    }
+
+    private void CancelEdit()
+    {
+        _editId = null;
+        _draft = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        if (string.IsNullOrWhiteSpace(_draft.Code) || string.IsNullOrWhiteSpace(_draft.Description))
+        {
+            _feedback = Feedback.Fail("Code and description are required.");
+            return;
+        }
+
+        _busy = true;
+        var req = new SaveChargeCodeRequest(_draft.Code, _draft.Description, _draft.DefaultAmount, _draft.CptCode);
+        var r = _editId is null
+            ? await Api.CreateAdminChargeCodeAsync(req)
+            : await Api.UpdateAdminChargeCodeAsync(_editId.Value, req);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _feedback = r.ToFeedback("Charge code saved.");
+            _editId = null;
+            _draft = null;
+            await LoadAsync();
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+    }
+
+    private async Task SetActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminChargeCodeActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.Succeeded ? r.ToFeedback(active ? "Activated." : "Deactivated.") : r.ToFeedback();
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private sealed class ChargeCodeDraft
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public decimal DefaultAmount { get; set; }
+        public string? CptCode { get; set; }
+    }
+}

@@ -59,9 +59,25 @@
             <h3>Exceptions</h3>
             <p>Clinical exception catalog and minimum security level required to override each rule.</p>
         </a>
+        <a class="admin-card" href="admin/test-service-billing">
+            <h3>Test/Service Billing</h3>
+            <p>Billing code, optional price, and TestVerified trigger mapped to a test code.</p>
+        </a>
+        <a class="admin-card" href="admin/product-billing">
+            <h3>Product Billing</h3>
+            <p>Billing code, optional price, and UnitIssued trigger mapped to an ISBT product code.</p>
+        </a>
         <a class="admin-card" href="admin/hl7">
             <h3>HL7 Endpoints</h3>
             <p>Interface endpoints: host/port, message types, retry and logging settings.</p>
+        </a>
+        <a class="admin-card" href="admin/charge-codes">
+            <h3>Charge Codes</h3>
+            <p>Billable charge master: internal code, description, default amount, and optional CPT mapping.</p>
+        </a>
+        <a class="admin-card" href="admin/charge-rules">
+            <h3>Charge Rules</h3>
+            <p>Map result verification and unit issue events to charge codes. Optional key scopes a rule to one test or product.</p>
         </a>
     }
     @if (Session.Has(PermissionCodes.AdminUsersManage))

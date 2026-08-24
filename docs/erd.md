@@ -46,6 +46,8 @@ erDiagram
     Issues ||--o{ TransfusionEvents : documentedBy
     TransfusionEvents ||--o{ ReactionInvestigations : mayTrigger
     ChargeCodes ||--o{ BillingEvents : classifies
+    TestServiceBillings ||--o{ BillingEvents : canDrop
+    ProductBillings ||--o{ BillingEvents : canDrop
 ```
 
 ---
@@ -235,9 +237,15 @@ Indexes: (`BloodProductId`,`Status`), (`PatientId`).
 ### ChargeCodes
 `Id`, `Code` (unique, internal), `CptCode NULL` (placeholder mapping), `Description`, `DefaultAmount DECIMAL NULL`, `IsActive`.
 
+### TestServiceBillings
+`Id`, `BillingCode`, `Description NULL`, `Price DECIMAL NULL`, `Trigger` (TestVerified), `TestCode`, `IsActive`. Unique (`Trigger`, `TestCode`, `BillingCode`).
+
+### ProductBillings
+`Id`, `BillingCode`, `Description NULL`, `Price DECIMAL NULL`, `Trigger` (UnitIssued), `IsbtProductCode` (ISBT PDC), `IsActive`. Unique (`Trigger`, `IsbtProductCode`, `BillingCode`).
+
 ### BillingEvents
-`Id`, `ChargeCodeId` (FK ChargeCodes), `PatientId` (FK Patients), `EncounterId NULL` (FK Encounters), `TriggerType` (TestVerified/UnitIssued/Procedure/...), `TriggerEntityType`, `TriggerEntityId`, `DedupeKey` (unique), `Amount DECIMAL NULL`, `Status` (Pending/Reviewed/Exported/Cancelled), `CreatedBy`, `CancelReason NULL`, audit metadata.
-Indexes: unique(`DedupeKey`), (`Status`), (`PatientId`).
+`Id`, `ChargeCodeId NULL` (FK ChargeCodes; set for ChargeRule-sourced events), `BillingCode`, `PatientId` (FK Patients), `TriggerType` (TestVerified/UnitIssued/Procedure/...), `TriggerEntityType`, `TriggerEntityId`, `SourceKind` (ChargeRule/TestService/Product), `SourceId`, `Hl7MessageId NULL`, `DedupeKey` (unique), `Amount DECIMAL NULL`, `Status` (Pending/Reviewed/Exported/Cancelled), `CreatedBy`, `CancelReason NULL`, audit metadata.
+Indexes: unique(`DedupeKey`), (`Status`), (`PatientId`), (`SourceKind`, `SourceId`).
 
 ---
 
