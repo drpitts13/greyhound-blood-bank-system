@@ -85,4 +85,95 @@ public class AdminInterfaceSetupTests : IClassFixture<SqliteContextFactory>
         var vendors = Hl7ConfigAdminService.Vendors(InterfaceType.Billing);
         Assert.Contains(vendors, v => v.Code == InterfaceVendorCodes.EpicResolute);
     }
+
+    private InterfaceTranslationAdminService TranslationService(BloodBankDbContext context)
+    {
+        var env = new StaticEnvironmentInfo("Development", isDevMode: false);
+        return new InterfaceTranslationAdminService(
+            new InterfaceValueTranslationRepository(context),
+            context,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser, env),
+            new ConfigurationHistoryWriter(context, _factory.Clock, _factory.CurrentUser, env));
+    }
+
+    [Fact]
+    public async Task Translations_SaveAndLoad_PerDataItem_PreservesOtherItems()
+    {
+        await using (var context = _factory.Create())
+        {
+            var svc = TranslationService(context);
+            var sex = await svc.ReplaceAsync(InterfaceDataItemKeys.PatientSex, new SaveInterfaceTranslationsRequest(
+            [
+                new InterfaceValueTranslationDto("F", "FEMALE", InterfaceTranslationDirection.Both),
+                new InterfaceValueTranslationDto("M", "MALE", InterfaceTranslationDirection.Inbound)
+            ], "sex maps"));
+            Assert.True(sex.Succeeded, sex.Error);
+            Assert.Equal(2, sex.Value!.Rows.Count);
+
+            var billing = await svc.ReplaceAsync(InterfaceDataItemKeys.BillingCode, new SaveInterfaceTranslationsRequest(
+            [
+                new InterfaceValueTranslationDto("BB-XM", "71020", InterfaceTranslationDirection.Outbound)
+            ], null));
+            Assert.True(billing.Succeeded, billing.Error);
+        }
+
+        await using var verify = _factory.Create();
+        var svc2 = TranslationService(verify);
+        var loadedSex = await svc2.GetAsync(InterfaceDataItemKeys.PatientSex);
+        Assert.True(loadedSex.Succeeded);
+        Assert.Equal(2, loadedSex.Value!.Rows.Count);
+        Assert.Contains(loadedSex.Value.Rows, r => r.InternalValue == "F" && r.ExternalValue == "FEMALE");
+
+        var loadedBilling = await svc2.GetAsync(InterfaceDataItemKeys.BillingCode);
+        Assert.True(loadedBilling.Succeeded);
+        Assert.Single(loadedBilling.Value!.Rows);
+        Assert.Equal("71020", loadedBilling.Value.Rows[0].ExternalValue);
+
+        var replaced = await svc2.ReplaceAsync(InterfaceDataItemKeys.PatientSex, new SaveInterfaceTranslationsRequest(
+        [
+            new InterfaceValueTranslationDto("O", "OTHER", InterfaceTranslationDirection.Both)
+        ], "replace sex"));
+        Assert.True(replaced.Succeeded, replaced.Error);
+        Assert.Single(replaced.Value!.Rows);
+
+        var billingStill = await svc2.GetAsync(InterfaceDataItemKeys.BillingCode);
+        Assert.Single(billingStill.Value!.Rows);
+    }
+
+    [Fact]
+    public async Task Translations_RejectUnknownKey_AndDuplicateCodes()
+    {
+        await using var context = _factory.Create();
+        var svc = TranslationService(context);
+
+        var unknown = await svc.GetAsync("Not.A.Key");
+        Assert.False(unknown.Succeeded);
+        Assert.Contains("Unknown data item", unknown.Error);
+
+        var dupInternal = await svc.ReplaceAsync(InterfaceDataItemKeys.OrderTestCode, new SaveInterfaceTranslationsRequest(
+        [
+            new InterfaceValueTranslationDto("XM", "A", InterfaceTranslationDirection.Outbound),
+            new InterfaceValueTranslationDto("XM", "B", InterfaceTranslationDirection.Both)
+        ], null));
+        Assert.False(dupInternal.Succeeded);
+        Assert.Contains("internal value", dupInternal.Error, StringComparison.OrdinalIgnoreCase);
+
+        var dupExternal = await svc.ReplaceAsync(InterfaceDataItemKeys.OrderTestCode, new SaveInterfaceTranslationsRequest(
+        [
+            new InterfaceValueTranslationDto("XM", "HIS_XM", InterfaceTranslationDirection.Inbound),
+            new InterfaceValueTranslationDto("TS", "HIS_XM", InterfaceTranslationDirection.Both)
+        ], null));
+        Assert.False(dupExternal.Succeeded);
+        Assert.Contains("external value", dupExternal.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Vocabulary_AllDataItems_AreDistinct()
+    {
+        var items = InterfaceTranslationAdminService.AllDataItems();
+        Assert.Contains(items, i => i.Key == InterfaceDataItemKeys.PatientSex);
+        Assert.Equal(items.Count, items.Select(i => i.Key).Distinct().Count());
+    }
 }

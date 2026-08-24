@@ -20,6 +20,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher
     private readonly IClock _clock;
     private readonly IRepository<InterfaceEndpoint>? _endpoints;
     private readonly IInterfaceFieldMappingRepository? _mappings;
+    private readonly IInterfaceValueTranslationRepository? _translations;
 
     public Hl7OutboundService(
         IRepository<TestResult> results,
@@ -28,7 +29,8 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher
         IUnitOfWork unitOfWork,
         IClock clock,
         IRepository<InterfaceEndpoint>? endpoints = null,
-        IInterfaceFieldMappingRepository? mappings = null)
+        IInterfaceFieldMappingRepository? mappings = null,
+        IInterfaceValueTranslationRepository? translations = null)
     {
         _results = results;
         _patients = patients;
@@ -37,6 +39,7 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher
         _clock = clock;
         _endpoints = endpoints;
         _mappings = mappings;
+        _translations = translations;
     }
 
     public async Task<OperationResult<Hl7MessageLog>> QueueResultMessageAsync(long resultId, CancellationToken ct = default)
@@ -61,7 +64,8 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher
         var now = _clock.UtcNow;
         var controlId = $"OUT{now:yyyyMMddHHmmssfff}";
         var resolved = await ResolveOutboundAsync(InterfaceType.Results, ct);
-        var raw = Hl7OruBuilder.Build(patient, result, controlId, now, resolved.Identity, map: resolved.Map);
+        var translator = await LoadTranslatorAsync(ct);
+        var raw = Hl7OruBuilder.Build(patient, result, controlId, now, resolved.Identity, map: resolved.Map, translator: translator);
 
         var log = new Hl7MessageLog
         {
@@ -93,7 +97,8 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher
         var now = _clock.UtcNow;
         var controlId = $"DFT{now:yyyyMMddHHmmssfff}{billingEvent.Id}";
         var resolved = await ResolveOutboundAsync(InterfaceType.Billing, ct);
-        var raw = Hl7DftBuilder.Build(patient, billingEvent, controlId, now, resolved.Identity, map: resolved.Map);
+        var translator = await LoadTranslatorAsync(ct);
+        var raw = Hl7DftBuilder.Build(patient, billingEvent, controlId, now, resolved.Identity, map: resolved.Map, translator: translator);
 
         var log = new Hl7MessageLog
         {
@@ -136,5 +141,16 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher
         }
 
         return (Hl7FieldMap.From(endpoint), Hl7OutboundIdentity.From(endpoint), endpoint.Id);
+    }
+
+    private async Task<InterfaceValueTranslator> LoadTranslatorAsync(CancellationToken ct)
+    {
+        if (_translations is null)
+        {
+            return InterfaceValueTranslator.Empty;
+        }
+
+        var rows = await _translations.ListAsync(ct);
+        return InterfaceValueTranslator.From(rows);
     }
 }

@@ -412,6 +412,14 @@ public enum InterfaceMappingMode
     Custom = 1
 }
 
+/// <summary>Whether a value-translation row applies to inbound, outbound, or both directions.</summary>
+public enum InterfaceTranslationDirection
+{
+    Inbound = 0,
+    Outbound = 1,
+    Both = 2
+}
+
 public enum ComponentClass
 {
     RedBloodCells = 0,

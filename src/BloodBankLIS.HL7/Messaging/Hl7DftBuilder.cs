@@ -18,11 +18,13 @@ public static class Hl7DftBuilder
         DateTime nowUtc,
         Hl7OutboundIdentity? identity = null,
         Hl7Encoding? encoding = null,
-        Hl7FieldMap? map = null)
+        Hl7FieldMap? map = null,
+        InterfaceValueTranslator? translator = null)
     {
         ArgumentNullException.ThrowIfNull(billingEvent);
         var id = identity ?? new Hl7OutboundIdentity();
         map ??= Hl7FieldMap.Default(InterfaceType.Billing, Hl7Direction.Outbound);
+        translator ??= InterfaceValueTranslator.Empty;
 
         var builder = new Hl7PathMessageBuilder(encoding)
             .AppendMsh(id.SendingApp, id.SendingFacility, id.ReceivingApp, id.ReceivingFacility, nowUtc, "DFT^P03", controlId)
@@ -30,18 +32,18 @@ public static class Hl7DftBuilder
             .Set("EVN-1", "P03")
             .Set("EVN-2", nowUtc.ToString(Hl7MessageBuilder.Hl7TimestampFormat))
             .Set("PID-1", "1")
-            .Set(map.Path(InterfaceDataItemKeys.PatientMrn), patient?.MedicalRecordNumber)
-            .Set(map.Path(InterfaceDataItemKeys.PatientLastName), patient?.LastName)
-            .Set(map.Path(InterfaceDataItemKeys.PatientFirstName), patient?.FirstName)
-            .Set(map.Path(InterfaceDataItemKeys.PatientMiddleName), patient?.MiddleName)
-            .Set(map.Path(InterfaceDataItemKeys.PatientDateOfBirth), patient is null ? null : patient.DateOfBirth.ToString("yyyyMMdd"))
-            .Set(map.Path(InterfaceDataItemKeys.PatientSex), SexCode(patient))
+            .Set(map.Path(InterfaceDataItemKeys.PatientMrn), translator.ToExternal(InterfaceDataItemKeys.PatientMrn, patient?.MedicalRecordNumber))
+            .Set(map.Path(InterfaceDataItemKeys.PatientLastName), translator.ToExternal(InterfaceDataItemKeys.PatientLastName, patient?.LastName))
+            .Set(map.Path(InterfaceDataItemKeys.PatientFirstName), translator.ToExternal(InterfaceDataItemKeys.PatientFirstName, patient?.FirstName))
+            .Set(map.Path(InterfaceDataItemKeys.PatientMiddleName), translator.ToExternal(InterfaceDataItemKeys.PatientMiddleName, patient?.MiddleName))
+            .Set(map.Path(InterfaceDataItemKeys.PatientDateOfBirth), translator.ToExternal(InterfaceDataItemKeys.PatientDateOfBirth, patient is null ? null : patient.DateOfBirth.ToString("yyyyMMdd")))
+            .Set(map.Path(InterfaceDataItemKeys.PatientSex), translator.ToExternal(InterfaceDataItemKeys.PatientSex, SexCode(patient)))
             .Set("FT1-1", "1")
             .Set("FT1-2", billingEvent.Id > 0 ? billingEvent.Id.ToString() : string.Empty)
-            .Set(map.Path(InterfaceDataItemKeys.BillingServiceDate), billingEvent.ServiceDateUtc.ToString(Hl7MessageBuilder.Hl7TimestampFormat))
-            .Set(map.Path(InterfaceDataItemKeys.BillingTransactionType), "CG")
-            .Set(map.Path(InterfaceDataItemKeys.BillingCode), billingEvent.BillingCode)
-            .Set(map.Path(InterfaceDataItemKeys.BillingQuantity), "1");
+            .Set(map.Path(InterfaceDataItemKeys.BillingServiceDate), translator.ToExternal(InterfaceDataItemKeys.BillingServiceDate, billingEvent.ServiceDateUtc.ToString(Hl7MessageBuilder.Hl7TimestampFormat)))
+            .Set(map.Path(InterfaceDataItemKeys.BillingTransactionType), translator.ToExternal(InterfaceDataItemKeys.BillingTransactionType, "CG"))
+            .Set(map.Path(InterfaceDataItemKeys.BillingCode), translator.ToExternal(InterfaceDataItemKeys.BillingCode, billingEvent.BillingCode))
+            .Set(map.Path(InterfaceDataItemKeys.BillingQuantity), translator.ToExternal(InterfaceDataItemKeys.BillingQuantity, "1"));
 
         return builder.Build();
     }

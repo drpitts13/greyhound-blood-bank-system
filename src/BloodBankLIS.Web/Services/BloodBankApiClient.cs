@@ -832,6 +832,23 @@ public sealed class BloodBankApiClient
             $"api/admin/hl7/vendors/{Uri.EscapeDataString(code)}/preset?interfaceType={type}&direction={direction}",
             ct: ct);
 
+    public Task<ApiResult<List<InterfaceDataItemDto>>> GetAdminHl7AllDataItemsAsync(CancellationToken ct = default) =>
+        SendAsync<List<InterfaceDataItemDto>>(HttpMethod.Get, "api/admin/hl7/data-items/all", ct: ct);
+
+    public Task<ApiResult<InterfaceTranslationTableDto>> GetAdminHl7TranslationsAsync(string dataItemKey, CancellationToken ct = default) =>
+        SendAsync<InterfaceTranslationTableDto>(
+            HttpMethod.Get,
+            $"api/admin/hl7/translations?dataItemKey={Uri.EscapeDataString(dataItemKey)}",
+            ct: ct);
+
+    public Task<ApiResult<InterfaceTranslationTableDto>> SaveAdminHl7TranslationsAsync(
+        string dataItemKey, SaveInterfaceTranslationsRequest req, CancellationToken ct = default) =>
+        SendAsync<InterfaceTranslationTableDto>(
+            HttpMethod.Put,
+            $"api/admin/hl7/translations/{Uri.EscapeDataString(dataItemKey)}",
+            req,
+            ct);
+
     // ---- Admin: Users & roles ----
     public Task<ApiResult<List<AdminUserDto>>> GetAdminUsersAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<AdminUserDto>>(HttpMethod.Get, $"api/admin/users?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);

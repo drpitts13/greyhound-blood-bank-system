@@ -36,6 +36,18 @@ public static class InterfaceDataItemCatalog
     public static string DefaultPath(InterfaceType type, Hl7Direction direction, string key) =>
         Find(type, direction, key)?.DefaultHl7Path ?? string.Empty;
 
+    /// <summary>Distinct catalog items across all interface types, ordered by display name.</summary>
+    public static IReadOnlyList<InterfaceDataItem> AllDistinct() =>
+        Enum.GetValues<InterfaceType>()
+            .SelectMany(t => For(t, Hl7Direction.Inbound))
+            .GroupBy(i => i.Key, StringComparer.Ordinal)
+            .Select(g => g.First())
+            .OrderBy(i => i.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    public static bool ContainsKey(string key) =>
+        Enum.GetValues<InterfaceType>().Any(t => Find(t, Hl7Direction.Inbound, key) is not null);
+
     private static readonly IReadOnlyList<InterfaceDataItem> PatientDemographics =
     [
         new(InterfaceDataItemKeys.PatientMrn, "Medical record number", "Patient MRN.", "PID-3-1", true),

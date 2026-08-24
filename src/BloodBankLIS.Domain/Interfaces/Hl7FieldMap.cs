@@ -38,6 +38,9 @@ public sealed class Hl7FieldMap
 
     public Hl7Direction Direction { get; }
 
+    /// <summary>Value translator applied after a path read. Defaults to a no-op.</summary>
+    public InterfaceValueTranslator Translator { get; set; } = InterfaceValueTranslator.Empty;
+
     public static Hl7FieldMap Default(InterfaceType type, Hl7Direction direction) =>
         new(type, direction, new Dictionary<string, string>());
 
@@ -82,29 +85,21 @@ public sealed class Hl7FieldMap
         ArgumentNullException.ThrowIfNull(message);
         var path = Path(dataItemKey);
         var value = message.Get(path);
-        if (!string.IsNullOrEmpty(value))
-        {
-            return value;
-        }
-
-        if (!IsDefaultPath(dataItemKey, path))
-        {
-            return value;
-        }
-
-        if (_fallbacks.TryGetValue(dataItemKey, out var extras))
+        if (string.IsNullOrEmpty(value) && IsDefaultPath(dataItemKey, path)
+            && _fallbacks.TryGetValue(dataItemKey, out var extras))
         {
             foreach (var extra in extras)
             {
                 var next = message.Get(extra);
                 if (!string.IsNullOrEmpty(next))
                 {
-                    return next;
+                    value = next;
+                    break;
                 }
             }
         }
 
-        return value;
+        return Translator.ToInternal(dataItemKey, value);
     }
 
     private bool IsDefaultPath(string key, string path) =>

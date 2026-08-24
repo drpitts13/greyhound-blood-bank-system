@@ -1,0 +1,214 @@
+@page "/admin/hl7/translations"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+@inject IJSRuntime Js
+
+<PageTitle>Interface Translation Table &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Interface Setup</h1>
+</div>
+<div class="flex gap" style="margin:.6rem 0 1rem;flex-wrap:wrap;">
+    <a class="btn btn-secondary" href="admin/hl7">Interfaces</a>
+    <a class="btn btn-primary" href="admin/hl7/translations">Translation table</a>
+</div>
+<p class="muted">
+    Translate internal codes to external values on outbound messages, and external codes to internal values
+    on inbound messages when an enabled interface is processing. Select a data item, enter the pairs, save, then choose another.
+</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="form-row">
+        <div class="field" style="min-width:22rem;">
+            <label>Data item</label>
+            <select value="@_selectedKey" @onchange="OnDataItemChangedAsync" disabled="@(_loading || _catalog.Count == 0)">
+                <option value="">Select a data item…</option>
+                @foreach (var item in _catalog)
+                {
+                    <option value="@item.Key">@item.DisplayName (@item.Key)</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!string.IsNullOrEmpty(_selectedKey))
+    {
+        <div class="flex-between" style="margin:1rem 0 .5rem;">
+            <p class="muted" style="margin:0;">@_displayName — internal value is stored in the LIS; external value is what the interface sends or receives.</p>
+            @if (CanManage)
+            {
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="AddRow">Add row</button>
+            }
+        </div>
+
+        <table class="bb">
+            <thead>
+                <tr>
+                    <th>Internal value</th>
+                    <th>External value</th>
+                    <th>Direction</th>
+                    @if (CanManage) { <th></th> }
+                </tr>
+            </thead>
+            <tbody>
+                @if (_rows.Count == 0)
+                {
+                    <tr><td colspan="@(CanManage ? 4 : 3)" class="muted">No translations for this data item. Add a row to map a code.</td></tr>
+                }
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        <td><input @bind="row.InternalValue" @bind:event="oninput" @bind:after="MarkDirty" disabled="@(!CanManage)" /></td>
+                        <td><input @bind="row.ExternalValue" @bind:event="oninput" @bind:after="MarkDirty" disabled="@(!CanManage)" /></td>
+                        <td>
+                            <select @bind="row.Direction" @bind:after="MarkDirty" disabled="@(!CanManage)">
+                                @foreach (var d in Enum.GetValues<InterfaceTranslationDirection>())
+                                {
+                                    <option value="@d">@d</option>
+                                }
+                            </select>
+                        </td>
+                        @if (CanManage)
+                        {
+                            <td class="right nowrap">
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveRow(row)">Remove</button>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (CanManage)
+        {
+            <div class="flex gap" style="margin-top:1rem;">
+                <button class="btn btn-primary" @onclick="SaveAsync" disabled="@_busy">Save</button>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<InterfaceDataItemDto> _catalog = new();
+    private string _selectedKey = string.Empty;
+    private string _displayName = string.Empty;
+    private List<RowModel> _rows = new();
+    private bool _loading = true;
+    private bool _busy;
+    private bool _dirty;
+    private Feedback? _feedback;
+
+    private bool CanManage => Session.Has(PermissionCodes.AdminHl7Manage);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var r = await Api.GetAdminHl7AllDataItemsAsync();
+        _catalog = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private async Task OnDataItemChangedAsync(ChangeEventArgs e)
+    {
+        var next = e.Value?.ToString() ?? string.Empty;
+        if (string.Equals(next, _selectedKey, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        if (_dirty)
+        {
+            var discard = await Js.InvokeAsync<bool>("confirm", "Discard unsaved translations for this data item?");
+            if (!discard)
+            {
+                return;
+            }
+        }
+
+        await LoadForKeyAsync(next);
+    }
+
+    private async Task LoadForKeyAsync(string key)
+    {
+        _selectedKey = key;
+        _displayName = string.Empty;
+        _rows = new();
+        _dirty = false;
+        if (string.IsNullOrEmpty(key))
+        {
+            return;
+        }
+
+        _loading = true;
+        var r = await Api.GetAdminHl7TranslationsAsync(key);
+        _loading = false;
+        if (!r.Succeeded || r.Value is null)
+        {
+            _feedback = r.ToFeedback();
+            return;
+        }
+
+        _displayName = r.Value.DisplayName;
+        _rows = r.Value.Rows.Select(RowModel.From).ToList();
+        if (_rows.Count == 0 && CanManage)
+        {
+            AddRow();
+            _dirty = false;
+        }
+        _feedback = null;
+    }
+
+    private void AddRow()
+    {
+        _rows.Add(new RowModel());
+        _dirty = true;
+    }
+
+    private void RemoveRow(RowModel row)
+    {
+        _rows.Remove(row);
+        _dirty = true;
+    }
+
+    private void MarkDirty() => _dirty = true;
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrEmpty(_selectedKey)) return;
+        _busy = true;
+        var req = new SaveInterfaceTranslationsRequest(
+            _rows.Select(r => r.ToDto()).ToList(),
+            null);
+        var r = await Api.SaveAdminHl7TranslationsAsync(_selectedKey, req);
+        _busy = false;
+        _feedback = r.ToFeedback("Saved.");
+        if (r.Succeeded && r.Value is not null)
+        {
+            _displayName = r.Value.DisplayName;
+            _rows = r.Value.Rows.Select(RowModel.From).ToList();
+            _dirty = false;
+        }
+    }
+
+    private sealed class RowModel
+    {
+        public string InternalValue { get; set; } = string.Empty;
+        public string ExternalValue { get; set; } = string.Empty;
+        public InterfaceTranslationDirection Direction { get; set; } = InterfaceTranslationDirection.Both;
+
+        public static RowModel From(InterfaceValueTranslationDto d) => new()
+        {
+            InternalValue = d.InternalValue,
+            ExternalValue = d.ExternalValue,
+            Direction = d.Direction
+        };
+
+        public InterfaceValueTranslationDto ToDto() => new(InternalValue, ExternalValue, Direction);
+    }
+}

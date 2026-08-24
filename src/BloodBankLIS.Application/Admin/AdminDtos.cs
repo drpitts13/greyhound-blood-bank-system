@@ -470,6 +470,20 @@ public sealed record SaveHl7EndpointRequest(
     IReadOnlyList<InterfaceFieldMappingDto>? FieldMappings,
     string? ChangeReason);
 
+public sealed record InterfaceValueTranslationDto(
+    string InternalValue,
+    string ExternalValue,
+    InterfaceTranslationDirection Direction);
+
+public sealed record InterfaceTranslationTableDto(
+    string DataItemKey,
+    string DisplayName,
+    IReadOnlyList<InterfaceValueTranslationDto> Rows);
+
+public sealed record SaveInterfaceTranslationsRequest(
+    IReadOnlyList<InterfaceValueTranslationDto> Rows,
+    string? ChangeReason);
+
 // ---- Users & roles ----
 
 public sealed record AdminUserDto(

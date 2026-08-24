@@ -56,11 +56,20 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             c,
             _factory.Clock,
             new EfRepository<InterfaceEndpoint>(c),
-            new InterfaceFieldMappingRepository(c));
+            new InterfaceFieldMappingRepository(c),
+            translations: new InterfaceValueTranslationRepository(c));
     }
 
     private Hl7OutboundService Outbound(BloodBankDbContext c) =>
-        new(new EfRepository<TestResult>(c), new EfRepository<Patient>(c), new EfRepository<Hl7MessageLog>(c), c, _factory.Clock);
+        new(
+            new EfRepository<TestResult>(c),
+            new EfRepository<Patient>(c),
+            new EfRepository<Hl7MessageLog>(c),
+            c,
+            _factory.Clock,
+            new EfRepository<InterfaceEndpoint>(c),
+            new InterfaceFieldMappingRepository(c),
+            new InterfaceValueTranslationRepository(c));
 
     private static string Adt(string controlId, string mrn, string last, string first, string trigger = "A01") =>
         $"MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^{trigger}|{controlId}|P|2.5\r" +
@@ -322,5 +331,135 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MAP-MRN");
         Assert.NotNull(patient);
         Assert.Null(await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "IGNORED"));
+    }
+
+    [Fact]
+    public async Task InboundAdt_TranslatesValues_WhenEnabledEndpointExists()
+    {
+        await using (var setup = _factory.Create())
+        {
+            setup.InterfaceEndpoints.Add(new InterfaceEndpoint
+            {
+                Name = "Enabled ADT",
+                InterfaceType = InterfaceType.Adt,
+                Direction = Hl7Direction.Inbound,
+                Transport = InterfaceTransport.File,
+                MessageTypes = "ADT",
+                IsEnabled = true
+            });
+            setup.InterfaceValueTranslations.Add(new InterfaceValueTranslation
+            {
+                DataItemKey = InterfaceDataItemKeys.PatientSex,
+                InternalValue = "F",
+                ExternalValue = "FEMALE",
+                Direction = InterfaceTranslationDirection.Both
+            });
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var raw =
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|CTRL-TX|P|2.5\r" +
+            "PID|1||HL7-TX^^^HOSP^MR||Translated^Pat||19800101|FEMALE";
+        var result = await Processor(context).ProcessAsync(raw);
+
+        Assert.True(result.Accepted);
+        var patient = await context.Patients.FirstAsync(p => p.MedicalRecordNumber == "HL7-TX");
+        Assert.Equal(Sex.Female, patient.Sex);
+    }
+
+    [Fact]
+    public async Task InboundAdt_DoesNotTranslate_WhenEndpointIsDisabled()
+    {
+        long endpointId;
+        await using (var setup = _factory.Create())
+        {
+            var endpoint = new InterfaceEndpoint
+            {
+                Name = "Disabled ADT",
+                InterfaceType = InterfaceType.Adt,
+                Direction = Hl7Direction.Inbound,
+                Transport = InterfaceTransport.File,
+                MessageTypes = "ADT",
+                IsEnabled = false
+            };
+            setup.InterfaceEndpoints.Add(endpoint);
+            setup.InterfaceValueTranslations.Add(new InterfaceValueTranslation
+            {
+                DataItemKey = InterfaceDataItemKeys.PatientSex,
+                InternalValue = "F",
+                ExternalValue = "XXFEMALE",
+                Direction = InterfaceTranslationDirection.Both
+            });
+            await setup.SaveChangesAsync();
+            endpointId = endpoint.Id;
+        }
+
+        await using var context = _factory.Create();
+        var raw =
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|CTRL-NOTX|P|2.5\r" +
+            "PID|1||HL7-NOTX^^^HOSP^MR||Plain^Pat||19800101|XXFEMALE";
+        var result = await Processor(context).ProcessAsync(raw, endpointId);
+
+        Assert.True(result.Accepted);
+        var patient = await context.Patients.FirstAsync(p => p.MedicalRecordNumber == "HL7-NOTX");
+        Assert.Equal(Sex.Unknown, patient.Sex);
+    }
+
+    [Fact]
+    public async Task Outbound_TranslatesInternalResultValue()
+    {
+        long resultId;
+        await using (var setup = _factory.Create())
+        {
+            var patient = new Patient
+            {
+                MedicalRecordNumber = "HL7-TX-OUT",
+                LastName = "Out",
+                FirstName = "Tx",
+                DateOfBirth = new DateOnly(1990, 6, 1),
+                Sex = Sex.Female
+            };
+            setup.Patients.Add(patient);
+            await setup.SaveChangesAsync();
+
+            var specimen = new Specimen
+            {
+                AccessionNumber = "ACC-HL7-TX-OUT",
+                PatientId = patient.Id,
+                SpecimenType = "EDTA",
+                CollectedUtc = _factory.Clock.UtcNow.AddHours(-1),
+                Status = SpecimenStatus.Accepted
+            };
+            setup.Specimens.Add(specimen);
+            await setup.SaveChangesAsync();
+
+            var result = new TestResult
+            {
+                PatientId = patient.Id,
+                SpecimenId = specimen.Id,
+                TestCode = "ABORH",
+                Value = "TX-A-POS",
+                Status = ResultStatus.Verified,
+                VerifiedBy = "tech",
+                VerifiedUtc = _factory.Clock.UtcNow
+            };
+            setup.TestResults.Add(result);
+            setup.InterfaceValueTranslations.Add(new InterfaceValueTranslation
+            {
+                DataItemKey = InterfaceDataItemKeys.ResultValue,
+                InternalValue = "TX-A-POS",
+                ExternalValue = "A+TX",
+                Direction = InterfaceTranslationDirection.Outbound
+            });
+            await setup.SaveChangesAsync();
+            resultId = result.Id;
+        }
+
+        await using var context = _factory.Create();
+        var outcome = await Outbound(context).QueueResultMessageAsync(resultId);
+        Assert.True(outcome.Succeeded, outcome.Error);
+        var oru = Hl7Parser.Parse(outcome.Value!.RawMessage);
+        Assert.Equal("A+TX", oru.Get("OBX-5"));
     }
 }

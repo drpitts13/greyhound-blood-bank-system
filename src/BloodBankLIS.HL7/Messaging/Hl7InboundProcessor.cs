@@ -36,6 +36,7 @@ public sealed class Hl7InboundProcessor
     private readonly IClock _clock;
     private readonly IRepository<InterfaceEndpoint>? _endpoints;
     private readonly IInterfaceFieldMappingRepository? _mappings;
+    private readonly IInterfaceValueTranslationRepository? _translations;
     private readonly InterfaceTransfusionService? _bpam;
 
     public Hl7InboundProcessor(
@@ -52,7 +53,8 @@ public sealed class Hl7InboundProcessor
         IClock clock,
         IRepository<InterfaceEndpoint>? endpoints = null,
         IInterfaceFieldMappingRepository? mappings = null,
-        InterfaceTransfusionService? bpam = null)
+        InterfaceTransfusionService? bpam = null,
+        IInterfaceValueTranslationRepository? translations = null)
     {
         _logs = logs;
         _errors = errors;
@@ -68,6 +70,7 @@ public sealed class Hl7InboundProcessor
         _endpoints = endpoints;
         _mappings = mappings;
         _bpam = bpam;
+        _translations = translations;
     }
 
     /// <summary>
@@ -146,8 +149,13 @@ public sealed class Hl7InboundProcessor
 
         try
         {
-            var (map, resolvedId) = await ResolveInboundAsync(message.MessageType, endpointId, ct);
+            var (map, resolvedId, enabled) = await ResolveInboundAsync(message.MessageType, endpointId, ct);
             log.EndpointId ??= resolvedId;
+            if (enabled)
+            {
+                map.Translator = await LoadTranslatorAsync(ct);
+            }
+
             var text = await DispatchAsync(message, map, ct);
             log.Status = isReplay ? Hl7MessageStatus.Replayed : Hl7MessageStatus.Processed;
             log.AckCode = AckCode.Accept;
@@ -349,7 +357,7 @@ public sealed class Hl7InboundProcessor
         }
     }
 
-    private async Task<(Hl7FieldMap Map, long? EndpointId)> ResolveInboundAsync(
+    private async Task<(Hl7FieldMap Map, long? EndpointId, bool Enabled)> ResolveInboundAsync(
         string messageType,
         long? requestedId,
         CancellationToken ct)
@@ -364,7 +372,7 @@ public sealed class Hl7InboundProcessor
 
         if (_endpoints is null)
         {
-            return (Hl7FieldMap.Default(fallbackType, Hl7Direction.Inbound), requestedId);
+            return (Hl7FieldMap.Default(fallbackType, Hl7Direction.Inbound), requestedId, false);
         }
 
         InterfaceEndpoint? endpoint = null;
@@ -386,7 +394,7 @@ public sealed class Hl7InboundProcessor
 
         if (endpoint is null)
         {
-            return (Hl7FieldMap.Default(fallbackType, Hl7Direction.Inbound), requestedId);
+            return (Hl7FieldMap.Default(fallbackType, Hl7Direction.Inbound), requestedId, false);
         }
 
         if (_mappings is not null)
@@ -395,7 +403,18 @@ public sealed class Hl7InboundProcessor
             endpoint.FieldMappings = rows.ToList();
         }
 
-        return (Hl7FieldMap.From(endpoint), endpoint.Id);
+        return (Hl7FieldMap.From(endpoint), endpoint.Id, endpoint.IsEnabled);
+    }
+
+    private async Task<InterfaceValueTranslator> LoadTranslatorAsync(CancellationToken ct)
+    {
+        if (_translations is null)
+        {
+            return InterfaceValueTranslator.Empty;
+        }
+
+        var rows = await _translations.ListAsync(ct);
+        return InterfaceValueTranslator.From(rows);
     }
 }
 

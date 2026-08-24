@@ -93,4 +93,53 @@ public class Hl7MapperTests
         Assert.Equal("W0001-00", data.UnitNumber);
         Assert.Equal(350m, data.VolumeTransfused);
     }
+
+    [Fact]
+    public void AdtMapper_TranslatesExternalSexBeforeMapSex()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|C5|P|2.5\r" +
+            "PID|1||MRN111^^^HOSP^MR||Lee^Pat||19751203|FEMALE");
+
+        var map = Hl7FieldMap.Default(InterfaceType.Adt, Hl7Direction.Inbound);
+        map.Translator = InterfaceValueTranslator.From(
+        [
+            new InterfaceValueTranslation
+            {
+                DataItemKey = InterfaceDataItemKeys.PatientSex,
+                InternalValue = "F",
+                ExternalValue = "FEMALE",
+                Direction = InterfaceTranslationDirection.Both
+            }
+        ]);
+
+        var data = Hl7AdtMapper.Map(message, map);
+        Assert.Equal(Sex.Female, data.Sex);
+    }
+
+    [Fact]
+    public void OrmMapper_TranslatesExternalTestCodeBeforeMapOrderType()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ORM^O01|C6|P|2.5\r" +
+            "PID|1||MRN777^^^HOSP^MR||Smith^Jane\r" +
+            "ORC|NW|PLACER-200\r" +
+            "OBR|1|PLACER-200||HIS_XM^Crossmatch");
+
+        var map = Hl7FieldMap.Default(InterfaceType.Orders, Hl7Direction.Inbound);
+        map.Translator = InterfaceValueTranslator.From(
+        [
+            new InterfaceValueTranslation
+            {
+                DataItemKey = InterfaceDataItemKeys.OrderTestCode,
+                InternalValue = "XM",
+                ExternalValue = "HIS_XM",
+                Direction = InterfaceTranslationDirection.Inbound
+            }
+        ]);
+
+        var data = Hl7OrmMapper.Map(message, map);
+        Assert.Equal("XM", data.TestCode);
+        Assert.Equal(OrderType.Crossmatch, data.OrderType);
+    }
 }

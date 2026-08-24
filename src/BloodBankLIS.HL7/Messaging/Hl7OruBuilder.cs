@@ -40,33 +40,35 @@ public static class Hl7OruBuilder
         DateTime nowUtc,
         Hl7OutboundIdentity? identity = null,
         Hl7Encoding? encoding = null,
-        Hl7FieldMap? map = null)
+        Hl7FieldMap? map = null,
+        InterfaceValueTranslator? translator = null)
     {
         ArgumentNullException.ThrowIfNull(patient);
         ArgumentNullException.ThrowIfNull(result);
         var id = identity ?? new Hl7OutboundIdentity();
         map ??= Hl7FieldMap.Default(InterfaceType.Results, Hl7Direction.Outbound);
+        translator ??= InterfaceValueTranslator.Empty;
 
         var builder = new Hl7PathMessageBuilder(encoding)
             .AppendMsh(id.SendingApp, id.SendingFacility, id.ReceivingApp, id.ReceivingFacility, nowUtc, "ORU^R01", controlId)
             .EnsureSegment("PID").EnsureSegment("OBR").EnsureSegment("OBX")
             .Set("PID-1", "1")
-            .Set(map.Path(InterfaceDataItemKeys.PatientMrn), patient.MedicalRecordNumber)
-            .Set(map.Path(InterfaceDataItemKeys.PatientLastName), patient.LastName)
-            .Set(map.Path(InterfaceDataItemKeys.PatientFirstName), patient.FirstName)
-            .Set(map.Path(InterfaceDataItemKeys.PatientMiddleName), patient.MiddleName)
-            .Set(map.Path(InterfaceDataItemKeys.PatientDateOfBirth), patient.DateOfBirth.ToString("yyyyMMdd"))
-            .Set(map.Path(InterfaceDataItemKeys.PatientSex), SexCode(patient.Sex))
+            .Set(map.Path(InterfaceDataItemKeys.PatientMrn), translator.ToExternal(InterfaceDataItemKeys.PatientMrn, patient.MedicalRecordNumber))
+            .Set(map.Path(InterfaceDataItemKeys.PatientLastName), translator.ToExternal(InterfaceDataItemKeys.PatientLastName, patient.LastName))
+            .Set(map.Path(InterfaceDataItemKeys.PatientFirstName), translator.ToExternal(InterfaceDataItemKeys.PatientFirstName, patient.FirstName))
+            .Set(map.Path(InterfaceDataItemKeys.PatientMiddleName), translator.ToExternal(InterfaceDataItemKeys.PatientMiddleName, patient.MiddleName))
+            .Set(map.Path(InterfaceDataItemKeys.PatientDateOfBirth), translator.ToExternal(InterfaceDataItemKeys.PatientDateOfBirth, patient.DateOfBirth.ToString("yyyyMMdd")))
+            .Set(map.Path(InterfaceDataItemKeys.PatientSex), translator.ToExternal(InterfaceDataItemKeys.PatientSex, SexCode(patient.Sex)))
             .Set("OBR-1", "1")
-            .Set(map.Path(InterfaceDataItemKeys.ResultObrTestCode), result.TestCode)
-            .Set(map.Path(InterfaceDataItemKeys.ResultVerifiedUtc), (result.VerifiedUtc ?? nowUtc).ToString(Hl7MessageBuilder.Hl7TimestampFormat))
+            .Set(map.Path(InterfaceDataItemKeys.ResultObrTestCode), translator.ToExternal(InterfaceDataItemKeys.ResultObrTestCode, result.TestCode))
+            .Set(map.Path(InterfaceDataItemKeys.ResultVerifiedUtc), translator.ToExternal(InterfaceDataItemKeys.ResultVerifiedUtc, (result.VerifiedUtc ?? nowUtc).ToString(Hl7MessageBuilder.Hl7TimestampFormat)))
             .Set("OBX-1", "1")
             .Set("OBX-2", "ST")
-            .Set(map.Path(InterfaceDataItemKeys.ResultObxIdentifier), result.TestCode)
-            .Set(map.Path(InterfaceDataItemKeys.ResultValue), result.Value)
-            .Set(map.Path(InterfaceDataItemKeys.ResultUnits), result.Units)
-            .Set(map.Path(InterfaceDataItemKeys.ResultInterpretation), result.Interpretation)
-            .Set(map.Path(InterfaceDataItemKeys.ResultObxStatus), "F");
+            .Set(map.Path(InterfaceDataItemKeys.ResultObxIdentifier), translator.ToExternal(InterfaceDataItemKeys.ResultObxIdentifier, result.TestCode))
+            .Set(map.Path(InterfaceDataItemKeys.ResultValue), translator.ToExternal(InterfaceDataItemKeys.ResultValue, result.Value))
+            .Set(map.Path(InterfaceDataItemKeys.ResultUnits), translator.ToExternal(InterfaceDataItemKeys.ResultUnits, result.Units))
+            .Set(map.Path(InterfaceDataItemKeys.ResultInterpretation), translator.ToExternal(InterfaceDataItemKeys.ResultInterpretation, result.Interpretation))
+            .Set(map.Path(InterfaceDataItemKeys.ResultObxStatus), translator.ToExternal(InterfaceDataItemKeys.ResultObxStatus, "F"));
 
         return builder.Build();
     }

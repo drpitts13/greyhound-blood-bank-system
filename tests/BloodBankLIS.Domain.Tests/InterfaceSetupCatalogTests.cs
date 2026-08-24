@@ -6,6 +6,18 @@ namespace BloodBankLIS.Domain.Tests;
 public class InterfaceSetupCatalogTests
 {
     [Fact]
+    public void DataItemCatalog_AllDistinct_IncludesSharedAndTypeSpecificKeys()
+    {
+        var items = InterfaceDataItemCatalog.AllDistinct();
+        Assert.Contains(items, i => i.Key == InterfaceDataItemKeys.PatientSex);
+        Assert.Contains(items, i => i.Key == InterfaceDataItemKeys.OrderTestCode);
+        Assert.Contains(items, i => i.Key == InterfaceDataItemKeys.BillingCode);
+        Assert.Equal(items.Count, items.Select(i => i.Key).Distinct(StringComparer.Ordinal).Count());
+        Assert.True(InterfaceDataItemCatalog.ContainsKey(InterfaceDataItemKeys.PatientMrn));
+        Assert.False(InterfaceDataItemCatalog.ContainsKey("Not.A.Key"));
+    }
+
+    [Fact]
     public void DataItemCatalog_Adt_IncludesMrnAsRequired()
     {
         var items = InterfaceDataItemCatalog.For(InterfaceType.Adt, Hl7Direction.Inbound);

@@ -639,6 +639,10 @@ public static class AdminEndpoints
             Results.Ok(Hl7ConfigAdminService.DataItems(interfaceType, direction)))
             .RequirePermission(PermissionCodes.AdminConfigView);
 
+        meta.MapGet("/data-items/all", () =>
+            Results.Ok(InterfaceTranslationAdminService.AllDataItems()))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
         meta.MapGet("/vendors", (InterfaceType? interfaceType) =>
             Results.Ok(Hl7ConfigAdminService.Vendors(interfaceType)))
             .RequirePermission(PermissionCodes.AdminConfigView);
@@ -677,6 +681,20 @@ public static class AdminEndpoints
 
         group.MapPost("/{id:long}/disable", async (long id, ReasonOnlyRequest? req, Hl7ConfigAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SetEnabledAsync(id, false, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminHl7Manage);
+
+        var translations = app.MapGroup("/api/admin/hl7/translations").WithTags("Admin: HL7").RequireAuthenticatedUser();
+
+        translations.MapGet("", async (string dataItemKey, InterfaceTranslationAdminService svc, CancellationToken ct) =>
+        {
+            var result = await svc.GetAsync(dataItemKey, ct);
+            return result.Succeeded
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { error = result.Error });
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        translations.MapPut("/{dataItemKey}", async (string dataItemKey, SaveInterfaceTranslationsRequest req, InterfaceTranslationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ReplaceAsync(dataItemKey, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminHl7Manage);
     }
 

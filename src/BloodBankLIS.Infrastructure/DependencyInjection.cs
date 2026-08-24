@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<BloodBankDbContext>());
         services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
         services.AddScoped<IInterfaceFieldMappingRepository, InterfaceFieldMappingRepository>();
+        services.AddScoped<IInterfaceValueTranslationRepository, InterfaceValueTranslationRepository>();
         services.AddScoped(typeof(EntityCrudService<>));
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<IConfigurationHistoryWriter, ConfigurationHistoryWriter>();
@@ -112,6 +113,7 @@ public static class DependencyInjection
         services.AddScoped<ProductBillingAdminService>();
         services.AddScoped<ExceptionDefinitionAdminService>();
         services.AddScoped<Hl7ConfigAdminService>();
+        services.AddScoped<InterfaceTranslationAdminService>();
         services.AddScoped<UserAdminService>();
         services.AddScoped<IConfigurationHistoryReader, ConfigurationHistoryReader>();
 

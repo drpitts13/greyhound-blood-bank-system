@@ -3189,6 +3189,62 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("InterfaceFieldMappings", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.InterfaceValueTranslation", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DataItemKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ExternalValue")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("InternalValue")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataItemKey");
+
+                    b.HasIndex("DataItemKey", "InternalValue", "ExternalValue", "Direction")
+                        .IsUnique();
+
+                    b.ToTable("InterfaceValueTranslations", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.InterfaceErrorQueueItem", b =>
                 {
                     b.Property<long>("Id")

@@ -80,4 +80,28 @@ public class Hl7DftBuilderTests
         Assert.Equal("BB-XM", message.Get("FT1-8"));
         Assert.Equal(string.Empty, message.Get("FT1-7"));
     }
+
+    [Fact]
+    public void Build_TranslatesInternalBillingCodeToExternal()
+    {
+        var billing = new BillingEvent
+        {
+            BillingCode = "BB-XM",
+            ServiceDateUtc = new DateTime(2026, 8, 24, 12, 0, 0, DateTimeKind.Utc)
+        };
+        var translator = InterfaceValueTranslator.From(
+        [
+            new InterfaceValueTranslation
+            {
+                DataItemKey = InterfaceDataItemKeys.BillingCode,
+                InternalValue = "BB-XM",
+                ExternalValue = "71020",
+                Direction = InterfaceTranslationDirection.Outbound
+            }
+        ]);
+
+        var raw = Hl7DftBuilder.Build(null, billing, "DFT4", new DateTime(2026, 8, 24, 12, 0, 0, DateTimeKind.Utc), translator: translator);
+        var message = Hl7Parser.Parse(raw);
+        Assert.Equal("71020", message.Get("FT1-7-1"));
+    }
 }

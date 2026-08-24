@@ -631,6 +631,22 @@ public sealed class InterfaceFieldMappingConfiguration : IEntityTypeConfiguratio
     }
 }
 
+public sealed class InterfaceValueTranslationConfiguration : IEntityTypeConfiguration<InterfaceValueTranslation>
+{
+    public void Configure(EntityTypeBuilder<InterfaceValueTranslation> b)
+    {
+        b.ToTable("InterfaceValueTranslations");
+        b.HasKey(m => m.Id);
+        b.Property(m => m.DataItemKey).HasMaxLength(100).IsRequired();
+        b.Property(m => m.InternalValue).HasMaxLength(100).IsRequired();
+        b.Property(m => m.ExternalValue).HasMaxLength(100).IsRequired();
+        b.Property(m => m.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(m => m.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(m => new { m.DataItemKey, m.InternalValue, m.ExternalValue, m.Direction }).IsUnique();
+        b.HasIndex(m => m.DataItemKey);
+    }
+}
+
 public sealed class Hl7MessageLogConfiguration : IEntityTypeConfiguration<Hl7MessageLog>
 {
     public void Configure(EntityTypeBuilder<Hl7MessageLog> b)
