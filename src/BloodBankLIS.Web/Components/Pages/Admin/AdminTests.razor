@@ -111,6 +111,7 @@
                         <label style="margin:0;"><strong>@( _editing.ResultValueType is ResultValueType.Crossmatch or ResultValueType.ComplexCrossmatch ? "Cell reaction subtests" : "Panel subtests" )</strong> (from subtest catalog)</label>
                         <div class="flex gap">
                             <button type="button" class="btn btn-ghost btn-sm" @onclick="LoadDefaultAboRhSubtests">Load ABORH defaults</button>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="LoadDefaultAboRhRetypeSubtests">Load ABORH retype defaults</button>
                             <button type="button" class="btn btn-ghost btn-sm" @onclick="ApplyPhasesToAll">Apply first-row phases to all</button>
                             <button type="button" class="btn btn-ghost btn-sm" @onclick="AddSubtest">Add subtest</button>
                         </div>
@@ -178,6 +179,7 @@
                                 @if (_editing.ResultValueType == ResultValueType.AboRh)
                                 {
                                     <button type="button" class="btn btn-ghost btn-sm" @onclick="LoadDefaultAboRhLogic">Load standard ABO/Rh logic</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="LoadDefaultAboRhRetypeLogic">Load ABORH retype logic</button>
                                 }
                                 else
                                 {
@@ -633,6 +635,30 @@
     {
         if (_editing is null) return;
         _editing.InterpretationLogic = InterpretationLogicDefinitions.DefaultAboRhLogic()
+            .Select(r => new LogicRow
+            {
+                InterpretationKey = r.InterpretationKey,
+                Label = r.Label,
+                Expectations = new Dictionary<string, ReactionPolarity>(r.SubtestExpectations, StringComparer.OrdinalIgnoreCase)
+            }).ToList();
+    }
+
+    private void LoadDefaultAboRhRetypeSubtests()
+    {
+        if (_editing is null) return;
+        _editing.PanelSubtestAssignments = PanelSubtestDefinitions.DefaultAboRhRetype()
+            .Select(s => new AssignmentRow
+            {
+                SubtestCode = s.Code,
+                Required = s.Required,
+                SortOrder = s.SortOrder
+            }).ToList();
+    }
+
+    private void LoadDefaultAboRhRetypeLogic()
+    {
+        if (_editing is null) return;
+        _editing.InterpretationLogic = InterpretationLogicDefinitions.DefaultAboRhRetypeLogic()
             .Select(r => new LogicRow
             {
                 InterpretationKey = r.InterpretationKey,

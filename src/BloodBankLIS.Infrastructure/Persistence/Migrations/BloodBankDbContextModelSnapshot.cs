@@ -4565,6 +4565,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<bool>("RequiresRhMatch")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("RequiresRetype")
+                        .HasColumnType("bit");
+
                     b.Property<string>("ReturnRules")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -4587,6 +4590,92 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ProductTypes", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductRetypeResult", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("BloodProductId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DiscrepancyDetail")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("EnteredBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("EnteredUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("InterpretedAbo")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("InterpretedRh")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("MatchesLabel")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TestCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<long>("TestDefinitionId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("VerifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("VerifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BloodProductId");
+
+                    b.HasIndex("TestDefinitionId");
+
+                    b.HasIndex("BloodProductId", "EnteredUtc");
+
+                    b.ToTable("ProductRetypeResults", (string)null);
                 });
 
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Return", b =>
@@ -5347,6 +5436,25 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Navigation("DerivedFromModification");
 
                     b.Navigation("ProductType");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductRetypeResult", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.BloodUnit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("BloodProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("BloodBankLIS.Domain.Entities.Configuration.TestDefinition", "TestDefinition")
+                        .WithMany()
+                        .HasForeignKey("TestDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("TestDefinition");
+
+                    b.Navigation("Unit");
                 });
 
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.ChargeRule", b =>

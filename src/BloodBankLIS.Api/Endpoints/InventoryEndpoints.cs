@@ -99,6 +99,21 @@ public static class InventoryEndpoints
             var count = await service.ExpireDueUnitsAsync(ct);
             return Results.Ok(new { expired = count });
         }).RequirePermission(PermissionCodes.InventoryDiscard);
+
+        group.MapGet("/retypes/pending", async (ProductRetypeService service, CancellationToken ct) =>
+            Results.Ok(await service.ListPendingAsync(ct)));
+
+        group.MapGet("/units/{id:long}/retype", async (long id, ProductRetypeService service, CancellationToken ct) =>
+        {
+            var detail = await service.GetForUnitAsync(id, ct);
+            return detail is null ? Results.NotFound() : Results.Ok(detail);
+        });
+
+        group.MapPost("/units/{id:long}/retype", async (long id, RecordProductRetypeRequest request, ProductRetypeService service, CancellationToken ct) =>
+        {
+            var result = await service.RecordAsync(id, request, ct);
+            return EndpointResults.FromEvaluation(result, d => d);
+        }).RequirePermission(PermissionCodes.ResultEnter);
     }
 
     private static IResult ToHttpResult(InventoryActionResult result) =>

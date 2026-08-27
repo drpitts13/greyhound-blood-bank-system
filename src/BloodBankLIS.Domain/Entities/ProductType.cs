@@ -32,6 +32,12 @@ public class ProductType : BaseEntity
 
     public bool RequiresRhMatch { get; set; } = true;
 
+    /// <summary>
+    /// When true (admin UI: Retype Y), received units of this product start in
+    /// <see cref="UnitStatus.Received"/> until a matching ABO/Rh retype is recorded.
+    /// </summary>
+    public bool RequiresRetype { get; set; }
+
     /// <summary>ISBT 128 product description code placeholder (facility-configurable).</summary>
     public string? Isbt128ProductCode { get; set; }
 

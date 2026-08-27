@@ -60,6 +60,7 @@ public static class DependencyInjection
 
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<InventoryService>();
+        services.AddScoped<ProductRetypeService>();
         services.AddScoped<BloodProductModificationService>();
         services.AddSingleton<IDinCheckCharacterValidator, Iso7064Mod37_2DinCheckCharacterValidator>();
         services.AddScoped<FacilityPolicyService>();

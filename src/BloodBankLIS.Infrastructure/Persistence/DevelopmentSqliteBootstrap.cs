@@ -88,7 +88,8 @@ public static class DevelopmentSqliteBootstrap
         ("ElectronicSignatures", "ExpiresUtc", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "ExpiresUtc" TEXT NULL"""),
         ("ElectronicSignatures", "ConsumedUtc", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "ConsumedUtc" TEXT NULL"""),
         ("ModificationRules", "ExpirationModificationCodeId", """ALTER TABLE "ModificationRules" ADD COLUMN "ExpirationModificationCodeId" INTEGER NOT NULL DEFAULT 0"""),
-        ("ModificationRules", "ModificationCode", """ALTER TABLE "ModificationRules" ADD COLUMN "ModificationCode" TEXT NOT NULL DEFAULT ''""")
+        ("ModificationRules", "ModificationCode", """ALTER TABLE "ModificationRules" ADD COLUMN "ModificationCode" TEXT NOT NULL DEFAULT ''"""),
+        ("ProductTypes", "RequiresRetype", """ALTER TABLE "ProductTypes" ADD COLUMN "RequiresRetype" INTEGER NOT NULL DEFAULT 0""")
     ];
 
     public static async Task InitializeAsync(

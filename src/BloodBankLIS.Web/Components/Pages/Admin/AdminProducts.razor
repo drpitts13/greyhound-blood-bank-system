@@ -26,7 +26,7 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Code</th><th>Name</th><th>Class</th><th>XM</th><th>Attributes</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Class</th><th>XM</th><th>Retype</th><th>Attributes</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var p in _items)
                 {
@@ -35,6 +35,7 @@
                         <td>@p.Name</td>
                         <td>@p.ComponentClass</td>
                         <td>@(p.RequiresCrossmatch ? "Yes" : "No")</td>
+                        <td>@(p.RequiresRetype ? "Y" : "N")</td>
                         <td>@string.Join(", ", p.Attributes.Select(a => a.Code + (a.IsRequired ? "*" : "")))</td>
                         <td>@p.Version</td>
                         <td>
@@ -76,6 +77,7 @@
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresCrossmatch" /> Requires crossmatch</label>
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresAboMatch" /> Requires ABO match</label>
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresRhMatch" /> Requires Rh match</label>
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresRetype" /> Retype (Y/N)</label>
         </div>
 
         <div class="field">
@@ -237,6 +239,7 @@
         public bool RequiresCrossmatch { get; set; }
         public bool RequiresAboMatch { get; set; } = true;
         public bool RequiresRhMatch { get; set; } = true;
+        public bool RequiresRetype { get; set; }
         public string? Isbt128ProductCode { get; set; }
         public string? DefaultChargeCode { get; set; }
         public string? StorageRequirements { get; set; }
@@ -249,7 +252,7 @@
         {
             ProductCode = p.ProductCode, Name = p.Name, ComponentClass = p.ComponentClass, Category = p.Category,
             DefaultShelfLifeHours = p.DefaultShelfLifeHours, RequiresCrossmatch = p.RequiresCrossmatch,
-            RequiresAboMatch = p.RequiresAboMatch, RequiresRhMatch = p.RequiresRhMatch, Isbt128ProductCode = p.Isbt128ProductCode,
+            RequiresAboMatch = p.RequiresAboMatch, RequiresRhMatch = p.RequiresRhMatch, RequiresRetype = p.RequiresRetype, Isbt128ProductCode = p.Isbt128ProductCode,
             DefaultChargeCode = p.DefaultChargeCode, StorageRequirements = p.StorageRequirements, IssueRules = p.IssueRules,
             ReturnRules = p.ReturnRules, ModificationRules = p.ModificationRules,
             Attributes = p.Attributes.Select(a => new ProductAttributeSelection(a.AttributeId, a.IsRequired)).ToList()
@@ -257,7 +260,7 @@
 
         public SaveProductDefinitionRequest ToRequest(string? reason) => new(
             ProductCode, Name, ComponentClass, Category, DefaultShelfLifeHours, RequiresCrossmatch, RequiresAboMatch,
-            RequiresRhMatch, Isbt128ProductCode, DefaultChargeCode, StorageRequirements, IssueRules, ReturnRules,
+            RequiresRhMatch, RequiresRetype, Isbt128ProductCode, DefaultChargeCode, StorageRequirements, IssueRules, ReturnRules,
             ModificationRules, Attributes, reason);
     }
 }

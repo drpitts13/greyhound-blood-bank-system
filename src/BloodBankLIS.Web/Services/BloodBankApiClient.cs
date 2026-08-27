@@ -252,6 +252,15 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ExpireDueVm>> ExpireDueAsync(CancellationToken ct = default) =>
         SendAsync<ExpireDueVm>(HttpMethod.Post, "api/inventory/expire-due", ct: ct);
 
+    public Task<ApiResult<List<ProductRetypeWorkItemDto>>> GetPendingRetypesAsync(CancellationToken ct = default) =>
+        SendAsync<List<ProductRetypeWorkItemDto>>(HttpMethod.Get, "api/inventory/retypes/pending", ct: ct);
+
+    public Task<ApiResult<ProductRetypeDetailDto>> GetUnitRetypeAsync(long unitId, CancellationToken ct = default) =>
+        SendAsync<ProductRetypeDetailDto>(HttpMethod.Get, $"api/inventory/units/{unitId}/retype", ct: ct);
+
+    public Task<ApiResult<ProductRetypeDetailDto>> RecordUnitRetypeAsync(long unitId, RecordProductRetypeRequest req, CancellationToken ct = default) =>
+        SendAsync<ProductRetypeDetailDto>(HttpMethod.Post, $"api/inventory/units/{unitId}/retype", req, ct);
+
     // ---- ISBT 128 ----
     public Task<ApiResult<ParseIsbtInputResponse>> ParseIsbtAsync(ParseIsbtInputRequest req, CancellationToken ct = default) =>
         SendAsync<ParseIsbtInputResponse>(HttpMethod.Post, "api/isbt/parse", req, ct);

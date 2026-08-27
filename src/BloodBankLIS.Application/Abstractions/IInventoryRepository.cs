@@ -27,4 +27,9 @@ public interface IInventoryRepository
 
     /// <summary>Units that are at/past expiration and still in a non-terminal, expirable status.</summary>
     Task<IReadOnlyList<BloodUnit>> GetExpirableUnitsAsync(DateTime asOfUtc, CancellationToken cancellationToken = default);
+
+    Task<ProductType?> GetProductTypeAsync(long id, CancellationToken cancellationToken = default);
+
+    /// <summary>Units waiting for a product ABO/Rh retype (Received + product RequiresRetype).</summary>
+    Task<IReadOnlyList<BloodUnit>> ListPendingRetypeAsync(CancellationToken cancellationToken = default);
 }

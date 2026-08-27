@@ -394,4 +394,35 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             Assert.All(quarantined, u => Assert.Equal(UnitStatus.Quarantine, u.Status));
         }
     }
+
+    [Fact]
+    public async Task ReceiveUnit_RequiresRetype_CreatesReceivedUnit()
+    {
+        await EnsureProductCodesAsync();
+        long productTypeId;
+        await using (var context = _factory.Create())
+        {
+            var type = new ProductType
+            {
+                ProductCode = "RBC-RETYPE",
+                Name = "Retype RBC",
+                ComponentClass = ComponentClass.RedBloodCells,
+                RequiresRetype = true
+            };
+            context.ProductTypes.Add(type);
+            await context.SaveChangesAsync();
+            productTypeId = type.Id;
+        }
+
+        await using var receive = _factory.Create();
+        var service = CreateService(receive);
+        var result = await service.ReceiveUnitAsync(NewUnitRequest("U-RETYPE-1", productTypeId));
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(UnitStatus.Received, result.Unit!.Status);
+        var history = await receive.InventoryStatusHistory.Where(h => h.BloodProductId == result.Unit.Id).ToListAsync();
+        var initial = Assert.Single(history);
+        Assert.Equal(UnitStatus.Received, initial.ToStatus);
+        Assert.Contains("retype", initial.Reason, StringComparison.OrdinalIgnoreCase);
+    }
 }

@@ -6,10 +6,17 @@
 <PageTitle>Test Worklist &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Test Worklist</h1>
-<p class="muted">Pending test results across all patients. Expand a row to enter results.</p>
+<p class="muted">Pending patient tests and product ABO/Rh retypes. Expand a row to enter results.</p>
 
 <Outcome Value="_fb" />
 
+<div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
+    <button type="button" class="btn @TabClass("tests")" @onclick='() => SelectTab("tests")'>Patient tests</button>
+    <button type="button" class="btn @TabClass("retype")" @onclick='() => SelectTab("retype")'>Retype</button>
+</div>
+
+@if (_tab == "tests")
+{
 <div class="bb-card">
     <div class="bb-card-title">
         <h3>Pending tests</h3>
@@ -79,14 +86,99 @@
         </table>
     }
 </div>
+}
+
+@if (_tab == "retype")
+{
+<div class="bb-card">
+    <div class="bb-card-title">
+        <h3>Pending product retypes</h3>
+        <button class="btn btn-secondary btn-sm" @onclick="LoadRetypesAsync">Refresh</button>
+    </div>
+
+    @if (_retypesLoading)
+    {
+        <div class="loading">Loading retypes...</div>
+    }
+    else if (_retypes.Count == 0)
+    {
+        <div class="empty">No units are waiting for an ABO/Rh retype.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead>
+                <tr>
+                    <th>Unit #</th>
+                    <th>Product</th>
+                    <th>Name</th>
+                    <th>Labeled ABO/Rh</th>
+                    <th>Received</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _retypes)
+                {
+                    <tr>
+                        <td class="mono">@item.UnitNumber</td>
+                        <td class="mono">@item.ProductCode</td>
+                        <td>@item.ProductName</td>
+                        <td><strong>@Ui.BloodType(item.Abo, item.RhD)</strong></td>
+                        <td class="nowrap">@item.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td><span class="@Ui.Badge(item.Status)">@item.Status</span></td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ToggleRetype(item.UnitId)">
+                                @(_expandedUnitId == item.UnitId ? "Hide" : "Enter")
+                            </button>
+                        </td>
+                    </tr>
+                    @if (_expandedUnitId == item.UnitId)
+                    {
+                        <tr><td colspan="7">
+                            @if (_retypeDetail?.UnitId == item.UnitId)
+                            {
+                                <ProductRetypeEntryPanel Detail="_retypeDetail" OnSaved="OnRetypeSaved" />
+                            }
+                            else
+                            {
+                                <div class="loading">Loading retype...</div>
+                            }
+                        </td></tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+}
 
 @code {
+    private string _tab = "tests";
     private List<TestWorkItemDto> _items = new();
     private bool _loading = true;
     private long? _expandedLineId;
     private Feedback? _fb;
 
+    private List<ProductRetypeWorkItemDto> _retypes = new();
+    private bool _retypesLoading;
+    private bool _retypesLoaded;
+    private long? _expandedUnitId;
+    private ProductRetypeDetailDto? _retypeDetail;
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task SelectTab(string tab)
+    {
+        _tab = tab;
+        if (tab == "retype" && !_retypesLoaded)
+        {
+            await LoadRetypesAsync();
+        }
+    }
+
+    private string TabClass(string tab) => _tab == tab ? "btn-primary" : "btn-secondary";
 
     private async Task LoadAsync()
     {
@@ -103,13 +195,51 @@
         _items = r.Value ?? new();
     }
 
+    private async Task LoadRetypesAsync()
+    {
+        _retypesLoading = true;
+        var r = await Api.GetPendingRetypesAsync();
+        _retypesLoading = false;
+        _retypesLoaded = true;
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+            _retypes = new();
+            return;
+        }
+
+        _retypes = r.Value ?? new();
+    }
+
     private void ToggleEntry(long orderLineId) =>
         _expandedLineId = _expandedLineId == orderLineId ? null : orderLineId;
+
+    private async Task ToggleRetype(long unitId)
+    {
+        if (_expandedUnitId == unitId)
+        {
+            _expandedUnitId = null;
+            _retypeDetail = null;
+            return;
+        }
+
+        _expandedUnitId = unitId;
+        var r = await Api.GetUnitRetypeAsync(unitId);
+        _retypeDetail = r.Value;
+        if (!r.Succeeded) _fb = r.ToFeedback();
+    }
 
     private async Task OnResultSaved()
     {
         _expandedLineId = null;
         await LoadAsync();
+    }
+
+    private async Task OnRetypeSaved()
+    {
+        _expandedUnitId = null;
+        _retypeDetail = null;
+        await LoadRetypesAsync();
     }
 
     private static string RowClass(TestWorkItemDto item) =>

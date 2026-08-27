@@ -11,7 +11,7 @@ public static class Ui
         UnitStatus.Allocated => "badge badge-blue",
         UnitStatus.Issued => "badge badge-amber",
         UnitStatus.Transfused => "badge badge-gray",
-        UnitStatus.Quarantine => "badge badge-amber",
+        UnitStatus.Quarantine or UnitStatus.Received => "badge badge-amber",
         UnitStatus.Discarded or UnitStatus.Expired => "badge badge-red",
         UnitStatus.Returned => "badge badge-gray",
         _ => "badge badge-gray"

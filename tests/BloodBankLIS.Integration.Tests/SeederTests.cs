@@ -31,6 +31,9 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             // Four base products plus the three modification targets.
             Assert.Equal(7, await verify.ProductTypes.CountAsync());
             Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "WB" && p.RequiresCrossmatch));
+            Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "RBC-LR" && p.RequiresRetype));
+            Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "FFP" && !p.RequiresRetype));
+            Assert.True(await verify.TestDefinitions.AnyAsync(t => t.Code == AboRhRetypeRule.TestCode && t.Category == TestCategory.AboRhRetype));
             Assert.Equal(3, await verify.InventoryLocations.CountAsync());
 
             // The original demo patient plus the five extended scenarios.
@@ -39,8 +42,9 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(11, await verify.Orders.CountAsync());
 
             // Three original units, 28 stocked across every ABO/Rh, two modification
-            // results, and one received by ISBT 128 scan.
-            Assert.Equal(34, await verify.BloodUnits.CountAsync());
+            // results, one received by ISBT 128 scan, and two waiting for ABO/Rh retype.
+            Assert.Equal(36, await verify.BloodUnits.CountAsync());
+            Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Received));
 
             Assert.True(await verify.ExceptionDefinitions.AnyAsync(e => e.RuleCode == AboCompatibilityRule.AboCode && !e.IsOverridable));
             Assert.True(await verify.ExceptionDefinitions.AnyAsync(e =>

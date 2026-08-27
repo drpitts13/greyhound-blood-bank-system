@@ -2,7 +2,7 @@
 
 Status: Phase 0 (design). Each workflow names the use case(s), the safety checks invoked (see `safety-rules.md`), the state changes, and the audit events produced. Every clinical state change writes to its append-only history table and an `AuditEvent` in the same transaction.
 
-Status legend for blood units: `Quarantine -> Available -> Allocated -> Issued -> Transfused`, with side states `Returned`, `Discarded`, `Expired`.
+Status legend for blood units: `Received (retype required) or Quarantine -> Available -> Allocated -> Issued -> Transfused`, with side states `Returned`, `Discarded`, `Expired`.
 
 ---
 
@@ -13,15 +13,24 @@ flowchart TD
     a([Receive shipment]) --> b[Enter/scan unit number + product code + ABO/Rh + expiration]
     b --> c{Validate fields}
     c -->|Invalid| r[Reject entry, no record]
-    c -->|Valid| d[Create BloodProduct in Quarantine]
-    d --> e[Record InventoryStatusHistory: null -> Quarantine]
+    c -->|Valid| flag{Product RequiresRetype}
+    flag -->|Yes| rec[Create BloodProduct in Received]
+    rec --> histR[InventoryStatusHistory: null -> Received]
+    histR --> retype[Record front-type ABO/Rh retype]
+    retype -->|Match| avail[Status -> Available]
+    retype -->|Mismatch| q2[Status -> Quarantine for supervisor review]
+    flag -->|No| d[Create BloodProduct in Quarantine or Available]
+    d --> e[Record InventoryStatusHistory]
     e --> f{Release checks pass?}
     f -->|No| q[Remain in Quarantine]
     f -->|Yes| g[Status -> Available]
     g --> h[Audit + status history]
 ```
 
-- Use case: `ReceiveUnitCommand`, `ReleaseUnitFromQuarantineCommand`.
+- Use case: `ReceiveUnitCommand`, `ReleaseUnitFromQuarantineCommand`, `RecordProductRetype`.
+- Products with Retype Y start in `Received`. ISBT "Release to Available" is ignored until a matching retype is recorded.
+- Front-type retype: Anti-A and Anti-B always; Anti-D required only when the unit is labeled Rh negative.
+- Matching retype: `Received -> Available`. Mismatch: `Received -> Quarantine` with the discrepancy as the reason (supervisor uses existing release).
 - Checks: unit number unique; expiration in the future; product type known; ABO/Rh present.
 - Audit: `Create` (unit), `Update` (status change) with location.
 

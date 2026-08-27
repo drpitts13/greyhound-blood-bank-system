@@ -26,6 +26,7 @@ public static partial class DatabaseSeeder
         await SeedProductTypesAsync(context, cancellationToken);
         await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
         await EnsureModificationProductTypesAsync(context, cancellationToken);
+        await EnsureProductRetypeFlagsAsync(context, cancellationToken);
         await EnsureProductTypeIsbtCodesAsync(context, cancellationToken);
         await SeedProductAttributesAsync(context, cancellationToken);
         await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
@@ -33,6 +34,7 @@ public static partial class DatabaseSeeder
         await SeedSubtestDefinitionsAsync(context, cancellationToken);
         await SeedPhaseDefinitionsAsync(context, cancellationToken);
         await SeedTestDefinitionsAsync(context, cancellationToken);
+        await EnsureAboRhRetypeTestAsync(context, cancellationToken);
         await EnsureAgtypeTestAsync(context, cancellationToken);
         await EnsureWeakDTestAsync(context, cancellationToken);
         await EnsureNeonatalTypeAndScreenTestAsync(context, cancellationToken);
@@ -698,8 +700,8 @@ public static partial class DatabaseSeeder
         }
 
         context.ProductTypes.AddRange(
-            new ProductType { ProductCode = "RBC-LR", Name = "Red Blood Cells, Leukoreduced", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true, RequiresAboMatch = true, RequiresRhMatch = true, DefaultShelfLifeHours = 42 * 24, Isbt128ProductCode = "E0336" },
-            new ProductType { ProductCode = "WB", Name = "Whole Blood", ComponentClass = ComponentClass.WholeBlood, RequiresCrossmatch = true, RequiresAboMatch = true, RequiresRhMatch = true, DefaultShelfLifeHours = 35 * 24, Isbt128ProductCode = "E0023" },
+            new ProductType { ProductCode = "RBC-LR", Name = "Red Blood Cells, Leukoreduced", ComponentClass = ComponentClass.RedBloodCells, RequiresCrossmatch = true, RequiresAboMatch = true, RequiresRhMatch = true, RequiresRetype = true, DefaultShelfLifeHours = 42 * 24, Isbt128ProductCode = "E0336" },
+            new ProductType { ProductCode = "WB", Name = "Whole Blood", ComponentClass = ComponentClass.WholeBlood, RequiresCrossmatch = true, RequiresAboMatch = true, RequiresRhMatch = true, RequiresRetype = true, DefaultShelfLifeHours = 35 * 24, Isbt128ProductCode = "E0023" },
             new ProductType { ProductCode = "FFP", Name = "Fresh Frozen Plasma", ComponentClass = ComponentClass.Plasma, RequiresCrossmatch = false, DefaultShelfLifeHours = 365 * 24, Isbt128ProductCode = "E0701" },
             new ProductType { ProductCode = "PLT-A", Name = "Apheresis Platelets", ComponentClass = ComponentClass.Platelets, RequiresCrossmatch = false, DefaultShelfLifeHours = 5 * 24, Isbt128ProductCode = "E3077" });
 
@@ -723,6 +725,7 @@ public static partial class DatabaseSeeder
                 RequiresCrossmatch = true,
                 RequiresAboMatch = true,
                 RequiresRhMatch = true,
+                RequiresRetype = true,
                 DefaultShelfLifeHours = 35 * 24,
                 Isbt128ProductCode = "E0023"
             });
@@ -738,6 +741,30 @@ public static partial class DatabaseSeeder
             if (!product.RequiresCrossmatch)
             {
                 product.RequiresCrossmatch = true;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>
+    /// Cellular products (RBC / whole blood) require confirmatory ABO/Rh retype on receipt.
+    /// Plasma and platelets do not. Idempotent so existing catalogs pick up the flag.
+    /// </summary>
+    private static async Task EnsureProductRetypeFlagsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var products = await context.ProductTypes.ToListAsync(ct);
+        var changed = false;
+        foreach (var product in products)
+        {
+            var shouldRetype = product.ComponentClass is ComponentClass.RedBloodCells or ComponentClass.WholeBlood;
+            if (product.RequiresRetype != shouldRetype)
+            {
+                product.RequiresRetype = shouldRetype;
                 changed = true;
             }
         }
@@ -985,6 +1012,10 @@ public static partial class DatabaseSeeder
             .ToList());
         aboRh.InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(InterpretationLogicDefinitions.DefaultAboRhLogic());
 
+        var aboRhRetype = Def("ABORH-RETYPE", "ABO/Rh Retype", TestCategory.AboRhRetype, ResultValueType.AboRh);
+        aboRhRetype.PanelSubtestsJson = AboRhRetypePanelJson();
+        aboRhRetype.InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(InterpretationLogicDefinitions.DefaultAboRhRetypeLogic());
+
         var xm = Def("XM", "Crossmatch", TestCategory.Crossmatch, ResultValueType.Crossmatch, compatibility: true, allowed: "Compatible\nIncompatible", billable: true, charge: "BB-XM");
         xm.PanelSubtestsJson = DefaultCrossmatchPanelJson();
 
@@ -993,11 +1024,47 @@ public static partial class DatabaseSeeder
 
         context.TestDefinitions.AddRange(
             aboRh,
+            aboRhRetype,
             CreateAntibodyScreenDefinition(now),
             Def("ABID", "Antibody Identification", TestCategory.AntibodyIdentification, ResultValueType.FreeText, antibody: true, compatibility: true),
             xm,
             cxm,
             Def("DAT", "Direct Antiglobulin Test", TestCategory.DirectAntiglobulinTest, ResultValueType.Coded, allowed: "Negative\nPositive"));
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static string AboRhRetypePanelJson() =>
+        PanelSubtestAssignments.ToJson(PanelSubtestDefinitions.DefaultAboRhRetype()
+            .Select(s => new PanelSubtestAssignment(s.Code, s.Required, s.SortOrder))
+            .ToList())!;
+
+    /// <summary>
+    /// Product ABO/Rh retype is a front-type-only catalog test. Seeded separately so
+    /// existing databases that already have TestDefinitions still receive it.
+    /// </summary>
+    private static async Task EnsureAboRhRetypeTestAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.TestDefinitions.AnyAsync(t => t.Code == AboRhRetypeRule.TestCode, ct))
+        {
+            return;
+        }
+
+        context.TestDefinitions.Add(new TestDefinition
+        {
+            Code = AboRhRetypeRule.TestCode,
+            Name = "ABO/Rh Retype",
+            Category = TestCategory.AboRhRetype,
+            ResultValueType = ResultValueType.AboRh,
+            PanelSubtestsJson = AboRhRetypePanelJson(),
+            InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(InterpretationLogicDefinitions.DefaultAboRhRetypeLogic()),
+            VerificationRequired = false,
+            ContributesToAboRhHistory = false,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = DateTime.UtcNow,
+            Version = 1
+        });
 
         await context.SaveChangesAsync(ct);
     }

@@ -12,14 +12,15 @@ public sealed record ProductTypeDto(
     int? DefaultShelfLifeHours,
     bool RequiresCrossmatch,
     bool IsActive,
-    string? Isbt128ProductCode = null)
+    string? Isbt128ProductCode = null,
+    bool RequiresRetype = false)
 {
     public string DisplayProductCode =>
         string.IsNullOrWhiteSpace(Isbt128ProductCode) ? ProductCode : Isbt128ProductCode;
 
     public static ProductTypeDto From(ProductType t) => new(
         t.Id, t.ProductCode, t.Name, t.ComponentClass, t.DefaultShelfLifeHours, t.RequiresCrossmatch, t.IsActive,
-        t.Isbt128ProductCode);
+        t.Isbt128ProductCode, t.RequiresRetype);
 }
 
 public sealed record InventoryLocationDto(

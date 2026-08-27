@@ -33,6 +33,14 @@ public static class PanelSubtestDefinitions
         new(AboRhPanelSubtestCodes.WeakD, "Weak-D", false, 7)
     ];
 
+    /// <summary>Front-type only panel used for product ABO/Rh retype.</summary>
+    public static IReadOnlyList<PanelSubtestDefinition> DefaultAboRhRetype() =>
+    [
+        new(AboRhPanelSubtestCodes.AntiA, "Anti-A", true, 1),
+        new(AboRhPanelSubtestCodes.AntiB, "Anti-B", true, 2),
+        new(AboRhPanelSubtestCodes.AntiD, "Anti-D", false, 3)
+    ];
+
     public static string? ToJson(IReadOnlyList<PanelSubtestDefinition>? items)
     {
         if (items is null || items.Count == 0)

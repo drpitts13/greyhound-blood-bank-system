@@ -536,6 +536,7 @@ public enum TestCategory
     AntigenTyping = 6,
     ProductModification = 7,
     TransfusionReactionInvestigation = 8,
+    AboRhRetype = 9,
     Other = 99
 }
 

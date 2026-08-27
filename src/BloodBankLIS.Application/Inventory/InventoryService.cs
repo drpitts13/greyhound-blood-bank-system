@@ -140,6 +140,11 @@ public sealed class InventoryService
         }
 
         var resolved = productValidation.Value!;
+        var productType = await _repository.GetProductTypeAsync(request.ProductTypeId, ct);
+        var initialStatus = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
+        var intakeReason = productType?.RequiresRetype == true
+            ? "Initial intake — retype required"
+            : "Initial intake";
         var unit = new BloodUnit
         {
             UnitNumber = request.UnitNumber,
@@ -157,7 +162,7 @@ public sealed class InventoryService
             DivisionCode = resolved.DivisionCode,
             Isbt128DonationId = request.Isbt128DonationId,
             Volume = request.Volume,
-            Status = UnitStatus.Quarantine
+            Status = initialStatus
         };
 
         await _repository.AddUnitAsync(unit, ct);
@@ -168,9 +173,9 @@ public sealed class InventoryService
         {
             Unit = unit,
             FromStatus = null,
-            ToStatus = UnitStatus.Quarantine,
+            ToStatus = initialStatus,
             ToLocationId = request.LocationId,
-            Reason = "Initial intake",
+            Reason = intakeReason,
             ChangedBy = _currentUser.UserName,
             ChangedUtc = _clock.UtcNow
         });
@@ -210,10 +215,24 @@ public sealed class InventoryService
         if (!validation.Valid)
             return InventoryActionResult.Fail(string.Join("; ", validation.Errors.Select(e => $"{e.Code}: {e.Message}")));
 
-        var initialStatus = releaseToAvailable ? UnitStatus.Available : UnitStatus.Received;
-        // Disposition incomplete → quarantine. INSTITUTIONAL_POLICY_REVIEW.
-        if (!releaseToAvailable)
+        var productType = await _repository.GetProductTypeAsync(productTypeId, ct);
+        UnitStatus initialStatus;
+        string intakeReason;
+        if (productType?.RequiresRetype == true)
+        {
+            initialStatus = UnitStatus.Received;
+            intakeReason = "ISBT receipt — retype required";
+        }
+        else if (releaseToAvailable)
+        {
+            initialStatus = UnitStatus.Available;
+            intakeReason = "ISBT receipt — released to available";
+        }
+        else
+        {
             initialStatus = UnitStatus.Quarantine;
+            intakeReason = "ISBT receipt — quarantine pending disposition";
+        }
 
         var unit = Application.Isbt128.CanonicalComponentMapper.ToBloodUnit(
             draft, productTypeId, locationId, supplier, shipmentId, collectionFacility, volume,
@@ -227,7 +246,7 @@ public sealed class InventoryService
             FromStatus = null,
             ToStatus = initialStatus,
             ToLocationId = locationId,
-            Reason = releaseToAvailable ? "ISBT receipt — released to available" : "ISBT receipt — quarantine pending disposition",
+            Reason = intakeReason,
             ChangedBy = _currentUser.UserName,
             ChangedUtc = _clock.UtcNow
         });

@@ -63,6 +63,7 @@ public sealed class SqliteToSqlServerMigrator
         "CompatibilityRuleVersions",
         "CompatibilityRules",
         "BloodProducts",
+        "ProductRetypeResults",
         "UnitModificationUnits",
         "BloodComponentRawScans",
         "BloodComponentSpecialTests",

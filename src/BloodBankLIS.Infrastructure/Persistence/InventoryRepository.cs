@@ -21,7 +21,7 @@ public sealed class InventoryRepository : IInventoryRepository
     public InventoryRepository(BloodBankDbContext context) => _context = context;
 
     public Task<BloodUnit?> GetUnitAsync(long id, CancellationToken cancellationToken = default) =>
-        _context.BloodUnits.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        _context.BloodUnits.Include(u => u.ProductType).FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
 
     public Task<bool> UnitNumberExistsAsync(string unitNumber, CancellationToken cancellationToken = default) =>
         _context.BloodUnits.AnyAsync(u => u.UnitNumber == unitNumber, cancellationToken);
@@ -92,5 +92,16 @@ public sealed class InventoryRepository : IInventoryRepository
     public async Task<IReadOnlyList<BloodUnit>> GetExpirableUnitsAsync(DateTime asOfUtc, CancellationToken cancellationToken = default) =>
         await _context.BloodUnits
             .Where(u => u.ExpiresUtc <= asOfUtc && ExpirableStatuses.Contains(u.Status))
+            .ToListAsync(cancellationToken);
+
+    public Task<ProductType?> GetProductTypeAsync(long id, CancellationToken cancellationToken = default) =>
+        _context.ProductTypes.FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
+
+    public async Task<IReadOnlyList<BloodUnit>> ListPendingRetypeAsync(CancellationToken cancellationToken = default) =>
+        await _context.BloodUnits
+            .AsNoTracking()
+            .Include(u => u.ProductType)
+            .Where(u => u.Status == UnitStatus.Received && u.ProductType!.RequiresRetype)
+            .OrderBy(u => u.CreatedUtc)
             .ToListAsync(cancellationToken);
 }

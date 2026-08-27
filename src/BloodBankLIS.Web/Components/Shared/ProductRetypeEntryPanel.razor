@@ -1,0 +1,166 @@
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<div class="stack">
+    <div class="flex gap" style="flex-wrap:wrap;">
+        <div><span class="muted">Labeled type</span> <strong>@Ui.BloodType(Detail.LabeledAbo, Detail.LabeledRh)</strong></div>
+        <div><span class="muted">Product</span> <strong>@Detail.ProductCode</strong> @Detail.ProductName</div>
+        <div><span class="@Ui.Badge(Detail.Status)">@Detail.Status</span></div>
+    </div>
+
+    @if (Detail.Latest is not null)
+    {
+        <div class="bb-card" style="background:#fafbfe;">
+            <h4>Last retype</h4>
+            <p>
+                @Detail.Latest.DisplayValue
+                <span class="@Ui.Badge(Detail.Latest.Status)">@Detail.Latest.Status</span>
+                by @Detail.Latest.EnteredBy at @Detail.Latest.EnteredUtc.ToString("yyyy-MM-dd HH:mm")
+            </p>
+            @if (!Detail.Latest.MatchesLabel)
+            {
+                <div class="alert alert-warning">@(Detail.Latest.DiscrepancyDetail ?? "Retype does not match the labeled ABO/Rh.")</div>
+            }
+            else
+            {
+                <p class="muted">Confirmed against the labeled type.</p>
+            }
+        </div>
+    }
+
+    <Outcome Value="_fb" />
+
+    @if (!string.IsNullOrWhiteSpace(Detail.BlockReason) && !Detail.CanRecord)
+    {
+        <p class="muted">@Detail.BlockReason</p>
+    }
+
+    @if (Detail.CanRecord && Session.Has(PermissionCodes.ResultEnter))
+    {
+        <div class="form-row">
+            <div class="field"><label>Interpreted ABO</label>
+                <select @bind="_abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>
+            </div>
+            @if (Detail.AntiDRequired)
+            {
+                <div class="field"><label>Interpreted Rh(D)</label>
+                    <select @bind="_rh">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select>
+                </div>
+            }
+        </div>
+        <table class="bb" style="margin-top:.5rem;">
+            <thead><tr><th>Subtest</th><th>Reaction</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var st in Detail.Subtests)
+                {
+                    var optional = !st.Required;
+                    var performed = !optional || IsOptionalPerformed(st.Code);
+                    <tr>
+                        <td>@st.Label <span class="mono muted">@st.Code</span></td>
+                        <td>
+                            <select value="@GetSubtest(st.Code)" @onchange="e => SetSubtest(st.Code, e)" disabled="@(!performed)">
+                                @if (optional) { <option value="NT">NT</option> }
+                                @foreach (var grade in Detail.GradeChoices)
+                                {
+                                    <option value="@grade">@grade</option>
+                                }
+                            </select>
+                        </td>
+                        <td>
+                            @if (optional)
+                            {
+                                <label class="flex" style="gap:.35rem;">
+                                    <input type="checkbox" checked="@IsOptionalPerformed(st.Code)" @onchange="e => OnOptionalChanged(st.Code, e)" /> Performed
+                                </label>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <button class="btn btn-primary btn-sm" style="margin-top:.6rem;" disabled="@_busy" @onclick="SaveAsync">Record retype</button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ProductRetypeDetailDto Detail { get; set; } = default!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private AboGroup _abo = AboGroup.Unknown;
+    private RhType _rh = RhType.Unknown;
+    private Dictionary<string, string> _subtests = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _optionalPerformed = new(StringComparer.OrdinalIgnoreCase);
+    private bool _busy;
+    private Feedback? _fb;
+    private long _boundUnitId;
+
+    protected override void OnParametersSet()
+    {
+        if (_boundUnitId == Detail.UnitId && _subtests.Count > 0)
+        {
+            return;
+        }
+
+        _boundUnitId = Detail.UnitId;
+        _abo = Detail.LabeledAbo;
+        _rh = Detail.LabeledRh;
+        _fb = null;
+        _optionalPerformed.Clear();
+        _subtests = Detail.Subtests.ToDictionary(
+            s => s.Code,
+            s => s.Required ? (Detail.GradeChoices.FirstOrDefault() ?? "0") : "NT",
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private string GetSubtest(string code) =>
+        _subtests.TryGetValue(code, out var v) ? v : "NT";
+
+    private void SetSubtest(string code, ChangeEventArgs e) =>
+        _subtests[code] = e.Value?.ToString() ?? "NT";
+
+    private bool IsOptionalPerformed(string code) => _optionalPerformed.Contains(code);
+
+    private void OnOptionalChanged(string code, ChangeEventArgs e)
+    {
+        var on = e.Value is true;
+        if (on)
+        {
+            _optionalPerformed.Add(code);
+            if (!_subtests.TryGetValue(code, out var current) || current == "NT")
+            {
+                _subtests[code] = Detail.GradeChoices.FirstOrDefault() ?? "0";
+            }
+        }
+        else
+        {
+            _optionalPerformed.Remove(code);
+            _subtests[code] = "NT";
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        var payload = _subtests
+            .Where(kv => !string.Equals(kv.Value, "NT", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+        var req = new RecordProductRetypeRequest(
+            _abo,
+            Detail.AntiDRequired ? _rh : null,
+            payload);
+        var r = await Api.RecordUnitRetypeAsync(Detail.UnitId, req);
+        _busy = false;
+        if (r.Succeeded && r.Value is not null)
+        {
+            var msg = r.Value.Latest?.MatchesLabel == true
+                ? "Retype confirmed. Unit is Available."
+                : (r.Value.Latest?.DiscrepancyDetail ?? "Retype recorded. Unit moved to Quarantine.");
+            _fb = r.ToFeedback(msg);
+            await OnSaved.InvokeAsync();
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+        }
+    }
+}

@@ -233,6 +233,7 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         e.RequiresCrossmatch = req.RequiresCrossmatch;
         e.RequiresAboMatch = req.RequiresAboMatch;
         e.RequiresRhMatch = req.RequiresRhMatch;
+        e.RequiresRetype = req.RequiresRetype;
         e.Isbt128ProductCode = req.Isbt128ProductCode?.Trim();
         e.DefaultChargeCode = req.DefaultChargeCode?.Trim();
         e.StorageRequirements = req.StorageRequirements?.Trim();
@@ -259,7 +260,7 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
 
         return new ProductDefinitionDto(
             p.Id, p.ProductCode, p.Name, p.ComponentClass, p.Category, p.DefaultShelfLifeHours,
-            p.RequiresCrossmatch, p.RequiresAboMatch, p.RequiresRhMatch, p.Isbt128ProductCode, p.DefaultChargeCode,
+            p.RequiresCrossmatch, p.RequiresAboMatch, p.RequiresRhMatch, p.RequiresRetype, p.Isbt128ProductCode, p.DefaultChargeCode,
             p.StorageRequirements, p.IssueRules, p.ReturnRules, p.ModificationRules, p.Version, p.IsActive, assigned);
     }
 }

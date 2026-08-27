@@ -34,6 +34,7 @@ public static partial class DatabaseSeeder
     private static async Task SeedExtendedDemoScenariosAsync(BloodBankDbContext context, CancellationToken ct)
     {
         await SeedExtendedInventoryAsync(context, ct);
+        await SeedRetypeDemoUnitsAsync(context, ct);
         await SeedNeonatalScenarioAsync(context, ct);
         await SeedRhNegativeScenarioAsync(context, ct);
         await SeedAntibodyScenarioAsync(context, ct);
@@ -338,6 +339,58 @@ public static partial class DatabaseSeeder
         units.AddRange([expiringSoon, quarantined, discarded, expired]);
 
         context.BloodUnits.AddRange(units);
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Two Received RBC units so the retype worklist is not empty on a demo database.
+    /// Existing Available inventory is left unchanged.
+    /// </summary>
+    private static async Task SeedRetypeDemoUnitsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123RET0001", ct))
+        {
+            return;
+        }
+
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        if (redCells is null || fridge is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        context.BloodUnits.AddRange(
+            new BloodUnit
+            {
+                UnitNumber = "W000123RET0001",
+                ProductTypeId = redCells.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                ExpiresUtc = now.AddDays(28),
+                CurrentLocationId = fridge.Id,
+                Status = UnitStatus.Received,
+                Volume = 300m,
+                CollectionFacility = "Regional Blood Center",
+                Supplier = "Regional Blood Center",
+                CollectedUtc = now.AddDays(-1)
+            },
+            new BloodUnit
+            {
+                UnitNumber = "W000123RET0002",
+                ProductTypeId = redCells.Id,
+                Abo = AboGroup.A,
+                RhD = RhType.Negative,
+                ExpiresUtc = now.AddDays(26),
+                CurrentLocationId = fridge.Id,
+                Status = UnitStatus.Received,
+                Volume = 300m,
+                CollectionFacility = "Regional Blood Center",
+                Supplier = "Regional Blood Center",
+                CollectedUtc = now.AddDays(-1)
+            });
+
         await context.SaveChangesAsync(ct);
     }
 

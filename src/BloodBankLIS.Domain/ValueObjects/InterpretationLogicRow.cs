@@ -101,6 +101,31 @@ public static class InterpretationLogicDefinitions
         return rows;
     }
 
+    /// <summary>Front-type only expectations (Anti-A, Anti-B, Anti-D) for product retype.</summary>
+    public static IReadOnlyList<InterpretationLogicRow> DefaultAboRhRetypeLogic()
+    {
+        var rows = new List<InterpretationLogicRow>();
+        foreach (var abo in Enum.GetValues<AboGroup>().Where(a => a != AboGroup.Unknown))
+        {
+            foreach (var rh in Enum.GetValues<RhType>().Where(r => r != RhType.Unknown))
+            {
+                var all = BuildAboRhExpectations(abo, rh);
+                var front = new Dictionary<string, ReactionPolarity>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [AboRhPanelSubtestCodes.AntiA] = all[AboRhPanelSubtestCodes.AntiA],
+                    [AboRhPanelSubtestCodes.AntiB] = all[AboRhPanelSubtestCodes.AntiB],
+                    [AboRhPanelSubtestCodes.AntiD] = all[AboRhPanelSubtestCodes.AntiD]
+                };
+                rows.Add(new InterpretationLogicRow(
+                    BuildAboRhKey(abo, rh),
+                    $"Type {abo} {rh}",
+                    front));
+            }
+        }
+
+        return rows;
+    }
+
     private static Dictionary<string, ReactionPolarity> BuildAboRhExpectations(AboGroup abo, RhType rh)
     {
         var antiA = abo is AboGroup.B or AboGroup.AB ? ReactionPolarity.Positive : ReactionPolarity.Negative;

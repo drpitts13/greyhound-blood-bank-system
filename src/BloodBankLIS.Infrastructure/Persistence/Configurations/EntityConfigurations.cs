@@ -368,6 +368,27 @@ public sealed class BloodUnitConfiguration : IEntityTypeConfiguration<BloodUnit>
     }
 }
 
+public sealed class ProductRetypeResultConfiguration : IEntityTypeConfiguration<ProductRetypeResult>
+{
+    public void Configure(EntityTypeBuilder<ProductRetypeResult> b)
+    {
+        b.ToTable("ProductRetypeResults");
+        b.HasKey(r => r.Id);
+        b.Property(r => r.TestCode).HasMaxLength(50).IsRequired();
+        b.Property(r => r.Value).HasMaxLength(4000).IsRequired();
+        b.Property(r => r.DiscrepancyDetail).HasMaxLength(500);
+        b.Property(r => r.EnteredBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.VerifiedBy).HasMaxLength(100);
+        b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.ModifiedBy).HasMaxLength(100);
+
+        b.HasOne(r => r.Unit).WithMany().HasForeignKey(r => r.BloodProductId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(r => r.TestDefinition).WithMany().HasForeignKey(r => r.TestDefinitionId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(r => r.BloodProductId);
+        b.HasIndex(r => new { r.BloodProductId, r.EnteredUtc });
+    }
+}
+
 public sealed class ExpirationModificationCodeConfiguration : IEntityTypeConfiguration<ExpirationModificationCode>
 {
     public void Configure(EntityTypeBuilder<ExpirationModificationCode> b)

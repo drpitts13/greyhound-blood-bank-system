@@ -26,7 +26,8 @@
 @if (_showReceive)
 {
     <div class="bb-card">
-        <div class="bb-card-title"><h3>Receive a unit into quarantine</h3></div>
+        <div class="bb-card-title"><h3>Receive a unit</h3></div>
+        <p class="muted">Products marked Retype Y enter as Received until the front-type retype is recorded. Others enter Quarantine.</p>
         <Outcome Value="_receiveFb" />
         <div class="form-row">
             <div class="field"><label>Unit number</label><input @bind="_rec.UnitNumber" placeholder="W0001230000099" /></div>
@@ -126,6 +127,8 @@
     private Feedback? _receiveFb;
 
     private BloodUnitDto? _selected;
+    private string _unitTab = "actions";
+    private ProductRetypeDetailDto? _retypeDetail;
     private List<InventoryStatusHistoryDto> _history = new();
     private List<UnitBloodAttributeDto> _unitAttributes = new();
     private List<BloodAttributeListItemDto> _bloodAttributeCatalog = new();
@@ -192,7 +195,9 @@
             string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode) ? null : _rec.ProductDescriptionCode.Trim());
         var r = await Api.ReceiveUnitAsync(req);
         _busy = false;
-        _receiveFb = r.ToFeedback("Unit received into quarantine.");
+        _receiveFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
+            ? "Unit received. ABO/Rh retype is required before the unit is Available."
+            : "Unit received into quarantine.");
         if (r.Succeeded) { _rec = new(); _showReceive = false; await SearchAsync(); }
     }
 
@@ -218,16 +223,27 @@
         }
 
         _selected = u;
+        _unitTab = "actions";
         _actionFb = null;
         _transferTo = 0;
         _transferReason = string.Empty;
         _discardReason = string.Empty;
         _history = (await Api.GetUnitHistoryAsync(u.Id)).Value ?? new();
         _unitAttributes = (await Api.GetUnitBloodAttributesAsync(u.Id)).Value ?? new();
+        _retypeDetail = (await Api.GetUnitRetypeAsync(u.Id)).Value;
         if (_bloodAttributeCatalog.Count == 0)
         {
             _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
         }
+    }
+
+    private string UnitTabClass(string tab) => _unitTab == tab ? "btn-primary" : "btn-secondary";
+
+    private async Task OnRetypeSaved()
+    {
+        if (_selected is null) return;
+        await RefreshSelected(_selected.Id);
+        _unitTab = "retype";
     }
 
     private async Task SaveUnitAttributeAsync(long unitId)
@@ -271,101 +287,134 @@
     {
         await SearchAsync();
         _selected = _units.FirstOrDefault(u => u.Id == id);
-        if (_selected is not null) _history = (await Api.GetUnitHistoryAsync(id)).Value ?? new();
+        if (_selected is not null)
+        {
+            _history = (await Api.GetUnitHistoryAsync(id)).Value ?? new();
+            _unitAttributes = (await Api.GetUnitBloodAttributesAsync(id)).Value ?? new();
+            _retypeDetail = (await Api.GetUnitRetypeAsync(id)).Value;
+        }
     }
 
     private RenderFragment RenderActions(BloodUnitDto u) => __builder =>
     {
         <div class="stack">
             <Outcome Value="_actionFb" />
-            <div class="flex gap" style="flex-wrap:wrap;">
-                @if (u.Status == UnitStatus.Quarantine && Session.Has(PermissionCodes.InventoryRelease))
-                {
-                    <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(u.Id)">Release from quarantine</button>
-                }
+            <div class="flex gap" style="flex-wrap:wrap;margin-bottom:.5rem;">
+                <button type="button" class="btn btn-sm @UnitTabClass("actions")" @onclick='() => _unitTab = "actions"'>Actions</button>
+                <button type="button" class="btn btn-sm @UnitTabClass("retype")" @onclick='() => _unitTab = "retype"'>Retype</button>
+                <button type="button" class="btn btn-sm @UnitTabClass("attributes")" @onclick='() => _unitTab = "attributes"'>Attributes</button>
+                <button type="button" class="btn btn-sm @UnitTabClass("history")" @onclick='() => _unitTab = "history"'>History</button>
             </div>
 
-            @if (Session.Has(PermissionCodes.InventoryTransfer))
+            @if (_unitTab == "actions")
             {
-                <div class="flex gap">
-                    <select @bind="_transferTo"><option value="0">— location —</option>@foreach (var l in _locations) { <option value="@l.Id">@l.Code — @l.Name</option> }</select>
-                    <input @bind="_transferReason" placeholder="Reason (optional)" />
-                    <button class="btn btn-secondary btn-sm" disabled="@(_busy || _transferTo == 0)" @onclick="() => TransferAsync(u.Id)">Transfer</button>
+                <div class="flex gap" style="flex-wrap:wrap;">
+                    @if (u.Status == UnitStatus.Quarantine && Session.Has(PermissionCodes.InventoryRelease))
+                    {
+                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(u.Id)">Release from quarantine</button>
+                    }
                 </div>
+
+                @if (Session.Has(PermissionCodes.InventoryTransfer))
+                {
+                    <div class="flex gap">
+                        <select @bind="_transferTo"><option value="0">— location —</option>@foreach (var l in _locations) { <option value="@l.Id">@l.Code — @l.Name</option> }</select>
+                        <input @bind="_transferReason" placeholder="Reason (optional)" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || _transferTo == 0)" @onclick="() => TransferAsync(u.Id)">Transfer</button>
+                    </div>
+                }
+
+                @if (Session.Has(PermissionCodes.InventoryDiscard))
+                {
+                    <div class="flex gap">
+                        <input @bind="_discardReason" placeholder="Discard reason" style="flex:1;" />
+                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discardReason))" @onclick="() => DiscardAsync(u.Id)">Discard</button>
+                    </div>
+                }
             }
 
-            @if (Session.Has(PermissionCodes.InventoryDiscard))
+            @if (_unitTab == "retype")
             {
-                <div class="flex gap">
-                    <input @bind="_discardReason" placeholder="Discard reason" style="flex:1;" />
-                    <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discardReason))" @onclick="() => DiscardAsync(u.Id)">Discard</button>
-                </div>
+                @if (_retypeDetail is null)
+                {
+                    <div class="muted">Unable to load retype details for this unit.</div>
+                }
+                else
+                {
+                    <ProductRetypeEntryPanel Detail="_retypeDetail" OnSaved="OnRetypeSaved" />
+                }
             }
 
-            <h4 style="margin-top:.5rem;">Blood attributes</h4>
-            @if (_unitAttributes.Count == 0)
+            @if (_unitTab == "attributes")
             {
-                <div class="muted">No extended typing on record.</div>
-            }
-            else
-            {
-                <table class="bb">
-                    <thead><tr><th>Kind</th><th>Antigen</th><th>Antibody</th><th>Result</th></tr></thead>
-                    <tbody>
-                        @foreach (var a in _unitAttributes)
-                        {
-                            <tr>
-                                <td>@a.AttributeKind</td>
-                                <td class="mono">@a.AntigenCode — @a.AntigenName</td>
-                                <td>@a.AntibodyName</td>
-                                <td>@a.Result</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
-            @if (Session.Has(PermissionCodes.InventoryReceive))
-            {
-                <div class="form-row" style="margin-top:.5rem;">
-                    <div class="field"><label>Attribute</label>
-                        <FilterableComboBox TItem="BloodAttributeListItemDto" TValue="long?"
-                                            Items="_bloodAttributeCatalog"
-                                            @bind-Value="_uaCatalogId"
-                                            DisplayText="@(a => $"{a.Name} ({a.Code})")"
-                                            Placeholder="Select" />
+                <h4>Blood attributes</h4>
+                @if (_unitAttributes.Count == 0)
+                {
+                    <div class="muted">No extended typing on record.</div>
+                }
+                else
+                {
+                    <table class="bb">
+                        <thead><tr><th>Kind</th><th>Antigen</th><th>Antibody</th><th>Result</th></tr></thead>
+                        <tbody>
+                            @foreach (var a in _unitAttributes)
+                            {
+                                <tr>
+                                    <td>@a.AttributeKind</td>
+                                    <td class="mono">@a.AntigenCode — @a.AntigenName</td>
+                                    <td>@a.AntibodyName</td>
+                                    <td>@a.Result</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+                @if (Session.Has(PermissionCodes.InventoryReceive))
+                {
+                    <div class="form-row" style="margin-top:.5rem;">
+                        <div class="field"><label>Attribute</label>
+                            <FilterableComboBox TItem="BloodAttributeListItemDto" TValue="long?"
+                                                Items="_bloodAttributeCatalog"
+                                                @bind-Value="_uaCatalogId"
+                                                DisplayText="@(a => $"{a.Name} ({a.Code})")"
+                                                Placeholder="Select" />
+                        </div>
+                        <div class="field"><label>Kind</label>
+                            <select @bind="_uaKind">@foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@k</option> }</select>
+                        </div>
+                        <div class="field"><label>Result</label>
+                            <select @bind="_uaResult">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }</select>
+                        </div>
                     </div>
-                    <div class="field"><label>Kind</label>
-                        <select @bind="_uaKind">@foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@k</option> }</select>
-                    </div>
-                    <div class="field"><label>Result</label>
-                        <select @bind="_uaResult">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }</select>
-                    </div>
-                </div>
-                <button class="btn btn-secondary btn-sm" disabled="@(_busy || _uaCatalogId is null)" @onclick="() => SaveUnitAttributeAsync(u.Id)">Save attribute</button>
+                    <button class="btn btn-secondary btn-sm" disabled="@(_busy || _uaCatalogId is null)" @onclick="() => SaveUnitAttributeAsync(u.Id)">Save attribute</button>
+                }
             }
 
-            <h4 style="margin-top:.5rem;">Status history</h4>
-            @if (_history.Count == 0)
+            @if (_unitTab == "history")
             {
-                <div class="muted">No history.</div>
-            }
-            else
-            {
-                <table class="bb">
-                    <thead><tr><th>From</th><th>To</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
-                    <tbody>
-                        @foreach (var h in _history)
-                        {
-                            <tr>
-                                <td>@(h.FromStatus?.ToString() ?? "—")</td>
-                                <td>@h.ToStatus</td>
-                                <td>@h.Reason</td>
-                                <td>@h.ChangedBy</td>
-                                <td class="nowrap">@h.ChangedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                <h4>Status history</h4>
+                @if (_history.Count == 0)
+                {
+                    <div class="muted">No history.</div>
+                }
+                else
+                {
+                    <table class="bb">
+                        <thead><tr><th>From</th><th>To</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+                        <tbody>
+                            @foreach (var h in _history)
+                            {
+                                <tr>
+                                    <td>@(h.FromStatus?.ToString() ?? "—")</td>
+                                    <td>@h.ToStatus</td>
+                                    <td>@h.Reason</td>
+                                    <td>@h.ChangedBy</td>
+                                    <td class="nowrap">@h.ChangedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
             }
         </div>
     };

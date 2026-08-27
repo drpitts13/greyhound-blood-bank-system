@@ -2,7 +2,7 @@ using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Inventory;
 
-/// <summary>Intake request for a new blood unit. Received units land in Quarantine.</summary>
+/// <summary>Intake request for a new blood unit. Retype products land in Received; others in Quarantine.</summary>
 public sealed record ReceiveUnitRequest(
     string UnitNumber,
     long ProductTypeId,

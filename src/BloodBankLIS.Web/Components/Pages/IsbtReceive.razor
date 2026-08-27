@@ -36,6 +36,9 @@
             <label>Expiration (local) <input type="datetime-local" @bind="_expirationLocal" /></label>
             <label><input type="checkbox" @bind="_explicitTime" /> Label includes explicit time</label>
             <label><input type="checkbox" @bind="_releaseAvailable" /> Release to Available</label>
+            <p class="muted" style="margin-top:0;font-size:0.85rem;">
+                Ignored when the product requires an ABO/Rh retype — those units enter as Received.
+            </p>
             <button class="btn" disabled="@(!Session.Has(PermissionCodes.InventoryReceive))" @onclick="SubmitManual">
                 Create component
             </button>
