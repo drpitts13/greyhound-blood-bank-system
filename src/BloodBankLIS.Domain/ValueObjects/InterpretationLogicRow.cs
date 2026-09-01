@@ -57,6 +57,50 @@ public static class InterpretationLogicDefinitions
         }
     }
 
+    /// <summary>
+    /// Drops composite expectation keys whose phase is no longer assigned to that
+    /// subtest (e.g. leftover IS/37C after an antibody screen is limited to AHG).
+    /// Bare subtest keys and keys for unassigned subtests are left for validation.
+    /// </summary>
+    public static IReadOnlyList<InterpretationLogicRow> DropUnassignedPhaseExpectations(
+        IReadOnlyList<InterpretationLogicRow> rows,
+        IReadOnlyList<PanelSubtestAssignment> assignments)
+    {
+        if (rows.Count == 0)
+        {
+            return rows;
+        }
+
+        var phasesBySubtest = assignments
+            .Where(a => !string.IsNullOrWhiteSpace(a.SubtestCode))
+            .GroupBy(a => a.SubtestCode.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => (g.First().PhaseCodes ?? Array.Empty<string>())
+                    .Select(p => p.Trim())
+                    .Where(p => p.Length > 0)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
+
+        return rows.Select(row =>
+        {
+            var kept = new Dictionary<string, ReactionPolarity>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (key, polarity) in row.SubtestExpectations)
+            {
+                if (PhaseResultKeys.TrySplit(key, out var subtest, out var phase)
+                    && phasesBySubtest.TryGetValue(subtest, out var phases)
+                    && !phases.Contains(phase))
+                {
+                    continue;
+                }
+
+                kept[key] = polarity;
+            }
+
+            return row with { SubtestExpectations = kept };
+        }).ToList();
+    }
+
     public static string BuildAboRhKey(AboGroup abo, RhType rh) => $"{abo}|{rh}";
 
     /// <summary>Standard ABO/Rh logic rows using the Type O Positive reaction pattern as template.</summary>

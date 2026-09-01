@@ -9,7 +9,7 @@ using BloodBankLIS.Domain.Rules;
 namespace BloodBankLIS.Application.Specimens;
 
 /// <summary>
-/// Specimen accessioning and rejection. Expiration is computed at accessioning from
+/// Specimen accessioning, metadata edit, and rejection. Expiration is computed at accessioning from
 /// a policy window (defaulted here; intended to move to SystemConfiguration) and is
 /// enforced on the issue path in a later phase (see docs/workflows.md section 2).
 /// </summary>
@@ -119,7 +119,7 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail(identity.Message);
         }
 
-        var validityHours = request.ValidityHours ?? await ResolveValidityHoursAsync(patient, ct);
+        var validityHours = request.ValidityHours ?? await ResolveValidityHoursForPatientAsync(patient, ct);
         var specimen = new Specimen
         {
             AccessionNumber = request.AccessionNumber,
@@ -139,6 +139,69 @@ public sealed class SpecimenService
         };
 
         await _specimens.AddAsync(specimen, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Specimen>.Ok(specimen);
+    }
+
+    /// <summary>
+    /// Updates collection metadata on an accepted specimen. Accession number, type,
+    /// patient, identity tokens, and status are immutable here.
+    /// </summary>
+    public async Task<OperationResult<Specimen>> UpdateAsync(long specimenId, UpdateSpecimenRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+        if (specimen is null)
+        {
+            return OperationResult<Specimen>.Fail("Specimen not found.");
+        }
+
+        if (specimen.Status is not SpecimenStatus.Accepted)
+        {
+            return OperationResult<Specimen>.Fail($"A specimen with status {specimen.Status} cannot be edited.");
+        }
+
+        if (request.CollectedUtc > _clock.UtcNow)
+        {
+            return OperationResult<Specimen>.Fail("Collection date/time cannot be in the future.");
+        }
+
+        var hours = request.ValidityHours
+            ?? (specimen.ExpiresUtc.HasValue
+                ? (int)Math.Round((specimen.ExpiresUtc.Value - specimen.CollectedUtc).TotalHours)
+                : await ResolveValidityHoursForSpecimenAsync(specimen, ct));
+
+        var previous = new
+        {
+            specimen.CollectedUtc,
+            specimen.Barcode,
+            specimen.DrawLocation,
+            specimen.Collector,
+            specimen.ExpiresUtc
+        };
+
+        specimen.CollectedUtc = request.CollectedUtc;
+        specimen.Barcode = string.IsNullOrWhiteSpace(request.Barcode) ? null : request.Barcode.Trim();
+        specimen.DrawLocation = string.IsNullOrWhiteSpace(request.DrawLocation) ? null : request.DrawLocation.Trim();
+        specimen.Collector = string.IsNullOrWhiteSpace(request.Collector) ? null : request.Collector.Trim();
+        specimen.ExpiresUtc = request.CollectedUtc.AddHours(hours);
+
+        _specimens.Update(specimen);
+        _audit?.Record(
+            AuditEventType.Update,
+            nameof(Specimen),
+            specimen.Id,
+            oldValue: previous,
+            newValue: new
+            {
+                specimen.CollectedUtc,
+                specimen.Barcode,
+                specimen.DrawLocation,
+                specimen.Collector,
+                specimen.ExpiresUtc
+            },
+            reason: "Specimen metadata updated.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
     }
@@ -180,7 +243,7 @@ public sealed class SpecimenService
             return;
         }
 
-        var hours = await ResolveValidityHoursAsync(patient, ct);
+        var hours = await ResolveValidityHoursForPatientAsync(patient, ct);
         var specimens = await _specimens.ListAsync(
             s => s.PatientId == patientId && s.Status == SpecimenStatus.Accepted, ct);
         foreach (var specimen in specimens)
@@ -205,7 +268,15 @@ public sealed class SpecimenService
         await _unitOfWork.SaveChangesAsync(ct);
     }
 
-    private async Task<int> ResolveValidityHoursAsync(Patient patient, CancellationToken ct)
+    private async Task<int> ResolveValidityHoursForSpecimenAsync(Specimen specimen, CancellationToken ct)
+    {
+        var patient = await _patients.GetByIdAsync(specimen.PatientId, ct);
+        return patient is null
+            ? DefaultValidityHours
+            : await ResolveValidityHoursForPatientAsync(patient, ct);
+    }
+
+    private async Task<int> ResolveValidityHoursForPatientAsync(Patient patient, CancellationToken ct)
     {
         var alloHours = _policy is null
             ? SpecimenValidityPolicy.DefaultAlloimmunizationRiskHours

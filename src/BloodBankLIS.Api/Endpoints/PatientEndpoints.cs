@@ -1,7 +1,6 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.Services;
-using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Rules;
 
@@ -44,32 +43,11 @@ public static class PatientEndpoints
         group.MapPut("/{id:long}", async (
             long id,
             UpdatePatientRequest request,
-            EntityCrudService<Patient> service,
-            SpecimenService specimens,
+            PatientService patients,
             CancellationToken ct) =>
         {
-            var patient = await service.GetAsync(id, ct);
-            if (patient is null)
-            {
-                return Results.NotFound();
-            }
-
-            var pregnancyChanged = patient.RecentPregnancyUtc != request.RecentPregnancyUtc;
-            patient.LastName = request.LastName;
-            patient.FirstName = request.FirstName;
-            patient.MiddleName = request.MiddleName;
-            patient.DateOfBirth = request.DateOfBirth;
-            patient.Sex = request.Sex;
-            patient.Status = request.Status;
-            patient.RecentPregnancyUtc = request.RecentPregnancyUtc;
-
-            await service.UpdateAsync(patient, ct);
-            if (pregnancyChanged)
-            {
-                await specimens.RecomputeValidityForPatientAsync(id, ct);
-            }
-
-            return Results.Ok(PatientDto.From(patient));
+            var result = await patients.UpdateAsync(id, request, ct);
+            return EndpointResults.From(result, PatientDto.From);
         }).RequirePermission(PermissionCodes.PatientWrite);
     }
 }

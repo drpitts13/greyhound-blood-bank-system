@@ -66,7 +66,7 @@
                         @foreach (var st in _panelSubtests)
                         {
                             <tr>
-                                <td>@st.Label <span class="mono muted">@st.SubtestCode</span></td>
+                                <td>@st.Label</td>
                                 @foreach (var phase in PhaseColumns)
                                 {
                                     var assigned = AssignedPhase(st, phase.PhaseCode);
@@ -106,7 +106,7 @@
                             var optional = !st.Required;
                             var performed = !optional || IsOptionalPerformed(st.SubtestCode);
                             <tr>
-                                <td>@st.Label <span class="mono muted">@st.SubtestCode</span></td>
+                                <td>@st.Label</td>
                                 <td>
                                     @if (st.ResultType == SubtestResultType.FreeText)
                                     {

@@ -92,6 +92,20 @@ public static partial class DatabaseSeeder
         }
 
         await context.SaveChangesAsync(ct);
+
+        // Technologist is not in the admin grant list above; give them specimen.edit
+        // when the permission is introduced on an upgraded database.
+        if (missing.Contains(PermissionCodes.SpecimenEdit))
+        {
+            var techRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Technologist", ct);
+            var editPerm = await context.Permissions.FirstOrDefaultAsync(p => p.Code == PermissionCodes.SpecimenEdit, ct);
+            if (techRole is not null && editPerm is not null
+                && !await context.RolePermissions.AnyAsync(rp => rp.RoleId == techRole.Id && rp.PermissionId == editPerm.Id, ct))
+            {
+                context.RolePermissions.Add(new RolePermission { RoleId = techRole.Id, PermissionId = editPerm.Id });
+                await context.SaveChangesAsync(ct);
+            }
+        }
     }
 
     private static async Task SeedSystemSettingsAsync(BloodBankDbContext context, CancellationToken ct)
@@ -350,7 +364,7 @@ public static partial class DatabaseSeeder
         var technologistCodes = new[]
         {
             PermissionCodes.PatientWrite,
-            PermissionCodes.SpecimenAccession, PermissionCodes.SpecimenReject,
+            PermissionCodes.SpecimenAccession, PermissionCodes.SpecimenReject, PermissionCodes.SpecimenEdit,
             PermissionCodes.ResultEnter, PermissionCodes.ResultVerify,
             PermissionCodes.ImmunoRecord,
             PermissionCodes.InventoryReceive, PermissionCodes.InventoryTransfer, PermissionCodes.InventoryRelease,

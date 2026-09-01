@@ -30,6 +30,18 @@ public static class SpecimenEndpoints
             return Results.Created($"/api/specimens/{result.Value.Id}", dto);
         }).RequirePermission(PermissionCodes.SpecimenAccession);
 
+        group.MapPut("/{id:long}", async (long id, UpdateSpecimenRequest request, SpecimenService service, CancellationToken ct) =>
+        {
+            var result = await service.UpdateAsync(id, request, ct);
+            if (!result.Succeeded)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            var dto = await service.GetAsync(result.Value!.Id, ct);
+            return dto is null ? Results.NotFound() : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.SpecimenEdit);
+
         group.MapPost("/{id:long}/reject", async (long id, RejectSpecimenRequest request, SpecimenService service, CancellationToken ct) =>
         {
             var result = await service.RejectAsync(id, request.Reason, ct);

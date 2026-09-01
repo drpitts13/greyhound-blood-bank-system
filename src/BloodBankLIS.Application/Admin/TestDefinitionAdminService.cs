@@ -549,15 +549,18 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         e.AllowedResultValues = string.IsNullOrWhiteSpace(req.AllowedResultValues) ? null : req.AllowedResultValues.Trim();
 
+        var assignments = MapAssignments(req.PanelSubtestAssignments);
+
         e.PanelSubtestsJson = TestDefinitionValidator.UsesPanelSubtests(req.ResultValueType)
 
-            ? PanelSubtestAssignments.ToJson(MapAssignments(req.PanelSubtestAssignments))
+            ? PanelSubtestAssignments.ToJson(assignments)
 
             : null;
 
         e.InterpretationLogicJson = TestDefinitionValidator.UsesPanelSubtests(req.ResultValueType)
 
-            ? InterpretationLogicDefinitions.ToJson(MapLogic(req.InterpretationLogic))
+            ? InterpretationLogicDefinitions.ToJson(
+                InterpretationLogicDefinitions.DropUnassignedPhaseExpectations(MapLogic(req.InterpretationLogic), assignments))
 
             : null;
 

@@ -24,17 +24,60 @@ else
 {
     <div class="flex-between" style="margin-bottom:1rem;">
         <div>
-            <h1>@_patient.LastName, @_patient.FirstName</h1>
-            <div class="muted">MRN <span class="mono">@_patient.MedicalRecordNumber</span> &middot; DOB @_patient.DateOfBirth.ToString("yyyy-MM-dd") &middot; @_patient.Sex</div>
+            <h1>@DisplayName(_patient)</h1>
+            <div class="muted">
+                MRN <span class="mono">@_patient.MedicalRecordNumber</span>
+                &middot; DOB @_patient.DateOfBirth.ToString("yyyy-MM-dd")
+                &middot; @_patient.Sex
+                &middot; <span class="badge badge-gray">@_patient.Status</span>
+            </div>
         </div>
         <div class="flex gap">
             <div class="stat" style="text-align:center;padding:.6rem 1rem;">
                 <div class="label">Blood type</div>
                 <div class="value" style="font-size:1.4rem;">@(_currentType is null ? "—" : Ui.BloodType(_currentType.Abo, _currentType.RhD))</div>
             </div>
+            @if (CanEditDemographics)
+            {
+                <button class="btn btn-secondary" @onclick="ToggleEditDemographics">@(_editingDemographics ? "Cancel edit" : "Edit demographics")</button>
+            }
             <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/patients")'>Back</button>
         </div>
     </div>
+
+    @if (_editingDemographics)
+    {
+        <div class="bb-card" style="margin-bottom:1rem;">
+            <div class="bb-card-title"><h3>Edit demographics</h3></div>
+            <Outcome Value="_demoFb" />
+            <div class="form-row">
+                <div class="field"><label>MRN</label><input value="@_patient.MedicalRecordNumber" disabled /></div>
+                <div class="field"><label>Last name</label><input @bind="_demo.LastName" /></div>
+                <div class="field"><label>First name</label><input @bind="_demo.FirstName" /></div>
+                <div class="field"><label>Middle name</label><input @bind="_demo.MiddleName" /></div>
+                <div class="field"><label>Date of birth</label><input type="date" @bind="_demo.DateOfBirth" /></div>
+                <div class="field"><label>Sex</label>
+                    <select @bind="_demo.Sex">
+                        @foreach (var s in Enum.GetValues<Sex>())
+                        {
+                            <option value="@s">@s</option>
+                        }
+                    </select>
+                </div>
+                <div class="field"><label>Status</label>
+                    <select @bind="_demo.Status">
+                        <option value="@PatientStatus.Active">Active</option>
+                        <option value="@PatientStatus.Inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <p class="muted">MRN cannot be changed. Later ADT messages may overwrite name, date of birth, and sex.</p>
+            <div class="flex gap">
+                <button class="btn btn-primary" disabled="@_busy" @onclick="SaveDemographicsAsync">Save</button>
+                <button class="btn btn-secondary" @onclick="() => _editingDemographics = false">Cancel</button>
+            </div>
+        </div>
+    }
 
     @if (_activeAntibodies.Count > 0)
     {
@@ -57,6 +100,7 @@ else
         <button type="button" class="btn @TabClass("orders")" @onclick='() => SelectTab("orders")'>Orders</button>
         <button type="button" class="btn @TabClass("specimens")" @onclick='() => SelectTab("specimens")'>Specimens</button>
         <button type="button" class="btn @TabClass("tests")" @onclick='() => SelectTab("tests")'>Tests</button>
+        <button type="button" class="btn @TabClass("test-history")" @onclick='() => SelectTab("test-history")'>Test History</button>
         <button type="button" class="btn @TabClass("products")" @onclick='() => SelectTab("products")'>Products</button>
         <button type="button" class="btn @TabClass("history")" @onclick='() => SelectTab("history")'>Product History</button>
     </div>
@@ -696,12 +740,37 @@ else
                             <td><span class="@Ui.Badge(s.Status)">@s.Status</span></td>
                             <td class="right">
                                 <button class="btn btn-ghost btn-sm" @onclick="() => SelectSpecimen(s)">@(_selectedSpecimen?.Id == s.Id ? "Hide" : "Results")</button>
+                                @if (s.Status == SpecimenStatus.Accepted && Session.Has(PermissionCodes.SpecimenEdit))
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => BeginEdit(s)">@(_editId == s.Id ? "Cancel edit" : "Edit")</button>
+                                }
                                 @if (s.Status == SpecimenStatus.Accepted && Session.Has(PermissionCodes.SpecimenReject))
                                 {
                                     <button class="btn btn-ghost btn-sm" @onclick="() => BeginReject(s)">Reject</button>
                                 }
                             </td>
                         </tr>
+                        @if (_editId == s.Id)
+                        {
+                            <tr><td colspan="6">
+                                <div class="alert alert-info" style="margin:0;">
+                                    <Outcome Value="_editFb" />
+                                    <div class="form-row">
+                                        <div class="field"><label>Accession #</label><input value="@s.AccessionNumber" disabled /></div>
+                                        <div class="field"><label>Specimen type</label><input value="@(s.SpecimenTypeDescription ?? s.SpecimenType)" disabled /></div>
+                                        <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="_edit.CollectedLocal" /></div>
+                                        <div class="field"><label>Barcode</label><input @bind="_edit.Barcode" /></div>
+                                        <div class="field"><label>Draw location</label><input @bind="_edit.DrawLocation" /></div>
+                                        <div class="field"><label>Collector</label><input @bind="_edit.Collector" /></div>
+                                        <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="_edit.ValidityHours" /></div>
+                                    </div>
+                                    <div class="flex gap">
+                                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => SaveEditAsync(s.Id)">Save</button>
+                                        <button class="btn btn-secondary btn-sm" @onclick="() => _editId = null">Cancel</button>
+                                    </div>
+                                </div>
+                            </td></tr>
+                        }
                         @if (_rejectId == s.Id)
                         {
                             <tr><td colspan="6">
@@ -813,6 +882,50 @@ else
                                     <TestResultEntryPanel WorkItem="item" OnSaved="OnTestResultSaved" />
                                 </td></tr>
                             }
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
+    @if (_tab == "test-history")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title">
+                <h3>Test history</h3>
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadTestHistoryAsync">Refresh</button>
+            </div>
+            <div class="form-row" style="margin-bottom:.75rem;">
+                <div class="field" style="flex:1;">
+                    <label>Search</label>
+                    <input @bind="_testHistorySearch" @bind:event="oninput" placeholder="Test, accession, order #..." />
+                </div>
+            </div>
+            @if (_testHistoryLoading)
+            {
+                <div class="loading">Loading test history...</div>
+            }
+            else if (FilteredTestHistory.Count == 0)
+            {
+                <div class="empty">@(string.IsNullOrWhiteSpace(_testHistorySearch) ? "No verified results." : "No verified results match this search.")</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Verified</th><th>Test</th><th>Result</th><th>Interpretation</th><th>Accession</th><th>Order</th><th>Verified by</th></tr></thead>
+                    <tbody>
+                        @foreach (var h in FilteredTestHistory)
+                        {
+                            <tr>
+                                <td class="nowrap">@h.VerifiedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td><strong>@h.TestName</strong> <span class="mono muted">@h.TestCode</span></td>
+                                <td>@DisplayHistoryValue(h)</td>
+                                <td>@(h.Interpretation ?? "—")</td>
+                                <td class="mono">@(string.IsNullOrWhiteSpace(h.AccessionNumber) ? "—" : h.AccessionNumber)</td>
+                                <td class="mono">@(h.OrderNumber ?? "—")</td>
+                                <td>@(h.VerifiedBy ?? "—")</td>
+                            </tr>
                         }
                     </tbody>
                 </table>
@@ -1062,6 +1175,9 @@ else
     private bool _busy;
 
     private PatientDto? _patient;
+    private bool _editingDemographics;
+    private PatientDemoEditModel _demo = new();
+    private Feedback? _demoFb;
     private BloodTypeDto? _currentType;
     private List<BloodTypeDto> _typeHistory = new();
     private List<AntibodyDto> _antibodyHistory = new();
@@ -1082,6 +1198,7 @@ else
     private bool _visitsLoaded;
     private bool _ordersLoaded;
     private bool _historyLoaded;
+    private bool _testHistoryLoaded;
     private bool _visitsLoading;
     private bool _ordersLoading;
     private bool _historyLoading;
@@ -1146,12 +1263,15 @@ else
     private long? _deactivateId;
     private string _deactivateReason = string.Empty;
 
-    // accession / reject
+    // accession / reject / edit
     private bool _showAccession;
     private AccessionModel _acc = new();
     private Feedback? _accessionFb;
     private long? _rejectId;
     private string _rejectReason = string.Empty;
+    private long? _editId;
+    private SpecimenEditModel _edit = new();
+    private Feedback? _editFb;
 
     // results
     private SpecimenDto? _selectedSpecimen;
@@ -1188,6 +1308,11 @@ else
     private string _testStatusFilter = "pending";
     private string _testSearch = string.Empty;
     private long? _expandedTestLineId;
+
+    // test history tab
+    private List<PatientTestHistoryRowDto> _testHistory = new();
+    private bool _testHistoryLoading;
+    private string _testHistorySearch = string.Empty;
 
     // products tab
     private List<PatientAllocationRowDto> _allocations = new();
@@ -1267,6 +1392,7 @@ else
         if (tab == "visits" && !_visitsLoaded) await LoadVisitsAsync();
         if (tab == "orders") { if (!_visitsLoaded) await LoadVisitsAsync(); if (!_ordersLoaded) await LoadOrdersAsync(); }
         if (tab == "history" && !_historyLoaded) await LoadProductHistoryAsync();
+        if (tab == "test-history" && !_testHistoryLoaded) await LoadTestHistoryAsync();
         if (tab == "tests" && !_testsLoaded) await LoadTestWorklistAsync();
         if (tab == "products" && !_allocLoaded) await LoadAllocationsAsync();
     }
@@ -1584,6 +1710,7 @@ else
     {
         await LoadTestWorklistAsync();
         await LoadHeaderType();
+        if (_testHistoryLoaded) await LoadTestHistoryAsync();
     }
 
     private async Task EnsureWorkspaceRefsAsync()
@@ -1844,6 +1971,33 @@ else
         _historyLoaded = true;
     }
 
+    private async Task LoadTestHistoryAsync()
+    {
+        _testHistoryLoading = true;
+        _testHistory = (await Api.GetPatientTestHistoryAsync(Id)).Value ?? new();
+        _testHistoryLoading = false;
+        _testHistoryLoaded = true;
+    }
+
+    private IReadOnlyList<PatientTestHistoryRowDto> FilteredTestHistory
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_testHistorySearch))
+            {
+                return _testHistory;
+            }
+
+            var q = _testHistorySearch.Trim();
+            return _testHistory.Where(h =>
+                    h.TestCode.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || h.TestName.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || h.AccessionNumber.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || (h.OrderNumber?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false))
+                .ToList();
+        }
+    }
+
     private static string TestRowClass(TestWorkItemDto item) =>
         item.Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease or OrderPriority.MassiveTransfusionProtocol
             ? "row-urgent" : string.Empty;
@@ -1928,6 +2082,59 @@ else
         if (r.Succeeded) { _srDeactivateId = null; await LoadAsync(); }
     }
 
+    private bool CanEditDemographics =>
+        _patient is not null
+        && _patient.Status != PatientStatus.Merged
+        && Session.Has(PermissionCodes.PatientWrite);
+
+    private static string DisplayName(PatientDto p) =>
+        string.IsNullOrWhiteSpace(p.MiddleName)
+            ? $"{p.LastName}, {p.FirstName}"
+            : $"{p.LastName}, {p.FirstName} {p.MiddleName}";
+
+    private void ToggleEditDemographics()
+    {
+        if (_patient is null) return;
+        if (_editingDemographics)
+        {
+            _editingDemographics = false;
+            return;
+        }
+
+        _demoFb = null;
+        _demo = new PatientDemoEditModel
+        {
+            LastName = _patient.LastName,
+            FirstName = _patient.FirstName,
+            MiddleName = _patient.MiddleName,
+            DateOfBirth = _patient.DateOfBirth,
+            Sex = _patient.Sex,
+            Status = _patient.Status == PatientStatus.Inactive ? PatientStatus.Inactive : PatientStatus.Active
+        };
+        _editingDemographics = true;
+    }
+
+    private async Task SaveDemographicsAsync()
+    {
+        if (_patient is null) return;
+        _busy = true;
+        var r = await Api.UpdatePatientAsync(Id, new UpdatePatientRequest(
+            _demo.LastName,
+            _demo.FirstName,
+            string.IsNullOrWhiteSpace(_demo.MiddleName) ? null : _demo.MiddleName,
+            _demo.DateOfBirth,
+            _demo.Sex,
+            _demo.Status,
+            RecentPregnancyUtc: _patient.RecentPregnancyUtc));
+        _busy = false;
+        _demoFb = r.ToFeedback("Demographics updated.");
+        if (r.Succeeded)
+        {
+            _editingDemographics = false;
+            await LoadAsync();
+        }
+    }
+
     private async Task MarkRecentPregnancyAsync()
     {
         if (_patient is null) return;
@@ -1953,7 +2160,50 @@ else
         if (r.Succeeded) { _acc = new(); _showAccession = false; await LoadAsync(); }
     }
 
-    private void BeginReject(SpecimenDto s) { _rejectId = s.Id; _rejectReason = string.Empty; }
+    private void BeginReject(SpecimenDto s)
+    {
+        _editId = null;
+        _rejectId = s.Id;
+        _rejectReason = string.Empty;
+    }
+
+    private void BeginEdit(SpecimenDto s)
+    {
+        if (_editId == s.Id)
+        {
+            _editId = null;
+            return;
+        }
+
+        _rejectId = null;
+        _editId = s.Id;
+        _editFb = null;
+        _edit = new SpecimenEditModel
+        {
+            CollectedLocal = s.CollectedUtc,
+            Barcode = s.Barcode,
+            DrawLocation = s.DrawLocation,
+            Collector = s.Collector
+        };
+    }
+
+    private async Task SaveEditAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.UpdateSpecimenAsync(specimenId, new UpdateSpecimenRequest(
+            DateTime.SpecifyKind(_edit.CollectedLocal, DateTimeKind.Utc),
+            string.IsNullOrWhiteSpace(_edit.Barcode) ? null : _edit.Barcode,
+            string.IsNullOrWhiteSpace(_edit.DrawLocation) ? null : _edit.DrawLocation,
+            string.IsNullOrWhiteSpace(_edit.Collector) ? null : _edit.Collector,
+            _edit.ValidityHours));
+        _busy = false;
+        _editFb = r.ToFeedback("Specimen updated.");
+        if (r.Succeeded)
+        {
+            _editId = null;
+            await LoadAsync();
+        }
+    }
 
     private async Task RejectAsync(long specimenId)
     {
@@ -2049,6 +2299,9 @@ else
     }
 
     private static string DisplayResultValue(TestResultDto r) =>
+        r.TestCode == "ABORH" ? AboRhResultValue.FormatDisplay(r.Value) : (r.Value ?? "—");
+
+    private static string DisplayHistoryValue(PatientTestHistoryRowDto r) =>
         r.TestCode == "ABORH" ? AboRhResultValue.FormatDisplay(r.Value) : (r.Value ?? "—");
 
     private async Task EnterGenericAsync(long specimenId)
@@ -2258,7 +2511,7 @@ else
                                 var optional = !st.Required;
                                 var performed = !optional || IsOptionalPerformed(st.SubtestCode);
                                 <tr>
-                                    <td>@st.Label <span class="mono muted">@st.SubtestCode</span></td>
+                                    <td>@st.Label</td>
                                     <td>
                                         <select value="@GetSubtestValue(st.SubtestCode)" @onchange="e => SetSubtestValue(st.SubtestCode, e)" disabled="@(!performed)">
                                             @if (optional) { <option value="NT">NT</option> }
@@ -2299,6 +2552,25 @@ else
         public int? ValidityHours { get; set; }
         public string? Identifier1Value { get; set; }
         public string? Identifier2Value { get; set; }
+    }
+
+    private sealed class PatientDemoEditModel
+    {
+        public string LastName { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string? MiddleName { get; set; }
+        public DateOnly DateOfBirth { get; set; }
+        public Sex Sex { get; set; } = Sex.Unknown;
+        public PatientStatus Status { get; set; } = PatientStatus.Active;
+    }
+
+    private sealed class SpecimenEditModel
+    {
+        public DateTime CollectedLocal { get; set; } = DateTime.UtcNow;
+        public string? Barcode { get; set; }
+        public string? DrawLocation { get; set; }
+        public string? Collector { get; set; }
+        public int? ValidityHours { get; set; }
     }
 
     private static string FormatProvider(OrderingProviderRefDto p) => $"{p.Name} ({p.ProviderId})";

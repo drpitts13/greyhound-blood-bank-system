@@ -10,6 +10,7 @@ using BloodBankLIS.Application.Modifications;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Application.Rules;
 using BloodBankLIS.Application.Services;
+using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Application.Admin;
@@ -74,6 +75,7 @@ public static class DependencyInjection
         services.AddScoped<ManualComponentEntryService>();
         services.AddScoped<ComponentIdentityCorrectionService>();
         services.AddScoped<CompatibilityRulesEngine>();
+        services.AddScoped<PatientService>();
         services.AddScoped<SpecimenService>();
         services.AddScoped<OrderingProviderService>();
         services.AddScoped<OrderingLocationService>();
@@ -81,6 +83,7 @@ public static class DependencyInjection
         services.AddScoped<RuleEngineService>();
         services.AddScoped<OrderService>();
         services.AddScoped<PatientProductHistoryService>();
+        services.AddScoped<PatientTestHistoryService>();
         services.AddScoped<PatientAllocationService>();
         services.AddScoped<ResultService>();
         services.AddScoped<TestWorklistService>();

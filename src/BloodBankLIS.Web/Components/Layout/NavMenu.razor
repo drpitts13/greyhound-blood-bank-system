@@ -59,38 +59,44 @@
         <NavLink href="admin" Match="NavLinkMatch.All" ActiveClass="active">Admin Home</NavLink>
         @if (Session.Has(PermissionCodes.AdminConfigView))
         {
-            <NavLink href="admin/tests" ActiveClass="active">Tests</NavLink>
-            <NavLink href="admin/subtests" ActiveClass="active">Subtests</NavLink>
-            <NavLink href="admin/phases" ActiveClass="active">Phases</NavLink>
-            <NavLink href="admin/test-groupers" ActiveClass="active">Test Groupers</NavLink>
-            <NavLink href="admin/reflex-rules" ActiveClass="active">Reflex Rules</NavLink>
-            <NavLink href="admin/rules" ActiveClass="active">Order &amp; Test Rules</NavLink>
-            <NavLink href="admin/products" ActiveClass="active">Products</NavLink>
-            <NavLink href="admin/modification-rules" ActiveClass="active">Modification Rules</NavLink>
-            <NavLink href="admin/expiration-codes" ActiveClass="active">Expiration Codes</NavLink>
-            <NavLink href="admin/isbt-product-codes" ActiveClass="active">ISBT Product Codes</NavLink>
             <NavLink href="admin/blood-attributes" ActiveClass="active">Blood Attributes</NavLink>
-            <NavLink href="admin/specimen-types" ActiveClass="active">Specimen Types</NavLink>
-            <NavLink href="admin/providers" ActiveClass="active">Providers</NavLink>
-            <NavLink href="admin/exceptions" ActiveClass="active">Exceptions</NavLink>
-            <NavLink href="admin/locations" ActiveClass="active">Locations</NavLink>
-            <NavLink href="admin/hl7" ActiveClass="active">Interface Setup</NavLink>
-            <NavLink href="admin/test-service-billing" ActiveClass="active">Test/Service Billing</NavLink>
-            <NavLink href="admin/product-billing" ActiveClass="active">Product Billing</NavLink>
             <NavLink href="admin/charge-codes" ActiveClass="active">Charge Codes</NavLink>
             <NavLink href="admin/charge-rules" ActiveClass="active">Charge Rules</NavLink>
         }
-        @if (Session.Has(PermissionCodes.AdminUsersManage))
+        @if (Session.Has(PermissionCodes.AdminAuditReview))
         {
-            <NavLink href="admin/users" ActiveClass="active">Users</NavLink>
+            <NavLink href="admin/history" ActiveClass="active">Config History</NavLink>
+        }
+        @if (Session.Has(PermissionCodes.AdminConfigView))
+        {
+            <NavLink href="admin/exceptions" ActiveClass="active">Exceptions</NavLink>
+            <NavLink href="admin/expiration-codes" ActiveClass="active">Expiration Codes</NavLink>
+            <NavLink href="admin/hl7" ActiveClass="active">Interface Setup</NavLink>
+            <NavLink href="admin/isbt-product-codes" ActiveClass="active">ISBT Product Codes</NavLink>
+            <NavLink href="admin/locations" ActiveClass="active">Locations</NavLink>
+            <NavLink href="admin/modification-rules" ActiveClass="active">Modification Rules</NavLink>
+            <NavLink href="admin/rules" ActiveClass="active">Order &amp; Test Rules</NavLink>
+            <NavLink href="admin/phases" ActiveClass="active">Phases</NavLink>
+            <NavLink href="admin/product-billing" ActiveClass="active">Product Billing</NavLink>
+            <NavLink href="admin/products" ActiveClass="active">Products</NavLink>
+            <NavLink href="admin/providers" ActiveClass="active">Providers</NavLink>
+            <NavLink href="admin/reflex-rules" ActiveClass="active">Reflex Rules</NavLink>
         }
         @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage))
         {
             <NavLink href="admin/roles" ActiveClass="active">Roles</NavLink>
         }
-        @if (Session.Has(PermissionCodes.AdminAuditReview))
+        @if (Session.Has(PermissionCodes.AdminConfigView))
         {
-            <NavLink href="admin/history" ActiveClass="active">Config History</NavLink>
+            <NavLink href="admin/specimen-types" ActiveClass="active">Specimen Types</NavLink>
+            <NavLink href="admin/subtests" ActiveClass="active">Subtests</NavLink>
+            <NavLink href="admin/test-groupers" ActiveClass="active">Test Groupers</NavLink>
+            <NavLink href="admin/test-service-billing" ActiveClass="active">Test/Service Billing</NavLink>
+            <NavLink href="admin/tests" ActiveClass="active">Tests</NavLink>
+        }
+        @if (Session.Has(PermissionCodes.AdminUsersManage))
+        {
+            <NavLink href="admin/users" ActiveClass="active">Users</NavLink>
         }
     }
 </nav>

@@ -234,6 +234,7 @@ flowchart LR
 ```
 
 - Inbound messages are persisted to `HL7Messages` first, then parsed, then mapped to Application commands (which run the same safety checks as the API). Failures go to `InterfaceErrorQueue` and produce a NAK.
+- Patient name, date of birth, and sex can also be edited on the patient record (`patient.write`). MRN stays immutable. A later ADT A08 may overwrite those demographic fields.
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---
@@ -243,7 +244,7 @@ flowchart LR
 | Workflow | Audit event(s) | E-signature required |
 |---|---|---|
 | Unit intake/release | Create, Update(status) | No |
-| Accessioning/reject | Create, Update(status) | No |
+| Accessioning/reject | Create, Update(status), Update(metadata) | No |
 | Result verify | Verify | Per policy |
 | Result correction | Correct | Yes |
 | Allocation | Update(status) | No |
@@ -253,5 +254,6 @@ flowchart LR
 | Return | Return, Update(status) | No |
 | Discard | Discard, Update(status) | Confirmation + reason |
 | Product modification | Modify, Create/Update(status) | Reason |
+| Patient demographics edit | Update | No |
 | ABO/Rh manual edit | Update(blood type history) | Yes |
 | P-tag reprint | Reprint | Reason |

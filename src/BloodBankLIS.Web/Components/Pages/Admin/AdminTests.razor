@@ -150,7 +150,7 @@
                                                     {
                                                         var selected = row.PhaseCodes.Contains(phase.Code, StringComparer.OrdinalIgnoreCase);
                                                         <label class="flex" style="gap:.2rem;font-size:.85rem;">
-                                                            <input type="checkbox" checked="@selected" @onchange="e => TogglePhase(row, phase.Code, (bool)(e.Value ?? false))" />
+                                                            <input type="checkbox" checked="@selected" @onchange="e => OnPhaseToggled(row, phase.Code, (bool)(e.Value ?? false))" />
                                                             @phase.Code
                                                             @if (phase.IsCheckCell)
                                                             {
@@ -510,6 +510,7 @@
     private async Task SaveAsync()
     {
         if (_editing is null) return;
+        _editing.PruneUnassignedLogicExpectations();
         _busy = true;
         var req = _editing.ToRequest(_changeReason);
         var r = _editId is null
@@ -592,6 +593,13 @@
     {
         if (_editing is null || index < 0 || index >= _editing.PanelSubtestAssignments.Count) return;
         _editing.PanelSubtestAssignments.RemoveAt(index);
+        _editing.PruneUnassignedLogicExpectations();
+    }
+
+    private void OnPhaseToggled(AssignmentRow row, string phaseCode, bool selected)
+    {
+        TogglePhase(row, phaseCode, selected);
+        _editing?.PruneUnassignedLogicExpectations();
     }
 
     private static void TogglePhase(AssignmentRow row, string phaseCode, bool selected)
@@ -617,6 +625,7 @@
         {
             row.PhaseCodes = source.ToList();
         }
+        _editing.PruneUnassignedLogicExpectations();
     }
 
     private void LoadDefaultAboRhSubtests()
@@ -778,7 +787,26 @@
             ContributesToUnitBloodAttributes = t.ContributesToUnitBloodAttributes
         };
 
-        public SaveTestDefinitionRequest ToRequest(string? reason) => new(
+        public void PruneUnassignedLogicExpectations()
+        {
+            var assignments = PanelSubtestAssignments
+                .Select(s => new PanelSubtestAssignment(s.SubtestCode, s.Required, s.SortOrder, s.PhaseCodes))
+                .ToList();
+            var pruned = InterpretationLogicDefinitions.DropUnassignedPhaseExpectations(
+                InterpretationLogic.Select(r => new InterpretationLogicRow(
+                    r.InterpretationKey, r.Label, r.Expectations, r.MatchMode)).ToList(),
+                assignments);
+            for (var i = 0; i < InterpretationLogic.Count && i < pruned.Count; i++)
+            {
+                InterpretationLogic[i].Expectations = new Dictionary<string, ReactionPolarity>(
+                    pruned[i].SubtestExpectations, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        public SaveTestDefinitionRequest ToRequest(string? reason)
+        {
+            PruneUnassignedLogicExpectations();
+            return new(
             Code, Name, Category, ResultValueType, AllowedResultValues,
             PanelSubtestAssignments.Select(s => new PanelSubtestAssignmentDto(s.SubtestCode, s.Required, s.SortOrder, s.PhaseCodes)).ToList(),
             InterpretationLogic.Select(r => new InterpretationLogicRowDto(
@@ -788,5 +816,6 @@
             BloodAttributeScopeCodes,
             ResultValueType == ResultValueType.BloodAttribute ? BloodAttributeScopeKind : null,
             ContributesToUnitBloodAttributes, reason);
+        }
     }
 }

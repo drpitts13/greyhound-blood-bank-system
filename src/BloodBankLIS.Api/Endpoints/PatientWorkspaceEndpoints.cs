@@ -116,6 +116,15 @@ public static class PatientWorkspaceEndpoints
             return Results.Ok(list);
         });
 
+        group.MapGet("/test-history", async (
+            long patientId,
+            PatientTestHistoryService service,
+            CancellationToken ct) =>
+        {
+            var list = await service.ListByPatientAsync(patientId, ct);
+            return Results.Ok(list);
+        });
+
         group.MapGet("/allocations", async (
             long patientId,
             PatientAllocationService service,

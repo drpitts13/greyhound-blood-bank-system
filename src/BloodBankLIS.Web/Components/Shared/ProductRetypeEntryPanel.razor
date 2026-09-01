@@ -56,7 +56,7 @@
                     var optional = !st.Required;
                     var performed = !optional || IsOptionalPerformed(st.Code);
                     <tr>
-                        <td>@st.Label <span class="mono muted">@st.Code</span></td>
+                        <td>@st.Label</td>
                         <td>
                             <select value="@GetSubtest(st.Code)" @onchange="e => SetSubtest(st.Code, e)" disabled="@(!performed)">
                                 @if (optional) { <option value="NT">NT</option> }

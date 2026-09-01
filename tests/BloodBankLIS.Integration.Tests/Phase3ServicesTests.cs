@@ -172,6 +172,77 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Update_WritesMetadata_AndRecomputesExpiry()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT");
+        var specimenId = await AccessionAsync("ACC-EDIT", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-6);
+
+        await using var context = _factory.Create();
+        var updated = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
+            collected, Barcode: "BC-1", DrawLocation: "4W", Collector: "J. Tech"));
+
+        Assert.True(updated.Succeeded);
+        Assert.Equal(collected, updated.Value!.CollectedUtc);
+        Assert.Equal("BC-1", updated.Value.Barcode);
+        Assert.Equal("4W", updated.Value.DrawLocation);
+        Assert.Equal("J. Tech", updated.Value.Collector);
+        Assert.Equal(collected.AddHours(SpecimenValidityPolicy.DefaultStandardHours), updated.Value.ExpiresUtc);
+        Assert.Equal("ACC-EDIT", updated.Value.AccessionNumber);
+        Assert.Equal("EDTA", updated.Value.SpecimenType);
+        Assert.Equal(SpecimenStatus.Accepted, updated.Value.Status);
+    }
+
+    [Fact]
+    public async Task Update_FutureCollection_Fails()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-FUT");
+        var specimenId = await AccessionAsync("ACC-EDIT-FUT", patientId);
+
+        await using var context = _factory.Create();
+        var result = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
+            _factory.Clock.UtcNow.AddHours(1)));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("future", result.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Update_RejectedSpecimen_Fails()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-REJ");
+        var specimenId = await AccessionAsync("ACC-EDIT-REJ", patientId);
+
+        await using (var context = _factory.Create())
+        {
+            Assert.True((await Specimens(context).RejectAsync(specimenId, "Clotted")).Succeeded);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var result = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
+                _factory.Clock.UtcNow.AddHours(-2), Collector: "Someone"));
+            Assert.False(result.Succeeded);
+            Assert.Contains("Rejected", result.Error);
+        }
+    }
+
+    [Fact]
+    public async Task Update_ValidityHoursOverride_SetsExpiry()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-HRS");
+        var specimenId = await AccessionAsync("ACC-EDIT-HRS", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-3);
+
+        await using var context = _factory.Create();
+        var updated = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
+            collected, ValidityHours: 48));
+
+        Assert.True(updated.Succeeded);
+        Assert.Equal(collected.AddHours(48), updated.Value!.ExpiresUtc);
+    }
+
+    [Fact]
     public async Task EnterThenVerify_TransitionsStatus()
     {
         var patientId = await EnsurePatientAsync("MRN-RES");

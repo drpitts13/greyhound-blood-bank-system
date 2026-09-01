@@ -11,6 +11,7 @@ public static class PermissionCodes
 
     public const string SpecimenAccession = "specimen.accession";
     public const string SpecimenReject = "specimen.reject";
+    public const string SpecimenEdit = "specimen.edit";
 
     public const string ResultEnter = "result.enter";
     public const string ResultVerify = "result.verify";
@@ -78,7 +79,7 @@ public static class PermissionCodes
     public static readonly IReadOnlyList<string> All = new[]
     {
         PatientWrite,
-        SpecimenAccession, SpecimenReject,
+        SpecimenAccession, SpecimenReject, SpecimenEdit,
         ResultEnter, ResultVerify, ResultCorrect,
         ImmunoRecord, ImmunoOverride,
         InventoryReceive, InventoryTransfer, InventoryRelease, InventoryDiscard,

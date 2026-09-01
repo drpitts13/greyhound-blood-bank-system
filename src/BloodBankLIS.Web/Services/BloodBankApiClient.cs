@@ -89,6 +89,11 @@ public sealed class BloodBankApiClient
         return SendAsync<List<PatientProductHistoryRowDto>>(HttpMethod.Get, $"api/patients/{patientId}/product-history{qs}", ct: ct);
     }
 
+    public Task<ApiResult<List<PatientTestHistoryRowDto>>> GetPatientTestHistoryAsync(
+        long patientId,
+        CancellationToken ct = default) =>
+        SendAsync<List<PatientTestHistoryRowDto>>(HttpMethod.Get, $"api/patients/{patientId}/test-history", ct: ct);
+
     public Task<ApiResult<List<PatientAllocationRowDto>>> GetPatientAllocationsAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<PatientAllocationRowDto>>(HttpMethod.Get, $"api/patients/{patientId}/allocations", ct: ct);
 
@@ -123,6 +128,9 @@ public sealed class BloodBankApiClient
     // ---- Specimens ----
     public Task<ApiResult<SpecimenDto>> AccessionSpecimenAsync(AccessionSpecimenRequest req, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Post, "api/specimens", req, ct);
+
+    public Task<ApiResult<SpecimenDto>> UpdateSpecimenAsync(long id, UpdateSpecimenRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Put, $"api/specimens/{id}", req, ct);
 
     public Task<ApiResult<SpecimenDto>> GetSpecimenAsync(long id, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Get, $"api/specimens/{id}", ct: ct);

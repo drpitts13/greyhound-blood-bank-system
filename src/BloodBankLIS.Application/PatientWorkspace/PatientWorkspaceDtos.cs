@@ -156,3 +156,17 @@ public sealed record PatientProductHistoryRowDto(
     bool ReactionSuspected,
     bool HasMissingVisitContext,
     bool IsOpenAssignment);
+
+public sealed record PatientTestHistoryRowDto(
+    long ResultId,
+    DateTime VerifiedUtc,
+    string TestCode,
+    string TestName,
+    string? Value,
+    string? Interpretation,
+    string AccessionNumber,
+    long SpecimenId,
+    long? OrderId,
+    string? OrderNumber,
+    int Version,
+    string? VerifiedBy);

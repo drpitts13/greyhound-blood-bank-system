@@ -172,6 +172,42 @@ public class PhaseAndInterpretationTests
     }
 
     [Fact]
+    public void DropUnassignedPhaseExpectations_RemovesPhasesNoLongerOnThePanel()
+    {
+        var rows = DefaultScreenLogic();
+        var ahgOnly = Cells.Select((c, i) => new PanelSubtestAssignment(c, true, i + 1, ["AHG"])).ToList();
+
+        var pruned = InterpretationLogicDefinitions.DropUnassignedPhaseExpectations(rows, ahgOnly);
+
+        Assert.Equal(2, pruned.Count);
+        foreach (var row in pruned)
+        {
+            Assert.Equal(3, row.SubtestExpectations.Count);
+            foreach (var cell in Cells)
+            {
+                Assert.True(row.SubtestExpectations.ContainsKey(PhaseResultKeys.Compose(cell, "AHG")));
+                Assert.False(row.SubtestExpectations.ContainsKey(PhaseResultKeys.Compose(cell, "IS")));
+                Assert.False(row.SubtestExpectations.ContainsKey(PhaseResultKeys.Compose(cell, "37C")));
+            }
+        }
+
+        var def = new TestDefinition
+        {
+            Code = "ABSC",
+            Name = "Antibody Screen",
+            ResultValueType = ResultValueType.Subtest,
+            PanelSubtestsJson = PanelSubtestAssignments.ToJson(ahgOnly),
+            InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(pruned)
+        };
+        var result = TestDefinitionValidator.Validate(
+            def,
+            duplicateActiveCode: false,
+            activeSubtestCodes: new HashSet<string>(Cells, StringComparer.OrdinalIgnoreCase),
+            phasesByCode: Phases());
+        Assert.False(result.IsHardStopped);
+    }
+
+    [Fact]
     public void TestDefinitionValidator_RejectsUnknownPhase()
     {
         var def = new TestDefinition
