@@ -87,7 +87,7 @@ flowchart TD
 ## 4. Reliability: transport, retry, replay
 
 - **Transport**: MLLP over TCP (framing bytes 0x0B ... 0x1C 0x0D). Configurable host/port per `InterfaceEndpoints`. File-drop transport is supported as an alternative.
-- **Hosted services** in `BloodBankLIS.Api`: an inbound MLLP listener and an outbound sender, both thin adapters that call `BloodBankLIS.HL7` for parse/build and the Application layer for actions.
+- **Hosted services** in `BloodBankLIS.Api`: an inbound MLLP listener and an outbound sender, both thin adapters that call `BloodBankLIS.HL7` for parse/build and the Application layer for actions. The listener binds **each enabled inbound MLLP `InterfaceEndpoint` port** at API startup (restart the API after enabling or changing a port). `Hl7:Mllp:Enabled=true` optionally adds a fallback port (`Hl7:Mllp:Port`, default 2575). Enabling an endpoint in Admin does not bind TCP by itself.
 - **Retry**: failed outbound sends and retryable inbound processing use exponential backoff with `RetryCount` and `NextRetryUtc` in `InterfaceErrorQueue`.
 - **Replay**: any stored message in `HL7Messages` can be re-submitted through the same pipeline (`ReplayMessageCommand`); replays are marked `Replayed` and audited. Idempotency is protected by `MessageControlId` plus business-key checks so replays do not duplicate orders/patients.
 

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.HL7.Messaging;
 using BloodBankLIS.HL7.Mllp;
@@ -9,48 +10,65 @@ using Microsoft.EntityFrameworkCore;
 namespace BloodBankLIS.Api.Hosting;
 
 /// <summary>
-/// Inbound MLLP listener. A thin transport adapter: it frames/deframes MLLP and hands
-/// each message to <see cref="Hl7InboundProcessor"/> (a new DI scope per message), then
-/// writes back the framed ACK. Disabled by default; enable via <c>Hl7:Mllp:Enabled</c>
-/// so dev runs and tests do not bind a port (see docs/hl7-design.md section 4).
+/// Inbound MLLP listener. Binds each enabled inbound MLLP <c>InterfaceEndpoint</c>
+/// port (and optionally <c>Hl7:Mllp:Port</c> when <c>Hl7:Mllp:Enabled=true</c>).
+/// Each complete frame is handed to <see cref="Hl7InboundProcessor"/> and the ACK
+/// is written back on the same connection.
 /// </summary>
 public sealed class MllpListenerService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<MllpListenerService> _logger;
-    private readonly bool _enabled;
-    private readonly int _port;
+    private readonly bool _forceEnabled;
+    private readonly int _fallbackPort;
 
     public MllpListenerService(IServiceScopeFactory scopeFactory, IConfiguration configuration, ILogger<MllpListenerService> logger)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
-        _enabled = configuration.GetValue("Hl7:Mllp:Enabled", false);
-        _port = configuration.GetValue("Hl7:Mllp:Port", 2575);
+        _forceEnabled = configuration.GetValue("Hl7:Mllp:Enabled", false);
+        _fallbackPort = configuration.GetValue("Hl7:Mllp:Port", 2575);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_enabled)
+        var targets = await ResolveListenTargetsAsync(stoppingToken);
+        if (targets.Count == 0)
         {
-            _logger.LogInformation("MLLP listener disabled (set Hl7:Mllp:Enabled=true to enable).");
+            _logger.LogInformation(
+                "MLLP listener idle: no enabled inbound MLLP endpoints. Enable an ADT/ORM interface in Admin, or set Hl7:Mllp:Enabled=true.");
             return;
         }
 
-        // Prefer a configured, enabled inbound MLLP endpoint's port; fall back to appsettings.
-        var port = await ResolvePortAsync(stoppingToken);
-
-        var listener = new TcpListener(IPAddress.Any, port);
-        listener.Start();
-        _logger.LogInformation("MLLP listener started on port {Port}.", port);
-
+        var acceptLoops = new List<Task>();
+        var listeners = new List<TcpListener>();
         try
         {
-            while (!stoppingToken.IsCancellationRequested)
+            foreach (var target in targets)
             {
-                var client = await listener.AcceptTcpClientAsync(stoppingToken);
-                _ = HandleClientAsync(client, stoppingToken);
+                try
+                {
+                    var listener = new TcpListener(IPAddress.Any, target.Port);
+                    listener.Start();
+                    listeners.Add(listener);
+                    _logger.LogInformation(
+                        "MLLP listener started on port {Port} ({Name}).",
+                        target.Port,
+                        target.Name);
+                    acceptLoops.Add(AcceptLoopAsync(listener, target, stoppingToken));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogError(ex, "Failed to bind MLLP listener on port {Port} ({Name}).", target.Port, target.Name);
+                }
             }
+
+            if (acceptLoops.Count == 0)
+            {
+                return;
+            }
+
+            await Task.WhenAll(acceptLoops);
         }
         catch (OperationCanceledException)
         {
@@ -58,11 +76,25 @@ public sealed class MllpListenerService : BackgroundService
         }
         finally
         {
-            listener.Stop();
+            foreach (var listener in listeners)
+            {
+                listener.Stop();
+            }
         }
     }
 
-    private async Task HandleClientAsync(TcpClient client, CancellationToken ct)
+    private async Task AcceptLoopAsync(TcpListener listener, ListenTarget target, CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var client = await listener.AcceptTcpClientAsync(stoppingToken);
+            _logger.LogInformation("MLLP connection accepted on port {Port} from {Remote}.",
+                target.Port, client.Client.RemoteEndPoint);
+            _ = HandleClientAsync(client, target, stoppingToken);
+        }
+    }
+
+    private async Task HandleClientAsync(TcpClient client, ListenTarget target, CancellationToken ct)
     {
         using (client)
         await using (var stream = client.GetStream())
@@ -77,6 +109,7 @@ public sealed class MllpListenerService : BackgroundService
                     var read = await stream.ReadAsync(buffer.AsMemory(0, buffer.Length), ct);
                     if (read == 0)
                     {
+                        await TryProcessUnframedAsync(accumulated, target, stream, ct);
                         break;
                     }
 
@@ -86,51 +119,107 @@ public sealed class MllpListenerService : BackgroundService
                     {
                         accumulated.RemoveRange(0, consumed);
                     }
+                    else
+                    {
+                        _logger.LogDebug(
+                            "MLLP port {Port}: received {Bytes} bytes; waiting for a complete 0x0B...0x1C 0x0D frame.",
+                            target.Port, read);
+                    }
 
                     foreach (var raw in messages)
                     {
-                        var ack = await ProcessAsync(raw, ct);
+                        _logger.LogInformation("MLLP port {Port}: received {Length}-character message.", target.Port, raw.Length);
+                        var ack = await ProcessAsync(raw, target.EndpointId, ct);
                         await stream.WriteAsync(MllpFraming.Wrap(ack), ct);
                     }
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogError(ex, "MLLP client handling failed.");
+                _logger.LogError(ex, "MLLP client handling failed on port {Port}.", target.Port);
             }
         }
     }
 
-    private async Task<int> ResolvePortAsync(CancellationToken ct)
+    /// <summary>
+    /// Some senders write raw HL7 without MLLP start/end bytes. When the connection
+    /// closes with leftover bytes that look like a message, process them anyway.
+    /// </summary>
+    private async Task TryProcessUnframedAsync(List<byte> accumulated, ListenTarget target, NetworkStream stream, CancellationToken ct)
     {
+        if (accumulated.Count == 0)
+        {
+            return;
+        }
+
+        var leftover = Encoding.UTF8.GetString(accumulated.ToArray())
+            .TrimStart('\u000b')
+            .TrimEnd('\u001c', '\r', '\n', ' ');
+        if (!leftover.StartsWith("MSH", StringComparison.Ordinal))
+        {
+            _logger.LogWarning(
+                "MLLP port {Port}: connection closed with {Bytes} bytes and no complete MLLP frame.",
+                target.Port, accumulated.Count);
+            return;
+        }
+
+        _logger.LogWarning("MLLP port {Port}: connection closed with unframed HL7; processing as a raw message.", target.Port);
+        var ack = await ProcessAsync(leftover, target.EndpointId, ct);
+        try
+        {
+            if (stream.CanWrite)
+            {
+                await stream.WriteAsync(MllpFraming.Wrap(ack), ct);
+            }
+        }
+        catch (IOException)
+        {
+            // Peer already closed the socket.
+        }
+    }
+
+    private async Task<IReadOnlyList<ListenTarget>> ResolveListenTargetsAsync(CancellationToken ct)
+    {
+        var targets = new List<ListenTarget>();
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<BloodBankDbContext>();
-            var endpoint = await db.InterfaceEndpoints
+            var endpoints = await db.InterfaceEndpoints
                 .Where(e => e.IsEnabled && e.Direction == Hl7Direction.Inbound && e.Transport == InterfaceTransport.Mllp && e.Port != null)
                 .OrderBy(e => e.Id)
-                .FirstOrDefaultAsync(ct);
+                .ToListAsync(ct);
 
-            if (endpoint?.Port is int configured)
+            foreach (var endpoint in endpoints)
             {
-                _logger.LogInformation("Using MLLP port {Port} from configured endpoint '{Name}'.", configured, endpoint.Name);
-                return configured;
+                if (endpoint.Port is not int port || targets.Any(t => t.Port == port))
+                {
+                    continue;
+                }
+
+                targets.Add(new ListenTarget(port, endpoint.Id, endpoint.Name));
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not read MLLP endpoint configuration; falling back to appsettings port {Port}.", _port);
+            _logger.LogWarning(ex, "Could not read MLLP endpoint configuration.");
         }
 
-        return _port;
+        if (_forceEnabled && targets.All(t => t.Port != _fallbackPort))
+        {
+            targets.Add(new ListenTarget(_fallbackPort, null, "Hl7:Mllp:Port"));
+        }
+
+        return targets;
     }
 
-    private async Task<string> ProcessAsync(string raw, CancellationToken ct)
+    private async Task<string> ProcessAsync(string raw, long? endpointId, CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
         var processor = scope.ServiceProvider.GetRequiredService<Hl7InboundProcessor>();
-        var outcome = await processor.ProcessAsync(raw, endpointId: null, isReplay: false, ct);
+        var outcome = await processor.ProcessAsync(raw, endpointId, isReplay: false, ct);
         return outcome.AckMessage;
     }
+
+    private sealed record ListenTarget(int Port, long? EndpointId, string Name);
 }

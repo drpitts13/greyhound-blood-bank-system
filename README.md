@@ -93,7 +93,7 @@ Issue overrides additionally require an electronic signature: record one via `PO
 
 Safety-gated endpoints return `422 Unprocessable Entity` with `{ blocked, overridable, hardStops[], warnings[] }` when the issue/compatibility gate blocks an action; a Warning-only block is `overridable` via an authorized override (reason + authorizer + electronic signature).
 
-An inbound MLLP TCP listener is available as a hosted service but is disabled by default; enable it with `Hl7:Mllp:Enabled=true` (port via `Hl7:Mllp:Port`, default `2575`). The HTTP `POST /api/hl7/inbound` endpoint exercises the same processing pipeline without binding a socket.
+Inbound MLLP TCP listeners start automatically for each **enabled** inbound MLLP interface in Admin → Interface Setup (API process, all interfaces / `0.0.0.0`). Restart the API after enabling or changing a port. Optionally force a fallback listener with `Hl7:Mllp:Enabled=true` (`Hl7:Mllp:Port`, default `2575`). The HTTP `POST /api/hl7/inbound` endpoint exercises the same processing pipeline without binding a socket. Messages must be MLLP-framed (`0x0B` … `0x1C 0x0D`).
 
 ## Database migrations
 

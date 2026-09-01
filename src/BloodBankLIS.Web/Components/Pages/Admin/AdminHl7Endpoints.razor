@@ -15,7 +15,7 @@
     <a class="btn btn-primary" href="admin/hl7">Interfaces</a>
     <a class="btn btn-secondary" href="admin/hl7/translations">Translation table</a>
 </div>
-<p class="muted">Define HL7 interfaces by type, direction, and IP/port. Apply an EHR or billing preset, or map this application's data items to HL7 fields.</p>
+<p class="muted">Define HL7 interfaces by type, direction, and IP/port. Apply an EHR or billing preset, or map this application's data items to HL7 fields. Inbound MLLP is bound by the API on startup — restart the API after enabling an inbound listener or changing its port.</p>
 
 <Outcome Value="_feedback" />
 
@@ -182,6 +182,9 @@
             }
             <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
         </div>
+        <p class="muted" style="margin-top:.75rem;font-size:.8rem;">
+            Inbound MLLP is listened on by the API process (not this web UI). After you enable an inbound MLLP endpoint or change its port, restart the API so the TCP listener binds. Send MLLP-framed messages (VT … FS CR) to that host and port.
+        </p>
     </div>
 }
 
