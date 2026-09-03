@@ -29,6 +29,8 @@ public sealed class CompatibilityService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
+    private readonly IRepository<Issue>? _issues;
+    private readonly IAuditWriter? _audit;
 
     public CompatibilityService(
         IInventoryRepository inventory,
@@ -42,7 +44,9 @@ public sealed class CompatibilityService
         AntibodyScreenCompatLoader antibodyScreenCompat,
         IUnitOfWork unitOfWork,
         IClock clock,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        IRepository<Issue>? issues = null,
+        IAuditWriter? audit = null)
     {
         _inventory = inventory;
         _crossmatches = crossmatches;
@@ -56,6 +60,8 @@ public sealed class CompatibilityService
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
+        _issues = issues;
+        _audit = audit;
     }
 
     public async Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(RecordCrossmatchRequest request, CancellationToken ct = default)
@@ -118,7 +124,64 @@ public sealed class CompatibilityService
 
         await _crossmatches.AddAsync(crossmatch, ct);
         await _unitOfWork.SaveChangesAsync(ct);
+        await TryCloseRetrospectiveCrossmatchAsync(crossmatch, ct);
         return EvaluationResult<Crossmatch>.Ok(crossmatch);
+    }
+
+    /// <summary>
+    /// Completes an emergency/MTP follow-up when a post-issue compatible XM is recorded.
+    /// Incompatible results stay on the worklist with an updated clinical status.
+    /// </summary>
+    private async Task TryCloseRetrospectiveCrossmatchAsync(Crossmatch xm, CancellationToken ct)
+    {
+        if (_issues is null)
+        {
+            return;
+        }
+
+        var open = await _issues.FirstOrDefaultAsync(i =>
+            i.BloodProductId == xm.BloodProductId
+            && i.PatientId == xm.PatientId
+            && i.TestsIncompleteAtIssue
+            && i.RetrospectiveCrossmatchCompletedUtc == null
+            && i.Status != IssueStatus.Returned
+            && i.IssuedUtc <= xm.PerformedUtc, ct);
+
+        if (open is null)
+        {
+            return;
+        }
+
+        if (xm.Result == CrossmatchResult.Compatible)
+        {
+            open.CrossmatchStatus = CrossmatchClinicalStatus.Compatible;
+            open.RetrospectiveCrossmatchCompletedUtc = xm.PerformedUtc;
+            open.RetrospectiveCrossmatchId = xm.Id;
+            _issues.Update(open);
+            _audit?.Record(
+                AuditEventType.Update,
+                nameof(Issue),
+                open.Id,
+                newValue: new { xm.Id, xm.Result },
+                reason: "Retrospective crossmatch completed.");
+        }
+        else if (xm.Result == CrossmatchResult.Incompatible)
+        {
+            open.CrossmatchStatus = CrossmatchClinicalStatus.Incompatible;
+            _issues.Update(open);
+            _audit?.Record(
+                AuditEventType.Update,
+                nameof(Issue),
+                open.Id,
+                newValue: new { xm.Id, xm.Result },
+                reason: "Retrospective crossmatch incompatible; follow-up remains open.");
+        }
+        else
+        {
+            return;
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
     }
 
     public async Task<EvaluationResult<RuleEvaluation>> EvaluateCompatibilityAsync(

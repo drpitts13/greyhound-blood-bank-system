@@ -30,6 +30,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-CM-03 | Allocation/reservation | erd.md Allocations | One active allocation per unit | A,I | |
 | R-CM-04 | Issue gate (all checks) | safety-rules 1; workflows 5 | Each ISS-* rule pos/neg; computer-evaluated identity/product/ABO | D,A,I | 21 CFR 606.151 |
 | R-CM-05 | Emergency release | workflows 6; safety-rules 5 | Override + signature required; tests-incomplete banner | A | 21 CFR 606.151(b) |
+| R-CM-06 | Retrospective crossmatch follow-up | RetrospectiveCrossmatchPendingRule ISS-RETRO-XM-PENDING; IssuingService worklist; CompatibilityService close | Pending queue until post-issue compatible XM; incompatible stays open; return drops | D,A,I | 21 CFR 606.151(b); AABB emergency release; SoftBank/SafeTrace |
 | R-CM-06 | Return to inventory | workflows 7; RET-REISSUE | Temperature/seal/visual/time enforced | D,A | AABB return policy |
 | R-CM-07 | P-tag data generation | printing-billing A.4 | P-tag model reflects issue | A | |
 | R-CM-08 | Electronic XM two ABO/Rh determinations | ElectronicCrossmatchEligibilityRule | Second concordant ABO required | D,A,I | AABB computer XM |

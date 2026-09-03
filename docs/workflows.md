@@ -145,7 +145,7 @@ flowchart TD
 ```
 
 - Crossmatch-not-performed becomes an overridable Warning only inside the emergency-release workflow; outside it, missing crossmatch on a crossmatch-required product is a HardStop.
-- Records `Overrides` + `ElectronicSignatures`; flags the unit/patient for retrospective compatibility testing.
+- Records `Overrides` + `ElectronicSignatures`; flags the unit/patient for retrospective compatibility testing (`TestsIncompleteAtIssue`, due date from `Issue.RetrospectiveCrossmatchDueHours`). The Issuing page lists pending follow-up until a post-issue compatible crossmatch is recorded.
 
 ---
 

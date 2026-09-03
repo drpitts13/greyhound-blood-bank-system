@@ -35,7 +35,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
             new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
             new EfRepository<PatientBloodTypeHistory>(c),
-            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser);
+            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
+            new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
 
     private IssuingService Issuing(BloodBankDbContext c)
     {
@@ -274,16 +275,103 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var verify = _factory.Create())
         {
-            var ovr = await verify.Overrides.Where(o => o.ContextType == nameof(Issue)).SingleAsync();
+            var ovr = await verify.Overrides.Where(o => o.ContextType == nameof(Issue) && o.ContextId == s.UnitId).SingleAsync();
             Assert.Equal(OverrideAction.EmergencyRelease, ovr.Action);
             Assert.Contains(CrossmatchValidityRule.Code, ovr.RuleCode);
 
-            var overrideAudit = await verify.AuditEvents.Where(a => a.EventType == AuditEventType.Override).SingleAsync();
+            var overrideAudit = await verify.AuditEvents.SingleAsync(a =>
+                a.EventType == AuditEventType.Override && a.Reason == "Massive hemorrhage, uncrossmatched O units required");
             Assert.Equal("Massive hemorrhage, uncrossmatched O units required", overrideAudit.Reason);
 
             Assert.Equal(UnitStatus.Issued, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
-            _ = issueId;
+            Assert.True((await verify.Issues.FindAsync(issueId))!.TestsIncompleteAtIssue);
+            Assert.NotNull((await verify.Issues.FindAsync(issueId))!.RetrospectiveCrossmatchDueUtc);
         }
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm()
+    {
+        var s = await SeedAsync("RETROXM");
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Uncrossmatched release for hemorrhage", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded);
+            issueId = issued.Value!.Id;
+
+            var pending = await Issuing(c).ListPendingRetrospectiveCrossmatchesAsync();
+            Assert.Contains(pending, p => p.IssueId == issueId);
+            Assert.Equal(s.Mrn, pending.Single(p => p.IssueId == issueId).MedicalRecordNumber);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var xm = await Compatibility(c).RecordCrossmatchAsync(
+                new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
+            Assert.True(xm.Succeeded);
+
+            var pending = await Issuing(c).ListPendingRetrospectiveCrossmatchesAsync();
+            Assert.DoesNotContain(pending, p => p.IssueId == issueId);
+        }
+
+        await using var verify = _factory.Create();
+        var issue = await verify.Issues.FindAsync(issueId);
+        Assert.Equal(CrossmatchClinicalStatus.Compatible, issue!.CrossmatchStatus);
+        Assert.NotNull(issue.RetrospectiveCrossmatchCompletedUtc);
+        Assert.NotNull(issue.RetrospectiveCrossmatchId);
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_IncompatibleXm_StaysOnWorklist()
+    {
+        var s = await SeedAsync("RETROINC");
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Uncrossmatched release", authorizedBy: "dr-authorizer"))).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var xm = await Compatibility(c).RecordCrossmatchAsync(
+                new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Incompatible));
+            Assert.True(xm.Succeeded);
+            var pending = await Issuing(c).ListPendingRetrospectiveCrossmatchesAsync();
+            Assert.Contains(pending, p => p.IssueId == issueId);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(CrossmatchClinicalStatus.Incompatible, (await verify.Issues.FindAsync(issueId))!.CrossmatchStatus);
+        Assert.Null((await verify.Issues.FindAsync(issueId))!.RetrospectiveCrossmatchCompletedUtc);
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_Return_DropsRetrospectiveWorklist()
+    {
+        var s = await SeedAsync("RETRORET");
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Uncrossmatched release", authorizedBy: "dr-authorizer"))).Value!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Never transfused"))).Succeeded);
+        var pending = await Issuing(ctx).ListPendingRetrospectiveCrossmatchesAsync();
+        Assert.DoesNotContain(pending, p => p.IssueId == issueId);
     }
 
     [Fact]

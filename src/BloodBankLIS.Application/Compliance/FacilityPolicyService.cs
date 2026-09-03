@@ -41,6 +41,9 @@ public sealed class FacilityPolicyService
     public Task<bool> GetRequireWardReceiptAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireWardReceipt, true, ct);
 
+    public Task<int> GetRetrospectiveCrossmatchDueHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.RetrospectiveCrossmatchDueHours, 24, ct);
+
     public Task<bool> GetBlockSelfVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockSelfVerify, false, ct);
 

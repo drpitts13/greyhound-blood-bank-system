@@ -75,12 +75,33 @@ public sealed record IssueDto(
     IssueStatus Status,
     bool TestsIncompleteAtIssue,
     DateTime? WardReceivedUtc = null,
-    string? WardReceivedBy = null)
+    string? WardReceivedBy = null,
+    DateTime? RetrospectiveCrossmatchDueUtc = null,
+    DateTime? RetrospectiveCrossmatchCompletedUtc = null)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
         i.IssuedUtc, i.IssuedBy, i.Comment, i.IssueType, i.OverrideId, i.Status, i.TestsIncompleteAtIssue,
-        i.WardReceivedUtc, i.WardReceivedBy);
+        i.WardReceivedUtc, i.WardReceivedBy,
+        i.RetrospectiveCrossmatchDueUtc, i.RetrospectiveCrossmatchCompletedUtc);
+}
+
+public sealed record RetrospectiveCrossmatchWorkItemDto(
+    long IssueId,
+    long PatientId,
+    string? MedicalRecordNumber,
+    long BloodUnitId,
+    DateTime IssuedUtc,
+    DateTime? DueUtc,
+    bool IsOverdue,
+    IssueType IssueType,
+    IssueStatus Status,
+    string? EmergencyReleaseDetails)
+{
+    public static RetrospectiveCrossmatchWorkItemDto From(Issue i, DateTime now, string? mrn) => new(
+        i.Id, i.PatientId, mrn, i.BloodProductId, i.IssuedUtc, i.RetrospectiveCrossmatchDueUtc,
+        i.RetrospectiveCrossmatchDueUtc is DateTime due && now > due,
+        i.IssueType, i.Status, i.EmergencyReleaseDetails);
 }
 
 public sealed record ReturnDto(

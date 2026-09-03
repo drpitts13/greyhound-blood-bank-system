@@ -22,6 +22,7 @@ public static partial class DatabaseSeeder
         await SeedIdentityAsync(context, cancellationToken);
         await SeedSystemSettingsAsync(context, cancellationToken);
         await EnsureWardReceiptPolicyAsync(context, cancellationToken);
+        await EnsureRetrospectiveCrossmatchPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
@@ -154,6 +155,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.RetrospectiveCrossmatchDueHours,
+                Value = "24",
+                Category = "Issue",
+                Description = "Hours after an uncrossmatched emergency or MTP issue when retrospective XM is due."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.BlockSelfVerify,
                 Value = "false",
                 Category = "Result",
@@ -189,6 +197,23 @@ public static partial class DatabaseSeeder
             Value = "true",
             Category = "Transfusion",
             Description = "Require the receiving location to acknowledge the unit before transfusion documentation."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureRetrospectiveCrossmatchPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.RetrospectiveCrossmatchDueHours, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RetrospectiveCrossmatchDueHours,
+            Value = "24",
+            Category = "Issue",
+            Description = "Hours after an uncrossmatched emergency or MTP issue when retrospective XM is due."
         });
         await context.SaveChangesAsync(ct);
     }

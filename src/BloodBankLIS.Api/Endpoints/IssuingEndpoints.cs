@@ -59,6 +59,10 @@ public static class IssuingEndpoints
             return EndpointResults.CreatedEvaluation(result, i => ($"/api/issues/{i.Id}", (object)IssueDto.From(i)));
         }).RequirePermission(PermissionCodes.IssueCreate);
 
+        issues.MapGet("/pending-retrospective-crossmatch", async (IssuingService service, CancellationToken ct) =>
+            Results.Ok(await service.ListPendingRetrospectiveCrossmatchesAsync(ct)))
+            .RequirePermission(PermissionCodes.IssueCreate);
+
         issues.MapGet("/{id:long}", async (long id, IssuingService service, CancellationToken ct) =>
         {
             var issue = await service.GetAsync(id, ct);

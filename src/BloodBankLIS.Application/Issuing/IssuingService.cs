@@ -280,6 +280,12 @@ public sealed class IssuingService
             issuedUtc = issuedUtc.ToUniversalTime();
         }
 
+        var testsIncomplete = request.IssueType is IssueType.EmergencyRelease or IssueType.MassiveTransfusion
+            && !hasValidCrossmatch;
+        var retroDueUtc = testsIncomplete
+            ? issuedUtc.AddHours(await _policy.GetRetrospectiveCrossmatchDueHoursAsync(ct))
+            : (DateTime?)null;
+
         var issue = new Issue
         {
             AllocationId = allocation?.Id,
@@ -306,8 +312,8 @@ public sealed class IssuingService
             EmergencyReleaseDetails = request.IssueType == IssueType.EmergencyRelease
                 ? request.OverrideReason
                 : null,
-            TestsIncompleteAtIssue = request.IssueType is IssueType.EmergencyRelease or IssueType.MassiveTransfusion
-                && !hasValidCrossmatch,
+            TestsIncompleteAtIssue = testsIncomplete,
+            RetrospectiveCrossmatchDueUtc = retroDueUtc,
             VisualInspectionAcceptable = request.VisualInspectionAcceptable,
             SecondVerifier = request.SecondVerifier,
             PatientIdentifier1 = request.PatientIdentifier1Value,
@@ -357,6 +363,33 @@ public sealed class IssuingService
 
     public Task<Issue?> GetAsync(long id, CancellationToken ct = default) =>
         _issues.GetByIdAsync(id, ct);
+
+    /// <summary>
+    /// Emergency / MTP issues still waiting for a retrospective compatible crossmatch.
+    /// Returned units drop off; transfused units stay until XM is documented.
+    /// </summary>
+    public async Task<IReadOnlyList<RetrospectiveCrossmatchWorkItemDto>> ListPendingRetrospectiveCrossmatchesAsync(
+        CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+        var rows = await _issues.ListAsync(i =>
+            i.TestsIncompleteAtIssue
+            && i.CrossmatchStatus != CrossmatchClinicalStatus.Compatible
+            && i.RetrospectiveCrossmatchCompletedUtc == null
+            && i.Status != IssueStatus.Returned, ct);
+
+        var patientIds = rows.Select(i => i.PatientId).Distinct().ToList();
+        var patients = patientIds.Count == 0
+            ? []
+            : await _patients.ListAsync(p => patientIds.Contains(p.Id), ct);
+        var mrnByPatient = patients.ToDictionary(p => p.Id, p => p.MedicalRecordNumber);
+
+        return rows
+            .OrderBy(i => i.RetrospectiveCrossmatchDueUtc ?? i.IssuedUtc)
+            .Select(i => RetrospectiveCrossmatchWorkItemDto.From(
+                i, now, mrnByPatient.GetValueOrDefault(i.PatientId)))
+            .ToList();
+    }
 
     /// <summary>
     /// Nursing-unit custody acknowledgment after the unit leaves the blood bank.

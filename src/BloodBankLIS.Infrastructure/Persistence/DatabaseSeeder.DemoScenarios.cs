@@ -817,6 +817,8 @@ public static partial class DatabaseSeeder
             IssueType = IssueType.EmergencyRelease,
             CrossmatchStatus = CrossmatchClinicalStatus.NotCrossmatchedEmergency,
             EmergencyReleaseDetails = "Released before ABO/Rh confirmation. Retrospective crossmatch pending.",
+            TestsIncompleteAtIssue = true,
+            RetrospectiveCrossmatchDueUtc = now.AddHours(-2),
             OverrideId = release.Id,
             Status = IssueStatus.Issued,
             UnitExpirationAtIssueUtc = unit.ExpiresUtc

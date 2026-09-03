@@ -570,6 +570,7 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
         b.HasOne(i => i.Override).WithMany().HasForeignKey(i => i.OverrideId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(i => i.BloodProductId);
         b.HasIndex(i => i.PatientId);
+        b.HasIndex(i => new { i.TestsIncompleteAtIssue, i.RetrospectiveCrossmatchCompletedUtc });
         b.HasIndex(i => i.EncounterId);
         b.HasIndex(i => i.OrderId);
         b.Property(i => i.SecondVerifier).HasMaxLength(100);

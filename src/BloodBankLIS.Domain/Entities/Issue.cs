@@ -64,6 +64,13 @@ public class Issue : BaseEntity
     /// <summary>21 CFR 606.151(b): conspicuous incomplete-testing statement for emergency release.</summary>
     public bool TestsIncompleteAtIssue { get; set; }
 
+    /// <summary>When retrospective compatibility testing is due (emergency / MTP incomplete issue).</summary>
+    public DateTime? RetrospectiveCrossmatchDueUtc { get; set; }
+
+    public DateTime? RetrospectiveCrossmatchCompletedUtc { get; set; }
+
+    public long? RetrospectiveCrossmatchId { get; set; }
+
     public bool VisualInspectionAcceptable { get; set; } = true;
 
     public string? SecondVerifier { get; set; }
