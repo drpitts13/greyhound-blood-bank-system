@@ -75,6 +75,42 @@
     }
 </div>
 
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Ward receipt</h3></div>
+    <p class="muted">The receiving location must acknowledge custody before transfusion can be documented (SoftBank remote-issue receipt).</p>
+    @if (!Session.Has(PermissionCodes.TransfusionDocument))
+    {
+        <div class="muted">No permission to record ward receipt.</div>
+    }
+    else
+    {
+        <Outcome Value="_wardFb" />
+        <div class="form-row">
+            <div class="field"><label>Issue id</label><input type="number" @bind="_wardIssueId" /></div>
+            <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" /></div>
+        </div>
+        <label class="flex"><input type="checkbox" @bind="_wardVisualOk" /> &nbsp;Visual inspection acceptable at receipt</label>
+        <div class="flex gap" style="margin-top:.75rem;">
+            <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="RecordWardReceiptAsync">Acknowledge receipt</button>
+            <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="LoadIssueAsync">Check status</button>
+        </div>
+        @if (_wardIssue is not null)
+        {
+            <p class="muted" style="margin-top:.75rem;">
+                Issue <strong>@_wardIssue.Id</strong> · @_wardIssue.Status
+                @if (_wardIssue.WardReceivedUtc is not null)
+                {
+                    <span> · received @_wardIssue.WardReceivedUtc.Value.ToString("yyyy-MM-dd HH:mm") by @_wardIssue.WardReceivedBy</span>
+                }
+                else
+                {
+                    <span> · awaiting ward receipt</span>
+                }
+            </p>
+        }
+    }
+</div>
+
 <div class="bb-grid cols-2">
     <div class="bb-card">
         <div class="bb-card-title"><h3>Return a unit</h3></div>
@@ -121,6 +157,7 @@
                         Placeholder="Different active user" />
                 </div>
             </div>
+            <p class="muted">The receiving location must acknowledge the unit (ward receipt) before this can succeed.</p>
             <label class="flex"><input type="checkbox" @bind="_txPpid" /> &nbsp;Positive patient identification completed</label>
             <label class="flex"><input type="checkbox" @bind="_txReaction" /> &nbsp;Reaction suspected</label>
             <UnitScanVerificationPanel Scan="_txScan" Title="Bedside unit scan" Help="Scan the unit at the bedside. Required for ISBT-labeled units together with positive patient identification." />
@@ -143,6 +180,12 @@
     private string _authorizedBy = string.Empty;
     private string _signatureMeaning = string.Empty;
     private string _signatureSecret = string.Empty;
+
+    private long _wardIssueId;
+    private string _wardReceivedBy = string.Empty;
+    private bool _wardVisualOk = true;
+    private Feedback? _wardFb;
+    private IssueDto? _wardIssue;
 
     private long _returnIssueId;
     private string _returnReason = string.Empty;
@@ -191,7 +234,13 @@
         var r = await Api.IssueUnitAsync(BuildRequest(null, null));
         _busy = false;
         _issueFb = r.ToFeedback("Unit issued.");
-        if (r.Succeeded) _lastIssue = r.Value;
+        if (r.Succeeded)
+        {
+            _lastIssue = r.Value;
+            _wardIssueId = r.Value!.Id;
+            _txIssueId = r.Value.Id;
+            _returnIssueId = r.Value.Id;
+        }
     }
 
     private async Task IssueWithOverrideAsync()
@@ -216,7 +265,34 @@
         var r = await Api.IssueUnitAsync(BuildRequest(_overrideReason, string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy), sig.Value.Id);
         _busy = false;
         _issueFb = r.ToFeedback("Unit issued under override.");
-        if (r.Succeeded) { _lastIssue = r.Value; _overrideOn = false; }
+        if (r.Succeeded)
+        {
+            _lastIssue = r.Value;
+            _wardIssueId = r.Value!.Id;
+            _txIssueId = r.Value.Id;
+            _returnIssueId = r.Value.Id;
+            _overrideOn = false;
+        }
+    }
+
+    private async Task LoadIssueAsync()
+    {
+        _busy = true;
+        var r = await Api.GetIssueAsync(_wardIssueId);
+        _busy = false;
+        _wardFb = r.ToFeedback("Issue loaded.");
+        if (r.Succeeded) _wardIssue = r.Value;
+    }
+
+    private async Task RecordWardReceiptAsync()
+    {
+        _busy = true;
+        var r = await Api.RecordWardReceiptAsync(_wardIssueId, new WardReceiptRequest(
+            string.IsNullOrWhiteSpace(_wardReceivedBy) ? Session.UserName : _wardReceivedBy,
+            _wardVisualOk));
+        _busy = false;
+        _wardFb = r.ToFeedback("Ward receipt recorded.");
+        if (r.Succeeded) _wardIssue = r.Value;
     }
 
     private async Task ReturnAsync()

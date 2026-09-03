@@ -42,6 +42,10 @@ public sealed record ReturnUnitRequest(
     bool VisualInspectionAcceptable = true,
     bool TimeOutOfStorageAcceptable = true);
 
+public sealed record WardReceiptRequest(
+    string ReceivedBy,
+    bool VisualInspectionAcceptable = true);
+
 public sealed record DocumentTransfusionRequest(
     TransfusionDisposition FinalDisposition,
     DateTime? StartUtc = null,
@@ -69,11 +73,14 @@ public sealed record IssueDto(
     IssueType IssueType,
     long? OverrideId,
     IssueStatus Status,
-    bool TestsIncompleteAtIssue)
+    bool TestsIncompleteAtIssue,
+    DateTime? WardReceivedUtc = null,
+    string? WardReceivedBy = null)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
-        i.IssuedUtc, i.IssuedBy, i.Comment, i.IssueType, i.OverrideId, i.Status, i.TestsIncompleteAtIssue);
+        i.IssuedUtc, i.IssuedBy, i.Comment, i.IssueType, i.OverrideId, i.Status, i.TestsIncompleteAtIssue,
+        i.WardReceivedUtc, i.WardReceivedBy);
 }
 
 public sealed record ReturnDto(

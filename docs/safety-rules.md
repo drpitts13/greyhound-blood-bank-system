@@ -45,6 +45,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ISS-UNIT-NEAR-EXPIRY` | Unit expires within configurable warning window | Warning |
 | `TX-DUAL-ID` | Distinct second verifier, or validated electronic identification of recipient + unit | HardStop when facility policy requires it |
 | `TX-SECOND-USER` | Named second verifier is an active, unlocked application user (not free-text initials) | HardStop when a second verifier is supplied |
+| `TX-WARD-RECEIPT` | Receiving location acknowledged the issued unit (`WardReceivedUtc`) | HardStop when facility policy `Transfusion.RequireWardReceipt` is true (default) |
 | `RET-REISSUE` | Returned unit may re-enter Available only when temperature, seal, visual, and time-out-of-storage checks pass | HardStop / Warning |
 
 If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning within that workflow (see section 5) rather than a HardStop, and an `Override` + signature is mandatory.

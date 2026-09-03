@@ -115,6 +115,13 @@ public sealed class InterfaceTransfusionService
             throw new InvalidOperationException($"Issue {issue.Id} is {issue.Status} and cannot be transfused.");
         }
 
+        if (issue.WardReceivedUtc is null)
+        {
+            issue.WardReceivedUtc = now;
+            issue.WardReceivedBy = request.Transfusionist ?? request.Location ?? "HL7-BPAM";
+            issue.WardVisualAcceptable = true;
+        }
+
         var trackedUnit = await _inventory.GetUnitAsync(unit.Id, ct)
             ?? throw new InvalidOperationException("Unit not found.");
 

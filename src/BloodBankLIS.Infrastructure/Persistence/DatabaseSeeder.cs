@@ -21,6 +21,7 @@ public static partial class DatabaseSeeder
     {
         await SeedIdentityAsync(context, cancellationToken);
         await SeedSystemSettingsAsync(context, cancellationToken);
+        await EnsureWardReceiptPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
@@ -146,6 +147,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.RequireWardReceipt,
+                Value = "true",
+                Category = "Transfusion",
+                Description = "Require the receiving location to acknowledge the unit before transfusion documentation."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.BlockSelfVerify,
                 Value = "false",
                 Category = "Result",
@@ -165,6 +173,23 @@ public static partial class DatabaseSeeder
                 Category = "Signatures",
                 Description = "Electronic signature reuse window before consumption."
             });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureWardReceiptPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.RequireWardReceipt, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RequireWardReceipt,
+            Value = "true",
+            Category = "Transfusion",
+            Description = "Require the receiving location to acknowledge the unit before transfusion documentation."
+        });
         await context.SaveChangesAsync(ct);
     }
 

@@ -38,6 +38,9 @@ public sealed class FacilityPolicyService
     public Task<bool> GetRequireSecondVerifierAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireSecondVerifier, false, ct);
 
+    public Task<bool> GetRequireWardReceiptAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireWardReceipt, true, ct);
+
     public Task<bool> GetBlockSelfVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockSelfVerify, false, ct);
 

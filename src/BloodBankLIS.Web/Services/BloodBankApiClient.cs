@@ -310,6 +310,12 @@ public sealed class BloodBankApiClient
         return SendAsync<IssueDto>(HttpMethod.Post, "api/issues", req, ct, headers);
     }
 
+    public Task<ApiResult<IssueDto>> GetIssueAsync(long id, CancellationToken ct = default) =>
+        SendAsync<IssueDto>(HttpMethod.Get, $"api/issues/{id}", ct: ct);
+
+    public Task<ApiResult<IssueDto>> RecordWardReceiptAsync(long issueId, WardReceiptRequest req, CancellationToken ct = default) =>
+        SendAsync<IssueDto>(HttpMethod.Post, $"api/issues/{issueId}/ward-receipt", req, ct);
+
     public Task<ApiResult<ReturnDto>> ReturnUnitAsync(long issueId, ReturnUnitRequest req, CancellationToken ct = default) =>
         SendAsync<ReturnDto>(HttpMethod.Post, $"api/issues/{issueId}/return", req, ct);
 

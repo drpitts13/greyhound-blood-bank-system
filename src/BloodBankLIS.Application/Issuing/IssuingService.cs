@@ -355,6 +355,62 @@ public sealed class IssuingService
         return EvaluationResult<Issue>.Ok(issue, evaluation);
     }
 
+    public Task<Issue?> GetAsync(long id, CancellationToken ct = default) =>
+        _issues.GetByIdAsync(id, ct);
+
+    /// <summary>
+    /// Nursing-unit custody acknowledgment after the unit leaves the blood bank.
+    /// Required before transfusion when <see cref="FacilityPolicyKeys.RequireWardReceipt"/> is true.
+    /// </summary>
+    public async Task<EvaluationResult<Issue>> RecordWardReceiptAsync(
+        long issueId, WardReceiptRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.ReceivedBy))
+        {
+            return EvaluationResult<Issue>.Fail("The person who received the unit is required.");
+        }
+
+        if (!request.VisualInspectionAcceptable)
+        {
+            return EvaluationResult<Issue>.Fail(
+                "Do not acknowledge receipt of a unit that failed visual inspection. Return it to the blood bank.");
+        }
+
+        var issue = await _issues.GetByIdAsync(issueId, ct);
+        if (issue is null)
+        {
+            return EvaluationResult<Issue>.Fail("Issue not found.");
+        }
+
+        if (issue.Status != IssueStatus.Issued)
+        {
+            return EvaluationResult<Issue>.Fail($"An issue with status {issue.Status} cannot be received at the ward.");
+        }
+
+        if (issue.WardReceivedUtc is not null)
+        {
+            return EvaluationResult<Issue>.Fail("This unit was already acknowledged at the receiving location.");
+        }
+
+        var now = _clock.UtcNow;
+        issue.WardReceivedUtc = now;
+        issue.WardReceivedBy = request.ReceivedBy.Trim();
+        issue.WardVisualAcceptable = true;
+        _issues.Update(issue);
+
+        _audit.Record(
+            AuditEventType.Update,
+            nameof(Issue),
+            issue.Id,
+            newValue: new { issue.WardReceivedBy, issue.WardReceivedUtc },
+            reason: "Ward receipt of issued unit.");
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return EvaluationResult<Issue>.Ok(issue);
+    }
+
     public async Task<EvaluationResult<Return>> ReturnUnitAsync(long issueId, ReturnUnitRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -510,6 +566,13 @@ public sealed class IssuingService
         if (unit.ExpiresUtc <= _clock.UtcNow)
         {
             return EvaluationResult<TransfusionEvent>.Fail($"{IsbtErrorCodes.ComponentExpired}: Unit has expired.");
+        }
+
+        var requireReceipt = await _policy.GetRequireWardReceiptAsync(ct);
+        var receipt = WardReceiptRule.Evaluate(requireReceipt, issue.WardReceivedUtc is not null);
+        if (receipt.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([receipt]));
         }
 
         var requireSecond = await _policy.GetRequireSecondVerifierAsync(ct);

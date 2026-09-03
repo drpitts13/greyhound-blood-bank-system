@@ -59,6 +59,16 @@ public static class IssuingEndpoints
             return EndpointResults.CreatedEvaluation(result, i => ($"/api/issues/{i.Id}", (object)IssueDto.From(i)));
         }).RequirePermission(PermissionCodes.IssueCreate);
 
+        issues.MapGet("/{id:long}", async (long id, IssuingService service, CancellationToken ct) =>
+        {
+            var issue = await service.GetAsync(id, ct);
+            return issue is null ? Results.NotFound() : Results.Ok(IssueDto.From(issue));
+        }).RequireAuthenticatedUser();
+
+        issues.MapPost("/{id:long}/ward-receipt", async (long id, WardReceiptRequest request, IssuingService service, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await service.RecordWardReceiptAsync(id, request, ct), i => IssueDto.From(i)))
+            .RequirePermission(PermissionCodes.TransfusionDocument);
+
         issues.MapPost("/{id:long}/return", async (long id, ReturnUnitRequest request, IssuingService service, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await service.ReturnUnitAsync(id, request, ct), r => ReturnDto.From(r)))
             .RequirePermission(PermissionCodes.IssueReturn);

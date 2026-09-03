@@ -49,7 +49,15 @@ public class Issue : BaseEntity
 
     public string? EmergencyReleaseDetails { get; set; }
 
+    /// <summary>Person who took the unit at issue (courier / pickup), not ward custody.</summary>
     public string? ReceivedBy { get; set; }
+
+    /// <summary>When the nursing unit acknowledged custody (SoftBank remote-issue receipt).</summary>
+    public DateTime? WardReceivedUtc { get; set; }
+
+    public string? WardReceivedBy { get; set; }
+
+    public bool WardVisualAcceptable { get; set; } = true;
 
     public DateTime? UnitExpirationAtIssueUtc { get; set; }
 
