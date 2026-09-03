@@ -283,6 +283,15 @@
         if (r.Succeeded) await RefreshSelected(id);
     }
 
+    private async Task PrintComponentLabelAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.PrintComponentLabelAsync(id, new PrintRequestVm(LabelFormat.Preview));
+        _busy = false;
+        _actionFb = r.ToFeedback("Component label queued. Open Printing to view or reprint.");
+        if (r.Succeeded) await RefreshSelected(id);
+    }
+
     private async Task RefreshSelected(long id)
     {
         await SearchAsync();
@@ -312,6 +321,10 @@
                     @if (u.Status == UnitStatus.Quarantine && Session.Has(PermissionCodes.InventoryRelease))
                     {
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(u.Id)">Release from quarantine</button>
+                    }
+                    @if (Session.Has(PermissionCodes.PrintLabel))
+                    {
+                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => PrintComponentLabelAsync(u.Id)">Print component label</button>
                     }
                 </div>
 

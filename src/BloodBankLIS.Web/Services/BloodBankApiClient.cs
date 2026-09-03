@@ -357,6 +357,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<PrintJobVm>> PrintCompatibilityTagAsync(long issueId, PrintRequestVm req, CancellationToken ct = default) =>
         SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/compatibility-tags/{issueId}", req, ct);
 
+    public Task<ApiResult<PrintJobVm>> PrintComponentLabelAsync(long unitId, PrintRequestVm req, CancellationToken ct = default) =>
+        SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/component-labels/{unitId}", req, ct);
+
     public Task<ApiResult<PrintJobVm>> ReprintJobAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/jobs/{id}/reprint", new ReasonRequestVm(reason), ct);
 

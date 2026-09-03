@@ -32,3 +32,17 @@ public sealed record CompatibilityTagModel(
     string IssuedBy,
     bool IsEmergency,
     bool TestsIncomplete = false);
+
+/// <summary>
+/// ISBT 128 component label data (docs A.1). Assembled from the audited unit so
+/// reprints match the stored identity, not a later edit.
+/// </summary>
+public sealed record ComponentLabelModel(
+    string UnitNumber,
+    string? Din,
+    string? ProductCodeData,
+    string? AboRhdCode,
+    string UnitBloodType,
+    string ProductName,
+    DateTime ExpiresUtc,
+    string? CollectionFacility);

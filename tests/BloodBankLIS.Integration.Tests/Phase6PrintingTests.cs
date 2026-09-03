@@ -4,6 +4,7 @@ using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using BloodBankLIS.Printing;
 using BloodBankLIS.Printing.Rendering;
+using BloodBankLIS.Printing.Templates;
 using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
@@ -137,6 +138,41 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(PrintJobType.CompatibilityTag, result.Value!.JobType);
         Assert.Contains("W-PRT-200", result.Value.RenderedZpl);
         Assert.Equal(nameof(Issue), result.Value.ContextType);
+    }
+
+    [Fact]
+    public async Task PrintComponentLabel_IncludesDinAndProductAndSupportsReprint()
+    {
+        long unitId;
+        await using (var setup = _factory.Create())
+        {
+            var (id, _) = await CreateUnitAsync(setup, "U-ISBT-1");
+            var unit = await setup.BloodUnits.FindAsync(id);
+            unit!.Din = "W000011234567";
+            unit.ProductCodeData = "E0206V00";
+            unit.AboRhdCode = "62";
+            await setup.SaveChangesAsync();
+            unitId = id;
+        }
+
+        long jobId;
+        await using (var context = _factory.Create())
+        {
+            var result = await Printing(context).PrintComponentLabelAsync(unitId, new PrintRequest());
+            Assert.True(result.Succeeded);
+            Assert.Equal(PrintJobType.ProductLabel, result.Value!.JobType);
+            Assert.Equal(ComponentLabelTemplate.TemplateCode, result.Value.TemplateCode);
+            Assert.Contains("W000011234567", result.Value.RenderedZpl);
+            Assert.Contains("E0206V00", result.Value.RenderedZpl);
+            Assert.Equal(nameof(BloodUnit), result.Value.ContextType);
+            jobId = result.Value.Id;
+        }
+
+        await using var reprintCtx = _factory.Create();
+        var reprint = await Printing(reprintCtx).ReprintAsync(jobId, "Torn bag label");
+        Assert.True(reprint.Succeeded);
+        Assert.True(reprint.Value!.IsReprint);
+        Assert.Contains("W000011234567", reprint.Value.RenderedZpl);
     }
 
     [Fact]

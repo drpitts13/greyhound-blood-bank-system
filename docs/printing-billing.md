@@ -14,7 +14,7 @@ The printing layer is fully isolated from business logic. Services pass a **data
 |---|---|---|
 | Specimen label | 6 | Accession number + barcode, patient identifiers, collection date/time |
 | Compatibility tag / P-tag | 6 | Patient + unit + ABO/Rh + crossmatch status + expiration; emergency marking when applicable |
-| Blood product label | placeholder | ISBT 128 fields; later phase |
+| Blood product label | 6+ | ISBT 128 component label (`ISBT-COMP`): DIN barcode, product code, ABO/Rh, expiration |
 | Patient armband | placeholder | later phase |
 
 ## A.2 Rendering

@@ -22,6 +22,11 @@ public static class PrintEndpoints
                 j => ($"/api/print/jobs/{j.Id}", (object)PrintJobDto.Full(j))))
             .RequirePermission(PermissionCodes.PrintLabel);
 
+        group.MapPost("/component-labels/{unitId:long}", async (long unitId, PrintRequest? request, PrintService service, CancellationToken ct) =>
+            EndpointResults.Created(await service.PrintComponentLabelAsync(unitId, request ?? new PrintRequest(), ct),
+                j => ($"/api/print/jobs/{j.Id}", (object)PrintJobDto.Full(j))))
+            .RequirePermission(PermissionCodes.PrintLabel);
+
         group.MapPost("/jobs/{id:long}/reprint", async (long id, ReprintRequest request, PrintService service, CancellationToken ct) =>
             EndpointResults.From(await service.ReprintAsync(id, request.Reason, ct), j => PrintJobDto.Full(j)))
             .RequirePermission(PermissionCodes.PrintReprint);

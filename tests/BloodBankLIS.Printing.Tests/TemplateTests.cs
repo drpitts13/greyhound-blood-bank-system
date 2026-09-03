@@ -45,6 +45,29 @@ public class TemplateTests
         Assert.Contains(doc.Elements.OfType<LabelText>(), t => t.Value.Contains("EMERGENCY"));
     }
 
+    [Fact]
+    public void ComponentLabel_IncludesDinBarcodeAboAndExpiration()
+    {
+        var model = new ComponentLabelModel(
+            UnitNumber: "U-COMP-1",
+            Din: "W000011234567",
+            ProductCodeData: "E0206V00",
+            AboRhdCode: "62",
+            UnitBloodType: "O+",
+            ProductName: "Red Blood Cells",
+            ExpiresUtc: new DateTime(2026, 6, 30, 23, 59, 0, DateTimeKind.Utc),
+            CollectionFacility: "W0000");
+
+        var doc = ComponentLabelTemplate.Build(model);
+        var texts = doc.Elements.OfType<LabelText>().Select(t => t.Value).ToList();
+
+        Assert.Contains(doc.Elements.OfType<LabelBarcode>(), b => b.Data == "W000011234567");
+        Assert.Contains(texts, t => t.Contains("O+"));
+        Assert.Contains(texts, t => t.Contains("E0206V00"));
+        Assert.Contains(texts, t => t.Contains("2026-06-30"));
+        Assert.Contains(texts, t => t.Contains("Red Blood Cells"));
+    }
+
     private static CompatibilityTagModel StandardTag() => new(
         PatientName: "Doe, John",
         MedicalRecordNumber: "MRN-9",

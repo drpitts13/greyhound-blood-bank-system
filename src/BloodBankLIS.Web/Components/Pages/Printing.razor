@@ -5,9 +5,9 @@
 <PageTitle>Printing &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Label &amp; Tag Printing</h1>
-<p class="muted">Print specimen labels and compatibility tags. Reprints require a reason and are audited.</p>
+<p class="muted">Print specimen labels, ISBT component labels, and compatibility tags. Reprints require a reason and are audited.</p>
 
-<div class="bb-grid cols-2">
+<div class="bb-grid cols-3">
     <div class="bb-card">
         <div class="bb-card-title"><h3>Print specimen label</h3></div>
         <Outcome Value="_specFb" />
@@ -30,6 +30,18 @@
             </div>
         </div>
         <button class="btn btn-primary" disabled="@_busy" @onclick="PrintTagAsync">Print</button>
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Print component label</h3></div>
+        <Outcome Value="_compFb" />
+        <div class="form-row">
+            <div class="field"><label>Blood unit id</label><input type="number" @bind="_unitId" /></div>
+            <div class="field"><label>Format</label>
+                <select @bind="_compFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@f</option> }</select>
+            </div>
+        </div>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="PrintComponentAsync">Print</button>
     </div>
 </div>
 
@@ -103,6 +115,10 @@
     private LabelFormat _tagFormat = LabelFormat.Preview;
     private Feedback? _tagFb;
 
+    private long _unitId;
+    private LabelFormat _compFormat = LabelFormat.Preview;
+    private Feedback? _compFb;
+
     private List<PrintJobVm> _jobs = new();
     private bool _loading = true;
     private bool _busy;
@@ -135,6 +151,15 @@
         var r = await Api.PrintCompatibilityTagAsync(_issueId, new PrintRequestVm(_tagFormat));
         _busy = false;
         _tagFb = r.ToFeedback("Compatibility tag queued.");
+        if (r.Succeeded) { _lastJob = r.Value; await LoadJobsAsync(); }
+    }
+
+    private async Task PrintComponentAsync()
+    {
+        _busy = true;
+        var r = await Api.PrintComponentLabelAsync(_unitId, new PrintRequestVm(_compFormat));
+        _busy = false;
+        _compFb = r.ToFeedback("Component label queued.");
         if (r.Succeeded) { _lastJob = r.Value; await LoadJobsAsync(); }
     }
 

@@ -145,6 +145,32 @@ public sealed class PrintService
             nameof(Issue), issue.Id, ct);
     }
 
+    public async Task<OperationResult<PrintJob>> PrintComponentLabelAsync(long unitId, PrintRequest request, CancellationToken ct = default)
+    {
+        var unit = await _units.GetByIdAsync(unitId, ct);
+        if (unit is null)
+        {
+            return OperationResult<PrintJob>.Fail($"Blood unit {unitId} not found.");
+        }
+
+        var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
+        var model = new ComponentLabelModel(
+            UnitNumber: unit.UnitNumber,
+            Din: unit.Din,
+            ProductCodeData: unit.ProductCodeData ?? unit.Isbt128ProductCode,
+            AboRhdCode: unit.AboRhdCode,
+            UnitBloodType: unit.BloodType.ToString(),
+            ProductName: productType?.Name ?? "Unknown",
+            ExpiresUtc: unit.ExpiresUtc,
+            CollectionFacility: unit.CollectionFacility);
+
+        var templateCode = request.TemplateCode ?? ComponentLabelTemplate.TemplateCode;
+        var document = ComponentLabelTemplate.Build(model);
+
+        return await CreateJobAsync(PrintJobType.ProductLabel, templateCode, request, model, document,
+            nameof(BloodUnit), unit.Id, ct);
+    }
+
     public async Task<OperationResult<PrintJob>> ReprintAsync(long printJobId, string reason, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -250,6 +276,8 @@ public sealed class PrintService
             JsonSerializer.Deserialize<SpecimenLabelModel>(job.PayloadJson, JsonOptions)!),
         PrintJobType.CompatibilityTag => CompatibilityTagTemplate.Build(
             JsonSerializer.Deserialize<CompatibilityTagModel>(job.PayloadJson, JsonOptions)!),
+        PrintJobType.ProductLabel => ComponentLabelTemplate.Build(
+            JsonSerializer.Deserialize<ComponentLabelModel>(job.PayloadJson, JsonOptions)!),
         _ => null
     };
 

@@ -49,6 +49,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-PR-02 | Compatibility/P-tag print | printing-billing A.1 | Tag renders from model; incomplete-testing banner | A | 21 CFR 606.151(b) |
 | R-PR-03 | Reprint audit controls | printing-billing A.3; safety-rules 5 | Reprint requires reason + audit | A | |
 | R-PR-04 | Print preview | printing-billing A.2 | Preview without printing | A | |
+| R-PR-05 | ISBT component / product label | ComponentLabelTemplate; PrintService.PrintComponentLabelAsync | DIN barcode + product + ABO + expiry; reprint rebuilds | A,I | SoftBank/SafeTrace unit labeling |
 | R-BL-01 | Charge rules + codes | printing-billing B.1 | Trigger maps to charge code | A | |
 | R-BL-02 | Charge trigger events | printing-billing B.2 | TestVerified/UnitIssued create event | A | |
 | R-BL-03 | Duplicate prevention | printing-billing B.3 | Dedupe key unique | A,I | |
