@@ -28,7 +28,8 @@ public sealed record IssueUnitRequest(
     /// <summary>Fresh positive unit identity verification at issue (required when unit has ISBT identity).</summary>
     ComponentScanVerificationRequest? VerifiedScan = null,
     string? ReceivedBy = null,
-    string? CoolerId = null);
+    string? CoolerId = null,
+    UnitAppearance Appearance = UnitAppearance.Acceptable);
 
 public sealed record ComponentScanVerificationRequest(
     string Din,
@@ -82,14 +83,15 @@ public sealed record IssueDto(
     DateTime? RetrospectiveCrossmatchDueUtc = null,
     DateTime? RetrospectiveCrossmatchCompletedUtc = null,
     string? CoolerId = null,
-    DateTime? InTransitDueUtc = null)
+    DateTime? InTransitDueUtc = null,
+    UnitAppearance IssueAppearance = UnitAppearance.Acceptable)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
         i.IssuedUtc, i.IssuedBy, i.Comment, i.IssueType, i.OverrideId, i.Status, i.TestsIncompleteAtIssue,
         i.WardReceivedUtc, i.WardReceivedBy,
         i.RetrospectiveCrossmatchDueUtc, i.RetrospectiveCrossmatchCompletedUtc,
-        i.CoolerId, i.InTransitDueUtc);
+        i.CoolerId, i.InTransitDueUtc, i.IssueAppearance);
 }
 
 public sealed record InTransitWorkItemDto(

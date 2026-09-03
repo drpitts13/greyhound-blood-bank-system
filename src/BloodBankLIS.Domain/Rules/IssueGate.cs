@@ -56,6 +56,9 @@ public sealed record IssueGateContext
     /// <summary>Operator attested that the unit passed visual inspection at issue.</summary>
     public bool VisualInspectionAcceptable { get; init; } = true;
 
+    /// <summary>Coded SoftBank/SafeTrace appearance catalog at issue.</summary>
+    public UnitAppearance Appearance { get; init; } = UnitAppearance.Acceptable;
+
     public required DateTime NowUtc { get; init; }
     public TimeSpan SpecimenNearExpiryWindow { get; init; } = TimeSpan.FromHours(12);
     public TimeSpan UnitNearExpiryWindow { get; init; } = TimeSpan.FromHours(24);
@@ -139,6 +142,8 @@ public static class IssueGate
             c.VisualInspectionAcceptable
                 ? RuleResult.Pass(VisualInspectionCode)
                 : RuleResult.HardStop(VisualInspectionCode, "Unit failed visual inspection and cannot be issued."),
+
+            IssueAppearanceRule.Evaluate(c.Appearance),
 
             EvaluateDiscrepancy(c)
         };

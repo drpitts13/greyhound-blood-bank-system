@@ -132,7 +132,12 @@
             </div>
         </div>
         <div class="flex gap" style="flex-wrap:wrap;margin:.5rem 0 1rem;">
-            <label class="flex"><input type="checkbox" @bind="_issue.VisualInspectionAcceptable" /> &nbsp;Visual inspection acceptable</label>
+            <div class="field" style="min-width:14rem;">
+                <label>Appearance at issue</label>
+                <select @bind="_issue.Appearance">
+                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
+                </select>
+            </div>
         </div>
         <UnitScanVerificationPanel Scan="_issueScan" />
 
@@ -330,12 +335,13 @@
         string.IsNullOrWhiteSpace(_issue.IssuedTo) ? null : _issue.IssuedTo,
         string.IsNullOrWhiteSpace(_issue.IssuedToLocation) ? null : _issue.IssuedToLocation,
         _issue.IssueType,
-        _issue.VisualInspectionAcceptable,
+        _issue.Appearance == UnitAppearance.Acceptable,
         _issue.SecondVerifier,
         OverrideReason: overrideReason,
         AuthorizedBy: authorizedBy,
         VerifiedScan: _issueScan.ToRequest(),
-        CoolerId: string.IsNullOrWhiteSpace(_issue.CoolerId) ? null : _issue.CoolerId.Trim());
+        CoolerId: string.IsNullOrWhiteSpace(_issue.CoolerId) ? null : _issue.CoolerId.Trim(),
+        Appearance: _issue.Appearance);
 
     private async Task IssueAsync()
     {
@@ -444,7 +450,7 @@
         public string? IssuedTo { get; set; }
         public string? IssuedToLocation { get; set; }
         public IssueType IssueType { get; set; } = IssueType.Standard;
-        public bool VisualInspectionAcceptable { get; set; } = true;
+        public UnitAppearance Appearance { get; set; } = UnitAppearance.Acceptable;
         public string? SecondVerifier { get; set; }
         public string? CoolerId { get; set; }
     }

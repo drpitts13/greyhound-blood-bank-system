@@ -82,6 +82,9 @@ public class Issue : BaseEntity
 
     public bool VisualInspectionAcceptable { get; set; } = true;
 
+    /// <summary>Coded appearance catalog captured at issue (SoftBank/SafeTrace).</summary>
+    public UnitAppearance IssueAppearance { get; set; } = UnitAppearance.Acceptable;
+
     public string? SecondVerifier { get; set; }
 
     public string? PatientIdentifier1 { get; set; }

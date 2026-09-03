@@ -1017,7 +1017,11 @@ else
                             <textarea rows="2" @bind="_issueComment"></textarea>
                         </div>
                     </div>
-                    <label class="flex"><input type="checkbox" @bind="_issueVisualOk" /> &nbsp;Visual inspection acceptable</label>
+                    <div class="field" style="min-width:14rem;"><label>Appearance at issue</label>
+                        <select @bind="_issueAppearance">
+                            @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
+                        </select>
+                    </div>
                     <UnitScanVerificationPanel Scan="_issueScan" />
 
                     @if (_showIssueOverride)
@@ -1361,7 +1365,7 @@ else
     private string _issueId1 = string.Empty;
     private string _issueId2 = string.Empty;
     private string? _issueSecondVerifier;
-    private bool _issueVisualOk = true;
+    private UnitAppearance _issueAppearance = UnitAppearance.Acceptable;
     private readonly UnitScanModel _issueScan = new();
     private List<DirectoryUserDto> _directoryUsers = new();
 
@@ -1509,7 +1513,7 @@ else
         _issueId1 = _patient?.MedicalRecordNumber ?? string.Empty;
         _issueId2 = _patient?.DateOfBirth.ToString("yyyy-MM-dd") ?? string.Empty;
         _issueSecondVerifier = string.Empty;
-        _issueVisualOk = true;
+        _issueAppearance = UnitAppearance.Acceptable;
         _issueScan.Clear();
     }
 
@@ -1533,13 +1537,14 @@ else
             IssuedTo: _issueIssuedTo.Trim(),
             IssuedToLocation: _issueLocation.Trim(),
             IssueType: IssueType.Standard,
-            VisualInspectionAcceptable: _issueVisualOk,
+            VisualInspectionAcceptable: _issueAppearance == UnitAppearance.Acceptable,
             SecondVerifier: _issueSecondVerifier,
             OverrideReason: overrideReason,
             AuthorizedBy: authorizedBy,
             IssuedUtc: issuedUtc,
             Comment: string.IsNullOrWhiteSpace(_issueComment) ? null : _issueComment.Trim(),
-            VerifiedScan: _issueScan.ToRequest());
+            VerifiedScan: _issueScan.ToRequest(),
+            Appearance: _issueAppearance);
     }
 
     private bool ValidateIssueForm()

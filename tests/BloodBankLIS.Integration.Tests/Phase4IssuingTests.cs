@@ -194,6 +194,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
             Assert.True(issued.Succeeded);
             Assert.Equal(IssueStatus.Issued, issued.Value!.Status);
+            Assert.Equal(UnitAppearance.Acceptable, issued.Value.IssueAppearance);
             issueId = issued.Value.Id;
         }
 
@@ -341,6 +342,21 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         Assert.False(issued.Succeeded);
         Assert.Contains(issued.Evaluation!.HardStops, r => r.Code == IssueGate.AllocationCode);
+    }
+
+    [Fact]
+    public async Task Issue_HemolysisAppearance_IsHardStopped()
+    {
+        var s = await SeedAsync("ISS-HEMOL");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with { Appearance = UnitAppearance.Hemolysis });
+
+        Assert.False(issued.Succeeded);
+        Assert.Contains(issued.Evaluation!.HardStops, r => r.Code == IssueAppearanceRule.Code);
+        Assert.NotEqual(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
     [Fact]

@@ -190,7 +190,9 @@ public sealed class IssuingService
             UnitAntigens = bloodAttrs.UnitAntigens,
             SpecialRequirementsMet = specialMet,
             UnresolvedAboRhDiscrepancy = unresolvedDelta,
-            VisualInspectionAcceptable = request.VisualInspectionAcceptable,
+            VisualInspectionAcceptable = request.VisualInspectionAcceptable
+                && IssueAppearanceRule.IsAcceptable(request.Appearance),
+            Appearance = request.Appearance,
             NowUtc = now
         };
 
@@ -316,7 +318,9 @@ public sealed class IssuingService
             RetrospectiveCrossmatchDueUtc = retroDueUtc,
             CoolerId = string.IsNullOrWhiteSpace(request.CoolerId) ? null : request.CoolerId.Trim(),
             InTransitDueUtc = issuedUtc.AddHours(await _policy.GetInTransitDueHoursAsync(ct)),
-            VisualInspectionAcceptable = request.VisualInspectionAcceptable,
+            VisualInspectionAcceptable = request.VisualInspectionAcceptable
+                && IssueAppearanceRule.IsAcceptable(request.Appearance),
+            IssueAppearance = request.Appearance,
             SecondVerifier = request.SecondVerifier,
             PatientIdentifier1 = request.PatientIdentifier1Value,
             PatientIdentifier2 = request.PatientIdentifier2Value

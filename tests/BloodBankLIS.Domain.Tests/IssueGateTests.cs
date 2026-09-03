@@ -169,6 +169,15 @@ public class IssueGateTests
     }
 
     [Fact]
+    public void CodedAppearanceDefect_IsHardStopped()
+    {
+        var context = PassingContext() with { Appearance = UnitAppearance.Hemolysis };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == IssueAppearanceRule.Code);
+    }
+
+    [Fact]
     public void OnHold_IsHardStopped()
     {
         var context = PassingContext() with { UnitStatus = UnitStatus.OnHold };
