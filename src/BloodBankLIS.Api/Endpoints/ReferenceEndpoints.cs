@@ -183,7 +183,8 @@ public static class ReferenceEndpoints
                 interpretationOptions,
                 scopedBloodAttrs,
                 def.BloodAttributeScopeKind,
-                def.ContributesToUnitBloodAttributes));
+                def.ContributesToUnitBloodAttributes,
+                def.ContributesToAntibodyHistory));
         });
     }
 

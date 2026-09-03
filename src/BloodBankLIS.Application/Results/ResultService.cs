@@ -18,7 +18,9 @@ namespace BloodBankLIS.Application.Results;
 /// Test result entry, verification, and the versioned correction workflow. Verified
 /// results are immutable; corrections create a new version and supersede the prior
 /// row (see docs/safety-rules.md sections 6-7). Verifying an ABO/Rh result appends
-/// to the patient's blood-type history and runs a delta check.
+/// to the patient's blood-type history and runs a delta check. Verifying a
+/// free-text/coded test marked <c>ContributesToAntibodyHistory</c> (ABID) posts
+/// identified specificities to <see cref="AntibodyHistory"/>.
 /// </summary>
 public sealed class ResultService
 {
@@ -575,6 +577,7 @@ public sealed class ResultService
             result.VerifiedBy = _currentUser.UserName;
             result.VerifiedUtc = now;
             await ApplyBloodAttributeResultAsync(result, ct);
+            warnings.AddRange(await ApplyAntibodyIdentificationResultAsync(result, ct));
         }
 
         if (authorizedOverride is not null)
@@ -1141,6 +1144,119 @@ public sealed class ResultService
         }
 
         return OperationResult<TestResult>.Ok(result);
+    }
+
+    /// <summary>
+    /// SoftBank/SafeTrace post identified antibodies to the patient record when ABID
+    /// is verified. Catalog matches reuse the blood-attribute history path; unmatched
+    /// anti-* tokens are stored as free-text history and surface <c>RES-ABID-UNMATCHED</c>.
+    /// Historical antibodies are never removed by a later negative or different ID.
+    /// </summary>
+    private async Task<IReadOnlyList<RuleResult>> ApplyAntibodyIdentificationResultAsync(
+        TestResult result, CancellationToken ct)
+    {
+        if (_testDefinitions is null || _antibodies is null)
+        {
+            return Array.Empty<RuleResult>();
+        }
+
+        var def = await _testDefinitions.FirstOrDefaultAsync(
+            d => d.IsActive && d.Code == result.TestCode, ct);
+        if (def is null
+            || !def.ContributesToAntibodyHistory
+            || def.ResultValueType is not (ResultValueType.FreeText or ResultValueType.Coded))
+        {
+            return Array.Empty<RuleResult>();
+        }
+
+        var catalogEntities = _bloodAttributes is null
+            ? []
+            : await _bloodAttributes.ListAsync(d => d.IsActive, ct);
+        var catalog = catalogEntities
+            .Select(d => new AntibodyCatalogItem(d.Id, d.Code, d.Name, d.AntibodyName))
+            .ToList();
+        var hits = AntibodyIdentificationParser.Resolve(result.Value, catalog);
+        if (hits.Count == 0)
+        {
+            return Array.Empty<RuleResult>();
+        }
+
+        var posted = new List<string>();
+        var unmatched = new List<string>();
+
+        foreach (var hit in hits)
+        {
+            if (hit.CatalogItem is { } item)
+            {
+                var attrDef = catalogEntities.First(d => d.Id == item.Id);
+                await ApplyPatientAntibodyResultAsync(
+                    result.PatientId, attrDef, AntigenResult.Positive, result.Id, ct);
+                posted.Add(attrDef.AntibodyName);
+                continue;
+            }
+
+            if (!AntibodyIdentificationParser.LooksLikeAntibodyToken(hit.Token))
+            {
+                continue;
+            }
+
+            await ApplyFreeTextAntibodyResultAsync(result.PatientId, hit.Token, result.Id, ct);
+            posted.Add(hit.Token);
+            unmatched.Add(hit.Token);
+        }
+
+        if (posted.Count == 0)
+        {
+            return Array.Empty<RuleResult>();
+        }
+
+        _audit.Record(
+            AuditEventType.Update,
+            nameof(AntibodyHistory),
+            result.PatientId,
+            newValue: new
+            {
+                SourceResultId = result.Id,
+                TestCode = result.TestCode,
+                Specificities = posted
+            },
+            reason: $"Identified on verified {result.TestCode}.");
+
+        return unmatched.Count == 0
+            ? Array.Empty<RuleResult>()
+            : new[]
+            {
+                RuleResult.Warning(
+                    AntibodyIdentificationParser.UnmatchedRuleCode,
+                    $"Antibody identification includes specificities not in the catalog: {string.Join(", ", unmatched)}. Posted as free-text history.")
+            };
+    }
+
+    private async Task ApplyFreeTextAntibodyResultAsync(
+        long patientId, string specificity, long sourceResultId, CancellationToken ct)
+    {
+        var existing = await _antibodies!.FirstOrDefaultAsync(
+            a => a.PatientId == patientId
+                 && a.BloodAttributeDefinitionId == null
+                 && a.IsActive
+                 && a.AntibodySpecificity == specificity, ct);
+        if (existing is not null)
+        {
+            existing.Status = AntibodyStatus.Identified;
+            existing.SourceResultId = sourceResultId;
+            _antibodies.Update(existing);
+            return;
+        }
+
+        await _antibodies.AddAsync(new AntibodyHistory
+        {
+            PatientId = patientId,
+            AntibodySpecificity = specificity,
+            Status = AntibodyStatus.Identified,
+            IsActive = true,
+            SourceResultId = sourceResultId,
+            Comment = "Posted from verified antibody identification."
+        }, ct);
     }
 
     private async Task ApplyBloodAttributeResultAsync(TestResult result, CancellationToken ct)

@@ -9,7 +9,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-PT-01 | Patient demographics + MRN + alternate identifiers | erd.md Patients/PatientIdentifiers | CRUD + unique MRN | I | AABB two identifiers |
 | R-PT-02 | Encounter/visit support | erd.md Encounters | Encounter create + visit uniqueness | I | |
 | R-PT-03 | ABO/Rh history append-only | erd.md PatientBloodTypeHistory; safety-rules 6/7 | History append + IsCurrent flip | A,I | 21 CFR 606.160 |
-| R-PT-04 | Antibody history | erd.md AntibodyHistory | Antibody add/deactivate audited | A | 21 CFR 606.151 |
+| R-PT-04 | Antibody history | erd.md AntibodyHistory; safety-rules 6 | Manual add/deactivate; verified ABID posts catalog/free-text specificities | D,A,I | 21 CFR 606.151 |
 | R-PT-05 | Special transfusion requirements | erd.md SpecialTransfusionRequirements; IssueGate ISS-SPECIAL-REQ | Requirement enforced on issue | D,A,I | AABB special needs; computer check |
 | R-SP-01 | Specimen accessioning + barcode | workflows 2; erd.md Specimens | Accession + unique accession no. | A,I | AABB 5.11 two identifiers |
 | R-SP-02 | Specimen expiration logic | safety-rules 2 | 3-day vs standard window | D,I | AABB 3-day when transfused/pregnant 3 mo |

@@ -13,7 +13,8 @@ public sealed record TestDefinitionForEntryDto(
     IReadOnlyList<InterpretationOptionDto> InterpretationOptions,
     IReadOnlyList<BloodAttributeListItemDto> BloodAttributeScope,
     BloodAttributeKind? BloodAttributeScopeKind,
-    bool ContributesToUnitBloodAttributes);
+    bool ContributesToUnitBloodAttributes,
+    bool ContributesToAntibodyHistory = false);
 
 public sealed record InterpretationOptionDto(string Key, string Label);
 

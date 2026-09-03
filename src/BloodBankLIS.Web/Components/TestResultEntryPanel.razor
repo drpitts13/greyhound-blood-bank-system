@@ -164,6 +164,23 @@
                     <div class="field"><label>Result</label><input @bind="_value" /></div>
                     <div class="field"><label>Interpretation</label><input @bind="_interpretation" /></div>
                 </div>
+                @if (_definition.ContributesToAntibodyHistory)
+                {
+                    <p class="muted" style="margin:.5rem 0 .35rem;">
+                        Select identified antibodies from the catalog. Verifying this result posts them to the patient's antibody history.
+                    </p>
+                    <div class="flex gap" style="flex-wrap:wrap;">
+                        @foreach (var attr in _antibodyCatalog)
+                        {
+                            var selected = IsAntibodySelected(attr);
+                            <button type="button"
+                                    class="btn btn-sm @(selected ? "btn-primary" : "btn-ghost")"
+                                    @onclick="() => ToggleAntibody(attr)">
+                                @attr.AntibodyName
+                            </button>
+                        }
+                    </div>
+                }
             }
             else if (_definition.ResultValueType == ResultValueType.BloodAttribute && _definition.BloodAttributeScope.Count > 0)
             {
@@ -355,6 +372,7 @@
     private string _interpretation = string.Empty;
     private string _unitNumber = string.Empty;
     private List<PatientAllocationRowDto> _reservedUnits = new();
+    private List<BloodAttributeListItemDto> _antibodyCatalog = new();
     private bool _unitsLoading;
     private CrossmatchMethod _xmMethod = CrossmatchMethod.Serologic;
     private CrossmatchResult _xmResult = CrossmatchResult.Compatible;
@@ -401,6 +419,16 @@
         if (IsCrossmatchType)
         {
             await LoadReservedUnitsAsync();
+        }
+
+        if (_definition is { ContributesToAntibodyHistory: true, ResultValueType: ResultValueType.FreeText })
+        {
+            var attrs = await Api.GetReferenceBloodAttributesAsync();
+            _antibodyCatalog = attrs.Value ?? new();
+        }
+        else
+        {
+            _antibodyCatalog = new();
         }
     }
 
@@ -622,6 +650,31 @@
         {
             _xmResult = CrossmatchResult.Compatible;
         }
+    }
+
+    private IReadOnlyList<AntibodyCatalogItem> AntibodyCatalogItems =>
+        _antibodyCatalog
+            .Select(a => new AntibodyCatalogItem(a.Id, a.Code, a.Name, a.AntibodyName))
+            .ToList();
+
+    private bool IsAntibodySelected(BloodAttributeListItemDto attr) =>
+        AntibodyIdentificationParser.Resolve(_value, AntibodyCatalogItems)
+            .Any(h => h.CatalogItem?.Id == attr.Id);
+
+    private void ToggleAntibody(BloodAttributeListItemDto attr)
+    {
+        var hits = AntibodyIdentificationParser.Resolve(_value, AntibodyCatalogItems);
+        var selected = hits.Any(h => h.CatalogItem?.Id == attr.Id);
+        var labels = hits
+            .Where(h => h.CatalogItem?.Id != attr.Id)
+            .Select(h => h.CatalogItem?.AntibodyName ?? h.Token)
+            .ToList();
+        if (!selected)
+        {
+            labels.Add(attr.AntibodyName);
+        }
+
+        _value = AntibodyIdentificationParser.Format(labels);
     }
 
     private IEnumerable<string> AllowedValues =>

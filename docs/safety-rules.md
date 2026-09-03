@@ -161,6 +161,7 @@ Opening a reaction investigation quarantines the implicated unit when `Inventory
 - Verified results are immutable; corrections create a new `TestResults` version and supersede (never overwrite) the prior row.
 - Delta check: a new ABO/Rh result that disagrees with the current historical record raises `RES-ABORH-DELTA` (**Warning**). At **verify**, the Warning **blocks** until an authorized override supplies reason + electronic signature + **Retain** (keep historical `IsCurrent`) or **Replace** (append and flip `IsCurrent` to the verified type). Override eligibility is gated by the admin `ExceptionDefinitions` catalog (`MinSecurityLevel` vs the user's max role `SecurityLevel`). Unresolved discrepancy still contributes a HardStop to the issue gate on crossmatch-required products.
 - Critical/special flags on results are surfaced to the verifier and carried into compatibility evaluation.
+- Verifying a free-text or coded test with `ContributesToAntibodyHistory` (typically ABID) resolves catalog specificities (`anti-K`, `anti-E`) and posts them to `AntibodyHistory`, which then drives antigen-negative selection and the complex-crossmatch gate. Unmatched `anti-*` tokens post as free-text history and raise `RES-ABID-UNMATCHED` (Warning). Historical antibodies are never removed by a later negative or different identification.
 
 ---
 
