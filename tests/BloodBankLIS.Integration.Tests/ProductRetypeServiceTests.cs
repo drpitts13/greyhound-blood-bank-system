@@ -87,7 +87,8 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
         var receive = await Inventory(context).ReceiveUnitAsync(new ReceiveUnitRequest(
             unitNumber, type.Id, abo, rh, _factory.Clock.UtcNow.AddDays(30),
             Isbt128ProductCode: "E0206",
-            SecondVerifier: "tech2"));
+            SecondVerifier: "tech2",
+            ReceiveTemperatureCelsius: 4.0m));
         Assert.True(receive.Succeeded, receive.Error);
         return (type.Id, receive.Unit!.Id);
     }
@@ -207,7 +208,8 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             ExpirationHasExplicitTime: false,
             ProductTypeId: type.Id,
             ReleaseToAvailable: true,
-            SecondVerifier: "tech2"));
+            SecondVerifier: "tech2",
+            ReceiveTemperatureCelsius: 4.0m));
 
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(UnitStatus.Received, result.Unit!.Status);

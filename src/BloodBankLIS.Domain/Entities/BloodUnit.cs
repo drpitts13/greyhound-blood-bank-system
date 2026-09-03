@@ -112,6 +112,9 @@ public class BloodUnit : BaseEntity
     /// <summary>Coded SoftBank/SafeTrace appearance at receipt.</summary>
     public UnitAppearance ReceiveAppearance { get; set; } = UnitAppearance.Acceptable;
 
+    /// <summary>Shipping-container temperature in Celsius recorded at receipt.</summary>
+    public decimal? ReceiveTemperatureCelsius { get; set; }
+
     /// <summary>
     /// Set on a result unit produced by a product modification (divide/pool/irradiate/
     /// thaw/volume-reduce/leukoreduce); null for units received directly into inventory.

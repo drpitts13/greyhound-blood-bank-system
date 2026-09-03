@@ -40,7 +40,8 @@ public sealed record CompleteScanSessionRequest(
     bool VisualInspectionAcceptable = true,
     string? VisualInspectionNotes = null,
     string? SecondVerifier = null,
-    UnitAppearance Appearance = UnitAppearance.Acceptable);
+    UnitAppearance Appearance = UnitAppearance.Acceptable,
+    decimal? ReceiveTemperatureCelsius = null);
 
 /// <summary>
 /// Manual receipt. <paramref name="DonationNumber"/> is the combined human-readable
@@ -67,7 +68,8 @@ public sealed record ManualComponentEntryRequest(
     bool VisualInspectionAcceptable = true,
     string? VisualInspectionNotes = null,
     string? SecondVerifier = null,
-    UnitAppearance Appearance = UnitAppearance.Acceptable);
+    UnitAppearance Appearance = UnitAppearance.Acceptable,
+    decimal? ReceiveTemperatureCelsius = null);
 
 public sealed record CanonicalComponentSummary(
     string? ComponentIdentity,

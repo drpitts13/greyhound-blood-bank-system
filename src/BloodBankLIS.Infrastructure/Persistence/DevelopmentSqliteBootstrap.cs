@@ -54,6 +54,7 @@ public static class DevelopmentSqliteBootstrap
         ("BloodProducts", "ReceiveVisualAcceptable", """ALTER TABLE "BloodProducts" ADD COLUMN "ReceiveVisualAcceptable" INTEGER NOT NULL DEFAULT 1"""),
         ("BloodProducts", "ReceiveVisualNotes", """ALTER TABLE "BloodProducts" ADD COLUMN "ReceiveVisualNotes" TEXT NULL"""),
         ("BloodProducts", "ReceiveAppearance", """ALTER TABLE "BloodProducts" ADD COLUMN "ReceiveAppearance" INTEGER NOT NULL DEFAULT 0"""),
+        ("BloodProducts", "ReceiveTemperatureCelsius", """ALTER TABLE "BloodProducts" ADD COLUMN "ReceiveTemperatureCelsius" TEXT NULL"""),
         ("BloodProducts", "MissingReason", """ALTER TABLE "BloodProducts" ADD COLUMN "MissingReason" TEXT NULL"""),
         ("BloodProducts", "DamagedReason", """ALTER TABLE "BloodProducts" ADD COLUMN "DamagedReason" TEXT NULL"""),
         ("Crossmatches", "Phase", """ALTER TABLE "Crossmatches" ADD COLUMN "Phase" TEXT NULL"""),

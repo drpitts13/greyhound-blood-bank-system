@@ -26,6 +26,7 @@ public static partial class DatabaseSeeder
         await EnsureQuarantineReleaseVerifierPolicyAsync(context, cancellationToken);
         await EnsureReceiveVisualInspectionPolicyAsync(context, cancellationToken);
         await EnsureReceiveVerifierPolicyAsync(context, cancellationToken);
+        await EnsureReceiveTemperaturePolicyAsync(context, cancellationToken);
         await EnsureDiscardVerifierPolicyAsync(context, cancellationToken);
         await EnsureInTransitDueHoursPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
@@ -195,6 +196,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.RequireReceiveTemperature,
+                Value = "true",
+                Category = "Inventory",
+                Description = "Require a shipping-container temperature in the 1–10 °C range before receiving a unit."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.RequireDiscardVerifier,
                 Value = "true",
                 Category = "Inventory",
@@ -322,6 +330,23 @@ public static partial class DatabaseSeeder
             Value = "true",
             Category = "Inventory",
             Description = "Require a distinct directory user as second verifier when receiving a unit."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureReceiveTemperaturePolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.RequireReceiveTemperature, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RequireReceiveTemperature,
+            Value = "true",
+            Category = "Inventory",
+            Description = "Require a shipping-container temperature in the 1–10 °C range before receiving a unit."
         });
         await context.SaveChangesAsync(ct);
     }

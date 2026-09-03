@@ -129,6 +129,12 @@ public sealed class InventoryService
             return appearance;
         }
 
+        var temperature = await EvaluateReceiveTemperatureAsync(request.ReceiveTemperatureCelsius, ct);
+        if (temperature is not null)
+        {
+            return temperature;
+        }
+
         var verifier = await EvaluateReceiveVerifierAsync(request.SecondVerifier, ct);
         if (verifier is not null)
         {
@@ -192,7 +198,8 @@ public sealed class InventoryService
             ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
                 ? null
                 : request.VisualInspectionNotes.Trim(),
-            ReceiveAppearance = request.Appearance
+            ReceiveAppearance = request.Appearance,
+            ReceiveTemperatureCelsius = request.ReceiveTemperatureCelsius
         };
 
         await _repository.AddUnitAsync(unit, ct);
@@ -315,6 +322,12 @@ public sealed class InventoryService
             return appearance;
         }
 
+        var temperature = await EvaluateReceiveTemperatureAsync(request.ReceiveTemperatureCelsius, ct);
+        if (temperature is not null)
+        {
+            return temperature;
+        }
+
         var verifier = await EvaluateReceiveVerifierAsync(request.SecondVerifier, ct);
         if (verifier is not null)
         {
@@ -329,6 +342,7 @@ public sealed class InventoryService
             ? null
             : request.VisualInspectionNotes.Trim();
         unit.ReceiveAppearance = request.Appearance;
+        unit.ReceiveTemperatureCelsius = request.ReceiveTemperatureCelsius;
         if (request.LocationId is long loc)
         {
             unit.CurrentLocationId = loc;
@@ -381,6 +395,7 @@ public sealed class InventoryService
         string? visualInspectionNotes = null,
         UnitAppearance appearance = UnitAppearance.Acceptable,
         string? secondVerifier = null,
+        decimal? receiveTemperatureCelsius = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -390,6 +405,12 @@ public sealed class InventoryService
         if (appear is not null)
         {
             return appear;
+        }
+
+        var temperature = await EvaluateReceiveTemperatureAsync(receiveTemperatureCelsius, ct);
+        if (temperature is not null)
+        {
+            return temperature;
         }
 
         var verifier = await EvaluateReceiveVerifierAsync(secondVerifier, ct);
@@ -439,6 +460,7 @@ public sealed class InventoryService
             ? null
             : visualInspectionNotes.Trim();
         unit.ReceiveAppearance = appearance;
+        unit.ReceiveTemperatureCelsius = receiveTemperatureCelsius;
 
         await _repository.AddUnitAsync(unit, ct);
 
@@ -545,6 +567,15 @@ public sealed class InventoryService
         var visual = ReceiveVisualInspectionRule.Evaluate(required, acceptable);
         return visual.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([visual]))
+            : null;
+    }
+
+    private async Task<InventoryActionResult?> EvaluateReceiveTemperatureAsync(decimal? celsius, CancellationToken ct)
+    {
+        var required = _policy is null || await _policy.GetRequireReceiveTemperatureAsync(ct);
+        var result = ReceiveTemperatureRule.Evaluate(required, celsius);
+        return result.Severity == RuleSeverity.HardStop
+            ? InventoryActionResult.Blocked(new RuleEvaluation([result]))
             : null;
     }
 

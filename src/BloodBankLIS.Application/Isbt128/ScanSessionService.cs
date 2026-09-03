@@ -211,6 +211,7 @@ public sealed class ScanSessionService
             request.VisualInspectionNotes,
             request.Appearance,
             request.SecondVerifier,
+            request.ReceiveTemperatureCelsius,
             ct);
 
         if (result.Succeeded)

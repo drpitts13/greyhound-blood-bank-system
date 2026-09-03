@@ -60,6 +60,10 @@
                 </select>
             </div>
             <div class="field"><label>Visual notes</label><input @bind="_rec.VisualInspectionNotes" placeholder="Optional appearance notes" /></div>
+            <div class="field"><label>Receipt temperature (°C)</label>
+                <input type="number" step="0.1" @bind="_rec.ReceiveTemperatureCelsius" placeholder="e.g. 4.0" />
+                <span class="muted">Shipping cooler 1–10 °C</span>
+            </div>
             <div class="field" style="min-width:16rem;">
                 <label>Second verifier</label>
                 <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
@@ -180,6 +184,7 @@
     private UnitAppearance _arrivalAppearance = UnitAppearance.Acceptable;
     private string? _arrivalVisualNotes;
     private string? _arrivalSecondVerifier;
+    private decimal? _arrivalTemperatureCelsius;
     private string _cancelExpectedReason = string.Empty;
 
     private BloodUnitDto? _selected;
@@ -265,7 +270,8 @@
             VisualInspectionAcceptable: _rec.Appearance == UnitAppearance.Acceptable,
             VisualInspectionNotes: string.IsNullOrWhiteSpace(_rec.VisualInspectionNotes) ? null : _rec.VisualInspectionNotes,
             SecondVerifier: _rec.SecondVerifier,
-            Appearance: _rec.Appearance);
+            Appearance: _rec.Appearance,
+            ReceiveTemperatureCelsius: _rec.ReceiveTemperatureCelsius);
         var r = await Api.ReceiveUnitAsync(req);
         _busy = false;
         _receiveFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
@@ -457,7 +463,8 @@
             VisualInspectionAcceptable: _arrivalAppearance == UnitAppearance.Acceptable,
             VisualInspectionNotes: string.IsNullOrWhiteSpace(_arrivalVisualNotes) ? null : _arrivalVisualNotes,
             SecondVerifier: _arrivalSecondVerifier,
-            Appearance: _arrivalAppearance));
+            Appearance: _arrivalAppearance,
+            ReceiveTemperatureCelsius: _arrivalTemperatureCelsius));
         _busy = false;
         _actionFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
             ? "Arrival confirmed. ABO/Rh retype is required before the unit is Available."
@@ -468,6 +475,7 @@
             _arrivalAppearance = UnitAppearance.Acceptable;
             _arrivalVisualNotes = null;
             _arrivalSecondVerifier = null;
+            _arrivalTemperatureCelsius = null;
             await RefreshSelected(id);
         }
     }
@@ -575,6 +583,10 @@
                             <label>Arrival notes</label>
                             <input @bind="_arrivalVisualNotes" placeholder="Appearance, defects" />
                         </div>
+                        <div class="field" style="min-width:12rem;">
+                            <label>Receipt temperature (°C)</label>
+                            <input type="number" step="0.1" @bind="_arrivalTemperatureCelsius" placeholder="e.g. 4.0" />
+                        </div>
                         <div class="field" style="min-width:16rem;">
                             <label>Second verifier</label>
                             <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
@@ -611,7 +623,7 @@
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable)
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null)
                 {
                     <p class="muted">
                         @if (!string.IsNullOrWhiteSpace(u.ShipmentId))
@@ -637,6 +649,10 @@
                         @if (u.ReceiveAppearance != UnitAppearance.Acceptable || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes))
                         {
                             <span>Appearance: @u.ReceiveAppearance@(string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) ? "" : $" — {u.ReceiveVisualNotes}")</span>
+                        }
+                        @if (u.ReceiveTemperatureCelsius is decimal temp)
+                        {
+                            <span>Receipt temperature: @temp.ToString("0.#") °C</span>
                         }
                     </p>
                 }
@@ -795,6 +811,7 @@
         public bool VisualInspectionAcceptable { get; set; } = true;
         public string? VisualInspectionNotes { get; set; }
         public UnitAppearance Appearance { get; set; } = UnitAppearance.Acceptable;
+        public decimal? ReceiveTemperatureCelsius { get; set; }
         public string? SecondVerifier { get; set; }
     }
 }

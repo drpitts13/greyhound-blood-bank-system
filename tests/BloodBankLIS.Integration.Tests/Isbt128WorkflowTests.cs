@@ -127,7 +127,8 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ExpirationHasExplicitTime: false,
             ProductTypeId: productTypeId,
             ReleaseToAvailable: true,
-            SecondVerifier: "tech2"));
+            SecondVerifier: "tech2",
+            ReceiveTemperatureCelsius: 4.0m));
 
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal("G123417654321|E0206000", result.Unit!.ComponentIdentity);
@@ -144,7 +145,8 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ExpirationLocal: _factory.Clock.UtcNow.AddDays(30),
             ExpirationHasExplicitTime: false,
             ProductTypeId: productTypeId,
-            SecondVerifier: "tech2"));
+            SecondVerifier: "tech2",
+            ReceiveTemperatureCelsius: 4.0m));
 
         Assert.False(dup.Succeeded);
         Assert.Contains(IsbtErrorCodes.ComponentDuplicate, dup.Error);
@@ -189,7 +191,8 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.True((await sessions.AddScanAsync(new AddScanRequest(key, exp.Value!.Sanitized))).Succeeded);
 
         var complete = await sessions.CompleteAsync(new CompleteScanSessionRequest(
-            key, productTypeId, ReleaseToAvailable: true, SecondVerifier: "tech2"));
+            key, productTypeId, ReleaseToAvailable: true, SecondVerifier: "tech2",
+            ReceiveTemperatureCelsius: 4.0m));
         Assert.True(complete.Succeeded, complete.Error);
         Assert.Equal(UnitStatus.Available, complete.Unit!.Status);
         Assert.Equal(4, complete.Unit.RawScans.Count);
@@ -207,7 +210,8 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ExpirationHasExplicitTime: false,
             ProductTypeId: productTypeId,
             ReleaseToAvailable: true,
-            SecondVerifier: "tech2");
+            SecondVerifier: "tech2",
+            ReceiveTemperatureCelsius: 4.0m);
 
     private ComponentIdentityCorrectionService CreateCorrection(BloodBankDbContext context)
     {
@@ -245,7 +249,8 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ExpirationLocal: _factory.Clock.UtcNow.AddDays(30),
             ExpirationHasExplicitTime: false,
             ProductTypeId: productTypeId,
-            SecondVerifier: "tech2"));
+            SecondVerifier: "tech2",
+            ReceiveTemperatureCelsius: 4.0m));
         Assert.True(created.Succeeded, created.Error);
 
         var correction = CreateCorrection(context);

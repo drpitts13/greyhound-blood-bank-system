@@ -108,6 +108,7 @@ public sealed class ManualComponentEntryService
             request.VisualInspectionNotes,
             request.Appearance,
             request.SecondVerifier,
+            request.ReceiveTemperatureCelsius,
             ct);
     }
 }

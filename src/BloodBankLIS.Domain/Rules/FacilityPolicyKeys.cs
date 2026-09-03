@@ -13,6 +13,7 @@ public static class FacilityPolicyKeys
     public const string RequireQuarantineReleaseVerifier = "Inventory.RequireQuarantineReleaseVerifier";
     public const string RequireReceiveVisualInspection = "Inventory.RequireReceiveVisualInspection";
     public const string RequireReceiveVerifier = "Inventory.RequireReceiveVerifier";
+    public const string RequireReceiveTemperature = "Inventory.RequireReceiveTemperature";
     public const string RequireDiscardVerifier = "Inventory.RequireDiscardVerifier";
     public const string BlockSelfVerify = "Result.BlockSelfVerify";
     public const string RetentionYears = "Record.RetentionYears";
