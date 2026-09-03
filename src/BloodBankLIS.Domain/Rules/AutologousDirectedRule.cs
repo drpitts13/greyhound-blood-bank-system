@@ -4,13 +4,14 @@ namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
 /// SoftBank/SafeTrace autologous and directed units are reserved to one recipient.
-/// Autologous units cannot be issued to anyone else; directed units are similarly
-/// locked in this slice (allogeneic conversion is a later supervisor path).
+/// Autologous units cannot be issued to anyone else. Directed units may be
+/// supervisor-converted to allogeneic inventory (<see cref="ConvertCode"/>).
 /// </summary>
 public static class AutologousDirectedRule
 {
     public const string ReceiveCode = "INV-AUTO-DIR";
     public const string IssueCode = "ISS-AUTO-DIR";
+    public const string ConvertCode = "INV-DIR-ALLO";
 
     public static bool RequiresRecipient(DonationRestriction restriction) =>
         restriction is DonationRestriction.Autologous or DonationRestriction.Directed;
@@ -54,5 +55,48 @@ public static class AutologousDirectedRule
         }
 
         return RuleResult.Pass(IssueCode);
+    }
+
+    public static bool IsConvertibleStatus(UnitStatus status) => status is
+        UnitStatus.Expected or UnitStatus.Received or UnitStatus.Quarantine
+        or UnitStatus.Available or UnitStatus.OnHold;
+
+    /// <summary>
+    /// AABB/SoftBank: unused directed units may enter volunteer inventory with
+    /// supervisor dual control. Autologous units cannot; reserved/issued units
+    /// must be released first.
+    /// </summary>
+    public static RuleResult EvaluateConvert(DonationRestriction restriction, UnitStatus status)
+    {
+        if (restriction == DonationRestriction.Autologous)
+        {
+            return RuleResult.HardStop(
+                ConvertCode,
+                "Autologous units cannot be released to allogeneic inventory.");
+        }
+
+        if (restriction != DonationRestriction.Directed)
+        {
+            return RuleResult.HardStop(
+                ConvertCode,
+                "Only a directed unit can be converted to allogeneic inventory.");
+        }
+
+        if (status is UnitStatus.Allocated or UnitStatus.Assigned
+            or UnitStatus.Crossmatched or UnitStatus.Selected)
+        {
+            return RuleResult.HardStop(
+                ConvertCode,
+                "Release the patient reservation before converting this directed unit to allogeneic inventory.");
+        }
+
+        if (!IsConvertibleStatus(status))
+        {
+            return RuleResult.HardStop(
+                ConvertCode,
+                $"A directed unit with status {status} cannot be converted to allogeneic inventory.");
+        }
+
+        return RuleResult.Pass(ConvertCode);
     }
 }

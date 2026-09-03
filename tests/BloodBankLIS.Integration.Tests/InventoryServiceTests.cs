@@ -302,6 +302,117 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ConvertDirected_WithoutReason_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var (unitId, _) = await ReceiveDirectedAsync("U-DIR-NOREASON", productTypeId);
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ConvertDirectedToAllogeneicAsync(unitId, "  ", "tech2");
+        Assert.False(result.Succeeded);
+        Assert.Equal("A reason is required to convert a directed unit to allogeneic inventory.", result.Error);
+    }
+
+    [Fact]
+    public async Task ConvertDirected_WithoutVerifier_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var (unitId, _) = await ReceiveDirectedAsync("U-DIR-NO2", productTypeId);
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ConvertDirectedToAllogeneicAsync(unitId, "Intended recipient discharged", null);
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == DirectedConversionVerifierRule.Code);
+    }
+
+    [Fact]
+    public async Task ConvertDirected_Autologous_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            var patient = new Patient
+            {
+                MedicalRecordNumber = "MRN-DIR-AUTO",
+                LastName = "Auto",
+                FirstName = "Keep",
+                DateOfBirth = new DateOnly(1975, 3, 3)
+            };
+            context.Patients.Add(patient);
+            await context.SaveChangesAsync();
+            var received = await CreateService(context).ReceiveUnitAsync(
+                NewUnitRequest("U-DIR-AUTO", productTypeId) with
+                {
+                    DonationRestriction = DonationRestriction.Autologous,
+                    ReservedPatientId = patient.Id
+                });
+            Assert.True(received.Succeeded, received.Error);
+            unitId = received.Unit!.Id;
+        }
+
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ConvertDirectedToAllogeneicAsync(unitId, "Should not convert autologous", "tech2");
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == AutologousDirectedRule.ConvertCode);
+    }
+
+    [Fact]
+    public async Task ConvertDirected_FromQuarantine_ClearsReservation()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var (unitId, patientId) = await ReceiveDirectedAsync("U-DIR-OK", productTypeId);
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ConvertDirectedToAllogeneicAsync(
+            unitId, "Intended recipient no longer needs the unit", "tech2");
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(DonationRestriction.Allogeneic, result.Unit!.DonationRestriction);
+        Assert.Null(result.Unit.ReservedPatientId);
+        Assert.Equal("Intended recipient no longer needs the unit", result.Unit.DirectedConversionReason);
+        Assert.Equal("tech-test", result.Unit.DirectedConvertedBy);
+        Assert.NotNull(result.Unit.DirectedConvertedUtc);
+        Assert.NotEqual(patientId, result.Unit.ReservedPatientId);
+    }
+
+    [Fact]
+    public async Task ConvertDirected_FromAllocated_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var (unitId, _) = await ReceiveDirectedAsync("U-DIR-ALLOC", productTypeId);
+        await using (var setup = _factory.Create())
+        {
+            var unit = await setup.BloodUnits.FindAsync(unitId);
+            unit!.Status = UnitStatus.Allocated;
+            await setup.SaveChangesAsync();
+        }
+
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ConvertDirectedToAllogeneicAsync(unitId, "Still reserved", "tech2");
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == AutologousDirectedRule.ConvertCode);
+    }
+
+    private async Task<(long UnitId, long PatientId)> ReceiveDirectedAsync(string unitNumber, long productTypeId)
+    {
+        await using var context = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-{unitNumber}",
+            LastName = "Directed",
+            FirstName = "Recipient",
+            DateOfBirth = new DateOnly(1988, 4, 4)
+        };
+        context.Patients.Add(patient);
+        await context.SaveChangesAsync();
+        var received = await CreateService(context).ReceiveUnitAsync(
+            NewUnitRequest(unitNumber, productTypeId) with
+            {
+                DonationRestriction = DonationRestriction.Directed,
+                ReservedPatientId = patient.Id
+            });
+        Assert.True(received.Succeeded, received.Error);
+        return (received.Unit!.Id, patient.Id);
+    }
+
+    [Fact]
     public async Task ReceiveUnit_MissingTemperature_IsHardStopped()
     {
         var productTypeId = await EnsureProductTypeAsync();

@@ -28,6 +28,7 @@ public static partial class DatabaseSeeder
         await EnsureReceiveVerifierPolicyAsync(context, cancellationToken);
         await EnsureReceiveTemperaturePolicyAsync(context, cancellationToken);
         await EnsureDiscardVerifierPolicyAsync(context, cancellationToken);
+        await EnsureDirectedConversionVerifierPolicyAsync(context, cancellationToken);
         await EnsureInTransitDueHoursPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
@@ -210,6 +211,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.RequireDirectedConversionVerifier,
+                Value = "true",
+                Category = "Inventory",
+                Description = "Require a distinct directory user to convert a directed unit to allogeneic inventory."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.BlockSelfVerify,
                 Value = "false",
                 Category = "Result",
@@ -368,10 +376,22 @@ public static partial class DatabaseSeeder
         await context.SaveChangesAsync(ct);
     }
 
-    /// <summary>
-    /// PLACEHOLDER ISBT lookup rows for demonstration/testing only.
-    /// Do not treat as official ICCBBA code tables. ICCBBA_VALIDATION_REQUIRED.
-    /// </summary>
+    private static async Task EnsureDirectedConversionVerifierPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.RequireDirectedConversionVerifier, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RequireDirectedConversionVerifier,
+            Value = "true",
+            Category = "Inventory",
+            Description = "Require a distinct directory user to convert a directed unit to allogeneic inventory."
+        });
+        await context.SaveChangesAsync(ct);
+    }
     private static async Task SeedIsbt128LookupsAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.IsbtDataStructures.AnyAsync(ct))

@@ -782,6 +782,85 @@ public sealed class InventoryService
         return await ChangeStatusAsync(unit, UnitStatus.ReturnedToSupplier, reason.Trim(), ct);
     }
 
+    /// <summary>
+    /// SoftBank/SafeTrace unused-directed conversion: drop the recipient lock so
+    /// the unit may enter volunteer inventory. Autologous units cannot convert.
+    /// Requires a distinct second verifier when policy demands it.
+    /// </summary>
+    public async Task<InventoryActionResult> ConvertDirectedToAllogeneicAsync(
+        long unitId, string reason, string? secondVerifier = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return InventoryActionResult.Fail("A reason is required to convert a directed unit to allogeneic inventory.");
+        }
+
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+        {
+            return InventoryActionResult.Fail("Unit not found.");
+        }
+
+        var convert = AutologousDirectedRule.EvaluateConvert(unit.DonationRestriction, unit.Status);
+        if (convert.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([convert]));
+        }
+
+        var requireSecond = _policy is null
+            || await _policy.GetRequireDirectedConversionVerifierAsync(ct);
+        var dual = DirectedConversionVerifierRule.Evaluate(_currentUser.UserName, secondVerifier, requireSecond);
+        if (dual.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([dual]));
+        }
+
+        var directory = await EvaluateSecondVerifierDirectoryAsync(secondVerifier, ct);
+        if (directory.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([directory]));
+        }
+
+        var priorPatientId = unit.ReservedPatientId;
+        unit.DonationRestriction = DonationRestriction.Allogeneic;
+        unit.ReservedPatientId = null;
+        unit.DirectedConversionReason = reason.Trim();
+        unit.DirectedConvertedUtc = _clock.UtcNow;
+        unit.DirectedConvertedBy = _currentUser.UserName;
+
+        var historyReason = string.IsNullOrWhiteSpace(secondVerifier)
+            ? reason.Trim()
+            : $"{reason.Trim()}; second verifier {secondVerifier.Trim()}";
+
+        _repository.AddStatusHistory(new InventoryStatusHistory
+        {
+            BloodProductId = unit.Id,
+            FromStatus = unit.Status,
+            ToStatus = unit.Status,
+            FromLocationId = unit.CurrentLocationId,
+            ToLocationId = unit.CurrentLocationId,
+            Reason = $"Converted directed to allogeneic: {historyReason}",
+            ChangedBy = _currentUser.UserName,
+            ChangedUtc = _clock.UtcNow
+        });
+
+        _audit.Record(
+            AuditEventType.Update,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { DonationRestriction = DonationRestriction.Directed, ReservedPatientId = priorPatientId },
+            newValue: new
+            {
+                DonationRestriction = DonationRestriction.Allogeneic,
+                DirectedConversionReason = unit.DirectedConversionReason,
+                SecondVerifier = secondVerifier
+            },
+            reason: historyReason);
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return InventoryActionResult.Ok(unit);
+    }
+
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)
     {
         var unit = await _repository.GetUnitAsync(unitId, ct);

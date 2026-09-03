@@ -281,6 +281,10 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<BloodUnitDto>> ReturnToSupplierAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/return-to-supplier", new ReasonRequestVm(reason), ct);
 
+    public Task<ApiResult<BloodUnitDto>> ConvertDirectedToAllogeneicAsync(
+        long id, string reason, string? secondVerifier = null, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/convert-directed", new DiscardUnitRequestVm(reason, secondVerifier), ct);
+
     public Task<ApiResult<BloodUnitDto>> TransferUnitAsync(long id, long toLocationId, string? reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/transfer", new TransferRequestVm(toLocationId, reason), ct);
 

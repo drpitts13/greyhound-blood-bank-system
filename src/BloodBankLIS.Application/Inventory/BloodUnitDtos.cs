@@ -47,7 +47,10 @@ public sealed record BloodUnitDto(
     decimal? ReceiveTemperatureCelsius = null,
     string? SupplierReturnReason = null,
     DonationRestriction DonationRestriction = DonationRestriction.Allogeneic,
-    long? ReservedPatientId = null)
+    long? ReservedPatientId = null,
+    string? DirectedConversionReason = null,
+    DateTime? DirectedConvertedUtc = null,
+    string? DirectedConvertedBy = null)
 {
     public static BloodUnitDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
@@ -57,5 +60,6 @@ public sealed record BloodUnitDto(
         u.ExpiresUtc, u.Status, u.CurrentLocationId, u.Source, u.CreatedUtc, u.CreatedBy,
         u.HoldReason, u.QuarantineReason, u.MissingReason, u.DamagedReason, u.ReceiveVisualAcceptable, u.ReceiveVisualNotes,
         u.ShipmentId, u.ReceiveAppearance, u.ReceiveTemperatureCelsius, u.SupplierReturnReason,
-        u.DonationRestriction, u.ReservedPatientId);
+        u.DonationRestriction, u.ReservedPatientId,
+        u.DirectedConversionReason, u.DirectedConvertedUtc, u.DirectedConvertedBy);
 }

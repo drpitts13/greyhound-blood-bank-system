@@ -129,6 +129,10 @@ public static class InventoryEndpoints
             ToHttpResult(await service.ReturnToSupplierAsync(id, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryReceive);
 
+        group.MapPost("/units/{id:long}/convert-directed", async (long id, ConvertDirectedToAllogeneicRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.ConvertDirectedToAllogeneicAsync(id, request.Reason, request.SecondVerifier, ct)))
+            .RequirePermission(PermissionCodes.InventoryRelease);
+
         group.MapPost("/units/{id:long}/transfer", async (long id, TransferUnitRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.TransferAsync(id, request.ToLocationId, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryTransfer);

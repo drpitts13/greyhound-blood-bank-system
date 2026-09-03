@@ -124,6 +124,13 @@ public class BloodUnit : BaseEntity
     /// <summary>Intended recipient when the unit is autologous or directed.</summary>
     public long? ReservedPatientId { get; set; }
 
+    /// <summary>Why a directed unit was supervisor-converted to allogeneic inventory.</summary>
+    public string? DirectedConversionReason { get; set; }
+
+    public DateTime? DirectedConvertedUtc { get; set; }
+
+    public string? DirectedConvertedBy { get; set; }
+
     /// <summary>
     /// Set on a result unit produced by a product modification (divide/pool/irradiate/
     /// thaw/volume-reduce/leukoreduce); null for units received directly into inventory.

@@ -15,6 +15,7 @@ public static class FacilityPolicyKeys
     public const string RequireReceiveVerifier = "Inventory.RequireReceiveVerifier";
     public const string RequireReceiveTemperature = "Inventory.RequireReceiveTemperature";
     public const string RequireDiscardVerifier = "Inventory.RequireDiscardVerifier";
+    public const string RequireDirectedConversionVerifier = "Inventory.RequireDirectedConversionVerifier";
     public const string BlockSelfVerify = "Result.BlockSelfVerify";
     public const string RetentionYears = "Record.RetentionYears";
     public const string SignatureValidityMinutes = "Signature.ValidityMinutes";

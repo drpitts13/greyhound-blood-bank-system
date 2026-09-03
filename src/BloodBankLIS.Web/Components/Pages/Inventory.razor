@@ -225,6 +225,8 @@
     private decimal? _arrivalTemperatureCelsius;
     private string _cancelExpectedReason = string.Empty;
     private string _supplierReturnReason = string.Empty;
+    private string _directedConversionReason = string.Empty;
+    private string? _directedConversionVerifier;
 
     private BloodUnitDto? _selected;
     private string _unitTab = "actions";
@@ -389,6 +391,8 @@
         _holdReason = string.Empty;
         _missingReason = string.Empty;
         _damagedReason = string.Empty;
+        _directedConversionReason = string.Empty;
+        _directedConversionVerifier = null;
         _history = (await Api.GetUnitHistoryAsync(u.Id)).Value ?? new();
         _unitAttributes = (await Api.GetUnitBloodAttributesAsync(u.Id)).Value ?? new();
         _retypeDetail = (await Api.GetUnitRetypeAsync(u.Id)).Value;
@@ -499,6 +503,24 @@
         if (r.Succeeded)
         {
             _supplierReturnReason = string.Empty;
+            await RefreshSelected(id);
+        }
+    }
+
+    private static bool CanConvertDirected(BloodUnitDto u) =>
+        u.DonationRestriction == DonationRestriction.Directed
+        && AutologousDirectedRule.IsConvertibleStatus(u.Status);
+
+    private async Task ConvertDirectedAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ConvertDirectedToAllogeneicAsync(id, _directedConversionReason, _directedConversionVerifier);
+        _busy = false;
+        _actionFb = r.ToFeedback("Directed unit released to allogeneic inventory.");
+        if (r.Succeeded)
+        {
+            _directedConversionReason = string.Empty;
+            _directedConversionVerifier = null;
             await RefreshSelected(id);
         }
     }
@@ -697,7 +719,7 @@
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.SupplierReturnReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null || u.DonationRestriction != DonationRestriction.Allogeneic)
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.SupplierReturnReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null || u.DonationRestriction != DonationRestriction.Allogeneic || !string.IsNullOrWhiteSpace(u.DirectedConversionReason))
                 {
                     <p class="muted">
                         @if (!string.IsNullOrWhiteSpace(u.ShipmentId))
@@ -727,6 +749,10 @@
                         @if (u.DonationRestriction != DonationRestriction.Allogeneic)
                         {
                             <span>@u.DonationRestriction@(u.ReservedPatientId is long pid ? $" — {RecipientLabel(pid)}" : "")</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(u.DirectedConversionReason))
+                        {
+                            <span>Converted from directed@(u.DirectedConvertedBy is string by ? $" by {by}" : ""): @u.DirectedConversionReason</span>
                         }
                         @if (u.ReceiveAppearance != UnitAppearance.Acceptable || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes))
                         {
@@ -768,6 +794,25 @@
                     <div class="flex gap">
                         <input @bind="_supplierReturnReason" placeholder="Return-to-supplier reason (failed inspection, unused credit)" style="flex:1;" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_supplierReturnReason))" @onclick="() => ReturnToSupplierAsync(u.Id)">Return to supplier</button>
+                    </div>
+                }
+
+                @if (CanConvertDirected(u) && Session.Has(PermissionCodes.InventoryRelease))
+                {
+                    <div class="flex gap" style="flex-wrap:wrap;">
+                        <input @bind="_directedConversionReason" placeholder="Why this directed unit can enter volunteer inventory" style="flex:1;min-width:12rem;" />
+                        <div class="field" style="min-width:16rem;">
+                            <label>Second verifier</label>
+                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                Items="QuarantineVerifierChoices"
+                                @bind-Value="_directedConversionVerifier"
+                                DisplayText="@(x => x.Label)"
+                                ItemValue="@(x => x.UserName)"
+                                SearchText="@(x => x.Label)"
+                                Clearable="true"
+                                Placeholder="Different active user" />
+                        </div>
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_directedConversionReason))" @onclick="() => ConvertDirectedAsync(u.Id)">Convert to allogeneic</button>
                     </div>
                 }
 

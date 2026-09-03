@@ -1,5 +1,7 @@
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -62,6 +64,25 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                 c, _factory.Clock, _factory.CurrentUser, audit),
             new FixedPermissionEvaluator(3),
             c, _factory.Clock, _factory.CurrentUser, audit);
+    }
+
+    private InventoryService Inventory(BloodBankDbContext c)
+    {
+        var lookups = new IsbtLookupCatalog(
+            new EfRepository<IsbtAboRhdCode>(c),
+            new EfRepository<IsbtProductCode>(c));
+        return new InventoryService(
+            new InventoryRepository(c),
+            new EfRepository<UnitBloodAttribute>(c),
+            new EfRepository<BloodAttributeDefinition>(c),
+            lookups,
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            new EfRepository<User>(c),
+            new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
+            new EfRepository<Patient>(c));
     }
 
     private sealed record Scenario(long PatientId, long SpecimenId, long UnitId, long ProductTypeId, string Mrn);
@@ -247,6 +268,51 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == AutologousDirectedRule.IssueCode);
+    }
+
+    [Fact]
+    public async Task Directed_ConvertedToAllogeneic_AllocatesToOtherPatient()
+    {
+        var s = await SeedAsync("DIR-CONV");
+        long otherId;
+        await using (var c = _factory.Create())
+        {
+            var other = new Patient
+            {
+                MedicalRecordNumber = "MRN-DIR-CONV-OTHER",
+                LastName = "Other",
+                FirstName = "Recipient",
+                DateOfBirth = new DateOnly(1984, 4, 4)
+            };
+            c.Patients.Add(other);
+            await c.SaveChangesAsync();
+            otherId = other.Id;
+            var unit = await c.BloodUnits.FindAsync(s.UnitId);
+            unit!.DonationRestriction = DonationRestriction.Directed;
+            unit.ReservedPatientId = otherId;
+            if (!await c.Users.AnyAsync(u => u.UserName == "tech2"))
+            {
+                c.Users.Add(new User
+                {
+                    UserName = "tech2",
+                    DisplayName = "Tech Two",
+                    IsActive = true
+                });
+            }
+            await c.SaveChangesAsync();
+        }
+
+        await using (var conv = _factory.Create())
+        {
+            var converted = await Inventory(conv).ConvertDirectedToAllogeneicAsync(
+                s.UnitId, "Directed recipient discharged", "tech2");
+            Assert.True(converted.Succeeded, converted.Error);
+        }
+
+        await using var act = _factory.Create();
+        var result = await Compatibility(act).AllocateUnitAsync(
+            new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
+        Assert.True(result.Succeeded, result.Error);
     }
 
     [Fact]
