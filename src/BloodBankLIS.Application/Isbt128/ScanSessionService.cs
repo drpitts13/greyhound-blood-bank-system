@@ -207,6 +207,8 @@ public sealed class ScanSessionService
             request.CollectionFacility,
             request.Volume,
             request.ReleaseToAvailable,
+            request.VisualInspectionAcceptable,
+            request.VisualInspectionNotes,
             ct);
 
         if (result.Succeeded)

@@ -217,6 +217,30 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ReceiveUnit_VisualFail_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ReceiveUnitAsync(
+            NewUnitRequest("U-VISFAIL", productTypeId) with { VisualInspectionAcceptable = false });
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ReceiveVisualInspectionRule.Code);
+        Assert.False(await context.BloodUnits.AnyAsync(u => u.UnitNumber == "U-VISFAIL"));
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_VisualPass_StoresInspection()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ReceiveUnitAsync(
+            NewUnitRequest("U-VISOK", productTypeId) with { VisualInspectionNotes = "Clear, no clots" });
+        Assert.True(result.Succeeded);
+        Assert.True(result.Unit!.ReceiveVisualAcceptable);
+        Assert.Equal("Clear, no clots", result.Unit.ReceiveVisualNotes);
+    }
+
+    [Fact]
     public async Task Release_QuarantineToAvailable_AppendsHistory()
     {
         var productTypeId = await EnsureProductTypeAsync();

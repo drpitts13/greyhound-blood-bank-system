@@ -98,6 +98,11 @@ public class BloodUnit : BaseEntity
 
     public string? RecallReason { get; set; }
 
+    /// <summary>Visual inspection at receipt (AABB / SoftBank intake appearance check).</summary>
+    public bool ReceiveVisualAcceptable { get; set; } = true;
+
+    public string? ReceiveVisualNotes { get; set; }
+
     /// <summary>
     /// Set on a result unit produced by a product modification (divide/pool/irradiate/
     /// thaw/volume-reduce/leukoreduce); null for units received directly into inventory.

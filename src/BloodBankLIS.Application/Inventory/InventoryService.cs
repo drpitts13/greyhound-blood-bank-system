@@ -122,6 +122,12 @@ public sealed class InventoryService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var visual = await EvaluateReceiveVisualAsync(request.VisualInspectionAcceptable, ct);
+        if (visual.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([visual]));
+        }
+
         if (string.IsNullOrWhiteSpace(request.UnitNumber))
         {
             return InventoryActionResult.Fail("Unit number is required.");
@@ -170,7 +176,11 @@ public sealed class InventoryService
             DivisionCode = resolved.DivisionCode,
             Isbt128DonationId = request.Isbt128DonationId,
             Volume = request.Volume,
-            Status = initialStatus
+            Status = initialStatus,
+            ReceiveVisualAcceptable = request.VisualInspectionAcceptable,
+            ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
+                ? null
+                : request.VisualInspectionNotes.Trim()
         };
 
         await _repository.AddUnitAsync(unit, ct);
@@ -205,10 +215,18 @@ public sealed class InventoryService
         string? collectionFacility,
         decimal? volume,
         bool releaseToAvailable,
+        bool visualInspectionAcceptable = true,
+        string? visualInspectionNotes = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(draft);
         draft.RebuildIdentity();
+
+        var visual = await EvaluateReceiveVisualAsync(visualInspectionAcceptable, ct);
+        if (visual.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([visual]));
+        }
 
         if (draft.Din is null || draft.Product is null || draft.AboRhd is null || draft.Expiration is null)
             return InventoryActionResult.Fail($"{IsbtErrorCodes.IncompleteScanSession}: Required quadrants missing.");
@@ -245,6 +263,10 @@ public sealed class InventoryService
         var unit = Application.Isbt128.CanonicalComponentMapper.ToBloodUnit(
             draft, productTypeId, locationId, supplier, shipmentId, collectionFacility, volume,
             initialStatus, _clock.UtcNow);
+        unit.ReceiveVisualAcceptable = visualInspectionAcceptable;
+        unit.ReceiveVisualNotes = string.IsNullOrWhiteSpace(visualInspectionNotes)
+            ? null
+            : visualInspectionNotes.Trim();
 
         await _repository.AddUnitAsync(unit, ct);
 
@@ -335,6 +357,12 @@ public sealed class InventoryService
         var match = await _users.FirstOrDefaultAsync(
             u => u.IsActive && !u.IsLocked && !u.IsServiceAccount && u.UserName.ToUpper() == upper, ct);
         return SecondVerifierDirectoryRule.Evaluate(secondVerifier, match is not null);
+    }
+
+    private async Task<RuleResult> EvaluateReceiveVisualAsync(bool acceptable, CancellationToken ct)
+    {
+        var required = _policy is null || await _policy.GetRequireReceiveVisualInspectionAsync(ct);
+        return ReceiveVisualInspectionRule.Evaluate(required, acceptable);
     }
 
     /// <summary>

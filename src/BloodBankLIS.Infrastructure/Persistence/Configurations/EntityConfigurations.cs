@@ -344,6 +344,7 @@ public sealed class BloodUnitConfiguration : IEntityTypeConfiguration<BloodUnit>
         b.Property(u => u.HoldReason).HasMaxLength(500);
         b.Property(u => u.DiscardReason).HasMaxLength(500);
         b.Property(u => u.RecallReason).HasMaxLength(500);
+        b.Property(u => u.ReceiveVisualNotes).HasMaxLength(500);
         b.Property(u => u.Volume).HasPrecision(18, 3);
         b.Property(u => u.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(u => u.ModifiedBy).HasMaxLength(100);

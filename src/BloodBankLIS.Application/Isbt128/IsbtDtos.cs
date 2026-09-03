@@ -36,7 +36,9 @@ public sealed record CompleteScanSessionRequest(
     string? ShipmentId = null,
     string? CollectionFacility = null,
     bool ReleaseToAvailable = false,
-    decimal? Volume = null);
+    decimal? Volume = null,
+    bool VisualInspectionAcceptable = true,
+    string? VisualInspectionNotes = null);
 
 /// <summary>
 /// Manual receipt. <paramref name="DonationNumber"/> is the combined human-readable
@@ -59,7 +61,9 @@ public sealed record ManualComponentEntryRequest(
     bool ReleaseToAvailable = false,
     bool AllowDinCheckException = false,
     string? DinCheckExceptionReason = null,
-    decimal? Volume = null);
+    decimal? Volume = null,
+    bool VisualInspectionAcceptable = true,
+    string? VisualInspectionNotes = null);
 
 public sealed record CanonicalComponentSummary(
     string? ComponentIdentity,

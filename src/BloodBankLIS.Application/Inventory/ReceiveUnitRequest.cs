@@ -14,6 +14,8 @@ public sealed record ReceiveUnitRequest(
     string? Supplier = null,
     string? Isbt128ProductCode = null,
     string? Isbt128DonationId = null,
-    decimal? Volume = null);
+    decimal? Volume = null,
+    bool VisualInspectionAcceptable = true,
+    string? VisualInspectionNotes = null);
 
 public sealed record ReleaseFromQuarantineRequest(string? SecondVerifier = null);

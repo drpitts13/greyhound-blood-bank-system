@@ -104,6 +104,8 @@ public sealed class ManualComponentEntryService
             request.CollectionFacility,
             request.Volume,
             request.ReleaseToAvailable,
+            request.VisualInspectionAcceptable,
+            request.VisualInspectionNotes,
             ct);
     }
 }

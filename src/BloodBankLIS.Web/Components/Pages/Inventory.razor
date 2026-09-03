@@ -52,6 +52,10 @@
             <div class="field"><label>Collection facility</label><input @bind="_rec.CollectionFacility" /></div>
             <div class="field"><label>Supplier</label><input @bind="_rec.Supplier" /></div>
         </div>
+        <label class="flex"><input type="checkbox" @bind="_rec.VisualInspectionAcceptable" /> &nbsp;Visual inspection acceptable (no clots, hemolysis, or container defects)</label>
+        <div class="form-row">
+            <div class="field"><label>Visual notes</label><input @bind="_rec.VisualInspectionNotes" placeholder="Optional appearance notes" /></div>
+        </div>
         <button class="btn btn-primary" disabled="@_busy" @onclick="ReceiveAsync">Receive</button>
     </div>
 }
@@ -200,7 +204,9 @@
             _rec.LocationId == 0 ? null : _rec.LocationId,
             string.IsNullOrWhiteSpace(_rec.CollectionFacility) ? null : _rec.CollectionFacility,
             string.IsNullOrWhiteSpace(_rec.Supplier) ? null : _rec.Supplier,
-            string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode) ? null : _rec.ProductDescriptionCode.Trim());
+            string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode) ? null : _rec.ProductDescriptionCode.Trim(),
+            VisualInspectionAcceptable: _rec.VisualInspectionAcceptable,
+            VisualInspectionNotes: string.IsNullOrWhiteSpace(_rec.VisualInspectionNotes) ? null : _rec.VisualInspectionNotes);
         var r = await Api.ReceiveUnitAsync(req);
         _busy = false;
         _receiveFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
@@ -383,7 +389,7 @@
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason))
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes))
                 {
                     <p class="muted">
                         @if (!string.IsNullOrWhiteSpace(u.HoldReason))
@@ -393,6 +399,10 @@
                         @if (!string.IsNullOrWhiteSpace(u.QuarantineReason))
                         {
                             <span>Quarantine: @u.QuarantineReason</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(u.ReceiveVisualNotes))
+                        {
+                            <span>Receive visual: @u.ReceiveVisualNotes</span>
                         }
                     </p>
                 }
@@ -520,5 +530,7 @@
         public string ProductDescriptionCode { get; set; } = string.Empty;
         public string? CollectionFacility { get; set; }
         public string? Supplier { get; set; }
+        public bool VisualInspectionAcceptable { get; set; } = true;
+        public string? VisualInspectionNotes { get; set; }
     }
 }

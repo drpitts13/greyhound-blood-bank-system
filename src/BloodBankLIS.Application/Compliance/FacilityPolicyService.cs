@@ -47,6 +47,9 @@ public sealed class FacilityPolicyService
     public Task<bool> GetRequireQuarantineReleaseVerifierAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireQuarantineReleaseVerifier, true, ct);
 
+    public Task<bool> GetRequireReceiveVisualInspectionAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireReceiveVisualInspection, true, ct);
+
     public Task<bool> GetBlockSelfVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockSelfVerify, false, ct);
 
