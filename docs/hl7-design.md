@@ -2,7 +2,7 @@
 
 Status: Implemented in Phase 5. The HL7 layer (`BloodBankLIS.HL7`) is an **original, in-house** HL7 v2.x parser/generator. It is fully isolated from business logic: it parses/serializes messages and maps fields, but all clinical actions go through the same Application use cases the API uses, so the safety checks in `safety-rules.md` always apply.
 
-Scope for the project: inbound **ADT** (demographics/encounter) and **ORM/OML** (orders); outbound **ORU** (results) and a standard outbound **DFT^P03** (billing). Queued outbound messages are transmitted over MLLP by `MllpSenderService` / `Hl7OutboundSender`.
+Scope for the project: inbound **ADT** (demographics/encounter) and **ORM/OML** (orders); outbound **ORU** (results) and a standard outbound **DFT^P03** (billing). Queued outbound messages are transmitted over MLLP or a file-drop folder by `MllpSenderService` / `Hl7OutboundSender`. Inbound file-drop folders are polled by `Hl7FileDropService`.
 
 ---
 
@@ -86,8 +86,8 @@ flowchart TD
 
 ## 4. Reliability: transport, retry, replay
 
-- **Transport**: MLLP over TCP (framing bytes 0x0B ... 0x1C 0x0D). Configurable host/port per `InterfaceEndpoints`. File-drop transport is supported as an alternative.
-- **Hosted services** in `BloodBankLIS.Api`: an inbound MLLP listener and an outbound sender, both thin adapters that call `BloodBankLIS.HL7` for parse/build and the Application layer for actions. The listener binds **each enabled inbound MLLP `InterfaceEndpoint` port** at API startup (restart the API after enabling or changing a port). `Hl7:Mllp:Enabled=true` optionally adds a fallback port (`Hl7:Mllp:Port`, default 2575). Enabling an endpoint in Admin does not bind TCP by itself. The outbound sender polls queued `HL7Messages` (ORU/DFT, status Received/Errored) and writes each payload to the endpoint host/port, then records AA → Acked or AE/AR → Nacked. Set `Hl7:Mllp:OutboundIntervalSeconds` (default 15; `0` disables the poller). Operators can also send one message or flush the queue from the HL7 page.
+- **Transport**: MLLP over TCP (framing bytes 0x0B ... 0x1C 0x0D). Configurable host/port per `InterfaceEndpoints`. File-drop transport (`InterfaceTransport.File`) uses `InterfaceEndpoint.Path` as a shared folder: inbound `*.hl7` files are processed then archived to `processed/` or `error/` with an ACK in `ack/`; outbound payloads are written as timestamped `.hl7` files and marked Acked (AA) on successful write.
+- **Hosted services** in `BloodBankLIS.Api`: an inbound MLLP listener, an outbound sender, and an inbound file-drop poller, all thin adapters that call `BloodBankLIS.HL7` for parse/build and the Application layer for actions. The listener binds **each enabled inbound MLLP `InterfaceEndpoint` port** at API startup (restart the API after enabling or changing a port). `Hl7:Mllp:Enabled=true` optionally adds a fallback port (`Hl7:Mllp:Port`, default 2575). Enabling an endpoint in Admin does not bind TCP by itself. The outbound sender polls queued `HL7Messages` (ORU/DFT, status Received/Errored) and writes each payload to the endpoint host/port or drop folder, then records AA → Acked or AE/AR → Nacked. Set `Hl7:Mllp:OutboundIntervalSeconds` (default 15; `0` disables the poller). Inbound file-drop polling uses `Hl7:FileDrop:IntervalSeconds` (default 15; `0` disables). Operators can also send one message, flush the outbound queue, or poll file-drop folders from the HL7 page.
 - **Retry**: failed outbound sends and retryable inbound processing use exponential backoff with `RetryCount` and `NextRetryUtc` in `InterfaceErrorQueue`.
 - **Replay**: any stored message in `HL7Messages` can be re-submitted through the same pipeline (`ReplayMessageCommand`); replays are marked `Replayed` and audited. Idempotency is protected by `MessageControlId` plus business-key checks so replays do not duplicate orders/patients.
 
@@ -105,7 +105,7 @@ flowchart TD
 
 Admin **Interface Setup** (`/admin/hl7`, permission `admin.hl7.manage`) configures each `InterfaceEndpoint`:
 
-- **Connection** — name, interface type (`ADT`, `Billing`, `Orders`, `Results`, `BPAM`), direction, transport, host/IP and port, MSH sending/receiving application and facility, ACK/retry/logging.
+- **Connection** — name, interface type (`ADT`, `Billing`, `Orders`, `Results`, `BPAM`), direction, transport, host/IP and port (MLLP) or drop-folder path (file), MSH sending/receiving application and facility, ACK/retry/logging. File-drop endpoints require `Path` (`HL7EP.PATH.REQUIRED`).
 - **Vendor preset** — Epic, Cerner, Meditech (and billing variants Epic Resolute / Cerner Patient Accounting) fill MSH identities and a field map for the selected type.
 - **Custom mapping** — each application data item is paired with an HL7 path (`PID-3-1`, `OBR-4-1`, `FT1-7`, `RXA-15`, …).
 

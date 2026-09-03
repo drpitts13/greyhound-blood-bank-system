@@ -82,9 +82,21 @@
                 <div class="field"><label>Transport</label>
                     <select @bind="_editing.Transport">@foreach (var t in Enum.GetValues<InterfaceTransport>()) { <option value="@t">@t</option> }</select>
                 </div>
-                <div class="field"><label>Host / IP</label><input @bind="_editing.Host" placeholder="10.0.0.12" /></div>
-                <div class="field"><label>Port</label><input type="number" @bind="_editing.Port" /></div>
-                <div class="field"><label>Path (file / HTTP)</label><input @bind="_editing.Path" /></div>
+                @if (_editing.Transport == InterfaceTransport.Mllp)
+                {
+                    <div class="field"><label>Host / IP</label><input @bind="_editing.Host" placeholder="10.0.0.12" /></div>
+                    <div class="field"><label>Port</label><input type="number" @bind="_editing.Port" /></div>
+                }
+                <div class="field"><label>@( _editing.Transport == InterfaceTransport.File ? "Drop folder (required)" : "Path (file / HTTP)" )</label>
+                    <input @bind="_editing.Path" placeholder="@(_editing.Transport == InterfaceTransport.File ? @"C:\hl7\adt-in" : "")" />
+                </div>
+                @if (_editing.Transport == InterfaceTransport.File)
+                {
+                    <p class="muted" style="grid-column:1/-1;margin:0;">
+                        Inbound: drop <span class="mono">.hl7</span> files in this folder; the LIS writes ACK files under <span class="mono">ack/</span> and archives to <span class="mono">processed/</span> or <span class="mono">error/</span>.
+                        Outbound: queued ORU/DFT messages are written here as <span class="mono">.hl7</span> files.
+                    </p>
+                }
                 <div class="field"><label>Environment</label><input @bind="_editing.Environment" placeholder="Development / Test / Production" /></div>
                 <div class="field"><label>Sending application</label><input @bind="_editing.SendingApplication" /></div>
                 <div class="field"><label>Sending facility</label><input @bind="_editing.SendingFacility" /></div>
@@ -183,7 +195,7 @@
             <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
         </div>
         <p class="muted" style="margin-top:.75rem;font-size:.8rem;">
-            Inbound MLLP is listened on by the API process. After you enable an inbound MLLP endpoint or change its port, restart the API so the TCP listener binds. Outbound ORU/DFT queued in HL7 Messages are sent to the enabled outbound MLLP host/port (poll interval <code>Hl7:Mllp:OutboundIntervalSeconds</code>, or use Send on the HL7 page).
+            Inbound MLLP is listened on by the API process. After you enable an inbound MLLP endpoint or change its port, restart the API so the TCP listener binds. Outbound ORU/DFT queued in HL7 Messages are sent to the enabled outbound MLLP host/port or file-drop folder (poll interval <code>Hl7:Mllp:OutboundIntervalSeconds</code>, or use Send on the HL7 page). Inbound file-drop folders are polled every <code>Hl7:FileDrop:IntervalSeconds</code> (default 15; 0 disables).
         </p>
     </div>
 }

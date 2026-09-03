@@ -37,6 +37,7 @@ builder.Services.AddPrinting();
 builder.Services.AddSecurity();
 builder.Services.AddHostedService<MllpListenerService>();
 builder.Services.AddHostedService<MllpSenderService>();
+builder.Services.AddHostedService<Hl7FileDropService>();
 
 // Real environment descriptor for audit stamping (overrides the infrastructure default).
 builder.Services.AddSingleton<IEnvironmentInfo>(

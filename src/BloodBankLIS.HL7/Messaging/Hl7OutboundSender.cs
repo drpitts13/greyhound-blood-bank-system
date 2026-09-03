@@ -2,15 +2,15 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.HL7.Mllp;
 using BloodBankLIS.HL7.Parsing;
 
 namespace BloodBankLIS.HL7.Messaging;
 
 /// <summary>
-/// Transmits queued outbound ORU/DFT messages over MLLP and records the ACK.
-/// <see cref="Hl7OutboundService"/> only persists the payload; this is the missing
-/// SoftBank/SafeTrace transport step.
+/// Transmits queued outbound ORU/DFT messages over MLLP or a file-drop folder
+/// and records the ACK. <see cref="Hl7OutboundService"/> only persists the payload.
 /// </summary>
 public sealed class Hl7OutboundSender
 {
@@ -64,27 +64,74 @@ public sealed class Hl7OutboundSender
             return OperationResult<Hl7MessageLog>.Fail("HL7 message not found.");
 
         if (row.Direction != Hl7Direction.Outbound)
-            return OperationResult<Hl7MessageLog>.Fail("Only outbound messages can be sent over MLLP.");
+            return OperationResult<Hl7MessageLog>.Fail("Only outbound messages can be sent.");
 
         if (row.Status == Hl7MessageStatus.Acked)
             return OperationResult<Hl7MessageLog>.Fail("Message was already acknowledged.");
 
         var endpoint = await ResolveEndpointAsync(row, ct);
         if (endpoint is null)
-            return OperationResult<Hl7MessageLog>.Fail("No enabled outbound MLLP endpoint is configured.");
-
-        if (endpoint.Transport != InterfaceTransport.Mllp)
-            return OperationResult<Hl7MessageLog>.Fail($"Endpoint '{endpoint.Name}' does not use MLLP transport.");
-
-        if (string.IsNullOrWhiteSpace(endpoint.Host) || endpoint.Port is null or <= 0)
-            return OperationResult<Hl7MessageLog>.Fail($"Endpoint '{endpoint.Name}' is missing host or port.");
+            return OperationResult<Hl7MessageLog>.Fail("No enabled outbound endpoint is configured.");
 
         row.EndpointId ??= endpoint.Id;
-        var timeout = TimeSpan.FromSeconds(endpoint.AckTimeoutSeconds is > 0 ? endpoint.AckTimeoutSeconds.Value : 15);
-        var send = await MllpClient.SendAsync(endpoint.Host, endpoint.Port.Value, row.RawMessage, timeout, ct);
-
         row.RetryCount++;
         row.ProcessedUtc = _clock.UtcNow;
+
+        if (endpoint.Transport == InterfaceTransport.File)
+        {
+            await ApplyFileSendAsync(row, endpoint, ct);
+        }
+        else if (endpoint.Transport == InterfaceTransport.Mllp)
+        {
+            await ApplyMllpSendAsync(row, endpoint, ct);
+        }
+        else
+        {
+            return OperationResult<Hl7MessageLog>.Fail($"Endpoint '{endpoint.Name}' uses an unsupported transport.");
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Hl7MessageLog>.Ok(row);
+    }
+
+    private async Task ApplyFileSendAsync(Hl7MessageLog row, InterfaceEndpoint endpoint, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint.Path))
+        {
+            row.Status = Hl7MessageStatus.Errored;
+            row.ErrorDetail = $"Endpoint '{endpoint.Name}' is missing a file-drop path.";
+            await EnqueueErrorAsync(row, "FILE_SEND", row.ErrorDetail, ct);
+            return;
+        }
+
+        try
+        {
+            var fileName = Hl7FileDropLayout.OutboundFileName(row.MessageControlId, _clock.UtcNow);
+            Hl7FileDropIO.WriteOutbound(endpoint.Path.Trim(), fileName, row.RawMessage);
+            row.Status = Hl7MessageStatus.Acked;
+            row.AckCode = AckCode.Accept;
+            row.ErrorDetail = null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            row.Status = Hl7MessageStatus.Errored;
+            row.ErrorDetail = ex.Message;
+            await EnqueueErrorAsync(row, "FILE_SEND", row.ErrorDetail, ct);
+        }
+    }
+
+    private async Task ApplyMllpSendAsync(Hl7MessageLog row, InterfaceEndpoint endpoint, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(endpoint.Host) || endpoint.Port is null or <= 0)
+        {
+            row.Status = Hl7MessageStatus.Errored;
+            row.ErrorDetail = $"Endpoint '{endpoint.Name}' is missing host or port.";
+            await EnqueueErrorAsync(row, "MLLP_SEND", row.ErrorDetail, ct);
+            return;
+        }
+
+        var timeout = TimeSpan.FromSeconds(endpoint.AckTimeoutSeconds is > 0 ? endpoint.AckTimeoutSeconds.Value : 15);
+        var send = await MllpClient.SendAsync(endpoint.Host, endpoint.Port.Value, row.RawMessage, timeout, ct);
 
         if (!send.Connected || send.AckRaw is null)
         {
@@ -105,9 +152,6 @@ public sealed class Hl7OutboundSender
             row.ErrorDetail = send.AckRaw;
             await EnqueueErrorAsync(row, "MLLP_NACK", send.AckRaw, ct);
         }
-
-        await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<Hl7MessageLog>.Ok(row);
     }
 
     private async Task<InterfaceEndpoint?> ResolveEndpointAsync(Hl7MessageLog row, CancellationToken ct)
@@ -120,10 +164,20 @@ public sealed class Hl7OutboundSender
         }
 
         var matches = await _endpoints.ListAsync(
-            e => e.IsEnabled && e.Direction == Hl7Direction.Outbound && e.Transport == InterfaceTransport.Mllp,
-            ct);
-        return matches.OrderBy(e => e.Name).FirstOrDefault();
+            e => e.IsEnabled && e.Direction == Hl7Direction.Outbound, ct);
+        return matches
+            .Where(CanSend)
+            .OrderBy(e => e.Transport == InterfaceTransport.Mllp ? 0 : 1)
+            .ThenBy(e => e.Name)
+            .FirstOrDefault();
     }
+
+    private static bool CanSend(InterfaceEndpoint e) => e.Transport switch
+    {
+        InterfaceTransport.Mllp => !string.IsNullOrWhiteSpace(e.Host) && e.Port is > 0,
+        InterfaceTransport.File => !string.IsNullOrWhiteSpace(e.Path),
+        _ => false
+    };
 
     private async Task EnqueueErrorAsync(Hl7MessageLog row, string type, string detail, CancellationToken ct)
     {

@@ -33,6 +33,8 @@ public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 
 public sealed record Hl7FlushVm(int Sent);
 
+public sealed record Hl7FileDropPollVm(int Processed);
+
 public sealed record PrintJobVm(
     long Id,
     PrintJobType JobType,

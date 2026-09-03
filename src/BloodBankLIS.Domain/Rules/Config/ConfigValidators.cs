@@ -672,6 +672,11 @@ public static class Hl7EndpointValidator
             }
         }
 
+        if (e.Transport == InterfaceTransport.File && string.IsNullOrWhiteSpace(e.Path))
+        {
+            results.Add(RuleResult.HardStop("HL7EP.PATH.REQUIRED", "File-drop endpoints require a folder path."));
+        }
+
         if (duplicateActiveName)
         {
             results.Add(RuleResult.HardStop("HL7EP.NAME.DUPLICATE", $"Another endpoint already uses the name '{e.Name}'."));

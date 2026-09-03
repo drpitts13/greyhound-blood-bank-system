@@ -43,7 +43,7 @@ public class AdminInterfaceSetupTests : IClassFixture<SqliteContextFactory>
                 InterfaceTransport.File,
                 null,
                 null,
-                null,
+                @"C:\hl7\epic-adt",
                 null,
                 null,
                 InterfaceVendorCodes.Epic,

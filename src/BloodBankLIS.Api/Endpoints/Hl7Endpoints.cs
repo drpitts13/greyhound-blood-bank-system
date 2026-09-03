@@ -106,5 +106,11 @@ public static class Hl7Endpoints
             var sent = await sender.SendPendingAsync(ct: ct);
             return Results.Ok(new { sent });
         });
+
+        group.MapPost("/file-drop/poll", async (Hl7FileDropInboundPoller poller, CancellationToken ct) =>
+        {
+            var processed = await poller.PollAsync(ct: ct);
+            return Results.Ok(new { processed });
+        });
     }
 }

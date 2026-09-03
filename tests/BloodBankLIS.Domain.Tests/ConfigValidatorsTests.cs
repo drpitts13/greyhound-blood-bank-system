@@ -112,6 +112,39 @@ public class ConfigValidatorsTests
     }
 
     [Fact]
+    public void Hl7Endpoint_FileWithoutPath_HardStops()
+    {
+        var endpoint = new InterfaceEndpoint
+        {
+            Name = "File inbound",
+            MessageTypes = "ADT",
+            Transport = InterfaceTransport.File,
+            Path = null
+        };
+
+        var eval = Hl7EndpointValidator.Validate(endpoint, duplicateActiveName: false, duplicateActiveHostPort: false);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "HL7EP.PATH.REQUIRED");
+    }
+
+    [Fact]
+    public void Hl7Endpoint_FileWithPath_PassesWithoutHost()
+    {
+        var endpoint = new InterfaceEndpoint
+        {
+            Name = "File inbound",
+            MessageTypes = "ADT",
+            Transport = InterfaceTransport.File,
+            Path = @"C:\hl7\adt"
+        };
+
+        var eval = Hl7EndpointValidator.Validate(endpoint, duplicateActiveName: false, duplicateActiveHostPort: false);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
     public void Hl7Endpoint_Valid_Passes()
     {
         var endpoint = new InterfaceEndpoint
@@ -199,7 +232,8 @@ public class ConfigValidatorsTests
             InterfaceType = InterfaceType.Adt,
             Direction = Hl7Direction.Outbound,
             MessageTypes = "ADT",
-            Transport = InterfaceTransport.File
+            Transport = InterfaceTransport.File,
+            Path = @"C:\hl7\adt-out"
         };
 
         var eval = Hl7EndpointValidator.Validate(endpoint, duplicateActiveName: false, duplicateActiveHostPort: false);

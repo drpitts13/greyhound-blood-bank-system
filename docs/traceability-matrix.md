@@ -45,6 +45,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-HL-03 | Outbound ORU | hl7-design 2.3 | Verified result builds ORU | H | |
 | R-HL-04 | ACK/NAK | hl7-design 3 | AA/AE/AR per outcome | H | |
 | R-HL-05 | Message log + replay | hl7-design 4/5 | Replay is idempotent + audited | A,I | |
+| R-HL-06 | File-drop transport | hl7-design 4; InterfaceTransport.File | Inbound poll + ACK/archive; outbound write; path required | D,I | SoftBank/SafeTrace folder interfaces |
 | R-PR-01 | Specimen label print | printing-billing A.1 | Label renders from model | A | |
 | R-PR-02 | Compatibility/P-tag print | printing-billing A.1 | Tag renders from model; incomplete-testing banner | A | 21 CFR 606.151(b) |
 | R-PR-03 | Reprint audit controls | printing-billing A.3; safety-rules 5 | Reprint requires reason + audit | A | |
