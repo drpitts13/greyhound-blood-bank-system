@@ -32,6 +32,28 @@ public class ReactionInvestigation : BaseEntity
 
     public string? FollowUp { get; set; }
 
+    /// <summary>AABB clerical check: patient ID, unit number, and ABO/Rh concordance.</summary>
+    public bool ClericalCheckCompleted { get; set; }
+
+    public string? ClericalCheckNotes { get; set; }
+
+    /// <summary>Visual inspection of the returned bag, tubing, and segments.</summary>
+    public bool VisualInspectionCompleted { get; set; }
+
+    public bool VisualInspectionAcceptable { get; set; }
+
+    public string? RepeatPatientAboRh { get; set; }
+
+    public string? RepeatUnitAboRh { get; set; }
+
+    public DatWorkupResult DatResult { get; set; } = DatWorkupResult.NotRecorded;
+
+    /// <summary>Required when <see cref="DatResult"/> is Positive; otherwise optional notes.</summary>
+    public string? ElutionResult { get; set; }
+
+    /// <summary>Remainder, bag, or segments held out of available inventory.</summary>
+    public bool RemainderQuarantined { get; set; }
+
     public ReactionInvestigationStatus Status { get; set; } = ReactionInvestigationStatus.Open;
 
     public string? Disposition { get; set; }

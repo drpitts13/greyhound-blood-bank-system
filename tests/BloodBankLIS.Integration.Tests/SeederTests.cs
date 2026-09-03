@@ -110,6 +110,10 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
         var reaction = await verify.TransfusionEvents.SingleAsync(t => t.ReactionSuspected);
         Assert.Equal(TransfusionDisposition.Stopped, reaction.FinalDisposition);
         Assert.True(await verify.Orders.AnyAsync(o => o.OrderType == OrderType.TransfusionReactionWorkup));
+        Assert.True(await verify.ReactionInvestigations.AnyAsync(i =>
+            i.TransfusionEventId == reaction.Id
+            && i.ClericalCheckCompleted
+            && i.DatResult == DatWorkupResult.Negative));
 
         // Modifications consume a source unit and produce a derived one.
         Assert.Equal(2, await verify.UnitModifications.CountAsync());

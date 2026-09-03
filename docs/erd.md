@@ -230,7 +230,7 @@ Indexes: (`BloodProductId`,`Status`), (`PatientId`).
 `Id`, `IssueId` (FK Issues), `BloodProductId` (FK BloodProducts), `PatientId` (FK Patients), `StartUtc NULL`, `StopUtc NULL`, `VolumeTransfused DECIMAL NULL`, `TransfusionistId NULL`, `VitalsJson NULL` (placeholder structure), `ReactionSuspected BIT`, `FinalDisposition` (Completed/Stopped/Wasted/Returned), `DocumentedBy`, audit metadata. Index: (`PatientId`), (`IssueId`).
 
 ### ReactionInvestigations
-`Id`, `TransfusionEventId` (FK TransfusionEvents), `PatientId` (FK Patients), `ReportedUtc`, `ReportedBy`, `ReactionType NULL`, `Severity NULL`, `Findings NULL`, `Status` (Open/UnderReview/Closed), `Disposition NULL`. Index: (`TransfusionEventId`).
+`Id`, `TransfusionEventId` (FK TransfusionEvents), `PatientId` (FK Patients), `ReportedUtc`, `ReportedBy`, `ReactionType NULL`, `Severity NULL`, `Findings NULL`, `ClericalCheckCompleted`, `VisualInspectionCompleted`, `DatResult` (NotRecorded/Negative/Positive/NotPerformed), `ElutionResult NULL`, `RemainderQuarantined`, `Status` (Open/UnderReview/Closed), `Disposition NULL`. Index: (`TransfusionEventId`).
 
 ---
 

@@ -58,6 +58,23 @@ else
                     <select @bind="_status">@foreach (var s in Enum.GetValues<ReactionInvestigationStatus>()) { <option value="@s">@s</option> }</select>
                 </div>
                 <div class="field"><label>Disposition</label><input @bind="_disposition" /></div>
+            </div>
+            <h4>AABB workup checklist</h4>
+            <p class="muted">Clerical check, visual inspection, and post-transfusion DAT are required before close (same gate as SoftBank / SafeTrace).</p>
+            <label class="flex"><input type="checkbox" @bind="_clerical" /> &nbsp;Clerical check completed (patient ID, unit number, ABO/Rh)</label>
+            <div class="field"><label>Clerical notes</label><input @bind="_clericalNotes" /></div>
+            <label class="flex"><input type="checkbox" @bind="_visual" /> &nbsp;Visual inspection of bag / tubing / segments completed</label>
+            <label class="flex"><input type="checkbox" @bind="_visualOk" /> &nbsp;Visual inspection acceptable</label>
+            <div class="form-row">
+                <div class="field"><label>Repeat patient ABO/Rh</label><input @bind="_repeatPatient" placeholder="e.g. A Positive" /></div>
+                <div class="field"><label>Repeat unit ABO/Rh</label><input @bind="_repeatUnit" placeholder="e.g. A Positive" /></div>
+                <div class="field"><label>DAT</label>
+                    <select @bind="_dat">@foreach (var d in Enum.GetValues<DatWorkupResult>()) { <option value="@d">@d</option> }</select>
+                </div>
+                <div class="field"><label>Elution (required if DAT positive)</label><input @bind="_elution" /></div>
+            </div>
+            <label class="flex"><input type="checkbox" @bind="_remainderHeld" /> &nbsp;Remainder / segments quarantined or retained</label>
+            <div class="form-row">
                 <div class="field" style="grid-column:1/-1;"><label>Findings</label><textarea rows="2" @bind="_findings"></textarea></div>
                 <div class="field" style="grid-column:1/-1;"><label>Conclusions</label><textarea rows="2" @bind="_conclusions"></textarea></div>
                 <div class="field" style="grid-column:1/-1;"><label>Follow-up</label><textarea rows="2" @bind="_followUp"></textarea></div>
@@ -94,6 +111,15 @@ else
     private string? _followUp;
     private bool _productAtFault;
     private bool _isFatality;
+    private bool _clerical;
+    private string? _clericalNotes;
+    private bool _visual;
+    private bool _visualOk;
+    private string? _repeatPatient;
+    private string? _repeatUnit;
+    private DatWorkupResult _dat;
+    private string? _elution;
+    private bool _remainderHeld;
     private string _closeSecret = string.Empty;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -119,6 +145,15 @@ else
         _followUp = r.FollowUp;
         _productAtFault = r.ProductAtFault;
         _isFatality = r.IsFatality;
+        _clerical = r.ClericalCheckCompleted;
+        _clericalNotes = r.ClericalCheckNotes;
+        _visual = r.VisualInspectionCompleted;
+        _visualOk = r.VisualInspectionAcceptable;
+        _repeatPatient = r.RepeatPatientAboRh;
+        _repeatUnit = r.RepeatUnitAboRh;
+        _dat = r.DatResult;
+        _elution = r.ElutionResult;
+        _remainderHeld = r.RemainderQuarantined;
         _closeSecret = string.Empty;
     }
 
@@ -141,7 +176,8 @@ else
 
         _busy = true;
         var r = await Api.UpdateReactionInvestigationAsync(_selected.Id, new UpdateReactionInvestigationRequest(
-            _type, _severity, _findings, _conclusions, _followUp, _disposition, _productAtFault, _isFatality, _status, sigId));
+            _type, _severity, _findings, _conclusions, _followUp, _disposition, _productAtFault, _isFatality, _status, sigId,
+            _clerical, _clericalNotes, _visual, _visualOk, _repeatPatient, _repeatUnit, _dat, _elution, _remainderHeld));
         _busy = false;
         _fb = r.ToFeedback("Investigation updated.");
         if (r.Succeeded)

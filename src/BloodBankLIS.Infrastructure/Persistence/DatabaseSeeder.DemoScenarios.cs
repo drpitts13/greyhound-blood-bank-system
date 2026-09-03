@@ -965,6 +965,29 @@ public static partial class DatabaseSeeder
         });
 
         await context.SaveChangesAsync(ct);
+
+        var transfusion = await context.TransfusionEvents.SingleAsync(t => t.IssueId == issue.Id, ct);
+        context.ReactionInvestigations.Add(new ReactionInvestigation
+        {
+            TransfusionEventId = transfusion.Id,
+            PatientId = visit.Patient.Id,
+            BloodProductId = unit.Id,
+            ReportedUtc = now.AddHours(-2),
+            ReportedBy = "tech1",
+            ReactionType = "Febrile non-hemolytic",
+            Severity = ReactionSeverity.Mild,
+            ClericalCheckCompleted = true,
+            ClericalCheckNotes = "Patient identifiers and unit ABO/Rh concordant.",
+            VisualInspectionCompleted = true,
+            VisualInspectionAcceptable = true,
+            RepeatPatientAboRh = "A Positive",
+            RepeatUnitAboRh = "A Positive",
+            DatResult = DatWorkupResult.Negative,
+            RemainderQuarantined = true,
+            Status = ReactionInvestigationStatus.UnderReview,
+            Findings = "Temperature rose 1.8C with rigors; DAT negative. Clerical check clear."
+        });
+        await context.SaveChangesAsync(ct);
     }
 
     // ---------------------------------------------------------------------

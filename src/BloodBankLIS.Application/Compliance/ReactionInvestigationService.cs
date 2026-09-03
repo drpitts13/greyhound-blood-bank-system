@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Compliance;
 
@@ -15,7 +16,16 @@ public sealed record UpdateReactionInvestigationRequest(
     bool? ProductAtFault,
     bool? IsFatality,
     ReactionInvestigationStatus? Status,
-    long? ClosedSignatureId = null);
+    long? ClosedSignatureId = null,
+    bool? ClericalCheckCompleted = null,
+    string? ClericalCheckNotes = null,
+    bool? VisualInspectionCompleted = null,
+    bool? VisualInspectionAcceptable = null,
+    string? RepeatPatientAboRh = null,
+    string? RepeatUnitAboRh = null,
+    DatWorkupResult? DatResult = null,
+    string? ElutionResult = null,
+    bool? RemainderQuarantined = null);
 
 public sealed record ReactionInvestigationDto(
     long Id,
@@ -36,19 +46,32 @@ public sealed record ReactionInvestigationDto(
     FatalityNotificationStatus FatalityNotificationStatus,
     DateTime? WrittenReportDueUtc,
     DateTime? CberNotifiedUtc,
-    DateTime? WrittenReportSubmittedUtc)
+    DateTime? WrittenReportSubmittedUtc,
+    bool ClericalCheckCompleted = false,
+    string? ClericalCheckNotes = null,
+    bool VisualInspectionCompleted = false,
+    bool VisualInspectionAcceptable = false,
+    string? RepeatPatientAboRh = null,
+    string? RepeatUnitAboRh = null,
+    DatWorkupResult DatResult = DatWorkupResult.NotRecorded,
+    string? ElutionResult = null,
+    bool RemainderQuarantined = false)
 {
     public static ReactionInvestigationDto From(ReactionInvestigation r) => new(
         r.Id, r.TransfusionEventId, r.PatientId, r.BloodProductId, r.ReportedUtc, r.ReportedBy,
         r.ReactionType, r.Severity, r.Findings, r.Conclusions, r.FollowUp, r.Status, r.Disposition,
         r.ProductAtFault, r.IsFatality, r.FatalityNotificationStatus, r.WrittenReportDueUtc,
-        r.CberNotifiedUtc, r.WrittenReportSubmittedUtc);
+        r.CberNotifiedUtc, r.WrittenReportSubmittedUtc,
+        r.ClericalCheckCompleted, r.ClericalCheckNotes, r.VisualInspectionCompleted,
+        r.VisualInspectionAcceptable, r.RepeatPatientAboRh, r.RepeatUnitAboRh,
+        r.DatResult, r.ElutionResult, r.RemainderQuarantined);
 }
 
 public sealed class ReactionInvestigationService
 {
     private readonly IRepository<ReactionInvestigation> _investigations;
     private readonly IRepository<TransfusionEvent> _transfusions;
+    private readonly IInventoryRepository _inventory;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
@@ -57,6 +80,7 @@ public sealed class ReactionInvestigationService
     public ReactionInvestigationService(
         IRepository<ReactionInvestigation> investigations,
         IRepository<TransfusionEvent> transfusions,
+        IInventoryRepository inventory,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
@@ -64,6 +88,7 @@ public sealed class ReactionInvestigationService
     {
         _investigations = investigations;
         _transfusions = transfusions;
+        _inventory = inventory;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
@@ -93,6 +118,9 @@ public sealed class ReactionInvestigationService
             ReportedBy = _currentUser.UserName,
             Status = ReactionInvestigationStatus.Open
         };
+
+        await TryQuarantineRemainderAsync(row, ct);
+
         await _investigations.AddAsync(row, ct);
         _audit.Record(AuditEventType.ReactionInvestigation, nameof(ReactionInvestigation), null, newValue: new { transfusion.Id }, reason: "Reaction suspected");
         return row;
@@ -115,6 +143,21 @@ public sealed class ReactionInvestigationService
         if (request.FollowUp is not null) row.FollowUp = request.FollowUp;
         if (request.Disposition is not null) row.Disposition = request.Disposition;
         if (request.ProductAtFault is not null) row.ProductAtFault = request.ProductAtFault.Value;
+        if (request.ClericalCheckCompleted is not null) row.ClericalCheckCompleted = request.ClericalCheckCompleted.Value;
+        if (request.ClericalCheckNotes is not null) row.ClericalCheckNotes = request.ClericalCheckNotes;
+        if (request.VisualInspectionCompleted is not null) row.VisualInspectionCompleted = request.VisualInspectionCompleted.Value;
+        if (request.VisualInspectionAcceptable is not null) row.VisualInspectionAcceptable = request.VisualInspectionAcceptable.Value;
+        if (request.RepeatPatientAboRh is not null) row.RepeatPatientAboRh = request.RepeatPatientAboRh;
+        if (request.RepeatUnitAboRh is not null) row.RepeatUnitAboRh = request.RepeatUnitAboRh;
+        if (request.DatResult is not null) row.DatResult = request.DatResult.Value;
+        if (request.ElutionResult is not null) row.ElutionResult = request.ElutionResult;
+
+        if (request.RemainderQuarantined == true && !row.RemainderQuarantined)
+        {
+            await TryQuarantineRemainderAsync(row, ct);
+            if (!row.RemainderQuarantined)
+                row.RemainderQuarantined = true;
+        }
 
         if (request.IsFatality == true && !row.IsFatality)
         {
@@ -129,6 +172,16 @@ public sealed class ReactionInvestigationService
             if (request.ClosedSignatureId is null or <= 0)
             {
                 return OperationResult<ReactionInvestigation>.Fail("Closing an investigation requires an electronic signature.");
+            }
+
+            var workup = ReactionWorkupCompletenessRule.Evaluate(
+                row.ClericalCheckCompleted,
+                row.VisualInspectionCompleted,
+                row.DatResult,
+                row.ElutionResult);
+            if (workup.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<ReactionInvestigation>.Fail($"{workup.Code}: {workup.Message}");
             }
 
             row.Status = ReactionInvestigationStatus.Closed;
@@ -172,5 +225,32 @@ public sealed class ReactionInvestigationService
         row.FatalityNotificationStatus = FatalityNotificationStatus.WrittenReportSubmitted;
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ReactionInvestigation>.Ok(row);
+    }
+
+    private async Task TryQuarantineRemainderAsync(ReactionInvestigation row, CancellationToken ct)
+    {
+        var unit = await _inventory.GetUnitAsync(row.BloodProductId, ct);
+        if (unit is null)
+            return;
+
+        if (!InventoryStatusTransition.IsAllowed(unit.Status, UnitStatus.Quarantine))
+            return;
+
+        const string reason = "Transfusion reaction investigation — remainder or segments held.";
+        var from = unit.Status;
+        unit.Status = UnitStatus.Quarantine;
+        unit.QuarantineReason = reason;
+        _inventory.AddStatusHistory(new InventoryStatusHistory
+        {
+            BloodProductId = unit.Id,
+            FromStatus = from,
+            ToStatus = UnitStatus.Quarantine,
+            FromLocationId = unit.CurrentLocationId,
+            ToLocationId = unit.CurrentLocationId,
+            Reason = reason,
+            ChangedBy = _currentUser.UserName,
+            ChangedUtc = _clock.UtcNow
+        });
+        row.RemainderQuarantined = true;
     }
 }

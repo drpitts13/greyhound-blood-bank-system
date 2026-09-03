@@ -56,6 +56,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new ReactionInvestigationService(
                 new EfRepository<ReactionInvestigation>(c),
                 new EfRepository<TransfusionEvent>(c),
+                new InventoryRepository(c),
                 c, _factory.Clock, _factory.CurrentUser, audit),
             new FixedPermissionEvaluator(3),
             c, _factory.Clock, _factory.CurrentUser, audit);
@@ -421,6 +422,81 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using var verify = _factory.Create();
         Assert.True(await verify.ReactionInvestigations.AnyAsync(r => r.PatientId == s.PatientId));
+    }
+
+    [Fact]
+    public async Task Transfusion_ReactionStopped_QuarantinesRemainder()
+    {
+        var s = await SeedAsync("RXNQ");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.True(issued.Succeeded);
+            issueId = issued.Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var tx = await Issuing(c).DocumentTransfusionAsync(
+                issueId, new DocumentTransfusionRequest(TransfusionDisposition.Stopped, ReactionSuspected: true));
+            Assert.True(tx.Succeeded);
+        }
+
+        await using var verify = _factory.Create();
+        var unit = await verify.BloodUnits.FindAsync(s.UnitId);
+        Assert.Equal(UnitStatus.Quarantine, unit!.Status);
+        var inv = await verify.ReactionInvestigations.SingleAsync(r => r.PatientId == s.PatientId);
+        Assert.True(inv.RemainderQuarantined);
+    }
+
+    [Fact]
+    public async Task CloseInvestigation_WithoutWorkup_Fails()
+    {
+        var s = await SeedAsync("RXNC");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            await Issuing(c).DocumentTransfusionAsync(
+                issueId, new DocumentTransfusionRequest(TransfusionDisposition.Completed, ReactionSuspected: true));
+        }
+
+        await using var ctx = _factory.Create();
+        var inv = await ctx.ReactionInvestigations.SingleAsync(r => r.PatientId == s.PatientId);
+        var audit = new AuditWriter(ctx, _factory.Clock, _factory.CurrentUser);
+        var service = new ReactionInvestigationService(
+            new EfRepository<ReactionInvestigation>(ctx),
+            new EfRepository<TransfusionEvent>(ctx),
+            new InventoryRepository(ctx),
+            ctx, _factory.Clock, _factory.CurrentUser, audit);
+
+        var closed = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1));
+        Assert.False(closed.Succeeded);
+        Assert.Contains(ReactionWorkupCompletenessRule.Code, closed.Error);
+
+        var saved = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
+            "FNHTR", ReactionSeverity.Mild, "Fever 1.8C", "Non-hemolytic", null, "Continue observation",
+            false, false, ReactionInvestigationStatus.UnderReview, null,
+            true, "IDs and ABO concordant", true, true, "A Positive", "O Positive",
+            DatWorkupResult.Negative, null, true));
+        Assert.True(saved.Succeeded);
+
+        var closeOk = await service.UpdateAsync(inv.Id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, 1));
+        Assert.True(closeOk.Succeeded);
+        Assert.Equal(ReactionInvestigationStatus.Closed, closeOk.Value!.Status);
     }
 
     [Fact]

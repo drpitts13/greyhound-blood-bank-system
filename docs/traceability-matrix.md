@@ -34,7 +34,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-CM-07 | P-tag data generation | printing-billing A.4 | P-tag model reflects issue | A | |
 | R-CM-08 | Electronic XM two ABO/Rh determinations | ElectronicCrossmatchEligibilityRule | Second concordant ABO required | D,A,I | AABB computer XM |
 | R-TX-01 | Transfusion documentation | erd.md TransfusionEvents | Start/stop/volume/disposition | A | |
-| R-TX-02 | Reaction investigation | erd.md ReactionInvestigations; 21 CFR 606.170 | Auto-open + fatality due dates | A,I | 21 CFR 606.170 |
+| R-TX-02 | Reaction investigation | erd.md ReactionInvestigations; 21 CFR 606.170 | Auto-open, AABB workup checklist, remainder quarantine, fatality due dates | A,I | 21 CFR 606.170 |
 | R-TX-03 | Dual identification at issue/transfusion | DualIdentificationRule TX-DUAL-ID | Distinct second verifier or electronic ID | D | AABB administration |
 | R-TX-04 | Second verifier is a directory user; ISBT scan at issue/bedside | SecondVerifierDirectoryRule TX-SECOND-USER; ComponentScanVerifier; issue/transfusion UI | Unknown verifier HardStop; VerifiedScan/BedsideScan posted from Web | D,A,I | AABB PPID; SoftBank/SafeTrace two-person check |
 | R-LB-01 | DIN lookback and recall | LookbackService; 21 CFR 610.46–47 | Recall all components; notification worklist | I | 21 CFR 610.46–47, 606.165 |

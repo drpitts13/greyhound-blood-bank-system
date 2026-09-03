@@ -701,6 +701,15 @@ public enum FatalityNotificationStatus
     WrittenReportSubmitted = 3
 }
 
+/// <summary>Post-transfusion DAT recorded on the AABB reaction workup checklist.</summary>
+public enum DatWorkupResult
+{
+    NotRecorded = 0,
+    Negative = 1,
+    Positive = 2,
+    NotPerformed = 3
+}
+
 public enum LookbackNotificationStatus
 {
     Pending = 0,

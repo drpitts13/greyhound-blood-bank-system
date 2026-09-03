@@ -144,6 +144,18 @@ Expiration: `ResultExpiresUtc = min(anchor + offset, earliest source ExpiresUtc)
 
 ---
 
+## 5a. Transfusion reaction workup (close gate)
+
+Recorded on `ReactionInvestigation` and evaluated by `ReactionWorkupCompletenessRule` before close.
+
+| Code | Rule | Severity if violated |
+|---|---|---|
+| `RXN-WORKUP-INCOMPLETE` | Clerical check, visual inspection, and DAT are recorded; DAT-positive requires elution notes | HardStop |
+
+Opening a reaction investigation quarantines the implicated unit when `InventoryStatusTransition` allows (typically `TransfusionStopped` remainder). Fully transfused units stay terminal; the checklist still records segment/bag retention.
+
+---
+
 ## 6. Result integrity rules
 
 - Verified results are immutable; corrections create a new `TestResults` version and supersede (never overwrite) the prior row.

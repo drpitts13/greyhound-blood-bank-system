@@ -1420,6 +1420,10 @@ public sealed class ReactionInvestigationConfiguration : IEntityTypeConfiguratio
         b.Property(x => x.Conclusions).HasMaxLength(4000);
         b.Property(x => x.FollowUp).HasMaxLength(2000);
         b.Property(x => x.Disposition).HasMaxLength(500);
+        b.Property(x => x.ClericalCheckNotes).HasMaxLength(1000);
+        b.Property(x => x.RepeatPatientAboRh).HasMaxLength(20);
+        b.Property(x => x.RepeatUnitAboRh).HasMaxLength(20);
+        b.Property(x => x.ElutionResult).HasMaxLength(500);
         b.Property(x => x.ClosedBy).HasMaxLength(100);
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);

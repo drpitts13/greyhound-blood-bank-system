@@ -209,10 +209,11 @@ flowchart TD
 ```mermaid
 flowchart TD
     a([Transfusion event flags ReactionSuspected]) --> b[Open ReactionInvestigation]
-    b --> c[Link to transfusion + patient + unit]
-    c --> d[Record findings, type, severity]
+    b --> q[Quarantine remainder when unit status allows]
+    q --> c[AABB workup: clerical check, visual inspection, DAT]
+    c --> d[Elution if DAT positive; findings, type, severity]
     d --> e[Status Open -> UnderReview -> Closed]
-    e --> f[Disposition recorded + audit]
+    e --> f[Close blocked until workup complete + e-signature]
 ```
 
 ---
