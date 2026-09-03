@@ -29,6 +29,10 @@ public class InventoryStatusTransitionTests
     [InlineData(UnitStatus.Expected, UnitStatus.Received)]
     [InlineData(UnitStatus.Expected, UnitStatus.Quarantine)]
     [InlineData(UnitStatus.Expected, UnitStatus.CancelledAssignment)]
+    [InlineData(UnitStatus.Available, UnitStatus.Missing)]
+    [InlineData(UnitStatus.Received, UnitStatus.Missing)]
+    [InlineData(UnitStatus.Missing, UnitStatus.Quarantine)]
+    [InlineData(UnitStatus.Allocated, UnitStatus.Missing)]
     public void AllowedTransitions_Pass(UnitStatus from, UnitStatus to)
     {
         Assert.True(InventoryStatusTransition.IsAllowed(from, to));
@@ -46,6 +50,8 @@ public class InventoryStatusTransitionTests
     [InlineData(UnitStatus.Quarantine, UnitStatus.OnHold)]
     [InlineData(UnitStatus.OnHold, UnitStatus.Issued)]
     [InlineData(UnitStatus.Issued, UnitStatus.OnHold)]
+    [InlineData(UnitStatus.Missing, UnitStatus.Issued)]
+    [InlineData(UnitStatus.Transfused, UnitStatus.Missing)]
     public void DisallowedTransitions_AreHardStop(UnitStatus from, UnitStatus to)
     {
         Assert.False(InventoryStatusTransition.IsAllowed(from, to));

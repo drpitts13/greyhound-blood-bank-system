@@ -601,6 +601,43 @@ public sealed class InventoryService
         return await ChangeStatusAsync(unit, UnitStatus.Available, "Released from operational hold", ct);
     }
 
+    /// <summary>
+    /// SoftBank/SafeTrace inventory discrepancy: the unit cannot be located.
+    /// Missing units are not issuable (21 CFR 606.165 chain of custody).
+    /// </summary>
+    public async Task<InventoryActionResult> MarkMissingAsync(long unitId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return InventoryActionResult.Fail("A reason is required to mark a unit missing.");
+
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+            return InventoryActionResult.Fail("Unit not found.");
+
+        unit.MissingReason = reason.Trim();
+        return await ChangeStatusAsync(unit, UnitStatus.Missing, reason.Trim(), ct);
+    }
+
+    /// <summary>
+    /// Recovered units enter quality quarantine for inspection before they can return to Available.
+    /// </summary>
+    public async Task<InventoryActionResult> LocateMissingAsync(long unitId, CancellationToken ct = default)
+    {
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+            return InventoryActionResult.Fail("Unit not found.");
+
+        if (unit.Status != UnitStatus.Missing)
+            return InventoryActionResult.Fail("Only a missing unit can be located back into inventory.");
+
+        var prior = unit.MissingReason;
+        unit.MissingReason = null;
+        unit.QuarantineReason = string.IsNullOrWhiteSpace(prior)
+            ? "Located after missing; pending inspection"
+            : $"Located after missing ({prior}); pending inspection";
+        return await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
+    }
+
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)
     {
         var unit = await _repository.GetUnitAsync(unitId, ct);

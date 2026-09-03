@@ -2,7 +2,7 @@
 
 Status: Phase 0 (design). Each workflow names the use case(s), the safety checks invoked (see `safety-rules.md`), the state changes, and the audit events produced. Every clinical state change writes to its append-only history table and an `AuditEvent` in the same transaction.
 
-Status legend for blood units: `Expected -> Received (retype required) or Quarantine -> Available -> Allocated -> Issued -> Transfused`, with side states `OnHold` (operational), `Returned`, `Discarded`, `Expired`.
+Status legend for blood units: `Expected -> Received (retype required) or Quarantine -> Available -> Allocated -> Issued -> Transfused`, with side states `OnHold` (operational), `Missing` (inventory discrepancy), `Returned`, `Discarded`, `Expired`.
 
 ---
 
@@ -35,6 +35,7 @@ flowchart TD
 - Checks: unit number unique; expiration in the future; product type known; ABO/Rh present; coded appearance Acceptable (`INV-RCV-APPEAR` / `INV-RCV-VISUAL`; policy `Inventory.RequireReceiveVisualInspection`, default true); distinct directory second verifier (`INV-RCV-2ND`; policy `Inventory.RequireReceiveVerifier`, default true). Defects (clots, hemolysis, leaking, …) are not received — return the unit to the supplier. Expect-unit (packing list) does not require a second verifier until arrival is confirmed.
 - Quarantine release (`INV-Q-RELEASE-2ND`) requires a distinct active directory user as second verifier (SoftBank/SafeTrace quality release). Policy: `Inventory.RequireQuarantineReleaseVerifier` (default true).
 - Discard (`INV-DISC-2ND`) requires a distinct active directory user as second verifier (SoftBank/SafeTrace dual control to destroy a unit). Policy: `Inventory.RequireDiscardVerifier` (default true).
+- Missing (`POST /api/inventory/units/{id}/missing`) records a physical-inventory discrepancy. Locate (`/locate`) returns the unit to `Quarantine` for inspection — not directly to Available (AABB 21 CFR 606.165).
 - Audit: `Create` (unit), `Update` (status change) with location.
 
 ---

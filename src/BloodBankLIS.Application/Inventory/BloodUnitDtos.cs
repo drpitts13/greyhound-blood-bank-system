@@ -38,6 +38,7 @@ public sealed record BloodUnitDto(
     string CreatedBy,
     string? HoldReason = null,
     string? QuarantineReason = null,
+    string? MissingReason = null,
     bool ReceiveVisualAcceptable = true,
     string? ReceiveVisualNotes = null,
     string? ShipmentId = null,
@@ -49,6 +50,6 @@ public sealed record BloodUnitDto(
         u.ExpirationEncoded, u.ExpirationLocal, u.ExpirationTimezone, u.ExpirationHasExplicitTime,
         u.ProductTypeId, u.Abo, u.RhD, u.BloodType.ToString(),
         u.ExpiresUtc, u.Status, u.CurrentLocationId, u.Source, u.CreatedUtc, u.CreatedBy,
-        u.HoldReason, u.QuarantineReason, u.ReceiveVisualAcceptable, u.ReceiveVisualNotes,
+        u.HoldReason, u.QuarantineReason, u.MissingReason, u.ReceiveVisualAcceptable, u.ReceiveVisualNotes,
         u.ShipmentId, u.ReceiveAppearance);
 }

@@ -51,4 +51,13 @@ public class ComponentScanVerifierTests
         var eval = ComponentScanVerifier.Verify(unit, "G123417654321", "E0206000", null, "DEMO", "2250200");
         Assert.Contains(eval.HardStops, r => r.Code == IsbtErrorCodes.ComponentOnHold);
     }
+
+    [Fact]
+    public void Missing_HardStop()
+    {
+        var unit = SampleUnit();
+        unit.Status = UnitStatus.Missing;
+        var eval = ComponentScanVerifier.Verify(unit, "G123417654321", "E0206000", null, "DEMO", "2250200");
+        Assert.Contains(eval.HardStops, r => r.Code == IsbtErrorCodes.ComponentMissing);
+    }
 }

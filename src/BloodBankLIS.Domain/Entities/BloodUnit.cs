@@ -94,6 +94,9 @@ public class BloodUnit : BaseEntity
     /// <summary>Reason the unit is in operational <see cref="UnitStatus.OnHold"/> (not a quality quarantine).</summary>
     public string? HoldReason { get; set; }
 
+    /// <summary>Reason the unit cannot be located (SoftBank/SafeTrace inventory discrepancy).</summary>
+    public string? MissingReason { get; set; }
+
     public string? DiscardReason { get; set; }
 
     public string? RecallReason { get; set; }

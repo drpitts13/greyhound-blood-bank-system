@@ -589,6 +589,72 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task MarkMissing_WithoutReason_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-MISS-NR", productTypeId))).Unit!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var result = await CreateService(context).MarkMissingAsync(unitId, "  ");
+            Assert.False(result.Succeeded);
+            Assert.Contains("reason is required", result.Error);
+        }
+    }
+
+    [Fact]
+    public async Task MarkMissing_ThenLocate_EntersQuarantine()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            var received = await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-MISS-LOC", productTypeId));
+            unitId = received.Unit!.Id;
+            await CreateService(context).ReleaseFromQuarantineAsync(unitId, "tech2");
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var missing = await CreateService(context).MarkMissingAsync(unitId, "Not on shelf at physical inventory");
+            Assert.True(missing.Succeeded);
+            Assert.Equal(UnitStatus.Missing, missing.Unit!.Status);
+            Assert.Equal("Not on shelf at physical inventory", missing.Unit.MissingReason);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var located = await CreateService(context).LocateMissingAsync(unitId);
+            Assert.True(located.Succeeded);
+            Assert.Equal(UnitStatus.Quarantine, located.Unit!.Status);
+            Assert.Null(located.Unit.MissingReason);
+            Assert.Contains("Located after missing", located.Unit.QuarantineReason);
+        }
+    }
+
+    [Fact]
+    public async Task Locate_WhenNotMissing_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-MISS-NA", productTypeId))).Unit!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var result = await CreateService(context).LocateMissingAsync(unitId);
+            Assert.False(result.Succeeded);
+            Assert.Contains("missing unit", result.Error);
+        }
+    }
+
+    [Fact]
     public async Task Discard_WithoutReason_Fails()
     {
         var productTypeId = await EnsureProductTypeAsync();
