@@ -209,6 +209,7 @@ public sealed class ScanSessionService
             request.ReleaseToAvailable,
             request.VisualInspectionAcceptable,
             request.VisualInspectionNotes,
+            request.Appearance,
             request.SecondVerifier,
             ct);
 

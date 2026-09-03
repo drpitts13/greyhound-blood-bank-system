@@ -204,6 +204,22 @@ public enum UnitStatus
     OnHold = 22
 }
 
+/// <summary>
+/// SoftBank/SafeTrace coded appearance at receipt. Only <see cref="Acceptable"/>
+/// may enter inventory when visual inspection is required.
+/// </summary>
+public enum UnitAppearance
+{
+    Acceptable = 0,
+    Clots = 1,
+    Hemolysis = 2,
+    Discoloration = 3,
+    Lipemia = 4,
+    Leaking = 5,
+    LabelIllegible = 6,
+    OtherDefect = 7
+}
+
 /// <summary>How a blood-component identity was entered into the LIS.</summary>
 public enum ComponentEntrySource
 {

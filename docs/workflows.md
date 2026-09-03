@@ -32,7 +32,7 @@ flowchart TD
 - Products with Retype Y start in `Received`. ISBT "Release to Available" is ignored until a matching retype is recorded.
 - Front-type retype: Anti-A and Anti-B always; Anti-D required only when the unit is labeled Rh negative.
 - Matching retype: `Received -> Available`. Mismatch: `Received -> Quarantine` with the discrepancy as the reason (supervisor uses existing release).
-- Checks: unit number unique; expiration in the future; product type known; ABO/Rh present; visual inspection acceptable (`INV-RCV-VISUAL`; policy `Inventory.RequireReceiveVisualInspection`, default true); distinct directory second verifier (`INV-RCV-2ND`; policy `Inventory.RequireReceiveVerifier`, default true). Failed appearance checks are not received — return the unit to the supplier. Expect-unit (packing list) does not require a second verifier until arrival is confirmed.
+- Checks: unit number unique; expiration in the future; product type known; ABO/Rh present; coded appearance Acceptable (`INV-RCV-APPEAR` / `INV-RCV-VISUAL`; policy `Inventory.RequireReceiveVisualInspection`, default true); distinct directory second verifier (`INV-RCV-2ND`; policy `Inventory.RequireReceiveVerifier`, default true). Defects (clots, hemolysis, leaking, …) are not received — return the unit to the supplier. Expect-unit (packing list) does not require a second verifier until arrival is confirmed.
 - Quarantine release (`INV-Q-RELEASE-2ND`) requires a distinct active directory user as second verifier (SoftBank/SafeTrace quality release). Policy: `Inventory.RequireQuarantineReleaseVerifier` (default true).
 - Audit: `Create` (unit), `Update` (status change) with location.
 

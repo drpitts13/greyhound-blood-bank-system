@@ -122,10 +122,11 @@ public sealed class InventoryService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var visual = await EvaluateReceiveVisualAsync(request.VisualInspectionAcceptable, ct);
-        if (visual.Severity == RuleSeverity.HardStop)
+        var appearance = await EvaluateReceiveAppearanceAsync(
+            request.VisualInspectionAcceptable, request.Appearance, ct);
+        if (appearance is not null)
         {
-            return InventoryActionResult.Blocked(new RuleEvaluation([visual]));
+            return appearance;
         }
 
         var verifier = await EvaluateReceiveVerifierAsync(request.SecondVerifier, ct);
@@ -186,10 +187,12 @@ public sealed class InventoryService
             Volume = request.Volume,
             Status = initialStatus,
             ShipmentId = string.IsNullOrWhiteSpace(request.ShipmentId) ? null : request.ShipmentId.Trim(),
-            ReceiveVisualAcceptable = request.VisualInspectionAcceptable,
+            ReceiveVisualAcceptable = request.VisualInspectionAcceptable
+                && ReceiveAppearanceRule.IsAcceptable(request.Appearance),
             ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
                 ? null
-                : request.VisualInspectionNotes.Trim()
+                : request.VisualInspectionNotes.Trim(),
+            ReceiveAppearance = request.Appearance
         };
 
         await _repository.AddUnitAsync(unit, ct);
@@ -305,10 +308,11 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Only an expected inbound unit can be confirmed on arrival.");
         }
 
-        var visual = await EvaluateReceiveVisualAsync(request.VisualInspectionAcceptable, ct);
-        if (visual.Severity == RuleSeverity.HardStop)
+        var appearance = await EvaluateReceiveAppearanceAsync(
+            request.VisualInspectionAcceptable, request.Appearance, ct);
+        if (appearance is not null)
         {
-            return InventoryActionResult.Blocked(new RuleEvaluation([visual]));
+            return appearance;
         }
 
         var verifier = await EvaluateReceiveVerifierAsync(request.SecondVerifier, ct);
@@ -319,10 +323,12 @@ public sealed class InventoryService
 
         var productType = await _repository.GetProductTypeAsync(unit.ProductTypeId, ct);
         var destination = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
-        unit.ReceiveVisualAcceptable = request.VisualInspectionAcceptable;
+        unit.ReceiveVisualAcceptable = request.VisualInspectionAcceptable
+            && ReceiveAppearanceRule.IsAcceptable(request.Appearance);
         unit.ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
             ? null
             : request.VisualInspectionNotes.Trim();
+        unit.ReceiveAppearance = request.Appearance;
         if (request.LocationId is long loc)
         {
             unit.CurrentLocationId = loc;
@@ -373,16 +379,17 @@ public sealed class InventoryService
         bool releaseToAvailable,
         bool visualInspectionAcceptable = true,
         string? visualInspectionNotes = null,
+        UnitAppearance appearance = UnitAppearance.Acceptable,
         string? secondVerifier = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(draft);
         draft.RebuildIdentity();
 
-        var visual = await EvaluateReceiveVisualAsync(visualInspectionAcceptable, ct);
-        if (visual.Severity == RuleSeverity.HardStop)
+        var appear = await EvaluateReceiveAppearanceAsync(visualInspectionAcceptable, appearance, ct);
+        if (appear is not null)
         {
-            return InventoryActionResult.Blocked(new RuleEvaluation([visual]));
+            return appear;
         }
 
         var verifier = await EvaluateReceiveVerifierAsync(secondVerifier, ct);
@@ -426,10 +433,12 @@ public sealed class InventoryService
         var unit = Application.Isbt128.CanonicalComponentMapper.ToBloodUnit(
             draft, productTypeId, locationId, supplier, shipmentId, collectionFacility, volume,
             initialStatus, _clock.UtcNow);
-        unit.ReceiveVisualAcceptable = visualInspectionAcceptable;
+        unit.ReceiveVisualAcceptable = visualInspectionAcceptable
+            && ReceiveAppearanceRule.IsAcceptable(appearance);
         unit.ReceiveVisualNotes = string.IsNullOrWhiteSpace(visualInspectionNotes)
             ? null
             : visualInspectionNotes.Trim();
+        unit.ReceiveAppearance = appearance;
 
         await _repository.AddUnitAsync(unit, ct);
 
@@ -522,10 +531,21 @@ public sealed class InventoryService
         return SecondVerifierDirectoryRule.Evaluate(secondVerifier, match is not null);
     }
 
-    private async Task<RuleResult> EvaluateReceiveVisualAsync(bool acceptable, CancellationToken ct)
+    private async Task<InventoryActionResult?> EvaluateReceiveAppearanceAsync(
+        bool visualAcceptable, UnitAppearance appearance, CancellationToken ct)
     {
         var required = _policy is null || await _policy.GetRequireReceiveVisualInspectionAsync(ct);
-        return ReceiveVisualInspectionRule.Evaluate(required, acceptable);
+        var coded = ReceiveAppearanceRule.Evaluate(required, appearance);
+        if (coded.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([coded]));
+        }
+
+        var acceptable = visualAcceptable && ReceiveAppearanceRule.IsAcceptable(appearance);
+        var visual = ReceiveVisualInspectionRule.Evaluate(required, acceptable);
+        return visual.Severity == RuleSeverity.HardStop
+            ? InventoryActionResult.Blocked(new RuleEvaluation([visual]))
+            : null;
     }
 
     private async Task<InventoryActionResult?> EvaluateReceiveVerifierAsync(string? secondVerifier, CancellationToken ct)

@@ -103,6 +103,9 @@ public class BloodUnit : BaseEntity
 
     public string? ReceiveVisualNotes { get; set; }
 
+    /// <summary>Coded SoftBank/SafeTrace appearance at receipt.</summary>
+    public UnitAppearance ReceiveAppearance { get; set; } = UnitAppearance.Acceptable;
+
     /// <summary>
     /// Set on a result unit produced by a product modification (divide/pool/irradiate/
     /// thaw/volume-reduce/leukoreduce); null for units received directly into inventory.

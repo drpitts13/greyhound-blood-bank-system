@@ -40,7 +40,8 @@ public sealed record BloodUnitDto(
     string? QuarantineReason = null,
     bool ReceiveVisualAcceptable = true,
     string? ReceiveVisualNotes = null,
-    string? ShipmentId = null)
+    string? ShipmentId = null,
+    UnitAppearance ReceiveAppearance = UnitAppearance.Acceptable)
 {
     public static BloodUnitDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
@@ -49,5 +50,5 @@ public sealed record BloodUnitDto(
         u.ProductTypeId, u.Abo, u.RhD, u.BloodType.ToString(),
         u.ExpiresUtc, u.Status, u.CurrentLocationId, u.Source, u.CreatedUtc, u.CreatedBy,
         u.HoldReason, u.QuarantineReason, u.ReceiveVisualAcceptable, u.ReceiveVisualNotes,
-        u.ShipmentId);
+        u.ShipmentId, u.ReceiveAppearance);
 }

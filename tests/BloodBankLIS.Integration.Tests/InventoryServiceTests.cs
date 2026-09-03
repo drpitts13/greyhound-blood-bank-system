@@ -231,6 +231,18 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ReceiveUnit_HemolysisAppearance_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ReceiveUnitAsync(
+            NewUnitRequest("U-HEMOLYSIS", productTypeId) with { Appearance = UnitAppearance.Hemolysis });
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ReceiveAppearanceRule.Code);
+        Assert.False(await context.BloodUnits.AnyAsync(u => u.UnitNumber == "U-HEMOLYSIS"));
+    }
+
+    [Fact]
     public async Task ReceiveUnit_VisualPass_StoresInspection()
     {
         var productTypeId = await EnsureProductTypeAsync();
@@ -240,6 +252,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(result.Succeeded);
         Assert.True(result.Unit!.ReceiveVisualAcceptable);
         Assert.Equal("Clear, no clots", result.Unit.ReceiveVisualNotes);
+        Assert.Equal(UnitAppearance.Acceptable, result.Unit.ReceiveAppearance);
     }
 
     [Fact]

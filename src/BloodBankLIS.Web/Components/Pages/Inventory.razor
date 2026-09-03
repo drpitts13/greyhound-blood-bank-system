@@ -53,8 +53,12 @@
             <div class="field"><label>Collection facility</label><input @bind="_rec.CollectionFacility" /></div>
             <div class="field"><label>Supplier</label><input @bind="_rec.Supplier" /></div>
         </div>
-        <label class="flex"><input type="checkbox" @bind="_rec.VisualInspectionAcceptable" /> &nbsp;Visual inspection acceptable (no clots, hemolysis, or container defects)</label>
         <div class="form-row">
+            <div class="field"><label>Appearance</label>
+                <select @bind="_rec.Appearance">
+                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
+                </select>
+            </div>
             <div class="field"><label>Visual notes</label><input @bind="_rec.VisualInspectionNotes" placeholder="Optional appearance notes" /></div>
             <div class="field" style="min-width:16rem;">
                 <label>Second verifier</label>
@@ -173,6 +177,7 @@
     private ReceiveModel _exp = new();
     private Feedback? _expectFb;
     private bool _arrivalVisualOk = true;
+    private UnitAppearance _arrivalAppearance = UnitAppearance.Acceptable;
     private string? _arrivalVisualNotes;
     private string? _arrivalSecondVerifier;
     private string _cancelExpectedReason = string.Empty;
@@ -254,9 +259,10 @@
             string.IsNullOrWhiteSpace(_rec.CollectionFacility) ? null : _rec.CollectionFacility,
             string.IsNullOrWhiteSpace(_rec.Supplier) ? null : _rec.Supplier,
             string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode) ? null : _rec.ProductDescriptionCode.Trim(),
-            VisualInspectionAcceptable: _rec.VisualInspectionAcceptable,
+            VisualInspectionAcceptable: _rec.Appearance == UnitAppearance.Acceptable,
             VisualInspectionNotes: string.IsNullOrWhiteSpace(_rec.VisualInspectionNotes) ? null : _rec.VisualInspectionNotes,
-            SecondVerifier: _rec.SecondVerifier);
+            SecondVerifier: _rec.SecondVerifier,
+            Appearance: _rec.Appearance);
         var r = await Api.ReceiveUnitAsync(req);
         _busy = false;
         _receiveFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
@@ -386,9 +392,10 @@
     {
         _busy = true;
         var r = await Api.ReceiveExpectedUnitAsync(id, new ReceiveExpectedUnitRequest(
-            VisualInspectionAcceptable: _arrivalVisualOk,
+            VisualInspectionAcceptable: _arrivalAppearance == UnitAppearance.Acceptable,
             VisualInspectionNotes: string.IsNullOrWhiteSpace(_arrivalVisualNotes) ? null : _arrivalVisualNotes,
-            SecondVerifier: _arrivalSecondVerifier));
+            SecondVerifier: _arrivalSecondVerifier,
+            Appearance: _arrivalAppearance));
         _busy = false;
         _actionFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
             ? "Arrival confirmed. ABO/Rh retype is required before the unit is Available."
@@ -396,6 +403,7 @@
         if (r.Succeeded)
         {
             _arrivalVisualOk = true;
+            _arrivalAppearance = UnitAppearance.Acceptable;
             _arrivalVisualNotes = null;
             _arrivalSecondVerifier = null;
             await RefreshSelected(id);
@@ -490,10 +498,12 @@
                     }
                     @if (u.Status == UnitStatus.Expected && Session.Has(PermissionCodes.InventoryReceive))
                     {
-                        <label class="field" style="min-width:14rem;">
-                            <input type="checkbox" @bind="_arrivalVisualOk" />
-                            Visual inspection acceptable
-                        </label>
+                        <div class="field" style="min-width:14rem;">
+                            <label>Appearance</label>
+                            <select @bind="_arrivalAppearance">
+                                @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
+                            </select>
+                        </div>
                         <div class="field" style="min-width:16rem;">
                             <label>Arrival notes</label>
                             <input @bind="_arrivalVisualNotes" placeholder="Appearance, defects" />
@@ -526,7 +536,7 @@
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId))
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable)
                 {
                     <p class="muted">
                         @if (!string.IsNullOrWhiteSpace(u.ShipmentId))
@@ -541,9 +551,9 @@
                         {
                             <span>Quarantine: @u.QuarantineReason</span>
                         }
-                        @if (!string.IsNullOrWhiteSpace(u.ReceiveVisualNotes))
+                        @if (u.ReceiveAppearance != UnitAppearance.Acceptable || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes))
                         {
-                            <span>Receive visual: @u.ReceiveVisualNotes</span>
+                            <span>Appearance: @u.ReceiveAppearance@(string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) ? "" : $" — {u.ReceiveVisualNotes}")</span>
                         }
                     </p>
                 }
@@ -674,6 +684,7 @@
         public string? ShipmentId { get; set; }
         public bool VisualInspectionAcceptable { get; set; } = true;
         public string? VisualInspectionNotes { get; set; }
+        public UnitAppearance Appearance { get; set; } = UnitAppearance.Acceptable;
         public string? SecondVerifier { get; set; }
     }
 }

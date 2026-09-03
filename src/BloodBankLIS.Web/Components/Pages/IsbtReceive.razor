@@ -36,7 +36,11 @@
             <label>Division <input @bind="_division" maxlength="2" /></label>
             <label>Expiration (local) <input type="datetime-local" @bind="_expirationLocal" /></label>
             <label><input type="checkbox" @bind="_explicitTime" /> Label includes explicit time</label>
-            <label><input type="checkbox" @bind="_visualOk" /> Visual inspection acceptable</label>
+            <label>Appearance
+                <select @bind="_appearance">
+                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
+                </select>
+            </label>
             <label>
                 Second verifier
                 <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
@@ -88,6 +92,7 @@ Valid: @_session.Validation?.Valid</pre>
     private DateTime _expirationLocal = DateTime.Now.AddDays(30);
     private bool _explicitTime;
     private bool _visualOk = true;
+    private UnitAppearance _appearance = UnitAppearance.Acceptable;
     private bool _releaseAvailable = true;
     private string? _secondVerifier;
     private List<DirectoryUserDto> _directoryUsers = new();
@@ -116,8 +121,9 @@ Valid: @_session.Validation?.Valid</pre>
             _aboCode, _pdc, _collection, _division, null,
             _expirationLocal, _explicitTime, _productTypeId,
             ReleaseToAvailable: _releaseAvailable,
-            VisualInspectionAcceptable: _visualOk,
-            SecondVerifier: _secondVerifier);
+            VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
+            SecondVerifier: _secondVerifier,
+            Appearance: _appearance);
         var result = await Api.CreateIsbtManualAsync(req);
         _message = result.Succeeded
             ? $"Created {result.Value!.ComponentIdentity} (status {result.Value.Status})"
@@ -155,7 +161,9 @@ Valid: @_session.Validation?.Valid</pre>
     {
         if (_sessionKey is null) return;
         var result = await Api.CompleteIsbtScanSessionAsync(new CompleteScanSessionRequest(
-            _sessionKey.Value, _productTypeId, ReleaseToAvailable: _releaseAvailable, VisualInspectionAcceptable: _visualOk, SecondVerifier: _secondVerifier));
+            _sessionKey.Value, _productTypeId, ReleaseToAvailable: _releaseAvailable,
+            VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
+            SecondVerifier: _secondVerifier, Appearance: _appearance));
         _message = result.Succeeded
             ? $"Received {result.Value!.ComponentIdentity}"
             : result.Error;
