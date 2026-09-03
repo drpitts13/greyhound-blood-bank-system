@@ -201,7 +201,14 @@ public enum UnitStatus
     /// from <see cref="Quarantine"/>, which is a quality/safety disposition.
     /// Not issuable until released back to Available or escalated to Quarantine.
     /// </summary>
-    OnHold = 22
+    OnHold = 22,
+    /// <summary>
+    /// Terminal consignee/supplier disposition (SoftBank/SafeTrace return-to-vendor).
+    /// Distinct from <see cref="Returned"/> (ward return to inventory) and from
+    /// <see cref="CancelledAssignment"/> (packing list cancelled; unit never arrived).
+    /// Not issuable.
+    /// </summary>
+    ReturnedToSupplier = 23
 }
 
 /// <summary>

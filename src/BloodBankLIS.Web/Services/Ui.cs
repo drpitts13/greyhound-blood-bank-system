@@ -12,7 +12,7 @@ public static class Ui
         UnitStatus.Issued => "badge badge-amber",
         UnitStatus.Transfused => "badge badge-gray",
         UnitStatus.Quarantine or UnitStatus.Received or UnitStatus.OnHold => "badge badge-amber",
-        UnitStatus.Discarded or UnitStatus.Expired => "badge badge-red",
+        UnitStatus.Discarded or UnitStatus.Expired or UnitStatus.ReturnedToSupplier => "badge badge-red",
         UnitStatus.Returned => "badge badge-gray",
         _ => "badge badge-gray"
     };

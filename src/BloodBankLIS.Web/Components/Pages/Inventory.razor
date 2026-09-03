@@ -186,6 +186,7 @@
     private string? _arrivalSecondVerifier;
     private decimal? _arrivalTemperatureCelsius;
     private string _cancelExpectedReason = string.Empty;
+    private string _supplierReturnReason = string.Empty;
 
     private BloodUnitDto? _selected;
     private string _unitTab = "actions";
@@ -434,6 +435,23 @@
         or UnitStatus.Transferred or UnitStatus.CancelledAssignment or UnitStatus.Quarantine
         or UnitStatus.OnHold or UnitStatus.Missing;
 
+    private static bool CanReturnToSupplier(UnitStatus status) => status is
+        UnitStatus.Received or UnitStatus.Quarantine or UnitStatus.OnHold
+        or UnitStatus.Available or UnitStatus.Damaged;
+
+    private async Task ReturnToSupplierAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReturnToSupplierAsync(id, _supplierReturnReason);
+        _busy = false;
+        _actionFb = r.ToFeedback("Unit returned to the supplier. It cannot be issued.");
+        if (r.Succeeded)
+        {
+            _supplierReturnReason = string.Empty;
+            await RefreshSelected(id);
+        }
+    }
+
     private async Task MarkDamagedAsync(long id)
     {
         _busy = true;
@@ -604,6 +622,11 @@
                             <input @bind="_cancelExpectedReason" placeholder="Not shipped / cancelled ASN" />
                         </div>
                         <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_cancelExpectedReason))" @onclick="() => CancelExpectedAsync(u.Id)">Cancel expected</button>
+                        <div class="field" style="min-width:16rem;">
+                            <label>Return to supplier</label>
+                            <input @bind="_supplierReturnReason" placeholder="Failed inspection / refused at dock" />
+                        </div>
+                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_supplierReturnReason))" @onclick="() => ReturnToSupplierAsync(u.Id)">Return to supplier</button>
                     }
                     @if (u.Status == UnitStatus.OnHold && Session.Has(PermissionCodes.InventoryRelease))
                     {
@@ -623,7 +646,7 @@
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null)
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.SupplierReturnReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null)
                 {
                     <p class="muted">
                         @if (!string.IsNullOrWhiteSpace(u.ShipmentId))
@@ -645,6 +668,10 @@
                         @if (!string.IsNullOrWhiteSpace(u.DamagedReason))
                         {
                             <span>Damaged: @u.DamagedReason</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(u.SupplierReturnReason))
+                        {
+                            <span>Returned to supplier: @u.SupplierReturnReason</span>
                         }
                         @if (u.ReceiveAppearance != UnitAppearance.Acceptable || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes))
                         {
@@ -678,6 +705,14 @@
                     <div class="flex gap">
                         <input @bind="_damagedReason" placeholder="Damage reason (leaking bag, crushed, storage mishandling)" style="flex:1;" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_damagedReason))" @onclick="() => MarkDamagedAsync(u.Id)">Mark damaged</button>
+                    </div>
+                }
+
+                @if (CanReturnToSupplier(u.Status) && Session.Has(PermissionCodes.InventoryReceive))
+                {
+                    <div class="flex gap">
+                        <input @bind="_supplierReturnReason" placeholder="Return-to-supplier reason (failed inspection, unused credit)" style="flex:1;" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_supplierReturnReason))" @onclick="() => ReturnToSupplierAsync(u.Id)">Return to supplier</button>
                     </div>
                 }
 

@@ -707,6 +707,24 @@ public sealed class InventoryService
         return await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
     }
 
+    /// <summary>
+    /// SoftBank/SafeTrace consignee reject / unused-stock return to the supplier.
+    /// Distinct from ward <see cref="UnitStatus.Returned"/> and from packing-list
+    /// <see cref="UnitStatus.CancelledAssignment"/>. Terminal; not issuable.
+    /// </summary>
+    public async Task<InventoryActionResult> ReturnToSupplierAsync(long unitId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return InventoryActionResult.Fail("A reason is required to return a unit to the supplier.");
+
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+            return InventoryActionResult.Fail("Unit not found.");
+
+        unit.SupplierReturnReason = reason.Trim();
+        return await ChangeStatusAsync(unit, UnitStatus.ReturnedToSupplier, reason.Trim(), ct);
+    }
+
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)
     {
         var unit = await _repository.GetUnitAsync(unitId, ct);

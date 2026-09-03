@@ -32,7 +32,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ISS-UNIT-ABORH` | Unit ABO/Rh is present | HardStop |
 | `ISS-ABO-COMPAT` | Unit ABO is compatible with patient via antigen/antibody conflict check (section 3) | HardStop |
 | `ISS-PRODUCT-TYPE` | Unit product type matches what the order/clinical need requires | HardStop |
-| `ISS-UNIT-STATUS` | Unit status is Available/Allocated/Assigned/Crossmatched/Selected (not Quarantine/OnHold/Discarded/Issued/Transfused/Expired) | HardStop |
+| `ISS-UNIT-STATUS` | Unit status is Available/Allocated/Assigned/Crossmatched/Selected (not Quarantine/OnHold/Discarded/Issued/Transfused/Expired/ReturnedToSupplier) | HardStop |
 | `ISS-UNIT-EXPIRED` | Unit is not past expiration date/time | HardStop |
 | `ISS-ALLOCATION` | Unit is allocated/reserved to THIS patient | HardStop |
 | `ISS-XM-REQUIRED` | If product requires crossmatch, a compatible, unexpired crossmatch exists (unless emergency release) | HardStop |
@@ -90,19 +90,20 @@ Allowed transitions are enforced by a transition guard; anything not listed is a
 ```
 # Authoritative allow-list is InventoryStatusTransition (expanded for ISBT 128).
 # See docs/isbt128-module.md. Legacy core paths remain:
-Expected   -> Received | Quarantine | CancelledAssignment | Missing | Discarded
-Quarantine -> Available | Discarded | Expired | Recalled | Damaged | Missing
-OnHold     -> Available | Quarantine | Discarded | Expired | Recalled | Damaged | Missing
-Available  -> Allocated | Assigned | Selected | Crossmatched | Quarantine | OnHold | Discarded | Expired | Recalled | Transferred | Modified | Missing | Damaged
+Expected   -> Received | Quarantine | CancelledAssignment | Missing | Discarded | ReturnedToSupplier
+Quarantine -> Available | Discarded | Expired | Recalled | Damaged | Missing | ReturnedToSupplier
+OnHold     -> Available | Quarantine | Discarded | Expired | Recalled | Damaged | Missing | ReturnedToSupplier
+Available  -> Allocated | Assigned | Selected | Crossmatched | Quarantine | OnHold | Discarded | Expired | Recalled | Transferred | Modified | Missing | Damaged | ReturnedToSupplier
 Allocated  -> Issued | Available (release) | Assigned | Crossmatched | Discarded | Expired
 Assigned   -> Issued | Available | Crossmatched | CancelledAssignment | ...
 Issued     -> Transfused | TransfusionStarted | Returned | ReturnPending | Recalled | Missing
 Missing    -> Quarantine | Available | Discarded | Damaged
-Damaged    -> Quarantine | Discarded
+Damaged    -> Quarantine | Discarded | ReturnedToSupplier
 
 Returned   -> Available | Quarantine | Discarded | Expired
 Transfused -> (terminal)
 Discarded  -> (terminal)
+ReturnedToSupplier -> (terminal)
 Expired    -> Discarded
 Modified   -> (terminal)
 ```
@@ -111,6 +112,7 @@ Modified   -> (terminal)
 - `OnHold` is an operational hold (paperwork, pending review). It is not a quality quarantine: quarantine cannot move to hold, and a held unit cannot be issued until released to Available or escalated to Quarantine.
 - `Missing` is a physical-inventory discrepancy (SoftBank/SafeTrace). It is not issuable. Locating a missing unit lands in `Quarantine` for inspection, not Available.
 - `Damaged` is container integrity failure found after the unit is already in inventory. It is not issuable. Inspection lands in `Quarantine`; discard is the terminal alternative.
+- `ReturnedToSupplier` is the SoftBank/SafeTrace consignee reject / unused-stock return to the vendor. Distinct from ward `Returned` and from packing-list `CancelledAssignment`. Terminal; not issuable.
 - Releasing a unit from quality quarantine requires a distinct directory second verifier (`INV-Q-RELEASE-2ND`) when `Inventory.RequireQuarantineReleaseVerifier` is true (default).
 - Discarding a unit requires a distinct directory second verifier (`INV-DISC-2ND`) when `Inventory.RequireDiscardVerifier` is true (default).
 - Any transition writes `InventoryStatusHistory` + `AuditEvent`.

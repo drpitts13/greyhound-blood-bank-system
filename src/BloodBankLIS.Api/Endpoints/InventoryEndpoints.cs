@@ -125,6 +125,10 @@ public static class InventoryEndpoints
             ToHttpResult(await service.InspectDamagedAsync(id, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
+        group.MapPost("/units/{id:long}/return-to-supplier", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.ReturnToSupplierAsync(id, request.Reason, ct)))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
         group.MapPost("/units/{id:long}/transfer", async (long id, TransferUnitRequest request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.TransferAsync(id, request.ToLocationId, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryTransfer);

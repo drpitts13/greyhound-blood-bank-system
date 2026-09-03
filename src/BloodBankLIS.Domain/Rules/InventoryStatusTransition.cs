@@ -18,29 +18,30 @@ public static class InventoryStatusTransition
             [UnitStatus.Expected] =
             [
                 UnitStatus.Received, UnitStatus.Quarantine, UnitStatus.CancelledAssignment,
-                UnitStatus.Missing, UnitStatus.Discarded
+                UnitStatus.Missing, UnitStatus.Discarded, UnitStatus.ReturnedToSupplier
             ],
             [UnitStatus.Received] =
             [
                 UnitStatus.Available, UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded,
-                UnitStatus.Expired, UnitStatus.Recalled, UnitStatus.Damaged, UnitStatus.Missing
+                UnitStatus.Expired, UnitStatus.Recalled, UnitStatus.Damaged, UnitStatus.Missing,
+                UnitStatus.ReturnedToSupplier
             ],
             [UnitStatus.Quarantine] =
             [
                 UnitStatus.Available, UnitStatus.Discarded, UnitStatus.Expired, UnitStatus.Recalled,
-                UnitStatus.Damaged, UnitStatus.Missing
+                UnitStatus.Damaged, UnitStatus.Missing, UnitStatus.ReturnedToSupplier
             ],
             [UnitStatus.OnHold] =
             [
                 UnitStatus.Available, UnitStatus.Quarantine, UnitStatus.Discarded, UnitStatus.Expired,
-                UnitStatus.Recalled, UnitStatus.Damaged, UnitStatus.Missing
+                UnitStatus.Recalled, UnitStatus.Damaged, UnitStatus.Missing, UnitStatus.ReturnedToSupplier
             ],
             [UnitStatus.Available] =
             [
                 UnitStatus.Selected, UnitStatus.Assigned, UnitStatus.Allocated, UnitStatus.Crossmatched,
                 UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded, UnitStatus.Expired,
                 UnitStatus.Recalled, UnitStatus.Transferred, UnitStatus.Missing, UnitStatus.Damaged,
-                UnitStatus.Modified
+                UnitStatus.Modified, UnitStatus.ReturnedToSupplier
             ],
             [UnitStatus.Selected] =
             [
@@ -109,10 +110,11 @@ public static class InventoryStatusTransition
             ],
             [UnitStatus.Damaged] =
             [
-                UnitStatus.Discarded, UnitStatus.Quarantine
+                UnitStatus.Discarded, UnitStatus.Quarantine, UnitStatus.ReturnedToSupplier
             ],
             [UnitStatus.Transfused] = Array.Empty<UnitStatus>(),
             [UnitStatus.Discarded] = Array.Empty<UnitStatus>(),
+            [UnitStatus.ReturnedToSupplier] = Array.Empty<UnitStatus>(),
             [UnitStatus.Expired] = [UnitStatus.Discarded, UnitStatus.Quarantine],
             [UnitStatus.Modified] = Array.Empty<UnitStatus>()
         };

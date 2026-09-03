@@ -784,6 +784,77 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ReturnToSupplier_WithoutReason_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-RTS-NR", productTypeId))).Unit!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var result = await CreateService(context).ReturnToSupplierAsync(unitId, "  ");
+            Assert.False(result.Succeeded);
+            Assert.Contains("reason is required", result.Error);
+        }
+    }
+
+    [Fact]
+    public async Task ReturnToSupplier_FromExpected_IsTerminal()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ExpectUnitAsync(NewUnitRequest("U-RTS-EXP", productTypeId))).Unit!.Id;
+        }
+
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ReturnToSupplierAsync(unitId, "Hemolysis at consignee receipt");
+        Assert.True(result.Succeeded);
+        Assert.Equal(UnitStatus.ReturnedToSupplier, result.Unit!.Status);
+        Assert.Equal("Hemolysis at consignee receipt", result.Unit.SupplierReturnReason);
+    }
+
+    [Fact]
+    public async Task ReturnToSupplier_FromQuarantine_StoresReason()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-RTS-Q", productTypeId))).Unit!.Id;
+        }
+
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ReturnToSupplierAsync(unitId, "Unused stock credit");
+        Assert.True(result.Succeeded);
+        Assert.Equal(UnitStatus.ReturnedToSupplier, result.Unit!.Status);
+        Assert.Equal("Unused stock credit", result.Unit.SupplierReturnReason);
+    }
+
+    [Fact]
+    public async Task ReturnToSupplier_FromIssued_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-RTS-ISS", productTypeId))).Unit!.Id;
+            var unit = await context.BloodUnits.SingleAsync(u => u.Id == unitId);
+            unit.Status = UnitStatus.Issued;
+            await context.SaveChangesAsync();
+        }
+
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ReturnToSupplierAsync(unitId, "Should not leave the ward this way");
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == InventoryStatusTransition.IllegalTransitionCode);
+    }
+
+    [Fact]
     public async Task Discard_WithoutReason_Fails()
     {
         var productTypeId = await EnsureProductTypeAsync();

@@ -115,6 +115,9 @@ public class BloodUnit : BaseEntity
     /// <summary>Shipping-container temperature in Celsius recorded at receipt.</summary>
     public decimal? ReceiveTemperatureCelsius { get; set; }
 
+    /// <summary>Why the unit was returned to the supplier instead of entering (or remaining in) inventory.</summary>
+    public string? SupplierReturnReason { get; set; }
+
     /// <summary>
     /// Set on a result unit produced by a product modification (divide/pool/irradiate/
     /// thaw/volume-reduce/leukoreduce); null for units received directly into inventory.

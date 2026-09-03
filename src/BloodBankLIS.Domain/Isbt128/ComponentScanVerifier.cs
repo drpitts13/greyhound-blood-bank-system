@@ -51,6 +51,8 @@ public static class ComponentScanVerifier
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentMissing, "Component is missing from inventory."));
         if (unit.Status == Enums.UnitStatus.Damaged)
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentDamaged, "Component container is damaged."));
+        if (unit.Status == Enums.UnitStatus.ReturnedToSupplier)
+            results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentReturnedToSupplier, "Component was returned to the supplier."));
         if (unit.Status is Enums.UnitStatus.Transfused or Enums.UnitStatus.TransfusionStarted)
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentAlreadyTransfused, "Component transfusion already started or completed."));
 
