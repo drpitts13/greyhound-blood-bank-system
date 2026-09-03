@@ -356,6 +356,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<Hl7MessageVm>> QueueOutboundOruAsync(long resultId, CancellationToken ct = default) =>
         SendAsync<Hl7MessageVm>(HttpMethod.Post, $"api/hl7/outbound/results/{resultId}", ct: ct);
 
+    public Task<ApiResult<Hl7MessageVm>> SendOutboundHl7Async(long id, CancellationToken ct = default) =>
+        SendAsync<Hl7MessageVm>(HttpMethod.Post, $"api/hl7/messages/{id}/send", ct: ct);
+
+    public Task<ApiResult<Hl7FlushVm>> FlushOutboundHl7Async(CancellationToken ct = default) =>
+        SendAsync<Hl7FlushVm>(HttpMethod.Post, "api/hl7/outbound/flush", ct: ct);
+
     // ---- Printing ----
     public Task<ApiResult<PrintJobVm>> PrintSpecimenLabelAsync(long specimenId, PrintRequestVm req, CancellationToken ct = default) =>
         SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/specimen-labels/{specimenId}", req, ct);

@@ -227,7 +227,7 @@ flowchart LR
       orm[ORM/OML] --> ord[Create Order]
     end
     subgraph outbound [Outbound]
-      ver[Result verified] --> oru[Build + send ORU]
+      ver[Result verified] --> oru[Build ORU + MLLP send]
     end
     pat --> ack[Send ACK/NAK]
     ord --> ack

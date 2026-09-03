@@ -31,6 +31,8 @@ public sealed record Hl7ErrorVm(
 
 public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 
+public sealed record Hl7FlushVm(int Sent);
+
 public sealed record PrintJobVm(
     long Id,
     PrintJobType JobType,

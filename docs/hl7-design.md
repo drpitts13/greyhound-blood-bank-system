@@ -2,7 +2,7 @@
 
 Status: Implemented in Phase 5. The HL7 layer (`BloodBankLIS.HL7`) is an **original, in-house** HL7 v2.x parser/generator. It is fully isolated from business logic: it parses/serializes messages and maps fields, but all clinical actions go through the same Application use cases the API uses, so the safety checks in `safety-rules.md` always apply.
 
-Scope for the project: inbound **ADT** (demographics/encounter) and **ORM/OML** (orders); outbound **ORU** (results) and a standard outbound **DFT^P03** (billing). MLLP send of outbound DFT (and ORU) remains a later-phase transport item.
+Scope for the project: inbound **ADT** (demographics/encounter) and **ORM/OML** (orders); outbound **ORU** (results) and a standard outbound **DFT^P03** (billing). Queued outbound messages are transmitted over MLLP by `MllpSenderService` / `Hl7OutboundSender`.
 
 ---
 
@@ -87,7 +87,7 @@ flowchart TD
 ## 4. Reliability: transport, retry, replay
 
 - **Transport**: MLLP over TCP (framing bytes 0x0B ... 0x1C 0x0D). Configurable host/port per `InterfaceEndpoints`. File-drop transport is supported as an alternative.
-- **Hosted services** in `BloodBankLIS.Api`: an inbound MLLP listener and an outbound sender, both thin adapters that call `BloodBankLIS.HL7` for parse/build and the Application layer for actions. The listener binds **each enabled inbound MLLP `InterfaceEndpoint` port** at API startup (restart the API after enabling or changing a port). `Hl7:Mllp:Enabled=true` optionally adds a fallback port (`Hl7:Mllp:Port`, default 2575). Enabling an endpoint in Admin does not bind TCP by itself.
+- **Hosted services** in `BloodBankLIS.Api`: an inbound MLLP listener and an outbound sender, both thin adapters that call `BloodBankLIS.HL7` for parse/build and the Application layer for actions. The listener binds **each enabled inbound MLLP `InterfaceEndpoint` port** at API startup (restart the API after enabling or changing a port). `Hl7:Mllp:Enabled=true` optionally adds a fallback port (`Hl7:Mllp:Port`, default 2575). Enabling an endpoint in Admin does not bind TCP by itself. The outbound sender polls queued `HL7Messages` (ORU/DFT, status Received/Errored) and writes each payload to the endpoint host/port, then records AA → Acked or AE/AR → Nacked. Set `Hl7:Mllp:OutboundIntervalSeconds` (default 15; `0` disables the poller). Operators can also send one message or flush the queue from the HL7 page.
 - **Retry**: failed outbound sends and retryable inbound processing use exponential backoff with `RetryCount` and `NextRetryUtc` in `InterfaceErrorQueue`.
 - **Replay**: any stored message in `HL7Messages` can be re-submitted through the same pipeline (`ReplayMessageCommand`); replays are marked `Replayed` and audited. Idempotency is protected by `MessageControlId` plus business-key checks so replays do not duplicate orders/patients.
 

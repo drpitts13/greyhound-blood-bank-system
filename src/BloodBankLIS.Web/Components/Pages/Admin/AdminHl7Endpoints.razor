@@ -183,7 +183,7 @@
             <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
         </div>
         <p class="muted" style="margin-top:.75rem;font-size:.8rem;">
-            Inbound MLLP is listened on by the API process (not this web UI). After you enable an inbound MLLP endpoint or change its port, restart the API so the TCP listener binds. Send MLLP-framed messages (VT … FS CR) to that host and port.
+            Inbound MLLP is listened on by the API process. After you enable an inbound MLLP endpoint or change its port, restart the API so the TCP listener binds. Outbound ORU/DFT queued in HL7 Messages are sent to the enabled outbound MLLP host/port (poll interval <code>Hl7:Mllp:OutboundIntervalSeconds</code>, or use Send on the HL7 page).
         </p>
     </div>
 }

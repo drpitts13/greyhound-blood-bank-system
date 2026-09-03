@@ -4,7 +4,7 @@
 <PageTitle>HL7 Interface &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>HL7 Interface</h1>
-<p class="muted">Operational view of the HL7 v2.x message log. Submit inbound messages, inspect raw content, replay, and review the error queue.</p>
+<p class="muted">Operational view of the HL7 v2.x message log. Submit inbound messages, send queued outbound ORU/DFT over MLLP, inspect raw content, replay, and review the error queue.</p>
 
 <div class="bb-grid cols-2">
     <div class="bb-card">
@@ -51,7 +51,10 @@
 
 <div class="bb-card">
     <div class="bb-card-title"><h3>Message log</h3>
-        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+        <div class="flex gap">
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="FlushAsync">Send queued outbound</button>
+        </div>
     </div>
     @if (_loading)
     {
@@ -81,6 +84,10 @@
                             @if (m.Direction == Hl7Direction.Inbound)
                             {
                                 <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(m.Id)">Replay</button>
+                            }
+                            @if (m.Direction == Hl7Direction.Outbound && m.Status is Hl7MessageStatus.Received or Hl7MessageStatus.Errored or Hl7MessageStatus.Nacked)
+                            {
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(m.Id)">Send</button>
                             }
                         </td>
                     </tr>
@@ -150,6 +157,26 @@
         _busy = true;
         await Api.ReplayHl7Async(id);
         _busy = false;
+        await LoadAsync();
+    }
+
+    private async Task SendAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.SendOutboundHl7Async(id);
+        _busy = false;
+        _ackFb = r.ToFeedback(r.Value?.AckCode == "AA" ? "Outbound message acknowledged (AA)." : "Outbound send completed.");
+        await LoadAsync();
+    }
+
+    private async Task FlushAsync()
+    {
+        _busy = true;
+        var r = await Api.FlushOutboundHl7Async();
+        _busy = false;
+        _ackFb = r.Succeeded
+            ? new Feedback(true, $"Sent {r.Value!.Sent} queued outbound message(s).", Array.Empty<RuleMessage>(), false, false, Array.Empty<RuleMessage>(), null)
+            : r.ToFeedback();
         await LoadAsync();
     }
 

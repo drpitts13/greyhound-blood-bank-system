@@ -462,4 +462,75 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         var oru = Hl7Parser.Parse(outcome.Value!.RawMessage);
         Assert.Equal("A+TX", oru.Get("OBX-5"));
     }
+
+    [Fact]
+    public async Task OutboundSender_TransmitsQueuedMessage_AndRecordsAa()
+    {
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+
+        long messageId;
+        await using (var setup = _factory.Create())
+        {
+            setup.InterfaceEndpoints.Add(new InterfaceEndpoint
+            {
+                Name = "EHR-ORU",
+                Direction = Hl7Direction.Outbound,
+                Transport = InterfaceTransport.Mllp,
+                InterfaceType = InterfaceType.Results,
+                Host = "127.0.0.1",
+                Port = port,
+                IsEnabled = true,
+                AckTimeoutSeconds = 5,
+                MessageTypes = "ORU"
+            });
+            var log = new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Outbound,
+                MessageType = "ORU",
+                TriggerEvent = "R01",
+                MessageControlId = "OUT-SEND-1",
+                RawMessage = "MSH|^~\\&|BBLIS|LAB|EHR|HOSP|20260530120000||ORU^R01|OUT-SEND-1|P|2.5\rPID|1||MRN1",
+                Status = Hl7MessageStatus.Received,
+                ReceivedUtc = _factory.Clock.UtcNow
+            };
+            setup.Hl7Messages.Add(log);
+            await setup.SaveChangesAsync();
+            messageId = log.Id;
+        }
+
+        var accept = Task.Run(async () =>
+        {
+            using var client = await listener.AcceptTcpClientAsync();
+            await using var stream = client.GetStream();
+            var buffer = new byte[8192];
+            var read = await stream.ReadAsync(buffer);
+            var frames = BloodBankLIS.HL7.Mllp.MllpFraming.Extract(buffer.AsSpan(0, read), out _);
+            var inbound = Hl7Parser.Parse(frames[0]);
+            var ack = Hl7AckBuilder.BuildAck(inbound, AckCode.Accept, "ok", "ACK-SEND", _factory.Clock.UtcNow);
+            await stream.WriteAsync(BloodBankLIS.HL7.Mllp.MllpFraming.Wrap(ack));
+        });
+
+        await using (var context = _factory.Create())
+        {
+            var sender = new Hl7OutboundSender(
+                new EfRepository<Hl7MessageLog>(context),
+                new EfRepository<InterfaceEndpoint>(context),
+                new EfRepository<InterfaceErrorQueueItem>(context),
+                context,
+                _factory.Clock);
+            var result = await sender.SendOneAsync(messageId);
+            Assert.True(result.Succeeded, result.Error);
+            Assert.Equal(Hl7MessageStatus.Acked, result.Value!.Status);
+            Assert.Equal(AckCode.Accept, result.Value.AckCode);
+        }
+
+        await accept;
+        listener.Stop();
+
+        await using var verify = _factory.Create();
+        var stored = await verify.Hl7Messages.FindAsync(messageId);
+        Assert.Equal(Hl7MessageStatus.Acked, stored!.Status);
+    }
 }
