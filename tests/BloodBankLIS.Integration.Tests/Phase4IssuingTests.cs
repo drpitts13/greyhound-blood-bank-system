@@ -200,6 +200,56 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Autologous_MatchingPatient_Issues()
+    {
+        var s = await SeedAsync("AUTO-OK");
+        await using (var c = _factory.Create())
+        {
+            var unit = await c.BloodUnits.FindAsync(s.UnitId);
+            unit!.DonationRestriction = DonationRestriction.Autologous;
+            unit.ReservedPatientId = s.PatientId;
+            await c.SaveChangesAsync();
+        }
+
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using var issue = _factory.Create();
+        var issued = await Issuing(issue).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Succeeded, issued.Error);
+    }
+
+    [Fact]
+    public async Task Autologous_WrongPatient_BlocksAllocate()
+    {
+        var s = await SeedAsync("AUTO-BAD");
+        long otherId;
+        await using (var c = _factory.Create())
+        {
+            var other = new Patient
+            {
+                MedicalRecordNumber = "MRN-AUTO-OTHER",
+                LastName = "Other",
+                FirstName = "Patient",
+                DateOfBirth = new DateOnly(1982, 2, 2)
+            };
+            c.Patients.Add(other);
+            await c.SaveChangesAsync();
+            otherId = other.Id;
+            var unit = await c.BloodUnits.FindAsync(s.UnitId);
+            unit!.DonationRestriction = DonationRestriction.Autologous;
+            unit.ReservedPatientId = otherId;
+            await c.SaveChangesAsync();
+        }
+
+        await using var act = _factory.Create();
+        var result = await Compatibility(act).AllocateUnitAsync(
+            new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == AutologousDirectedRule.IssueCode);
+    }
+
+    [Fact]
     public async Task Issue_WithoutCrossmatch_OnRequiredProduct_IsHardStopped()
     {
         var s = await SeedAsync("NOXM");

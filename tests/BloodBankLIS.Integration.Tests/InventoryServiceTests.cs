@@ -37,7 +37,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             _factory.CurrentUser,
             audit,
             new EfRepository<User>(context),
-            new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
+            new FacilityPolicyService(new EfRepository<SystemSetting>(context)),
+            new EfRepository<Patient>(context));
     }
 
     private async Task EnsureSecondVerifierAsync(string userName = "tech2")
@@ -255,6 +256,49 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Clear, no clots", result.Unit.ReceiveVisualNotes);
         Assert.Equal(UnitAppearance.Acceptable, result.Unit.ReceiveAppearance);
         Assert.Equal(4.0m, result.Unit.ReceiveTemperatureCelsius);
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_AutologousWithoutRecipient_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ReceiveUnitAsync(
+            NewUnitRequest("U-AUTO-MISS", productTypeId) with { DonationRestriction = DonationRestriction.Autologous });
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == AutologousDirectedRule.ReceiveCode);
+        Assert.False(await context.BloodUnits.AnyAsync(u => u.UnitNumber == "U-AUTO-MISS"));
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_AutologousWithRecipient_StoresRestriction()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long patientId;
+        await using (var context = _factory.Create())
+        {
+            var patient = new Patient
+            {
+                MedicalRecordNumber = "MRN-AUTO-1",
+                LastName = "Auto",
+                FirstName = "Donor",
+                DateOfBirth = new DateOnly(1980, 1, 1)
+            };
+            context.Patients.Add(patient);
+            await context.SaveChangesAsync();
+            patientId = patient.Id;
+        }
+
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ReceiveUnitAsync(
+            NewUnitRequest("U-AUTO-OK", productTypeId) with
+            {
+                DonationRestriction = DonationRestriction.Autologous,
+                ReservedPatientId = patientId
+            });
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(DonationRestriction.Autologous, result.Unit!.DonationRestriction);
+        Assert.Equal(patientId, result.Unit.ReservedPatientId);
     }
 
     [Fact]

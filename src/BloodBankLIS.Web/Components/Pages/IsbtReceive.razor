@@ -45,6 +45,24 @@
                 <input type="number" step="0.1" @bind="_receiveTemperature" placeholder="e.g. 4.0" />
             </label>
             <p class="muted" style="margin-top:0;font-size:0.85rem;">Shipping cooler range 1–10 °C. Out-of-range units are not received.</p>
+            <label>Donation
+                <select @bind="_donationRestriction">
+                    @foreach (var d in Enum.GetValues<DonationRestriction>()) { <option value="@d">@d</option> }
+                </select>
+            </label>
+            @if (_donationRestriction != DonationRestriction.Allogeneic)
+            {
+                <label>Intended recipient
+                    <FilterableComboBox TItem="PatientDto" TValue="long?"
+                        Items="_patients"
+                        @bind-Value="_reservedPatientId"
+                        DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                        ItemValue="@(p => p.Id)"
+                        SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
+                        Clearable="true"
+                        Placeholder="Autologous / directed patient" />
+                </label>
+            }
             <label>
                 Second verifier
                 <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
@@ -98,9 +116,12 @@ Valid: @_session.Validation?.Valid</pre>
     private bool _visualOk = true;
     private UnitAppearance _appearance = UnitAppearance.Acceptable;
     private decimal? _receiveTemperature;
+    private DonationRestriction _donationRestriction = DonationRestriction.Allogeneic;
+    private long? _reservedPatientId;
     private bool _releaseAvailable = true;
     private string? _secondVerifier;
     private List<DirectoryUserDto> _directoryUsers = new();
+    private List<PatientDto> _patients = new();
 
     private IEnumerable<DirectoryUserDto> ReceiveVerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
@@ -117,6 +138,8 @@ Valid: @_session.Validation?.Valid</pre>
             _productTypeId = products.Value[0].Id;
         var users = await Api.GetDirectoryUsersAsync();
         if (users.Succeeded) _directoryUsers = users.Value ?? new();
+        var patients = await Api.GetPatientsAsync();
+        if (patients.Succeeded) _patients = patients.Value ?? new();
     }
 
     private async Task SubmitManual()
@@ -129,7 +152,9 @@ Valid: @_session.Validation?.Valid</pre>
             VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
             SecondVerifier: _secondVerifier,
             Appearance: _appearance,
-            ReceiveTemperatureCelsius: _receiveTemperature);
+            ReceiveTemperatureCelsius: _receiveTemperature,
+            DonationRestriction: _donationRestriction,
+            ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId);
         var result = await Api.CreateIsbtManualAsync(req);
         _message = result.Succeeded
             ? $"Created {result.Value!.ComponentIdentity} (status {result.Value.Status})"
@@ -170,7 +195,9 @@ Valid: @_session.Validation?.Valid</pre>
             _sessionKey.Value, _productTypeId, ReleaseToAvailable: _releaseAvailable,
             VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
             SecondVerifier: _secondVerifier, Appearance: _appearance,
-            ReceiveTemperatureCelsius: _receiveTemperature));
+            ReceiveTemperatureCelsius: _receiveTemperature,
+            DonationRestriction: _donationRestriction,
+            ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId));
         _message = result.Succeeded
             ? $"Received {result.Value!.ComponentIdentity}"
             : result.Error;

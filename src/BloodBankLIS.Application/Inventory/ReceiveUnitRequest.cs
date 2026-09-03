@@ -20,7 +20,9 @@ public sealed record ReceiveUnitRequest(
     string? ShipmentId = null,
     string? SecondVerifier = null,
     UnitAppearance Appearance = UnitAppearance.Acceptable,
-    decimal? ReceiveTemperatureCelsius = null);
+    decimal? ReceiveTemperatureCelsius = null,
+    DonationRestriction DonationRestriction = DonationRestriction.Allogeneic,
+    long? ReservedPatientId = null);
 
 public sealed record ReceiveExpectedUnitRequest(
     bool VisualInspectionAcceptable = true,

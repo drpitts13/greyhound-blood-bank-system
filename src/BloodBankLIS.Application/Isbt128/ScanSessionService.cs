@@ -212,6 +212,8 @@ public sealed class ScanSessionService
             request.Appearance,
             request.SecondVerifier,
             request.ReceiveTemperatureCelsius,
+            request.DonationRestriction,
+            request.ReservedPatientId,
             ct);
 
         if (result.Succeeded)

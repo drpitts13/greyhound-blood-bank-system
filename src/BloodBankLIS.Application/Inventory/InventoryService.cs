@@ -38,6 +38,7 @@ public sealed class InventoryService
     private readonly IAuditWriter _audit;
     private readonly IRepository<User>? _users;
     private readonly FacilityPolicyService? _policy;
+    private readonly IRepository<Patient>? _patients;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -49,7 +50,8 @@ public sealed class InventoryService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IRepository<User>? users = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IRepository<Patient>? patients = null)
     {
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -61,6 +63,7 @@ public sealed class InventoryService
         _audit = audit;
         _users = users;
         _policy = policy;
+        _patients = patients;
     }
 
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
@@ -135,6 +138,13 @@ public sealed class InventoryService
             return temperature;
         }
 
+        var restriction = await EvaluateDonationRestrictionAsync(
+            request.DonationRestriction, request.ReservedPatientId, ct);
+        if (restriction is not null)
+        {
+            return restriction;
+        }
+
         var verifier = await EvaluateReceiveVerifierAsync(request.SecondVerifier, ct);
         if (verifier is not null)
         {
@@ -199,7 +209,11 @@ public sealed class InventoryService
                 ? null
                 : request.VisualInspectionNotes.Trim(),
             ReceiveAppearance = request.Appearance,
-            ReceiveTemperatureCelsius = request.ReceiveTemperatureCelsius
+            ReceiveTemperatureCelsius = request.ReceiveTemperatureCelsius,
+            DonationRestriction = request.DonationRestriction,
+            ReservedPatientId = AutologousDirectedRule.RequiresRecipient(request.DonationRestriction)
+                ? request.ReservedPatientId
+                : null
         };
 
         await _repository.AddUnitAsync(unit, ct);
@@ -228,6 +242,13 @@ public sealed class InventoryService
     public async Task<InventoryActionResult> ExpectUnitAsync(ReceiveUnitRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var restriction = await EvaluateDonationRestrictionAsync(
+            request.DonationRestriction, request.ReservedPatientId, ct);
+        if (restriction is not null)
+        {
+            return restriction;
+        }
 
         if (string.IsNullOrWhiteSpace(request.UnitNumber))
         {
@@ -274,7 +295,11 @@ public sealed class InventoryService
             Isbt128DonationId = request.Isbt128DonationId,
             Volume = request.Volume,
             Status = UnitStatus.Expected,
-            ReceiveVisualAcceptable = true
+            ReceiveVisualAcceptable = true,
+            DonationRestriction = request.DonationRestriction,
+            ReservedPatientId = AutologousDirectedRule.RequiresRecipient(request.DonationRestriction)
+                ? request.ReservedPatientId
+                : null
         };
 
         await _repository.AddUnitAsync(unit, ct);
@@ -396,6 +421,8 @@ public sealed class InventoryService
         UnitAppearance appearance = UnitAppearance.Acceptable,
         string? secondVerifier = null,
         decimal? receiveTemperatureCelsius = null,
+        DonationRestriction donationRestriction = DonationRestriction.Allogeneic,
+        long? reservedPatientId = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -411,6 +438,12 @@ public sealed class InventoryService
         if (temperature is not null)
         {
             return temperature;
+        }
+
+        var restriction = await EvaluateDonationRestrictionAsync(donationRestriction, reservedPatientId, ct);
+        if (restriction is not null)
+        {
+            return restriction;
         }
 
         var verifier = await EvaluateReceiveVerifierAsync(secondVerifier, ct);
@@ -461,6 +494,10 @@ public sealed class InventoryService
             : visualInspectionNotes.Trim();
         unit.ReceiveAppearance = appearance;
         unit.ReceiveTemperatureCelsius = receiveTemperatureCelsius;
+        unit.DonationRestriction = donationRestriction;
+        unit.ReservedPatientId = AutologousDirectedRule.RequiresRecipient(donationRestriction)
+            ? reservedPatientId
+            : null;
 
         await _repository.AddUnitAsync(unit, ct);
 
@@ -577,6 +614,26 @@ public sealed class InventoryService
         return result.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([result]))
             : null;
+    }
+
+    private async Task<InventoryActionResult?> EvaluateDonationRestrictionAsync(
+        DonationRestriction restriction, long? reservedPatientId, CancellationToken ct)
+    {
+        var designated = AutologousDirectedRule.EvaluateReceive(restriction, reservedPatientId);
+        if (designated.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([designated]));
+        }
+
+        if (AutologousDirectedRule.RequiresRecipient(restriction)
+            && reservedPatientId is long pid
+            && _patients is not null
+            && await _patients.GetByIdAsync(pid, ct) is null)
+        {
+            return InventoryActionResult.Fail("Intended recipient was not found in the patient directory.");
+        }
+
+        return null;
     }
 
     private async Task<InventoryActionResult?> EvaluateReceiveVerifierAsync(string? secondVerifier, CancellationToken ct)

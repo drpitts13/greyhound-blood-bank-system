@@ -118,6 +118,12 @@ public class BloodUnit : BaseEntity
     /// <summary>Why the unit was returned to the supplier instead of entering (or remaining in) inventory.</summary>
     public string? SupplierReturnReason { get; set; }
 
+    /// <summary>Allogeneic, autologous, or directed. Autologous/directed require <see cref="ReservedPatientId"/>.</summary>
+    public DonationRestriction DonationRestriction { get; set; } = DonationRestriction.Allogeneic;
+
+    /// <summary>Intended recipient when the unit is autologous or directed.</summary>
+    public long? ReservedPatientId { get; set; }
+
     /// <summary>
     /// Set on a result unit produced by a product modification (divide/pool/irradiate/
     /// thaw/volume-reduce/leukoreduce); null for units received directly into inventory.

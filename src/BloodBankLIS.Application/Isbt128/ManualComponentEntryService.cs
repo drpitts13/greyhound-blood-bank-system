@@ -109,6 +109,8 @@ public sealed class ManualComponentEntryService
             request.Appearance,
             request.SecondVerifier,
             request.ReceiveTemperatureCelsius,
+            request.DonationRestriction,
+            request.ReservedPatientId,
             ct);
     }
 }

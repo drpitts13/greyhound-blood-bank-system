@@ -239,6 +239,13 @@ public sealed class CompatibilityService
             return EvaluationResult<Allocation>.Fail("Patient not found.");
         }
 
+        var autoDir = AutologousDirectedRule.EvaluateIssue(
+            unit.DonationRestriction, unit.ReservedPatientId, request.PatientId);
+        if (autoDir.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Allocation>.Blocked(new RuleEvaluation([autoDir]));
+        }
+
         if (await _allocations.AnyAsync(a => a.BloodProductId == unit.Id && a.Status == AllocationStatus.Reserved, ct))
         {
             return EvaluationResult<Allocation>.Fail("Unit already has an active allocation.");

@@ -227,6 +227,17 @@ public enum UnitAppearance
     OtherDefect = 7
 }
 
+/// <summary>
+/// SoftBank/SafeTrace donation restriction. Autologous and directed units are
+/// reserved to one patient and cannot be issued to anyone else.
+/// </summary>
+public enum DonationRestriction
+{
+    Allogeneic = 0,
+    Autologous = 1,
+    Directed = 2
+}
+
 /// <summary>How a blood-component identity was entered into the LIS.</summary>
 public enum ComponentEntrySource
 {

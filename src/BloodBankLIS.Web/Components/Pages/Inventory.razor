@@ -64,6 +64,25 @@
                 <input type="number" step="0.1" @bind="_rec.ReceiveTemperatureCelsius" placeholder="e.g. 4.0" />
                 <span class="muted">Shipping cooler 1–10 °C</span>
             </div>
+            <div class="field"><label>Donation</label>
+                <select @bind="_rec.DonationRestriction">
+                    @foreach (var d in Enum.GetValues<DonationRestriction>()) { <option value="@d">@d</option> }
+                </select>
+            </div>
+            @if (_rec.DonationRestriction != DonationRestriction.Allogeneic)
+            {
+                <div class="field" style="min-width:16rem;">
+                    <label>Intended recipient</label>
+                    <FilterableComboBox TItem="PatientDto" TValue="long?"
+                        Items="_patients"
+                        @bind-Value="_rec.ReservedPatientId"
+                        DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                        ItemValue="@(p => p.Id)"
+                        SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
+                        Clearable="true"
+                        Placeholder="Autologous / directed patient" />
+                </div>
+            }
             <div class="field" style="min-width:16rem;">
                 <label>Second verifier</label>
                 <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
@@ -102,6 +121,25 @@
             </div>
             <div class="field"><label>Supplier</label><input @bind="_exp.Supplier" /></div>
             <div class="field"><label>Shipment / packing list</label><input @bind="_exp.ShipmentId" placeholder="Optional ASN id" /></div>
+            <div class="field"><label>Donation</label>
+                <select @bind="_exp.DonationRestriction">
+                    @foreach (var d in Enum.GetValues<DonationRestriction>()) { <option value="@d">@d</option> }
+                </select>
+            </div>
+            @if (_exp.DonationRestriction != DonationRestriction.Allogeneic)
+            {
+                <div class="field" style="min-width:16rem;">
+                    <label>Intended recipient</label>
+                    <FilterableComboBox TItem="PatientDto" TValue="long?"
+                        Items="_patients"
+                        @bind-Value="_exp.ReservedPatientId"
+                        DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                        ItemValue="@(p => p.Id)"
+                        SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
+                        Clearable="true"
+                        Placeholder="Autologous / directed patient" />
+                </div>
+            }
         </div>
         <button class="btn btn-primary" disabled="@_busy" @onclick="ExpectAsync">Record as expected</button>
     </div>
@@ -207,6 +245,7 @@
     private string _damagedReason = string.Empty;
     private string? _releaseSecondVerifier;
     private List<DirectoryUserDto> _directoryUsers = new();
+    private List<PatientDto> _patients = new();
 
     private IEnumerable<DirectoryUserDto> QuarantineVerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
@@ -219,6 +258,8 @@
         _locations = (await Api.GetLocationsAsync()).Value ?? new();
         var users = await Api.GetDirectoryUsersAsync();
         if (users.Succeeded) _directoryUsers = users.Value ?? new();
+        var patients = await Api.GetPatientsAsync();
+        if (patients.Succeeded) _patients = patients.Value ?? new();
         await SearchAsync();
     }
 
@@ -248,6 +289,12 @@
 
     private string LocationName(long? id) => id is null ? "—" : (_locations.FirstOrDefault(l => l.Id == id)?.Code ?? id.Value.ToString());
 
+    private string RecipientLabel(long patientId)
+    {
+        var p = _patients.FirstOrDefault(x => x.Id == patientId);
+        return p is null ? $"patient #{patientId}" : $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})";
+    }
+
     private async Task SearchAsync()
     {
         _loading = true;
@@ -272,7 +319,9 @@
             VisualInspectionNotes: string.IsNullOrWhiteSpace(_rec.VisualInspectionNotes) ? null : _rec.VisualInspectionNotes,
             SecondVerifier: _rec.SecondVerifier,
             Appearance: _rec.Appearance,
-            ReceiveTemperatureCelsius: _rec.ReceiveTemperatureCelsius);
+            ReceiveTemperatureCelsius: _rec.ReceiveTemperatureCelsius,
+            DonationRestriction: _rec.DonationRestriction,
+            ReservedPatientId: _rec.DonationRestriction == DonationRestriction.Allogeneic ? null : _rec.ReservedPatientId);
         var r = await Api.ReceiveUnitAsync(req);
         _busy = false;
         _receiveFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
@@ -290,7 +339,9 @@
             string.IsNullOrWhiteSpace(_exp.CollectionFacility) ? null : _exp.CollectionFacility,
             string.IsNullOrWhiteSpace(_exp.Supplier) ? null : _exp.Supplier,
             string.IsNullOrWhiteSpace(_exp.ProductDescriptionCode) ? null : _exp.ProductDescriptionCode.Trim(),
-            ShipmentId: string.IsNullOrWhiteSpace(_exp.ShipmentId) ? null : _exp.ShipmentId.Trim());
+            ShipmentId: string.IsNullOrWhiteSpace(_exp.ShipmentId) ? null : _exp.ShipmentId.Trim(),
+            DonationRestriction: _exp.DonationRestriction,
+            ReservedPatientId: _exp.DonationRestriction == DonationRestriction.Allogeneic ? null : _exp.ReservedPatientId);
         var r = await Api.ExpectUnitAsync(req);
         _busy = false;
         _expectFb = r.ToFeedback("Unit recorded as expected. Confirm arrival when the shipment is received.");
@@ -646,7 +697,7 @@
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.SupplierReturnReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null)
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.SupplierReturnReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null || u.DonationRestriction != DonationRestriction.Allogeneic)
                 {
                     <p class="muted">
                         @if (!string.IsNullOrWhiteSpace(u.ShipmentId))
@@ -672,6 +723,10 @@
                         @if (!string.IsNullOrWhiteSpace(u.SupplierReturnReason))
                         {
                             <span>Returned to supplier: @u.SupplierReturnReason</span>
+                        }
+                        @if (u.DonationRestriction != DonationRestriction.Allogeneic)
+                        {
+                            <span>@u.DonationRestriction@(u.ReservedPatientId is long pid ? $" — {RecipientLabel(pid)}" : "")</span>
                         }
                         @if (u.ReceiveAppearance != UnitAppearance.Acceptable || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes))
                         {
@@ -847,6 +902,8 @@
         public string? VisualInspectionNotes { get; set; }
         public UnitAppearance Appearance { get; set; } = UnitAppearance.Acceptable;
         public decimal? ReceiveTemperatureCelsius { get; set; }
+        public DonationRestriction DonationRestriction { get; set; } = DonationRestriction.Allogeneic;
+        public long? ReservedPatientId { get; set; }
         public string? SecondVerifier { get; set; }
     }
 }

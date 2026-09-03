@@ -211,6 +211,13 @@ public sealed class IssuingService
             evaluation = new RuleEvaluation(evaluation.Results.Append(directory).ToList());
         }
 
+        var autoDir = AutologousDirectedRule.EvaluateIssue(
+            unit.DonationRestriction, unit.ReservedPatientId, request.PatientId);
+        if (autoDir.Severity != RuleSeverity.Pass)
+        {
+            evaluation = new RuleEvaluation(evaluation.Results.Append(autoDir).ToList());
+        }
+
         if (evaluation.IsHardStopped)
         {
             // Document the blocked attempt; never silently drop it.

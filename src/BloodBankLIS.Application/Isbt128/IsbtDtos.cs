@@ -41,7 +41,9 @@ public sealed record CompleteScanSessionRequest(
     string? VisualInspectionNotes = null,
     string? SecondVerifier = null,
     UnitAppearance Appearance = UnitAppearance.Acceptable,
-    decimal? ReceiveTemperatureCelsius = null);
+    decimal? ReceiveTemperatureCelsius = null,
+    DonationRestriction DonationRestriction = DonationRestriction.Allogeneic,
+    long? ReservedPatientId = null);
 
 /// <summary>
 /// Manual receipt. <paramref name="DonationNumber"/> is the combined human-readable
@@ -69,7 +71,9 @@ public sealed record ManualComponentEntryRequest(
     string? VisualInspectionNotes = null,
     string? SecondVerifier = null,
     UnitAppearance Appearance = UnitAppearance.Acceptable,
-    decimal? ReceiveTemperatureCelsius = null);
+    decimal? ReceiveTemperatureCelsius = null,
+    DonationRestriction DonationRestriction = DonationRestriction.Allogeneic,
+    long? ReservedPatientId = null);
 
 public sealed record CanonicalComponentSummary(
     string? ComponentIdentity,
