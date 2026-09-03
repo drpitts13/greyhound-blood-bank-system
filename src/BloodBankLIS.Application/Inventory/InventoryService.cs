@@ -638,6 +638,44 @@ public sealed class InventoryService
         return await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
     }
 
+    /// <summary>
+    /// SoftBank/SafeTrace container damage found in storage or handling.
+    /// Distinct from receive-time appearance reject: the unit is already in inventory.
+    /// Damaged units are not issuable (AABB product integrity).
+    /// </summary>
+    public async Task<InventoryActionResult> MarkDamagedAsync(long unitId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return InventoryActionResult.Fail("A reason is required to mark a unit damaged.");
+
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+            return InventoryActionResult.Fail("Unit not found.");
+
+        unit.DamagedReason = reason.Trim();
+        return await ChangeStatusAsync(unit, UnitStatus.Damaged, reason.Trim(), ct);
+    }
+
+    /// <summary>
+    /// Inspected damaged units enter quality quarantine; they cannot return directly to Available.
+    /// </summary>
+    public async Task<InventoryActionResult> InspectDamagedAsync(long unitId, CancellationToken ct = default)
+    {
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+            return InventoryActionResult.Fail("Unit not found.");
+
+        if (unit.Status != UnitStatus.Damaged)
+            return InventoryActionResult.Fail("Only a damaged unit can be moved to quarantine for inspection.");
+
+        var prior = unit.DamagedReason;
+        unit.DamagedReason = null;
+        unit.QuarantineReason = string.IsNullOrWhiteSpace(prior)
+            ? "Inspected after damage; pending quality review"
+            : $"Inspected after damage ({prior}); pending quality review";
+        return await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
+    }
+
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)
     {
         var unit = await _repository.GetUnitAsync(unitId, ct);

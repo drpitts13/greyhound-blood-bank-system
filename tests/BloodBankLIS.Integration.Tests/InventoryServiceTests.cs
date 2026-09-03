@@ -655,6 +655,72 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task MarkDamaged_WithoutReason_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-DMG-NR", productTypeId))).Unit!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var result = await CreateService(context).MarkDamagedAsync(unitId, "  ");
+            Assert.False(result.Succeeded);
+            Assert.Contains("reason is required", result.Error);
+        }
+    }
+
+    [Fact]
+    public async Task MarkDamaged_ThenInspect_EntersQuarantine()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            var received = await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-DMG-INSP", productTypeId));
+            unitId = received.Unit!.Id;
+            await CreateService(context).ReleaseFromQuarantineAsync(unitId, "tech2");
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var damaged = await CreateService(context).MarkDamagedAsync(unitId, "Bag leaking in refrigerator");
+            Assert.True(damaged.Succeeded);
+            Assert.Equal(UnitStatus.Damaged, damaged.Unit!.Status);
+            Assert.Equal("Bag leaking in refrigerator", damaged.Unit.DamagedReason);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var inspected = await CreateService(context).InspectDamagedAsync(unitId);
+            Assert.True(inspected.Succeeded);
+            Assert.Equal(UnitStatus.Quarantine, inspected.Unit!.Status);
+            Assert.Null(inspected.Unit.DamagedReason);
+            Assert.Contains("Inspected after damage", inspected.Unit.QuarantineReason);
+        }
+    }
+
+    [Fact]
+    public async Task InspectDamaged_WhenNotDamaged_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-DMG-NA", productTypeId))).Unit!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var result = await CreateService(context).InspectDamagedAsync(unitId);
+            Assert.False(result.Succeeded);
+            Assert.Contains("damaged unit", result.Error);
+        }
+    }
+
+    [Fact]
     public async Task Discard_WithoutReason_Fails()
     {
         var productTypeId = await EnsureProductTypeAsync();

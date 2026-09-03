@@ -272,6 +272,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<BloodUnitDto>> LocateMissingAsync(long id, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/locate", ct: ct);
 
+    public Task<ApiResult<BloodUnitDto>> MarkDamagedAsync(long id, string reason, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/damaged", new ReasonRequestVm(reason), ct);
+
+    public Task<ApiResult<BloodUnitDto>> InspectDamagedAsync(long id, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/inspect-damaged", ct: ct);
+
     public Task<ApiResult<BloodUnitDto>> TransferUnitAsync(long id, long toLocationId, string? reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/transfer", new TransferRequestVm(toLocationId, reason), ct);
 

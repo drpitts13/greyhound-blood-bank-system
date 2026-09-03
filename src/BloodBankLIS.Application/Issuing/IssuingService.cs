@@ -120,6 +120,8 @@ public sealed class IssuingService
             return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentOnHold}: Unit is on operational hold.");
         if (unit.Status == UnitStatus.Missing)
             return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentMissing}: Unit is missing from inventory.");
+        if (unit.Status == UnitStatus.Damaged)
+            return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentDamaged}: Unit container is damaged.");
         if (unit.Status is UnitStatus.Issued or UnitStatus.Transfused or UnitStatus.TransfusionStarted)
             return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentAlreadyIssued}: Unit already issued or transfused.");
 

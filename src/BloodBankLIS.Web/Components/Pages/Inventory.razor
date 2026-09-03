@@ -198,6 +198,7 @@
     private string? _discardSecondVerifier;
     private string _holdReason = string.Empty;
     private string _missingReason = string.Empty;
+    private string _damagedReason = string.Empty;
     private string? _releaseSecondVerifier;
     private List<DirectoryUserDto> _directoryUsers = new();
 
@@ -329,6 +330,7 @@
         _discardSecondVerifier = null;
         _holdReason = string.Empty;
         _missingReason = string.Empty;
+        _damagedReason = string.Empty;
         _history = (await Api.GetUnitHistoryAsync(u.Id)).Value ?? new();
         _unitAttributes = (await Api.GetUnitBloodAttributesAsync(u.Id)).Value ?? new();
         _retypeDetail = (await Api.GetUnitRetypeAsync(u.Id)).Value;
@@ -417,6 +419,34 @@
         var r = await Api.LocateMissingAsync(id);
         _busy = false;
         _actionFb = r.ToFeedback("Unit located into quarantine for inspection.");
+        if (r.Succeeded) await RefreshSelected(id);
+    }
+
+    private static bool CanMarkDamaged(UnitStatus status) => status is
+        UnitStatus.Available or UnitStatus.Selected or UnitStatus.Assigned or UnitStatus.Allocated
+        or UnitStatus.Crossmatched or UnitStatus.Received or UnitStatus.Returned
+        or UnitStatus.Transferred or UnitStatus.CancelledAssignment or UnitStatus.Quarantine
+        or UnitStatus.OnHold or UnitStatus.Missing;
+
+    private async Task MarkDamagedAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.MarkDamagedAsync(id, _damagedReason);
+        _busy = false;
+        _actionFb = r.ToFeedback("Unit marked damaged. It cannot be issued until inspected or discarded.");
+        if (r.Succeeded)
+        {
+            _damagedReason = string.Empty;
+            await RefreshSelected(id);
+        }
+    }
+
+    private async Task InspectDamagedAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.InspectDamagedAsync(id);
+        _busy = false;
+        _actionFb = r.ToFeedback("Damaged unit moved to quarantine for quality review.");
         if (r.Succeeded) await RefreshSelected(id);
     }
 
@@ -571,13 +601,17 @@
                     {
                         <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => LocateMissingAsync(u.Id)">Unit located</button>
                     }
+                    @if (u.Status == UnitStatus.Damaged && Session.Has(PermissionCodes.InventoryRelease))
+                    {
+                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => InspectDamagedAsync(u.Id)">Inspect into quarantine</button>
+                    }
                     @if (Session.Has(PermissionCodes.PrintLabel))
                     {
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => PrintComponentLabelAsync(u.Id)">Print component label</button>
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable)
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable)
                 {
                     <p class="muted">
                         @if (!string.IsNullOrWhiteSpace(u.ShipmentId))
@@ -595,6 +629,10 @@
                         @if (!string.IsNullOrWhiteSpace(u.MissingReason))
                         {
                             <span>Missing: @u.MissingReason</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(u.DamagedReason))
+                        {
+                            <span>Damaged: @u.DamagedReason</span>
                         }
                         @if (u.ReceiveAppearance != UnitAppearance.Acceptable || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes))
                         {
@@ -616,6 +654,14 @@
                     <div class="flex gap">
                         <input @bind="_missingReason" placeholder="Missing reason (physical inventory, lost in transit)" style="flex:1;" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_missingReason))" @onclick="() => MarkMissingAsync(u.Id)">Mark missing</button>
+                    </div>
+                }
+
+                @if (CanMarkDamaged(u.Status) && Session.Has(PermissionCodes.InventoryRelease))
+                {
+                    <div class="flex gap">
+                        <input @bind="_damagedReason" placeholder="Damage reason (leaking bag, crushed, storage mishandling)" style="flex:1;" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_damagedReason))" @onclick="() => MarkDamagedAsync(u.Id)">Mark damaged</button>
                     </div>
                 }
 

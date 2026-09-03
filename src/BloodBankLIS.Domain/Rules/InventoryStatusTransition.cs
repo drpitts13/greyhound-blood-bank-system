@@ -46,26 +46,26 @@ public static class InventoryStatusTransition
             [
                 UnitStatus.Assigned, UnitStatus.Crossmatched, UnitStatus.Allocated, UnitStatus.Available,
                 UnitStatus.CancelledAssignment, UnitStatus.Quarantine, UnitStatus.OnHold,
-                UnitStatus.Discarded, UnitStatus.Expired, UnitStatus.Missing
+                UnitStatus.Discarded, UnitStatus.Expired, UnitStatus.Missing, UnitStatus.Damaged
             ],
             [UnitStatus.Assigned] =
             [
                 UnitStatus.Crossmatched, UnitStatus.Issued, UnitStatus.Available, UnitStatus.CancelledAssignment,
                 UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded, UnitStatus.Expired,
-                UnitStatus.Allocated, UnitStatus.Missing
+                UnitStatus.Allocated, UnitStatus.Missing, UnitStatus.Damaged
             ],
             // Legacy synonym for Assigned during transition period.
             [UnitStatus.Allocated] =
             [
                 UnitStatus.Issued, UnitStatus.Available, UnitStatus.Assigned, UnitStatus.Crossmatched,
                 UnitStatus.CancelledAssignment, UnitStatus.Discarded, UnitStatus.Expired,
-                UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Missing
+                UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Missing, UnitStatus.Damaged
             ],
             [UnitStatus.Crossmatched] =
             [
                 UnitStatus.Issued, UnitStatus.Available, UnitStatus.CancelledAssignment, UnitStatus.Assigned,
                 UnitStatus.Discarded, UnitStatus.Expired, UnitStatus.Quarantine, UnitStatus.OnHold,
-                UnitStatus.Missing
+                UnitStatus.Missing, UnitStatus.Damaged
             ],
             [UnitStatus.Issued] =
             [
@@ -87,17 +87,17 @@ public static class InventoryStatusTransition
             [UnitStatus.Returned] =
             [
                 UnitStatus.Available, UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded,
-                UnitStatus.Expired, UnitStatus.Missing
+                UnitStatus.Expired, UnitStatus.Missing, UnitStatus.Damaged
             ],
             [UnitStatus.Transferred] =
             [
                 UnitStatus.Available, UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Received,
-                UnitStatus.Missing
+                UnitStatus.Missing, UnitStatus.Damaged
             ],
             [UnitStatus.CancelledAssignment] =
             [
                 UnitStatus.Available, UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded,
-                UnitStatus.Missing
+                UnitStatus.Missing, UnitStatus.Damaged
             ],
             [UnitStatus.Recalled] =
             [

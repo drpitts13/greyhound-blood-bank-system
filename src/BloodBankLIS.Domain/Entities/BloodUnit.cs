@@ -97,6 +97,9 @@ public class BloodUnit : BaseEntity
     /// <summary>Reason the unit cannot be located (SoftBank/SafeTrace inventory discrepancy).</summary>
     public string? MissingReason { get; set; }
 
+    /// <summary>Reason the container was damaged in storage or handling (not a receive-time appearance reject).</summary>
+    public string? DamagedReason { get; set; }
+
     public string? DiscardReason { get; set; }
 
     public string? RecallReason { get; set; }

@@ -92,11 +92,12 @@ Allowed transitions are enforced by a transition guard; anything not listed is a
 Expected   -> Received | Quarantine | CancelledAssignment | Missing | Discarded
 Quarantine -> Available | Discarded | Expired | Recalled | Damaged | Missing
 OnHold     -> Available | Quarantine | Discarded | Expired | Recalled | Damaged | Missing
-Available  -> Allocated | Assigned | Selected | Crossmatched | Quarantine | OnHold | Discarded | Expired | Recalled | Transferred | Modified | Missing
+Available  -> Allocated | Assigned | Selected | Crossmatched | Quarantine | OnHold | Discarded | Expired | Recalled | Transferred | Modified | Missing | Damaged
 Allocated  -> Issued | Available (release) | Assigned | Crossmatched | Discarded | Expired
 Assigned   -> Issued | Available | Crossmatched | CancelledAssignment | ...
 Issued     -> Transfused | TransfusionStarted | Returned | ReturnPending | Recalled | Missing
 Missing    -> Quarantine | Available | Discarded | Damaged
+Damaged    -> Quarantine | Discarded
 
 Returned   -> Available | Quarantine | Discarded | Expired
 Transfused -> (terminal)
@@ -108,6 +109,7 @@ Modified   -> (terminal)
 - `Expected` is packing-list / ASN inventory that is not yet in house. It is not transferable or issuable. Arrival confirmation applies `INV-RCV-VISUAL` and lands in `Received` or `Quarantine`.
 - `OnHold` is an operational hold (paperwork, pending review). It is not a quality quarantine: quarantine cannot move to hold, and a held unit cannot be issued until released to Available or escalated to Quarantine.
 - `Missing` is a physical-inventory discrepancy (SoftBank/SafeTrace). It is not issuable. Locating a missing unit lands in `Quarantine` for inspection, not Available.
+- `Damaged` is container integrity failure found after the unit is already in inventory. It is not issuable. Inspection lands in `Quarantine`; discard is the terminal alternative.
 - Releasing a unit from quality quarantine requires a distinct directory second verifier (`INV-Q-RELEASE-2ND`) when `Inventory.RequireQuarantineReleaseVerifier` is true (default).
 - Discarding a unit requires a distinct directory second verifier (`INV-DISC-2ND`) when `Inventory.RequireDiscardVerifier` is true (default).
 - Any transition writes `InventoryStatusHistory` + `AuditEvent`.
