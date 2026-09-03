@@ -23,6 +23,7 @@ public static partial class DatabaseSeeder
         await SeedSystemSettingsAsync(context, cancellationToken);
         await EnsureWardReceiptPolicyAsync(context, cancellationToken);
         await EnsureRetrospectiveCrossmatchPolicyAsync(context, cancellationToken);
+        await EnsureQuarantineReleaseVerifierPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
@@ -162,6 +163,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.RequireQuarantineReleaseVerifier,
+                Value = "true",
+                Category = "Inventory",
+                Description = "Require a distinct directory user to release a unit from quality quarantine."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.BlockSelfVerify,
                 Value = "false",
                 Category = "Result",
@@ -214,6 +222,23 @@ public static partial class DatabaseSeeder
             Value = "24",
             Category = "Issue",
             Description = "Hours after an uncrossmatched emergency or MTP issue when retrospective XM is due."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureQuarantineReleaseVerifierPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.RequireQuarantineReleaseVerifier, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RequireQuarantineReleaseVerifier,
+            Value = "true",
+            Category = "Inventory",
+            Description = "Require a distinct directory user to release a unit from quality quarantine."
         });
         await context.SaveChangesAsync(ct);
     }

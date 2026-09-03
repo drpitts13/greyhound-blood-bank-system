@@ -1,8 +1,10 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Isbt128.Validation;
@@ -34,6 +36,8 @@ public sealed class InventoryService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IRepository<User>? _users;
+    private readonly FacilityPolicyService? _policy;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -43,7 +47,9 @@ public sealed class InventoryService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IRepository<User>? users = null,
+        FacilityPolicyService? policy = null)
     {
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -53,6 +59,8 @@ public sealed class InventoryService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _users = users;
+        _policy = policy;
     }
 
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
@@ -281,7 +289,8 @@ public sealed class InventoryService
         return await ChangeStatusAsync(unit, UnitStatus.Quarantine, reason, ct);
     }
 
-    public async Task<InventoryActionResult> ReleaseFromQuarantineAsync(long unitId, CancellationToken ct = default)
+    public async Task<InventoryActionResult> ReleaseFromQuarantineAsync(
+        long unitId, string? secondVerifier = null, CancellationToken ct = default)
     {
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
@@ -289,7 +298,43 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Unit not found.");
         }
 
-        return await ChangeStatusAsync(unit, UnitStatus.Available, "Released from quarantine", ct);
+        var requireSecond = _policy is null
+            || await _policy.GetRequireQuarantineReleaseVerifierAsync(ct);
+        var dual = QuarantineReleaseVerifierRule.Evaluate(_currentUser.UserName, secondVerifier, requireSecond);
+        if (dual.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([dual]));
+        }
+
+        var directory = await EvaluateSecondVerifierDirectoryAsync(secondVerifier, ct);
+        if (directory.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([directory]));
+        }
+
+        unit.QuarantineReason = null;
+        var reason = string.IsNullOrWhiteSpace(secondVerifier)
+            ? "Released from quarantine"
+            : $"Released from quarantine; second verifier {secondVerifier.Trim()}";
+        return await ChangeStatusAsync(unit, UnitStatus.Available, reason, ct);
+    }
+
+    private async Task<RuleResult> EvaluateSecondVerifierDirectoryAsync(string? secondVerifier, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(secondVerifier))
+        {
+            return SecondVerifierDirectoryRule.Evaluate(secondVerifier, isActiveUser: false);
+        }
+
+        if (_users is null)
+        {
+            return SecondVerifierDirectoryRule.Evaluate(secondVerifier, isActiveUser: true);
+        }
+
+        var upper = secondVerifier.Trim().ToUpperInvariant();
+        var match = await _users.FirstOrDefaultAsync(
+            u => u.IsActive && !u.IsLocked && !u.IsServiceAccount && u.UserName.ToUpper() == upper, ct);
+        return SecondVerifierDirectoryRule.Evaluate(secondVerifier, match is not null);
     }
 
     /// <summary>

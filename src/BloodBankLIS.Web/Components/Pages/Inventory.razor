@@ -140,11 +140,18 @@
     private string _transferReason = string.Empty;
     private string _discardReason = string.Empty;
     private string _holdReason = string.Empty;
+    private string? _releaseSecondVerifier;
+    private List<DirectoryUserDto> _directoryUsers = new();
+
+    private IEnumerable<DirectoryUserDto> QuarantineVerifierChoices =>
+        _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnInitializedAsync()
     {
         _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
         _locations = (await Api.GetLocationsAsync()).Value ?? new();
+        var users = await Api.GetDirectoryUsersAsync();
+        if (users.Succeeded) _directoryUsers = users.Value ?? new();
         await SearchAsync();
     }
 
@@ -261,10 +268,14 @@
     private async Task ReleaseAsync(long id)
     {
         _busy = true;
-        var r = await Api.ReleaseUnitAsync(id);
+        var r = await Api.ReleaseUnitAsync(id, new ReleaseFromQuarantineRequest(_releaseSecondVerifier));
         _busy = false;
         _actionFb = r.ToFeedback("Unit released from quarantine.");
-        if (r.Succeeded) await RefreshSelected(id);
+        if (r.Succeeded)
+        {
+            _releaseSecondVerifier = null;
+            await RefreshSelected(id);
+        }
     }
 
     private async Task HoldAsync(long id)
@@ -349,6 +360,17 @@
                 <div class="flex gap" style="flex-wrap:wrap;">
                     @if (u.Status == UnitStatus.Quarantine && Session.Has(PermissionCodes.InventoryRelease))
                     {
+                        <div class="field" style="min-width:16rem;">
+                            <label>Second verifier</label>
+                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                Items="QuarantineVerifierChoices"
+                                @bind-Value="_releaseSecondVerifier"
+                                DisplayText="@(x => x.Label)"
+                                ItemValue="@(x => x.UserName)"
+                                SearchText="@(x => x.Label)"
+                                Clearable="true"
+                                Placeholder="Different active user" />
+                        </div>
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(u.Id)">Release from quarantine</button>
                     }
                     @if (u.Status == UnitStatus.OnHold && Session.Has(PermissionCodes.InventoryRelease))

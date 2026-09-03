@@ -81,8 +81,8 @@ public static class InventoryEndpoints
                 : ToFailure(result);
         }).RequirePermission(PermissionCodes.InventoryReceive);
 
-        group.MapPost("/units/{id:long}/release", async (long id, InventoryService service, CancellationToken ct) =>
-            ToHttpResult(await service.ReleaseFromQuarantineAsync(id, ct)))
+        group.MapPost("/units/{id:long}/release", async (long id, ReleaseFromQuarantineRequest? request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.ReleaseFromQuarantineAsync(id, request?.SecondVerifier, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
         group.MapPost("/units/{id:long}/hold", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>

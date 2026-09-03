@@ -44,6 +44,9 @@ public sealed class FacilityPolicyService
     public Task<int> GetRetrospectiveCrossmatchDueHoursAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.RetrospectiveCrossmatchDueHours, 24, ct);
 
+    public Task<bool> GetRequireQuarantineReleaseVerifierAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireQuarantineReleaseVerifier, true, ct);
+
     public Task<bool> GetBlockSelfVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockSelfVerify, false, ct);
 

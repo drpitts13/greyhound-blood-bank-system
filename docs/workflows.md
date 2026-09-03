@@ -32,6 +32,7 @@ flowchart TD
 - Front-type retype: Anti-A and Anti-B always; Anti-D required only when the unit is labeled Rh negative.
 - Matching retype: `Received -> Available`. Mismatch: `Received -> Quarantine` with the discrepancy as the reason (supervisor uses existing release).
 - Checks: unit number unique; expiration in the future; product type known; ABO/Rh present.
+- Quarantine release (`INV-Q-RELEASE-2ND`) requires a distinct active directory user as second verifier (SoftBank/SafeTrace quality release). Policy: `Inventory.RequireQuarantineReleaseVerifier` (default true).
 - Audit: `Create` (unit), `Update` (status change) with location.
 
 ---

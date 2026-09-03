@@ -1,10 +1,13 @@
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +35,26 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             context,
             _factory.Clock,
             _factory.CurrentUser,
-            audit);
+            audit,
+            new EfRepository<User>(context),
+            new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
+    }
+
+    private async Task EnsureSecondVerifierAsync(string userName = "tech2")
+    {
+        await using var context = _factory.Create();
+        if (await context.Users.AnyAsync(u => u.UserName == userName))
+        {
+            return;
+        }
+
+        context.Users.Add(new User
+        {
+            UserName = userName,
+            DisplayName = "Tech Two",
+            IsActive = true
+        });
+        await context.SaveChangesAsync();
     }
 
     private async Task EnsureProductCodesAsync()
@@ -198,6 +220,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     public async Task Release_QuarantineToAvailable_AppendsHistory()
     {
         var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
         long unitId;
 
         await using (var context = _factory.Create())
@@ -210,7 +233,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         await using (var context = _factory.Create())
         {
             var service = CreateService(context);
-            var result = await service.ReleaseFromQuarantineAsync(unitId);
+            var result = await service.ReleaseFromQuarantineAsync(unitId, "tech2");
             Assert.True(result.Succeeded);
             Assert.Equal(UnitStatus.Available, result.Unit!.Status);
         }
@@ -220,19 +243,57 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             var history = await verify.InventoryStatusHistory.Where(h => h.BloodProductId == unitId).ToListAsync();
             Assert.Equal(2, history.Count);
             Assert.Contains(history, h => h.FromStatus == UnitStatus.Quarantine && h.ToStatus == UnitStatus.Available);
+            Assert.Contains(history, h => h.Reason != null && h.Reason.Contains("tech2"));
         }
+    }
+
+    [Fact]
+    public async Task Release_WithoutSecondVerifier_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-REL-NO2", productTypeId))).Unit!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var result = await CreateService(ctx).ReleaseFromQuarantineAsync(unitId);
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == QuarantineReleaseVerifierRule.Code);
+    }
+
+    [Fact]
+    public async Task Release_SameUserOrUnknownVerifier_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-REL-BAD2", productTypeId))).Unit!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var service = CreateService(ctx);
+        var same = await service.ReleaseFromQuarantineAsync(unitId, "tech-test");
+        Assert.Contains(same.Evaluation!.HardStops, r => r.Code == QuarantineReleaseVerifierRule.Code);
+
+        var unknown = await service.ReleaseFromQuarantineAsync(unitId, "not-a-user");
+        Assert.Contains(unknown.Evaluation!.HardStops, r => r.Code == SecondVerifierDirectoryRule.Code);
     }
 
     [Fact]
     public async Task Hold_WithoutReason_Fails()
     {
         var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
         long unitId;
         await using (var context = _factory.Create())
         {
             var received = await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-HOLD-NR", productTypeId));
             unitId = received.Unit!.Id;
-            await CreateService(context).ReleaseFromQuarantineAsync(unitId);
+            await CreateService(context).ReleaseFromQuarantineAsync(unitId, "tech2");
         }
 
         await using (var context = _factory.Create())
@@ -247,13 +308,14 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     public async Task Hold_ThenRelease_ReturnsAvailable_AndClearsReason()
     {
         var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
         long unitId;
 
         await using (var context = _factory.Create())
         {
             var received = await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-HOLD-REL", productTypeId));
             unitId = received.Unit!.Id;
-            await CreateService(context).ReleaseFromQuarantineAsync(unitId);
+            await CreateService(context).ReleaseFromQuarantineAsync(unitId, "tech2");
         }
 
         await using (var context = _factory.Create())
