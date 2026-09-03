@@ -116,6 +116,8 @@ public sealed class IssuingService
             return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentRecalled}: Unit is recalled.");
         if (unit.Status == UnitStatus.Quarantine)
             return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentQuarantined}: Unit is quarantined.");
+        if (unit.Status == UnitStatus.OnHold)
+            return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentOnHold}: Unit is on operational hold.");
         if (unit.Status is UnitStatus.Issued or UnitStatus.Transfused or UnitStatus.TransfusionStarted)
             return EvaluationResult<Issue>.Fail($"{IsbtErrorCodes.ComponentAlreadyIssued}: Unit already issued or transfused.");
 

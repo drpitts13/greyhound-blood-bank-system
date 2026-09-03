@@ -70,7 +70,9 @@ Example: `G123417654321|E0206000`
 | POST | `/api/isbt/manual-entry` | Structured human-readable receive |
 | POST | `/api/isbt/identity-corrections` | Controlled identity correction |
 | POST | `/api/isbt/units/{id}/recall` | Recall |
-| POST | `/api/isbt/units/{id}/quarantine` | Quarantine |
+| POST | `/api/isbt/units/{id}/quarantine` | Quarantine (quality disposition) |
+| POST | `/api/inventory/units/{id}/hold` | Operational hold (not quarantine) |
+| POST | `/api/inventory/units/{id}/release-hold` | Release from operational hold |
 
 Errors return machine-readable codes (e.g. `ISBT_DIN_CHECK_MISMATCH`, `COMPONENT_DUPLICATE`) with human-readable messages. Stack traces are not exposed.
 

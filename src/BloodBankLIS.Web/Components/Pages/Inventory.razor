@@ -139,6 +139,7 @@
     private long _transferTo;
     private string _transferReason = string.Empty;
     private string _discardReason = string.Empty;
+    private string _holdReason = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
@@ -228,6 +229,7 @@
         _transferTo = 0;
         _transferReason = string.Empty;
         _discardReason = string.Empty;
+        _holdReason = string.Empty;
         _history = (await Api.GetUnitHistoryAsync(u.Id)).Value ?? new();
         _unitAttributes = (await Api.GetUnitBloodAttributesAsync(u.Id)).Value ?? new();
         _retypeDetail = (await Api.GetUnitRetypeAsync(u.Id)).Value;
@@ -264,6 +266,33 @@
         _actionFb = r.ToFeedback("Unit released from quarantine.");
         if (r.Succeeded) await RefreshSelected(id);
     }
+
+    private async Task HoldAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.HoldUnitAsync(id, _holdReason);
+        _busy = false;
+        _actionFb = r.ToFeedback("Unit placed on operational hold. It cannot be issued until released.");
+        if (r.Succeeded)
+        {
+            _holdReason = string.Empty;
+            await RefreshSelected(id);
+        }
+    }
+
+    private async Task ReleaseHoldAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReleaseHoldAsync(id);
+        _busy = false;
+        _actionFb = r.ToFeedback("Unit released from operational hold.");
+        if (r.Succeeded) await RefreshSelected(id);
+    }
+
+    private static bool CanPlaceOnHold(UnitStatus status) => status is
+        UnitStatus.Available or UnitStatus.Selected or UnitStatus.Assigned or UnitStatus.Allocated
+        or UnitStatus.Crossmatched or UnitStatus.Received or UnitStatus.Returned
+        or UnitStatus.Transferred or UnitStatus.CancelledAssignment;
 
     private async Task TransferAsync(long id)
     {
@@ -322,11 +351,37 @@
                     {
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(u.Id)">Release from quarantine</button>
                     }
+                    @if (u.Status == UnitStatus.OnHold && Session.Has(PermissionCodes.InventoryRelease))
+                    {
+                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseHoldAsync(u.Id)">Release from hold</button>
+                    }
                     @if (Session.Has(PermissionCodes.PrintLabel))
                     {
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => PrintComponentLabelAsync(u.Id)">Print component label</button>
                     }
                 </div>
+
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason))
+                {
+                    <p class="muted">
+                        @if (!string.IsNullOrWhiteSpace(u.HoldReason))
+                        {
+                            <span>Hold: @u.HoldReason</span>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(u.QuarantineReason))
+                        {
+                            <span>Quarantine: @u.QuarantineReason</span>
+                        }
+                    </p>
+                }
+
+                @if (CanPlaceOnHold(u.Status) && Session.Has(PermissionCodes.InventoryRelease))
+                {
+                    <div class="flex gap">
+                        <input @bind="_holdReason" placeholder="Hold reason (paperwork, pending review)" style="flex:1;" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_holdReason))" @onclick="() => HoldAsync(u.Id)">Place on hold</button>
+                    </div>
+                }
 
                 @if (Session.Has(PermissionCodes.InventoryTransfer))
                 {

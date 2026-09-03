@@ -167,4 +167,13 @@ public class IssueGateTests
         Assert.True(evaluation.IsHardStopped);
         Assert.Contains(evaluation.HardStops, r => r.Code == IssueGate.VisualInspectionCode);
     }
+
+    [Fact]
+    public void OnHold_IsHardStopped()
+    {
+        var context = PassingContext() with { UnitStatus = UnitStatus.OnHold };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == IssueGate.UnitStatusCode);
+    }
 }

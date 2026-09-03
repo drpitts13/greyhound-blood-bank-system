@@ -35,12 +35,15 @@ public sealed record BloodUnitDto(
     long? CurrentLocationId,
     ComponentEntrySource Source,
     DateTime CreatedUtc,
-    string CreatedBy)
+    string CreatedBy,
+    string? HoldReason = null,
+    string? QuarantineReason = null)
 {
     public static BloodUnitDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
         u.ProductDescriptionCode, u.Isbt128ProductCode, u.AboRhdCode,
         u.ExpirationEncoded, u.ExpirationLocal, u.ExpirationTimezone, u.ExpirationHasExplicitTime,
         u.ProductTypeId, u.Abo, u.RhD, u.BloodType.ToString(),
-        u.ExpiresUtc, u.Status, u.CurrentLocationId, u.Source, u.CreatedUtc, u.CreatedBy);
+        u.ExpiresUtc, u.Status, u.CurrentLocationId, u.Source, u.CreatedUtc, u.CreatedBy,
+        u.HoldReason, u.QuarantineReason);
 }

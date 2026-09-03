@@ -32,7 +32,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ISS-UNIT-ABORH` | Unit ABO/Rh is present | HardStop |
 | `ISS-ABO-COMPAT` | Unit ABO is compatible with patient via antigen/antibody conflict check (section 3) | HardStop |
 | `ISS-PRODUCT-TYPE` | Unit product type matches what the order/clinical need requires | HardStop |
-| `ISS-UNIT-STATUS` | Unit status is Available/Allocated (not Quarantine/Discarded/Issued/Transfused/Expired) | HardStop |
+| `ISS-UNIT-STATUS` | Unit status is Available/Allocated/Assigned/Crossmatched/Selected (not Quarantine/OnHold/Discarded/Issued/Transfused/Expired) | HardStop |
 | `ISS-UNIT-EXPIRED` | Unit is not past expiration date/time | HardStop |
 | `ISS-ALLOCATION` | Unit is allocated/reserved to THIS patient | HardStop |
 | `ISS-XM-REQUIRED` | If product requires crossmatch, a compatible, unexpired crossmatch exists (unless emergency release) | HardStop |
@@ -82,7 +82,8 @@ Allowed transitions are enforced by a transition guard; anything not listed is a
 # Authoritative allow-list is InventoryStatusTransition (expanded for ISBT 128).
 # See docs/isbt128-module.md. Legacy core paths remain:
 Quarantine -> Available | Discarded | Expired | Recalled | Damaged | Missing
-Available  -> Allocated | Assigned | Selected | Crossmatched | Quarantine | Discarded | Expired | Recalled | Transferred | Modified
+OnHold     -> Available | Quarantine | Discarded | Expired | Recalled | Damaged | Missing
+Available  -> Allocated | Assigned | Selected | Crossmatched | Quarantine | OnHold | Discarded | Expired | Recalled | Transferred | Modified
 Allocated  -> Issued | Available (release) | Assigned | Crossmatched | Discarded | Expired
 Assigned   -> Issued | Available | Crossmatched | CancelledAssignment | ...
 Issued     -> Transfused | TransfusionStarted | Returned | ReturnPending | Recalled
@@ -94,6 +95,7 @@ Expired    -> Discarded
 Modified   -> (terminal)
 ```
 
+- `OnHold` is an operational hold (paperwork, pending review). It is not a quality quarantine: quarantine cannot move to hold, and a held unit cannot be issued until released to Available or escalated to Quarantine.
 - Any transition writes `InventoryStatusHistory` + `AuditEvent`.
 - Expiration is enforced automatically: a unit past `ExpiresUtc` cannot move to Allocated/Issued (HardStop) and is eligible to be marked Expired.
 - `Modified` is the terminal state for a source unit consumed into a product modification (divide/pool/irradiate/thaw/volume-reduce/leukoreduce); the resulting unit(s) are new `BloodProducts` rows in `Quarantine` (see section 4a).

@@ -23,7 +23,7 @@ public sealed class InventoryService
     {
         UnitStatus.Quarantine, UnitStatus.Available, UnitStatus.Allocated, UnitStatus.Returned,
         UnitStatus.Received, UnitStatus.Selected, UnitStatus.Assigned, UnitStatus.Crossmatched,
-        UnitStatus.Transferred, UnitStatus.CancelledAssignment
+        UnitStatus.Transferred, UnitStatus.CancelledAssignment, UnitStatus.OnHold
     };
 
     private readonly IInventoryRepository _repository;
@@ -290,6 +290,36 @@ public sealed class InventoryService
         }
 
         return await ChangeStatusAsync(unit, UnitStatus.Available, "Released from quarantine", ct);
+    }
+
+    /// <summary>
+    /// Places a unit on operational hold. Distinct from quarantine: hold is administrative
+    /// (paperwork, pending review) and does not imply a product-quality disposition.
+    /// </summary>
+    public async Task<InventoryActionResult> HoldAsync(long unitId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return InventoryActionResult.Fail("A hold reason is required.");
+
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+            return InventoryActionResult.Fail("Unit not found.");
+
+        unit.HoldReason = reason.Trim();
+        return await ChangeStatusAsync(unit, UnitStatus.OnHold, reason.Trim(), ct);
+    }
+
+    public async Task<InventoryActionResult> ReleaseFromHoldAsync(long unitId, CancellationToken ct = default)
+    {
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+            return InventoryActionResult.Fail("Unit not found.");
+
+        if (unit.Status != UnitStatus.OnHold)
+            return InventoryActionResult.Fail("Only a unit on operational hold can be released from hold.");
+
+        unit.HoldReason = null;
+        return await ChangeStatusAsync(unit, UnitStatus.Available, "Released from operational hold", ct);
     }
 
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)

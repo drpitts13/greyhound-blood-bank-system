@@ -333,10 +333,14 @@ public static partial class DatabaseSeeder
         discarded.Status = UnitStatus.Discarded;
         discarded.DiscardReason = "Expired before issue.";
 
-        var expired = NewUnit(serial, redCells.Id, AboGroup.AB, RhType.Negative, fridge.Id, now.AddDays(-3), 300m);
+        var expired = NewUnit(serial++, redCells.Id, AboGroup.AB, RhType.Negative, fridge.Id, now.AddDays(-3), 300m);
         expired.Status = UnitStatus.Expired;
 
-        units.AddRange([expiringSoon, quarantined, discarded, expired]);
+        var held = NewUnit(serial, redCells.Id, AboGroup.O, RhType.Negative, fridge.Id, now.AddDays(22), 300m);
+        held.Status = UnitStatus.OnHold;
+        held.HoldReason = "Pending supplier packing slip; operational hold, not a quality quarantine.";
+
+        units.AddRange([expiringSoon, quarantined, discarded, expired, held]);
 
         context.BloodUnits.AddRange(units);
         await context.SaveChangesAsync(ct);

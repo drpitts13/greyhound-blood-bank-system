@@ -195,7 +195,13 @@ public enum UnitStatus
     /// (divide/pool/irradiate/thaw/volume-reduce/leukoreduce) and replaced by one or
     /// more result units. See <c>UnitModification</c> / docs/safety-rules.md.
     /// </summary>
-    Modified = 21
+    Modified = 21,
+    /// <summary>
+    /// Operational hold (paperwork, pending review, reserved investigation). Distinct
+    /// from <see cref="Quarantine"/>, which is a quality/safety disposition.
+    /// Not issuable until released back to Available or escalated to Quarantine.
+    /// </summary>
+    OnHold = 22
 }
 
 /// <summary>How a blood-component identity was entered into the LIS.</summary>

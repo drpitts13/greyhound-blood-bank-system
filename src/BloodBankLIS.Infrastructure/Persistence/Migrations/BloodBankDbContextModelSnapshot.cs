@@ -1051,6 +1051,10 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .HasMaxLength(5)
                         .HasColumnType("nvarchar(5)");
 
+                    b.Property<string>("HoldReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("Isbt128DonationId")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");

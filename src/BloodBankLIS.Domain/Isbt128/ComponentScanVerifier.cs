@@ -45,6 +45,8 @@ public static class ComponentScanVerifier
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentRecalled, "Component is recalled."));
         if (unit.Status == Enums.UnitStatus.Quarantine)
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentQuarantined, "Component is quarantined."));
+        if (unit.Status == Enums.UnitStatus.OnHold)
+            results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentOnHold, "Component is on operational hold."));
         if (unit.Status is Enums.UnitStatus.Transfused or Enums.UnitStatus.TransfusionStarted)
             results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentAlreadyTransfused, "Component transfusion already started or completed."));
 

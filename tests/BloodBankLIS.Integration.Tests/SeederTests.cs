@@ -42,8 +42,10 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(11, await verify.Orders.CountAsync());
 
             // Three original units, 28 stocked across every ABO/Rh, two modification
-            // results, one received by ISBT 128 scan, and two waiting for ABO/Rh retype.
-            Assert.Equal(36, await verify.BloodUnits.CountAsync());
+            // results, one received by ISBT 128 scan, two waiting for ABO/Rh retype,
+            // and one on operational hold.
+            Assert.Equal(37, await verify.BloodUnits.CountAsync());
+            Assert.True(await verify.BloodUnits.AnyAsync(u => u.Status == UnitStatus.OnHold && u.HoldReason != null));
             Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Received));
 
             Assert.True(await verify.ExceptionDefinitions.AnyAsync(e => e.RuleCode == AboCompatibilityRule.AboCode && !e.IsOverridable));

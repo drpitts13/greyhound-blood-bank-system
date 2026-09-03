@@ -162,7 +162,7 @@ Indexes: (`SpecimenId`,`TestId`), (`PatientId`), (`Status`).
 `Id`, `Code` (unique; Irradiated/CMVNegative/Leukoreduced/Washed/Frozen/Thawed/Pooled/Aliquoted), `Name`, `IsActive`.
 
 ### BloodProducts (unit record)
-`Id`, `UnitNumber` (donation/DIN, preserved source id, unique), `ProductTypeId` (FK ProductTypes), `Abo`, `RhD`, `Isbt128ProductCode NULL`, `Isbt128DonationId NULL`, `CollectionFacility NULL`, `SupplierId NULL`, `CollectedUtc NULL`, `ExpiresUtc DATETIME2`, `Volume DECIMAL NULL`, `CurrentLocationId BIGINT NULL` (FK InventoryLocations), `Status` (Quarantine/Available/Allocated/Issued/Transfused/Returned/Discarded/Expired), `QuarantineReason NULL`, `DiscardReason NULL`, audit metadata.
+`Id`, `UnitNumber` (donation/DIN, preserved source id, unique), `ProductTypeId` (FK ProductTypes), `Abo`, `RhD`, `Isbt128ProductCode NULL`, `Isbt128DonationId NULL`, `CollectionFacility NULL`, `SupplierId NULL`, `CollectedUtc NULL`, `ExpiresUtc DATETIME2`, `Volume DECIMAL NULL`, `CurrentLocationId BIGINT NULL` (FK InventoryLocations), `Status` (Quarantine/Available/Allocated/Issued/Transfused/Returned/Discarded/Expired/OnHold), `QuarantineReason NULL`, `HoldReason NULL`, `DiscardReason NULL`, audit metadata.
 Indexes: unique(`UnitNumber`), (`Status`), (`ExpiresUtc`), (`ProductTypeId`), (`Abo`,`RhD`), (`CurrentLocationId`).
 
 ### UnitAttributes (link)

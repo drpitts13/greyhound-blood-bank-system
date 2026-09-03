@@ -224,6 +224,100 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Hold_WithoutReason_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            var received = await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-HOLD-NR", productTypeId));
+            unitId = received.Unit!.Id;
+            await CreateService(context).ReleaseFromQuarantineAsync(unitId);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var result = await CreateService(context).HoldAsync(unitId, "  ");
+            Assert.False(result.Succeeded);
+            Assert.Contains("hold reason is required", result.Error);
+        }
+    }
+
+    [Fact]
+    public async Task Hold_ThenRelease_ReturnsAvailable_AndClearsReason()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+
+        await using (var context = _factory.Create())
+        {
+            var received = await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-HOLD-REL", productTypeId));
+            unitId = received.Unit!.Id;
+            await CreateService(context).ReleaseFromQuarantineAsync(unitId);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var held = await CreateService(context).HoldAsync(unitId, "Pending packing slip");
+            Assert.True(held.Succeeded);
+            Assert.Equal(UnitStatus.OnHold, held.Unit!.Status);
+            Assert.Equal("Pending packing slip", held.Unit.HoldReason);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var released = await CreateService(context).ReleaseFromHoldAsync(unitId);
+            Assert.True(released.Succeeded);
+            Assert.Equal(UnitStatus.Available, released.Unit!.Status);
+            Assert.Null(released.Unit.HoldReason);
+        }
+
+        await using (var verify = _factory.Create())
+        {
+            var history = await verify.InventoryStatusHistory.Where(h => h.BloodProductId == unitId).ToListAsync();
+            Assert.Contains(history, h => h.FromStatus == UnitStatus.Available && h.ToStatus == UnitStatus.OnHold);
+            Assert.Contains(history, h => h.FromStatus == UnitStatus.OnHold && h.ToStatus == UnitStatus.Available);
+        }
+    }
+
+    [Fact]
+    public async Task Hold_FromQuarantine_IsBlocked()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-HOLD-Q", productTypeId))).Unit!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var result = await CreateService(context).HoldAsync(unitId, "Should not bypass quarantine");
+            Assert.False(result.Succeeded);
+            Assert.NotNull(result.Evaluation);
+            Assert.True(result.Evaluation!.IsHardStopped);
+        }
+    }
+
+    [Fact]
+    public async Task ReleaseFromHold_WhenNotOnHold_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-HOLD-NA", productTypeId))).Unit!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var result = await CreateService(context).ReleaseFromHoldAsync(unitId);
+            Assert.False(result.Succeeded);
+            Assert.Contains("operational hold", result.Error);
+        }
+    }
+
+    [Fact]
     public async Task Discard_WithoutReason_Fails()
     {
         var productTypeId = await EnsureProductTypeAsync();

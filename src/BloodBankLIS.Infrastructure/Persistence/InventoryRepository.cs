@@ -13,7 +13,8 @@ public sealed class InventoryRepository : IInventoryRepository
     {
         UnitStatus.Quarantine, UnitStatus.Available, UnitStatus.Allocated, UnitStatus.Returned,
         UnitStatus.Received, UnitStatus.Selected, UnitStatus.Assigned, UnitStatus.Crossmatched,
-        UnitStatus.Expected, UnitStatus.ReturnPending, UnitStatus.Transferred, UnitStatus.CancelledAssignment
+        UnitStatus.Expected, UnitStatus.ReturnPending, UnitStatus.Transferred, UnitStatus.CancelledAssignment,
+        UnitStatus.OnHold
     };
 
     private readonly BloodBankDbContext _context;

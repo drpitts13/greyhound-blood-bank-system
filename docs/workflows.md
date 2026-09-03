@@ -2,7 +2,7 @@
 
 Status: Phase 0 (design). Each workflow names the use case(s), the safety checks invoked (see `safety-rules.md`), the state changes, and the audit events produced. Every clinical state change writes to its append-only history table and an `AuditEvent` in the same transaction.
 
-Status legend for blood units: `Received (retype required) or Quarantine -> Available -> Allocated -> Issued -> Transfused`, with side states `Returned`, `Discarded`, `Expired`.
+Status legend for blood units: `Received (retype required) or Quarantine -> Available -> Allocated -> Issued -> Transfused`, with side states `OnHold` (operational), `Returned`, `Discarded`, `Expired`.
 
 ---
 

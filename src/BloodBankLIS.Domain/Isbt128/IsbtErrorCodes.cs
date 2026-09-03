@@ -24,6 +24,7 @@ public static class IsbtErrorCodes
     public const string ComponentDuplicate = "COMPONENT_DUPLICATE";
     public const string ComponentExpired = "COMPONENT_EXPIRED";
     public const string ComponentQuarantined = "COMPONENT_QUARANTINED";
+    public const string ComponentOnHold = "COMPONENT_ON_HOLD";
     public const string ComponentRecalled = "COMPONENT_RECALLED";
     public const string ComponentAlreadyIssued = "COMPONENT_ALREADY_ISSUED";
     public const string ComponentAlreadyTransfused = "COMPONENT_ALREADY_TRANSFUSED";
