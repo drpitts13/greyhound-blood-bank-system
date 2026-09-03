@@ -25,6 +25,7 @@ public static partial class DatabaseSeeder
         await EnsureRetrospectiveCrossmatchPolicyAsync(context, cancellationToken);
         await EnsureQuarantineReleaseVerifierPolicyAsync(context, cancellationToken);
         await EnsureReceiveVisualInspectionPolicyAsync(context, cancellationToken);
+        await EnsureReceiveVerifierPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
@@ -178,6 +179,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.RequireReceiveVerifier,
+                Value = "true",
+                Category = "Inventory",
+                Description = "Require a distinct directory user as second verifier when receiving a unit."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.BlockSelfVerify,
                 Value = "false",
                 Category = "Result",
@@ -264,6 +272,23 @@ public static partial class DatabaseSeeder
             Value = "true",
             Category = "Inventory",
             Description = "Require an acceptable visual inspection before a unit can be received."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureReceiveVerifierPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.RequireReceiveVerifier, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RequireReceiveVerifier,
+            Value = "true",
+            Category = "Inventory",
+            Description = "Require a distinct directory user as second verifier when receiving a unit."
         });
         await context.SaveChangesAsync(ct);
     }

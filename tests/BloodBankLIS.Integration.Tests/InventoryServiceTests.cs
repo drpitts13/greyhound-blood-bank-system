@@ -91,6 +91,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
     private async Task<long> EnsureProductTypeAsync()
     {
+        await EnsureSecondVerifierAsync();
         await EnsureProductCodesAsync();
         await using var context = _factory.Create();
         var existing = await context.ProductTypes.FirstOrDefaultAsync(t => t.ProductCode == "RBC-TEST");
@@ -118,7 +119,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         string? productCode = "E0206") =>
         new(unitNumber, productTypeId, AboGroup.O, RhType.Positive,
             expires ?? _factory.Clock.UtcNow.AddDays(30),
-            Isbt128ProductCode: productCode);
+            Isbt128ProductCode: productCode,
+            SecondVerifier: "tech2");
 
     [Fact]
     public async Task ReceiveUnit_CreatesQuarantineUnit_WithInitialHistory()
@@ -241,6 +243,40 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ReceiveUnit_MissingSecondVerifier_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ReceiveUnitAsync(
+            NewUnitRequest("U-RCV-NO2", productTypeId) with { SecondVerifier = null });
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ReceiveVerifierRule.Code);
+        Assert.False(await context.BloodUnits.AnyAsync(u => u.UnitNumber == "U-RCV-NO2"));
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_SameUserVerifier_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ReceiveUnitAsync(
+            NewUnitRequest("U-RCV-SELF", productTypeId) with { SecondVerifier = "tech-test" });
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ReceiveVerifierRule.Code);
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_UnknownVerifier_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ReceiveUnitAsync(
+            NewUnitRequest("U-RCV-UNK", productTypeId) with { SecondVerifier = "not-a-user" });
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == SecondVerifierDirectoryRule.Code);
+    }
+
+    [Fact]
     public async Task ExpectUnit_CreatesExpected_WithoutVisualGate()
     {
         var productTypeId = await EnsureProductTypeAsync();
@@ -305,7 +341,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var act = _factory.Create();
         var result = await CreateService(act).ReceiveExpectedUnitAsync(
-            unitId, new ReceiveExpectedUnitRequest(VisualInspectionNotes: "Bag intact"));
+            unitId, new ReceiveExpectedUnitRequest(VisualInspectionNotes: "Bag intact", SecondVerifier: "tech2"));
         Assert.True(result.Succeeded);
         Assert.Equal(UnitStatus.Quarantine, result.Unit!.Status);
         Assert.True(result.Unit.ReceiveVisualAcceptable);
@@ -338,7 +374,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var receive = _factory.Create();
-        var result = await CreateService(receive).ReceiveExpectedUnitAsync(unitId, new ReceiveExpectedUnitRequest());
+        var result = await CreateService(receive).ReceiveExpectedUnitAsync(
+            unitId, new ReceiveExpectedUnitRequest(SecondVerifier: "tech2"));
         Assert.True(result.Succeeded);
         Assert.Equal(UnitStatus.Received, result.Unit!.Status);
     }

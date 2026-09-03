@@ -126,7 +126,8 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ExpirationLocal: _factory.Clock.UtcNow.AddDays(30),
             ExpirationHasExplicitTime: false,
             ProductTypeId: productTypeId,
-            ReleaseToAvailable: true));
+            ReleaseToAvailable: true,
+            SecondVerifier: "tech2"));
 
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal("G123417654321|E0206000", result.Unit!.ComponentIdentity);
@@ -142,7 +143,8 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ExtendedDivisionCode: null,
             ExpirationLocal: _factory.Clock.UtcNow.AddDays(30),
             ExpirationHasExplicitTime: false,
-            ProductTypeId: productTypeId));
+            ProductTypeId: productTypeId,
+            SecondVerifier: "tech2"));
 
         Assert.False(dup.Succeeded);
         Assert.Contains(IsbtErrorCodes.ComponentDuplicate, dup.Error);
@@ -187,7 +189,7 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
         Assert.True((await sessions.AddScanAsync(new AddScanRequest(key, exp.Value!.Sanitized))).Succeeded);
 
         var complete = await sessions.CompleteAsync(new CompleteScanSessionRequest(
-            key, productTypeId, ReleaseToAvailable: true));
+            key, productTypeId, ReleaseToAvailable: true, SecondVerifier: "tech2"));
         Assert.True(complete.Succeeded, complete.Error);
         Assert.Equal(UnitStatus.Available, complete.Unit!.Status);
         Assert.Equal(4, complete.Unit.RawScans.Count);
@@ -204,7 +206,8 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ExpirationLocal: _factory.Clock.UtcNow.AddDays(30),
             ExpirationHasExplicitTime: false,
             ProductTypeId: productTypeId,
-            ReleaseToAvailable: true);
+            ReleaseToAvailable: true,
+            SecondVerifier: "tech2");
 
     private ComponentIdentityCorrectionService CreateCorrection(BloodBankDbContext context)
     {
@@ -241,7 +244,8 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ExtendedDivisionCode: null,
             ExpirationLocal: _factory.Clock.UtcNow.AddDays(30),
             ExpirationHasExplicitTime: false,
-            ProductTypeId: productTypeId));
+            ProductTypeId: productTypeId,
+            SecondVerifier: "tech2"));
         Assert.True(created.Succeeded, created.Error);
 
         var correction = CreateCorrection(context);

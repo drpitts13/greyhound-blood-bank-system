@@ -56,6 +56,17 @@
         <label class="flex"><input type="checkbox" @bind="_rec.VisualInspectionAcceptable" /> &nbsp;Visual inspection acceptable (no clots, hemolysis, or container defects)</label>
         <div class="form-row">
             <div class="field"><label>Visual notes</label><input @bind="_rec.VisualInspectionNotes" placeholder="Optional appearance notes" /></div>
+            <div class="field" style="min-width:16rem;">
+                <label>Second verifier</label>
+                <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                    Items="ReceiveVerifierChoices"
+                    @bind-Value="_rec.SecondVerifier"
+                    DisplayText="@(x => x.Label)"
+                    ItemValue="@(x => x.UserName)"
+                    SearchText="@(x => x.Label)"
+                    Clearable="true"
+                    Placeholder="Different active user" />
+            </div>
         </div>
         <button class="btn btn-primary" disabled="@_busy" @onclick="ReceiveAsync">Receive</button>
     </div>
@@ -163,6 +174,7 @@
     private Feedback? _expectFb;
     private bool _arrivalVisualOk = true;
     private string? _arrivalVisualNotes;
+    private string? _arrivalSecondVerifier;
     private string _cancelExpectedReason = string.Empty;
 
     private BloodUnitDto? _selected;
@@ -184,6 +196,8 @@
 
     private IEnumerable<DirectoryUserDto> QuarantineVerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
+
+    private IEnumerable<DirectoryUserDto> ReceiveVerifierChoices => QuarantineVerifierChoices;
 
     protected override async Task OnInitializedAsync()
     {
@@ -241,7 +255,8 @@
             string.IsNullOrWhiteSpace(_rec.Supplier) ? null : _rec.Supplier,
             string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode) ? null : _rec.ProductDescriptionCode.Trim(),
             VisualInspectionAcceptable: _rec.VisualInspectionAcceptable,
-            VisualInspectionNotes: string.IsNullOrWhiteSpace(_rec.VisualInspectionNotes) ? null : _rec.VisualInspectionNotes);
+            VisualInspectionNotes: string.IsNullOrWhiteSpace(_rec.VisualInspectionNotes) ? null : _rec.VisualInspectionNotes,
+            SecondVerifier: _rec.SecondVerifier);
         var r = await Api.ReceiveUnitAsync(req);
         _busy = false;
         _receiveFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
@@ -372,7 +387,8 @@
         _busy = true;
         var r = await Api.ReceiveExpectedUnitAsync(id, new ReceiveExpectedUnitRequest(
             VisualInspectionAcceptable: _arrivalVisualOk,
-            VisualInspectionNotes: string.IsNullOrWhiteSpace(_arrivalVisualNotes) ? null : _arrivalVisualNotes));
+            VisualInspectionNotes: string.IsNullOrWhiteSpace(_arrivalVisualNotes) ? null : _arrivalVisualNotes,
+            SecondVerifier: _arrivalSecondVerifier));
         _busy = false;
         _actionFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
             ? "Arrival confirmed. ABO/Rh retype is required before the unit is Available."
@@ -381,6 +397,7 @@
         {
             _arrivalVisualOk = true;
             _arrivalVisualNotes = null;
+            _arrivalSecondVerifier = null;
             await RefreshSelected(id);
         }
     }
@@ -480,6 +497,17 @@
                         <div class="field" style="min-width:16rem;">
                             <label>Arrival notes</label>
                             <input @bind="_arrivalVisualNotes" placeholder="Appearance, defects" />
+                        </div>
+                        <div class="field" style="min-width:16rem;">
+                            <label>Second verifier</label>
+                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                Items="ReceiveVerifierChoices"
+                                @bind-Value="_arrivalSecondVerifier"
+                                DisplayText="@(x => x.Label)"
+                                ItemValue="@(x => x.UserName)"
+                                SearchText="@(x => x.Label)"
+                                Clearable="true"
+                                Placeholder="Different active user" />
                         </div>
                         <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReceiveExpectedAsync(u.Id)">Confirm arrival</button>
                         <div class="field" style="min-width:16rem;">
@@ -646,5 +674,6 @@
         public string? ShipmentId { get; set; }
         public bool VisualInspectionAcceptable { get; set; } = true;
         public string? VisualInspectionNotes { get; set; }
+        public string? SecondVerifier { get; set; }
     }
 }

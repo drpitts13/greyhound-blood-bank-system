@@ -1,6 +1,7 @@
 @page "/inventory/isbt-receive"
 @using BloodBankLIS.Application.Isbt128
 @using BloodBankLIS.Application.Inventory
+@using BloodBankLIS.Application.Reference
 @using BloodBankLIS.Domain.Enums
 @inject BloodBankApiClient Api
 @inject UserSession Session
@@ -36,6 +37,17 @@
             <label>Expiration (local) <input type="datetime-local" @bind="_expirationLocal" /></label>
             <label><input type="checkbox" @bind="_explicitTime" /> Label includes explicit time</label>
             <label><input type="checkbox" @bind="_visualOk" /> Visual inspection acceptable</label>
+            <label>
+                Second verifier
+                <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                    Items="ReceiveVerifierChoices"
+                    @bind-Value="_secondVerifier"
+                    DisplayText="@(x => x.Label)"
+                    ItemValue="@(x => x.UserName)"
+                    SearchText="@(x => x.Label)"
+                    Clearable="true"
+                    Placeholder="Different active user" />
+            </label>
             <label><input type="checkbox" @bind="_releaseAvailable" /> Release to Available</label>
             <p class="muted" style="margin-top:0;font-size:0.85rem;">
                 Ignored when the product requires an ABO/Rh retype — those units enter as Received.
@@ -77,6 +89,11 @@ Valid: @_session.Validation?.Valid</pre>
     private bool _explicitTime;
     private bool _visualOk = true;
     private bool _releaseAvailable = true;
+    private string? _secondVerifier;
+    private List<DirectoryUserDto> _directoryUsers = new();
+
+    private IEnumerable<DirectoryUserDto> ReceiveVerifierChoices =>
+        _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
     private string? _message;
     private Guid? _sessionKey;
     private string _scanValue = "";
@@ -88,6 +105,8 @@ Valid: @_session.Validation?.Valid</pre>
         var products = await Api.GetProductTypesAsync();
         if (products.Succeeded && products.Value is { Count: > 0 })
             _productTypeId = products.Value[0].Id;
+        var users = await Api.GetDirectoryUsersAsync();
+        if (users.Succeeded) _directoryUsers = users.Value ?? new();
     }
 
     private async Task SubmitManual()
@@ -97,7 +116,8 @@ Valid: @_session.Validation?.Valid</pre>
             _aboCode, _pdc, _collection, _division, null,
             _expirationLocal, _explicitTime, _productTypeId,
             ReleaseToAvailable: _releaseAvailable,
-            VisualInspectionAcceptable: _visualOk);
+            VisualInspectionAcceptable: _visualOk,
+            SecondVerifier: _secondVerifier);
         var result = await Api.CreateIsbtManualAsync(req);
         _message = result.Succeeded
             ? $"Created {result.Value!.ComponentIdentity} (status {result.Value.Status})"
@@ -135,7 +155,7 @@ Valid: @_session.Validation?.Valid</pre>
     {
         if (_sessionKey is null) return;
         var result = await Api.CompleteIsbtScanSessionAsync(new CompleteScanSessionRequest(
-            _sessionKey.Value, _productTypeId, ReleaseToAvailable: _releaseAvailable, VisualInspectionAcceptable: _visualOk));
+            _sessionKey.Value, _productTypeId, ReleaseToAvailable: _releaseAvailable, VisualInspectionAcceptable: _visualOk, SecondVerifier: _secondVerifier));
         _message = result.Succeeded
             ? $"Received {result.Value!.ComponentIdentity}"
             : result.Error;

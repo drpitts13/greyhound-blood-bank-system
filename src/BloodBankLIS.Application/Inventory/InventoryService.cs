@@ -128,6 +128,12 @@ public sealed class InventoryService
             return InventoryActionResult.Blocked(new RuleEvaluation([visual]));
         }
 
+        var verifier = await EvaluateReceiveVerifierAsync(request.SecondVerifier, ct);
+        if (verifier is not null)
+        {
+            return verifier;
+        }
+
         if (string.IsNullOrWhiteSpace(request.UnitNumber))
         {
             return InventoryActionResult.Fail("Unit number is required.");
@@ -156,9 +162,11 @@ public sealed class InventoryService
         var resolved = productValidation.Value!;
         var productType = await _repository.GetProductTypeAsync(request.ProductTypeId, ct);
         var initialStatus = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
-        var intakeReason = productType?.RequiresRetype == true
-            ? "Initial intake — retype required"
-            : "Initial intake";
+        var intakeReason = AppendVerifier(
+            productType?.RequiresRetype == true
+                ? "Initial intake — retype required"
+                : "Initial intake",
+            request.SecondVerifier);
         var unit = new BloodUnit
         {
             UnitNumber = request.UnitNumber,
@@ -303,6 +311,12 @@ public sealed class InventoryService
             return InventoryActionResult.Blocked(new RuleEvaluation([visual]));
         }
 
+        var verifier = await EvaluateReceiveVerifierAsync(request.SecondVerifier, ct);
+        if (verifier is not null)
+        {
+            return verifier;
+        }
+
         var productType = await _repository.GetProductTypeAsync(unit.ProductTypeId, ct);
         var destination = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
         unit.ReceiveVisualAcceptable = request.VisualInspectionAcceptable;
@@ -314,9 +328,11 @@ public sealed class InventoryService
             unit.CurrentLocationId = loc;
         }
 
-        var reason = destination == UnitStatus.Received
-            ? "Arrival confirmed — retype required"
-            : "Arrival confirmed";
+        var reason = AppendVerifier(
+            destination == UnitStatus.Received
+                ? "Arrival confirmed — retype required"
+                : "Arrival confirmed",
+            request.SecondVerifier);
         return await ChangeStatusAsync(unit, destination, reason, ct);
     }
 
@@ -357,6 +373,7 @@ public sealed class InventoryService
         bool releaseToAvailable,
         bool visualInspectionAcceptable = true,
         string? visualInspectionNotes = null,
+        string? secondVerifier = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -366,6 +383,12 @@ public sealed class InventoryService
         if (visual.Severity == RuleSeverity.HardStop)
         {
             return InventoryActionResult.Blocked(new RuleEvaluation([visual]));
+        }
+
+        var verifier = await EvaluateReceiveVerifierAsync(secondVerifier, ct);
+        if (verifier is not null)
+        {
+            return verifier;
         }
 
         if (draft.Din is null || draft.Product is null || draft.AboRhd is null || draft.Expiration is null)
@@ -387,17 +410,17 @@ public sealed class InventoryService
         if (productType?.RequiresRetype == true)
         {
             initialStatus = UnitStatus.Received;
-            intakeReason = "ISBT receipt — retype required";
+            intakeReason = AppendVerifier("ISBT receipt — retype required", secondVerifier);
         }
         else if (releaseToAvailable)
         {
             initialStatus = UnitStatus.Available;
-            intakeReason = "ISBT receipt — released to available";
+            intakeReason = AppendVerifier("ISBT receipt — released to available", secondVerifier);
         }
         else
         {
             initialStatus = UnitStatus.Quarantine;
-            intakeReason = "ISBT receipt — quarantine pending disposition";
+            intakeReason = AppendVerifier("ISBT receipt — quarantine pending disposition", secondVerifier);
         }
 
         var unit = Application.Isbt128.CanonicalComponentMapper.ToBloodUnit(
@@ -504,6 +527,29 @@ public sealed class InventoryService
         var required = _policy is null || await _policy.GetRequireReceiveVisualInspectionAsync(ct);
         return ReceiveVisualInspectionRule.Evaluate(required, acceptable);
     }
+
+    private async Task<InventoryActionResult?> EvaluateReceiveVerifierAsync(string? secondVerifier, CancellationToken ct)
+    {
+        var required = _policy is null || await _policy.GetRequireReceiveVerifierAsync(ct);
+        var dual = ReceiveVerifierRule.Evaluate(_currentUser.UserName, secondVerifier, required);
+        if (dual.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([dual]));
+        }
+
+        var directory = await EvaluateSecondVerifierDirectoryAsync(secondVerifier, ct);
+        if (directory.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([directory]));
+        }
+
+        return null;
+    }
+
+    private static string AppendVerifier(string reason, string? secondVerifier) =>
+        string.IsNullOrWhiteSpace(secondVerifier)
+            ? reason
+            : $"{reason}; second verifier {secondVerifier.Trim()}";
 
     /// <summary>
     /// Places a unit on operational hold. Distinct from quarantine: hold is administrative

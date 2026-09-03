@@ -82,8 +82,8 @@ Errors return machine-readable codes (e.g. `ISBT_DIN_CHECK_MISMATCH`, `COMPONENT
 ## UI workflow
 
 1. Open **ISBT Receive** (`/inventory/isbt-receive`).
-2. **Manual:** enter the combined donation/unit number (DIN), ABO lookup code, product PDC + collection + division, expiration; submit.
-3. **Scanner:** start session; scan or paste DIN, ABO, product, expiration (concatenated payloads supported); complete to receive.
+2. **Manual:** enter the combined donation/unit number (DIN), ABO lookup code, product PDC + collection + division, expiration, visual inspection, and a directory second verifier; submit.
+3. **Scanner:** start session; scan or paste DIN, ABO, product, expiration (concatenated payloads supported); complete to receive with the same visual and second-verifier checks.
 4. Derived encoded values are display-only outside identity-correction workflow.
 
 ## Configuration

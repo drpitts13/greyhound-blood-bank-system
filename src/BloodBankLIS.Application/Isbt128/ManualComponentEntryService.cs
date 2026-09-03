@@ -106,6 +106,7 @@ public sealed class ManualComponentEntryService
             request.ReleaseToAvailable,
             request.VisualInspectionAcceptable,
             request.VisualInspectionNotes,
+            request.SecondVerifier,
             ct);
     }
 }
