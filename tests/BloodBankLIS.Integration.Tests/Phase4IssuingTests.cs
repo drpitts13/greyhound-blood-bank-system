@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
@@ -49,6 +50,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new EfRepository<ProductAttribute>(c),
             new EfRepository<ProductAttributeAssignment>(c),
             new EfRepository<Order>(c),
+            new EfRepository<User>(c),
             BloodAttrCompat(c),
             new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
             new ReactionInvestigationService(
@@ -430,5 +432,43 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Electronic));
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ElectronicCrossmatchEligibilityRule.Code);
+    }
+
+    [Fact]
+    public async Task Issue_UnknownSecondVerifier_IsHardStopped()
+    {
+        var s = await SeedAsync("2NDUNK");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(
+            IssueReq(s) with { SecondVerifier = "not-a-user" });
+        Assert.False(issued.Succeeded);
+        Assert.Contains(issued.Evaluation!.HardStops, r => r.Code == SecondVerifierDirectoryRule.Code);
+    }
+
+    [Fact]
+    public async Task Issue_ActiveSecondVerifier_Succeeds()
+    {
+        var s = await SeedAsync("2NDOK");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            c.Users.Add(new User
+            {
+                UserName = "tech2",
+                DisplayName = "Tech Two",
+                IsActive = true
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s) with { SecondVerifier = "TECH2" });
+        Assert.True(issued.Succeeded);
+        Assert.Equal("TECH2", issued.Value!.SecondVerifier);
     }
 }

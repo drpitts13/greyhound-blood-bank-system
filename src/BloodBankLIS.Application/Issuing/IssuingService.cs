@@ -5,6 +5,7 @@ using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Rules;
@@ -37,6 +38,7 @@ public sealed class IssuingService
     private readonly IRepository<ProductAttribute> _productAttributes;
     private readonly IRepository<ProductAttributeAssignment> _productAttributeAssignments;
     private readonly IRepository<Order> _orders;
+    private readonly IRepository<User> _users;
     private readonly BloodAttributeCompatLoader _bloodAttributeCompat;
     private readonly FacilityPolicyService _policy;
     private readonly ReactionInvestigationService _reactions;
@@ -63,6 +65,7 @@ public sealed class IssuingService
         IRepository<ProductAttribute> productAttributes,
         IRepository<ProductAttributeAssignment> productAttributeAssignments,
         IRepository<Order> orders,
+        IRepository<User> users,
         BloodAttributeCompatLoader bloodAttributeCompat,
         FacilityPolicyService policy,
         ReactionInvestigationService reactions,
@@ -88,6 +91,7 @@ public sealed class IssuingService
         _productAttributes = productAttributes;
         _productAttributeAssignments = productAttributeAssignments;
         _orders = orders;
+        _users = users;
         _bloodAttributeCompat = bloodAttributeCompat;
         _policy = policy;
         _reactions = reactions;
@@ -204,6 +208,12 @@ public sealed class IssuingService
         if (dual.Severity != RuleSeverity.Pass)
         {
             evaluation = new RuleEvaluation(evaluation.Results.Append(dual).ToList());
+        }
+
+        var directory = await EvaluateSecondVerifierDirectoryAsync(request.SecondVerifier, ct);
+        if (directory.Severity != RuleSeverity.Pass)
+        {
+            evaluation = new RuleEvaluation(evaluation.Results.Append(directory).ToList());
         }
 
         if (evaluation.IsHardStopped)
@@ -508,6 +518,12 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([dual]));
         }
 
+        var directory = await EvaluateSecondVerifierDirectoryAsync(request.SecondVerifier, ct);
+        if (directory.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([directory]));
+        }
+
         var now = _clock.UtcNow;
 
         var transfusion = new TransfusionEvent
@@ -616,6 +632,19 @@ public sealed class IssuingService
             !h.IsCurrent
             && h.BloodType.IsKnown
             && h.BloodType != current.BloodType);
+    }
+
+    private async Task<RuleResult> EvaluateSecondVerifierDirectoryAsync(string? secondVerifier, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(secondVerifier))
+        {
+            return SecondVerifierDirectoryRule.Evaluate(secondVerifier, isActiveUser: false);
+        }
+
+        var upper = secondVerifier.Trim().ToUpperInvariant();
+        var match = await _users.FirstOrDefaultAsync(
+            u => u.IsActive && !u.IsLocked && !u.IsServiceAccount && u.UserName.ToUpper() == upper, ct);
+        return SecondVerifierDirectoryRule.Evaluate(secondVerifier, match is not null);
     }
 
     private void AppendStatus(BloodUnit unit, UnitStatus toStatus, string reason, DateTime whenUtc, string relatedType, long relatedId)

@@ -53,6 +53,17 @@ public static class ReferenceEndpoints
             return Results.Ok(providers.Select(OrderingProviderRefDto.From));
         });
 
+        group.MapGet("/users", async (BloodBankDbContext context, CancellationToken ct) =>
+        {
+            var users = await context.Users.AsNoTracking()
+                .Where(u => u.IsActive && !u.IsLocked && !u.IsServiceAccount)
+                .OrderBy(u => u.DisplayName)
+                .ThenBy(u => u.UserName)
+                .Select(u => new DirectoryUserDto(u.UserName, u.DisplayName))
+                .ToListAsync(ct);
+            return Results.Ok(users);
+        });
+
         group.MapGet("/blood-attributes", async (BloodBankDbContext context, CancellationToken ct) =>
         {
             var attrs = await context.BloodAttributeDefinitions.AsNoTracking()

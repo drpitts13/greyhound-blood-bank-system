@@ -1001,7 +1001,14 @@ else
                             <input @bind="_issueId2" />
                         </div>
                         <div class="field"><label>Second verifier</label>
-                            <input @bind="_issueSecondVerifier" placeholder="Different active user" />
+                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                Items="SecondVerifierChoices"
+                                @bind-Value="_issueSecondVerifier"
+                                DisplayText="@(u => u.Label)"
+                                ItemValue="@(u => u.UserName)"
+                                SearchText="@(u => u.Label)"
+                                Clearable="true"
+                                Placeholder="Different active user" />
                         </div>
                         <div class="field"><label>User id issuing</label>
                             <input value="@(Session.UserName ?? "—")" disabled />
@@ -1011,6 +1018,7 @@ else
                         </div>
                     </div>
                     <label class="flex"><input type="checkbox" @bind="_issueVisualOk" /> &nbsp;Visual inspection acceptable</label>
+                    <UnitScanVerificationPanel Scan="_issueScan" />
 
                     @if (_showIssueOverride)
                     {
@@ -1354,6 +1362,11 @@ else
     private string _issueId2 = string.Empty;
     private string? _issueSecondVerifier;
     private bool _issueVisualOk = true;
+    private readonly UnitScanModel _issueScan = new();
+    private List<DirectoryUserDto> _directoryUsers = new();
+
+    private IEnumerable<DirectoryUserDto> SecondVerifierChoices =>
+        _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
 
     private bool NeedsAbHistoryOverride =>
         _activeAntibodies.Count > 0
@@ -1417,6 +1430,14 @@ else
         if (!r.Succeeded) _allocFb = r.ToFeedback();
         _allocLoading = false;
         _allocLoaded = true;
+        await LoadDirectoryUsersAsync();
+    }
+
+    private async Task LoadDirectoryUsersAsync()
+    {
+        if (_directoryUsers.Count > 0) return;
+        var users = await Api.GetDirectoryUsersAsync();
+        if (users.Succeeded) _directoryUsers = users.Value ?? new();
     }
 
     private async Task ToggleAllocatePanel()
@@ -1489,6 +1510,7 @@ else
         _issueId2 = _patient?.DateOfBirth.ToString("yyyy-MM-dd") ?? string.Empty;
         _issueSecondVerifier = string.Empty;
         _issueVisualOk = true;
+        _issueScan.Clear();
     }
 
     private void CancelIssueAllocation()
@@ -1516,7 +1538,8 @@ else
             OverrideReason: overrideReason,
             AuthorizedBy: authorizedBy,
             IssuedUtc: issuedUtc,
-            Comment: string.IsNullOrWhiteSpace(_issueComment) ? null : _issueComment.Trim());
+            Comment: string.IsNullOrWhiteSpace(_issueComment) ? null : _issueComment.Trim(),
+            VerifiedScan: _issueScan.ToRequest());
     }
 
     private bool ValidateIssueForm()

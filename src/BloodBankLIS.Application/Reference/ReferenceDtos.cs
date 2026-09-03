@@ -51,3 +51,11 @@ public sealed record TestDefinitionListItemDto(string Code, string Name, TestCat
 {
     public static TestDefinitionListItemDto From(TestDefinition t) => new(t.Code, t.Name, t.Category);
 }
+
+public sealed record DirectoryUserDto(string UserName, string DisplayName)
+{
+    public string Label =>
+        string.IsNullOrWhiteSpace(DisplayName) || string.Equals(DisplayName, UserName, StringComparison.Ordinal)
+            ? UserName
+            : $"{DisplayName} ({UserName})";
+}

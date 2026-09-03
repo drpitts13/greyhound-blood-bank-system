@@ -28,11 +28,21 @@
         <div class="form-row">
             <div class="field"><label>Patient ID 1 (MRN)</label><input @bind="_issue.PatientIdentifier1Value" /></div>
             <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label><input @bind="_issue.PatientIdentifier2Value" /></div>
-            <div class="field"><label>Second verifier</label><input @bind="_issue.SecondVerifier" /></div>
+            <div class="field"><label>Second verifier</label>
+                <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                    Items="SecondVerifierChoices"
+                    @bind-Value="_issue.SecondVerifier"
+                    DisplayText="@(u => u.Label)"
+                    ItemValue="@(u => u.UserName)"
+                    SearchText="@(u => u.Label)"
+                    Clearable="true"
+                    Placeholder="Different active user" />
+            </div>
         </div>
         <div class="flex gap" style="flex-wrap:wrap;margin:.5rem 0 1rem;">
             <label class="flex"><input type="checkbox" @bind="_issue.VisualInspectionAcceptable" /> &nbsp;Visual inspection acceptable</label>
         </div>
+        <UnitScanVerificationPanel Scan="_issueScan" />
 
         <div class="alert alert-warning">
             <label class="flex"><input type="checkbox" @bind="_overrideOn" /> &nbsp;<strong>Override</strong> (emergency release / warning override)</label>
@@ -100,9 +110,20 @@
                 </div>
                 <div class="field"><label>Volume transfused (mL)</label><input type="number" @bind="_txVolume" /></div>
                 <div class="field"><label>Transfusionist</label><input @bind="_txTransfusionist" /></div>
-                <div class="field"><label>Second verifier</label><input @bind="_txSecondVerifier" /></div>
+                <div class="field"><label>Second verifier</label>
+                    <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                        Items="SecondVerifierChoices"
+                        @bind-Value="_txSecondVerifier"
+                        DisplayText="@(u => u.Label)"
+                        ItemValue="@(u => u.UserName)"
+                        SearchText="@(u => u.Label)"
+                        Clearable="true"
+                        Placeholder="Different active user" />
+                </div>
             </div>
+            <label class="flex"><input type="checkbox" @bind="_txPpid" /> &nbsp;Positive patient identification completed</label>
             <label class="flex"><input type="checkbox" @bind="_txReaction" /> &nbsp;Reaction suspected</label>
+            <UnitScanVerificationPanel Scan="_txScan" Title="Bedside unit scan" Help="Scan the unit at the bedside. Required for ISBT-labeled units together with positive patient identification." />
             <div style="margin-top:.75rem;">
                 <button class="btn btn-secondary" disabled="@_busy" @onclick="DocumentTransfusionAsync">Document</button>
             </div>
@@ -133,7 +154,20 @@
     private string? _txTransfusionist;
     private string? _txSecondVerifier;
     private bool _txReaction;
+    private bool _txPpid;
     private Feedback? _txFb;
+    private readonly UnitScanModel _issueScan = new();
+    private readonly UnitScanModel _txScan = new();
+    private List<DirectoryUserDto> _directoryUsers = new();
+
+    private IEnumerable<DirectoryUserDto> SecondVerifierChoices =>
+        _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        var users = await Api.GetDirectoryUsersAsync();
+        if (users.Succeeded) _directoryUsers = users.Value ?? new();
+    }
 
     private IssueUnitRequest BuildRequest(string? overrideReason, string? authorizedBy) => new(
         _issue.BloodUnitId,
@@ -148,7 +182,8 @@
         _issue.VisualInspectionAcceptable,
         _issue.SecondVerifier,
         OverrideReason: overrideReason,
-        AuthorizedBy: authorizedBy);
+        AuthorizedBy: authorizedBy,
+        VerifiedScan: _issueScan.ToRequest());
 
     private async Task IssueAsync()
     {
@@ -199,7 +234,9 @@
             _txDisposition, VolumeTransfused: _txVolume,
             Transfusionist: string.IsNullOrWhiteSpace(_txTransfusionist) ? null : _txTransfusionist,
             ReactionSuspected: _txReaction,
-            SecondVerifier: _txSecondVerifier));
+            BedsideScan: _txScan.ToRequest(),
+            SecondVerifier: _txSecondVerifier,
+            PositivePatientIdentification: _txPpid));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
     }

@@ -1,0 +1,18 @@
+<div class="bb-card" style="margin-top:.75rem;">
+    <div class="bb-card-title"><h3>@Title</h3></div>
+    <p class="muted">@Help</p>
+    <div class="form-row">
+        <div class="field"><label>DIN</label><input class="mono" @bind="Scan.Din" placeholder="W0000X1234567" /></div>
+        <div class="field"><label>Product code data</label><input class="mono" @bind="Scan.ProductCodeData" placeholder="E0206V00" /></div>
+        <div class="field"><label>ABO/RhD code</label><input class="mono" @bind="Scan.AboRhdCode" placeholder="Label ABO/RhD" /></div>
+        <div class="field"><label>Expiration encoded</label><input class="mono" @bind="Scan.ExpirationEncoded" placeholder="Label expiration" /></div>
+        <div class="field"><label>Extended division (if present)</label><input class="mono" @bind="Scan.ExtendedDivisionCode" /></div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public UnitScanModel Scan { get; set; } = new();
+    [Parameter] public string Title { get; set; } = "Unit scan verification";
+    [Parameter] public string Help { get; set; } =
+        "Scan or type the ISBT 128 quadrants from the unit label. Required for ISBT-labeled units.";
+}

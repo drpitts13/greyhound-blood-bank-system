@@ -131,6 +131,31 @@ public class DualIdentificationRuleTests
     }
 }
 
+public class SecondVerifierDirectoryRuleTests
+{
+    [Fact]
+    public void Empty_Passes()
+    {
+        var result = SecondVerifierDirectoryRule.Evaluate(null, isActiveUser: false);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void ActiveUser_Passes()
+    {
+        var result = SecondVerifierDirectoryRule.Evaluate("tech2", isActiveUser: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void UnknownOrInactive_IsHardStop()
+    {
+        var result = SecondVerifierDirectoryRule.Evaluate("initials-only", isActiveUser: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(SecondVerifierDirectoryRule.Code, result.Code);
+    }
+}
+
 public class ReturnReissueRuleTests
 {
     [Fact]

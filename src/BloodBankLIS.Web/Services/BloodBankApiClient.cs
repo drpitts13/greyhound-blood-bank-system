@@ -395,6 +395,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<OrderingProviderRefDto>>> GetOrderingProvidersAsync(CancellationToken ct = default) =>
         SendAsync<List<OrderingProviderRefDto>>(HttpMethod.Get, "api/reference/ordering-providers", ct: ct);
 
+    public Task<ApiResult<List<DirectoryUserDto>>> GetDirectoryUsersAsync(CancellationToken ct = default) =>
+        SendAsync<List<DirectoryUserDto>>(HttpMethod.Get, "api/reference/users", ct: ct);
+
     public Task<ApiResult<List<TestDefinitionListItemDto>>> GetTestDefinitionsListAsync(CancellationToken ct = default) =>
         SendAsync<List<TestDefinitionListItemDto>>(HttpMethod.Get, "api/reference/test-definitions", ct: ct);
 
