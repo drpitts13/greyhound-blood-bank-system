@@ -59,6 +59,12 @@ public class Issue : BaseEntity
 
     public bool WardVisualAcceptable { get; set; } = true;
 
+    /// <summary>SoftBank cooler / transport container id while the unit is in transit to the ward.</summary>
+    public string? CoolerId { get; set; }
+
+    /// <summary>When ward receipt is due (IssuedUtc + Issue.InTransitDueHours).</summary>
+    public DateTime? InTransitDueUtc { get; set; }
+
     public DateTime? UnitExpirationAtIssueUtc { get; set; }
 
     /// <summary>21 CFR 606.151(b): conspicuous incomplete-testing statement for emergency release.</summary>

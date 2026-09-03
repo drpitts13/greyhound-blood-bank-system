@@ -1,5 +1,6 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Issuing;
 
@@ -26,7 +27,8 @@ public sealed record IssueUnitRequest(
     string? Comment = null,
     /// <summary>Fresh positive unit identity verification at issue (required when unit has ISBT identity).</summary>
     ComponentScanVerificationRequest? VerifiedScan = null,
-    string? ReceivedBy = null);
+    string? ReceivedBy = null,
+    string? CoolerId = null);
 
 public sealed record ComponentScanVerificationRequest(
     string Din,
@@ -77,13 +79,34 @@ public sealed record IssueDto(
     DateTime? WardReceivedUtc = null,
     string? WardReceivedBy = null,
     DateTime? RetrospectiveCrossmatchDueUtc = null,
-    DateTime? RetrospectiveCrossmatchCompletedUtc = null)
+    DateTime? RetrospectiveCrossmatchCompletedUtc = null,
+    string? CoolerId = null,
+    DateTime? InTransitDueUtc = null)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
         i.IssuedUtc, i.IssuedBy, i.Comment, i.IssueType, i.OverrideId, i.Status, i.TestsIncompleteAtIssue,
         i.WardReceivedUtc, i.WardReceivedBy,
-        i.RetrospectiveCrossmatchDueUtc, i.RetrospectiveCrossmatchCompletedUtc);
+        i.RetrospectiveCrossmatchDueUtc, i.RetrospectiveCrossmatchCompletedUtc,
+        i.CoolerId, i.InTransitDueUtc);
+}
+
+public sealed record InTransitWorkItemDto(
+    long IssueId,
+    long PatientId,
+    string? MedicalRecordNumber,
+    long BloodUnitId,
+    DateTime IssuedUtc,
+    DateTime? DueUtc,
+    bool IsOverdue,
+    string? CoolerId,
+    string? IssuedToLocation,
+    IssueStatus Status)
+{
+    public static InTransitWorkItemDto From(Issue i, DateTime now, string? mrn) => new(
+        i.Id, i.PatientId, mrn, i.BloodProductId, i.IssuedUtc, i.InTransitDueUtc,
+        InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning,
+        i.CoolerId, i.IssuedToLocation, i.Status);
 }
 
 public sealed record RetrospectiveCrossmatchWorkItemDto(

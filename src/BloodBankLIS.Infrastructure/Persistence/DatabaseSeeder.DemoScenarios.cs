@@ -814,6 +814,8 @@ public static partial class DatabaseSeeder
             IssuedBy = "tech2",
             IssuedTo = "RN Alvarez",
             IssuedToLocation = "Trauma Bay 2",
+            CoolerId = "CLR-TRAUMA-1",
+            InTransitDueUtc = now.AddHours(-1),
             IssueType = IssueType.EmergencyRelease,
             CrossmatchStatus = CrossmatchClinicalStatus.NotCrossmatchedEmergency,
             EmergencyReleaseDetails = "Released before ABO/Rh confirmation. Retrospective crossmatch pending.",

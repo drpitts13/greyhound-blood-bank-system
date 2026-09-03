@@ -324,6 +324,9 @@ public sealed class BloodBankApiClient
         SendAsync<List<RetrospectiveCrossmatchWorkItemDto>>(
             HttpMethod.Get, "api/issues/pending-retrospective-crossmatch", ct: ct);
 
+    public Task<ApiResult<List<InTransitWorkItemDto>>> GetInTransitIssuesAsync(CancellationToken ct = default) =>
+        SendAsync<List<InTransitWorkItemDto>>(HttpMethod.Get, "api/issues/in-transit", ct: ct);
+
     public Task<ApiResult<IssueDto>> GetIssueAsync(long id, CancellationToken ct = default) =>
         SendAsync<IssueDto>(HttpMethod.Get, $"api/issues/{id}", ct: ct);
 

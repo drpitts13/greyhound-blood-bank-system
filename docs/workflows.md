@@ -130,6 +130,8 @@ flowchart TD
     out -->|All pass| ok[Issue allowed]
 ```
 
+- After a successful issue the unit is **in transit** until ward receipt or return. Optional `CoolerId` records SoftBank-style cooler checkout. `InTransitDueUtc` is `IssuedUtc` plus `Issue.InTransitDueHours` (default 4). The issuing worklist (`GET /api/issues/in-transit`) flags overdue custody (`ISS-IN-TRANSIT`). Late ward receipt is still allowed and is audited as late.
+
 ---
 
 ## 6. Emergency release (uncrossmatched)

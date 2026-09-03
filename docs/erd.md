@@ -214,7 +214,7 @@ Indexes: (`BloodProductId`), (`PatientId`,`SpecimenId`).
 Indexes: (`BloodProductId`,`Status`), (`PatientId`).
 
 ### Issues
-`Id`, `AllocationId BIGINT NULL` (FK Allocations), `BloodProductId` (FK BloodProducts), `PatientId` (FK Patients), `IssuedToLocation`, `IssuedTo` (recipient/courier), `IssuedUtc`, `IssuedBy`, `IssueType` (Standard/EmergencyRelease/MassiveTransfusion), `OverrideId BIGINT NULL` (FK Overrides), `Status` (Issued/Returned/Transfused), `WardReceivedUtc NULL`, `WardReceivedBy NULL`, `WardVisualAcceptable BIT`, `TestsIncompleteAtIssue BIT`, `RetrospectiveCrossmatchDueUtc NULL`, `RetrospectiveCrossmatchCompletedUtc NULL`, `RetrospectiveCrossmatchId BIGINT NULL`. Index: (`BloodProductId`), (`PatientId`), (`TestsIncompleteAtIssue`,`RetrospectiveCrossmatchCompletedUtc`).
+`Id`, `AllocationId BIGINT NULL` (FK Allocations), `BloodProductId` (FK BloodProducts), `PatientId` (FK Patients), `IssuedToLocation`, `IssuedTo` (recipient/courier), `IssuedUtc`, `IssuedBy`, `IssueType` (Standard/EmergencyRelease/MassiveTransfusion), `OverrideId BIGINT NULL` (FK Overrides), `Status` (Issued/Returned/Transfused), `WardReceivedUtc NULL`, `WardReceivedBy NULL`, `WardVisualAcceptable BIT`, `CoolerId NULL`, `InTransitDueUtc NULL`, `TestsIncompleteAtIssue BIT`, `RetrospectiveCrossmatchDueUtc NULL`, `RetrospectiveCrossmatchCompletedUtc NULL`, `RetrospectiveCrossmatchId BIGINT NULL`. Index: (`BloodProductId`), (`PatientId`), (`TestsIncompleteAtIssue`,`RetrospectiveCrossmatchCompletedUtc`), (`Status`,`WardReceivedUtc`).
 
 ### Returns
 `Id`, `IssueId` (FK Issues), `BloodProductId` (FK BloodProducts), `ReturnedUtc`, `ReturnedBy`, `Reason`, `ReissueEligible BIT`, `ReissueEvaluationJson NULL` (which checks passed/failed). Index: (`IssueId`).

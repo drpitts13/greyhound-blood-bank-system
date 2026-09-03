@@ -576,6 +576,8 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
         b.HasIndex(i => i.OrderId);
         b.Property(i => i.SecondVerifier).HasMaxLength(100);
         b.Property(i => i.WardReceivedBy).HasMaxLength(150);
+        b.Property(i => i.CoolerId).HasMaxLength(50);
+        b.HasIndex(i => new { i.Status, i.WardReceivedUtc });
         b.Property(i => i.PatientIdentifier1).HasMaxLength(100);
         b.Property(i => i.PatientIdentifier2).HasMaxLength(100);
     }

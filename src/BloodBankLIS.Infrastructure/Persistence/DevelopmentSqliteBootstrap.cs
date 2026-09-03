@@ -89,6 +89,8 @@ public static class DevelopmentSqliteBootstrap
         ("Issues", "SecondVerifier", """ALTER TABLE "Issues" ADD COLUMN "SecondVerifier" TEXT NULL"""),
         ("Issues", "PatientIdentifier1", """ALTER TABLE "Issues" ADD COLUMN "PatientIdentifier1" TEXT NULL"""),
         ("Issues", "PatientIdentifier2", """ALTER TABLE "Issues" ADD COLUMN "PatientIdentifier2" TEXT NULL"""),
+        ("Issues", "CoolerId", """ALTER TABLE "Issues" ADD COLUMN "CoolerId" TEXT NULL"""),
+        ("Issues", "InTransitDueUtc", """ALTER TABLE "Issues" ADD COLUMN "InTransitDueUtc" TEXT NULL"""),
         ("Users", "FailedSignInCount", """ALTER TABLE "Users" ADD COLUMN "FailedSignInCount" INTEGER NOT NULL DEFAULT 0"""),
         ("Users", "PinHash", """ALTER TABLE "Users" ADD COLUMN "PinHash" TEXT NULL"""),
         ("ElectronicSignatures", "AuthenticationMethod", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "AuthenticationMethod" INTEGER NOT NULL DEFAULT 2"""),

@@ -9,6 +9,7 @@ public static class FacilityPolicyKeys
     public const string RequireSecondVerifier = "Transfusion.RequireSecondVerifier";
     public const string RequireWardReceipt = "Transfusion.RequireWardReceipt";
     public const string RetrospectiveCrossmatchDueHours = "Issue.RetrospectiveCrossmatchDueHours";
+    public const string InTransitDueHours = "Issue.InTransitDueHours";
     public const string RequireQuarantineReleaseVerifier = "Inventory.RequireQuarantineReleaseVerifier";
     public const string RequireReceiveVisualInspection = "Inventory.RequireReceiveVisualInspection";
     public const string RequireReceiveVerifier = "Inventory.RequireReceiveVerifier";

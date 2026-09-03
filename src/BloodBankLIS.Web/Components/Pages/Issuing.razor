@@ -51,6 +51,51 @@
             </table>
         }
     </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>In transit to ward</h3></div>
+        <p class="muted">Issued units in a cooler or courier handoff until the receiving location acknowledges custody (SoftBank remote issue).</p>
+        @if (_inTransitItems.Count == 0)
+        {
+            <div class="muted">No units currently in transit.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Issue</th>
+                        <th>MRN</th>
+                        <th>Unit</th>
+                        <th>Cooler</th>
+                        <th>Location</th>
+                        <th>Issued</th>
+                        <th>Due</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _inTransitItems)
+                    {
+                        <tr>
+                            <td><a href="@($"/patients/{row.PatientId}")">#@row.IssueId</a></td>
+                            <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
+                            <td class="mono">@row.BloodUnitId</td>
+                            <td class="mono">@(row.CoolerId ?? "—")</td>
+                            <td>@(row.IssuedToLocation ?? "—")</td>
+                            <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                                @if (row.IsOverdue)
+                                {
+                                    <span class="badge badge-amber">Overdue</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
 }
 
 <div class="bb-card">
@@ -67,6 +112,7 @@
             <div class="field"><label>Patient id</label><input type="number" @bind="_issue.PatientId" /></div>
             <div class="field"><label>Issued to (person)</label><input @bind="_issue.IssuedTo" /></div>
             <div class="field"><label>Issued to (location)</label><input @bind="_issue.IssuedToLocation" /></div>
+            <div class="field"><label>Cooler / transport id</label><input @bind="_issue.CoolerId" placeholder="Optional cooler checkout" /></div>
             <div class="field"><label>Issue type</label>
                 <select @bind="_issue.IssueType">@foreach (var t in Enum.GetValues<IssueType>()) { <option value="@t">@t</option> }</select>
             </div>
@@ -249,6 +295,7 @@
     private readonly UnitScanModel _txScan = new();
     private List<DirectoryUserDto> _directoryUsers = new();
     private List<RetrospectiveCrossmatchWorkItemDto> _retroItems = new();
+    private List<InTransitWorkItemDto> _inTransitItems = new();
 
     private IEnumerable<DirectoryUserDto> SecondVerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
@@ -257,14 +304,16 @@
     {
         var users = await Api.GetDirectoryUsersAsync();
         if (users.Succeeded) _directoryUsers = users.Value ?? new();
-        await LoadRetroAsync();
+        await LoadWorklistsAsync();
     }
 
-    private async Task LoadRetroAsync()
+    private async Task LoadWorklistsAsync()
     {
         if (!Session.Has(PermissionCodes.IssueCreate)) return;
-        var r = await Api.GetPendingRetrospectiveCrossmatchesAsync();
-        if (r.Succeeded) _retroItems = r.Value ?? new();
+        var retro = await Api.GetPendingRetrospectiveCrossmatchesAsync();
+        if (retro.Succeeded) _retroItems = retro.Value ?? new();
+        var transit = await Api.GetInTransitIssuesAsync();
+        if (transit.Succeeded) _inTransitItems = transit.Value ?? new();
     }
 
     private IssueUnitRequest BuildRequest(string? overrideReason, string? authorizedBy) => new(
@@ -281,7 +330,8 @@
         _issue.SecondVerifier,
         OverrideReason: overrideReason,
         AuthorizedBy: authorizedBy,
-        VerifiedScan: _issueScan.ToRequest());
+        VerifiedScan: _issueScan.ToRequest(),
+        CoolerId: string.IsNullOrWhiteSpace(_issue.CoolerId) ? null : _issue.CoolerId.Trim());
 
     private async Task IssueAsync()
     {
@@ -294,7 +344,7 @@
             _wardIssueId = r.Value!.Id;
             _txIssueId = r.Value.Id;
             _returnIssueId = r.Value.Id;
-            await LoadRetroAsync();
+            await LoadWorklistsAsync();
         }
         _busy = false;
     }
@@ -327,7 +377,7 @@
             _txIssueId = r.Value.Id;
             _returnIssueId = r.Value.Id;
             _overrideOn = false;
-            await LoadRetroAsync();
+            await LoadWorklistsAsync();
         }
         _busy = false;
     }
@@ -349,7 +399,11 @@
             _wardVisualOk));
         _busy = false;
         _wardFb = r.ToFeedback("Ward receipt recorded.");
-        if (r.Succeeded) _wardIssue = r.Value;
+        if (r.Succeeded)
+        {
+            _wardIssue = r.Value;
+            await LoadWorklistsAsync();
+        }
     }
 
     private async Task ReturnAsync()
@@ -357,7 +411,7 @@
         _busy = true;
         var r = await Api.ReturnUnitAsync(_returnIssueId, new ReturnUnitRequest(_returnReason));
         _returnFb = r.ToFeedback("Unit returned.");
-        if (r.Succeeded) await LoadRetroAsync();
+        if (r.Succeeded) await LoadWorklistsAsync();
         _busy = false;
     }
 
@@ -386,5 +440,6 @@
         public IssueType IssueType { get; set; } = IssueType.Standard;
         public bool VisualInspectionAcceptable { get; set; } = true;
         public string? SecondVerifier { get; set; }
+        public string? CoolerId { get; set; }
     }
 }

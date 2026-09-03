@@ -26,6 +26,7 @@ public static partial class DatabaseSeeder
         await EnsureQuarantineReleaseVerifierPolicyAsync(context, cancellationToken);
         await EnsureReceiveVisualInspectionPolicyAsync(context, cancellationToken);
         await EnsureReceiveVerifierPolicyAsync(context, cancellationToken);
+        await EnsureInTransitDueHoursPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
@@ -165,6 +166,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.InTransitDueHours,
+                Value = "4",
+                Category = "Issue",
+                Description = "Hours after issue when ward receipt of a cooler / in-transit unit is due."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.RequireQuarantineReleaseVerifier,
                 Value = "true",
                 Category = "Inventory",
@@ -238,6 +246,23 @@ public static partial class DatabaseSeeder
             Value = "24",
             Category = "Issue",
             Description = "Hours after an uncrossmatched emergency or MTP issue when retrospective XM is due."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureInTransitDueHoursPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.InTransitDueHours, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.InTransitDueHours,
+            Value = "4",
+            Category = "Issue",
+            Description = "Hours after issue when ward receipt of a cooler / in-transit unit is due."
         });
         await context.SaveChangesAsync(ct);
     }

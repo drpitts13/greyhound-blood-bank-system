@@ -707,4 +707,59 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.True(issued.Succeeded);
         Assert.Equal("TECH2", issued.Value!.SecondVerifier);
     }
+
+    [Fact]
+    public async Task Issue_SetsCoolerAndAppearsOnInTransitWorklist()
+    {
+        var s = await SeedAsync("COOLER");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with { CoolerId = "CLR-7" });
+            Assert.True(issued.Succeeded);
+            issueId = issued.Value!.Id;
+            Assert.Equal("CLR-7", issued.Value.CoolerId);
+            Assert.NotNull(issued.Value.InTransitDueUtc);
+
+            var transit = await Issuing(c).ListInTransitAsync();
+            var row = Assert.Single(transit, t => t.IssueId == issueId);
+            Assert.Equal("CLR-7", row.CoolerId);
+            Assert.False(row.IsOverdue);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            var transit = await Issuing(c).ListInTransitAsync();
+            Assert.DoesNotContain(transit, t => t.IssueId == issueId);
+        }
+    }
+
+    [Fact]
+    public async Task InTransit_Overdue_AndReturnDropsFromWorklist()
+    {
+        var s = await SeedAsync("TRANSITOV");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddHours(-5), CoolerId = "CLR-LATE" });
+            Assert.True(issued.Succeeded);
+            issueId = issued.Value!.Id;
+            var transit = await Issuing(c).ListInTransitAsync();
+            var row = Assert.Single(transit, t => t.IssueId == issueId);
+            Assert.True(row.IsOverdue);
+        }
+
+        await using var ctx = _factory.Create();
+        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Cooler returned unused"))).Succeeded);
+        var after = await Issuing(ctx).ListInTransitAsync();
+        Assert.DoesNotContain(after, t => t.IssueId == issueId);
+    }
 }

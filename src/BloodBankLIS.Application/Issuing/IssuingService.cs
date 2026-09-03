@@ -314,6 +314,8 @@ public sealed class IssuingService
                 : null,
             TestsIncompleteAtIssue = testsIncomplete,
             RetrospectiveCrossmatchDueUtc = retroDueUtc,
+            CoolerId = string.IsNullOrWhiteSpace(request.CoolerId) ? null : request.CoolerId.Trim(),
+            InTransitDueUtc = issuedUtc.AddHours(await _policy.GetInTransitDueHoursAsync(ct)),
             VisualInspectionAcceptable = request.VisualInspectionAcceptable,
             SecondVerifier = request.SecondVerifier,
             PatientIdentifier1 = request.PatientIdentifier1Value,
@@ -392,6 +394,27 @@ public sealed class IssuingService
     }
 
     /// <summary>
+    /// SoftBank cooler / remote-issue worklist: issued units not yet received at the ward.
+    /// </summary>
+    public async Task<IReadOnlyList<InTransitWorkItemDto>> ListInTransitAsync(CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+        var rows = await _issues.ListAsync(i =>
+            i.Status == IssueStatus.Issued && i.WardReceivedUtc == null, ct);
+
+        var patientIds = rows.Select(i => i.PatientId).Distinct().ToList();
+        var patients = patientIds.Count == 0
+            ? []
+            : await _patients.ListAsync(p => patientIds.Contains(p.Id), ct);
+        var mrnByPatient = patients.ToDictionary(p => p.Id, p => p.MedicalRecordNumber);
+
+        return rows
+            .OrderBy(i => i.InTransitDueUtc ?? i.IssuedUtc)
+            .Select(i => InTransitWorkItemDto.From(i, now, mrnByPatient.GetValueOrDefault(i.PatientId)))
+            .ToList();
+    }
+
+    /// <summary>
     /// Nursing-unit custody acknowledgment after the unit leaves the blood bank.
     /// Required before transfusion when <see cref="FacilityPolicyKeys.RequireWardReceipt"/> is true.
     /// </summary>
@@ -428,6 +451,7 @@ public sealed class IssuingService
         }
 
         var now = _clock.UtcNow;
+        var overdue = InTransitPendingRule.EvaluateOverdue(issue.InTransitDueUtc, now);
         issue.WardReceivedUtc = now;
         issue.WardReceivedBy = request.ReceivedBy.Trim();
         issue.WardVisualAcceptable = true;
@@ -437,8 +461,10 @@ public sealed class IssuingService
             AuditEventType.Update,
             nameof(Issue),
             issue.Id,
-            newValue: new { issue.WardReceivedBy, issue.WardReceivedUtc },
-            reason: "Ward receipt of issued unit.");
+            newValue: new { issue.WardReceivedBy, issue.WardReceivedUtc, Late = overdue.Severity == RuleSeverity.Warning },
+            reason: overdue.Severity == RuleSeverity.Warning
+                ? "Ward receipt of issued unit (late — past in-transit due time)."
+                : "Ward receipt of issued unit.");
 
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<Issue>.Ok(issue);

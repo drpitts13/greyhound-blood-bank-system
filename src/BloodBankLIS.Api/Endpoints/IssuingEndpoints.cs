@@ -63,6 +63,10 @@ public static class IssuingEndpoints
             Results.Ok(await service.ListPendingRetrospectiveCrossmatchesAsync(ct)))
             .RequirePermission(PermissionCodes.IssueCreate);
 
+        issues.MapGet("/in-transit", async (IssuingService service, CancellationToken ct) =>
+            Results.Ok(await service.ListInTransitAsync(ct)))
+            .RequirePermission(PermissionCodes.IssueCreate);
+
         issues.MapGet("/{id:long}", async (long id, IssuingService service, CancellationToken ct) =>
         {
             var issue = await service.GetAsync(id, ct);
