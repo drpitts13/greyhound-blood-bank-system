@@ -30,6 +30,7 @@ public static partial class DatabaseSeeder
         await EnsureDiscardVerifierPolicyAsync(context, cancellationToken);
         await EnsureDirectedConversionVerifierPolicyAsync(context, cancellationToken);
         await EnsureExpectedArrivalDueHoursPolicyAsync(context, cancellationToken);
+        await EnsureNearExpiryWarningHoursPolicyAsync(context, cancellationToken);
         await EnsureInTransitDueHoursPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
@@ -226,6 +227,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.NearExpiryWarningHours,
+                Value = "24",
+                Category = "Inventory",
+                Description = "Hours before unit expiration when the near-expiry worklist includes the unit."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.BlockSelfVerify,
                 Value = "false",
                 Category = "Result",
@@ -414,6 +422,23 @@ public static partial class DatabaseSeeder
             Value = "24",
             Category = "Inventory",
             Description = "Hours after packing-list expect when inbound arrival is due."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureNearExpiryWarningHoursPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.NearExpiryWarningHours, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.NearExpiryWarningHours,
+            Value = "24",
+            Category = "Inventory",
+            Description = "Hours before unit expiration when the near-expiry worklist includes the unit."
         });
         await context.SaveChangesAsync(ct);
     }

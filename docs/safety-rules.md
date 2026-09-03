@@ -43,7 +43,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ISS-ABORH-DISCREPANCY` | Current ABO/Rh determination agrees with historical record (computed from history, not an operator flag) | Warning (HardStop if unresolved on a crossmatch-required product) |
 | `ISS-VISUAL` | Unit passed visual inspection at issue | HardStop |
 | `ISS-SPEC-NEAR-EXPIRY` | Specimen expires within configurable warning window | Warning |
-| `ISS-UNIT-NEAR-EXPIRY` | Unit expires within configurable warning window | Warning |
+| `ISS-UNIT-NEAR-EXPIRY` | Unit expires within configurable warning window | Warning (issue gate); worklist `GET /api/inventory/units/near-expiry` (`Inventory.NearExpiryWarningHours`, default 24) |
 | `TX-DUAL-ID` | Distinct second verifier, or validated electronic identification of recipient + unit | HardStop when facility policy requires it |
 | `TX-SECOND-USER` | Named second verifier is an active, unlocked application user (not free-text initials) | HardStop when a second verifier is supplied |
 | `TX-WARD-RECEIPT` | Receiving location acknowledged the issued unit (`WardReceivedUtc`) | HardStop when facility policy `Transfusion.RequireWardReceipt` is true (default) |

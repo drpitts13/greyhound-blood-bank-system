@@ -151,6 +151,44 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListNearExpiry_IncludesOnHandUnitsInsideWindow()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var soon = await service.ReceiveUnitAsync(
+            NewUnitRequest("U-NEAR-YES", productTypeId, _factory.Clock.UtcNow.AddHours(12)));
+        Assert.True(soon.Succeeded, soon.Error);
+        var later = await service.ReceiveUnitAsync(NewUnitRequest("U-NEAR-NO", productTypeId));
+        Assert.True(later.Succeeded, later.Error);
+
+        var list = await service.ListNearExpiryAsync();
+        Assert.Contains(list, i => i.UnitNumber == "U-NEAR-YES");
+        Assert.DoesNotContain(list, i => i.UnitNumber == "U-NEAR-NO");
+    }
+
+    [Fact]
+    public async Task ListNearExpiry_ExcludesExpectedAndExpired()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var expected = await service.ExpectUnitAsync(
+            NewUnitRequest("U-NEAR-ASN", productTypeId, _factory.Clock.UtcNow.AddHours(6)));
+        Assert.True(expected.Succeeded, expected.Error);
+
+        var expired = await service.ReceiveUnitAsync(
+            NewUnitRequest("U-NEAR-PAST", productTypeId, _factory.Clock.UtcNow.AddHours(1)));
+        Assert.True(expired.Succeeded, expired.Error);
+        expired.Unit!.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+        await context.SaveChangesAsync();
+
+        var list = await service.ListNearExpiryAsync();
+        Assert.DoesNotContain(list, i => i.UnitNumber == "U-NEAR-ASN");
+        Assert.DoesNotContain(list, i => i.UnitNumber == "U-NEAR-PAST");
+    }
+
+    [Fact]
     public async Task ReceiveUnit_MissingProductCode_Fails()
     {
         var productTypeId = await EnsureProductTypeAsync();

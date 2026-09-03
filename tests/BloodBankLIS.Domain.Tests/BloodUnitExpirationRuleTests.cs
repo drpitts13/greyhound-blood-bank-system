@@ -32,6 +32,14 @@ public class BloodUnitExpirationRuleTests
     }
 
     [Fact]
+    public void IsNearExpiry_MatchesWarningWindow()
+    {
+        Assert.True(BloodUnitExpirationRule.IsNearExpiry(Now.AddDays(1), Now, Window));
+        Assert.False(BloodUnitExpirationRule.IsNearExpiry(Now.AddDays(10), Now, Window));
+        Assert.False(BloodUnitExpirationRule.IsNearExpiry(Now, Now, Window));
+    }
+
+    [Fact]
     public void PastExpiration_IsHardStop()
     {
         var result = BloodUnitExpirationRule.Evaluate(Now.AddHours(-1), Now, Window);

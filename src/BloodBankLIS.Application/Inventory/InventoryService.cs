@@ -28,6 +28,13 @@ public sealed class InventoryService
         UnitStatus.Transferred, UnitStatus.CancelledAssignment, UnitStatus.OnHold
     };
 
+    private static readonly UnitStatus[] NearExpiryStatuses =
+    {
+        UnitStatus.Quarantine, UnitStatus.Available, UnitStatus.Allocated, UnitStatus.Returned,
+        UnitStatus.Received, UnitStatus.Selected, UnitStatus.Assigned, UnitStatus.Crossmatched,
+        UnitStatus.Transferred, UnitStatus.OnHold
+    };
+
     private readonly IInventoryRepository _repository;
     private readonly IRepository<UnitBloodAttribute> _unitAttributes;
     private readonly IRepository<BloodAttributeDefinition> _bloodAttributes;
@@ -80,6 +87,32 @@ public sealed class InventoryService
         return rows
             .OrderBy(u => u.ExpectedArrivalDueUtc ?? u.CreatedUtc)
             .Select(u => ExpectedInboundWorkItemDto.From(u, now))
+            .ToList();
+    }
+
+    /// <summary>
+    /// SoftBank/SafeTrace FIFO / outdate worklist: on-hand units that expire within
+    /// <see cref="FacilityPolicyKeys.NearExpiryWarningHours"/> (default 24) but are
+    /// not yet expired. The issue gate already warns <c>UNIT-NEAR-EXPIRY</c>.
+    /// </summary>
+    public async Task<IReadOnlyList<NearExpiryWorkItemDto>> ListNearExpiryAsync(CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+        var hours = _policy is null ? 24 : await _policy.GetNearExpiryWarningHoursAsync(ct);
+        if (hours < 1)
+        {
+            hours = 1;
+        }
+
+        var window = TimeSpan.FromHours(hours);
+        var rows = await _repository.SearchAsync(
+            new InventorySearchCriteria(ExpiringBeforeUtc: now.Add(window).AddSeconds(1)), ct);
+
+        return rows
+            .Where(u => NearExpiryStatuses.Contains(u.Status)
+                        && BloodUnitExpirationRule.IsNearExpiry(u.ExpiresUtc, now, window))
+            .OrderBy(u => u.ExpiresUtc)
+            .Select(NearExpiryWorkItemDto.From)
             .ToList();
     }
 

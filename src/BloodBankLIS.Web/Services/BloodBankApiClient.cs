@@ -254,6 +254,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<ExpectedInboundWorkItemDto>>> GetExpectedInboundAsync(CancellationToken ct = default) =>
         SendAsync<List<ExpectedInboundWorkItemDto>>(HttpMethod.Get, "api/inventory/units/expected", ct: ct);
 
+    public Task<ApiResult<List<NearExpiryWorkItemDto>>> GetNearExpiryUnitsAsync(CancellationToken ct = default) =>
+        SendAsync<List<NearExpiryWorkItemDto>>(HttpMethod.Get, "api/inventory/units/near-expiry", ct: ct);
+
     public Task<ApiResult<BloodUnitDto>> ReceiveExpectedUnitAsync(long id, ReceiveExpectedUnitRequest req, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/receive-expected", req, ct);
 

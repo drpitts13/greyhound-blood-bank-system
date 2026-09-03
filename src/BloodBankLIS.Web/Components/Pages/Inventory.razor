@@ -72,6 +72,42 @@
     </div>
 }
 
+@if (_nearExpiryItems.Count > 0)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Near expiry</h3></div>
+        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). Use or discard them before the expiration sweep.</p>
+        <table class="bb">
+            <thead>
+                <tr>
+                    <th>Unit</th>
+                    <th>ABO/Rh</th>
+                    <th>Product</th>
+                    <th>Status</th>
+                    <th>Expires</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _nearExpiryItems)
+                {
+                    <tr>
+                        <td class="mono">@row.UnitNumber</td>
+                        <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
+                        <td>@ProductName(row.ProductTypeId)</td>
+                        <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
+                        <td class="nowrap">
+                            @row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
+                            <span class="badge badge-amber">Near expiry</span>
+                        </td>
+                        <td class="right"><button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => OpenExpectedAsync(row.UnitId)">Open</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
 @if (_showReceive)
 {
     <div class="bb-card">
@@ -231,7 +267,17 @@
                         <td class="mono">@ProductCode(u)</td>
                         <td>@ProductName(u.ProductTypeId)</td>
                         <td><strong>@Ui.BloodType(u.Abo, u.RhD)</strong></td>
-                        <td class="nowrap @(u.ExpiresUtc < DateTime.UtcNow ? "" : "")">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">
+                            @u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
+                            @if (u.ExpiresUtc < DateTime.UtcNow)
+                            {
+                                <span class="badge badge-red">Expired</span>
+                            }
+                            else if (_nearExpiryItems.Any(n => n.UnitId == u.Id))
+                            {
+                                <span class="badge badge-amber">Near expiry</span>
+                            }
+                        </td>
                         <td><span class="@Ui.Badge(u.Status)">@u.Status</span>
                             @if (u.Status == UnitStatus.Expected && u.ExpectedArrivalDueUtc is DateTime due && due < DateTime.UtcNow)
                             {
@@ -254,6 +300,7 @@
 @code {
     private List<BloodUnitDto> _units = new();
     private List<ExpectedInboundWorkItemDto> _expectedItems = new();
+    private List<NearExpiryWorkItemDto> _nearExpiryItems = new();
     private List<ProductTypeDto> _productTypes = new();
     private List<InventoryLocationDto> _locations = new();
     private bool _loading = true;
@@ -318,6 +365,7 @@
         if (patients.Succeeded) _patients = patients.Value ?? new();
         await SearchAsync();
         await LoadExpectedAsync();
+        await LoadNearExpiryAsync();
     }
 
     private string ProductCode(BloodUnitDto u)
@@ -375,6 +423,12 @@
         if (r.Succeeded) _expectedItems = r.Value ?? new();
     }
 
+    private async Task LoadNearExpiryAsync()
+    {
+        var r = await Api.GetNearExpiryUnitsAsync();
+        if (r.Succeeded) _nearExpiryItems = r.Value ?? new();
+    }
+
     private async Task OpenExpectedAsync(long unitId)
     {
         var r = await Api.GetUnitAsync(unitId);
@@ -413,7 +467,7 @@
         _receiveFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
             ? "Unit received. ABO/Rh retype is required before the unit is Available."
             : "Unit received into quarantine.");
-        if (r.Succeeded) { _rec = new(); _showReceive = false; await SearchAsync(); }
+        if (r.Succeeded) { _rec = new(); _showReceive = false; await SearchAsync(); await LoadNearExpiryAsync(); }
     }
 
     private async Task ExpectAsync()
@@ -442,7 +496,11 @@
         _topFb = r.Succeeded
             ? new Feedback(true, $"Expiration sweep complete: {r.Value!.Expired} unit(s) expired.", Array.Empty<RuleMessage>(), false, false, Array.Empty<RuleMessage>(), null)
             : r.ToFeedback();
-        if (r.Succeeded) await SearchAsync();
+        if (r.Succeeded)
+        {
+            await SearchAsync();
+            await LoadNearExpiryAsync();
+        }
     }
 
     private void ToggleReceive()
@@ -709,6 +767,7 @@
     {
         await SearchAsync();
         await LoadExpectedAsync();
+        await LoadNearExpiryAsync();
         _selected = _units.FirstOrDefault(u => u.Id == id);
         if (_selected is not null)
         {

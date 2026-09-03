@@ -68,6 +68,9 @@ public sealed class FacilityPolicyService
     public Task<int> GetExpectedArrivalDueHoursAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.ExpectedArrivalDueHours, 24, ct);
 
+    public Task<int> GetNearExpiryWarningHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.NearExpiryWarningHours, 24, ct);
+
     public Task<bool> GetBlockSelfVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockSelfVerify, false, ct);
 

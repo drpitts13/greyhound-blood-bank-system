@@ -38,6 +38,9 @@ public static class InventoryEndpoints
             Results.Ok(await service.ListExpectedAsync(ct)))
             .RequirePermission(PermissionCodes.InventoryReceive);
 
+        group.MapGet("/units/near-expiry", async (InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListNearExpiryAsync(ct)));
+
         group.MapGet("/units/{id:long}", async (long id, InventoryService service, CancellationToken ct) =>
         {
             var unit = await service.GetAsync(id, ct);

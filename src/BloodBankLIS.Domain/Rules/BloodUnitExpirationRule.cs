@@ -12,6 +12,9 @@ public static class BloodUnitExpirationRule
 
     public static bool IsExpired(DateTime expiresUtc, DateTime nowUtc) => nowUtc >= expiresUtc;
 
+    public static bool IsNearExpiry(DateTime expiresUtc, DateTime nowUtc, TimeSpan nearExpiryWindow) =>
+        Evaluate(expiresUtc, nowUtc, nearExpiryWindow).Severity == RuleSeverity.Warning;
+
     /// <summary>
     /// HardStop if the unit is at or past expiration; Warning if it expires within
     /// <paramref name="nearExpiryWindow"/>; otherwise Pass.

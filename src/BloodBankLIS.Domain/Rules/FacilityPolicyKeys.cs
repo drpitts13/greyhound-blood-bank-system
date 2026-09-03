@@ -17,6 +17,7 @@ public static class FacilityPolicyKeys
     public const string RequireDiscardVerifier = "Inventory.RequireDiscardVerifier";
     public const string RequireDirectedConversionVerifier = "Inventory.RequireDirectedConversionVerifier";
     public const string ExpectedArrivalDueHours = "Inventory.ExpectedArrivalDueHours";
+    public const string NearExpiryWarningHours = "Inventory.NearExpiryWarningHours";
     public const string BlockSelfVerify = "Result.BlockSelfVerify";
     public const string RetentionYears = "Record.RetentionYears";
     public const string SignatureValidityMinutes = "Signature.ValidityMinutes";

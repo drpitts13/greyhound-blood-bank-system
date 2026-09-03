@@ -83,3 +83,16 @@ public sealed record ExpectedInboundWorkItemDto(
         ExpectedArrivalPendingRule.EvaluateOverdue(u.ExpectedArrivalDueUtc, now).Severity == RuleSeverity.Warning,
         u.ShipmentId, u.Supplier, u.Abo, u.RhD);
 }
+
+public sealed record NearExpiryWorkItemDto(
+    long UnitId,
+    string UnitNumber,
+    DateTime ExpiresUtc,
+    UnitStatus Status,
+    AboGroup Abo,
+    RhType RhD,
+    long ProductTypeId)
+{
+    public static NearExpiryWorkItemDto From(BloodUnit u) => new(
+        u.Id, u.UnitNumber, u.ExpiresUtc, u.Status, u.Abo, u.RhD, u.ProductTypeId);
+}
