@@ -26,6 +26,9 @@ public class InventoryStatusTransitionTests
     [InlineData(UnitStatus.OnHold, UnitStatus.Quarantine)]
     [InlineData(UnitStatus.Assigned, UnitStatus.OnHold)]
     [InlineData(UnitStatus.Crossmatched, UnitStatus.OnHold)]
+    [InlineData(UnitStatus.Expected, UnitStatus.Received)]
+    [InlineData(UnitStatus.Expected, UnitStatus.Quarantine)]
+    [InlineData(UnitStatus.Expected, UnitStatus.CancelledAssignment)]
     public void AllowedTransitions_Pass(UnitStatus from, UnitStatus to)
     {
         Assert.True(InventoryStatusTransition.IsAllowed(from, to));

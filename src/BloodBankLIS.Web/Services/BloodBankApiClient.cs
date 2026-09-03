@@ -248,6 +248,15 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<BloodUnitDto>> ReceiveUnitAsync(ReceiveUnitRequest req, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units", req, ct);
 
+    public Task<ApiResult<BloodUnitDto>> ExpectUnitAsync(ReceiveUnitRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units/expected", req, ct);
+
+    public Task<ApiResult<BloodUnitDto>> ReceiveExpectedUnitAsync(long id, ReceiveExpectedUnitRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/receive-expected", req, ct);
+
+    public Task<ApiResult<BloodUnitDto>> CancelExpectedUnitAsync(long id, CancelExpectedUnitRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/cancel-expected", req, ct);
+
     public Task<ApiResult<BloodUnitDto>> ReleaseUnitAsync(long id, ReleaseFromQuarantineRequest? req = null, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/release", req ?? new ReleaseFromQuarantineRequest(), ct);
 

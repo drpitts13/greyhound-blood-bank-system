@@ -177,6 +177,7 @@ public sealed class InventoryService
             Isbt128DonationId = request.Isbt128DonationId,
             Volume = request.Volume,
             Status = initialStatus,
+            ShipmentId = string.IsNullOrWhiteSpace(request.ShipmentId) ? null : request.ShipmentId.Trim(),
             ReceiveVisualAcceptable = request.VisualInspectionAcceptable,
             ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
                 ? null
@@ -200,6 +201,145 @@ public sealed class InventoryService
 
         await _unitOfWork.SaveChangesAsync(ct);
         return InventoryActionResult.Ok(unit);
+    }
+
+    /// <summary>
+    /// SoftBank/SafeTrace packing-list intake: records a unit that has been
+    /// shipped but has not yet arrived. No visual inspection until arrival.
+    /// </summary>
+    public async Task<InventoryActionResult> ExpectUnitAsync(ReceiveUnitRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (string.IsNullOrWhiteSpace(request.UnitNumber))
+        {
+            return InventoryActionResult.Fail("Unit number is required.");
+        }
+
+        if (request.ExpiresUtc <= _clock.UtcNow)
+        {
+            return InventoryActionResult.Fail("Expiration date/time must be in the future.");
+        }
+
+        var productLookup = await _lookups.GetProductLookupAsync(ct);
+        var productValidation = ProductCodeLookupValidator.Validate(
+            request.Isbt128ProductCode,
+            productLookup,
+            DateOnly.FromDateTime(_clock.UtcNow));
+        if (!productValidation.Success)
+        {
+            return InventoryActionResult.Fail(productValidation.Error!);
+        }
+
+        if (await _repository.UnitNumberExistsAsync(request.UnitNumber, ct))
+        {
+            return InventoryActionResult.Fail($"A unit with number '{request.UnitNumber}' already exists.");
+        }
+
+        var resolved = productValidation.Value!;
+        var unit = new BloodUnit
+        {
+            UnitNumber = request.UnitNumber,
+            ProductTypeId = request.ProductTypeId,
+            Abo = request.Abo,
+            RhD = request.RhD,
+            ExpiresUtc = request.ExpiresUtc,
+            CurrentLocationId = request.LocationId,
+            CollectionFacility = request.CollectionFacility,
+            Supplier = request.Supplier,
+            ShipmentId = string.IsNullOrWhiteSpace(request.ShipmentId) ? null : request.ShipmentId.Trim(),
+            Isbt128ProductCode = resolved.ProductCodeData ?? resolved.ProductDescriptionCode,
+            ProductDescriptionCode = resolved.ProductDescriptionCode,
+            ProductCodeData = resolved.ProductCodeData,
+            CollectionTypeCode = resolved.CollectionTypeCode,
+            DivisionCode = resolved.DivisionCode,
+            Isbt128DonationId = request.Isbt128DonationId,
+            Volume = request.Volume,
+            Status = UnitStatus.Expected,
+            ReceiveVisualAcceptable = true
+        };
+
+        await _repository.AddUnitAsync(unit, ct);
+        _repository.AddStatusHistory(new InventoryStatusHistory
+        {
+            Unit = unit,
+            FromStatus = null,
+            ToStatus = UnitStatus.Expected,
+            ToLocationId = request.LocationId,
+            Reason = string.IsNullOrWhiteSpace(request.ShipmentId)
+                ? "Expected inbound unit"
+                : $"Expected inbound unit; shipment {request.ShipmentId.Trim()}",
+            ChangedBy = _currentUser.UserName,
+            ChangedUtc = _clock.UtcNow
+        });
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return InventoryActionResult.Ok(unit);
+    }
+
+    /// <summary>
+    /// Confirms physical arrival of an expected unit. Visual inspection is required.
+    /// Lands in Received (retype) or Quarantine (same as walk-in receive).
+    /// </summary>
+    public async Task<InventoryActionResult> ReceiveExpectedUnitAsync(
+        long unitId, ReceiveExpectedUnitRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+        {
+            return InventoryActionResult.Fail("Unit not found.");
+        }
+
+        if (unit.Status != UnitStatus.Expected)
+        {
+            return InventoryActionResult.Fail("Only an expected inbound unit can be confirmed on arrival.");
+        }
+
+        var visual = await EvaluateReceiveVisualAsync(request.VisualInspectionAcceptable, ct);
+        if (visual.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([visual]));
+        }
+
+        var productType = await _repository.GetProductTypeAsync(unit.ProductTypeId, ct);
+        var destination = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
+        unit.ReceiveVisualAcceptable = request.VisualInspectionAcceptable;
+        unit.ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
+            ? null
+            : request.VisualInspectionNotes.Trim();
+        if (request.LocationId is long loc)
+        {
+            unit.CurrentLocationId = loc;
+        }
+
+        var reason = destination == UnitStatus.Received
+            ? "Arrival confirmed — retype required"
+            : "Arrival confirmed";
+        return await ChangeStatusAsync(unit, destination, reason, ct);
+    }
+
+    public async Task<InventoryActionResult> CancelExpectedUnitAsync(
+        long unitId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return InventoryActionResult.Fail("A reason is required to cancel an expected unit.");
+        }
+
+        var unit = await _repository.GetUnitAsync(unitId, ct);
+        if (unit is null)
+        {
+            return InventoryActionResult.Fail("Unit not found.");
+        }
+
+        if (unit.Status != UnitStatus.Expected)
+        {
+            return InventoryActionResult.Fail("Only an expected inbound unit can be cancelled.");
+        }
+
+        return await ChangeStatusAsync(unit, UnitStatus.CancelledAssignment, reason.Trim(), ct);
     }
 
     /// <summary>

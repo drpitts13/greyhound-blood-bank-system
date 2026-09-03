@@ -16,6 +16,14 @@ public sealed record ReceiveUnitRequest(
     string? Isbt128DonationId = null,
     decimal? Volume = null,
     bool VisualInspectionAcceptable = true,
-    string? VisualInspectionNotes = null);
+    string? VisualInspectionNotes = null,
+    string? ShipmentId = null);
+
+public sealed record ReceiveExpectedUnitRequest(
+    bool VisualInspectionAcceptable = true,
+    string? VisualInspectionNotes = null,
+    long? LocationId = null);
+
+public sealed record CancelExpectedUnitRequest(string Reason);
 
 public sealed record ReleaseFromQuarantineRequest(string? SecondVerifier = null);

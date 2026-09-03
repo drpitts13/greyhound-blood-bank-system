@@ -81,6 +81,22 @@ public static class InventoryEndpoints
                 : ToFailure(result);
         }).RequirePermission(PermissionCodes.InventoryReceive);
 
+        group.MapPost("/units/expected", async (ReceiveUnitRequest request, InventoryService service, CancellationToken ct) =>
+        {
+            var result = await service.ExpectUnitAsync(request, ct);
+            return result.Succeeded
+                ? Results.Created($"/api/inventory/units/{result.Unit!.Id}", BloodUnitDto.From(result.Unit))
+                : ToFailure(result);
+        }).RequirePermission(PermissionCodes.InventoryReceive);
+
+        group.MapPost("/units/{id:long}/receive-expected", async (long id, ReceiveExpectedUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.ReceiveExpectedUnitAsync(id, request, ct)))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
+        group.MapPost("/units/{id:long}/cancel-expected", async (long id, CancelExpectedUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.CancelExpectedUnitAsync(id, request.Reason, ct)))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
         group.MapPost("/units/{id:long}/release", async (long id, ReleaseFromQuarantineRequest? request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.ReleaseFromQuarantineAsync(id, request?.SecondVerifier, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);

@@ -13,6 +13,7 @@
         @if (Session.Has(PermissionCodes.InventoryReceive))
         {
             <button class="btn btn-primary" @onclick="ToggleReceive">@(_showReceive ? "Cancel" : "Receive unit")</button>
+            <button class="btn btn-secondary" @onclick="ToggleExpect">@(_showExpect ? "Cancel" : "Expect unit")</button>
         }
         @if (Session.Has(PermissionCodes.InventoryDiscard))
         {
@@ -57,6 +58,33 @@
             <div class="field"><label>Visual notes</label><input @bind="_rec.VisualInspectionNotes" placeholder="Optional appearance notes" /></div>
         </div>
         <button class="btn btn-primary" disabled="@_busy" @onclick="ReceiveAsync">Receive</button>
+    </div>
+}
+
+@if (_showExpect)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Expect an inbound unit</h3></div>
+        <p class="muted">Packing-list / ASN intake (SoftBank expected inventory). The unit is not in house until arrival is confirmed and visually inspected.</p>
+        <Outcome Value="_expectFb" />
+        <div class="form-row">
+            <div class="field"><label>Unit number</label><input @bind="_exp.UnitNumber" placeholder="W0001230000099" /></div>
+            <div class="field"><label>Product type</label>
+                <select @bind="_exp.ProductTypeId">
+                    <option value="0">— select —</option>
+                    @foreach (var t in _productTypes) { <option value="@t.Id">@t.DisplayProductCode — @t.Name</option> }
+                </select>
+            </div>
+            <div class="field"><label>ABO</label><select @bind="_exp.Abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select></div>
+            <div class="field"><label>Rh(D)</label><select @bind="_exp.RhD">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select></div>
+            <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_exp.ExpiresLocal" /></div>
+            <div class="field"><label>Product description code</label>
+                <input @bind="_exp.ProductDescriptionCode" placeholder="E0336 or E0336000" maxlength="8" required />
+            </div>
+            <div class="field"><label>Supplier</label><input @bind="_exp.Supplier" /></div>
+            <div class="field"><label>Shipment / packing list</label><input @bind="_exp.ShipmentId" placeholder="Optional ASN id" /></div>
+        </div>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="ExpectAsync">Record as expected</button>
     </div>
 }
 
@@ -129,6 +157,13 @@
     private bool _showReceive;
     private ReceiveModel _rec = new();
     private Feedback? _receiveFb;
+
+    private bool _showExpect;
+    private ReceiveModel _exp = new();
+    private Feedback? _expectFb;
+    private bool _arrivalVisualOk = true;
+    private string? _arrivalVisualNotes;
+    private string _cancelExpectedReason = string.Empty;
 
     private BloodUnitDto? _selected;
     private string _unitTab = "actions";
@@ -215,6 +250,22 @@
         if (r.Succeeded) { _rec = new(); _showReceive = false; await SearchAsync(); }
     }
 
+    private async Task ExpectAsync()
+    {
+        _busy = true;
+        var req = new ReceiveUnitRequest(_exp.UnitNumber, _exp.ProductTypeId, _exp.Abo, _exp.RhD,
+            DateTime.SpecifyKind(_exp.ExpiresLocal, DateTimeKind.Utc),
+            _exp.LocationId == 0 ? null : _exp.LocationId,
+            string.IsNullOrWhiteSpace(_exp.CollectionFacility) ? null : _exp.CollectionFacility,
+            string.IsNullOrWhiteSpace(_exp.Supplier) ? null : _exp.Supplier,
+            string.IsNullOrWhiteSpace(_exp.ProductDescriptionCode) ? null : _exp.ProductDescriptionCode.Trim(),
+            ShipmentId: string.IsNullOrWhiteSpace(_exp.ShipmentId) ? null : _exp.ShipmentId.Trim());
+        var r = await Api.ExpectUnitAsync(req);
+        _busy = false;
+        _expectFb = r.ToFeedback("Unit recorded as expected. Confirm arrival when the shipment is received.");
+        if (r.Succeeded) { _exp = new(); _showExpect = false; await SearchAsync(); }
+    }
+
     private async Task ExpireDueAsync()
     {
         _busy = true;
@@ -226,7 +277,17 @@
         if (r.Succeeded) await SearchAsync();
     }
 
-    private void ToggleReceive() => _showReceive = !_showReceive;
+    private void ToggleReceive()
+    {
+        _showReceive = !_showReceive;
+        if (_showReceive) _showExpect = false;
+    }
+
+    private void ToggleExpect()
+    {
+        _showExpect = !_showExpect;
+        if (_showExpect) _showReceive = false;
+    }
 
     private async Task Select(BloodUnitDto u)
     {
@@ -306,6 +367,37 @@
         if (r.Succeeded) await RefreshSelected(id);
     }
 
+    private async Task ReceiveExpectedAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReceiveExpectedUnitAsync(id, new ReceiveExpectedUnitRequest(
+            VisualInspectionAcceptable: _arrivalVisualOk,
+            VisualInspectionNotes: string.IsNullOrWhiteSpace(_arrivalVisualNotes) ? null : _arrivalVisualNotes));
+        _busy = false;
+        _actionFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
+            ? "Arrival confirmed. ABO/Rh retype is required before the unit is Available."
+            : "Arrival confirmed into quarantine.");
+        if (r.Succeeded)
+        {
+            _arrivalVisualOk = true;
+            _arrivalVisualNotes = null;
+            await RefreshSelected(id);
+        }
+    }
+
+    private async Task CancelExpectedAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.CancelExpectedUnitAsync(id, new CancelExpectedUnitRequest(_cancelExpectedReason));
+        _busy = false;
+        _actionFb = r.ToFeedback("Expected unit cancelled.");
+        if (r.Succeeded)
+        {
+            _cancelExpectedReason = string.Empty;
+            await RefreshSelected(id);
+        }
+    }
+
     private static bool CanPlaceOnHold(UnitStatus status) => status is
         UnitStatus.Available or UnitStatus.Selected or UnitStatus.Assigned or UnitStatus.Allocated
         or UnitStatus.Crossmatched or UnitStatus.Received or UnitStatus.Returned
@@ -379,6 +471,23 @@
                         </div>
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(u.Id)">Release from quarantine</button>
                     }
+                    @if (u.Status == UnitStatus.Expected && Session.Has(PermissionCodes.InventoryReceive))
+                    {
+                        <label class="field" style="min-width:14rem;">
+                            <input type="checkbox" @bind="_arrivalVisualOk" />
+                            Visual inspection acceptable
+                        </label>
+                        <div class="field" style="min-width:16rem;">
+                            <label>Arrival notes</label>
+                            <input @bind="_arrivalVisualNotes" placeholder="Appearance, defects" />
+                        </div>
+                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReceiveExpectedAsync(u.Id)">Confirm arrival</button>
+                        <div class="field" style="min-width:16rem;">
+                            <label>Cancel reason</label>
+                            <input @bind="_cancelExpectedReason" placeholder="Not shipped / cancelled ASN" />
+                        </div>
+                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_cancelExpectedReason))" @onclick="() => CancelExpectedAsync(u.Id)">Cancel expected</button>
+                    }
                     @if (u.Status == UnitStatus.OnHold && Session.Has(PermissionCodes.InventoryRelease))
                     {
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseHoldAsync(u.Id)">Release from hold</button>
@@ -389,9 +498,13 @@
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes))
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId))
                 {
                     <p class="muted">
+                        @if (!string.IsNullOrWhiteSpace(u.ShipmentId))
+                        {
+                            <span>Shipment: @u.ShipmentId</span>
+                        }
                         @if (!string.IsNullOrWhiteSpace(u.HoldReason))
                         {
                             <span>Hold: @u.HoldReason</span>
@@ -530,6 +643,7 @@
         public string ProductDescriptionCode { get; set; } = string.Empty;
         public string? CollectionFacility { get; set; }
         public string? Supplier { get; set; }
+        public string? ShipmentId { get; set; }
         public bool VisualInspectionAcceptable { get; set; } = true;
         public string? VisualInspectionNotes { get; set; }
     }

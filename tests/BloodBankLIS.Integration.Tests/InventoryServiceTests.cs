@@ -241,6 +241,141 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ExpectUnit_CreatesExpected_WithoutVisualGate()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ExpectUnitAsync(
+            NewUnitRequest("U-EXPECT-1", productTypeId) with { ShipmentId = "ASN-77" });
+
+        Assert.True(result.Succeeded);
+        Assert.Equal(UnitStatus.Expected, result.Unit!.Status);
+        Assert.Equal("ASN-77", result.Unit.ShipmentId);
+        Assert.Equal("E0206", result.Unit.ProductDescriptionCode);
+        var history = await context.InventoryStatusHistory.Where(h => h.BloodProductId == result.Unit.Id).ToListAsync();
+        var initial = Assert.Single(history);
+        Assert.Equal(UnitStatus.Expected, initial.ToStatus);
+        Assert.Contains("ASN-77", initial.Reason);
+    }
+
+    [Fact]
+    public async Task ExpectUnit_DuplicateNumber_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        await service.ExpectUnitAsync(NewUnitRequest("U-EXPECT-DUP", productTypeId));
+        var second = await service.ExpectUnitAsync(NewUnitRequest("U-EXPECT-DUP", productTypeId));
+        Assert.False(second.Succeeded);
+        Assert.Contains("already exists", second.Error);
+    }
+
+    [Fact]
+    public async Task ReceiveExpected_VisualFail_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ExpectUnitAsync(NewUnitRequest("U-EXPECT-VIS", productTypeId))).Unit!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var result = await CreateService(context).ReceiveExpectedUnitAsync(
+                unitId, new ReceiveExpectedUnitRequest(VisualInspectionAcceptable: false));
+            Assert.False(result.Succeeded);
+            Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ReceiveVisualInspectionRule.Code);
+        }
+
+        await using var verify = _factory.Create();
+        var unit = await verify.BloodUnits.SingleAsync(u => u.Id == unitId);
+        Assert.Equal(UnitStatus.Expected, unit.Status);
+    }
+
+    [Fact]
+    public async Task ReceiveExpected_VisualPass_LandsInQuarantine()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ExpectUnitAsync(NewUnitRequest("U-EXPECT-OK", productTypeId))).Unit!.Id;
+        }
+
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ReceiveExpectedUnitAsync(
+            unitId, new ReceiveExpectedUnitRequest(VisualInspectionNotes: "Bag intact"));
+        Assert.True(result.Succeeded);
+        Assert.Equal(UnitStatus.Quarantine, result.Unit!.Status);
+        Assert.True(result.Unit.ReceiveVisualAcceptable);
+        Assert.Equal("Bag intact", result.Unit.ReceiveVisualNotes);
+    }
+
+    [Fact]
+    public async Task ReceiveExpected_RetypeProduct_LandsInReceived()
+    {
+        await EnsureProductCodesAsync();
+        long productTypeId;
+        await using (var context = _factory.Create())
+        {
+            var type = new ProductType
+            {
+                ProductCode = "RBC-EXPECT-RETYPE",
+                Name = "Expect Retype RBC",
+                ComponentClass = ComponentClass.RedBloodCells,
+                RequiresRetype = true
+            };
+            context.ProductTypes.Add(type);
+            await context.SaveChangesAsync();
+            productTypeId = type.Id;
+        }
+
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ExpectUnitAsync(NewUnitRequest("U-EXPECT-RET", productTypeId))).Unit!.Id;
+        }
+
+        await using var receive = _factory.Create();
+        var result = await CreateService(receive).ReceiveExpectedUnitAsync(unitId, new ReceiveExpectedUnitRequest());
+        Assert.True(result.Succeeded);
+        Assert.Equal(UnitStatus.Received, result.Unit!.Status);
+    }
+
+    [Fact]
+    public async Task CancelExpected_MovesToCancelledAssignment()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ExpectUnitAsync(NewUnitRequest("U-EXPECT-CXL", productTypeId))).Unit!.Id;
+        }
+
+        await using var act = _factory.Create();
+        var result = await CreateService(act).CancelExpectedUnitAsync(unitId, "Supplier cancelled ASN");
+        Assert.True(result.Succeeded);
+        Assert.Equal(UnitStatus.CancelledAssignment, result.Unit!.Status);
+    }
+
+    [Fact]
+    public async Task ReceiveExpected_NotExpected_Fails()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-WALKIN", productTypeId))).Unit!.Id;
+        }
+
+        await using var act = _factory.Create();
+        var result = await CreateService(act).ReceiveExpectedUnitAsync(unitId, new ReceiveExpectedUnitRequest());
+        Assert.False(result.Succeeded);
+        Assert.Contains("expected", result.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Release_QuarantineToAvailable_AppendsHistory()
     {
         var productTypeId = await EnsureProductTypeAsync();

@@ -85,6 +85,7 @@ Allowed transitions are enforced by a transition guard; anything not listed is a
 ```
 # Authoritative allow-list is InventoryStatusTransition (expanded for ISBT 128).
 # See docs/isbt128-module.md. Legacy core paths remain:
+Expected   -> Received | Quarantine | CancelledAssignment | Missing | Discarded
 Quarantine -> Available | Discarded | Expired | Recalled | Damaged | Missing
 OnHold     -> Available | Quarantine | Discarded | Expired | Recalled | Damaged | Missing
 Available  -> Allocated | Assigned | Selected | Crossmatched | Quarantine | OnHold | Discarded | Expired | Recalled | Transferred | Modified
@@ -99,6 +100,7 @@ Expired    -> Discarded
 Modified   -> (terminal)
 ```
 
+- `Expected` is packing-list / ASN inventory that is not yet in house. It is not transferable or issuable. Arrival confirmation applies `INV-RCV-VISUAL` and lands in `Received` or `Quarantine`.
 - `OnHold` is an operational hold (paperwork, pending review). It is not a quality quarantine: quarantine cannot move to hold, and a held unit cannot be issued until released to Available or escalated to Quarantine.
 - Releasing a unit from quality quarantine requires a distinct directory second verifier (`INV-Q-RELEASE-2ND`) when `Inventory.RequireQuarantineReleaseVerifier` is true (default).
 - Any transition writes `InventoryStatusHistory` + `AuditEvent`.

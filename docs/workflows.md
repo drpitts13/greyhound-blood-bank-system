@@ -2,7 +2,7 @@
 
 Status: Phase 0 (design). Each workflow names the use case(s), the safety checks invoked (see `safety-rules.md`), the state changes, and the audit events produced. Every clinical state change writes to its append-only history table and an `AuditEvent` in the same transaction.
 
-Status legend for blood units: `Received (retype required) or Quarantine -> Available -> Allocated -> Issued -> Transfused`, with side states `OnHold` (operational), `Returned`, `Discarded`, `Expired`.
+Status legend for blood units: `Expected -> Received (retype required) or Quarantine -> Available -> Allocated -> Issued -> Transfused`, with side states `OnHold` (operational), `Returned`, `Discarded`, `Expired`.
 
 ---
 
@@ -27,7 +27,8 @@ flowchart TD
     g --> h[Audit + status history]
 ```
 
-- Use case: `ReceiveUnitCommand`, `ReleaseUnitFromQuarantineCommand`, `RecordProductRetype`.
+- Use case: `ExpectUnitAsync` (packing-list / ASN), `ReceiveExpectedUnitAsync`, `CancelExpectedUnitAsync`, `ReceiveUnitCommand` (walk-in), `ReleaseUnitFromQuarantineCommand`, `RecordProductRetype`.
+- Expected inbound (SoftBank/SafeTrace consignee receipt): `POST /api/inventory/units/expected` creates `Expected` without visual inspection. Confirm arrival (`receive-expected`) applies `INV-RCV-VISUAL` and lands in `Received` (retype) or `Quarantine`. Cancel moves to `CancelledAssignment`. Walk-in receive remains available for units that arrive without a prior packing list.
 - Products with Retype Y start in `Received`. ISBT "Release to Available" is ignored until a matching retype is recorded.
 - Front-type retype: Anti-A and Anti-B always; Anti-D required only when the unit is labeled Rh negative.
 - Matching retype: `Received -> Available`. Mismatch: `Received -> Quarantine` with the discrepancy as the reason (supervisor uses existing release).

@@ -17,7 +17,8 @@ public static class InventoryStatusTransition
         {
             [UnitStatus.Expected] =
             [
-                UnitStatus.Received, UnitStatus.CancelledAssignment, UnitStatus.Missing, UnitStatus.Discarded
+                UnitStatus.Received, UnitStatus.Quarantine, UnitStatus.CancelledAssignment,
+                UnitStatus.Missing, UnitStatus.Discarded
             ],
             [UnitStatus.Received] =
             [
