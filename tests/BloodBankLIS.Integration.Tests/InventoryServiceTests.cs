@@ -494,10 +494,72 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Expected, result.Unit!.Status);
         Assert.Equal("ASN-77", result.Unit.ShipmentId);
         Assert.Equal("E0206", result.Unit.ProductDescriptionCode);
+        Assert.Equal(_factory.Clock.UtcNow.AddHours(24), result.Unit.ExpectedArrivalDueUtc);
         var history = await context.InventoryStatusHistory.Where(h => h.BloodProductId == result.Unit.Id).ToListAsync();
         var initial = Assert.Single(history);
         Assert.Equal(UnitStatus.Expected, initial.ToStatus);
         Assert.Contains("ASN-77", initial.Reason);
+    }
+
+    [Fact]
+    public async Task ListExpected_FlagsOverdueWhenPastDue()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var original = _factory.Clock.UtcNow;
+        try
+        {
+            await using (var context = _factory.Create())
+            {
+                var created = await CreateService(context).ExpectUnitAsync(
+                    NewUnitRequest("U-EXPECT-OVERDUE", productTypeId) with { ShipmentId = "ASN-LATE" });
+                Assert.True(created.Succeeded, created.Error);
+            }
+
+            _factory.Clock.UtcNow = original.AddHours(25);
+            await using var act = _factory.Create();
+            var list = await CreateService(act).ListExpectedAsync();
+            var row = Assert.Single(list, i => i.UnitNumber == "U-EXPECT-OVERDUE");
+            Assert.True(row.IsOverdue);
+            Assert.Equal("ASN-LATE", row.ShipmentId);
+        }
+        finally
+        {
+            _factory.Clock.UtcNow = original;
+        }
+    }
+
+    [Fact]
+    public async Task ReceiveExpected_WhenOverdue_StillSucceedsAndAuditsLate()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var original = _factory.Clock.UtcNow;
+        long unitId;
+        try
+        {
+            await using (var context = _factory.Create())
+            {
+                unitId = (await CreateService(context).ExpectUnitAsync(NewUnitRequest("U-EXPECT-LATE-OK", productTypeId))).Unit!.Id;
+            }
+
+            _factory.Clock.UtcNow = original.AddHours(25);
+            await using var act = _factory.Create();
+            var result = await CreateService(act).ReceiveExpectedUnitAsync(
+                unitId,
+                new ReceiveExpectedUnitRequest(
+                    SecondVerifier: "tech2",
+                    ReceiveTemperatureCelsius: 4.0m));
+            Assert.True(result.Succeeded, result.Error);
+            Assert.NotEqual(UnitStatus.Expected, result.Unit!.Status);
+
+            var history = await act.InventoryStatusHistory
+                .Where(h => h.BloodProductId == unitId && h.ToStatus != UnitStatus.Expected)
+                .ToListAsync();
+            Assert.Contains(history, h => h.Reason != null && h.Reason.Contains("late arrival"));
+        }
+        finally
+        {
+            _factory.Clock.UtcNow = original;
+        }
     }
 
     [Fact]

@@ -63,6 +63,7 @@ public static class DevelopmentSqliteBootstrap
         ("BloodProducts", "DirectedConversionReason", """ALTER TABLE "BloodProducts" ADD COLUMN "DirectedConversionReason" TEXT NULL"""),
         ("BloodProducts", "DirectedConvertedUtc", """ALTER TABLE "BloodProducts" ADD COLUMN "DirectedConvertedUtc" TEXT NULL"""),
         ("BloodProducts", "DirectedConvertedBy", """ALTER TABLE "BloodProducts" ADD COLUMN "DirectedConvertedBy" TEXT NULL"""),
+        ("BloodProducts", "ExpectedArrivalDueUtc", """ALTER TABLE "BloodProducts" ADD COLUMN "ExpectedArrivalDueUtc" TEXT NULL"""),
         ("Crossmatches", "Phase", """ALTER TABLE "Crossmatches" ADD COLUMN "Phase" TEXT NULL"""),
         ("Crossmatches", "Interpretation", """ALTER TABLE "Crossmatches" ADD COLUMN "Interpretation" TEXT NULL"""),
         ("Crossmatches", "ObservedResultsJson", """ALTER TABLE "Crossmatches" ADD COLUMN "ObservedResultsJson" TEXT NULL"""),

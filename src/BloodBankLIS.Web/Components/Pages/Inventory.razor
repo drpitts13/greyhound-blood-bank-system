@@ -24,6 +24,54 @@
 
 <Outcome Value="_topFb" />
 
+@if (_expectedItems.Count > 0 || Session.Has(PermissionCodes.InventoryReceive))
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Expected inbound</h3></div>
+        <p class="muted">Packing-list units that have not arrived. Overdue after the facility arrival window (default 24 hours). Late arrival is still allowed.</p>
+        @if (_expectedItems.Count == 0)
+        {
+            <div class="muted">No expected inbound units.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Unit</th>
+                        <th>ABO/Rh</th>
+                        <th>Shipment</th>
+                        <th>Supplier</th>
+                        <th>Recorded</th>
+                        <th>Due</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _expectedItems)
+                    {
+                        <tr>
+                            <td class="mono">@row.UnitNumber</td>
+                            <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
+                            <td class="mono">@(row.ShipmentId ?? "—")</td>
+                            <td>@(row.Supplier ?? "—")</td>
+                            <td>@row.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                                @if (row.IsOverdue)
+                                {
+                                    <span class="badge badge-amber">Overdue</span>
+                                }
+                            </td>
+                            <td class="right"><button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => OpenExpectedAsync(row.UnitId)">Open</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
 @if (_showReceive)
 {
     <div class="bb-card">
@@ -184,7 +232,12 @@
                         <td>@ProductName(u.ProductTypeId)</td>
                         <td><strong>@Ui.BloodType(u.Abo, u.RhD)</strong></td>
                         <td class="nowrap @(u.ExpiresUtc < DateTime.UtcNow ? "" : "")">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                        <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
+                        <td><span class="@Ui.Badge(u.Status)">@u.Status</span>
+                            @if (u.Status == UnitStatus.Expected && u.ExpectedArrivalDueUtc is DateTime due && due < DateTime.UtcNow)
+                            {
+                                <span class="badge badge-amber">Overdue</span>
+                            }
+                        </td>
                         <td>@LocationName(u.CurrentLocationId)</td>
                         <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => Select(u)">@(_selected?.Id == u.Id ? "Hide" : "Manage")</button></td>
                     </tr>
@@ -200,6 +253,7 @@
 
 @code {
     private List<BloodUnitDto> _units = new();
+    private List<ExpectedInboundWorkItemDto> _expectedItems = new();
     private List<ProductTypeDto> _productTypes = new();
     private List<InventoryLocationDto> _locations = new();
     private bool _loading = true;
@@ -263,6 +317,7 @@
         var patients = await Api.GetPatientsAsync();
         if (patients.Succeeded) _patients = patients.Value ?? new();
         await SearchAsync();
+        await LoadExpectedAsync();
     }
 
     private string ProductCode(BloodUnitDto u)
@@ -308,6 +363,35 @@
         else _topFb = r.ToFeedback();
     }
 
+    private async Task LoadExpectedAsync()
+    {
+        if (!Session.Has(PermissionCodes.InventoryReceive))
+        {
+            _expectedItems = new();
+            return;
+        }
+
+        var r = await Api.GetExpectedInboundAsync();
+        if (r.Succeeded) _expectedItems = r.Value ?? new();
+    }
+
+    private async Task OpenExpectedAsync(long unitId)
+    {
+        var r = await Api.GetUnitAsync(unitId);
+        if (!r.Succeeded || r.Value is null)
+        {
+            _topFb = r.ToFeedback();
+            return;
+        }
+
+        if (_units.All(u => u.Id != unitId))
+        {
+            _units.Insert(0, r.Value);
+        }
+
+        await Select(r.Value);
+    }
+
     private async Task ReceiveAsync()
     {
         _busy = true;
@@ -347,7 +431,7 @@
         var r = await Api.ExpectUnitAsync(req);
         _busy = false;
         _expectFb = r.ToFeedback("Unit recorded as expected. Confirm arrival when the shipment is received.");
-        if (r.Succeeded) { _exp = new(); _showExpect = false; await SearchAsync(); }
+        if (r.Succeeded) { _exp = new(); _showExpect = false; await SearchAsync(); await LoadExpectedAsync(); }
     }
 
     private async Task ExpireDueAsync()
@@ -624,6 +708,7 @@
     private async Task RefreshSelected(long id)
     {
         await SearchAsync();
+        await LoadExpectedAsync();
         _selected = _units.FirstOrDefault(u => u.Id == id);
         if (_selected is not null)
         {
@@ -719,12 +804,16 @@
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.SupplierReturnReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null || u.DonationRestriction != DonationRestriction.Allogeneic || !string.IsNullOrWhiteSpace(u.DirectedConversionReason))
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.SupplierReturnReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null || u.DonationRestriction != DonationRestriction.Allogeneic || !string.IsNullOrWhiteSpace(u.DirectedConversionReason) || u.ExpectedArrivalDueUtc is not null)
                 {
                     <p class="muted">
                         @if (!string.IsNullOrWhiteSpace(u.ShipmentId))
                         {
                             <span>Shipment: @u.ShipmentId</span>
+                        }
+                        @if (u.ExpectedArrivalDueUtc is DateTime due)
+                        {
+                            <span>Expected by: @due.ToString("yyyy-MM-dd HH:mm") UTC@(due < DateTime.UtcNow && u.Status == UnitStatus.Expected ? " (overdue)" : "")</span>
                         }
                         @if (!string.IsNullOrWhiteSpace(u.HoldReason))
                         {

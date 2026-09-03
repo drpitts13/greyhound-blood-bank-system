@@ -131,6 +131,9 @@ public class BloodUnit : BaseEntity
 
     public string? DirectedConvertedBy { get; set; }
 
+    /// <summary>When this packing-list / ASN unit is due to arrive (SoftBank expected inbound).</summary>
+    public DateTime? ExpectedArrivalDueUtc { get; set; }
+
     /// <summary>
     /// Set on a result unit produced by a product modification (divide/pool/irradiate/
     /// thaw/volume-reduce/leukoreduce); null for units received directly into inventory.

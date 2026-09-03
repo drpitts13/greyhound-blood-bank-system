@@ -69,6 +69,20 @@ public sealed class InventoryService
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
         _repository.SearchAsync(criteria, ct);
 
+    /// <summary>
+    /// SoftBank/SafeTrace packing-list worklist: units still in Expected status,
+    /// flagged overdue after <see cref="FacilityPolicyKeys.ExpectedArrivalDueHours"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<ExpectedInboundWorkItemDto>> ListExpectedAsync(CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+        var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Expected), ct);
+        return rows
+            .OrderBy(u => u.ExpectedArrivalDueUtc ?? u.CreatedUtc)
+            .Select(u => ExpectedInboundWorkItemDto.From(u, now))
+            .ToList();
+    }
+
     public Task<BloodUnit?> GetAsync(long id, CancellationToken ct = default) =>
         _repository.GetUnitAsync(id, ct);
 
@@ -302,6 +316,9 @@ public sealed class InventoryService
                 : null
         };
 
+        var dueHours = _policy is null ? 24 : await _policy.GetExpectedArrivalDueHoursAsync(ct);
+        unit.ExpectedArrivalDueUtc = _clock.UtcNow.AddHours(dueHours);
+
         await _repository.AddUnitAsync(unit, ct);
         _repository.AddStatusHistory(new InventoryStatusHistory
         {
@@ -378,6 +395,12 @@ public sealed class InventoryService
                 ? "Arrival confirmed — retype required"
                 : "Arrival confirmed",
             request.SecondVerifier);
+        var overdue = ExpectedArrivalPendingRule.EvaluateOverdue(unit.ExpectedArrivalDueUtc, _clock.UtcNow);
+        if (overdue.Severity == RuleSeverity.Warning)
+        {
+            reason = $"{reason} (late arrival)";
+        }
+
         return await ChangeStatusAsync(unit, destination, reason, ct);
     }
 

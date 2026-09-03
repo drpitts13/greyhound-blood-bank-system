@@ -29,6 +29,7 @@ public static partial class DatabaseSeeder
         await EnsureReceiveTemperaturePolicyAsync(context, cancellationToken);
         await EnsureDiscardVerifierPolicyAsync(context, cancellationToken);
         await EnsureDirectedConversionVerifierPolicyAsync(context, cancellationToken);
+        await EnsureExpectedArrivalDueHoursPolicyAsync(context, cancellationToken);
         await EnsureInTransitDueHoursPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
@@ -218,6 +219,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.ExpectedArrivalDueHours,
+                Value = "24",
+                Category = "Inventory",
+                Description = "Hours after packing-list expect when inbound arrival is due."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.BlockSelfVerify,
                 Value = "false",
                 Category = "Result",
@@ -392,6 +400,24 @@ public static partial class DatabaseSeeder
         });
         await context.SaveChangesAsync(ct);
     }
+
+    private static async Task EnsureExpectedArrivalDueHoursPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.ExpectedArrivalDueHours, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.ExpectedArrivalDueHours,
+            Value = "24",
+            Category = "Inventory",
+            Description = "Hours after packing-list expect when inbound arrival is due."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
     private static async Task SeedIsbt128LookupsAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.IsbtDataStructures.AnyAsync(ct))

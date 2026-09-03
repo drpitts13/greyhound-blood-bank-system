@@ -350,6 +350,7 @@ public sealed class BloodUnitConfiguration : IEntityTypeConfiguration<BloodUnit>
         b.HasIndex(u => u.ReservedPatientId);
         b.Property(u => u.DirectedConversionReason).HasMaxLength(500);
         b.Property(u => u.DirectedConvertedBy).HasMaxLength(100);
+        b.Property(u => u.ExpectedArrivalDueUtc);
         b.Property(u => u.DiscardReason).HasMaxLength(500);
         b.Property(u => u.RecallReason).HasMaxLength(500);
         b.Property(u => u.ReceiveVisualNotes).HasMaxLength(500);

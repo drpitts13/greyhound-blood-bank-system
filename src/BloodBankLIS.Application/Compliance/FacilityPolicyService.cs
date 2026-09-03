@@ -65,6 +65,9 @@ public sealed class FacilityPolicyService
     public Task<bool> GetRequireDirectedConversionVerifierAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireDirectedConversionVerifier, true, ct);
 
+    public Task<int> GetExpectedArrivalDueHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.ExpectedArrivalDueHours, 24, ct);
+
     public Task<bool> GetBlockSelfVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockSelfVerify, false, ct);
 

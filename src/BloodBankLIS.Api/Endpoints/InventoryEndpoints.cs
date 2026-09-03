@@ -34,6 +34,10 @@ public static class InventoryEndpoints
             return Results.Ok(units.Select(BloodUnitDto.From));
         });
 
+        group.MapGet("/units/expected", async (InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListExpectedAsync(ct)))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
         group.MapGet("/units/{id:long}", async (long id, InventoryService service, CancellationToken ct) =>
         {
             var unit = await service.GetAsync(id, ct);

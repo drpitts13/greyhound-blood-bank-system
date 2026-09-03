@@ -1,5 +1,6 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Inventory;
 
@@ -50,7 +51,8 @@ public sealed record BloodUnitDto(
     long? ReservedPatientId = null,
     string? DirectedConversionReason = null,
     DateTime? DirectedConvertedUtc = null,
-    string? DirectedConvertedBy = null)
+    string? DirectedConvertedBy = null,
+    DateTime? ExpectedArrivalDueUtc = null)
 {
     public static BloodUnitDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
@@ -61,5 +63,23 @@ public sealed record BloodUnitDto(
         u.HoldReason, u.QuarantineReason, u.MissingReason, u.DamagedReason, u.ReceiveVisualAcceptable, u.ReceiveVisualNotes,
         u.ShipmentId, u.ReceiveAppearance, u.ReceiveTemperatureCelsius, u.SupplierReturnReason,
         u.DonationRestriction, u.ReservedPatientId,
-        u.DirectedConversionReason, u.DirectedConvertedUtc, u.DirectedConvertedBy);
+        u.DirectedConversionReason, u.DirectedConvertedUtc, u.DirectedConvertedBy,
+        u.ExpectedArrivalDueUtc);
+}
+
+public sealed record ExpectedInboundWorkItemDto(
+    long UnitId,
+    string UnitNumber,
+    DateTime CreatedUtc,
+    DateTime? DueUtc,
+    bool IsOverdue,
+    string? ShipmentId,
+    string? Supplier,
+    AboGroup Abo,
+    RhType RhD)
+{
+    public static ExpectedInboundWorkItemDto From(BloodUnit u, DateTime now) => new(
+        u.Id, u.UnitNumber, u.CreatedUtc, u.ExpectedArrivalDueUtc,
+        ExpectedArrivalPendingRule.EvaluateOverdue(u.ExpectedArrivalDueUtc, now).Severity == RuleSeverity.Warning,
+        u.ShipmentId, u.Supplier, u.Abo, u.RhD);
 }
