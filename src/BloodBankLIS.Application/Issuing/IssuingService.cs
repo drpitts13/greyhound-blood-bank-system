@@ -560,6 +560,7 @@ public sealed class IssuingService
         if (destination == UnitStatus.Quarantine)
         {
             unit.QuarantineReason = request.Reason;
+            unit.QuarantineReasonCode = UnitQuarantineReason.FailedReturnInspection;
         }
 
         AppendStatus(unit, destination, request.Reason, now, nameof(Return), issue.Id);

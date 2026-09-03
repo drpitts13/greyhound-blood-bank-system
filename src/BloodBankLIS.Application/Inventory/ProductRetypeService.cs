@@ -182,6 +182,7 @@ public sealed class ProductRetypeService
         {
             var reason = outcome.DiscrepancyDetail ?? "ABO/Rh retype discrepancy";
             unit.QuarantineReason = reason;
+            unit.QuarantineReasonCode = UnitQuarantineReason.RetypeDiscrepancy;
             ApplyStatus(unit, UnitStatus.Quarantine, reason);
         }
 

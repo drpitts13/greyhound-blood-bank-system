@@ -341,6 +341,7 @@ public sealed class BloodUnitConfiguration : IEntityTypeConfiguration<BloodUnit>
         b.Property(u => u.Supplier).HasMaxLength(150);
         b.Property(u => u.ShipmentId).HasMaxLength(100);
         b.Property(u => u.QuarantineReason).HasMaxLength(500);
+        b.Property(u => u.QuarantineReasonCode);
         b.Property(u => u.HoldReason).HasMaxLength(500);
         b.Property(u => u.MissingReason).HasMaxLength(500);
         b.Property(u => u.DamagedReason).HasMaxLength(500);

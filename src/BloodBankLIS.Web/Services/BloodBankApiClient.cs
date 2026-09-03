@@ -257,6 +257,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<NearExpiryWorkItemDto>>> GetNearExpiryUnitsAsync(CancellationToken ct = default) =>
         SendAsync<List<NearExpiryWorkItemDto>>(HttpMethod.Get, "api/inventory/units/near-expiry", ct: ct);
 
+    public Task<ApiResult<List<QuarantineWorkItemDto>>> GetQuarantineUnitsAsync(CancellationToken ct = default) =>
+        SendAsync<List<QuarantineWorkItemDto>>(HttpMethod.Get, "api/inventory/units/quarantine", ct: ct);
+
     public Task<ApiResult<BloodUnitDto>> ReceiveExpectedUnitAsync(long id, ReceiveExpectedUnitRequest req, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/receive-expected", req, ct);
 
@@ -265,6 +268,10 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<BloodUnitDto>> ReleaseUnitAsync(long id, ReleaseFromQuarantineRequest? req = null, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/release", req ?? new ReleaseFromQuarantineRequest(), ct);
+
+    public Task<ApiResult<BloodUnitDto>> QuarantineUnitAsync(
+        long id, UnitQuarantineReason reasonCode, string? notes = null, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/quarantine", new QuarantineUnitRequest(reasonCode, notes), ct);
 
     public Task<ApiResult<BloodUnitDto>> HoldUnitAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/hold", new ReasonRequestVm(reason), ct);

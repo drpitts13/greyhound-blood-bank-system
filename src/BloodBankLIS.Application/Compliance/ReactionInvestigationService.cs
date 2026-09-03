@@ -240,6 +240,7 @@ public sealed class ReactionInvestigationService
         var from = unit.Status;
         unit.Status = UnitStatus.Quarantine;
         unit.QuarantineReason = reason;
+        unit.QuarantineReasonCode = UnitQuarantineReason.ReactionRemainder;
         _inventory.AddStatusHistory(new InventoryStatusHistory
         {
             BloodProductId = unit.Id,

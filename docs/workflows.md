@@ -40,6 +40,7 @@ flowchart TD
 - Return to supplier (`POST /api/inventory/units/{id}/return-to-supplier`) closes failed consignee receipt or unused stock without destroying the unit. Distinct from cancel-expected (never arrived) and from ward `Returned`. Terminal; not issuable.
 - Directed-to-allogeneic conversion (`POST /api/inventory/units/{id}/convert-directed`) releases an unused directed unit into volunteer inventory after a reason and a distinct second verifier (`INV-DIR-ALLO` / `INV-DIR-CONV-2ND`; policy `Inventory.RequireDirectedConversionVerifier`, default true). Autologous units cannot convert. Allocated/assigned/crossmatched/selected units must be released first. Clears `ReservedPatientId` and records the conversion on the unit.
 - Near-expiry worklist (`GET /api/inventory/units/near-expiry`) lists on-hand units that expire within `Inventory.NearExpiryWarningHours` (default 24). SoftBank/SafeTrace FIFO outdate list. The issue gate still warns `UNIT-NEAR-EXPIRY`; the expiration sweep moves due units to Expired.
+- Quality-quarantine worklist (`GET /api/inventory/units/quarantine`) lists units in `Quarantine` with a coded reason (`BloodUnit.QuarantineReasonCode`, `INV-Q-REASON`). Place in quarantine (`POST /api/inventory/units/{id}/quarantine`) requires a catalog code; Other needs notes. Intake, locate, inspect, retype, failed return, reaction remainder, and modifications set the matching code.
 - Audit: `Create` (unit), `Update` (status change) with location.
 
 ---

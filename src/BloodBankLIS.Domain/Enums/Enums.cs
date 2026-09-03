@@ -228,6 +228,25 @@ public enum UnitAppearance
 }
 
 /// <summary>
+/// SoftBank/SafeTrace coded quality-quarantine disposition. Distinct from
+/// operational <see cref="UnitStatus.OnHold"/>.
+/// </summary>
+public enum UnitQuarantineReason
+{
+    Unspecified = 0,
+    PendingRelease = 1,
+    VisualDefect = 2,
+    RetypeDiscrepancy = 3,
+    LookbackRecall = 4,
+    ReactionRemainder = 5,
+    LocatedAfterMissing = 6,
+    InspectedAfterDamage = 7,
+    FailedReturnInspection = 8,
+    SupervisorReview = 9,
+    Other = 10
+}
+
+/// <summary>
 /// SoftBank/SafeTrace donation restriction. Autologous and directed units are
 /// reserved to one patient and cannot be issued to anyone else.
 /// </summary>

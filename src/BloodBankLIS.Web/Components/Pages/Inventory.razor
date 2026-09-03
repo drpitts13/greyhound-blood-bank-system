@@ -108,6 +108,46 @@
     </div>
 }
 
+@if (_quarantineItems.Count > 0 || Session.Has(PermissionCodes.InventoryRelease))
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Quality quarantine</h3></div>
+        <p class="muted">Units held for quality disposition with a coded reason (SoftBank/SafeTrace). Release requires a second verifier.</p>
+        @if (_quarantineItems.Count == 0)
+        {
+            <div class="muted">No units in quality quarantine.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Unit</th>
+                        <th>ABO/Rh</th>
+                        <th>Reason</th>
+                        <th>Notes</th>
+                        <th>Expires</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _quarantineItems)
+                    {
+                        <tr>
+                            <td class="mono">@row.UnitNumber</td>
+                            <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
+                            <td>@row.ReasonCode</td>
+                            <td>@(row.Notes ?? "—")</td>
+                            <td class="nowrap">@row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="right"><button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => OpenExpectedAsync(row.UnitId)">Open</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
 @if (_showReceive)
 {
     <div class="bb-card">
@@ -301,6 +341,7 @@
     private List<BloodUnitDto> _units = new();
     private List<ExpectedInboundWorkItemDto> _expectedItems = new();
     private List<NearExpiryWorkItemDto> _nearExpiryItems = new();
+    private List<QuarantineWorkItemDto> _quarantineItems = new();
     private List<ProductTypeDto> _productTypes = new();
     private List<InventoryLocationDto> _locations = new();
     private bool _loading = true;
@@ -344,6 +385,8 @@
     private string _discardReason = string.Empty;
     private string? _discardSecondVerifier;
     private string _holdReason = string.Empty;
+    private UnitQuarantineReason _quarantineCode = UnitQuarantineReason.SupervisorReview;
+    private string _quarantineNotes = string.Empty;
     private string _missingReason = string.Empty;
     private string _damagedReason = string.Empty;
     private string? _releaseSecondVerifier;
@@ -366,6 +409,7 @@
         await SearchAsync();
         await LoadExpectedAsync();
         await LoadNearExpiryAsync();
+        await LoadQuarantineAsync();
     }
 
     private string ProductCode(BloodUnitDto u)
@@ -429,6 +473,12 @@
         if (r.Succeeded) _nearExpiryItems = r.Value ?? new();
     }
 
+    private async Task LoadQuarantineAsync()
+    {
+        var r = await Api.GetQuarantineUnitsAsync();
+        if (r.Succeeded) _quarantineItems = r.Value ?? new();
+    }
+
     private async Task OpenExpectedAsync(long unitId)
     {
         var r = await Api.GetUnitAsync(unitId);
@@ -467,7 +517,7 @@
         _receiveFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
             ? "Unit received. ABO/Rh retype is required before the unit is Available."
             : "Unit received into quarantine.");
-        if (r.Succeeded) { _rec = new(); _showReceive = false; await SearchAsync(); await LoadNearExpiryAsync(); }
+        if (r.Succeeded) { _rec = new(); _showReceive = false; await SearchAsync(); await LoadNearExpiryAsync(); await LoadQuarantineAsync(); }
     }
 
     private async Task ExpectAsync()
@@ -500,6 +550,7 @@
         {
             await SearchAsync();
             await LoadNearExpiryAsync();
+            await LoadQuarantineAsync();
         }
     }
 
@@ -531,6 +582,8 @@
         _discardReason = string.Empty;
         _discardSecondVerifier = null;
         _holdReason = string.Empty;
+        _quarantineCode = UnitQuarantineReason.SupervisorReview;
+        _quarantineNotes = string.Empty;
         _missingReason = string.Empty;
         _damagedReason = string.Empty;
         _directedConversionReason = string.Empty;
@@ -585,6 +638,24 @@
         if (r.Succeeded)
         {
             _holdReason = string.Empty;
+            await RefreshSelected(id);
+        }
+    }
+
+    private static bool CanQuarantine(UnitStatus status) =>
+        CanPlaceOnHold(status) || status == UnitStatus.OnHold;
+
+    private async Task PlaceInQuarantineAsync(long id)
+    {
+        _busy = true;
+        var notes = string.IsNullOrWhiteSpace(_quarantineNotes) ? null : _quarantineNotes.Trim();
+        var r = await Api.QuarantineUnitAsync(id, _quarantineCode, notes);
+        _busy = false;
+        _actionFb = r.ToFeedback("Unit placed in quality quarantine.");
+        if (r.Succeeded)
+        {
+            _quarantineNotes = string.Empty;
+            _quarantineCode = UnitQuarantineReason.SupervisorReview;
             await RefreshSelected(id);
         }
     }
@@ -768,6 +839,7 @@
         await SearchAsync();
         await LoadExpectedAsync();
         await LoadNearExpiryAsync();
+        await LoadQuarantineAsync();
         _selected = _units.FirstOrDefault(u => u.Id == id);
         if (_selected is not null)
         {
@@ -863,7 +935,7 @@
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.SupplierReturnReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null || u.DonationRestriction != DonationRestriction.Allogeneic || !string.IsNullOrWhiteSpace(u.DirectedConversionReason) || u.ExpectedArrivalDueUtc is not null)
+                @if (!string.IsNullOrWhiteSpace(u.HoldReason) || !string.IsNullOrWhiteSpace(u.QuarantineReason) || u.QuarantineReasonCode != UnitQuarantineReason.Unspecified || !string.IsNullOrWhiteSpace(u.MissingReason) || !string.IsNullOrWhiteSpace(u.DamagedReason) || !string.IsNullOrWhiteSpace(u.SupplierReturnReason) || !string.IsNullOrWhiteSpace(u.ReceiveVisualNotes) || !string.IsNullOrWhiteSpace(u.ShipmentId) || u.ReceiveAppearance != UnitAppearance.Acceptable || u.ReceiveTemperatureCelsius is not null || u.DonationRestriction != DonationRestriction.Allogeneic || !string.IsNullOrWhiteSpace(u.DirectedConversionReason) || u.ExpectedArrivalDueUtc is not null)
                 {
                     <p class="muted">
                         @if (!string.IsNullOrWhiteSpace(u.ShipmentId))
@@ -878,9 +950,9 @@
                         {
                             <span>Hold: @u.HoldReason</span>
                         }
-                        @if (!string.IsNullOrWhiteSpace(u.QuarantineReason))
+                        @if (u.QuarantineReasonCode != UnitQuarantineReason.Unspecified || !string.IsNullOrWhiteSpace(u.QuarantineReason))
                         {
-                            <span>Quarantine: @u.QuarantineReason</span>
+                            <span>Quarantine: @u.QuarantineReasonCode@(string.IsNullOrWhiteSpace(u.QuarantineReason) ? "" : $" — {u.QuarantineReason}")</span>
                         }
                         @if (!string.IsNullOrWhiteSpace(u.MissingReason))
                         {
@@ -918,6 +990,20 @@
                     <div class="flex gap">
                         <input @bind="_holdReason" placeholder="Hold reason (paperwork, pending review)" style="flex:1;" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_holdReason))" @onclick="() => HoldAsync(u.Id)">Place on hold</button>
+                    </div>
+                }
+
+                @if (CanQuarantine(u.Status) && Session.Has(PermissionCodes.InventoryRelease))
+                {
+                    <div class="flex gap" style="flex-wrap:wrap;">
+                        <select @bind="_quarantineCode">
+                            @foreach (var q in Enum.GetValues<UnitQuarantineReason>().Where(x => x != UnitQuarantineReason.Unspecified))
+                            {
+                                <option value="@q">@q</option>
+                            }
+                        </select>
+                        <input @bind="_quarantineNotes" placeholder="Notes (required when Other)" style="flex:1;min-width:12rem;" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || (_quarantineCode == UnitQuarantineReason.Other && string.IsNullOrWhiteSpace(_quarantineNotes)))" @onclick="() => PlaceInQuarantineAsync(u.Id)">Place in quarantine</button>
                     </div>
                 }
 

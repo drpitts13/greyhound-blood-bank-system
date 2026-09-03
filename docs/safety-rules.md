@@ -56,6 +56,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `INV-RCV-TEMP` | Shipping-container temperature at receipt is recorded and within 1–10 °C | HardStop when `Inventory.RequireReceiveTemperature` is true (default); out-of-range units are not received |
 | `INV-AUTO-DIR` | Autologous/directed unit names the intended recipient at receive (or packing-list expect) | HardStop |
 | `INV-EXPECT-OVERDUE` | Packing-list / ASN unit has not arrived by `ExpectedArrivalDueUtc` | Worklist / Warning when overdue (`Inventory.ExpectedArrivalDueHours`, default 24) |
+| `INV-Q-REASON` | Quality quarantine uses a coded catalog reason (not Unspecified; Other requires notes) | HardStop |
 | `INV-DIR-ALLO` | Unused directed unit may be converted to allogeneic inventory; autologous cannot; reserved/issued statuses must be released first | HardStop |
 | `INV-DIR-CONV-2ND` | Distinct directory user as second verifier to convert a directed unit to allogeneic | HardStop when `Inventory.RequireDirectedConversionVerifier` is true (default) |
 | `INV-RCV-2ND` | Distinct directory user as second verifier when receiving a unit (walk-in, expected arrival, ISBT) | HardStop when `Inventory.RequireReceiveVerifier` is true (default) |
@@ -119,6 +120,7 @@ Modified   -> (terminal)
 - `Damaged` is container integrity failure found after the unit is already in inventory. It is not issuable. Inspection lands in `Quarantine`; discard is the terminal alternative.
 - `ReturnedToSupplier` is the SoftBank/SafeTrace consignee reject / unused-stock return to the vendor. Distinct from ward `Returned` and from packing-list `CancelledAssignment`. Terminal; not issuable.
 - Releasing a unit from quality quarantine requires a distinct directory second verifier (`INV-Q-RELEASE-2ND`) when `Inventory.RequireQuarantineReleaseVerifier` is true (default).
+- Placing a unit in quality quarantine requires a coded catalog reason (`INV-Q-REASON`). Intake, locate, inspect, retype discrepancy, failed return, reaction remainder, and modification results store the matching code automatically.
 - Discarding a unit requires a distinct directory second verifier (`INV-DISC-2ND`) when `Inventory.RequireDiscardVerifier` is true (default).
 - Any transition writes `InventoryStatusHistory` + `AuditEvent`.
 - Expiration is enforced automatically: a unit past `ExpiresUtc` cannot move to Allocated/Issued (HardStop) and is eligible to be marked Expired.

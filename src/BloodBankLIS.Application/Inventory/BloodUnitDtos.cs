@@ -52,7 +52,8 @@ public sealed record BloodUnitDto(
     string? DirectedConversionReason = null,
     DateTime? DirectedConvertedUtc = null,
     string? DirectedConvertedBy = null,
-    DateTime? ExpectedArrivalDueUtc = null)
+    DateTime? ExpectedArrivalDueUtc = null,
+    UnitQuarantineReason QuarantineReasonCode = UnitQuarantineReason.Unspecified)
 {
     public static BloodUnitDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
@@ -64,7 +65,7 @@ public sealed record BloodUnitDto(
         u.ShipmentId, u.ReceiveAppearance, u.ReceiveTemperatureCelsius, u.SupplierReturnReason,
         u.DonationRestriction, u.ReservedPatientId,
         u.DirectedConversionReason, u.DirectedConvertedUtc, u.DirectedConvertedBy,
-        u.ExpectedArrivalDueUtc);
+        u.ExpectedArrivalDueUtc, u.QuarantineReasonCode);
 }
 
 public sealed record ExpectedInboundWorkItemDto(
@@ -95,4 +96,17 @@ public sealed record NearExpiryWorkItemDto(
 {
     public static NearExpiryWorkItemDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ExpiresUtc, u.Status, u.Abo, u.RhD, u.ProductTypeId);
+}
+
+public sealed record QuarantineWorkItemDto(
+    long UnitId,
+    string UnitNumber,
+    UnitQuarantineReason ReasonCode,
+    string? Notes,
+    AboGroup Abo,
+    RhType RhD,
+    DateTime ExpiresUtc)
+{
+    public static QuarantineWorkItemDto From(BloodUnit u) => new(
+        u.Id, u.UnitNumber, u.QuarantineReasonCode, u.QuarantineReason, u.Abo, u.RhD, u.ExpiresUtc);
 }

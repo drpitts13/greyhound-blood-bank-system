@@ -41,6 +41,9 @@ public static class InventoryEndpoints
         group.MapGet("/units/near-expiry", async (InventoryService service, CancellationToken ct) =>
             Results.Ok(await service.ListNearExpiryAsync(ct)));
 
+        group.MapGet("/units/quarantine", async (InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListQuarantineAsync(ct)));
+
         group.MapGet("/units/{id:long}", async (long id, InventoryService service, CancellationToken ct) =>
         {
             var unit = await service.GetAsync(id, ct);
@@ -106,6 +109,10 @@ public static class InventoryEndpoints
 
         group.MapPost("/units/{id:long}/release", async (long id, ReleaseFromQuarantineRequest? request, InventoryService service, CancellationToken ct) =>
             ToHttpResult(await service.ReleaseFromQuarantineAsync(id, request?.SecondVerifier, ct)))
+            .RequirePermission(PermissionCodes.InventoryRelease);
+
+        group.MapPost("/units/{id:long}/quarantine", async (long id, QuarantineUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.QuarantineAsync(id, request.ReasonCode, request.Notes, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
         group.MapPost("/units/{id:long}/hold", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>

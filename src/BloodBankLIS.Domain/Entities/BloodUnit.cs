@@ -91,6 +91,9 @@ public class BloodUnit : BaseEntity
 
     public string? QuarantineReason { get; set; }
 
+    /// <summary>Coded SoftBank/SafeTrace quality-quarantine disposition.</summary>
+    public UnitQuarantineReason QuarantineReasonCode { get; set; } = UnitQuarantineReason.Unspecified;
+
     /// <summary>Reason the unit is in operational <see cref="UnitStatus.OnHold"/> (not a quality quarantine).</summary>
     public string? HoldReason { get; set; }
 

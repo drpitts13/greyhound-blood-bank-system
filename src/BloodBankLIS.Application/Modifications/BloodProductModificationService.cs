@@ -378,7 +378,9 @@ public sealed class BloodProductModificationService
                 Supplier = primarySource.Supplier,
                 CollectedUtc = primarySource.CollectedUtc,
                 CollectionDateTime = primarySource.CollectionDateTime,
-                DerivedFromModification = header
+                DerivedFromModification = header,
+                QuarantineReasonCode = UnitQuarantineReason.PendingRelease,
+                QuarantineReason = $"Created by {rule.ModificationType} modification"
             };
 
             if (singleSource)

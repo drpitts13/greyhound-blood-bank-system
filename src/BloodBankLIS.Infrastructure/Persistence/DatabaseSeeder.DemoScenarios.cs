@@ -328,6 +328,7 @@ public static partial class DatabaseSeeder
         var quarantined = NewUnit(serial++, redCells.Id, AboGroup.B, RhType.Positive, fridge.Id, now.AddDays(20), 300m);
         quarantined.Status = UnitStatus.Quarantine;
         quarantined.QuarantineReason = "Segment tubing damaged on receipt; pending supervisor review.";
+        quarantined.QuarantineReasonCode = UnitQuarantineReason.VisualDefect;
 
         var discarded = NewUnit(serial++, platelets.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(-1), 300m);
         discarded.Status = UnitStatus.Discarded;

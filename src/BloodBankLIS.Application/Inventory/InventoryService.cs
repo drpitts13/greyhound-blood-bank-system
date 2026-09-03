@@ -116,6 +116,19 @@ public sealed class InventoryService
             .ToList();
     }
 
+    /// <summary>
+    /// SoftBank/SafeTrace quality-quarantine worklist: units in
+    /// <see cref="UnitStatus.Quarantine"/> with a coded disposition.
+    /// </summary>
+    public async Task<IReadOnlyList<QuarantineWorkItemDto>> ListQuarantineAsync(CancellationToken ct = default)
+    {
+        var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Quarantine), ct);
+        return rows
+            .OrderBy(u => u.CreatedUtc)
+            .Select(QuarantineWorkItemDto.From)
+            .ToList();
+    }
+
     public Task<BloodUnit?> GetAsync(long id, CancellationToken ct = default) =>
         _repository.GetUnitAsync(id, ct);
 
@@ -260,7 +273,10 @@ public sealed class InventoryService
             DonationRestriction = request.DonationRestriction,
             ReservedPatientId = AutologousDirectedRule.RequiresRecipient(request.DonationRestriction)
                 ? request.ReservedPatientId
-                : null
+                : null,
+            QuarantineReasonCode = initialStatus == UnitStatus.Quarantine
+                ? UnitQuarantineReason.PendingRelease
+                : UnitQuarantineReason.Unspecified
         };
 
         await _repository.AddUnitAsync(unit, ct);
@@ -434,6 +450,11 @@ public sealed class InventoryService
             reason = $"{reason} (late arrival)";
         }
 
+        if (destination == UnitStatus.Quarantine)
+        {
+            unit.QuarantineReasonCode = UnitQuarantineReason.PendingRelease;
+        }
+
         return await ChangeStatusAsync(unit, destination, reason, ct);
     }
 
@@ -554,6 +575,10 @@ public sealed class InventoryService
         unit.ReservedPatientId = AutologousDirectedRule.RequiresRecipient(donationRestriction)
             ? reservedPatientId
             : null;
+        if (initialStatus == UnitStatus.Quarantine)
+        {
+            unit.QuarantineReasonCode = UnitQuarantineReason.PendingRelease;
+        }
 
         await _repository.AddUnitAsync(unit, ct);
 
@@ -585,17 +610,27 @@ public sealed class InventoryService
         return await ChangeStatusAsync(unit, UnitStatus.Recalled, reason, ct);
     }
 
-    public async Task<InventoryActionResult> QuarantineAsync(long unitId, string reason, CancellationToken ct = default)
+    public Task<InventoryActionResult> QuarantineAsync(long unitId, string reason, CancellationToken ct = default) =>
+        QuarantineAsync(unitId, UnitQuarantineReason.Other, reason, ct);
+
+    public async Task<InventoryActionResult> QuarantineAsync(
+        long unitId, UnitQuarantineReason reasonCode, string? notes = null, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(reason))
-            return InventoryActionResult.Fail("A quarantine reason is required.");
+        var coded = QuarantineReasonRule.Evaluate(reasonCode, notes);
+        if (coded.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([coded]));
+        }
 
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
 
-        unit.QuarantineReason = reason;
-        return await ChangeStatusAsync(unit, UnitStatus.Quarantine, reason, ct);
+        var note = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+        unit.QuarantineReasonCode = reasonCode;
+        unit.QuarantineReason = note;
+        var historyReason = note ?? reasonCode.ToString();
+        return await ChangeStatusAsync(unit, UnitStatus.Quarantine, historyReason, ct);
     }
 
     public async Task<InventoryActionResult> ReleaseFromQuarantineAsync(
@@ -622,6 +657,7 @@ public sealed class InventoryService
         }
 
         unit.QuarantineReason = null;
+        unit.QuarantineReasonCode = UnitQuarantineReason.Unspecified;
         var reason = string.IsNullOrWhiteSpace(secondVerifier)
             ? "Released from quarantine"
             : $"Released from quarantine; second verifier {secondVerifier.Trim()}";
@@ -776,6 +812,7 @@ public sealed class InventoryService
 
         var prior = unit.MissingReason;
         unit.MissingReason = null;
+        unit.QuarantineReasonCode = UnitQuarantineReason.LocatedAfterMissing;
         unit.QuarantineReason = string.IsNullOrWhiteSpace(prior)
             ? "Located after missing; pending inspection"
             : $"Located after missing ({prior}); pending inspection";
@@ -814,6 +851,7 @@ public sealed class InventoryService
 
         var prior = unit.DamagedReason;
         unit.DamagedReason = null;
+        unit.QuarantineReasonCode = UnitQuarantineReason.InspectedAfterDamage;
         unit.QuarantineReason = string.IsNullOrWhiteSpace(prior)
             ? "Inspected after damage; pending quality review"
             : $"Inspected after damage ({prior}); pending quality review";

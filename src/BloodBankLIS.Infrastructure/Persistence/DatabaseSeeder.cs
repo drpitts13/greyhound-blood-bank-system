@@ -2022,7 +2022,8 @@ public static partial class DatabaseSeeder
             ExpiresUtc = now.AddDays(2),
             CurrentLocationId = fridge.Id,
             Status = UnitStatus.Quarantine,
-            QuarantineReason = "Awaiting infectious disease testing review"
+            QuarantineReason = "Awaiting infectious disease testing review",
+            QuarantineReasonCode = UnitQuarantineReason.PendingRelease
         };
         var unitIssued = new BloodUnit
         {

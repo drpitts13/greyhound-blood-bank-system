@@ -137,6 +137,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
             Assert.True(result.Succeeded);
             Assert.Equal(UnitStatus.Quarantine, result.Unit!.Status);
+            Assert.Equal(UnitQuarantineReason.PendingRelease, result.Unit.QuarantineReasonCode);
             Assert.Equal("E0206", result.Unit.ProductDescriptionCode);
             unitId = result.Unit.Id;
         }
@@ -186,6 +187,85 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var list = await service.ListNearExpiryAsync();
         Assert.DoesNotContain(list, i => i.UnitNumber == "U-NEAR-ASN");
         Assert.DoesNotContain(list, i => i.UnitNumber == "U-NEAR-PAST");
+    }
+
+    [Fact]
+    public async Task ListQuarantine_IncludesReceivedUnits()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest("U-Q-LIST", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+        var expected = await service.ExpectUnitAsync(NewUnitRequest("U-Q-ASN", productTypeId));
+        Assert.True(expected.Succeeded, expected.Error);
+
+        var list = await service.ListQuarantineAsync();
+        Assert.Contains(list, i => i.UnitNumber == "U-Q-LIST" && i.ReasonCode == UnitQuarantineReason.PendingRelease);
+        Assert.DoesNotContain(list, i => i.UnitNumber == "U-Q-ASN");
+    }
+
+    [Fact]
+    public async Task Quarantine_Unspecified_IsHardStop()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest("U-Q-NONE", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+        var released = await service.ReleaseFromQuarantineAsync(received.Unit!.Id, "tech2");
+        Assert.True(released.Succeeded, released.Error);
+
+        var result = await service.QuarantineAsync(received.Unit.Id, UnitQuarantineReason.Unspecified);
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == QuarantineReasonRule.Code);
+    }
+
+    [Fact]
+    public async Task Quarantine_OtherWithoutNotes_IsHardStop()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest("U-Q-OTHER", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+        var released = await service.ReleaseFromQuarantineAsync(received.Unit!.Id, "tech2");
+        Assert.True(released.Succeeded, released.Error);
+
+        var result = await service.QuarantineAsync(received.Unit.Id, UnitQuarantineReason.Other, "  ");
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == QuarantineReasonRule.Code);
+    }
+
+    [Fact]
+    public async Task Quarantine_WithCode_ThenRelease_ClearsDisposition()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest("U-Q-CODE", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+        var released = await service.ReleaseFromQuarantineAsync(received.Unit!.Id, "tech2");
+        Assert.True(released.Succeeded, released.Error);
+        Assert.Equal(UnitQuarantineReason.Unspecified, released.Unit!.QuarantineReasonCode);
+
+        var quarantined = await service.QuarantineAsync(
+            received.Unit.Id, UnitQuarantineReason.LookbackRecall, "Donor notified");
+        Assert.True(quarantined.Succeeded, quarantined.Error);
+        Assert.Equal(UnitStatus.Quarantine, quarantined.Unit!.Status);
+        Assert.Equal(UnitQuarantineReason.LookbackRecall, quarantined.Unit.QuarantineReasonCode);
+        Assert.Equal("Donor notified", quarantined.Unit.QuarantineReason);
+
+        var list = await service.ListQuarantineAsync();
+        Assert.Contains(list, i => i.UnitNumber == "U-Q-CODE" && i.ReasonCode == UnitQuarantineReason.LookbackRecall);
+
+        var available = await service.ReleaseFromQuarantineAsync(received.Unit.Id, "tech2");
+        Assert.True(available.Succeeded, available.Error);
+        Assert.Equal(UnitQuarantineReason.Unspecified, available.Unit!.QuarantineReasonCode);
+        Assert.Null(available.Unit.QuarantineReason);
     }
 
     [Fact]
@@ -951,6 +1031,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(UnitStatus.Quarantine, located.Unit!.Status);
             Assert.Null(located.Unit.MissingReason);
             Assert.Contains("Located after missing", located.Unit.QuarantineReason);
+            Assert.Equal(UnitQuarantineReason.LocatedAfterMissing, located.Unit.QuarantineReasonCode);
         }
     }
 
@@ -1017,6 +1098,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(UnitStatus.Quarantine, inspected.Unit!.Status);
             Assert.Null(inspected.Unit.DamagedReason);
             Assert.Contains("Inspected after damage", inspected.Unit.QuarantineReason);
+            Assert.Equal(UnitQuarantineReason.InspectedAfterDamage, inspected.Unit.QuarantineReasonCode);
         }
     }
 
