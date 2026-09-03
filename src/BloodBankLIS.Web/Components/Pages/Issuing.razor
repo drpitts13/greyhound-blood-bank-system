@@ -182,6 +182,9 @@
             <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" /></div>
         </div>
         <label class="flex"><input type="checkbox" @bind="_wardVisualOk" /> &nbsp;Visual inspection acceptable at receipt</label>
+        <UnitScanVerificationPanel Scan="_wardScan"
+            Title="Ward receipt scan"
+            Help="Scan the unit label at the receiving location. Required for ISBT-labeled units (SoftBank remote-issue chain)." />
         <div class="flex gap" style="margin-top:.75rem;">
             <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="RecordWardReceiptAsync">Acknowledge receipt</button>
             <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="LoadIssueAsync">Check status</button>
@@ -293,6 +296,7 @@
     private Feedback? _txFb;
     private readonly UnitScanModel _issueScan = new();
     private readonly UnitScanModel _txScan = new();
+    private readonly UnitScanModel _wardScan = new();
     private List<DirectoryUserDto> _directoryUsers = new();
     private List<RetrospectiveCrossmatchWorkItemDto> _retroItems = new();
     private List<InTransitWorkItemDto> _inTransitItems = new();
@@ -396,12 +400,14 @@
         _busy = true;
         var r = await Api.RecordWardReceiptAsync(_wardIssueId, new WardReceiptRequest(
             string.IsNullOrWhiteSpace(_wardReceivedBy) ? Session.UserName : _wardReceivedBy,
-            _wardVisualOk));
+            _wardVisualOk,
+            _wardScan.ToRequest()));
         _busy = false;
         _wardFb = r.ToFeedback("Ward receipt recorded.");
         if (r.Succeeded)
         {
             _wardIssue = r.Value;
+            _wardScan.Clear();
             await LoadWorklistsAsync();
         }
     }

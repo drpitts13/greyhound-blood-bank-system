@@ -26,6 +26,7 @@ public static partial class DatabaseSeeder
         await EnsureQuarantineReleaseVerifierPolicyAsync(context, cancellationToken);
         await EnsureReceiveVisualInspectionPolicyAsync(context, cancellationToken);
         await EnsureReceiveVerifierPolicyAsync(context, cancellationToken);
+        await EnsureDiscardVerifierPolicyAsync(context, cancellationToken);
         await EnsureInTransitDueHoursPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
@@ -194,6 +195,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.RequireDiscardVerifier,
+                Value = "true",
+                Category = "Inventory",
+                Description = "Require a distinct directory user as second verifier when discarding a unit."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.BlockSelfVerify,
                 Value = "false",
                 Category = "Result",
@@ -314,6 +322,23 @@ public static partial class DatabaseSeeder
             Value = "true",
             Category = "Inventory",
             Description = "Require a distinct directory user as second verifier when receiving a unit."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureDiscardVerifierPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.RequireDiscardVerifier, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RequireDiscardVerifier,
+            Value = "true",
+            Category = "Inventory",
+            Description = "Require a distinct directory user as second verifier when discarding a unit."
         });
         await context.SaveChangesAsync(ct);
     }

@@ -195,6 +195,7 @@
     private long _transferTo;
     private string _transferReason = string.Empty;
     private string _discardReason = string.Empty;
+    private string? _discardSecondVerifier;
     private string _holdReason = string.Empty;
     private string? _releaseSecondVerifier;
     private List<DirectoryUserDto> _directoryUsers = new();
@@ -324,6 +325,7 @@
         _transferTo = 0;
         _transferReason = string.Empty;
         _discardReason = string.Empty;
+        _discardSecondVerifier = null;
         _holdReason = string.Empty;
         _history = (await Api.GetUnitHistoryAsync(u.Id)).Value ?? new();
         _unitAttributes = (await Api.GetUnitBloodAttributesAsync(u.Id)).Value ?? new();
@@ -440,10 +442,15 @@
     private async Task DiscardAsync(long id)
     {
         _busy = true;
-        var r = await Api.DiscardUnitAsync(id, _discardReason);
+        var r = await Api.DiscardUnitAsync(id, _discardReason, _discardSecondVerifier);
         _busy = false;
         _actionFb = r.ToFeedback("Unit discarded.");
-        if (r.Succeeded) await RefreshSelected(id);
+        if (r.Succeeded)
+        {
+            _discardReason = string.Empty;
+            _discardSecondVerifier = null;
+            await RefreshSelected(id);
+        }
     }
 
     private async Task PrintComponentLabelAsync(long id)
@@ -577,8 +584,19 @@
 
                 @if (Session.Has(PermissionCodes.InventoryDiscard))
                 {
-                    <div class="flex gap">
-                        <input @bind="_discardReason" placeholder="Discard reason" style="flex:1;" />
+                    <div class="flex gap" style="flex-wrap:wrap;">
+                        <input @bind="_discardReason" placeholder="Discard reason" style="flex:1;min-width:12rem;" />
+                        <div class="field" style="min-width:16rem;">
+                            <label>Second verifier</label>
+                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                Items="QuarantineVerifierChoices"
+                                @bind-Value="_discardSecondVerifier"
+                                DisplayText="@(x => x.Label)"
+                                ItemValue="@(x => x.UserName)"
+                                SearchText="@(x => x.Label)"
+                                Clearable="true"
+                                Placeholder="Different active user" />
+                        </div>
                         <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discardReason))" @onclick="() => DiscardAsync(u.Id)">Discard</button>
                     </div>
                 }

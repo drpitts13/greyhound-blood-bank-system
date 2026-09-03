@@ -34,6 +34,7 @@ flowchart TD
 - Matching retype: `Received -> Available`. Mismatch: `Received -> Quarantine` with the discrepancy as the reason (supervisor uses existing release).
 - Checks: unit number unique; expiration in the future; product type known; ABO/Rh present; coded appearance Acceptable (`INV-RCV-APPEAR` / `INV-RCV-VISUAL`; policy `Inventory.RequireReceiveVisualInspection`, default true); distinct directory second verifier (`INV-RCV-2ND`; policy `Inventory.RequireReceiveVerifier`, default true). Defects (clots, hemolysis, leaking, …) are not received — return the unit to the supplier. Expect-unit (packing list) does not require a second verifier until arrival is confirmed.
 - Quarantine release (`INV-Q-RELEASE-2ND`) requires a distinct active directory user as second verifier (SoftBank/SafeTrace quality release). Policy: `Inventory.RequireQuarantineReleaseVerifier` (default true).
+- Discard (`INV-DISC-2ND`) requires a distinct active directory user as second verifier (SoftBank/SafeTrace dual control to destroy a unit). Policy: `Inventory.RequireDiscardVerifier` (default true).
 - Audit: `Create` (unit), `Update` (status change) with location.
 
 ---
@@ -130,7 +131,7 @@ flowchart TD
     out -->|All pass| ok[Issue allowed]
 ```
 
-- After a successful issue the unit is **in transit** until ward receipt or return. Optional `CoolerId` records SoftBank-style cooler checkout. `InTransitDueUtc` is `IssuedUtc` plus `Issue.InTransitDueHours` (default 4). The issuing worklist (`GET /api/issues/in-transit`) flags overdue custody (`ISS-IN-TRANSIT`). Late ward receipt is still allowed and is audited as late.
+- After a successful issue the unit is **in transit** until ward receipt or return. Optional `CoolerId` records SoftBank-style cooler checkout. `InTransitDueUtc` is `IssuedUtc` plus `Issue.InTransitDueHours` (default 4). The issuing worklist (`GET /api/issues/in-transit`) flags overdue custody (`ISS-IN-TRANSIT`). Late ward receipt is still allowed and is audited as late. ISBT-labeled units require a fresh quadrant scan at ward receipt (`UnitScanMismatch`), matching the SoftBank remote-issue chain (issue scan → cooler → ward scan → bedside scan). Legacy units without `ComponentIdentity` are not blocked. HL7 BPAM administration stamps implicit receipt without a scan because the interface already identified the unit.
 
 ---
 

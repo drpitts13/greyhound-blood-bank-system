@@ -618,7 +618,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var result = await CreateService(context).DiscardAsync(unitId, "Bag integrity compromised");
+            var result = await CreateService(context).DiscardAsync(unitId, "Bag integrity compromised", "tech2");
             Assert.True(result.Succeeded);
             Assert.Equal(UnitStatus.Discarded, result.Unit!.Status);
         }
@@ -628,8 +628,45 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             var discardAudit = await verify.AuditEvents
                 .Where(a => a.EntityType == nameof(BloodUnit) && a.EntityId == unitId && a.EventType == AuditEventType.Discard)
                 .SingleAsync();
-            Assert.Equal("Bag integrity compromised", discardAudit.Reason);
+            Assert.Contains("Bag integrity compromised", discardAudit.Reason);
+            Assert.Contains("tech2", discardAudit.Reason);
         }
+    }
+
+    [Fact]
+    public async Task Discard_WithoutSecondVerifier_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-DISC-NO2", productTypeId))).Unit!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var result = await CreateService(ctx).DiscardAsync(unitId, "Bag integrity compromised");
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == DiscardVerifierRule.Code);
+    }
+
+    [Fact]
+    public async Task Discard_SameUserOrUnknownVerifier_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-DISC-BAD2", productTypeId))).Unit!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var service = CreateService(ctx);
+        var same = await service.DiscardAsync(unitId, "attempt", "tech-test");
+        Assert.Contains(same.Evaluation!.HardStops, r => r.Code == DiscardVerifierRule.Code);
+
+        var unknown = await service.DiscardAsync(unitId, "attempt", "not-a-user");
+        Assert.Contains(unknown.Evaluation!.HardStops, r => r.Code == SecondVerifierDirectoryRule.Code);
     }
 
     [Fact]

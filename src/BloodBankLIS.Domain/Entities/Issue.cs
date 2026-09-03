@@ -59,6 +59,9 @@ public class Issue : BaseEntity
 
     public bool WardVisualAcceptable { get; set; } = true;
 
+    /// <summary>Fresh ISBT quadrant scan captured when the ward acknowledged custody.</summary>
+    public string? WardScanJson { get; set; }
+
     /// <summary>SoftBank cooler / transport container id while the unit is in transit to the ward.</summary>
     public string? CoolerId { get; set; }
 

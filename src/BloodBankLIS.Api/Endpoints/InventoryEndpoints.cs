@@ -9,7 +9,7 @@ namespace BloodBankLIS.Api.Endpoints;
 
 public sealed record TransferUnitRequest(long ToLocationId, string? Reason);
 
-public sealed record DiscardUnitRequest(string Reason);
+public sealed record DiscardUnitRequest(string Reason, string? SecondVerifier = null);
 
 public static class InventoryEndpoints
 {
@@ -114,7 +114,7 @@ public static class InventoryEndpoints
             .RequirePermission(PermissionCodes.InventoryTransfer);
 
         group.MapPost("/units/{id:long}/discard", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
-            ToHttpResult(await service.DiscardAsync(id, request.Reason, ct)))
+            ToHttpResult(await service.DiscardAsync(id, request.Reason, request.SecondVerifier, ct)))
             .RequirePermission(PermissionCodes.InventoryDiscard);
 
         // Operational sweep that expires units past their expiration date/time.

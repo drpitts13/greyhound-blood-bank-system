@@ -634,10 +634,12 @@ public sealed class InventoryService
     }
 
     /// <summary>
-    /// Dangerous action: requires a reason and is recorded as a named Discard audit
-    /// event in addition to the automatic Update audit (see docs/safety-rules.md 5).
+    /// Dangerous action: requires a reason, a distinct second verifier when policy
+    /// demands it, and is recorded as a named Discard audit event in addition to the
+    /// automatic Update audit (see docs/safety-rules.md 5).
     /// </summary>
-    public async Task<InventoryActionResult> DiscardAsync(long unitId, string reason, CancellationToken ct = default)
+    public async Task<InventoryActionResult> DiscardAsync(
+        long unitId, string reason, string? secondVerifier = null, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
@@ -656,9 +658,26 @@ public sealed class InventoryService
             return InventoryActionResult.Blocked(new RuleEvaluation(new[] { transition }));
         }
 
+        var requireSecond = _policy is null
+            || await _policy.GetRequireDiscardVerifierAsync(ct);
+        var dual = DiscardVerifierRule.Evaluate(_currentUser.UserName, secondVerifier, requireSecond);
+        if (dual.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([dual]));
+        }
+
+        var directory = await EvaluateSecondVerifierDirectoryAsync(secondVerifier, ct);
+        if (directory.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([directory]));
+        }
+
         var fromStatus = unit.Status;
         unit.Status = UnitStatus.Discarded;
         unit.DiscardReason = reason;
+        var historyReason = string.IsNullOrWhiteSpace(secondVerifier)
+            ? reason
+            : $"{reason}; second verifier {secondVerifier.Trim()}";
 
         _repository.AddStatusHistory(new InventoryStatusHistory
         {
@@ -667,7 +686,7 @@ public sealed class InventoryService
             ToStatus = UnitStatus.Discarded,
             FromLocationId = unit.CurrentLocationId,
             ToLocationId = unit.CurrentLocationId,
-            Reason = reason,
+            Reason = historyReason,
             ChangedBy = _currentUser.UserName,
             ChangedUtc = _clock.UtcNow
         });
@@ -677,8 +696,8 @@ public sealed class InventoryService
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { Status = fromStatus },
-            newValue: new { Status = UnitStatus.Discarded, DiscardReason = reason },
-            reason: reason);
+            newValue: new { Status = UnitStatus.Discarded, DiscardReason = reason, SecondVerifier = secondVerifier },
+            reason: historyReason);
 
         await _unitOfWork.SaveChangesAsync(ct);
         return InventoryActionResult.Ok(unit);

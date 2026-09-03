@@ -46,7 +46,8 @@ public sealed record ReturnUnitRequest(
 
 public sealed record WardReceiptRequest(
     string ReceivedBy,
-    bool VisualInspectionAcceptable = true);
+    bool VisualInspectionAcceptable = true,
+    ComponentScanVerificationRequest? VerifiedScan = null);
 
 public sealed record DocumentTransfusionRequest(
     TransfusionDisposition FinalDisposition,

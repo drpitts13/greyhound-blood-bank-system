@@ -269,8 +269,8 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<BloodUnitDto>> TransferUnitAsync(long id, long toLocationId, string? reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/transfer", new TransferRequestVm(toLocationId, reason), ct);
 
-    public Task<ApiResult<BloodUnitDto>> DiscardUnitAsync(long id, string reason, CancellationToken ct = default) =>
-        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/discard", new ReasonRequestVm(reason), ct);
+    public Task<ApiResult<BloodUnitDto>> DiscardUnitAsync(long id, string reason, string? secondVerifier = null, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/discard", new DiscardUnitRequestVm(reason, secondVerifier), ct);
 
     public Task<ApiResult<ExpireDueVm>> ExpireDueAsync(CancellationToken ct = default) =>
         SendAsync<ExpireDueVm>(HttpMethod.Post, "api/inventory/expire-due", ct: ct);

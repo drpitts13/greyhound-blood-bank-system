@@ -5,6 +5,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
@@ -736,6 +737,61 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             var transit = await Issuing(c).ListInTransitAsync();
             Assert.DoesNotContain(transit, t => t.IssueId == issueId);
         }
+    }
+
+    [Fact]
+    public async Task WardReceipt_IsbtUnit_RequiresMatchingScan()
+    {
+        var s = await SeedAsync("WARDSCAN");
+        await AttachIsbtIdentityAsync(s.UnitId);
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        var scan = MatchingScan(s.UnitId);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with { VerifiedScan = scan });
+            Assert.True(issued.Succeeded, issued.Error);
+            issueId = issued.Value!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var issuing = Issuing(ctx);
+
+        var missing = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"));
+        Assert.False(missing.Succeeded);
+        Assert.Contains(IsbtErrorCodes.UnitScanMismatch, missing.Error);
+
+        var mismatch = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest(
+            "ward-nurse",
+            VerifiedScan: scan with { Din = "W9999999999999" }));
+        Assert.False(mismatch.Succeeded);
+        Assert.True(mismatch.Evaluation!.IsHardStopped);
+        Assert.Contains(mismatch.Evaluation.HardStops, r => r.Code == IsbtErrorCodes.UnitScanMismatch);
+
+        var ok = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", VerifiedScan: scan));
+        Assert.True(ok.Succeeded, ok.Error);
+        Assert.Equal("ward-nurse", ok.Value!.WardReceivedBy);
+        var stored = await ctx.Issues.FindAsync(issueId);
+        Assert.False(string.IsNullOrWhiteSpace(stored!.WardScanJson));
+    }
+
+    private static ComponentScanVerificationRequest MatchingScan(long unitId) =>
+        new($"W{unitId:D12}", "E0206000", null, "DEMO", "2250200");
+
+    private async Task AttachIsbtIdentityAsync(long unitId)
+    {
+        await using var c = _factory.Create();
+        var unit = await c.BloodUnits.FindAsync(unitId);
+        Assert.NotNull(unit);
+        var din = $"W{unitId:D12}";
+        unit!.Din = din;
+        unit.ProductCodeData = "E0206000";
+        unit.AboRhdCode = "DEMO";
+        unit.ExpirationEncoded = "2250200";
+        unit.ComponentIdentity = $"{din}|E0206000";
+        await c.SaveChangesAsync();
     }
 
     [Fact]

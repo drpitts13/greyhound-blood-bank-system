@@ -128,23 +128,10 @@ public sealed class IssuingService
         }
 
         // Fresh scan verification required when the unit has a canonical ISBT identity.
-        // Legacy units without ComponentIdentity are not blocked (backward compatible).
-        if (!string.IsNullOrEmpty(unit.ComponentIdentity) && request.VerifiedScan is not null)
+        var issueScan = EvaluateRequiredScan(unit, request.VerifiedScan, "at issue");
+        if (issueScan is not null)
         {
-            var scanEval = ComponentScanVerifier.Verify(
-                unit,
-                request.VerifiedScan.Din,
-                request.VerifiedScan.ProductCodeData,
-                request.VerifiedScan.ExtendedDivisionCode,
-                request.VerifiedScan.AboRhdCode,
-                request.VerifiedScan.ExpirationEncoded);
-            if (scanEval.IsHardStopped)
-                return EvaluationResult<Issue>.Blocked(scanEval);
-        }
-        else if (!string.IsNullOrEmpty(unit.ComponentIdentity) && request.VerifiedScan is null)
-        {
-            return EvaluationResult<Issue>.Fail(
-                $"{IsbtErrorCodes.UnitScanMismatch}: Fresh component scan verification is required at issue.");
+            return issueScan;
         }
 
         var now = _clock.UtcNow;
@@ -450,11 +437,24 @@ public sealed class IssuingService
             return EvaluationResult<Issue>.Fail("This unit was already acknowledged at the receiving location.");
         }
 
+        var unit = await _inventory.GetUnitAsync(issue.BloodProductId, ct);
+        if (unit is null)
+        {
+            return EvaluationResult<Issue>.Fail("Unit not found.");
+        }
+
+        var wardScan = EvaluateRequiredScan(unit, request.VerifiedScan, "at ward receipt");
+        if (wardScan is not null)
+        {
+            return wardScan;
+        }
+
         var now = _clock.UtcNow;
         var overdue = InTransitPendingRule.EvaluateOverdue(issue.InTransitDueUtc, now);
         issue.WardReceivedUtc = now;
         issue.WardReceivedBy = request.ReceivedBy.Trim();
         issue.WardVisualAcceptable = true;
+        issue.WardScanJson = request.VerifiedScan is null ? null : JsonSerializer.Serialize(request.VerifiedScan);
         _issues.Update(issue);
 
         _audit.Record(
@@ -756,6 +756,40 @@ public sealed class IssuingService
             !h.IsCurrent
             && h.BloodType.IsKnown
             && h.BloodType != current.BloodType);
+    }
+
+    /// <summary>
+    /// SoftBank remote-issue chain: issue and ward receipt require a fresh ISBT
+    /// quadrant scan when the unit has a canonical component identity. Legacy units
+    /// without identity are not blocked.
+    /// </summary>
+    private static EvaluationResult<Issue>? EvaluateRequiredScan(
+        BloodUnit unit, ComponentScanVerificationRequest? scan, string when)
+    {
+        if (string.IsNullOrEmpty(unit.ComponentIdentity))
+        {
+            return null;
+        }
+
+        if (scan is null)
+        {
+            return EvaluationResult<Issue>.Fail(
+                $"{IsbtErrorCodes.UnitScanMismatch}: Fresh component scan verification is required {when}.");
+        }
+
+        var scanEval = ComponentScanVerifier.Verify(
+            unit,
+            scan.Din,
+            scan.ProductCodeData,
+            scan.ExtendedDivisionCode,
+            scan.AboRhdCode,
+            scan.ExpirationEncoded);
+        if (scanEval.IsHardStopped)
+        {
+            return EvaluationResult<Issue>.Blocked(scanEval);
+        }
+
+        return null;
     }
 
     private async Task<RuleResult> EvaluateSecondVerifierDirectoryAsync(string? secondVerifier, CancellationToken ct)
