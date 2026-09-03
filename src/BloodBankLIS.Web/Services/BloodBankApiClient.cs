@@ -428,6 +428,16 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<LookbackReportDto>> LookbackAsync(string din, CancellationToken ct = default) =>
         SendAsync<LookbackReportDto>(HttpMethod.Get, $"api/lookback/{Uri.EscapeDataString(din)}", ct: ct);
 
+    public Task<ApiResult<RecipientTraceReportDto>> LookbackByRecipientAsync(
+        string? mrn, long? patientId = null, CancellationToken ct = default)
+    {
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(mrn)) q.Add($"mrn={Uri.EscapeDataString(mrn)}");
+        if (patientId is > 0) q.Add($"patientId={patientId}");
+        return SendAsync<RecipientTraceReportDto>(
+            HttpMethod.Get, $"api/lookback/recipient?{string.Join("&", q)}", ct: ct);
+    }
+
     public Task<ApiResult<LookbackReportDto>> RecallByDinAsync(string din, string reason, CancellationToken ct = default) =>
         SendAsync<LookbackReportDto>(HttpMethod.Post, $"api/lookback/{Uri.EscapeDataString(din)}/recall", new ReasonRequestVm(reason), ct);
 

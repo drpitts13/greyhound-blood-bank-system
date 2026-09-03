@@ -40,6 +40,9 @@ public static class ComplianceEndpoints
         var group = app.MapGroup("/api/lookback").WithTags("Lookback").RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.LookbackManage);
 
+        group.MapGet("/recipient", async (string? mrn, long? patientId, LookbackService service, CancellationToken ct) =>
+            EndpointResults.From(await service.FindByRecipientAsync(mrn, patientId, ct), r => r));
+
         group.MapGet("/{din}", async (string din, LookbackService service, CancellationToken ct) =>
             EndpointResults.From(await service.FindByDinAsync(din, ct), r => r));
 

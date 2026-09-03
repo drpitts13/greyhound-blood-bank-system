@@ -36,6 +36,10 @@
         <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/inventory")'>Search inventory</button>
         <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/compatibility")'>Crossmatch &amp; allocate</button>
         <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/issuing")'>Issue a unit</button>
+        @if (Session.Has(PermissionCodes.LookbackManage))
+        {
+            <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/lookback")'>Lookback / traceback</button>
+        }
         @if (Session.Has(PermissionCodes.Hl7Manage))
         {
             <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/hl7")'>HL7 interface</button>

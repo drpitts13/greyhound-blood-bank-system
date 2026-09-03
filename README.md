@@ -80,7 +80,7 @@ Endpoints:
 - Billing: `GET /api/billing/charges` (review queue), `POST /api/billing/charges/{id}/review`, `POST /api/billing/charges/{id}/cancel` (requires `{ reason }`), `POST /api/billing/charges/{id}/export`, `POST /api/billing/capture/result/{resultId}`, `POST /api/billing/capture/issue/{issueId}` (manual, idempotent recapture). Verifying a result and issuing a unit automatically capture charges after they commit.
 - Signatures: `POST /api/signatures` records an electronic signature for the current user (`{ action, meaningOfSignature, contextType?, contextId?, reauthenticationSecret? }`) and returns its id. Password/PIN re-authentication is required when the account has a local secret.
 - Audit: read-only `GET /api/audit-events?skip=&take=` (max take 1000; no purge)
-- Lookback: `GET /api/lookback/{din}`, `POST /api/lookback/{din}/recall`
+- Lookback: `GET /api/lookback/{din}`, `POST /api/lookback/{din}/recall`, `GET /api/lookback/recipient?mrn=&patientId=` (recipient traceback)
 - Reactions: `GET/PUT /api/reaction-investigations`
 - Deviations: `GET/POST /api/deviations`
 - Special requirements: `GET/POST /api/patients/{id}/special-requirements`

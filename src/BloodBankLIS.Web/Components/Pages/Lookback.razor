@@ -1,11 +1,12 @@
 @page "/lookback"
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@inject NavigationManager Nav
 
 <PageTitle>Lookback &middot; Greyhound Blood Bank LIS</PageTitle>
 
-<h1>DIN lookback</h1>
-<p class="muted">Find every component sharing a donation identification number. Recalling quarantines non-transfused units and opens a recipient-notification worklist. The LIS does not auto-notify patients.</p>
+<h1>Lookback &amp; traceback</h1>
+<p class="muted">Donor lookback finds every component sharing a DIN. Recipient traceback lists units issued to a patient and other recipients of those donations. Recalling quarantines non-transfused units and opens a notification worklist. The LIS does not auto-notify patients.</p>
 
 @if (!Session.Has(PermissionCodes.LookbackManage))
 {
@@ -13,122 +14,301 @@
 }
 else
 {
-    <div class="bb-card">
-        <Outcome Value="_fb" />
-        <div class="form-row">
-            <div class="field"><label>DIN (13 characters)</label><input class="mono" @bind="_din" placeholder="W0000X1234567" /></div>
-            <div class="field"><label>Recall reason</label><input @bind="_reason" placeholder="Required to recall" /></div>
-        </div>
-        <div class="flex gap">
-            <button class="btn btn-primary" disabled="@_busy" @onclick="SearchAsync">Search</button>
-            <button class="btn btn-danger" disabled="@_busy" @onclick="RecallAsync">Recall all components</button>
-        </div>
+    <div class="flex gap" style="margin-bottom:1rem;">
+        <button class="@ModeClass(LookbackMode.Din)" @onclick="() => SwitchMode(LookbackMode.Din)">DIN lookback</button>
+        <button class="@ModeClass(LookbackMode.Recipient)" @onclick="() => SwitchMode(LookbackMode.Recipient)">Recipient traceback</button>
     </div>
 
-    @if (_report is not null)
+    @if (_mode == LookbackMode.Din)
     {
         <div class="bb-card">
-            <div class="bb-card-title"><h3>Components for <span class="mono">@_report.Din</span></h3></div>
-            <table class="bb">
-                <thead><tr><th>Unit</th><th>DIN</th><th>Status</th><th>Derived</th></tr></thead>
-                <tbody>
-                    @foreach (var u in _report.Units)
-                    {
-                        <tr>
-                            <td class="mono">@u.UnitNumber (#@u.BloodProductId)</td>
-                            <td class="mono">@u.Din</td>
-                            <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
-                            <td>@(u.IsDerivedComponent ? "Yes" : "")</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+            <Outcome Value="_fb" />
+            <div class="form-row">
+                <div class="field"><label>DIN (13 characters)</label><input class="mono" @bind="_din" placeholder="W0000X1234567" /></div>
+                <div class="field"><label>Recall reason</label><input @bind="_reason" placeholder="Required to recall" /></div>
+            </div>
+            <div class="flex gap">
+                <button class="btn btn-primary" disabled="@_busy" @onclick="SearchDinAsync">Search</button>
+                <button class="btn btn-danger" disabled="@_busy" @onclick="RecallAsync">Recall all components</button>
+            </div>
         </div>
 
-        <div class="bb-card">
-            <div class="bb-card-title"><h3>Recipients / issues</h3></div>
-            @if (_report.Recipients.Count == 0)
-            {
-                <div class="empty">No issues found for this DIN.</div>
-            }
-            else
-            {
+        @if (_report is not null)
+        {
+            <div class="bb-card">
+                <div class="bb-card-title"><h3>Components for <span class="mono">@_report.Din</span></h3></div>
                 <table class="bb">
-                    <thead><tr><th>Patient</th><th>Issue</th><th>Transfusion</th><th>Location</th><th>Issued</th></tr></thead>
+                    <thead><tr><th>Unit</th><th>DIN</th><th>Status</th><th>Derived</th></tr></thead>
                     <tbody>
-                        @foreach (var r in _report.Recipients)
+                        @foreach (var u in _report.Units)
                         {
                             <tr>
-                                <td>@(r.PatientId?.ToString() ?? "—")</td>
-                                <td>@(r.IssueId?.ToString() ?? "—")</td>
-                                <td>@(r.TransfusionEventId?.ToString() ?? "—")</td>
-                                <td>@r.IssuedToLocation</td>
-                                <td class="nowrap">@(r.IssuedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                <td class="mono">@u.UnitNumber (#@u.BloodProductId)</td>
+                                <td class="mono">@u.Din</td>
+                                <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
+                                <td>@(u.IsDerivedComponent ? "Yes" : "")</td>
                             </tr>
                         }
                     </tbody>
                 </table>
-            }
-        </div>
+            </div>
 
-        <div class="bb-card">
-            <div class="bb-card-title"><h3>Notification worklist</h3></div>
-            @if (_report.Notifications.Count == 0)
-            {
-                <div class="empty">No recipient notifications (none transfused, or recall not yet run).</div>
-            }
-            else
-            {
-                <table class="bb">
-                    <thead><tr><th>Id</th><th>Patient</th><th>Status</th><th>Physician</th><th>Attempted</th><th></th></tr></thead>
-                    <tbody>
-                        @foreach (var n in _report.Notifications)
-                        {
-                            <tr>
-                                <td>@n.Id</td>
-                                <td>@(n.PatientId?.ToString() ?? "—")</td>
-                                <td>@n.Status</td>
-                                <td>@n.PhysicianOfRecord</td>
-                                <td class="nowrap">@(n.AttemptedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
-                                <td class="right">
-                                    <button class="btn btn-ghost btn-sm" @onclick="() => BeginAttempt(n)">Record attempt</button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            }
+            <div class="bb-card">
+                <div class="bb-card-title"><h3>Recipients / issues</h3></div>
+                @if (_report.Recipients.Count == 0)
+                {
+                    <div class="empty">No issues found for this DIN.</div>
+                }
+                else
+                {
+                    <table class="bb">
+                        <thead><tr><th>Patient</th><th>MRN</th><th>Unit</th><th>Issue</th><th>Transfusion</th><th>Location</th><th>Issued</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var r in _report.Recipients)
+                            {
+                                <tr>
+                                    <td>@(r.PatientName ?? r.PatientId?.ToString() ?? "—")</td>
+                                    <td class="mono">@(r.MedicalRecordNumber ?? "—")</td>
+                                    <td class="mono">@(r.UnitNumber ?? r.BloodProductId.ToString())</td>
+                                    <td>@(r.IssueId?.ToString() ?? "—")</td>
+                                    <td>@(r.TransfusionEventId?.ToString() ?? "—")</td>
+                                    <td>@r.IssuedToLocation</td>
+                                    <td class="nowrap">@(r.IssuedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                    <td class="right">
+                                        @if (!string.IsNullOrWhiteSpace(r.MedicalRecordNumber))
+                                        {
+                                            <button class="btn btn-ghost btn-sm" @onclick="() => TraceRecipient(r.MedicalRecordNumber!)">Trace recipient</button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
 
-            @if (_attemptId is not null)
-            {
-                <div class="alert alert-info" style="margin-top:1rem;">
-                    <div class="form-row">
-                        <div class="field"><label>Physician of record</label><input @bind="_physician" /></div>
-                        <div class="field"><label>Status</label>
-                            <select @bind="_attemptStatus">@foreach (var s in Enum.GetValues<LookbackNotificationStatus>()) { <option value="@s">@s</option> }</select>
+            <div class="bb-card">
+                <div class="bb-card-title"><h3>Notification worklist</h3></div>
+                @if (_report.Notifications.Count == 0)
+                {
+                    <div class="empty">No recipient notifications (none transfused, or recall not yet run).</div>
+                }
+                else
+                {
+                    <table class="bb">
+                        <thead><tr><th>Id</th><th>Patient</th><th>Status</th><th>Physician</th><th>Attempted</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var n in _report.Notifications)
+                            {
+                                <tr>
+                                    <td>@n.Id</td>
+                                    <td>@(n.PatientId?.ToString() ?? "—")</td>
+                                    <td>@n.Status</td>
+                                    <td>@n.PhysicianOfRecord</td>
+                                    <td class="nowrap">@(n.AttemptedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                                    <td class="right">
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => BeginAttempt(n)">Record attempt</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @if (_attemptId is not null)
+                {
+                    <div class="alert alert-info" style="margin-top:1rem;">
+                        <div class="form-row">
+                            <div class="field"><label>Physician of record</label><input @bind="_physician" /></div>
+                            <div class="field"><label>Status</label>
+                                <select @bind="_attemptStatus">@foreach (var s in Enum.GetValues<LookbackNotificationStatus>()) { <option value="@s">@s</option> }</select>
+                            </div>
+                            <div class="field" style="grid-column:1/-1;"><label>Notes</label><input @bind="_attemptNotes" /></div>
                         </div>
-                        <div class="field" style="grid-column:1/-1;"><label>Notes</label><input @bind="_attemptNotes" /></div>
+                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="SaveAttemptAsync">Save</button>
+                        <button class="btn btn-ghost btn-sm" @onclick="() => _attemptId = null">Cancel</button>
                     </div>
-                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="SaveAttemptAsync">Save</button>
-                    <button class="btn btn-ghost btn-sm" @onclick="() => _attemptId = null">Cancel</button>
-                </div>
-            }
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <div class="bb-card">
+            <Outcome Value="_traceFb" />
+            <div class="form-row">
+                <div class="field"><label>Recipient MRN</label><input class="mono" @bind="_mrn" placeholder="Medical record number" /></div>
+            </div>
+            <div class="flex gap">
+                <button class="btn btn-primary" disabled="@_busy" @onclick="SearchRecipientAsync">Trace recipient</button>
+            </div>
         </div>
+
+        @if (_trace is not null)
+        {
+            <div class="bb-card">
+                <div class="bb-card-title"><h3>@_trace.Patient.LastName, @_trace.Patient.FirstName</h3></div>
+                <p class="muted">
+                    MRN <span class="mono">@_trace.Patient.MedicalRecordNumber</span>
+                    &middot; DOB @_trace.Patient.DateOfBirth.ToString("yyyy-MM-dd")
+                    @if (_trace.Patient.ResolvedFromMerge)
+                    {
+                        <span> &middot; resolved from a merged record</span>
+                    }
+                </p>
+            </div>
+
+            <div class="bb-card">
+                <div class="bb-card-title"><h3>Units issued to this recipient</h3></div>
+                @if (_trace.Units.Count == 0)
+                {
+                    <div class="empty">No issues found for this recipient.</div>
+                }
+                else
+                {
+                    <table class="bb">
+                        <thead><tr><th>Unit</th><th>DIN</th><th>Status</th><th>Issue</th><th>Location</th><th>Issued</th><th>Transfusion</th></tr></thead>
+                        <tbody>
+                            @foreach (var u in _trace.Units)
+                            {
+                                <tr>
+                                    <td class="mono">@u.UnitNumber (#@u.BloodProductId)</td>
+                                    <td class="mono">
+                                        @if (!string.IsNullOrWhiteSpace(u.Din))
+                                        {
+                                            <button class="btn btn-ghost btn-sm mono" @onclick="() => SearchDinFromTrace(u.Din!)">@u.Din</button>
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
+                                    <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
+                                    <td>@u.IssueType / @u.IssueStatus</td>
+                                    <td>@(u.IssuedToLocation ?? "—")</td>
+                                    <td class="nowrap">@u.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td>
+                                        @if (u.TransfusionEventId is null)
+                                        {
+                                            <span>—</span>
+                                        }
+                                        else
+                                        {
+                                            <span>@u.TransfusionDisposition@(u.ReactionSuspected ? " (reaction)" : "")</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+
+            <div class="bb-card">
+                <div class="bb-card-title"><h3>Other components from the same donations</h3></div>
+                @if (_trace.RelatedComponents.Count == 0)
+                {
+                    <div class="empty">No other components share these DINs.</div>
+                }
+                else
+                {
+                    <table class="bb">
+                        <thead><tr><th>DIN</th><th>Unit</th><th>Status</th></tr></thead>
+                        <tbody>
+                            @foreach (var r in _trace.RelatedComponents)
+                            {
+                                <tr>
+                                    <td class="mono">
+                                        <button class="btn btn-ghost btn-sm mono" @onclick="() => SearchDinFromTrace(r.Din)">@r.Din</button>
+                                    </td>
+                                    <td class="mono">@r.UnitNumber (#@r.BloodProductId)</td>
+                                    <td><span class="@Ui.Badge(r.Status)">@r.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+
+            <div class="bb-card">
+                <div class="bb-card-title"><h3>Other recipients of those donations</h3></div>
+                @if (_trace.CoRecipients.Count == 0)
+                {
+                    <div class="empty">No other recipients identified.</div>
+                }
+                else
+                {
+                    <table class="bb">
+                        <thead><tr><th>Patient</th><th>MRN</th><th>DIN</th><th>Unit</th><th>Issued</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var r in _trace.CoRecipients)
+                            {
+                                <tr>
+                                    <td>@r.PatientName</td>
+                                    <td class="mono">@r.MedicalRecordNumber</td>
+                                    <td class="mono">@r.Din</td>
+                                    <td class="mono">@r.UnitNumber</td>
+                                    <td class="nowrap">@r.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td class="right">
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => TraceRecipient(r.MedicalRecordNumber)">Trace</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        }
     }
 }
 
 @code {
+    private enum LookbackMode { Din, Recipient }
+
+    [SupplyParameterFromQuery]
+    public string? Mrn { get; set; }
+
+    private LookbackMode _mode = LookbackMode.Din;
     private string _din = string.Empty;
     private string _reason = string.Empty;
+    private string _mrn = string.Empty;
     private bool _busy;
     private Feedback? _fb;
+    private Feedback? _traceFb;
     private LookbackReportDto? _report;
+    private RecipientTraceReportDto? _trace;
     private long? _attemptId;
     private string? _physician;
     private string? _attemptNotes;
     private LookbackNotificationStatus _attemptStatus = LookbackNotificationStatus.Attempted;
+    private bool _autoTraced;
 
-    private async Task SearchAsync()
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_autoTraced || string.IsNullOrWhiteSpace(Mrn) || !Session.Has(PermissionCodes.LookbackManage))
+        {
+            return;
+        }
+
+        _autoTraced = true;
+        _mrn = Mrn;
+        _mode = LookbackMode.Recipient;
+        await SearchRecipientAsync();
+    }
+
+    private static string ModeClass(LookbackMode mode, LookbackMode current) =>
+        mode == current ? "btn btn-primary" : "btn btn-secondary";
+
+    private string ModeClass(LookbackMode mode) => ModeClass(mode, _mode);
+
+    private void SwitchMode(LookbackMode mode)
+    {
+        _mode = mode;
+        _fb = null;
+        _traceFb = null;
+    }
+
+    private async Task SearchDinAsync()
     {
         _busy = true;
         var r = await Api.LookbackAsync(_din);
@@ -144,6 +324,29 @@ else
         _busy = false;
         _fb = r.ToFeedback("Recall by DIN recorded. Transfused recipients remain on the notification worklist.");
         if (r.Succeeded) _report = r.Value;
+    }
+
+    private async Task SearchRecipientAsync()
+    {
+        _busy = true;
+        var r = await Api.LookbackByRecipientAsync(_mrn);
+        _busy = false;
+        _traceFb = r.ToFeedback("Recipient traceback complete.");
+        if (r.Succeeded) _trace = r.Value;
+    }
+
+    private async Task TraceRecipient(string mrn)
+    {
+        _mrn = mrn;
+        _mode = LookbackMode.Recipient;
+        await SearchRecipientAsync();
+    }
+
+    private async Task SearchDinFromTrace(string din)
+    {
+        _din = din;
+        _mode = LookbackMode.Din;
+        await SearchDinAsync();
     }
 
     private void BeginAttempt(LookbackNotificationDto n)
@@ -164,7 +367,7 @@ else
         if (r.Succeeded)
         {
             _attemptId = null;
-            await SearchAsync();
+            await SearchDinAsync();
         }
     }
 }

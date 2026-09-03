@@ -41,6 +41,10 @@ else
             {
                 <button class="btn btn-secondary" @onclick="ToggleEditDemographics">@(_editingDemographics ? "Cancel edit" : "Edit demographics")</button>
             }
+            @if (Session.Has(PermissionCodes.LookbackManage))
+            {
+                <button class="btn btn-secondary" @onclick="OpenRecipientTrace">Recipient traceback</button>
+            }
             <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/patients")'>Back</button>
         </div>
     </div>
@@ -2086,6 +2090,12 @@ else
         _patient is not null
         && _patient.Status != PatientStatus.Merged
         && Session.Has(PermissionCodes.PatientWrite);
+
+    private void OpenRecipientTrace()
+    {
+        if (_patient is null) return;
+        Nav.NavigateTo($"/lookback?mrn={Uri.EscapeDataString(_patient.MedicalRecordNumber)}");
+    }
 
     private static string DisplayName(PatientDto p) =>
         string.IsNullOrWhiteSpace(p.MiddleName)

@@ -37,6 +37,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-TX-02 | Reaction investigation | erd.md ReactionInvestigations; 21 CFR 606.170 | Auto-open + fatality due dates | A,I | 21 CFR 606.170 |
 | R-TX-03 | Dual identification at issue/transfusion | DualIdentificationRule TX-DUAL-ID | Distinct second verifier or electronic ID | D | AABB administration |
 | R-LB-01 | DIN lookback and recall | LookbackService; 21 CFR 610.46–47 | Recall all components; notification worklist | I | 21 CFR 610.46–47, 606.165 |
+| R-LB-02 | Recipient traceback (patient → units → source DINs → co-recipients) | LookbackService.FindByRecipientAsync; 21 CFR 606.165 | Issued units, related components, co-recipients; merge follow | I | 21 CFR 606.165 bidirectional trace |
 | R-QS-01 | Deviation / nonconformance | erd.md Deviations | Create + CAPA status | I | AABB Standards 7 |
 | R-HL-01 | Inbound ADT | hl7-design 2.1 | ADT updates demographics only | H,A | |
 | R-HL-02 | Inbound ORM/OML | hl7-design 2.2 | Order created from message | H,A | |

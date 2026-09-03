@@ -19,7 +19,55 @@ public sealed record LookbackRecipientDto(
     long? IssueId,
     long? TransfusionEventId,
     string? IssuedToLocation,
-    DateTime? IssuedUtc);
+    DateTime? IssuedUtc,
+    string? MedicalRecordNumber = null,
+    string? PatientName = null,
+    string? UnitNumber = null);
+
+public sealed record RecipientTracePatientDto(
+    long PatientId,
+    string MedicalRecordNumber,
+    string LastName,
+    string FirstName,
+    DateOnly DateOfBirth,
+    bool ResolvedFromMerge);
+
+public sealed record RecipientTraceUnitDto(
+    long BloodProductId,
+    string UnitNumber,
+    string? Din,
+    UnitStatus Status,
+    long IssueId,
+    DateTime IssuedUtc,
+    string? IssuedToLocation,
+    IssueType IssueType,
+    IssueStatus IssueStatus,
+    long? TransfusionEventId,
+    TransfusionDisposition? TransfusionDisposition,
+    bool ReactionSuspected);
+
+public sealed record RelatedComponentDto(
+    string Din,
+    long BloodProductId,
+    string UnitNumber,
+    UnitStatus Status,
+    bool IssuedToIndexPatient);
+
+public sealed record CoRecipientDto(
+    string Din,
+    long BloodProductId,
+    string UnitNumber,
+    long PatientId,
+    string MedicalRecordNumber,
+    string PatientName,
+    long IssueId,
+    DateTime IssuedUtc);
+
+public sealed record RecipientTraceReportDto(
+    RecipientTracePatientDto Patient,
+    IReadOnlyList<RecipientTraceUnitDto> Units,
+    IReadOnlyList<RelatedComponentDto> RelatedComponents,
+    IReadOnlyList<CoRecipientDto> CoRecipients);
 
 public sealed record LookbackReportDto(
     string Din,
@@ -53,6 +101,7 @@ public sealed class LookbackService
     private readonly IRepository<UnitModificationUnit> _modificationUnits;
     private readonly IRepository<Issue> _issues;
     private readonly IRepository<TransfusionEvent> _transfusions;
+    private readonly IRepository<Patient> _patients;
     private readonly IRepository<LookbackNotification> _notifications;
     private readonly InventoryService _inventoryService;
     private readonly IUnitOfWork _unitOfWork;
@@ -66,6 +115,7 @@ public sealed class LookbackService
         IRepository<UnitModificationUnit> modificationUnits,
         IRepository<Issue> issues,
         IRepository<TransfusionEvent> transfusions,
+        IRepository<Patient> patients,
         IRepository<LookbackNotification> notifications,
         InventoryService inventoryService,
         IUnitOfWork unitOfWork,
@@ -78,6 +128,7 @@ public sealed class LookbackService
         _modificationUnits = modificationUnits;
         _issues = issues;
         _transfusions = transfusions;
+        _patients = patients;
         _notifications = notifications;
         _inventoryService = inventoryService;
         _unitOfWork = unitOfWork;
@@ -102,8 +153,10 @@ public sealed class LookbackService
             foreach (var issue in issues)
             {
                 var tx = await _transfusions.FirstOrDefaultAsync(t => t.IssueId == issue.Id, ct);
+                var recipient = await _patients.GetByIdAsync(issue.PatientId, ct);
                 recipients.Add(new LookbackRecipientDto(
-                    unit.Id, issue.PatientId, issue.Id, tx?.Id, issue.IssuedToLocation, issue.IssuedUtc));
+                    unit.Id, issue.PatientId, issue.Id, tx?.Id, issue.IssuedToLocation, issue.IssuedUtc,
+                    recipient?.MedicalRecordNumber, FormatName(recipient), unit.UnitNumber));
             }
         }
 
@@ -179,6 +232,187 @@ public sealed class LookbackService
         row.AttemptedBy = _currentUser.UserName;
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<LookbackNotification>.Ok(row);
+    }
+
+    /// <summary>
+    /// Recipient traceback: every unit issued to a patient, plus other components
+    /// and co-recipients that share those donation identification numbers
+    /// (21 CFR 606.165 bidirectional traceability).
+    /// </summary>
+    public async Task<OperationResult<RecipientTraceReportDto>> FindByRecipientAsync(
+        string? mrn, long? patientId, CancellationToken ct = default)
+    {
+        var resolved = await ResolveRecipientAsync(mrn, patientId, ct);
+        if (!resolved.Succeeded)
+        {
+            return OperationResult<RecipientTraceReportDto>.Fail(resolved.Error!);
+        }
+
+        var (patient, fromMerge) = resolved.Value;
+        var patientIds = await CollectRelatedPatientIdsAsync(patient.Id, ct);
+        var issues = (await _issues.ListAsync(i => patientIds.Contains(i.PatientId), ct))
+            .OrderByDescending(i => i.IssuedUtc)
+            .ToList();
+
+        var units = new List<RecipientTraceUnitDto>();
+        var issuedUnitIds = new HashSet<long>();
+        var dins = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var issue in issues)
+        {
+            var unit = await _units.GetByIdAsync(issue.BloodProductId, ct)
+                ?? await _inventory.GetUnitAsync(issue.BloodProductId, ct);
+            if (unit is null)
+            {
+                continue;
+            }
+
+            issuedUnitIds.Add(unit.Id);
+            var din = NormalizeDin(unit.Din ?? string.Empty);
+            if (din.Length == 13)
+            {
+                dins.Add(din);
+            }
+
+            var tx = await _transfusions.FirstOrDefaultAsync(t => t.IssueId == issue.Id, ct);
+            units.Add(new RecipientTraceUnitDto(
+                unit.Id,
+                unit.UnitNumber,
+                unit.Din,
+                unit.Status,
+                issue.Id,
+                issue.IssuedUtc,
+                issue.IssuedToLocation,
+                issue.IssueType,
+                issue.Status,
+                tx?.Id,
+                tx?.FinalDisposition,
+                tx?.ReactionSuspected ?? false));
+        }
+
+        var related = new List<RelatedComponentDto>();
+        var coRecipients = new List<CoRecipientDto>();
+        foreach (var din in dins)
+        {
+            var family = await CollectUnitsForDinAsync(din, ct);
+            foreach (var unit in family)
+            {
+                var issuedToIndex = issuedUnitIds.Contains(unit.Id);
+                if (!issuedToIndex)
+                {
+                    related.Add(new RelatedComponentDto(
+                        din, unit.Id, unit.UnitNumber, unit.Status, IssuedToIndexPatient: false));
+                }
+
+                var otherIssues = await _issues.ListAsync(i => i.BloodProductId == unit.Id, ct);
+                foreach (var other in otherIssues)
+                {
+                    if (patientIds.Contains(other.PatientId))
+                    {
+                        continue;
+                    }
+
+                    var otherPatient = await _patients.GetByIdAsync(other.PatientId, ct);
+                    if (otherPatient is null)
+                    {
+                        continue;
+                    }
+
+                    coRecipients.Add(new CoRecipientDto(
+                        din, unit.Id, unit.UnitNumber, otherPatient.Id,
+                        otherPatient.MedicalRecordNumber, FormatName(otherPatient) ?? otherPatient.MedicalRecordNumber,
+                        other.Id, other.IssuedUtc));
+                }
+            }
+        }
+
+        _audit.Record(
+            AuditEventType.Lookback,
+            nameof(Patient),
+            patient.Id,
+            newValue: new { patient.MedicalRecordNumber, UnitCount = units.Count, DonationCount = dins.Count },
+            reason: "Recipient traceback");
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        return OperationResult<RecipientTraceReportDto>.Ok(new RecipientTraceReportDto(
+            new RecipientTracePatientDto(
+                patient.Id, patient.MedicalRecordNumber, patient.LastName, patient.FirstName,
+                patient.DateOfBirth, fromMerge),
+            units,
+            related,
+            coRecipients));
+    }
+
+    private async Task<OperationResult<(Patient Patient, bool ResolvedFromMerge)>> ResolveRecipientAsync(
+        string? mrn, long? patientId, CancellationToken ct)
+    {
+        if (patientId is null or <= 0 && string.IsNullOrWhiteSpace(mrn))
+        {
+            return OperationResult<(Patient, bool)>.Fail("MRN or patient id is required.");
+        }
+
+        Patient? patient = null;
+        if (patientId is > 0)
+        {
+            patient = await _patients.GetByIdAsync(patientId.Value, ct);
+        }
+
+        if (patient is null && !string.IsNullOrWhiteSpace(mrn))
+        {
+            var trimmed = mrn.Trim();
+            patient = await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == trimmed, ct);
+            if (patient is null)
+            {
+                var upper = trimmed.ToUpperInvariant();
+                var matches = await _patients.ListAsync(
+                    p => p.MedicalRecordNumber.ToUpper() == upper, ct);
+                patient = matches.FirstOrDefault();
+            }
+        }
+
+        if (patient is null)
+        {
+            return OperationResult<(Patient, bool)>.Fail("Recipient not found.");
+        }
+
+        var fromMerge = false;
+        var seen = new HashSet<long>();
+        while (patient.MergedIntoPatientId is long survivorId && seen.Add(patient.Id))
+        {
+            var survivor = await _patients.GetByIdAsync(survivorId, ct);
+            if (survivor is null)
+            {
+                break;
+            }
+
+            patient = survivor;
+            fromMerge = true;
+        }
+
+        return OperationResult<(Patient, bool)>.Ok((patient, fromMerge));
+    }
+
+    private async Task<List<long>> CollectRelatedPatientIdsAsync(long survivingPatientId, CancellationToken ct)
+    {
+        var ids = new HashSet<long> { survivingPatientId };
+        var merged = await _patients.ListAsync(p => p.MergedIntoPatientId == survivingPatientId, ct);
+        foreach (var prior in merged)
+        {
+            ids.Add(prior.Id);
+        }
+
+        return ids.ToList();
+    }
+
+    private static string? FormatName(Patient? patient)
+    {
+        if (patient is null)
+        {
+            return null;
+        }
+
+        return string.IsNullOrWhiteSpace(patient.MiddleName)
+            ? $"{patient.LastName}, {patient.FirstName}"
+            : $"{patient.LastName}, {patient.FirstName} {patient.MiddleName}";
     }
 
     private async Task<List<BloodUnit>> CollectUnitsForDinAsync(string din13, CancellationToken ct)
