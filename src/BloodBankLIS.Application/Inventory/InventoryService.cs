@@ -129,6 +129,21 @@ public sealed class InventoryService
             .ToList();
     }
 
+    /// <summary>
+    /// SoftBank/SafeTrace physical-inventory discrepancy worklist: missing and
+    /// damaged units awaiting locate or inspect (21 CFR 606.165).
+    /// </summary>
+    public async Task<IReadOnlyList<DiscrepancyWorkItemDto>> ListDiscrepancyAsync(CancellationToken ct = default)
+    {
+        var missing = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Missing), ct);
+        var damaged = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Damaged), ct);
+        return missing.Concat(damaged)
+            .OrderBy(u => u.Status)
+            .ThenBy(u => u.UnitNumber)
+            .Select(DiscrepancyWorkItemDto.From)
+            .ToList();
+    }
+
     public Task<BloodUnit?> GetAsync(long id, CancellationToken ct = default) =>
         _repository.GetUnitAsync(id, ct);
 

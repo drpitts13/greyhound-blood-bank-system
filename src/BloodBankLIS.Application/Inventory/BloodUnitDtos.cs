@@ -110,3 +110,18 @@ public sealed record QuarantineWorkItemDto(
     public static QuarantineWorkItemDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.QuarantineReasonCode, u.QuarantineReason, u.Abo, u.RhD, u.ExpiresUtc);
 }
+
+public sealed record DiscrepancyWorkItemDto(
+    long UnitId,
+    string UnitNumber,
+    UnitStatus Status,
+    string? Reason,
+    AboGroup Abo,
+    RhType RhD,
+    long? CurrentLocationId)
+{
+    public static DiscrepancyWorkItemDto From(BloodUnit u) => new(
+        u.Id, u.UnitNumber, u.Status,
+        u.Status == UnitStatus.Missing ? u.MissingReason : u.DamagedReason,
+        u.Abo, u.RhD, u.CurrentLocationId);
+}

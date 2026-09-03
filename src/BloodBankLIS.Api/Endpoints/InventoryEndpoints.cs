@@ -44,6 +44,10 @@ public static class InventoryEndpoints
         group.MapGet("/units/quarantine", async (InventoryService service, CancellationToken ct) =>
             Results.Ok(await service.ListQuarantineAsync(ct)));
 
+        group.MapGet("/units/discrepancy", async (InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListDiscrepancyAsync(ct)))
+            .RequirePermission(PermissionCodes.InventoryRelease);
+
         group.MapGet("/units/{id:long}", async (long id, InventoryService service, CancellationToken ct) =>
         {
             var unit = await service.GetAsync(id, ct);

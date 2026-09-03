@@ -148,6 +148,46 @@
     </div>
 }
 
+@if (_discrepancyItems.Count > 0 || Session.Has(PermissionCodes.InventoryRelease))
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Inventory discrepancy</h3></div>
+        <p class="muted">Missing and damaged units awaiting locate or inspect (SoftBank/SafeTrace physical inventory). They cannot be issued.</p>
+        @if (_discrepancyItems.Count == 0)
+        {
+            <div class="muted">No missing or damaged units.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Unit</th>
+                        <th>ABO/Rh</th>
+                        <th>Status</th>
+                        <th>Reason</th>
+                        <th>Location</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _discrepancyItems)
+                    {
+                        <tr>
+                            <td class="mono">@row.UnitNumber</td>
+                            <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
+                            <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
+                            <td>@(row.Reason ?? "—")</td>
+                            <td>@LocationName(row.CurrentLocationId)</td>
+                            <td class="right"><button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => OpenExpectedAsync(row.UnitId)">Open</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
 @if (_showReceive)
 {
     <div class="bb-card">
@@ -342,6 +382,7 @@
     private List<ExpectedInboundWorkItemDto> _expectedItems = new();
     private List<NearExpiryWorkItemDto> _nearExpiryItems = new();
     private List<QuarantineWorkItemDto> _quarantineItems = new();
+    private List<DiscrepancyWorkItemDto> _discrepancyItems = new();
     private List<ProductTypeDto> _productTypes = new();
     private List<InventoryLocationDto> _locations = new();
     private bool _loading = true;
@@ -410,6 +451,7 @@
         await LoadExpectedAsync();
         await LoadNearExpiryAsync();
         await LoadQuarantineAsync();
+        await LoadDiscrepancyAsync();
     }
 
     private string ProductCode(BloodUnitDto u)
@@ -477,6 +519,18 @@
     {
         var r = await Api.GetQuarantineUnitsAsync();
         if (r.Succeeded) _quarantineItems = r.Value ?? new();
+    }
+
+    private async Task LoadDiscrepancyAsync()
+    {
+        if (!Session.Has(PermissionCodes.InventoryRelease))
+        {
+            _discrepancyItems = new();
+            return;
+        }
+
+        var r = await Api.GetDiscrepancyUnitsAsync();
+        if (r.Succeeded) _discrepancyItems = r.Value ?? new();
     }
 
     private async Task OpenExpectedAsync(long unitId)
@@ -840,6 +894,7 @@
         await LoadExpectedAsync();
         await LoadNearExpiryAsync();
         await LoadQuarantineAsync();
+        await LoadDiscrepancyAsync();
         _selected = _units.FirstOrDefault(u => u.Id == id);
         if (_selected is not null)
         {

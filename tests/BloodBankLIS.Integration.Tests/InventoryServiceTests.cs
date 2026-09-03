@@ -1121,6 +1121,39 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListDiscrepancy_IncludesMissingAndDamaged_ExcludesAvailable()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var missing = await service.ReceiveUnitAsync(NewUnitRequest("U-DISC-MISS", productTypeId));
+        Assert.True(missing.Succeeded, missing.Error);
+        var releasedMissing = await service.ReleaseFromQuarantineAsync(missing.Unit!.Id, "tech2");
+        Assert.True(releasedMissing.Succeeded, releasedMissing.Error);
+        var markedMissing = await service.MarkMissingAsync(missing.Unit.Id, "Not on shelf");
+        Assert.True(markedMissing.Succeeded, markedMissing.Error);
+
+        var damaged = await service.ReceiveUnitAsync(NewUnitRequest("U-DISC-DMG", productTypeId));
+        Assert.True(damaged.Succeeded, damaged.Error);
+        var releasedDamaged = await service.ReleaseFromQuarantineAsync(damaged.Unit!.Id, "tech2");
+        Assert.True(releasedDamaged.Succeeded, releasedDamaged.Error);
+        var markedDamaged = await service.MarkDamagedAsync(damaged.Unit.Id, "Leaking bag");
+        Assert.True(markedDamaged.Succeeded, markedDamaged.Error);
+
+        var available = await service.ReceiveUnitAsync(NewUnitRequest("U-DISC-OK", productTypeId));
+        Assert.True(available.Succeeded, available.Error);
+        var releasedOk = await service.ReleaseFromQuarantineAsync(available.Unit!.Id, "tech2");
+        Assert.True(releasedOk.Succeeded, releasedOk.Error);
+
+        var list = await service.ListDiscrepancyAsync();
+        Assert.Contains(list, i => i.UnitNumber == "U-DISC-MISS" && i.Status == UnitStatus.Missing && i.Reason == "Not on shelf");
+        Assert.Contains(list, i => i.UnitNumber == "U-DISC-DMG" && i.Status == UnitStatus.Damaged && i.Reason == "Leaking bag");
+        Assert.DoesNotContain(list, i => i.UnitNumber == "U-DISC-OK");
+    }
+
+    [Fact]
     public async Task ReturnToSupplier_WithoutReason_Fails()
     {
         var productTypeId = await EnsureProductTypeAsync();
