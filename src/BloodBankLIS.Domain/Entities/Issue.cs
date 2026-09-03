@@ -59,6 +59,9 @@ public class Issue : BaseEntity
 
     public bool WardVisualAcceptable { get; set; } = true;
 
+    /// <summary>Coded appearance catalog captured at ward receipt.</summary>
+    public UnitAppearance WardAppearance { get; set; } = UnitAppearance.Acceptable;
+
     /// <summary>Fresh ISBT quadrant scan captured when the ward acknowledged custody.</summary>
     public string? WardScanJson { get; set; }
 

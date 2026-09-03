@@ -779,10 +779,33 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         var first = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"));
         Assert.True(first.Succeeded);
+        Assert.Equal(UnitAppearance.Acceptable, first.Value!.WardAppearance);
 
         var dup = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("another-nurse"));
         Assert.False(dup.Succeeded);
         Assert.Contains("already acknowledged", dup.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task WardReceipt_HemolysisAppearance_IsHardStopped()
+    {
+        var s = await SeedAsync("WRDHEM");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var issuing = Issuing(ctx);
+        var visual = await issuing.RecordWardReceiptAsync(
+            issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Hemolysis));
+        Assert.False(visual.Succeeded);
+        Assert.Contains(visual.Evaluation!.HardStops, r => r.Code == WardAppearanceRule.Code);
+        Assert.Null((await ctx.Issues.FindAsync(issueId))!.WardReceivedUtc);
     }
 
     [Fact]

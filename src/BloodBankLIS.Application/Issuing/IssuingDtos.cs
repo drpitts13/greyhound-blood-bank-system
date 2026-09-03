@@ -48,7 +48,8 @@ public sealed record ReturnUnitRequest(
 public sealed record WardReceiptRequest(
     string ReceivedBy,
     bool VisualInspectionAcceptable = true,
-    ComponentScanVerificationRequest? VerifiedScan = null);
+    ComponentScanVerificationRequest? VerifiedScan = null,
+    UnitAppearance Appearance = UnitAppearance.Acceptable);
 
 public sealed record DocumentTransfusionRequest(
     TransfusionDisposition FinalDisposition,
@@ -84,14 +85,15 @@ public sealed record IssueDto(
     DateTime? RetrospectiveCrossmatchCompletedUtc = null,
     string? CoolerId = null,
     DateTime? InTransitDueUtc = null,
-    UnitAppearance IssueAppearance = UnitAppearance.Acceptable)
+    UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
+    UnitAppearance WardAppearance = UnitAppearance.Acceptable)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
         i.IssuedUtc, i.IssuedBy, i.Comment, i.IssueType, i.OverrideId, i.Status, i.TestsIncompleteAtIssue,
         i.WardReceivedUtc, i.WardReceivedBy,
         i.RetrospectiveCrossmatchDueUtc, i.RetrospectiveCrossmatchCompletedUtc,
-        i.CoolerId, i.InTransitDueUtc, i.IssueAppearance);
+        i.CoolerId, i.InTransitDueUtc, i.IssueAppearance, i.WardAppearance);
 }
 
 public sealed record InTransitWorkItemDto(

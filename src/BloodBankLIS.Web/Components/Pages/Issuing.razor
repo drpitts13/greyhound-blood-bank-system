@@ -185,8 +185,12 @@
         <div class="form-row">
             <div class="field"><label>Issue id</label><input type="number" @bind="_wardIssueId" /></div>
             <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" /></div>
+            <div class="field"><label>Appearance at receipt</label>
+                <select @bind="_wardAppearance">
+                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
+                </select>
+            </div>
         </div>
-        <label class="flex"><input type="checkbox" @bind="_wardVisualOk" /> &nbsp;Visual inspection acceptable at receipt</label>
         <UnitScanVerificationPanel Scan="_wardScan"
             Title="Ward receipt scan"
             Help="Scan the unit label at the receiving location. Required for ISBT-labeled units (SoftBank remote-issue chain)." />
@@ -200,7 +204,7 @@
                 Issue <strong>@_wardIssue.Id</strong> · @_wardIssue.Status
                 @if (_wardIssue.WardReceivedUtc is not null)
                 {
-                    <span> · received @_wardIssue.WardReceivedUtc.Value.ToString("yyyy-MM-dd HH:mm") by @_wardIssue.WardReceivedBy</span>
+                    <span> · received @_wardIssue.WardReceivedUtc.Value.ToString("yyyy-MM-dd HH:mm") by @_wardIssue.WardReceivedBy · @_wardIssue.WardAppearance</span>
                 }
                 else
                 {
@@ -283,7 +287,7 @@
 
     private long _wardIssueId;
     private string _wardReceivedBy = string.Empty;
-    private bool _wardVisualOk = true;
+    private UnitAppearance _wardAppearance = UnitAppearance.Acceptable;
     private Feedback? _wardFb;
     private IssueDto? _wardIssue;
 
@@ -406,8 +410,9 @@
         _busy = true;
         var r = await Api.RecordWardReceiptAsync(_wardIssueId, new WardReceiptRequest(
             string.IsNullOrWhiteSpace(_wardReceivedBy) ? Session.UserName : _wardReceivedBy,
-            _wardVisualOk,
-            _wardScan.ToRequest()));
+            _wardAppearance == UnitAppearance.Acceptable,
+            _wardScan.ToRequest(),
+            _wardAppearance));
         _busy = false;
         _wardFb = r.ToFeedback("Ward receipt recorded.");
         if (r.Succeeded)

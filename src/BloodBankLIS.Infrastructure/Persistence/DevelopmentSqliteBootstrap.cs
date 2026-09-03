@@ -104,6 +104,7 @@ public static class DevelopmentSqliteBootstrap
         ("Issues", "CoolerId", """ALTER TABLE "Issues" ADD COLUMN "CoolerId" TEXT NULL"""),
         ("Issues", "InTransitDueUtc", """ALTER TABLE "Issues" ADD COLUMN "InTransitDueUtc" TEXT NULL"""),
         ("Issues", "IssueAppearance", """ALTER TABLE "Issues" ADD COLUMN "IssueAppearance" INTEGER NOT NULL DEFAULT 0"""),
+        ("Issues", "WardAppearance", """ALTER TABLE "Issues" ADD COLUMN "WardAppearance" INTEGER NOT NULL DEFAULT 0"""),
         ("Issues", "WardScanJson", """ALTER TABLE "Issues" ADD COLUMN "WardScanJson" TEXT NULL"""),
         ("Users", "FailedSignInCount", """ALTER TABLE "Users" ADD COLUMN "FailedSignInCount" INTEGER NOT NULL DEFAULT 0"""),
         ("Users", "PinHash", """ALTER TABLE "Users" ADD COLUMN "PinHash" TEXT NULL"""),

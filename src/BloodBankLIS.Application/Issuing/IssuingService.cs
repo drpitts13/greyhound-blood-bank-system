@@ -432,6 +432,12 @@ public sealed class IssuingService
             return EvaluationResult<Issue>.Fail("The person who received the unit is required.");
         }
 
+        var appearance = WardAppearanceRule.Evaluate(request.Appearance);
+        if (appearance.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Issue>.Blocked(new RuleEvaluation([appearance]));
+        }
+
         if (!request.VisualInspectionAcceptable)
         {
             return EvaluationResult<Issue>.Fail(
@@ -471,6 +477,7 @@ public sealed class IssuingService
         issue.WardReceivedUtc = now;
         issue.WardReceivedBy = request.ReceivedBy.Trim();
         issue.WardVisualAcceptable = true;
+        issue.WardAppearance = request.Appearance;
         issue.WardScanJson = request.VerifiedScan is null ? null : JsonSerializer.Serialize(request.VerifiedScan);
         _issues.Update(issue);
 

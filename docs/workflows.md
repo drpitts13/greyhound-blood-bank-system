@@ -140,6 +140,7 @@ flowchart TD
 
 - After a successful issue the unit is **in transit** until ward receipt or return. Optional `CoolerId` records SoftBank-style cooler checkout. `InTransitDueUtc` is `IssuedUtc` plus `Issue.InTransitDueHours` (default 4). The issuing worklist (`GET /api/issues/in-transit`) flags overdue custody (`ISS-IN-TRANSIT`). Late ward receipt is still allowed and is audited as late. ISBT-labeled units require a fresh quadrant scan at ward receipt (`UnitScanMismatch`), matching the SoftBank remote-issue chain (issue scan → cooler → ward scan → bedside scan). Legacy units without `ComponentIdentity` are not blocked. HL7 BPAM administration stamps implicit receipt without a scan because the interface already identified the unit.
 - Appearance at issue uses the same coded catalog as receive (`ISS-APPEAR`). Defects are a HardStop; the selected code is stored on `Issues.IssueAppearance`.
+- Appearance at ward receipt uses the same catalog (`TX-WARD-APPEAR`). Defects are a HardStop — return the unit to the blood bank. The selected code is stored on `Issues.WardAppearance`.
 
 ---
 
