@@ -110,6 +110,12 @@ public sealed class ProductRetypeService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var denied = await RejectUnauthorizedEnterAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _inventory.GetUnitAsync(unitId, ct);
         if (unit is null)
         {
@@ -285,6 +291,21 @@ public sealed class ProductRetypeService
         var allowed = await _permissions.HasPermissionAsync(
             _currentUser.UserName, PermissionCodes.ResultVerify, ct);
         var auth = ResultAuthorizationRule.EvaluateVerify(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<ProductRetypeDetailDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<EvaluationResult<ProductRetypeDetailDto>?> RejectUnauthorizedEnterAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.ResultEnter, ct);
+        var auth = ResultAuthorizationRule.EvaluateEnter(allowed);
         return auth.Severity == RuleSeverity.HardStop
             ? EvaluationResult<ProductRetypeDetailDto>.Blocked(new RuleEvaluation([auth]))
             : null;

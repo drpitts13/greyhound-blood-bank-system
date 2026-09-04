@@ -33,3 +33,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-026 | Verifying a test result or a unit ABO/Rh retype is limited to staff with result.verify. | P0 | FRS-BB-055 |
 | URS-BB-027 | Allocating a unit to a patient is limited to staff with compatibility.allocate. Recording a crossmatch is limited to staff with compatibility.crossmatch. | P0 | FRS-BB-056 |
 | URS-BB-028 | Issuing a unit is limited to staff with issue.create. Emergency/MTP still also requires issue.emergency-release. | P0 | FRS-BB-057 |
+| URS-BB-029 | Entering a result or unit ABO/Rh retype is limited to staff with result.enter. Correcting a verified result is limited to staff with result.correct. | P0 | FRS-BB-058 |

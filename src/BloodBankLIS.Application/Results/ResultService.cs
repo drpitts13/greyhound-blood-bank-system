@@ -298,6 +298,12 @@ public sealed class ResultService
         long specimenId, long? orderId, string testCode, string value, string? units, string? interpretation, CancellationToken ct,
         bool skipSpecimenCheck = false)
     {
+        var denied = await RejectUnauthorizedEnterAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         if (string.IsNullOrWhiteSpace(testCode))
         {
             return OperationResult<TestResult>.Fail("Test code is required.");
@@ -804,6 +810,12 @@ public sealed class ResultService
             return OperationResult<TestResult>.Fail("A new value is required to correct a result.");
         }
 
+        var denied = await RejectUnauthorizedCorrectAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var original = await _results.GetByIdAsync(resultId, ct);
         if (original is null)
         {
@@ -1124,6 +1136,12 @@ public sealed class ResultService
     private async Task<OperationResult<TestResult>> UpdateResultInPlaceAsync(
         TestResult existing, string value, string? units, string? interpretation, CancellationToken ct)
     {
+        var denied = await RejectUnauthorizedEnterAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         existing.Value = value;
         existing.Units = units;
         existing.Interpretation = interpretation;
@@ -1555,16 +1573,36 @@ public sealed class ResultService
 
     private async Task<EvaluationResult<TestResult>?> RejectUnauthorizedVerifyAsync(CancellationToken ct)
     {
+        var auth = await AuthorizeAsync(PermissionCodes.ResultVerify, ResultAuthorizationRule.EvaluateVerify, ct);
+        return auth is null
+            ? null
+            : EvaluationResult<TestResult>.Blocked(new RuleEvaluation([auth]));
+    }
+
+    private async Task<OperationResult<TestResult>?> RejectUnauthorizedEnterAsync(CancellationToken ct)
+    {
+        var auth = await AuthorizeAsync(PermissionCodes.ResultEnter, ResultAuthorizationRule.EvaluateEnter, ct);
+        return auth is null ? null : OperationResult<TestResult>.Fail(auth.Message);
+    }
+
+    private async Task<OperationResult<TestResult>?> RejectUnauthorizedCorrectAsync(CancellationToken ct)
+    {
+        var auth = await AuthorizeAsync(PermissionCodes.ResultCorrect, ResultAuthorizationRule.EvaluateCorrect, ct);
+        return auth is null ? null : OperationResult<TestResult>.Fail(auth.Message);
+    }
+
+    private async Task<RuleResult?> AuthorizeAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
         if (_permissions is null)
         {
             return null;
         }
 
-        var allowed = await _permissions.HasPermissionAsync(
-            _currentUser.UserName, PermissionCodes.ResultVerify, ct);
-        var auth = ResultAuthorizationRule.EvaluateVerify(allowed);
-        return auth.Severity == RuleSeverity.HardStop
-            ? EvaluationResult<TestResult>.Blocked(new RuleEvaluation([auth]))
-            : null;
+        var allowed = await _permissions.HasPermissionAsync(_currentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop ? auth : null;
     }
 }

@@ -101,6 +101,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-026 / FRS-BB-055 | Result and unit-retype verify require result.verify in Application | `RES-VERIFY-PERM`; self-verify still applies | `ResultAuthorizationRuleTests`; Phase 3 and ProductRetype permission tests | D,I | RISK-BB-028 |
 | URS-BB-027 / FRS-BB-056 | Allocate and crossmatch require compatibility privileges in Application | `XM-ALLOC-PERM`, `XM-PERM` | `CompatibilityAuthorizationRuleTests`; PatientAllocation permission tests | D,I | RISK-BB-029 |
 | URS-BB-028 / FRS-BB-057 | Issue requires issue.create in Application | `ISS-CREATE-PERM`; emergency still needs `ISS-EMERG-PERM` | `IssueAuthorizationRuleTests`; Phase 4 issue-create permission test | D,I | RISK-BB-030 |
+| URS-BB-029 / FRS-BB-058 | Result enter and verified-result correction require privileges in Application | `RES-ENTER-PERM`, `RES-CORRECT-PERM` | `ResultAuthorizationRuleTests`; Phase 3 and ProductRetype permission tests | D,I | RISK-BB-031 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

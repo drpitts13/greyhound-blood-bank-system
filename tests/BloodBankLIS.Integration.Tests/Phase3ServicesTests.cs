@@ -379,6 +379,29 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task EnterAboRh_WithoutResultEnter_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-ABO-ENT");
+        var specimenId = await AccessionAsync("ACC-ABO-ENT", patientId);
+
+        await using var context = _factory.Create();
+        var denied = await Results(
+            context,
+            permissions: new FixedPermissionEvaluator(2, PermissionCodes.ResultVerify))
+            .EnterAboRhAsync(new EnterAboRhRequest(specimenId, AboGroup.O, RhType.Positive));
+        Assert.False(denied.Succeeded);
+        Assert.Equal(ResultAuthorizationRule.EvaluateEnter(false).Message, denied.Error);
+        Assert.False(await context.TestResults.AnyAsync(r => r.SpecimenId == specimenId));
+
+        var allowed = await Results(
+            context,
+            permissions: new FixedPermissionEvaluator(2, PermissionCodes.ResultEnter))
+            .EnterAboRhAsync(new EnterAboRhRequest(specimenId, AboGroup.O, RhType.Positive));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(ResultStatus.Entered, allowed.Value!.Status);
+    }
+
+    [Fact]
     public async Task SaveAboRh_MarkComplete_LeavesEntered_DoesNotSetCurrentType()
     {
         var patientId = await EnsurePatientAsync("MRN-ABO-MC");
@@ -563,6 +586,36 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
                 .SingleAsync();
             Assert.Equal("Transcription error", correctAudit.Reason);
         }
+    }
+
+    [Fact]
+    public async Task Correct_WithoutResultCorrect_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-CORR-PERM");
+        var specimenId = await AccessionAsync("ACC-CORR-PERM", patientId);
+        long resultId;
+
+        await using (var context = _factory.Create())
+        {
+            resultId = (await Results(context).EnterResultAsync(new EnterResultRequest(specimenId, "HGB", "9.0"))).Value!.Id;
+            await Results(context, user: Verifier).VerifyResultAsync(resultId);
+        }
+
+        await using var act = _factory.Create();
+        var denied = await Results(
+            act,
+            permissions: new FixedPermissionEvaluator(2, PermissionCodes.ResultEnter))
+            .CorrectResultAsync(resultId, "10.0", "Transcription error");
+        Assert.False(denied.Succeeded);
+        Assert.Equal(ResultAuthorizationRule.EvaluateCorrect(false).Message, denied.Error);
+        Assert.Null((await act.TestResults.FindAsync(resultId))!.SupersededByResultId);
+
+        var allowed = await Results(
+            act,
+            permissions: new FixedPermissionEvaluator(2, PermissionCodes.ResultCorrect))
+            .CorrectResultAsync(resultId, "10.0", "Transcription error");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(ResultStatus.Corrected, allowed.Value!.Status);
     }
 
     [Fact]

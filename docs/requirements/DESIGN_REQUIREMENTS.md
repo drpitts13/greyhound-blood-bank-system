@@ -26,3 +26,4 @@
 | SRS-BB-022 | Result verify and unit retype verify are authorized inside `ResultService` and `ProductRetypeService` with `result.verify`. Callers that skip the API filter cannot establish current type or move a unit to Available. | FRS-BB-055 |
 | SRS-BB-023 | Allocation and crossmatch are authorized inside `CompatibilityService` with `compatibility.allocate` and `compatibility.crossmatch`. The patient workspace allocate path uses the same service. | FRS-BB-056 |
 | SRS-BB-024 | `IssuingService.IssueUnitAsync` requires `issue.create` before the issue gate. Emergency/MTP still requires `issue.emergency-release` in addition. | FRS-BB-057 |
+| SRS-BB-025 | Result enter and in-place update are authorized inside `ResultService` with `result.enter`. Verified-result correction requires `result.correct`. Unit retype record requires `result.enter` in `ProductRetypeService`. | FRS-BB-058 |

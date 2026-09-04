@@ -172,6 +172,25 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Record_WithoutResultEnter_IsHardStopped()
+    {
+        var (_, unitId) = await SeedReceivedUnitAsync("RT-ENT", AboGroup.O, RhType.Positive);
+        await using var context = _factory.Create();
+        var denied = await Retype(
+            context,
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.ResultVerify)).RecordAsync(unitId, MatchOPos());
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == ResultAuthorizationRule.EnterCode);
+        Assert.False(await context.ProductRetypeResults.AnyAsync(r => r.BloodProductId == unitId));
+
+        var allowed = await Retype(
+            context,
+            permissions: new FixedPermissionEvaluator(1, PermissionCodes.ResultEnter)).RecordAsync(unitId, MatchOPos());
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(ResultStatus.Entered, allowed.Value!.Latest!.Status);
+    }
+
+    [Fact]
     public async Task MismatchRetype_MovesReceivedToQuarantine()
     {
         var (_, unitId) = await SeedReceivedUnitAsync("RT-MISMATCH", AboGroup.O, RhType.Positive);
