@@ -1015,6 +1015,12 @@ public sealed class InventoryService
 
     public async Task<InventoryActionResult> TransferAsync(long unitId, long toLocationId, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedTransferAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
         {
@@ -1225,6 +1231,21 @@ public sealed class InventoryService
         var allowed = await _permissions.HasPermissionAsync(
             _currentUser.UserName, PermissionCodes.InventoryDiscard, ct);
         var auth = InventoryAuthorizationRule.EvaluateDiscard(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<InventoryActionResult?> RejectUnauthorizedTransferAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.InventoryTransfer, ct);
+        var auth = InventoryAuthorizationRule.EvaluateTransfer(allowed);
         return auth.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
             : null;

@@ -114,6 +114,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-039 / FRS-BB-069 | Transfusion documentation requires transfusion.document in Application | `TXN-DOC-PERM` | `IssueAuthorizationRuleTests`; Issuing transfusion-document permission test | D,I | RISK-BB-041 |
 | URS-BB-040 / FRS-BB-071 | Ward receipt requires transfusion.document in Application | `TXN-WARD-PERM` | `IssueAuthorizationRuleTests`; Issuing ward-receipt permission test | D,I | RISK-BB-042 |
 | URS-BB-041 / FRS-BB-072 | Discard requires inventory.discard in Application | `INV-DISC-PERM` | `InventoryAuthorizationRuleTests`; InventoryService discard permission test | D,I | RISK-BB-043 |
+| URS-BB-042 / FRS-BB-073 | Location transfer requires inventory.transfer in Application | `INV-XFER-PERM` | `InventoryAuthorizationRuleTests`; InventoryService transfer permission test | D,I | RISK-BB-044 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

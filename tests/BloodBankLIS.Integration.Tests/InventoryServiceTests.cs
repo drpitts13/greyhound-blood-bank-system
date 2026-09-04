@@ -1483,6 +1483,36 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Transfer_WithoutInventoryTransfer_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        long toLocationId;
+
+        await using (var context = _factory.Create())
+        {
+            var location = new InventoryLocation { Code = "LOC-XFER-PERM", Name = "Transfer Target", LocationType = LocationType.Refrigerator };
+            context.InventoryLocations.Add(location);
+            await context.SaveChangesAsync();
+            toLocationId = location.Id;
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-XFER-PERM", productTypeId))).Unit!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var priorLocation = (await ctx.BloodUnits.FindAsync(unitId))!.CurrentLocationId;
+        var denied = await CreateService(ctx, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .TransferAsync(unitId, toLocationId, "Move to issue fridge");
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.TransferCode);
+        Assert.Equal(priorLocation, (await ctx.BloodUnits.FindAsync(unitId))!.CurrentLocationId);
+
+        var allowed = await CreateService(ctx, new FixedPermissionEvaluator(1, PermissionCodes.InventoryTransfer))
+            .TransferAsync(unitId, toLocationId, "Move to issue fridge");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(toLocationId, allowed.Unit!.CurrentLocationId);
+    }
+
+    [Fact]
     public async Task ExpireDueUnits_MovesOnlyPastDueUnits()
     {
         var productTypeId = await EnsureProductTypeAsync();
