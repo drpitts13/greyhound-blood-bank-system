@@ -27,6 +27,7 @@ public sealed class BloodProductModificationService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IPermissionEvaluator? _permissions;
 
     public BloodProductModificationService(
         IInventoryRepository inventory,
@@ -38,7 +39,8 @@ public sealed class BloodProductModificationService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IPermissionEvaluator? permissions = null)
     {
         _inventory = inventory;
         _rules = rules;
@@ -50,6 +52,7 @@ public sealed class BloodProductModificationService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _permissions = permissions;
     }
 
     /// <summary>Active modification rules whose source product matches the unit's current product type.</summary>
@@ -142,6 +145,13 @@ public sealed class BloodProductModificationService
     public async Task<ModificationActionResult> DivideAsync(long sourceUnitId, PerformDivideRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
@@ -186,6 +196,13 @@ public sealed class BloodProductModificationService
     public async Task<ModificationActionResult> PoolAsync(PerformPoolRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
@@ -238,6 +255,13 @@ public sealed class BloodProductModificationService
     public async Task<ModificationActionResult> ApplySingleAsync(long sourceUnitId, PerformSingleModificationRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
             return ModificationActionResult.Fail("A reason is required to perform a modification.");
@@ -486,5 +510,20 @@ public sealed class BloodProductModificationService
         }
 
         return result;
+    }
+
+    private async Task<ModificationActionResult?> RejectUnauthorizedAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.InventoryModify, ct);
+        var auth = InventoryAuthorizationRule.EvaluateModify(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? ModificationActionResult.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 }

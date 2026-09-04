@@ -1,7 +1,9 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Modifications;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
@@ -15,7 +17,9 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
 
     public BloodProductModificationServiceTests(SqliteContextFactory factory) => _factory = factory;
 
-    private BloodProductModificationService CreateService(BloodBankDbContext context)
+    private BloodProductModificationService CreateService(
+        BloodBankDbContext context,
+        IPermissionEvaluator? permissions = null)
     {
         var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser);
         return new BloodProductModificationService(
@@ -28,7 +32,8 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             context,
             _factory.Clock,
             _factory.CurrentUser,
-            audit);
+            audit,
+            permissions: permissions);
     }
 
     private async Task<(long SourceProductId, long TargetProductId)> EnsureProductTypesAsync(string suffix)
@@ -155,6 +160,27 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             .Where(a => a.EntityType == nameof(UnitModification) && a.EntityId == result.Modification.Id && a.EventType == AuditEventType.Modify)
             .SingleAsync();
         Assert.Equal("Clinical need", auditEvent.Reason);
+    }
+
+    [Fact]
+    public async Task ApplySingle_WithoutInventoryModify_IsHardStopped()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("PERM");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var sourceId = await CreateUnitAsync("U-PERM-SRC", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
+            .ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "Clinical need"));
+        Assert.False(denied.Succeeded);
+        Assert.NotNull(denied.Evaluation);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.ModifyCode);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(sourceId))!.Status);
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryModify))
+            .ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "Clinical need"));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(UnitStatus.Quarantine, Assert.Single(allowed.ResultUnits!).Status);
     }
 
     [Fact]
