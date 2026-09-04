@@ -18,6 +18,7 @@ public sealed class ExpirationModificationCodeAdminService : ConfigAdminServiceB
 
     private readonly IRepository<ExpirationModificationCode> _codes;
     private readonly IRepository<ModificationRule> _rules;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public ExpirationModificationCodeAdminService(
         IRepository<ExpirationModificationCode> codes,
@@ -26,11 +27,13 @@ public sealed class ExpirationModificationCodeAdminService : ConfigAdminServiceB
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _codes = codes;
         _rules = rules;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<ExpirationModificationCodeDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -49,6 +52,13 @@ public sealed class ExpirationModificationCodeAdminService : ConfigAdminServiceB
         SaveExpirationModificationCodeRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminModificationRulesManage, ExpirationModificationCodeAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = new ExpirationModificationCode { IsActive = false, Version = 1 };
         Apply(entity, req);
@@ -74,6 +84,13 @@ public sealed class ExpirationModificationCodeAdminService : ConfigAdminServiceB
         long id, SaveExpirationModificationCodeRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminModificationRulesManage, ExpirationModificationCodeAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _codes.GetByIdAsync(id, ct);
         if (entity is null)
@@ -113,6 +130,13 @@ public sealed class ExpirationModificationCodeAdminService : ConfigAdminServiceB
     public async Task<EvaluationResult<ExpirationModificationCodeDto>> ActivateAsync(
         long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigActivate, ExpirationModificationCodeAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _codes.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -139,6 +163,13 @@ public sealed class ExpirationModificationCodeAdminService : ConfigAdminServiceB
     public async Task<OperationResult<ExpirationModificationCodeDto>> DeactivateAsync(
         long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate, ExpirationModificationCodeAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _codes.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -181,4 +212,40 @@ public sealed class ExpirationModificationCodeAdminService : ConfigAdminServiceB
 
     private static ExpirationModificationCodeDto Map(ExpirationModificationCode c) =>
         new(c.Id, c.Code, c.OffsetAmount, c.OffsetUnit, c.RelativeTo, c.Description, c.Version, c.IsActive);
+
+    private async Task<EvaluationResult<ExpirationModificationCodeDto>?> RejectUnauthorizedEvalAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<ExpirationModificationCodeDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<ExpirationModificationCodeDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<ExpirationModificationCodeDto>.Fail(auth.Message)
+            : null;
+    }
 }

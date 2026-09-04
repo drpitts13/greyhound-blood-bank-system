@@ -281,6 +281,7 @@ flowchart LR
 - Creating or updating a specimen-type definition requires `admin.config.edit` in `SpecimenTypeAdminService` (`SPECTYPE-CREATE-PERM` / `SPECTYPE-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`SPECTYPE-ACT-PERM` / `SPECTYPE-DEACT-PERM`).
 - Creating or updating a product definition requires `admin.products.manage` in `ProductAdminService` (`PROD-CREATE-PERM` / `PROD-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`PROD-ACT-PERM` / `PROD-DEACT-PERM`).
 - Creating or updating a modification rule requires `admin.modification-rules.manage` in `ModificationRuleAdminService` (`MODRULE-CREATE-PERM` / `MODRULE-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`MODRULE-ACT-PERM` / `MODRULE-DEACT-PERM`).
+- Creating or updating an expiration modification code requires `admin.modification-rules.manage` in `ExpirationModificationCodeAdminService` (`EXPCODE-CREATE-PERM` / `EXPCODE-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`EXPCODE-ACT-PERM` / `EXPCODE-DEACT-PERM`).
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---

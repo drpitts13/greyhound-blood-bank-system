@@ -161,6 +161,10 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `MODRULE-UPD-PERM` | Caller has `admin.modification-rules.manage` when updating a modification rule | HardStop when a permission evaluator is present and the privilege is missing |
 | `MODRULE-ACT-PERM` | Caller has `admin.config.activate` when activating a modification rule | HardStop when a permission evaluator is present and the privilege is missing |
 | `MODRULE-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a modification rule | HardStop when a permission evaluator is present and the privilege is missing |
+| `EXPCODE-CREATE-PERM` | Caller has `admin.modification-rules.manage` when creating an expiration modification code | HardStop when a permission evaluator is present and the privilege is missing |
+| `EXPCODE-UPD-PERM` | Caller has `admin.modification-rules.manage` when updating an expiration modification code | HardStop when a permission evaluator is present and the privilege is missing |
+| `EXPCODE-ACT-PERM` | Caller has `admin.config.activate` when activating an expiration modification code | HardStop when a permission evaluator is present and the privilege is missing |
+| `EXPCODE-DEACT-PERM` | Caller has `admin.config.activate` when deactivating an expiration modification code | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-UPD-PERM` | Caller has `patient.write` when updating an order | HardStop when a permission evaluator is present and the privilege is missing |

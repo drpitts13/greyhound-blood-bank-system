@@ -147,6 +147,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-088 / FRS-BB-122 | Specimen-type catalog writes require admin.config.edit or admin.config.activate in Application | `SPECTYPE-CREATE-PERM`, `SPECTYPE-UPD-PERM`, `SPECTYPE-ACT-PERM`, `SPECTYPE-DEACT-PERM` | `SpecimenTypeAuthorizationRuleTests`; `SpecimenTypeAuthorizationTests` | D,I | RISK-BB-094 |
 | URS-BB-089 / FRS-BB-123 | Product-catalog writes require admin.products.manage or admin.config.activate in Application | `PROD-CREATE-PERM`, `PROD-UPD-PERM`, `PROD-ACT-PERM`, `PROD-DEACT-PERM` | `ProductCatalogAuthorizationRuleTests`; `ProductCatalogAuthorizationTests` | D,I | RISK-BB-095 |
 | URS-BB-091 / FRS-BB-125 | Modification-rule catalog writes require admin.modification-rules.manage or admin.config.activate in Application | `MODRULE-CREATE-PERM`, `MODRULE-UPD-PERM`, `MODRULE-ACT-PERM`, `MODRULE-DEACT-PERM` | `ModificationRuleAuthorizationRuleTests`; `ModificationRuleAuthorizationTests` | D,I | RISK-BB-097 |
+| URS-BB-093 / FRS-BB-127 | Expiration-modification-code catalog writes require admin.modification-rules.manage or admin.config.activate in Application | `EXPCODE-CREATE-PERM`, `EXPCODE-UPD-PERM`, `EXPCODE-ACT-PERM`, `EXPCODE-DEACT-PERM` | `ExpirationModificationCodeAuthorizationRuleTests`; `ExpirationModificationCodeAuthorizationTests` | D,I | RISK-BB-099 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
