@@ -250,8 +250,11 @@ public sealed class PatientMergeService
                 continue;
             }
 
-            identifier.PatientId = survivorId;
-            _identifiers.Update(identifier);
+            var tracked = await _identifiers.GetByIdAsync(identifier.Id, ct);
+            if (tracked is not null)
+            {
+                tracked.PatientId = survivorId;
+            }
         }
     }
 
@@ -269,8 +272,11 @@ public sealed class PatientMergeService
                 continue;
             }
 
-            antibody.PatientId = survivorId;
-            _antibodies.Update(antibody);
+            var tracked = await _antibodies.GetByIdAsync(antibody.Id, ct);
+            if (tracked is not null)
+            {
+                tracked.PatientId = survivorId;
+            }
         }
     }
 
@@ -280,13 +286,18 @@ public sealed class PatientMergeService
         var incoming = await _bloodTypes.ListAsync(h => h.PatientId == duplicateId, ct);
         foreach (var history in incoming)
         {
-            if (survivorHasCurrent && history.IsCurrent)
+            var tracked = await _bloodTypes.GetByIdAsync(history.Id, ct);
+            if (tracked is null)
             {
-                history.IsCurrent = false;
+                continue;
             }
 
-            history.PatientId = survivorId;
-            _bloodTypes.Update(history);
+            if (survivorHasCurrent && tracked.IsCurrent)
+            {
+                tracked.IsCurrent = false;
+            }
+
+            tracked.PatientId = survivorId;
         }
     }
 
@@ -305,8 +316,11 @@ public sealed class PatientMergeService
                 continue;
             }
 
-            requirement.PatientId = survivorId;
-            _requirements.Update(requirement);
+            var tracked = await _requirements.GetByIdAsync(requirement.Id, ct);
+            if (tracked is not null)
+            {
+                tracked.PatientId = survivorId;
+            }
         }
     }
 
@@ -321,8 +335,11 @@ public sealed class PatientMergeService
                 continue;
             }
 
-            antigen.PatientId = survivorId;
-            _antigens.Update(antigen);
+            var tracked = await _antigens.GetByIdAsync(antigen.Id, ct);
+            if (tracked is not null)
+            {
+                tracked.PatientId = survivorId;
+            }
         }
     }
 
@@ -335,8 +352,11 @@ public sealed class PatientMergeService
         var rows = await repository.ListAsync(predicate, ct);
         foreach (var row in rows)
         {
-            assign(row);
-            repository.Update(row);
+            var tracked = await repository.GetByIdAsync(row.Id, ct);
+            if (tracked is not null)
+            {
+                assign(tracked);
+            }
         }
     }
 }

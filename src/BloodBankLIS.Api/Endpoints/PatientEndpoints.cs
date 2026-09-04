@@ -49,5 +49,31 @@ public static class PatientEndpoints
             var result = await patients.UpdateAsync(id, request, ct);
             return EndpointResults.From(result, PatientDto.From);
         }).RequirePermission(PermissionCodes.PatientWrite);
+
+        group.MapPost("/{id:long}/merge", async (
+            long id,
+            MergePatientsRequest request,
+            PatientMergeService merges,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.DuplicateMrn))
+            {
+                return Results.BadRequest(new { error = "Duplicate patient MRN is required." });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Reason))
+            {
+                return Results.BadRequest(new { error = "A reason is required to merge patient records." });
+            }
+
+            var duplicate = await merges.FindByMrnAsync(request.DuplicateMrn, followMerge: false, ct);
+            if (duplicate is null)
+            {
+                return Results.NotFound(new { error = $"Duplicate patient '{request.DuplicateMrn.Trim()}' was not found." });
+            }
+
+            var result = await merges.MergeAsync(id, duplicate.Id, request.Reason, ct);
+            return EndpointResults.From(result, PatientDto.From);
+        }).RequirePermission(PermissionCodes.PatientWrite);
     }
 }

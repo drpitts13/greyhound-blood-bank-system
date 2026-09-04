@@ -59,6 +59,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<PatientDto>> UpdatePatientAsync(long id, UpdatePatientRequest req, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Put, $"api/patients/{id}", req, ct);
 
+    public Task<ApiResult<PatientDto>> MergePatientAsync(long survivorId, MergePatientsRequest req, CancellationToken ct = default) =>
+        SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{survivorId}/merge", req, ct);
+
     // ---- Patient workspace ----
     public Task<ApiResult<List<EncounterDto>>> GetPatientEncountersAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<EncounterDto>>(HttpMethod.Get, $"api/patients/{patientId}/encounters", ct: ct);

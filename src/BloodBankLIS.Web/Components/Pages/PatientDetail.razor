@@ -29,7 +29,7 @@ else
                 MRN <span class="mono">@_patient.MedicalRecordNumber</span>
                 &middot; DOB @_patient.DateOfBirth.ToString("yyyy-MM-dd")
                 &middot; @_patient.Sex
-                &middot; <span class="badge badge-gray">@_patient.Status</span>
+                &middot; <span class="badge @(_patient.Status == PatientStatus.Merged ? "badge-amber" : "badge-gray")">@_patient.Status</span>
             </div>
         </div>
         <div class="flex gap">
@@ -49,6 +49,7 @@ else
             @if (CanEditDemographics)
             {
                 <button class="btn btn-secondary" @onclick="ToggleEditDemographics">@(_editingDemographics ? "Cancel edit" : "Edit demographics")</button>
+                <button class="btn btn-secondary" @onclick="ToggleMerge">@(_showMerge ? "Cancel merge" : "Merge duplicate")</button>
             }
             @if (Session.Has(PermissionCodes.LookbackManage))
             {
@@ -88,6 +89,35 @@ else
             <div class="flex gap">
                 <button class="btn btn-primary" disabled="@_busy" @onclick="SaveDemographicsAsync">Save</button>
                 <button class="btn btn-secondary" @onclick="() => _editingDemographics = false">Cancel</button>
+            </div>
+        </div>
+    }
+
+    @if (_patient.Status == PatientStatus.Merged)
+    {
+        <div class="alert alert-danger">
+            <strong>Merged record.</strong>
+            This patient record is merged. Continue testing, allocation, and issue on the surviving patient record.
+            @if (_patient.MergedIntoPatientId is long survivorId)
+            {
+                <button class="btn btn-primary btn-sm" style="margin-left:.75rem;" @onclick="() => Nav.NavigateTo($"/patients/{survivorId}")">Open surviving patient</button>
+            }
+        </div>
+    }
+
+    @if (_showMerge && CanEditDemographics)
+    {
+        <div class="bb-card" style="margin-bottom:1rem;">
+            <div class="bb-card-title"><h3>Merge a duplicate into this patient</h3></div>
+            <p class="muted">The duplicate is marked Merged and is no longer used for testing, allocation, or issue. History is reassigned to this record and is not deleted.</p>
+            <Outcome Value="_mergeFb" />
+            <div class="form-row">
+                <div class="field"><label>Duplicate MRN</label><input @bind="_mergeMrn" placeholder="MRN of the losing record" /></div>
+                <div class="field" style="flex:2;"><label>Reason</label><input @bind="_mergeReason" placeholder="Why these records are the same person" /></div>
+            </div>
+            <div class="flex gap">
+                <button class="btn btn-primary" disabled="@_busy" @onclick="MergeDuplicateAsync">Merge into this patient</button>
+                <button class="btn btn-secondary" @onclick="() => _showMerge = false">Cancel</button>
             </div>
         </div>
     }
@@ -1240,6 +1270,10 @@ else
     private bool _editingDemographics;
     private PatientDemoEditModel _demo = new();
     private Feedback? _demoFb;
+    private bool _showMerge;
+    private string _mergeMrn = string.Empty;
+    private string _mergeReason = string.Empty;
+    private Feedback? _mergeFb;
     private BloodTypeDto? _currentType;
     private ElectronicCrossmatchEligibilityDto? _exm;
     private List<BloodTypeDto> _typeHistory = new();
@@ -2175,6 +2209,33 @@ else
         string.IsNullOrWhiteSpace(p.MiddleName)
             ? $"{p.LastName}, {p.FirstName}"
             : $"{p.LastName}, {p.FirstName} {p.MiddleName}";
+
+    private void ToggleMerge()
+    {
+        if (_patient is null) return;
+        _showMerge = !_showMerge;
+        _mergeFb = null;
+        if (_showMerge)
+        {
+            _editingDemographics = false;
+        }
+    }
+
+    private async Task MergeDuplicateAsync()
+    {
+        if (_patient is null) return;
+        _busy = true;
+        var r = await Api.MergePatientAsync(Id, new MergePatientsRequest(_mergeMrn, _mergeReason));
+        _busy = false;
+        _mergeFb = r.ToFeedback("Duplicate merged into this patient.");
+        if (r.Succeeded)
+        {
+            _showMerge = false;
+            _mergeMrn = string.Empty;
+            _mergeReason = string.Empty;
+            await LoadAsync();
+        }
+    }
 
     private void ToggleEditDemographics()
     {
