@@ -12,6 +12,7 @@ public sealed class BloodAttributeAdminService : ConfigAdminServiceBase
     private const string EntityType = nameof(BloodAttributeDefinition);
 
     private readonly IRepository<BloodAttributeDefinition> _repo;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public BloodAttributeAdminService(
         IRepository<BloodAttributeDefinition> repo,
@@ -19,10 +20,12 @@ public sealed class BloodAttributeAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _repo = repo;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<BloodAttributeDefinitionDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -42,6 +45,13 @@ public sealed class BloodAttributeAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<BloodAttributeDefinitionDto>> CreateAsync(SaveBloodAttributeDefinitionRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigEdit, BloodAttributeAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = new BloodAttributeDefinition { IsDraft = true, IsActive = false, Version = 1 };
         Apply(entity, req);
@@ -66,6 +76,13 @@ public sealed class BloodAttributeAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<BloodAttributeDefinitionDto>> UpdateAsync(long id, SaveBloodAttributeDefinitionRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigEdit, BloodAttributeAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
@@ -102,6 +119,13 @@ public sealed class BloodAttributeAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<BloodAttributeDefinitionDto>> ActivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigActivate, BloodAttributeAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -131,6 +155,13 @@ public sealed class BloodAttributeAdminService : ConfigAdminServiceBase
 
     public async Task<OperationResult<BloodAttributeDefinitionDto>> DeactivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate, BloodAttributeAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -168,5 +199,41 @@ public sealed class BloodAttributeAdminService : ConfigAdminServiceBase
         e.IsClinicallySignificant = req.IsClinicallySignificant;
         e.SortOrder = req.SortOrder;
         e.ChangeReason = req.ChangeReason;
+    }
+
+    private async Task<EvaluationResult<BloodAttributeDefinitionDto>?> RejectUnauthorizedEvalAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<BloodAttributeDefinitionDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<BloodAttributeDefinitionDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<BloodAttributeDefinitionDto>.Fail(auth.Message)
+            : null;
     }
 }

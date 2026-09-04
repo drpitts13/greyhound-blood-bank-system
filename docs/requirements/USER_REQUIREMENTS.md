@@ -69,3 +69,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-071 | Starting an ISBT scan session or adding a scan line is limited to staff with inventory.receive. | P3 | FRS-BB-105 |
 | URS-BB-073 | Activating, deactivating, locking, unlocking, or requesting a password reset for a directory user is limited to staff with admin.users.manage. | P6 | FRS-BB-107 |
 | URS-BB-074 | Creating, updating, activating, deactivating, or cloning a test definition is limited to staff with admin.tests.manage. | P2 | FRS-BB-108 |
+| URS-BB-076 | Creating or updating a blood-attribute definition is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-110 |
