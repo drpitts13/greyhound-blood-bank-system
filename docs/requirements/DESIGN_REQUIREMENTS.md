@@ -41,3 +41,4 @@
 | SRS-BB-037 | Discard is authorized inside `InventoryService` with `inventory.discard` (`INV-DISC-PERM`). Callers that skip the API filter cannot destroy a unit. | FRS-BB-072 |
 | SRS-BB-038 | Location transfer is authorized inside `InventoryService` with `inventory.transfer` (`INV-XFER-PERM`). Callers that skip the API filter cannot move a unit. | FRS-BB-073 |
 | SRS-BB-039 | Direct recall is authorized inside `InventoryService.RecallAsync` with `inventory.recall` (`INV-RCL-PERM`). Lookback uses `RecallForLookbackAsync` after `lookback.manage` (OCD-014). | FRS-BB-074 |
+| SRS-BB-040 | Deviation create and status update are authorized inside `DeviationService` with `deviation.manage` (`DEV-PERM`). Listing remains ungated in the service. | FRS-BB-075 |

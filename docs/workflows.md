@@ -237,6 +237,8 @@ flowchart TD
 
 - Opening from a suspected transfusion is an automatic issue-path write. Updating the investigation, recording CBER notification, or recording the written fatality report requires `reaction.investigate` (`RXN-PERM`) in the Application service.
 
+Creating or closing a quality-system deviation requires `deviation.manage` (`DEV-PERM`) in the Application service.
+
 ---
 
 ## 10. HL7 message flows

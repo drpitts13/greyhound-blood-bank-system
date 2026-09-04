@@ -116,6 +116,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-041 / FRS-BB-072 | Discard requires inventory.discard in Application | `INV-DISC-PERM` | `InventoryAuthorizationRuleTests`; InventoryService discard permission test | D,I | RISK-BB-043 |
 | URS-BB-042 / FRS-BB-073 | Location transfer requires inventory.transfer in Application | `INV-XFER-PERM` | `InventoryAuthorizationRuleTests`; InventoryService transfer permission test | D,I | RISK-BB-044 |
 | URS-BB-043 / FRS-BB-074 | Direct inventory recall requires inventory.recall; lookback remains lookback.manage | `INV-RCL-PERM` | `InventoryAuthorizationRuleTests`; InventoryService recall permission tests | D,I | RISK-BB-045 |
+| URS-BB-044 / FRS-BB-075 | Deviation create/close requires deviation.manage in Application | `DEV-PERM` | `DeviationAuthorizationRuleTests`; DeviationService permission tests | D,I | RISK-BB-046 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

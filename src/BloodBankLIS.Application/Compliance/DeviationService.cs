@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Compliance;
 
@@ -36,19 +37,22 @@ public sealed class DeviationService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IPermissionEvaluator? _permissions;
 
     public DeviationService(
         IRepository<Deviation> deviations,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IPermissionEvaluator? permissions = null)
     {
         _deviations = deviations;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _permissions = permissions;
     }
 
     public Task<IReadOnlyList<Deviation>> ListAsync(CancellationToken ct = default) =>
@@ -57,6 +61,13 @@ public sealed class DeviationService
     public async Task<OperationResult<Deviation>> CreateAsync(CreateDeviationRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         if (string.IsNullOrWhiteSpace(request.Title) || string.IsNullOrWhiteSpace(request.Description))
         {
             return OperationResult<Deviation>.Fail("Title and description are required.");
@@ -81,6 +92,12 @@ public sealed class DeviationService
     public async Task<OperationResult<Deviation>> UpdateStatusAsync(
         long id, DeviationStatus status, string? correctiveAction, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var row = await _deviations.GetByIdAsync(id, ct);
         if (row is null)
         {
@@ -101,5 +118,20 @@ public sealed class DeviationService
 
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Deviation>.Ok(row);
+    }
+
+    private async Task<OperationResult<Deviation>?> RejectUnauthorizedAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.DeviationManage, ct);
+        var auth = DeviationAuthorizationRule.EvaluateManage(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<Deviation>.Fail(auth.Message)
+            : null;
     }
 }
