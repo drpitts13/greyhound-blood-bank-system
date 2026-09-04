@@ -452,6 +452,13 @@ public sealed class IssuingService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var wardAuth = IssueAuthorizationRule.EvaluateWardReceipt(
+            await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.TransfusionDocument, ct));
+        if (wardAuth.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Issue>.Blocked(new RuleEvaluation([wardAuth]));
+        }
+
         if (string.IsNullOrWhiteSpace(request.ReceivedBy))
         {
             return EvaluationResult<Issue>.Fail("The person who received the unit is required.");

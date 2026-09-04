@@ -37,3 +37,4 @@
 | SRS-BB-033 | Walk-in, expected-arrival, and normalized-component receive are authorized inside `InventoryService` with `inventory.receive`. Callers that skip the API filter cannot create an issuable unit through those paths. | FRS-BB-067 |
 | SRS-BB-034 | Issue return is authorized inside `IssuingService` with `issue.return` (`ISS-RET-PERM`). Callers that skip the API filter cannot place an issued unit back into inventory. | FRS-BB-068 |
 | SRS-BB-035 | Transfusion documentation is authorized inside `IssuingService` with `transfusion.document` (`TXN-DOC-PERM`). Callers that skip the API filter cannot mark a unit Transfused. | FRS-BB-069 |
+| SRS-BB-036 | Ward receipt is authorized inside `IssuingService` with `transfusion.document` (`TXN-WARD-PERM`). The API uses the same privilege. Callers that skip the API filter cannot acknowledge custody. | FRS-BB-071 |

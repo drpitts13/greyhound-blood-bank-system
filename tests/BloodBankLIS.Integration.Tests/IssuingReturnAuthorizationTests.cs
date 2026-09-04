@@ -164,4 +164,56 @@ public class IssuingReturnAuthorizationTests : IClassFixture<SqliteContextFactor
         Assert.Equal(UnitStatus.Transfused, (await context.BloodUnits.FindAsync(unit.Id))!.Status);
         Assert.Equal(IssueStatus.Transfused, (await context.Issues.FindAsync(issue.Id))!.Status);
     }
+
+    [Fact]
+    public async Task WardReceipt_WithoutTransfusionDocument_IsHardStopped()
+    {
+        await using var context = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = "MRN-WARD-PERM",
+            LastName = "Ward",
+            FirstName = "Pat",
+            DateOfBirth = new DateOnly(1970, 1, 1)
+        };
+        var product = new ProductType { ProductCode = "RBC-WARD-PERM", Name = "RBC" };
+        context.Patients.Add(patient);
+        context.ProductTypes.Add(product);
+        await context.SaveChangesAsync();
+
+        var unit = new BloodUnit
+        {
+            UnitNumber = "U-WARD-PERM",
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Status = UnitStatus.Issued,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10)
+        };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync();
+
+        var issue = new Issue
+        {
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            IssuedUtc = _factory.Clock.UtcNow,
+            IssuedBy = "tech-test",
+            Status = IssueStatus.Issued
+        };
+        context.Issues.Add(issue);
+        await context.SaveChangesAsync();
+
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate))
+            .RecordWardReceiptAsync(issue.Id, new WardReceiptRequest("ward-nurse"));
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == IssueAuthorizationRule.WardReceiptCode);
+        Assert.Null((await context.Issues.FindAsync(issue.Id))!.WardReceivedUtc);
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.TransfusionDocument))
+            .RecordWardReceiptAsync(issue.Id, new WardReceiptRequest("ward-nurse"));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.NotNull(allowed.Value!.WardReceivedUtc);
+        Assert.Equal("ward-nurse", allowed.Value.WardReceivedBy);
+    }
 }

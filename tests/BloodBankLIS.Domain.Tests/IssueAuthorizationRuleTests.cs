@@ -98,4 +98,19 @@ public class IssueAuthorizationRuleTests
         var result = IssueAuthorizationRule.EvaluateDocumentTransfusion(hasTransfusionDocument: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void WardReceipt_WithoutPermission_IsHardStop()
+    {
+        var result = IssueAuthorizationRule.EvaluateWardReceipt(hasTransfusionDocument: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(IssueAuthorizationRule.WardReceiptCode, result.Code);
+    }
+
+    [Fact]
+    public void WardReceipt_WithPermission_Passes()
+    {
+        var result = IssueAuthorizationRule.EvaluateWardReceipt(hasTransfusionDocument: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

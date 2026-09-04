@@ -4,7 +4,7 @@ namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
 /// Privilege gates for issue.create, emergency/MTP issue, warning overrides,
-/// issue return, and transfusion documentation.
+/// issue return, ward receipt, and transfusion documentation.
 /// Distinct from <see cref="IssueGate"/> clinical checks.
 /// </summary>
 public static class IssueAuthorizationRule
@@ -14,6 +14,7 @@ public static class IssueAuthorizationRule
     public const string OverrideCode = "ISS-OVR-PERM";
     public const string ReturnCode = "ISS-RET-PERM";
     public const string DocumentTransfusionCode = "TXN-DOC-PERM";
+    public const string WardReceiptCode = "TXN-WARD-PERM";
 
     public static RuleResult EvaluateCreate(bool hasIssueCreate) =>
         hasIssueCreate
@@ -68,4 +69,11 @@ public static class IssueAuthorizationRule
             : RuleResult.HardStop(
                 DocumentTransfusionCode,
                 "Documenting a transfusion requires the transfusion.document permission.");
+
+    public static RuleResult EvaluateWardReceipt(bool hasTransfusionDocument) =>
+        hasTransfusionDocument
+            ? RuleResult.Pass(WardReceiptCode)
+            : RuleResult.HardStop(
+                WardReceiptCode,
+                "Recording ward receipt of an issued unit requires the transfusion.document permission.");
 }
