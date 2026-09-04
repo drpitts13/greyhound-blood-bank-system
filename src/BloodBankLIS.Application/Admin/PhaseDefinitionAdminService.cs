@@ -12,6 +12,7 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
     private const string EntityType = nameof(PhaseDefinition);
 
     private readonly IRepository<PhaseDefinition> _repo;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public PhaseDefinitionAdminService(
         IRepository<PhaseDefinition> repo,
@@ -19,10 +20,12 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _repo = repo;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<PhaseDefinitionDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -42,6 +45,13 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<PhaseDefinitionDto>> CreateAsync(SavePhaseDefinitionRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminTestsManage, PhaseCatalogAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = new PhaseDefinition { IsDraft = true, IsActive = false, Version = 1 };
         Apply(entity, req);
@@ -66,6 +76,13 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<PhaseDefinitionDto>> UpdateAsync(long id, SavePhaseDefinitionRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminTestsManage, PhaseCatalogAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
@@ -102,6 +119,13 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<PhaseDefinitionDto>> ActivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigActivate, PhaseCatalogAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -131,6 +155,13 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
 
     public async Task<OperationResult<PhaseDefinitionDto>> DeactivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate, PhaseCatalogAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -171,6 +202,42 @@ public sealed class PhaseDefinitionAdminService : ConfigAdminServiceBase
             ? null
             : req.ValidatesPhaseCode.Trim();
         e.ChangeReason = req.ChangeReason;
+    }
+
+    private async Task<EvaluationResult<PhaseDefinitionDto>?> RejectUnauthorizedEvalAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<PhaseDefinitionDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<PhaseDefinitionDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<PhaseDefinitionDto>.Fail(auth.Message)
+            : null;
     }
 
     private static PhaseDefinitionDto Map(PhaseDefinition p) => new(
