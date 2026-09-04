@@ -888,6 +888,13 @@ public sealed class InventoryService
     /// </summary>
     public async Task<InventoryActionResult> LocateMissingAsync(long unitId, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            InventoryAuthorizationRule.EvaluateLocateMissing, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
@@ -927,6 +934,13 @@ public sealed class InventoryService
     /// </summary>
     public async Task<InventoryActionResult> InspectDamagedAsync(long unitId, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            InventoryAuthorizationRule.EvaluateInspectDamaged, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");

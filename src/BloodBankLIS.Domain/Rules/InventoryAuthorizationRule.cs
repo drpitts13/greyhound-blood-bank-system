@@ -2,7 +2,8 @@ namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
 /// Privilege gates for inventory actions that make a unit issuable
-/// (quarantine release, unused-directed conversion, operational-hold release)
+/// (quarantine release, unused-directed conversion, operational-hold release,
+/// locating a missing unit, inspecting a damaged unit)
 /// or that retire a unit into a modified product, rewrite unit identity,
 /// receive a unit, save unit blood attributes used at compatibility,
 /// return a unit to the supplier, discard a unit, transfer a unit between
@@ -22,6 +23,8 @@ public static class InventoryAuthorizationRule
     public const string RecallCode = "INV-RCL-PERM";
     public const string SaveAttributeCode = "INV-ATTR-PERM";
     public const string ReturnToSupplierCode = "INV-RTS-PERM";
+    public const string LocateMissingCode = "INV-LOC-PERM";
+    public const string InspectDamagedCode = "INV-INSP-PERM";
 
     public static RuleResult EvaluateQuarantineRelease(bool hasInventoryRelease) =>
         hasInventoryRelease
@@ -99,6 +102,20 @@ public static class InventoryAuthorizationRule
             : RuleResult.HardStop(
                 ReturnToSupplierCode,
                 "Returning a unit to the supplier requires the inventory.receive permission.");
+
+    public static RuleResult EvaluateLocateMissing(bool hasInventoryRelease) =>
+        hasInventoryRelease
+            ? RuleResult.Pass(LocateMissingCode)
+            : RuleResult.HardStop(
+                LocateMissingCode,
+                "Locating a missing unit requires the inventory.release permission.");
+
+    public static RuleResult EvaluateInspectDamaged(bool hasInventoryRelease) =>
+        hasInventoryRelease
+            ? RuleResult.Pass(InspectDamagedCode)
+            : RuleResult.HardStop(
+                InspectDamagedCode,
+                "Inspecting a damaged unit requires the inventory.release permission.");
 }
 
 

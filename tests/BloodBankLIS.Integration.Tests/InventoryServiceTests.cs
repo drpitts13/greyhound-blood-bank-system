@@ -1199,6 +1199,33 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task LocateMissing_WithoutInventoryRelease_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        long unitId;
+        await using (var setup = _factory.Create())
+        {
+            var received = await CreateService(setup).ReceiveUnitAsync(NewUnitRequest("U-LOC-PERM", productTypeId));
+            unitId = received.Unit!.Id;
+            Assert.True((await CreateService(setup).ReleaseFromQuarantineAsync(unitId, "tech2")).Succeeded);
+            Assert.True((await CreateService(setup).MarkMissingAsync(unitId, "Not on shelf")).Succeeded);
+        }
+
+        await using var context = _factory.Create();
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .LocateMissingAsync(unitId);
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.LocateMissingCode);
+        Assert.Equal(UnitStatus.Missing, (await context.BloodUnits.FindAsync(unitId))!.Status);
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
+            .LocateMissingAsync(unitId);
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(UnitStatus.Quarantine, allowed.Unit!.Status);
+    }
+
+    [Fact]
     public async Task MarkDamaged_WithoutReason_Fails()
     {
         var productTypeId = await EnsureProductTypeAsync();
@@ -1263,6 +1290,33 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             Assert.False(result.Succeeded);
             Assert.Contains("damaged unit", result.Error);
         }
+    }
+
+    [Fact]
+    public async Task InspectDamaged_WithoutInventoryRelease_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        long unitId;
+        await using (var setup = _factory.Create())
+        {
+            var received = await CreateService(setup).ReceiveUnitAsync(NewUnitRequest("U-INSP-PERM", productTypeId));
+            unitId = received.Unit!.Id;
+            Assert.True((await CreateService(setup).ReleaseFromQuarantineAsync(unitId, "tech2")).Succeeded);
+            Assert.True((await CreateService(setup).MarkDamagedAsync(unitId, "Leaking bag")).Succeeded);
+        }
+
+        await using var context = _factory.Create();
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .InspectDamagedAsync(unitId);
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.InspectDamagedCode);
+        Assert.Equal(UnitStatus.Damaged, (await context.BloodUnits.FindAsync(unitId))!.Status);
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
+            .InspectDamagedAsync(unitId);
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(UnitStatus.Quarantine, allowed.Unit!.Status);
     }
 
     [Fact]

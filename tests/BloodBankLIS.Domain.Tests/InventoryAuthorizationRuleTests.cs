@@ -168,4 +168,34 @@ public class InventoryAuthorizationRuleTests
         var result = InventoryAuthorizationRule.EvaluateReturnToSupplier(hasInventoryReceive: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void LocateMissing_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateLocateMissing(hasInventoryRelease: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.LocateMissingCode, result.Code);
+    }
+
+    [Fact]
+    public void LocateMissing_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateLocateMissing(hasInventoryRelease: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void InspectDamaged_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateInspectDamaged(hasInventoryRelease: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.InspectDamagedCode, result.Code);
+    }
+
+    [Fact]
+    public void InspectDamaged_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateInspectDamaged(hasInventoryRelease: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

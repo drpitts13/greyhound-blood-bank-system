@@ -54,3 +54,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-045 | Creating a patient record is limited to staff with patient.write. | P1 | FRS-BB-076 |
 | URS-BB-046 | Saving a unit antigen or antibody attribute used at compatibility is limited to staff with inventory.receive. | P2 | FRS-BB-077 |
 | URS-BB-048 | Returning a unit to the supplier is limited to staff with inventory.receive. | P3 | FRS-BB-081 |
+| URS-BB-050 | Locating a missing unit or inspecting a damaged unit into quality quarantine is limited to staff with inventory.release. | P3 | FRS-BB-083 |
