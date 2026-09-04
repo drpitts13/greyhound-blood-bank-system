@@ -65,6 +65,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `INV-DIR-CONV-2ND` | Distinct directory user as second verifier to convert a directed unit to allogeneic | HardStop when `Inventory.RequireDirectedConversionVerifier` is true (default) |
 | `INV-RCV-2ND` | Distinct directory user as second verifier when receiving a unit (walk-in, expected arrival, ISBT) | HardStop when `Inventory.RequireReceiveVerifier` is true (default) |
 | `RES-SELF-VERIFY` | The user who entered a unit ABO/Rh retype may not verify it | HardStop when `Inventory.BlockRetypeSelfVerify` is true (default) |
+| `RES-SELF-VERIFY` | The user who entered a patient ABO/Rh result may not verify it | HardStop when `Result.BlockAboSelfVerify` is true (default); `MarkComplete` does not auto-verify ABO/Rh |
 | `RET-REISSUE` | Returned unit may re-enter Available only when temperature, seal, visual, and time-out-of-storage checks pass | HardStop / Warning |
 
 If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning within that workflow (see section 5) rather than a HardStop, and an `Override` + signature is mandatory. Emergency or MTP issue is also HardStop `ISS-EMERG-PERM` unless the user has `issue.emergency-release`. Non-emergency warning overrides are HardStop `ISS-OVR-PERM` without `issue.override`.
@@ -190,6 +191,7 @@ Opening a reaction investigation quarantines the implicated unit when `Inventory
 ## 6. Result integrity rules
 
 - Result entry and verification require an Accepted, unexpired specimen on a surviving (not merged) patient. Verification does not post ABO or antibody history from an invalid specimen.
+- Patient ABO/Rh is entered, then verified by a different user (`Result.BlockAboSelfVerify`, default on). Save-and-complete does not auto-verify ABO/Rh or write `PatientBloodTypeHistory`.
 - Verified results are immutable; corrections create a new `TestResults` version and supersede (never overwrite) the prior row.
 - Delta check: a new ABO/Rh result that disagrees with the current historical record raises `RES-ABORH-DELTA` (**Warning**). At **verify**, the Warning **blocks** until an authorized override supplies reason + electronic signature + **Retain** (keep historical `IsCurrent`) or **Replace** (append and flip `IsCurrent` to the verified type). Override eligibility is gated by the admin `ExceptionDefinitions` catalog (`MinSecurityLevel` vs the user's max role `SecurityLevel`). Unresolved discrepancy still contributes a HardStop to the issue gate on crossmatch-required products.
 - Critical/special flags on results are surfaced to the verifier and carried into compatibility evaluation.

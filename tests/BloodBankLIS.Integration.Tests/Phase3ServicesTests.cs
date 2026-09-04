@@ -21,12 +21,17 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     private SpecimenService Specimens(BloodBankDbContext c) =>
         new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c), c, _factory.Clock);
 
-    private ResultService Results(BloodBankDbContext c, int securityLevel = 2) =>
-        new(new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
-            c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+    private static ICurrentUser Verifier => new TestCurrentUser("tech-verify", "WORKSTATION-2");
+
+    private ResultService Results(BloodBankDbContext c, int securityLevel = 2, ICurrentUser? user = null)
+    {
+        var current = user ?? _factory.CurrentUser;
+        return new(new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
+            c, _factory.Clock, current, new AuditWriter(c, _factory.Clock, current),
             exceptionDefinitions: new EfRepository<ExceptionDefinition>(c),
             overrides: new EfRepository<Override>(c),
             permissions: new FixedPermissionEvaluator(securityLevel));
+    }
 
     private static async Task EnsureDeltaExceptionAsync(BloodBankDbContext c)
     {
@@ -307,7 +312,11 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var verified = await Results(context).VerifyResultAsync(resultId);
+            var self = await Results(context).VerifyResultAsync(resultId);
+            Assert.False(self.Succeeded);
+            Assert.Contains(self.Evaluation!.HardStops, r => r.Code == SelfVerifyRule.Code);
+
+            var verified = await Results(context, user: Verifier).VerifyResultAsync(resultId);
             Assert.True(verified.Succeeded);
             Assert.True(verified.Evaluation is null || verified.Evaluation.Warnings.Count == 0);
         }
@@ -323,6 +332,25 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task SaveAboRh_MarkComplete_LeavesEntered_DoesNotSetCurrentType()
+    {
+        var patientId = await EnsurePatientAsync("MRN-ABO-MC");
+        var specimenId = await AccessionAsync("ACC-ABO-MC", patientId);
+
+        await using var context = _factory.Create();
+        var saved = await Results(context).SaveTestResultAsync(new SaveTestResultRequest(
+            specimenId, 0, 0, ResultService.AboRhTestCode, null, null, null,
+            AboGroup.A, RhType.Negative, null,
+            MarkComplete: true, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+
+        Assert.True(saved.Succeeded, saved.Error);
+        Assert.Equal(ResultStatus.Entered, saved.Value!.Status);
+        Assert.Null(saved.Value.VerifiedBy);
+        Assert.Null(await Immuno(context).GetCurrentBloodTypeAsync(patientId));
+    }
+
+    [Fact]
     public async Task VerifyAboRh_Discrepancy_BlocksUntilOverride_ReplaceFlipsCurrent()
     {
         var patientId = await EnsurePatientAsync("MRN-DELTA");
@@ -333,7 +361,7 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         {
             await EnsureDeltaExceptionAsync(context);
             var r1 = (await Results(context).EnterAboRhAsync(new EnterAboRhRequest(firstSpecimen, AboGroup.O, RhType.Positive))).Value!.Id;
-            await Results(context).VerifyResultAsync(r1);
+            await Results(context, user: Verifier).VerifyResultAsync(r1);
         }
 
         long secondResultId;
@@ -344,7 +372,7 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var blocked = await Results(context).VerifyResultAsync(secondResultId);
+            var blocked = await Results(context, user: Verifier).VerifyResultAsync(secondResultId);
             Assert.False(blocked.Succeeded);
             Assert.True(blocked.RequiresOverride);
             Assert.Contains(blocked.Evaluation!.Warnings, w => w.Code == AboRhDeltaRule.DeltaCode);
@@ -359,7 +387,7 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var verified = await Results(context).VerifyResultAsync(secondResultId, new VerifyResultRequest(
+            var verified = await Results(context, user: Verifier).VerifyResultAsync(secondResultId, new VerifyResultRequest(
                 "Confirmed retype", "supervisor", AboRhHistoryResolution.Replace, SignatureId: 1));
             Assert.True(verified.Succeeded);
             Assert.Contains(verified.Evaluation!.Warnings, w => w.Code == AboRhDeltaRule.DeltaCode);
@@ -387,7 +415,7 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         {
             await EnsureDeltaExceptionAsync(context);
             var r1 = (await Results(context).EnterAboRhAsync(new EnterAboRhRequest(firstSpecimen, AboGroup.O, RhType.Positive))).Value!.Id;
-            await Results(context).VerifyResultAsync(r1);
+            await Results(context, user: Verifier).VerifyResultAsync(r1);
         }
 
         long secondResultId;
@@ -398,7 +426,7 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var verified = await Results(context).VerifyResultAsync(secondResultId, new VerifyResultRequest(
+            var verified = await Results(context, user: Verifier).VerifyResultAsync(secondResultId, new VerifyResultRequest(
                 "Keep historical pending investigation", "supervisor", AboRhHistoryResolution.Retain, SignatureId: 2));
             Assert.True(verified.Succeeded);
             Assert.Equal(ResultStatus.Verified, verified.Value!.Status);
@@ -425,7 +453,7 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         {
             await EnsureDeltaExceptionAsync(context);
             var r1 = (await Results(context).EnterAboRhAsync(new EnterAboRhRequest(firstSpecimen, AboGroup.O, RhType.Positive))).Value!.Id;
-            await Results(context).VerifyResultAsync(r1);
+            await Results(context, user: Verifier).VerifyResultAsync(r1);
         }
 
         long secondResultId;
@@ -436,7 +464,7 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var blocked = await Results(context, securityLevel: 1).VerifyResultAsync(secondResultId, new VerifyResultRequest(
+            var blocked = await Results(context, securityLevel: 1, user: Verifier).VerifyResultAsync(secondResultId, new VerifyResultRequest(
                 "Attempt", "tech1", AboRhHistoryResolution.Replace, SignatureId: 3));
             Assert.False(blocked.Succeeded);
             Assert.True(blocked.Evaluation!.IsHardStopped);

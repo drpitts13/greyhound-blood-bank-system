@@ -22,6 +22,7 @@ automatically FDA, AABB, CAP, or CLIA certified.
 | OCD-010 | Manual merge authorization | Does merging two patient records require a second authorizer in addition to `patient.merge`? | Manual merge requires `patient.merge` (not `patient.write`). Seeded to Supervisor and Administrator, not Technologist. Reason is required. Discordant ABO/Rh remains a HardStop. A second authorizer is not implemented. | Medical director + registration + quality |
 | OCD-011 | Unit retype self-verify | May the same user who entered a unit ABO/Rh retype verify it and release the unit? | Default `Inventory.BlockRetypeSelfVerify` is on. Record leaves the unit Received. Verify applies `RES-SELF-VERIFY` and only then moves to Available or Quarantine. | Blood bank supervisor + medical director |
 | OCD-012 | MTP vs emergency privilege | Should massive transfusion use a distinct privilege from emergency release? | Both require `issue.emergency-release`. Seeded to Supervisor and Administrator, not Technologist. | Medical director + blood bank supervisor |
+| OCD-013 | Patient ABO/Rh self-verify | May the same user who entered a patient ABO/Rh verify it and establish the current type? | Default `Result.BlockAboSelfVerify` is on. Save/complete leaves the result Entered. Verify applies `RES-SELF-VERIFY` and only then writes current `PatientBloodTypeHistory`. | Blood bank supervisor + medical director |
 
 When a decision is closed, move the row to the bottom with the effective date,
 the chosen configuration values, and the validation evidence ID. Do not delete

@@ -2468,6 +2468,17 @@ else
         if (r.Succeeded) { _resValue = string.Empty; await ReloadResults(specimenId); }
     }
 
+    private bool IsAboSelfVerifyBlocked(TestResultDto r) =>
+        r.Status is ResultStatus.Entered or ResultStatus.Corrected
+        && string.Equals(r.TestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(r.EnteredBy)
+        && string.Equals(r.EnteredBy, Session.UserName, StringComparison.OrdinalIgnoreCase);
+
+    private bool CanVerifyResult(TestResultDto r) =>
+        r.Status is ResultStatus.Entered or ResultStatus.Corrected
+        && Session.Has(PermissionCodes.ResultVerify)
+        && !IsAboSelfVerifyBlocked(r);
+
     private async Task VerifyAsync(long resultId, long specimenId)
     {
         _busy = true;
@@ -2619,9 +2630,13 @@ else
                                 <td><span class="@Ui.Badge(r.Status)">@r.Status</span></td>
                                 <td>@r.VerifiedBy</td>
                                 <td class="right">
-                                    @if (r.Status is ResultStatus.Entered or ResultStatus.Corrected && Session.Has(PermissionCodes.ResultVerify))
+                                    @if (CanVerifyResult(r))
                                     {
                                         <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => VerifyAsync(r.Id, s.Id)">Verify</button>
+                                    }
+                                    else if (IsAboSelfVerifyBlocked(r))
+                                    {
+                                        <span class="muted">Different user must verify ABO/Rh</span>
                                     }
                                     @if (r.Status == ResultStatus.Verified && Session.Has(PermissionCodes.ResultCorrect))
                                     {

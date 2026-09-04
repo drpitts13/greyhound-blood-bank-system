@@ -86,6 +86,7 @@ flowchart TD
 ```
 
 - Use cases: `EnterResultCommand`, `VerifyResultCommand`, `CorrectResultCommand`.
+- Patient ABO/Rh stay `Entered` after save/complete. A second user verifies (`RES-SELF-VERIFY` when `Result.BlockAboSelfVerify` is on, default). Current type is written only on verify. The entering user cannot verify their own ABO/Rh.
 - Checks: result cannot be verified by entry of unknown test; ABO/Rh discrepancy vs history (`RES-ABORH-DELTA`) blocks verify until an authorized override chooses Retain or Replace (gated by exception `MinSecurityLevel`); correcting a verified result requires reason + e-signature.
 - No silent change: corrections always create a new `TestResults` version; the old row is retained and marked superseded.
 

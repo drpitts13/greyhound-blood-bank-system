@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.PatientWorkspace;
@@ -49,9 +50,13 @@ public class RulesEngineTests : IClassFixture<SqliteContextFactory>
             new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c), _factory.Clock, c,
             Engine(c));
 
-    private ResultService Results(BloodBankDbContext c) =>
-        new(new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
-            c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+    private static ICurrentUser Verifier => new TestCurrentUser("tech-verify", "WORKSTATION-2");
+
+    private ResultService Results(BloodBankDbContext c, ICurrentUser? user = null)
+    {
+        var current = user ?? _factory.CurrentUser;
+        return new(new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
+            c, _factory.Clock, current, new AuditWriter(c, _factory.Clock, current),
             new EfRepository<TestDefinition>(c), new EfRepository<SubtestDefinition>(c),
             new EfRepository<Order>(c), new EfRepository<OrderLine>(c),
             new InventoryRepository(c), Compatibility(c), new EfRepository<AntibodyHistory>(c),
@@ -59,6 +64,7 @@ public class RulesEngineTests : IClassFixture<SqliteContextFactory>
             new EfRepository<UnitBloodAttribute>(c), new EfRepository<SpecimenTypeDefinition>(c),
             reflexRules: new EfRepository<ReflexRule>(c),
             ruleEngine: Engine(c));
+    }
 
     private CompatibilityService Compatibility(BloodBankDbContext c) =>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
@@ -417,7 +423,11 @@ public class RulesEngineTests : IClassFixture<SqliteContextFactory>
             CrossmatchResult: null, AntibodyScreenNegative: null));
 
         Assert.True(save.Succeeded, save.Error);
-        return new EvaluationResultProbe(save.Value!);
+        Assert.Equal(ResultStatus.Entered, save.Value!.Status);
+
+        var verified = await Results(c, Verifier).VerifyResultAsync(save.Value.Id);
+        Assert.True(verified.Succeeded, verified.Error);
+        return new EvaluationResultProbe(verified.Value!);
     }
 
     private sealed record EvaluationResultProbe(TestResult Result);

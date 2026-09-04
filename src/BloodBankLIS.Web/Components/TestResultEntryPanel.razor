@@ -335,10 +335,14 @@
             else if (_showSavePrompt)
             {
                 <div class="bb-card" style="background:#fafbfe;margin-top:.75rem;">
-                    <div class="muted" style="margin-bottom:.5rem;">Is this test complete?</div>
+                    <div class="muted" style="margin-bottom:.5rem;">
+                        @(IsAboRhEntry
+                            ? "ABO/Rh is saved as entered. A different user must verify it before it becomes the current type."
+                            : "Is this test complete?")
+                    </div>
                     <div class="flex gap">
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(false)">Save incomplete</button>
-                        @if (Session.Has(PermissionCodes.ResultVerify))
+                        @if (Session.Has(PermissionCodes.ResultVerify) && !IsAboRhEntry)
                         {
                             <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(true)">Save &amp; verify</button>
                         }
@@ -594,6 +598,10 @@
         _definition?.ResultValueType == ResultValueType.Subtest
         && _definition.InterpretationOptions.Count > 0;
 
+    private bool IsAboRhEntry =>
+        _definition?.ResultValueType == ResultValueType.AboRh
+        || string.Equals(WorkItem.TestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase);
+
     private bool IsCrossmatchType =>
         _definition?.ResultValueType is ResultValueType.Crossmatch or ResultValueType.ComplexCrossmatch
         || string.Equals(WorkItem.TestCode, "XM", StringComparison.OrdinalIgnoreCase)
@@ -779,7 +787,10 @@
             return;
         }
 
-        _fb = r.ToFeedback(markComplete ? "Result saved and verified." : "Result saved (incomplete).");
+        var savedMessage = IsAboRhEntry
+            ? "ABO/Rh saved. A different user must verify before it becomes the current type."
+            : markComplete ? "Result saved and verified." : "Result saved (incomplete).";
+        _fb = r.ToFeedback(savedMessage);
         if (r.Succeeded)
         {
             _showSavePrompt = false;

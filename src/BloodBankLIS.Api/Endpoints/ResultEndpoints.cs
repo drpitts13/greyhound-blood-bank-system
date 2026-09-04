@@ -2,6 +2,7 @@ using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Results;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Api.Endpoints;
@@ -52,9 +53,9 @@ public static class ResultEndpoints
             }
 
             var result = await service.SaveTestResultAsync(request, ct);
-            if (result.Succeeded && request.MarkComplete)
+            if (result.Succeeded && result.Value!.Status == ResultStatus.Verified)
             {
-                await billing.CaptureForResultAsync(result.Value!.Id, ct);
+                await billing.CaptureForResultAsync(result.Value.Id, ct);
             }
 
             return EndpointResults.FromEvaluation(result, r => TestResultDto.From(r));

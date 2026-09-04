@@ -92,6 +92,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-006 / FRS-BB-040 | Emergency/MTP issue requires a distinct privilege | `IssueAuthorizationRule` `ISS-EMERG-PERM`; `issue.emergency-release`; issue UI hides those types | `IssueAuthorizationRuleTests`; Phase 8 seed tests | D,I | RISK-BB-019 |
 | URS-BB-019 / FRS-BB-021 | Manual ABO/Rh requires immuno.override in Application | `ImmunoAuthorizationRule` `IH-ABO-PERM`; `ImmunohematologyService` | `ImmunoAuthorizationRuleTests`; Phase 3 manual ABO tests | D,I | RISK-BB-020 |
 | URS-BB-002 / FRS-BB-002 | Antibody and antigen writes require immuno privileges in Application | `IH-AB-ADD-PERM`, `IH-AB-DEACT-PERM`, `IH-AG-PERM` | `ImmunoAuthorizationRuleTests`; Phase 3 antibody permission tests | D,I | RISK-BB-021 |
+| URS-BB-020 / FRS-BB-022 | Patient ABO/Rh is not self-verified; current type waits for a second user | `Result.BlockAboSelfVerify`; `RES-SELF-VERIFY`; MarkComplete skip for ABORH | Phase 3 ABO self-verify and MarkComplete tests; RulesEngine Weak D via second user | D,I | RISK-BB-022; OCD-013 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

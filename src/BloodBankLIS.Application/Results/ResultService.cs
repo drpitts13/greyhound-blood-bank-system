@@ -205,7 +205,8 @@ public sealed class ResultService
 
         await SyncOrderLineStatusAsync(request.OrderLineId, saveResult.Value, ct);
 
-        if (request.MarkComplete)
+        // ABO/Rh must not establish current type from the same click that entered it.
+        if (request.MarkComplete && !IsAboRhCode(normalizedCode))
         {
             var verifyRequest = new VerifyResultRequest(
                 request.OverrideReason,
@@ -481,13 +482,8 @@ public sealed class ResultService
             return EvaluationResult<TestResult>.Fail(specimenGate.Error!);
         }
 
-        var selfVerify = SelfVerifyRule.Evaluate(result.EnteredBy ?? string.Empty, _currentUser.UserName, blockSelfVerify: false);
-        if (_policy is not null)
-        {
-            var block = await _policy.GetBlockSelfVerifyAsync(ct);
-            selfVerify = SelfVerifyRule.Evaluate(result.EnteredBy ?? string.Empty, _currentUser.UserName, block);
-        }
-
+        var blockSelfVerify = await ResolveBlockSelfVerifyAsync(result, ct);
+        var selfVerify = SelfVerifyRule.Evaluate(result.EnteredBy ?? string.Empty, _currentUser.UserName, blockSelfVerify);
         if (selfVerify.Severity == RuleSeverity.HardStop)
         {
             return EvaluationResult<TestResult>.Blocked(new RuleEvaluation([selfVerify]));
@@ -728,6 +724,26 @@ public sealed class ResultService
         }
 
         return testCode;
+    }
+
+    private static bool IsAboRhCode(string? testCode) =>
+        string.Equals(testCode, AboRhTestCode, StringComparison.OrdinalIgnoreCase);
+
+    private async Task<bool> ResolveBlockSelfVerifyAsync(TestResult result, CancellationToken ct)
+    {
+        var block = false;
+        if (IsAboRhCode(result.TestCode))
+        {
+            // Fail closed: a missing policy service still blocks ABO self-verify.
+            block = _policy is null || await _policy.GetBlockAboSelfVerifyAsync(ct);
+        }
+
+        if (_policy is not null && await _policy.GetBlockSelfVerifyAsync(ct))
+        {
+            block = true;
+        }
+
+        return block;
     }
 
     private static bool IsDeltaOverrideAttempt(VerifyResultRequest request) =>

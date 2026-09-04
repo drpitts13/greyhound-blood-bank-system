@@ -20,6 +20,9 @@ public static class FacilityPolicyKeys
     public const string NearExpiryWarningHours = "Inventory.NearExpiryWarningHours";
     public const string BlockSelfVerify = "Result.BlockSelfVerify";
 
+    /// <summary>The user who entered a patient ABO/Rh result may not verify it (establishes current type).</summary>
+    public const string BlockAboSelfVerify = "Result.BlockAboSelfVerify";
+
     /// <summary>The user who entered a unit ABO/Rh retype may not verify it.</summary>
     public const string BlockRetypeSelfVerify = "Inventory.BlockRetypeSelfVerify";
     public const string RetentionYears = "Record.RetentionYears";

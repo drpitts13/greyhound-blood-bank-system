@@ -32,6 +32,7 @@ public static partial class DatabaseSeeder
         await EnsureExpectedArrivalDueHoursPolicyAsync(context, cancellationToken);
         await EnsureNearExpiryWarningHoursPolicyAsync(context, cancellationToken);
         await EnsureInTransitDueHoursPolicyAsync(context, cancellationToken);
+        await EnsureBlockAboSelfVerifyPolicyAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
@@ -268,6 +269,13 @@ public static partial class DatabaseSeeder
             },
             new SystemSetting
             {
+                Key = FacilityPolicyKeys.BlockAboSelfVerify,
+                Value = "true",
+                Category = "Result",
+                Description = "When true, the user who entered a patient ABO/Rh cannot verify it."
+            },
+            new SystemSetting
+            {
                 Key = FacilityPolicyKeys.RetentionYears,
                 Value = "10",
                 Category = "Records",
@@ -330,6 +338,23 @@ public static partial class DatabaseSeeder
             Value = "4",
             Category = "Issue",
             Description = "Hours after issue when ward receipt of a cooler / in-transit unit is due."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureBlockAboSelfVerifyPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.BlockAboSelfVerify, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.BlockAboSelfVerify,
+            Value = "true",
+            Category = "Result",
+            Description = "When true, the user who entered a patient ABO/Rh cannot verify it."
         });
         await context.SaveChangesAsync(ct);
     }

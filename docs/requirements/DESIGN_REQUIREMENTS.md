@@ -17,3 +17,4 @@
 | SRS-BB-013 | Product retype record does not change unit status. Verify is a separate Application action that applies `SelfVerifyRule` before Available/Quarantine. | FRS-BB-051 |
 | SRS-BB-014 | Emergency/MTP issue is authorized with `issue.emergency-release` in `IssuingService`, not only in the UI. Standard issue does not grant emergency release. The issue-type list hides Emergency/MTP without that permission. | FRS-BB-040 |
 | SRS-BB-015 | Immunohematology writes are authorized inside `ImmunohematologyService`: `immuno.override` for manual ABO and antibody deactivate; `immuno.record` for antibody add and antigen profile. Callers that skip the API filter cannot change history used at issue. | FRS-BB-021, FRS-BB-002 |
+| SRS-BB-016 | `ResultService.VerifyResultAsync` fail-closes ABO self-verify when the policy service is null. `SaveTestResultAsync` never auto-verifies `ABORH`. Billing capture after save runs only when the result is Verified. | FRS-BB-022 |

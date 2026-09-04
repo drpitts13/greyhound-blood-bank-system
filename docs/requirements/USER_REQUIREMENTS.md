@@ -24,3 +24,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-016 | A result cannot be verified from an expired or rejected specimen. | P0 | FRS-BB-010 |
 | URS-BB-018 | A unit that requires ABO/Rh retype is not Available until a verified matching retype exists. | P0 | FRS-BB-051 |
 | URS-BB-019 | Manually setting the current ABO/Rh (not from a verified result) is limited to authorized staff. | P0 | FRS-BB-021 |
+| URS-BB-020 | The user who entered a patient ABO/Rh cannot verify it. Current type is established only after a second user verifies. | P0 | FRS-BB-022 |
