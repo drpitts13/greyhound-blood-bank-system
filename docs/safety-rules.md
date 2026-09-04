@@ -153,6 +153,10 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `SPECTYPE-UPD-PERM` | Caller has `admin.config.edit` when updating a specimen type definition | HardStop when a permission evaluator is present and the privilege is missing |
 | `SPECTYPE-ACT-PERM` | Caller has `admin.config.activate` when activating a specimen type definition | HardStop when a permission evaluator is present and the privilege is missing |
 | `SPECTYPE-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a specimen type definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `PROD-CREATE-PERM` | Caller has `admin.products.manage` when creating a product definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `PROD-UPD-PERM` | Caller has `admin.products.manage` when updating a product definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `PROD-ACT-PERM` | Caller has `admin.config.activate` when activating a product definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `PROD-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a product definition | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-UPD-PERM` | Caller has `patient.write` when updating an order | HardStop when a permission evaluator is present and the privilege is missing |

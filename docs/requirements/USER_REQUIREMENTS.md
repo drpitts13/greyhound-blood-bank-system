@@ -77,3 +77,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-084 | Creating or updating a phase definition is limited to staff with admin.tests.manage. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-118 |
 | URS-BB-086 | Creating or updating an exception definition is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-120 |
 | URS-BB-088 | Creating or updating a specimen-type definition is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-122 |
+| URS-BB-089 | Creating or updating a product definition is limited to staff with admin.products.manage. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-123 |

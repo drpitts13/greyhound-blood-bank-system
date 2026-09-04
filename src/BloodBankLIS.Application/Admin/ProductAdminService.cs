@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.Rules.Config;
 
 namespace BloodBankLIS.Application.Admin;
@@ -19,6 +20,7 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
     private readonly IRepository<ProductType> _products;
     private readonly IRepository<ProductAttribute> _attributes;
     private readonly IRepository<ProductAttributeAssignment> _assignments;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public ProductAdminService(
         IRepository<ProductType> products,
@@ -28,12 +30,14 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _products = products;
         _attributes = attributes;
         _assignments = assignments;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<ProductAttributeDto>> ListAttributesAsync(CancellationToken ct = default)
@@ -67,6 +71,13 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
     {
         ArgumentNullException.ThrowIfNull(req);
 
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminProductsManage, ProductCatalogAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = new ProductType { IsActive = false, Version = 1 };
         Apply(entity, req);
 
@@ -94,6 +105,13 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<ProductDefinitionDto>> UpdateAsync(long id, SaveProductDefinitionRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminProductsManage, ProductCatalogAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _products.GetByIdAsync(id, ct);
         if (entity is null)
@@ -133,6 +151,13 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<ProductDefinitionDto>> ActivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigActivate, ProductCatalogAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _products.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -159,6 +184,13 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
 
     public async Task<OperationResult<ProductDefinitionDto>> DeactivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate, ProductCatalogAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _products.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -262,5 +294,41 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
             p.Id, p.ProductCode, p.Name, p.ComponentClass, p.Category, p.DefaultShelfLifeHours,
             p.RequiresCrossmatch, p.RequiresAboMatch, p.RequiresRhMatch, p.RequiresRetype, p.Isbt128ProductCode, p.DefaultChargeCode,
             p.StorageRequirements, p.IssueRules, p.ReturnRules, p.ModificationRules, p.Version, p.IsActive, assigned);
+    }
+
+    private async Task<EvaluationResult<ProductDefinitionDto>?> RejectUnauthorizedEvalAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<ProductDefinitionDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<ProductDefinitionDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<ProductDefinitionDto>.Fail(auth.Message)
+            : null;
     }
 }

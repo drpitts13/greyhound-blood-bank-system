@@ -279,6 +279,7 @@ flowchart LR
 - Creating or updating a phase definition requires `admin.tests.manage` in `PhaseDefinitionAdminService` (`PHASE-CREATE-PERM` / `PHASE-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`PHASE-ACT-PERM` / `PHASE-DEACT-PERM`).
 - Creating or updating an exception definition requires `admin.config.edit` in `ExceptionDefinitionAdminService` (`EXC-CREATE-PERM` / `EXC-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`EXC-ACT-PERM` / `EXC-DEACT-PERM`).
 - Creating or updating a specimen-type definition requires `admin.config.edit` in `SpecimenTypeAdminService` (`SPECTYPE-CREATE-PERM` / `SPECTYPE-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`SPECTYPE-ACT-PERM` / `SPECTYPE-DEACT-PERM`).
+- Creating or updating a product definition requires `admin.products.manage` in `ProductAdminService` (`PROD-CREATE-PERM` / `PROD-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`PROD-ACT-PERM` / `PROD-DEACT-PERM`).
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---

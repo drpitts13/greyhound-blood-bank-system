@@ -145,6 +145,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-084 / FRS-BB-118 | Phase-catalog writes require admin.tests.manage or admin.config.activate in Application | `PHASE-CREATE-PERM`, `PHASE-UPD-PERM`, `PHASE-ACT-PERM`, `PHASE-DEACT-PERM` | `PhaseCatalogAuthorizationRuleTests`; `PhaseDefinitionAuthorizationTests` | D,I | RISK-BB-089 |
 | URS-BB-086 / FRS-BB-120 | Exception-catalog writes require admin.config.edit or admin.config.activate in Application | `EXC-CREATE-PERM`, `EXC-UPD-PERM`, `EXC-ACT-PERM`, `EXC-DEACT-PERM` | `ExceptionCatalogAuthorizationRuleTests`; `ExceptionDefinitionAuthorizationTests` | D,I | RISK-BB-092 |
 | URS-BB-088 / FRS-BB-122 | Specimen-type catalog writes require admin.config.edit or admin.config.activate in Application | `SPECTYPE-CREATE-PERM`, `SPECTYPE-UPD-PERM`, `SPECTYPE-ACT-PERM`, `SPECTYPE-DEACT-PERM` | `SpecimenTypeAuthorizationRuleTests`; `SpecimenTypeAuthorizationTests` | D,I | RISK-BB-094 |
+| URS-BB-089 / FRS-BB-123 | Product-catalog writes require admin.products.manage or admin.config.activate in Application | `PROD-CREATE-PERM`, `PROD-UPD-PERM`, `PROD-ACT-PERM`, `PROD-DEACT-PERM` | `ProductCatalogAuthorizationRuleTests`; `ProductCatalogAuthorizationTests` | D,I | RISK-BB-095 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
