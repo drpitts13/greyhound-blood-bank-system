@@ -167,7 +167,7 @@ Expiration: `ResultExpiresUtc = min(anchor + offset, earliest source ExpiresUtc)
 | Reprint a compatibility tag | Yes | Yes | No (reason required) | `Reprint` |
 | Return an issued unit to inventory | Yes | Yes | No (reason required) | `Return` |
 | Manually alter ABO/Rh history | Yes | Yes | Yes | `Update` (blood type history); HardStop `IH-ABO-PERM` without `immuno.override` |
-| Deactivate an antibody record | Yes | Yes | No (reason required) | `Update` (antibody history) |
+| Deactivate an antibody record | Yes | Yes | No (reason required) | `Update` (antibody history); HardStop `IH-AB-DEACT-PERM` without `immuno.override` |
 | Modify a product (divide/pool/irradiate/thaw/volume-reduce/leukoreduce) | No | Yes | No (reason required) | `Modify` |
 
 - HardStops are never part of an override path — only Warnings can be overridden.

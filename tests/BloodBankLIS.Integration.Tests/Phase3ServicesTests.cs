@@ -554,6 +554,30 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task AntibodyWrites_RequireImmunoPermissions()
+    {
+        var patientId = await EnsurePatientAsync("MRN-AB-PERM");
+        await using var context = _factory.Create();
+        var noRecord = await Immuno(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .AddAntibodyAsync(patientId, null, "anti-K", AntibodyStatus.Identified, "Detected on screen");
+        Assert.False(noRecord.Succeeded);
+        Assert.Contains("immuno.record", noRecord.Error, StringComparison.OrdinalIgnoreCase);
+
+        var added = await Immuno(context, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord))
+            .AddAntibodyAsync(patientId, null, "anti-K", AntibodyStatus.Identified, "Detected on screen");
+        Assert.True(added.Succeeded, added.Error);
+
+        var noOverride = await Immuno(context, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord))
+            .DeactivateAntibodyAsync(added.Value!.Id, "Reclassified as historical");
+        Assert.False(noOverride.Succeeded);
+        Assert.Contains("immuno.override", noOverride.Error, StringComparison.OrdinalIgnoreCase);
+
+        var deactivated = await Immuno(context, new FixedPermissionEvaluator(2, PermissionCodes.ImmunoOverride))
+            .DeactivateAntibodyAsync(added.Value.Id, "Reclassified as historical");
+        Assert.True(deactivated.Succeeded, deactivated.Error);
+    }
+
+    [Fact]
     public async Task Antibody_AddThenDeactivate_RequiresReason()
     {
         var patientId = await EnsurePatientAsync("MRN-AB");

@@ -91,6 +91,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-018 / FRS-BB-051 | Unit retype stays Received until a second user verifies | `ProductRetypeService` enter/verify; `RES-SELF-VERIFY` | `ProductRetypeServiceTests` | I | RISK-BB-018; OCD-011 |
 | URS-BB-006 / FRS-BB-040 | Emergency/MTP issue requires a distinct privilege | `IssueAuthorizationRule` `ISS-EMERG-PERM`; `issue.emergency-release`; issue UI hides those types | `IssueAuthorizationRuleTests`; Phase 8 seed tests | D,I | RISK-BB-019 |
 | URS-BB-019 / FRS-BB-021 | Manual ABO/Rh requires immuno.override in Application | `ImmunoAuthorizationRule` `IH-ABO-PERM`; `ImmunohematologyService` | `ImmunoAuthorizationRuleTests`; Phase 3 manual ABO tests | D,I | RISK-BB-020 |
+| URS-BB-002 / FRS-BB-002 | Antibody and antigen writes require immuno privileges in Application | `IH-AB-ADD-PERM`, `IH-AB-DEACT-PERM`, `IH-AG-PERM` | `ImmunoAuthorizationRuleTests`; Phase 3 antibody permission tests | D,I | RISK-BB-021 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

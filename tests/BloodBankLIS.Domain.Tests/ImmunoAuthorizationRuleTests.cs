@@ -18,4 +18,28 @@ public class ImmunoAuthorizationRuleTests
         var result = ImmunoAuthorizationRule.EvaluateManualBloodType(hasImmunoOverride: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void AntibodyAdd_WithoutRecord_IsHardStop()
+    {
+        var result = ImmunoAuthorizationRule.EvaluateAntibodyAdd(hasImmunoRecord: false);
+        Assert.Equal(ImmunoAuthorizationRule.AntibodyAddCode, result.Code);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+    }
+
+    [Fact]
+    public void AntibodyDeactivate_WithoutOverride_IsHardStop()
+    {
+        var result = ImmunoAuthorizationRule.EvaluateAntibodyDeactivate(hasImmunoOverride: false);
+        Assert.Equal(ImmunoAuthorizationRule.AntibodyDeactivateCode, result.Code);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+    }
+
+    [Fact]
+    public void AntigenProfile_WithoutRecord_IsHardStop()
+    {
+        var result = ImmunoAuthorizationRule.EvaluateAntigenProfile(hasImmunoRecord: false);
+        Assert.Equal(ImmunoAuthorizationRule.AntigenProfileCode, result.Code);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+    }
 }

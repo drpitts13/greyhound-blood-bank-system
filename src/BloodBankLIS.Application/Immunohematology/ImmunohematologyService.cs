@@ -73,15 +73,11 @@ public sealed class ImmunohematologyService
             return OperationResult<PatientBloodTypeHistory>.Fail("A reason is required to manually record ABO/Rh.");
         }
 
-        if (_permissions is not null)
+        var denied = await RejectUnauthorizedAsync<PatientBloodTypeHistory>(
+            PermissionCodes.ImmunoOverride, ImmunoAuthorizationRule.EvaluateManualBloodType, ct);
+        if (denied is not null)
         {
-            var allowed = await _permissions.HasPermissionAsync(
-                _currentUser.UserName, PermissionCodes.ImmunoOverride, ct);
-            var auth = ImmunoAuthorizationRule.EvaluateManualBloodType(allowed);
-            if (auth.Severity == RuleSeverity.HardStop)
-            {
-                return OperationResult<PatientBloodTypeHistory>.Fail(auth.Message);
-            }
+            return denied;
         }
 
         var patientGate = await RejectMergedOrMissingPatientAsync<PatientBloodTypeHistory>(patientId, ct);
@@ -128,6 +124,13 @@ public sealed class ImmunohematologyService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var denied = await RejectUnauthorizedAsync<AntigenProfile>(
+            PermissionCodes.ImmunoRecord, ImmunoAuthorizationRule.EvaluateAntigenProfile, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var patientGate = await RejectMergedOrMissingPatientAsync<AntigenProfile>(patientId, ct);
         if (patientGate is not null)
         {
@@ -172,6 +175,13 @@ public sealed class ImmunohematologyService
     public async Task<OperationResult<AntibodyHistory>> AddAntibodyAsync(
         long patientId, long? bloodAttributeDefinitionId, string? specificity, AntibodyStatus status, string? comment, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync<AntibodyHistory>(
+            PermissionCodes.ImmunoRecord, ImmunoAuthorizationRule.EvaluateAntibodyAdd, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var patientGate = await RejectMergedOrMissingPatientAsync<AntibodyHistory>(patientId, ct);
         if (patientGate is not null)
         {
@@ -223,6 +233,13 @@ public sealed class ImmunohematologyService
             return OperationResult<AntibodyHistory>.Fail("A reason is required to deactivate an antibody record.");
         }
 
+        var denied = await RejectUnauthorizedAsync<AntibodyHistory>(
+            PermissionCodes.ImmunoOverride, ImmunoAuthorizationRule.EvaluateAntibodyDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var antibody = await _antibodies.GetByIdAsync(antibodyId, ct);
         if (antibody is null)
         {
@@ -267,6 +284,23 @@ public sealed class ImmunohematologyService
         var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
         return clinical.Severity == RuleSeverity.HardStop
             ? OperationResult<T>.Fail(clinical.Message)
+            : null;
+    }
+
+    private async Task<OperationResult<T>?> RejectUnauthorizedAsync<T>(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(_currentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<T>.Fail(auth.Message)
             : null;
     }
 }
