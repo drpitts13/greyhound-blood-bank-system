@@ -20,3 +20,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-013 | Interfaces preserve raw messages and do not silently discard errors. | P8 | FRS-BB-080 |
 | URS-BB-014 | The facility can operate and recover from downtime without losing traceability. | P5 | FRS-BB-090 |
 | URS-BB-015 | A merged (losing) patient record cannot be used for testing, allocation, or issue. Work continues on the surviving record. | P1 | FRS-BB-003 |
+| URS-BB-016 | A result cannot be verified from an expired or rejected specimen. | P0 | FRS-BB-010 |

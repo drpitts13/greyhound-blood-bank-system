@@ -72,9 +72,16 @@ public sealed class SpecialRequirementService
             return OperationResult<SpecialTransfusionRequirement>.Fail("A reason is required.");
         }
 
-        if (await _patients.GetByIdAsync(patientId, ct) is null)
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
         {
             return OperationResult<SpecialTransfusionRequirement>.Fail("Patient not found.");
+        }
+
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        if (clinical.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<SpecialTransfusionRequirement>.Fail(clinical.Message);
         }
 
         if (request.RequirementType == SpecialTransfusionRequirementType.AntigenNegative
@@ -111,6 +118,16 @@ public sealed class SpecialRequirementService
         if (row is null)
         {
             return OperationResult<SpecialTransfusionRequirement>.Fail("Special requirement not found.");
+        }
+
+        var patient = await _patients.GetByIdAsync(row.PatientId, ct);
+        if (patient is not null)
+        {
+            var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+            if (clinical.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<SpecialTransfusionRequirement>.Fail(clinical.Message);
+            }
         }
 
         row.IsActive = false;

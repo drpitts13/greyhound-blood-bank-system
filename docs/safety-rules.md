@@ -188,6 +188,7 @@ Opening a reaction investigation quarantines the implicated unit when `Inventory
 
 ## 6. Result integrity rules
 
+- Result entry and verification require an Accepted, unexpired specimen on a surviving (not merged) patient. Verification does not post ABO or antibody history from an invalid specimen.
 - Verified results are immutable; corrections create a new `TestResults` version and supersede (never overwrite) the prior row.
 - Delta check: a new ABO/Rh result that disagrees with the current historical record raises `RES-ABORH-DELTA` (**Warning**). At **verify**, the Warning **blocks** until an authorized override supplies reason + electronic signature + **Retain** (keep historical `IsCurrent`) or **Replace** (append and flip `IsCurrent` to the verified type). Override eligibility is gated by the admin `ExceptionDefinitions` catalog (`MinSecurityLevel` vs the user's max role `SecurityLevel`). Unresolved discrepancy still contributes a HardStop to the issue gate on crossmatch-required products.
 - Critical/special flags on results are surfaced to the verifier and carried into compatibility evaluation.

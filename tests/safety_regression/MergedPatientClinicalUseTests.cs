@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Results;
@@ -147,6 +148,83 @@ public class MergedPatientClinicalUseTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task VerifyResult_OnMergedPatient_IsHardStopped()
+    {
+        await using var c = _factory.Create();
+        var (patient, _) = await SeedAsync(c, "MERGE-VER");
+        var specimen = AcceptedSpecimen(patient.Id, "ACC-MERGE-VER");
+        c.Specimens.Add(specimen);
+        await c.SaveChangesAsync();
+
+        var entered = await Results(c).EnterResultAsync(new EnterResultRequest(specimen.Id, "HGB", "12.0"));
+        Assert.True(entered.Succeeded);
+
+        patient.Status = PatientStatus.Merged;
+        await c.SaveChangesAsync();
+
+        var verified = await Results(c).VerifyResultAsync(entered.Value!.Id);
+        Assert.False(verified.Succeeded);
+        Assert.Equal(MergedMessage, verified.Error);
+    }
+
+    [Fact]
+    public async Task VerifyResult_OnExpiredSpecimen_IsHardStopped()
+    {
+        await using var c = _factory.Create();
+        var (patient, _) = await SeedAsync(c, "MERGE-EXP");
+        var specimen = AcceptedSpecimen(patient.Id, "ACC-MERGE-EXP");
+        c.Specimens.Add(specimen);
+        await c.SaveChangesAsync();
+
+        var entered = await Results(c).EnterResultAsync(new EnterResultRequest(specimen.Id, "HGB", "11.0"));
+        Assert.True(entered.Succeeded);
+
+        specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+        await c.SaveChangesAsync();
+
+        var verified = await Results(c).VerifyResultAsync(entered.Value!.Id);
+        Assert.False(verified.Succeeded);
+        Assert.Contains("expired", verified.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CorrectResult_OnMergedPatient_IsHardStopped()
+    {
+        await using var c = _factory.Create();
+        var (patient, _) = await SeedAsync(c, "MERGE-CORR");
+        var specimen = AcceptedSpecimen(patient.Id, "ACC-MERGE-CORR");
+        c.Specimens.Add(specimen);
+        await c.SaveChangesAsync();
+
+        var entered = await Results(c).EnterResultAsync(new EnterResultRequest(specimen.Id, "HGB", "10.0"));
+        Assert.True(entered.Succeeded);
+        var verified = await Results(c).VerifyResultAsync(entered.Value!.Id);
+        Assert.True(verified.Succeeded);
+
+        patient.Status = PatientStatus.Merged;
+        await c.SaveChangesAsync();
+
+        var corrected = await Results(c).CorrectResultAsync(entered.Value.Id, "10.5", "Transcription error");
+        Assert.False(corrected.Succeeded);
+        Assert.Equal(MergedMessage, corrected.Error);
+    }
+
+    [Fact]
+    public async Task AddSpecialRequirement_OnMergedPatient_IsHardStopped()
+    {
+        await using var c = _factory.Create();
+        var (patient, _) = await SeedAsync(c, "MERGE-REQ");
+        patient.Status = PatientStatus.Merged;
+        await c.SaveChangesAsync();
+
+        var result = await SpecialRequirements(c).AddAsync(
+            patient.Id,
+            new AddSpecialRequirementRequest(SpecialTransfusionRequirementType.Irradiated, "Needed"));
+        Assert.False(result.Succeeded);
+        Assert.Equal(MergedMessage, result.Error);
+    }
+
+    [Fact]
     public async Task AddAntibody_OnMergedPatient_IsHardStopped()
     {
         await using var c = _factory.Create();
@@ -201,6 +279,27 @@ public class MergedPatientClinicalUseTests : IClassFixture<SqliteContextFactory>
             new EfRepository<TestGrouper>(c),
             _factory.Clock,
             c);
+
+    private SpecialRequirementService SpecialRequirements(BloodBankDbContext c) =>
+        new(
+            new EfRepository<SpecialTransfusionRequirement>(c),
+            new EfRepository<Patient>(c),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+
+    private Specimen AcceptedSpecimen(long patientId, string accession) =>
+        new()
+        {
+            AccessionNumber = accession,
+            PatientId = patientId,
+            SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-2),
+            ReceivedUtc = _factory.Clock.UtcNow.AddHours(-1),
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(2),
+            Status = SpecimenStatus.Accepted
+        };
 
     private ImmunohematologyService Immuno(BloodBankDbContext c) =>
         new(

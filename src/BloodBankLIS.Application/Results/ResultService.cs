@@ -475,6 +475,12 @@ public sealed class ResultService
             return EvaluationResult<TestResult>.Fail("Result not found.");
         }
 
+        var specimenGate = await ValidateSpecimenForEntryAsync(result.SpecimenId, result.TestCode, ct);
+        if (!specimenGate.Succeeded)
+        {
+            return EvaluationResult<TestResult>.Fail(specimenGate.Error!);
+        }
+
         var selfVerify = SelfVerifyRule.Evaluate(result.EnteredBy ?? string.Empty, _currentUser.UserName, blockSelfVerify: false);
         if (_policy is not null)
         {
@@ -785,6 +791,12 @@ public sealed class ResultService
         if (original.Status != ResultStatus.Verified)
         {
             return OperationResult<TestResult>.Fail("Only a verified result can be corrected.");
+        }
+
+        var merged = await RejectMergedPatientMessageAsync(original.PatientId, ct);
+        if (merged is not null)
+        {
+            return OperationResult<TestResult>.Fail(merged);
         }
 
         var correction = new TestResult
@@ -1500,5 +1512,22 @@ public sealed class ResultService
                 : ResultStatus.Pending;
         _orders.Update(order);
         await _unitOfWork.SaveChangesAsync(ct);
+    }
+
+    private async Task<string?> RejectMergedPatientMessageAsync(long patientId, CancellationToken ct)
+    {
+        if (_patients is null)
+        {
+            return null;
+        }
+
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return null;
+        }
+
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        return clinical.Severity == RuleSeverity.HardStop ? clinical.Message : null;
     }
 }
