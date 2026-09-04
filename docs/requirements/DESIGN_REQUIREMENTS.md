@@ -38,3 +38,4 @@
 | SRS-BB-034 | Issue return is authorized inside `IssuingService` with `issue.return` (`ISS-RET-PERM`). Callers that skip the API filter cannot place an issued unit back into inventory. | FRS-BB-068 |
 | SRS-BB-035 | Transfusion documentation is authorized inside `IssuingService` with `transfusion.document` (`TXN-DOC-PERM`). Callers that skip the API filter cannot mark a unit Transfused. | FRS-BB-069 |
 | SRS-BB-036 | Ward receipt is authorized inside `IssuingService` with `transfusion.document` (`TXN-WARD-PERM`). The API uses the same privilege. Callers that skip the API filter cannot acknowledge custody. | FRS-BB-071 |
+| SRS-BB-037 | Discard is authorized inside `InventoryService` with `inventory.discard` (`INV-DISC-PERM`). Callers that skip the API filter cannot destroy a unit. | FRS-BB-072 |

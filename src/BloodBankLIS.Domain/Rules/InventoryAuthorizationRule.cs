@@ -3,7 +3,8 @@ namespace BloodBankLIS.Domain.Rules;
 /// <summary>
 /// Privilege gates for inventory actions that make a unit issuable
 /// (quarantine release, unused-directed conversion, operational-hold release)
-/// or that retire a unit into a modified product, rewrite unit identity, or receive a unit.
+/// or that retire a unit into a modified product, rewrite unit identity,
+/// receive a unit, or discard a unit.
 /// </summary>
 public static class InventoryAuthorizationRule
 {
@@ -13,6 +14,7 @@ public static class InventoryAuthorizationRule
     public const string ModifyCode = "INV-MOD-PERM";
     public const string CorrectIdentityCode = "INV-ID-PERM";
     public const string ReceiveCode = "INV-RCV-PERM";
+    public const string DiscardCode = "INV-DISC-PERM";
 
     public static RuleResult EvaluateQuarantineRelease(bool hasInventoryRelease) =>
         hasInventoryRelease
@@ -55,6 +57,13 @@ public static class InventoryAuthorizationRule
             : RuleResult.HardStop(
                 ReceiveCode,
                 "Receiving a unit into inventory requires the inventory.receive permission.");
+
+    public static RuleResult EvaluateDiscard(bool hasInventoryDiscard) =>
+        hasInventoryDiscard
+            ? RuleResult.Pass(DiscardCode)
+            : RuleResult.HardStop(
+                DiscardCode,
+                "Discarding a unit requires the inventory.discard permission.");
 }
 
 

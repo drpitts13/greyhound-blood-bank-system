@@ -1058,6 +1058,12 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("A reason is required to discard a unit.");
         }
 
+        var denied = await RejectUnauthorizedDiscardAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
         {
@@ -1204,6 +1210,21 @@ public sealed class InventoryService
         var allowed = await _permissions.HasPermissionAsync(
             _currentUser.UserName, PermissionCodes.InventoryReceive, ct);
         var auth = InventoryAuthorizationRule.EvaluateReceive(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<InventoryActionResult?> RejectUnauthorizedDiscardAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.InventoryDiscard, ct);
+        var auth = InventoryAuthorizationRule.EvaluateDiscard(allowed);
         return auth.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
             : null;

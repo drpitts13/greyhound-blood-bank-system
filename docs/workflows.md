@@ -195,7 +195,7 @@ flowchart TD
     d --> e[Unit no longer selectable]
 ```
 
-- Dangerous action: requires reason, confirmation, audit. Discarded units are excluded from all selection queries.
+- Dangerous action: requires reason, confirmation, audit. Discarded units are excluded from all selection queries. Discarding a unit requires `inventory.discard` (`INV-DISC-PERM`) in the Application service.
 
 ---
 

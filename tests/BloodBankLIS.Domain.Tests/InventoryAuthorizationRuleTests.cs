@@ -93,4 +93,19 @@ public class InventoryAuthorizationRuleTests
         var result = InventoryAuthorizationRule.EvaluateReceive(hasInventoryReceive: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Discard_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateDiscard(hasInventoryDiscard: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.DiscardCode, result.Code);
+    }
+
+    [Fact]
+    public void Discard_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateDiscard(hasInventoryDiscard: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

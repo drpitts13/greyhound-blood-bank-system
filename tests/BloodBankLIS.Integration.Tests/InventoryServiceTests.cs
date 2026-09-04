@@ -1334,6 +1334,30 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Discard_WithoutInventoryDiscard_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-DISC-PERM", productTypeId))).Unit!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var denied = await CreateService(ctx, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .DiscardAsync(unitId, "Bag integrity compromised", "tech2");
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.DiscardCode);
+        Assert.NotEqual(UnitStatus.Discarded, (await ctx.BloodUnits.FindAsync(unitId))!.Status);
+
+        var allowed = await CreateService(ctx, new FixedPermissionEvaluator(1, PermissionCodes.InventoryDiscard))
+            .DiscardAsync(unitId, "Bag integrity compromised", "tech2");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(UnitStatus.Discarded, allowed.Unit!.Status);
+    }
+
+    [Fact]
     public async Task Discard_SetsStatus_AndWritesDiscardAudit()
     {
         var productTypeId = await EnsureProductTypeAsync();
