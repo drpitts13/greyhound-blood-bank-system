@@ -73,3 +73,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-078 | Creating or updating a reflex rule is limited to staff with admin.tests.manage. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-112 |
 | URS-BB-079 | Creating or updating a subtest definition is limited to staff with admin.tests.manage. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-113 |
 | URS-BB-081 | Creating or updating a test grouper is limited to staff with admin.tests.manage. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-115 |
+| URS-BB-083 | Creating or updating an order or test rule is limited to staff with admin.tests.manage. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-117 |

@@ -141,6 +141,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-078 / FRS-BB-112 | Reflex-rule catalog writes require admin.tests.manage or admin.config.activate in Application | `REFLEX-CREATE-PERM`, `REFLEX-UPD-PERM`, `REFLEX-ACT-PERM`, `REFLEX-DEACT-PERM` | `ReflexRuleAuthorizationRuleTests`; `ReflexRuleAuthorizationTests` | D,I | RISK-BB-082 |
 | URS-BB-079 / FRS-BB-113 | Subtest-catalog writes require admin.tests.manage or admin.config.activate in Application | `SUBTEST-CREATE-PERM`, `SUBTEST-UPD-PERM`, `SUBTEST-ACT-PERM`, `SUBTEST-DEACT-PERM` | `SubtestCatalogAuthorizationRuleTests`; `SubtestDefinitionAuthorizationTests` | D,I | RISK-BB-083 |
 | URS-BB-081 / FRS-BB-115 | Test-grouper catalog writes require admin.tests.manage or admin.config.activate in Application | `GROUPER-CREATE-PERM`, `GROUPER-UPD-PERM`, `GROUPER-ACT-PERM`, `GROUPER-DEACT-PERM` | `TestGrouperAuthorizationRuleTests`; `TestGrouperAuthorizationTests` | D,I | RISK-BB-085 |
+| URS-BB-083 / FRS-BB-117 | Order/test rule catalog writes require admin.tests.manage or admin.config.activate in Application | `RULEDEF-CREATE-PERM`, `RULEDEF-UPD-PERM`, `RULEDEF-ACT-PERM`, `RULEDEF-DEACT-PERM` | `RuleDefinitionAuthorizationRuleTests`; `RuleDefinitionAuthorizationTests` | D,I | RISK-BB-087 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

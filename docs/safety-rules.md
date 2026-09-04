@@ -137,6 +137,10 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `GROUPER-UPD-PERM` | Caller has `admin.tests.manage` when updating a test grouper | HardStop when a permission evaluator is present and the privilege is missing |
 | `GROUPER-ACT-PERM` | Caller has `admin.config.activate` when activating a test grouper | HardStop when a permission evaluator is present and the privilege is missing |
 | `GROUPER-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a test grouper | HardStop when a permission evaluator is present and the privilege is missing |
+| `RULEDEF-CREATE-PERM` | Caller has `admin.tests.manage` when creating an order or test rule | HardStop when a permission evaluator is present and the privilege is missing |
+| `RULEDEF-UPD-PERM` | Caller has `admin.tests.manage` when updating an order or test rule | HardStop when a permission evaluator is present and the privilege is missing |
+| `RULEDEF-ACT-PERM` | Caller has `admin.config.activate` when activating an order or test rule | HardStop when a permission evaluator is present and the privilege is missing |
+| `RULEDEF-DEACT-PERM` | Caller has `admin.config.activate` when deactivating an order or test rule | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-UPD-PERM` | Caller has `patient.write` when updating an order | HardStop when a permission evaluator is present and the privilege is missing |

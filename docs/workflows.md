@@ -275,6 +275,7 @@ flowchart LR
 - Creating or updating a reflex rule requires `admin.tests.manage` in `ReflexRuleAdminService` (`REFLEX-CREATE-PERM` / `REFLEX-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`REFLEX-ACT-PERM` / `REFLEX-DEACT-PERM`).
 - Creating or updating a subtest definition requires `admin.tests.manage` in `SubtestDefinitionAdminService` (`SUBTEST-CREATE-PERM` / `SUBTEST-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`SUBTEST-ACT-PERM` / `SUBTEST-DEACT-PERM`).
 - Creating or updating a test grouper requires `admin.tests.manage` in `TestGrouperAdminService` (`GROUPER-CREATE-PERM` / `GROUPER-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`GROUPER-ACT-PERM` / `GROUPER-DEACT-PERM`).
+- Creating or updating an order or test rule requires `admin.tests.manage` in `RuleDefinitionAdminService` (`RULEDEF-CREATE-PERM` / `RULEDEF-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`RULEDEF-ACT-PERM` / `RULEDEF-DEACT-PERM`).
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---

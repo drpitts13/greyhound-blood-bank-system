@@ -15,6 +15,7 @@ public sealed class RuleDefinitionAdminService : ConfigAdminServiceBase
     private readonly IRepository<RuleDefinition> _repo;
     private readonly IRepository<TestDefinition> _testRepo;
     private readonly IRepository<TestGrouper> _grouperRepo;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public RuleDefinitionAdminService(
         IRepository<RuleDefinition> repo,
@@ -24,12 +25,14 @@ public sealed class RuleDefinitionAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _repo = repo;
         _testRepo = testRepo;
         _grouperRepo = grouperRepo;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<RuleDefinitionDto>> ListAsync(
@@ -62,6 +65,13 @@ public sealed class RuleDefinitionAdminService : ConfigAdminServiceBase
     {
         ArgumentNullException.ThrowIfNull(req);
 
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminTestsManage, RuleDefinitionAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = new RuleDefinition { IsDraft = true, IsActive = false, Version = 1 };
         Apply(entity, req);
 
@@ -87,6 +97,13 @@ public sealed class RuleDefinitionAdminService : ConfigAdminServiceBase
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminTestsManage, RuleDefinitionAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
@@ -125,6 +142,13 @@ public sealed class RuleDefinitionAdminService : ConfigAdminServiceBase
         string? reason,
         CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigActivate, RuleDefinitionAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -156,6 +180,13 @@ public sealed class RuleDefinitionAdminService : ConfigAdminServiceBase
         string? reason,
         CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate, RuleDefinitionAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -278,6 +309,42 @@ public sealed class RuleDefinitionAdminService : ConfigAdminServiceBase
         e.ConditionExpression = req.ConditionExpression?.Trim() ?? string.Empty;
         e.ActionExpression = req.ActionExpression?.Trim() ?? string.Empty;
         e.ChangeReason = req.ChangeReason;
+    }
+
+    private async Task<EvaluationResult<RuleDefinitionDto>?> RejectUnauthorizedEvalAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<RuleDefinitionDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<RuleDefinitionDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<RuleDefinitionDto>.Fail(auth.Message)
+            : null;
     }
 
     private static RuleDefinitionDto Map(RuleDefinition r) => new(
