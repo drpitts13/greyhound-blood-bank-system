@@ -4,7 +4,8 @@ namespace BloodBankLIS.Domain.Rules;
 /// Privilege gates for inventory actions that make a unit issuable
 /// (quarantine release, unused-directed conversion, operational-hold release)
 /// or that retire a unit into a modified product, rewrite unit identity,
-/// receive a unit, discard a unit, or transfer a unit between locations.
+/// receive a unit, discard a unit, transfer a unit between locations, or recall a unit.
+/// Lookback DIN recall uses <c>lookback.manage</c> instead (OCD-014).
 /// </summary>
 public static class InventoryAuthorizationRule
 {
@@ -16,6 +17,7 @@ public static class InventoryAuthorizationRule
     public const string ReceiveCode = "INV-RCV-PERM";
     public const string DiscardCode = "INV-DISC-PERM";
     public const string TransferCode = "INV-XFER-PERM";
+    public const string RecallCode = "INV-RCL-PERM";
 
     public static RuleResult EvaluateQuarantineRelease(bool hasInventoryRelease) =>
         hasInventoryRelease
@@ -72,6 +74,13 @@ public static class InventoryAuthorizationRule
             : RuleResult.HardStop(
                 TransferCode,
                 "Transferring a unit requires the inventory.transfer permission.");
+
+    public static RuleResult EvaluateRecall(bool hasInventoryRecall) =>
+        hasInventoryRecall
+            ? RuleResult.Pass(RecallCode)
+            : RuleResult.HardStop(
+                RecallCode,
+                "Recalling a unit from inventory requires the inventory.recall permission.");
 }
 
 

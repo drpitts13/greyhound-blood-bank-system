@@ -19,7 +19,7 @@
 | SRS-BB-015 | Immunohematology writes are authorized inside `ImmunohematologyService`: `immuno.override` for manual ABO and antibody deactivate; `immuno.record` for antibody add and antigen profile. Callers that skip the API filter cannot change history used at issue. | FRS-BB-021, FRS-BB-002 |
 | SRS-BB-016 | `ResultService.VerifyResultAsync` fail-closes ABO self-verify when the policy service is null. `SaveTestResultAsync` never auto-verifies `ABORH`. Billing capture after save runs only when the result is Verified. | FRS-BB-022 |
 | SRS-BB-017 | Special-requirement writes are authorized inside `SpecialRequirementService`: `immuno.record` to add; `immuno.override` to deactivate. The UI already hides those actions; the service is the control. | FRS-BB-023 |
-| SRS-BB-018 | `LookbackService.RecallByDinAsync` checks `lookback.manage` when a permission evaluator is present, then fails closed if any `RecallAsync` does not succeed. Reserved-state → Recalled is an allowed inventory transition. | FRS-BB-024 |
+| SRS-BB-018 | `LookbackService.RecallByDinAsync` checks `lookback.manage` when a permission evaluator is present, then fails closed if any `RecallForLookbackAsync` does not succeed. Reserved-state → Recalled is an allowed inventory transition. | FRS-BB-024 |
 | SRS-BB-019 | Quarantine release is authorized inside `InventoryService` with `inventory.release`. Callers that skip the API filter cannot move a held unit to Available. | FRS-BB-052 |
 | SRS-BB-020 | Directed-to-allogeneic conversion is authorized inside `InventoryService` with `inventory.release`. Callers that skip the API filter cannot clear the directed reservation. | FRS-BB-053 |
 | SRS-BB-021 | Operational-hold release is authorized inside `InventoryService` with `inventory.release`. Callers that skip the API filter cannot move a held unit to Available. | FRS-BB-054 |
@@ -40,3 +40,4 @@
 | SRS-BB-036 | Ward receipt is authorized inside `IssuingService` with `transfusion.document` (`TXN-WARD-PERM`). The API uses the same privilege. Callers that skip the API filter cannot acknowledge custody. | FRS-BB-071 |
 | SRS-BB-037 | Discard is authorized inside `InventoryService` with `inventory.discard` (`INV-DISC-PERM`). Callers that skip the API filter cannot destroy a unit. | FRS-BB-072 |
 | SRS-BB-038 | Location transfer is authorized inside `InventoryService` with `inventory.transfer` (`INV-XFER-PERM`). Callers that skip the API filter cannot move a unit. | FRS-BB-073 |
+| SRS-BB-039 | Direct recall is authorized inside `InventoryService.RecallAsync` with `inventory.recall` (`INV-RCL-PERM`). Lookback uses `RecallForLookbackAsync` after `lookback.manage` (OCD-014). | FRS-BB-074 |

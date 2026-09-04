@@ -216,7 +216,7 @@ public sealed class LookbackService
 
             if (unit.Status != UnitStatus.Recalled && unit.Status != UnitStatus.Discarded)
             {
-                var recalled = await _inventoryService.RecallAsync(unit.Id, reason, ct);
+                var recalled = await _inventoryService.RecallForLookbackAsync(unit.Id, reason, ct);
                 if (!recalled.Succeeded)
                 {
                     var detail = recalled.Error

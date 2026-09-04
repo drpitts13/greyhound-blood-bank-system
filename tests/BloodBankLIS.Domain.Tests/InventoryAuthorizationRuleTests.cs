@@ -123,4 +123,19 @@ public class InventoryAuthorizationRuleTests
         var result = InventoryAuthorizationRule.EvaluateTransfer(hasInventoryTransfer: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Recall_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateRecall(hasInventoryRecall: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.RecallCode, result.Code);
+    }
+
+    [Fact]
+    public void Recall_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateRecall(hasInventoryRecall: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

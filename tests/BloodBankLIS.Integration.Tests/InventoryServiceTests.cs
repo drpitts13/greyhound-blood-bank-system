@@ -1513,6 +1513,46 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Recall_WithoutInventoryRecall_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-RCL-PERM", productTypeId))).Unit!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var denied = await CreateService(ctx, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .RecallAsync(unitId, "Donor subsequently reactive");
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.RecallCode);
+        Assert.NotEqual(UnitStatus.Recalled, (await ctx.BloodUnits.FindAsync(unitId))!.Status);
+
+        var allowed = await CreateService(ctx, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRecall))
+            .RecallAsync(unitId, "Donor subsequently reactive");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(UnitStatus.Recalled, allowed.Unit!.Status);
+    }
+
+    [Fact]
+    public async Task RecallForLookback_DoesNotRequireInventoryRecall()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-RCL-LB", productTypeId))).Unit!.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var result = await CreateService(ctx, new FixedPermissionEvaluator(1, PermissionCodes.LookbackManage))
+            .RecallForLookbackAsync(unitId, "Donor subsequently reactive");
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(UnitStatus.Recalled, result.Unit!.Status);
+    }
+
+    [Fact]
     public async Task ExpireDueUnits_MovesOnlyPastDueUnits()
     {
         var productTypeId = await EnsureProductTypeAsync();

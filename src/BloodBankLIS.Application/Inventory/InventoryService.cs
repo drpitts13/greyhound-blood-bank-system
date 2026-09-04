@@ -639,6 +639,29 @@ public sealed class InventoryService
         if (string.IsNullOrWhiteSpace(reason))
             return InventoryActionResult.Fail("A reason is required to recall a unit.");
 
+        var denied = await RejectUnauthorizedRecallAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        return await ApplyRecallAsync(unitId, reason, ct);
+    }
+
+    /// <summary>
+    /// Lookback DIN recall already authorized <c>lookback.manage</c> (OCD-014).
+    /// Does not also require <c>inventory.recall</c>.
+    /// </summary>
+    public Task<InventoryActionResult> RecallForLookbackAsync(long unitId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+            return Task.FromResult(InventoryActionResult.Fail("A reason is required to recall a unit."));
+
+        return ApplyRecallAsync(unitId, reason, ct);
+    }
+
+    private async Task<InventoryActionResult> ApplyRecallAsync(long unitId, string reason, CancellationToken ct)
+    {
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
@@ -1246,6 +1269,21 @@ public sealed class InventoryService
         var allowed = await _permissions.HasPermissionAsync(
             _currentUser.UserName, PermissionCodes.InventoryTransfer, ct);
         var auth = InventoryAuthorizationRule.EvaluateTransfer(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<InventoryActionResult?> RejectUnauthorizedRecallAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.InventoryRecall, ct);
+        var auth = InventoryAuthorizationRule.EvaluateRecall(allowed);
         return auth.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
             : null;
