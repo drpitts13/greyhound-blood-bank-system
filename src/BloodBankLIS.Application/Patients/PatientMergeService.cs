@@ -32,6 +32,8 @@ public sealed class PatientMergeService
     private readonly IRepository<TestResult> _results;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditWriter? _audit;
+    private readonly ICurrentUser? _currentUser;
+    private readonly IPermissionEvaluator? _permissions;
 
     public PatientMergeService(
         IRepository<Patient> patients,
@@ -52,7 +54,9 @@ public sealed class PatientMergeService
         IRepository<BillingEvent> billing,
         IRepository<TestResult> results,
         IUnitOfWork unitOfWork,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        ICurrentUser? currentUser = null,
+        IPermissionEvaluator? permissions = null)
     {
         _patients = patients;
         _identifiers = identifiers;
@@ -73,6 +77,8 @@ public sealed class PatientMergeService
         _results = results;
         _unitOfWork = unitOfWork;
         _audit = audit;
+        _currentUser = currentUser;
+        _permissions = permissions;
     }
 
     public async Task<Patient?> FindByMrnAsync(string mrn, bool followMerge = true, CancellationToken ct = default)
@@ -123,6 +129,32 @@ public sealed class PatientMergeService
         long duplicateId,
         string? reason,
         CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        return await MergeCoreAsync(survivorId, duplicateId, reason, ct);
+    }
+
+    /// <summary>
+    /// Inbound ADT A18/A40 merge. The interface identity is not a directory user
+    /// with <c>patient.merge</c>; workspace merge stays on <see cref="MergeAsync"/>.
+    /// </summary>
+    public Task<OperationResult<Patient>> MergeFromHl7Async(
+        long survivorId,
+        long duplicateId,
+        string? reason,
+        CancellationToken ct = default) =>
+        MergeCoreAsync(survivorId, duplicateId, reason, ct);
+
+    private async Task<OperationResult<Patient>> MergeCoreAsync(
+        long survivorId,
+        long duplicateId,
+        string? reason,
+        CancellationToken ct)
     {
         var survivor = await _patients.GetByIdAsync(survivorId, ct);
         var duplicate = await _patients.GetByIdAsync(duplicateId, ct);
@@ -358,5 +390,21 @@ public sealed class PatientMergeService
                 assign(tracked);
             }
         }
+    }
+
+    private async Task<OperationResult<Patient>?> RejectUnauthorizedAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var userName = _currentUser?.UserName ?? string.Empty;
+        var allowed = await _permissions.HasPermissionAsync(
+            userName, PermissionCodes.PatientMerge, ct);
+        var auth = PatientAuthorizationRule.EvaluateMerge(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<Patient>.Fail(auth.Message)
+            : null;
     }
 }

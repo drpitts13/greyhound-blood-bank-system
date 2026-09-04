@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -98,7 +99,39 @@ public class PatientMergeServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(survivor.Id, resolved!.Id);
     }
 
-    private static PatientMergeService Merge(BloodBankDbContext c) =>
+    [Fact]
+    public async Task Merge_WithoutPatientMerge_IsRejected()
+    {
+        await using var c = _factory.Create();
+        var (survivor, duplicate) = await SeedPairAsync(c, "MAN-PERM");
+
+        var denied = await Merge(c, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .MergeAsync(survivor.Id, duplicate.Id, "Unauthorized merge.");
+        Assert.False(denied.Succeeded);
+        Assert.Contains("patient.merge", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(PatientStatus.Active, (await c.Patients.FindAsync(duplicate.Id))!.Status);
+
+        var allowed = await Merge(c, new FixedPermissionEvaluator(1, PermissionCodes.PatientMerge))
+            .MergeAsync(survivor.Id, duplicate.Id, "Authorized merge.");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(PatientStatus.Merged, (await c.Patients.FindAsync(duplicate.Id))!.Status);
+    }
+
+    [Fact]
+    public async Task MergeFromHl7_DoesNotRequirePatientMerge()
+    {
+        await using var c = _factory.Create();
+        var (survivor, duplicate) = await SeedPairAsync(c, "MAN-HL7");
+
+        var result = await Merge(c, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .MergeFromHl7Async(survivor.Id, duplicate.Id, "HL7 ADT^A40 merge.");
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(PatientStatus.Merged, (await c.Patients.FindAsync(duplicate.Id))!.Status);
+    }
+
+    private PatientMergeService Merge(
+        BloodBankDbContext c,
+        IPermissionEvaluator? permissions = null) =>
         new(
             new EfRepository<Patient>(c),
             new EfRepository<PatientIdentifier>(c),
@@ -117,7 +150,9 @@ public class PatientMergeServiceTests : IClassFixture<SqliteContextFactory>
             new EfRepository<AntigenProfile>(c),
             new EfRepository<BillingEvent>(c),
             new EfRepository<TestResult>(c),
-            c);
+            c,
+            currentUser: _factory.CurrentUser,
+            permissions: permissions);
 
     private static async Task<(Patient Survivor, Patient Duplicate)> SeedPairAsync(BloodBankDbContext c, string key)
     {

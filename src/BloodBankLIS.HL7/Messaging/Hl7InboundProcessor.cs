@@ -325,7 +325,7 @@ public sealed class Hl7InboundProcessor
             throw new Hl7MappingException($"Prior patient '{data.PriorMrn}' was not found; merge was not applied.");
         }
 
-        var merged = await _merges.MergeAsync(
+        var merged = await _merges.MergeFromHl7Async(
             survivor.Id,
             duplicate.Id,
             $"HL7 ADT^{data.TriggerEvent} merge of {data.PriorMrn} into {data.Mrn}.",

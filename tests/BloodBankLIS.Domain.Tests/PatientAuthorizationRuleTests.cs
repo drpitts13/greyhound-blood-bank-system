@@ -33,4 +33,19 @@ public class PatientAuthorizationRuleTests
         var result = PatientAuthorizationRule.EvaluateCreate(hasPatientWrite: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Merge_WithoutPermission_IsHardStop()
+    {
+        var result = PatientAuthorizationRule.EvaluateMerge(hasPatientMerge: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(PatientAuthorizationRule.MergeCode, result.Code);
+    }
+
+    [Fact]
+    public void Merge_WithPermission_Passes()
+    {
+        var result = PatientAuthorizationRule.EvaluateMerge(hasPatientMerge: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }
