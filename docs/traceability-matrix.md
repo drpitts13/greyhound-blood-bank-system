@@ -15,8 +15,10 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-SP-02 | Specimen expiration logic | safety-rules 2 | 3-day vs standard window | D,I | AABB 3-day when transfused/pregnant 3 mo |
 | R-SP-03 | Specimen rejection/cancellation | workflows 2 | Reject sets status + reason | A | |
 | R-TS-01 | ABO/Rh, antibody screen, DAT, antigen typing result entry | erd.md Tests/TestResults | Result entry per test type | A | 21 CFR 606.151 |
-| R-TS-02 | Result verification | workflows 3 | Verify sets verifier/utc; optional RES-SELF-VERIFY | A | CLIA/AABB self-verify control |
+| R-TS-02 | Result verification | workflows 3 | Verify sets verifier/utc; optional RES-SELF-VERIFY; instrument/interface start pending verification | A,I | CLIA/AABB self-verify control |
 | R-TS-03 | Result correction (versioned) | safety-rules 6 | Correction creates new version | A | 21 CFR 606.160 |
+| R-TS-05 | Result invalidation | safety-rules 6; FRS-BB-077 | Invalidate retains original; reason + privilege | D,I | 21 CFR 606.160 |
+| R-TS-06 | Result source provenance | FRS-BB-079 | Manual/instrument/interface/calculated | D,I | |
 | R-TS-04 | Delta check vs history | safety-rules 6 | ABO/Rh delta raises warning | D,A | |
 | R-IN-01 | Blood unit intake | workflows 1; erd.md BloodProducts | Intake into Quarantine | A,I | 21 CFR 606.165 |
 | R-IN-02 | Inventory search | erd.md indexes | Search by unit/status/expiry | I | |
@@ -79,7 +81,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-BL-04 | Charge review queue | printing-billing B.4 | Status flow + cancel audit | A | |
 | R-SE-01 | Roles/permissions | architecture 4.2; erd.md; validation-scripts S-12 | PermissionPolicy truth table; evaluator role→permission resolution; default-deny | D,I | |
 | R-SE-02 | Electronic signature | erd.md ElectronicSignatures; safety-rules 5; 21 CFR Part 11 | Re-auth + unused-signature binding | I | 21 CFR Part 11 |
-| R-AU-01 | Audit every clinical action | architecture 4.1 | Each use case writes AuditEvent | A | 21 CFR 606.160(a) |
+| R-AU-01 | Audit every clinical action | architecture 4.1; FRS-BB-078 | Named Result/Verify/Correct/Invalidate/PatientAccess events with who/what/when/where/old/new/why | A,I | 21 CFR 606.160(a) |
 | R-AU-02 | No silent data change | safety-rules 7 | Corrections versioned, originals kept; append-only interceptor | A,I | 21 CFR 606.160 |
 | R-AU-03 | Record retention | SystemSettings Record.RetentionYears | 10-year metadata; no purge of product/compatibility/transfusion/audit | I | 21 CFR 606.160(d) |
 | URS-BB-007 / FRS-BB-041 | One active reservation and one open issue per unit | `IX_Allocations_OneReservedPerUnit`; `IX_Issues_OneOpenIssuePerUnit`; `InventoryConcurrency` | `AllocationIssueConcurrencyTests` | I | RISK-BB-006 |
@@ -118,6 +120,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-043 / FRS-BB-074 | Direct inventory recall requires inventory.recall; lookback remains lookback.manage | `INV-RCL-PERM` | `InventoryAuthorizationRuleTests`; InventoryService recall permission tests | D,I | RISK-BB-045 |
 | URS-BB-044 / FRS-BB-075 | Deviation create/close requires deviation.manage in Application | `DEV-PERM` | `DeviationAuthorizationRuleTests`; DeviationService permission tests | D,I | RISK-BB-046 |
 | URS-BB-045 / FRS-BB-076 | Patient create requires patient.write in Application | `PAT-CREATE-PERM` | `PatientAuthorizationRuleTests`; PatientService create permission test | D,I | RISK-BB-047 |
+| URS-BB-046 / FRS-BB-077 | Unit blood-attribute save requires inventory.receive in Application | `INV-ATTR-PERM` | `InventoryAuthorizationRuleTests`; InventoryService attribute permission test | D,I | RISK-BB-048 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

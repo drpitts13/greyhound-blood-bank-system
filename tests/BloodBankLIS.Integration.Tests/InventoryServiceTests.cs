@@ -115,6 +115,31 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         return type.Id;
     }
 
+    private async Task<long> EnsureAttributeDefinitionAsync(BloodBankDbContext context)
+    {
+        var existing = await context.BloodAttributeDefinitions.FirstOrDefaultAsync(d => d.Code == "K");
+        if (existing is not null)
+        {
+            return existing.Id;
+        }
+
+        var kell = new BloodAttributeDefinition
+        {
+            Code = "K",
+            Name = "Kell",
+            AntibodyName = "anti-K",
+            IsClinicallySignificant = true,
+            SortOrder = 1,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = _factory.Clock.UtcNow,
+            Version = 1
+        };
+        context.BloodAttributeDefinitions.Add(kell);
+        await context.SaveChangesAsync();
+        return kell.Id;
+    }
+
     private ReceiveUnitRequest NewUnitRequest(
         string unitNumber,
         long productTypeId,
@@ -241,6 +266,35 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             .ReceiveUnitAsync(NewUnitRequest("U-RCV-PERM", productTypeId));
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal("U-RCV-PERM", allowed.Unit!.UnitNumber);
+    }
+
+    [Fact]
+    public async Task SaveBloodAttribute_WithoutInventoryReceive_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        long unitId;
+        long definitionId;
+        await using (var setup = _factory.Create())
+        {
+            unitId = (await CreateService(setup).ReceiveUnitAsync(NewUnitRequest("U-ATTR-PERM", productTypeId))).Unit!.Id;
+            definitionId = await EnsureAttributeDefinitionAsync(setup);
+        }
+
+        await using var context = _factory.Create();
+        var request = new SaveUnitBloodAttributeRequest(definitionId, BloodAttributeKind.Antigen, AntigenResult.Negative);
+
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
+            .SaveBloodAttributeAsync(unitId, request);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(InventoryAuthorizationRule.EvaluateSaveAttribute(false).Message, denied.Error);
+        Assert.False(await context.UnitBloodAttributes.AnyAsync(a => a.BloodProductId == unitId));
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .SaveBloodAttributeAsync(unitId, request);
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(AntigenResult.Negative, allowed.Value!.Result);
+        Assert.Equal(definitionId, allowed.Value.BloodAttributeDefinitionId);
     }
 
     [Fact]

@@ -161,6 +161,17 @@ public sealed class InventoryService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        if (_permissions is not null)
+        {
+            var allowed = await _permissions.HasPermissionAsync(
+                _currentUser.UserName, PermissionCodes.InventoryReceive, ct);
+            var auth = InventoryAuthorizationRule.EvaluateSaveAttribute(allowed);
+            if (auth.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<UnitBloodAttribute>.Fail(auth.Message);
+            }
+        }
+
         if (await _repository.GetUnitAsync(unitId, ct) is null)
         {
             return OperationResult<UnitBloodAttribute>.Fail("Unit not found.");

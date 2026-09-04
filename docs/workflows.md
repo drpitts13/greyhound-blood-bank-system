@@ -28,7 +28,7 @@ flowchart TD
     g --> h[Audit + status history]
 ```
 
-- Use case: `ExpectUnitAsync` (packing-list / ASN), `ReceiveExpectedUnitAsync`, `CancelExpectedUnitAsync`, `ReceiveUnitCommand` (walk-in), `ReleaseUnitFromQuarantineCommand`, `RecordProductRetype`. Walk-in receive, expected-arrival confirmation, normalized-component intake, ISBT scan-session complete, and manual entry require `inventory.receive` (`INV-RCV-PERM`) in the Application service.
+- Use case: `ExpectUnitAsync` (packing-list / ASN), `ReceiveExpectedUnitAsync`, `CancelExpectedUnitAsync`, `ReceiveUnitCommand` (walk-in), `ReleaseUnitFromQuarantineCommand`, `RecordProductRetype`. Walk-in receive, expected-arrival confirmation, normalized-component intake, ISBT scan-session complete, and manual entry require `inventory.receive` (`INV-RCV-PERM`) in the Application service. Saving a unit antigen or antibody attribute (`POST /api/inventory/units/{id}/blood-attributes`) requires the same privilege (`INV-ATTR-PERM`).
 - Expected inbound (SoftBank/SafeTrace consignee receipt): `POST /api/inventory/units/expected` creates `Expected` without visual inspection and sets `ExpectedArrivalDueUtc` from `Inventory.ExpectedArrivalDueHours` (default 24). The expected worklist (`GET /api/inventory/units/expected`) flags overdue packing lists (`INV-EXPECT-OVERDUE`). Confirm arrival (`receive-expected`) applies `INV-RCV-VISUAL` and lands in `Received` (retype) or `Quarantine`; late arrival is still allowed and is audited as late. Cancel moves to `CancelledAssignment`. Walk-in receive remains available for units that arrive without a prior packing list.
 - Products with Retype Y start in `Received`. ISBT "Release to Available" is ignored until a matching retype is verified.
 - Front-type retype: Anti-A and Anti-B always; Anti-D required only when the unit is labeled Rh negative.
@@ -75,8 +75,13 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    a([Enter result]) --> b[TestResult v1, Status=Entered]
-    b --> c[Delta check vs history]
+    a([Enter result]) --> src{Source}
+    src -->|Manual / Calculated| b[TestResult v1, Status=Entered]
+    src -->|Instrument / Interface| p[Status=PendingVerification]
+    b --> s[Optional submit for verification]
+    s --> p
+    p --> c[Delta check vs history]
+    b --> c
     c -->|Discrepancy| w[Warning surfaced to verifier]
     c -->|Consistent| v
     w --> v{Verify?}
@@ -86,9 +91,11 @@ flowchart TD
     d --> g{Need correction later?}
     g -->|Yes reason + e-sign| h[New version, prior superseded]
     h --> i[Audit Correct, history preserved]
+    d --> j{Invalidate?}
+    j -->|Yes reason| k[New Invalidated version, original retained]
 ```
 
-- Use cases: `EnterResultCommand`, `VerifyResultCommand`, `CorrectResultCommand`.
+- Use cases: `EnterResultCommand`, `SubmitForVerificationCommand`, `VerifyResultCommand`, `CorrectResultCommand`, `InvalidateResultCommand`.
 - Patient ABO/Rh stay `Entered` after save/complete. A second user verifies (`RES-SELF-VERIFY` when `Result.BlockAboSelfVerify` is on, default). Current type is written only on verify. The entering user cannot verify their own ABO/Rh.
 - Checks: result cannot be verified by entry of unknown test; ABO/Rh discrepancy vs history (`RES-ABORH-DELTA`) blocks verify until an authorized override chooses Retain or Replace (gated by exception `MinSecurityLevel`); correcting a verified result requires reason + e-signature.
 - No silent change: corrections always create a new `TestResults` version; the old row is retained and marked superseded.

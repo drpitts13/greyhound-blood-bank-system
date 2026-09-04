@@ -10,7 +10,7 @@
 | SRS-BB-006 | SQLite development databases apply additive columns/indexes via `DevelopmentSqliteBootstrap` so unique safety indexes exist on existing files. | FRS-BB-041 |
 | SRS-BB-007 | Authorization is evaluated in the Application layer, not only in the UI. | FRS-BB-040 |
 | SRS-BB-008 | ISBT raw scan, parsed fields, and display values are stored separately. | URS identity / ISBT docs |
-| SRS-BB-009 | A merged (losing) patient is rejected at each clinical write path (accession, visit, order, result entry/verify/correct, immunohematology, special requirements, allocate, XM, issue), not only at issue. | FRS-BB-003 |
+| SRS-BB-009 | A merged (losing) patient is rejected at each clinical write path (accession, visit, order, result entry/verify/correct/invalidate, immunohematology, special requirements, allocate, XM, issue), not only at issue. | FRS-BB-003 |
 | SRS-BB-010 | Result verification reuses the specimen entry gate (accepted, unexpired, surviving patient) before ABO/antibody history is posted. | FRS-BB-010, FRS-BB-003 |
 | SRS-BB-011 | ADT and ORM resolve a merged MRN to the surviving patient (`PatientMergeFollow` / `FindByMrn` follow) before writing demographics or placing orders. | FRS-BB-080, FRS-BB-003 |
 | SRS-BB-012 | Manual patient merge is authorized with `patient.merge`, not `patient.write`. The API default-denies; the UI hides the action. A second authorizer is not required (OCD-010). | FRS-BB-003 |
@@ -26,7 +26,9 @@
 | SRS-BB-022 | Result verify and unit retype verify are authorized inside `ResultService` and `ProductRetypeService` with `result.verify`. Callers that skip the API filter cannot establish current type or move a unit to Available. | FRS-BB-055 |
 | SRS-BB-023 | Allocation and crossmatch are authorized inside `CompatibilityService` with `compatibility.allocate` and `compatibility.crossmatch`. The patient workspace allocate path uses the same service. | FRS-BB-056 |
 | SRS-BB-024 | `IssuingService.IssueUnitAsync` requires `issue.create` before the issue gate. Emergency/MTP still requires `issue.emergency-release` in addition. | FRS-BB-057 |
-| SRS-BB-025 | Result enter and in-place update are authorized inside `ResultService` with `result.enter`. Verified-result correction requires `result.correct`. Unit retype record requires `result.enter` in `ProductRetypeService`. | FRS-BB-058 |
+| SRS-BB-025 | Result enter and in-place update are authorized inside `ResultService` with `result.enter`. Verified-result correction requires `result.correct`. Invalidation requires `result.invalidate`. Unit retype record requires `result.enter` in `ProductRetypeService`. | FRS-BB-058, FRS-BB-077 |
+| SRS-BB-043 | `ResultLifecycleRule` decides initial status from `ResultSource` and which statuses may be updated in place, verified, corrected, or invalidated. Verified rows are never updated in place. | FRS-BB-079, FRS-BB-077 |
+| SRS-BB-042 | Named result audits use `AuditEventType.Result`, `Verify`, `Correct`, and `Invalidate`. Chart-open uses `PatientAccess`. Antibody posting from a verified result uses `Antibody`. | FRS-BB-078 |
 | SRS-BB-026 | Specimen accession, collection-metadata edit, and rejection are authorized inside `SpecimenService` with `specimen.accession`, `specimen.edit`, and `specimen.reject`. Callers that skip the API filter cannot bind a specimen to a patient or change collection time used at issue. | FRS-BB-059 |
 | SRS-BB-027 | Patient demographic updates are authorized inside `PatientService` with `patient.write`. Callers that skip the API filter cannot change name, date of birth, sex, status, or pregnancy history used at identification and issue. | FRS-BB-061 |
 | SRS-BB-028 | Product divide, pool, and 1:1 modifications are authorized inside `BloodProductModificationService` with `inventory.modify`. Callers that skip the API filter cannot retire a unit into a modified product used after quarantine release. | FRS-BB-062 |
@@ -43,3 +45,4 @@
 | SRS-BB-039 | Direct recall is authorized inside `InventoryService.RecallAsync` with `inventory.recall` (`INV-RCL-PERM`). Lookback uses `RecallForLookbackAsync` after `lookback.manage` (OCD-014). | FRS-BB-074 |
 | SRS-BB-040 | Deviation create and status update are authorized inside `DeviationService` with `deviation.manage` (`DEV-PERM`). Listing remains ungated in the service. | FRS-BB-075 |
 | SRS-BB-041 | Patient create is authorized inside `PatientService` with `patient.write` (`PAT-CREATE-PERM`). The API create path uses this service. ADT inbound remains on the HL7 processor. | FRS-BB-076 |
+| SRS-BB-042 | Unit blood-attribute save is authorized inside `InventoryService` with `inventory.receive` (`INV-ATTR-PERM`). Callers that skip the API filter cannot label antigens used at issue. | FRS-BB-077 |
