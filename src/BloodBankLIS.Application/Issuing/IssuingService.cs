@@ -106,6 +106,13 @@ public sealed class IssuingService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var createAuth = IssueAuthorizationRule.EvaluateCreate(
+            await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.IssueCreate, ct));
+        if (createAuth.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Issue>.Blocked(new RuleEvaluation([createAuth]));
+        }
+
         var emergencyAuth = IssueAuthorizationRule.EvaluateEmergency(
             request.IssueType,
             await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.IssueEmergencyRelease, ct));

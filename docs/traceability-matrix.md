@@ -100,6 +100,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-025 / FRS-BB-054 | Operational-hold release requires inventory.release in Application | `INV-HOLD-PERM` | `InventoryAuthorizationRuleTests`; InventoryService hold-release permission test | D,I | RISK-BB-027 |
 | URS-BB-026 / FRS-BB-055 | Result and unit-retype verify require result.verify in Application | `RES-VERIFY-PERM`; self-verify still applies | `ResultAuthorizationRuleTests`; Phase 3 and ProductRetype permission tests | D,I | RISK-BB-028 |
 | URS-BB-027 / FRS-BB-056 | Allocate and crossmatch require compatibility privileges in Application | `XM-ALLOC-PERM`, `XM-PERM` | `CompatibilityAuthorizationRuleTests`; PatientAllocation permission tests | D,I | RISK-BB-029 |
+| URS-BB-028 / FRS-BB-057 | Issue requires issue.create in Application | `ISS-CREATE-PERM`; emergency still needs `ISS-EMERG-PERM` | `IssueAuthorizationRuleTests`; Phase 4 issue-create permission test | D,I | RISK-BB-030 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

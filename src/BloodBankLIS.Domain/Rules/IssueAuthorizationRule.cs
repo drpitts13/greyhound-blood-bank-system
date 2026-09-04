@@ -3,13 +3,21 @@ using BloodBankLIS.Domain.Enums;
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
-/// Privilege gates for emergency/MTP issue and warning overrides.
+/// Privilege gates for issue.create, emergency/MTP issue, and warning overrides.
 /// Distinct from <see cref="IssueGate"/> clinical checks.
 /// </summary>
 public static class IssueAuthorizationRule
 {
+    public const string CreateCode = "ISS-CREATE-PERM";
     public const string EmergencyCode = "ISS-EMERG-PERM";
     public const string OverrideCode = "ISS-OVR-PERM";
+
+    public static RuleResult EvaluateCreate(bool hasIssueCreate) =>
+        hasIssueCreate
+            ? RuleResult.Pass(CreateCode)
+            : RuleResult.HardStop(
+                CreateCode,
+                "Issuing a unit requires the issue.create permission.");
 
     public static RuleResult EvaluateEmergency(IssueType issueType, bool hasEmergencyReleasePermission)
     {

@@ -6,6 +6,21 @@ namespace BloodBankLIS.Domain.Tests;
 public class IssueAuthorizationRuleTests
 {
     [Fact]
+    public void Create_WithoutPermission_IsHardStop()
+    {
+        var result = IssueAuthorizationRule.EvaluateCreate(hasIssueCreate: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(IssueAuthorizationRule.CreateCode, result.Code);
+    }
+
+    [Fact]
+    public void Create_WithPermission_Passes()
+    {
+        var result = IssueAuthorizationRule.EvaluateCreate(hasIssueCreate: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
     public void StandardIssue_DoesNotRequireEmergencyPermission()
     {
         var result = IssueAuthorizationRule.EvaluateEmergency(IssueType.Standard, hasEmergencyReleasePermission: false);
