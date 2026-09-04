@@ -46,3 +46,4 @@
 | SRS-BB-040 | Deviation create and status update are authorized inside `DeviationService` with `deviation.manage` (`DEV-PERM`). Listing remains ungated in the service. | FRS-BB-075 |
 | SRS-BB-041 | Patient create is authorized inside `PatientService` with `patient.write` (`PAT-CREATE-PERM`). The API create path uses this service. ADT inbound remains on the HL7 processor. | FRS-BB-076 |
 | SRS-BB-042 | Unit blood-attribute save is authorized inside `InventoryService` with `inventory.receive` (`INV-ATTR-PERM`). Callers that skip the API filter cannot label antigens used at issue. | FRS-BB-077 |
+| SRS-BB-044 | Return to supplier is authorized inside `InventoryService` with `inventory.receive` (`INV-RTS-PERM`). Callers that skip the API filter cannot remove a unit from on-hand inventory this way. | FRS-BB-081 |

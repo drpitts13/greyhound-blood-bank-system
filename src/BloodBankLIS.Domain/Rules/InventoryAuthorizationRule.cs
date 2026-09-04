@@ -5,7 +5,8 @@ namespace BloodBankLIS.Domain.Rules;
 /// (quarantine release, unused-directed conversion, operational-hold release)
 /// or that retire a unit into a modified product, rewrite unit identity,
 /// receive a unit, save unit blood attributes used at compatibility,
-/// discard a unit, transfer a unit between locations, or recall a unit.
+/// return a unit to the supplier, discard a unit, transfer a unit between
+/// locations, or recall a unit.
 /// Lookback DIN recall uses <c>lookback.manage</c> instead (OCD-014).
 /// </summary>
 public static class InventoryAuthorizationRule
@@ -20,6 +21,7 @@ public static class InventoryAuthorizationRule
     public const string TransferCode = "INV-XFER-PERM";
     public const string RecallCode = "INV-RCL-PERM";
     public const string SaveAttributeCode = "INV-ATTR-PERM";
+    public const string ReturnToSupplierCode = "INV-RTS-PERM";
 
     public static RuleResult EvaluateQuarantineRelease(bool hasInventoryRelease) =>
         hasInventoryRelease
@@ -90,6 +92,13 @@ public static class InventoryAuthorizationRule
             : RuleResult.HardStop(
                 SaveAttributeCode,
                 "Saving a unit blood attribute requires the inventory.receive permission.");
+
+    public static RuleResult EvaluateReturnToSupplier(bool hasInventoryReceive) =>
+        hasInventoryReceive
+            ? RuleResult.Pass(ReturnToSupplierCode)
+            : RuleResult.HardStop(
+                ReturnToSupplierCode,
+                "Returning a unit to the supplier requires the inventory.receive permission.");
 }
 
 

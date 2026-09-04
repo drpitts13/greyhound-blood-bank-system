@@ -53,3 +53,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-044 | Creating or closing a quality-system deviation is limited to staff with deviation.manage. | P4 | FRS-BB-075 |
 | URS-BB-045 | Creating a patient record is limited to staff with patient.write. | P1 | FRS-BB-076 |
 | URS-BB-046 | Saving a unit antigen or antibody attribute used at compatibility is limited to staff with inventory.receive. | P2 | FRS-BB-077 |
+| URS-BB-048 | Returning a unit to the supplier is limited to staff with inventory.receive. | P3 | FRS-BB-081 |

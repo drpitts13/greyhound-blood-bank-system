@@ -953,6 +953,12 @@ public sealed class InventoryService
         if (string.IsNullOrWhiteSpace(reason))
             return InventoryActionResult.Fail("A reason is required to return a unit to the supplier.");
 
+        var denied = await RejectUnauthorizedReturnToSupplierAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
@@ -1295,6 +1301,21 @@ public sealed class InventoryService
         var allowed = await _permissions.HasPermissionAsync(
             _currentUser.UserName, PermissionCodes.InventoryRecall, ct);
         var auth = InventoryAuthorizationRule.EvaluateRecall(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<InventoryActionResult?> RejectUnauthorizedReturnToSupplierAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.InventoryReceive, ct);
+        var auth = InventoryAuthorizationRule.EvaluateReturnToSupplier(allowed);
         return auth.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
             : null;

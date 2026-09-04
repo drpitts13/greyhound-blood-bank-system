@@ -1351,6 +1351,29 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ReturnToSupplier_WithoutInventoryReceive_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var setup = _factory.Create())
+        {
+            unitId = (await CreateService(setup).ReceiveUnitAsync(NewUnitRequest("U-RTS-PERM", productTypeId))).Unit!.Id;
+        }
+
+        await using var context = _factory.Create();
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
+            .ReturnToSupplierAsync(unitId, "Unused stock credit");
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.ReturnToSupplierCode);
+        Assert.NotEqual(UnitStatus.ReturnedToSupplier, (await context.BloodUnits.FindAsync(unitId))!.Status);
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .ReturnToSupplierAsync(unitId, "Unused stock credit");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(UnitStatus.ReturnedToSupplier, allowed.Unit!.Status);
+    }
+
+    [Fact]
     public async Task ReturnToSupplier_FromIssued_IsHardStopped()
     {
         var productTypeId = await EnsureProductTypeAsync();
