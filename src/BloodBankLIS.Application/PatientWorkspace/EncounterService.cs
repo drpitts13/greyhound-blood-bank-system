@@ -2,7 +2,9 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.Rules.PatientWorkspace;
+
 namespace BloodBankLIS.Application.PatientWorkspace;
 
 public sealed class EncounterService
@@ -41,6 +43,12 @@ public sealed class EncounterService
         if (await _patients.GetByIdAsync(patientId, ct) is null)
         {
             return OperationResult<Encounter>.Fail("Patient not found.");
+        }
+
+        var merged = await RejectMergedPatientMessageAsync(patientId, ct);
+        if (merged is not null)
+        {
+            return OperationResult<Encounter>.Fail(merged);
         }
 
         if (await _encounters.AnyAsync(e => e.VisitNumber == request.VisitNumber, ct))
@@ -88,6 +96,12 @@ public sealed class EncounterService
             return OperationResult<Encounter>.Fail("Visit not found.");
         }
 
+        var merged = await RejectMergedPatientMessageAsync(patientId, ct);
+        if (merged is not null)
+        {
+            return OperationResult<Encounter>.Fail(merged);
+        }
+
         var (providerId, providerName) = await ResolveAttendingProviderAsync(request.AttendingProviderId, ct);
 
         encounter.EncounterType = request.EncounterType;
@@ -133,6 +147,12 @@ public sealed class EncounterService
             return null;
         }
 
+        var merged = await RejectMergedPatientMessageAsync(patientId, ct);
+        if (merged is not null)
+        {
+            return merged;
+        }
+
         OrderingProvider? attending = null;
         if (!string.IsNullOrWhiteSpace(attendingProviderId) && !string.IsNullOrWhiteSpace(attendingProviderName))
         {
@@ -148,6 +168,21 @@ public sealed class EncounterService
         var visit = visitNumber.Trim();
         var encounter = await _encounters.FirstOrDefaultAsync(e => e.VisitNumber == visit, ct);
         var isDischarge = string.Equals(triggerEvent, "A03", StringComparison.OrdinalIgnoreCase);
+        var isCancelVisit = triggerEvent is "A11" or "A23";
+        var isCancelDischarge = string.Equals(triggerEvent, "A13", StringComparison.OrdinalIgnoreCase);
+
+        if (isCancelVisit)
+        {
+            if (encounter is null)
+            {
+                return $"Visit {visit} was not found; cancel was not applied.";
+            }
+
+            encounter.Status = EncounterStatus.Cancelled;
+            encounter.PatientId = patientId;
+            _encounters.Update(encounter);
+            return $"Visit {visit} cancelled.";
+        }
 
         if (encounter is null)
         {
@@ -190,6 +225,11 @@ public sealed class EncounterService
             encounter.Status = EncounterStatus.Discharged;
             encounter.DischargeUtc ??= _clock.UtcNow;
         }
+        else if (isCancelDischarge && encounter.Status == EncounterStatus.Discharged)
+        {
+            encounter.Status = EncounterStatus.Active;
+            encounter.DischargeUtc = null;
+        }
         else if (encounter.Status == EncounterStatus.Discharged && triggerEvent is "A01" or "A04" or "A08")
         {
             encounter.Status = EncounterStatus.Active;
@@ -204,6 +244,12 @@ public sealed class EncounterService
     /// </summary>
     public async Task<Encounter> EnsureInterfaceEncounterAsync(long patientId, CancellationToken ct = default)
     {
+        var merged = await RejectMergedPatientMessageAsync(patientId, ct);
+        if (merged is not null)
+        {
+            throw new InvalidOperationException(merged);
+        }
+
         var existing = await _encounters.FirstOrDefaultAsync(
             e => e.PatientId == patientId && e.SourceSystem == "HL7" && e.Status == EncounterStatus.Active, ct);
         if (existing is not null)
@@ -235,6 +281,12 @@ public sealed class EncounterService
 
     public async Task<Encounter> EnsureEncounterForHl7OrderAsync(long patientId, string? visitNumber, CancellationToken ct = default)
     {
+        var merged = await RejectMergedPatientMessageAsync(patientId, ct);
+        if (merged is not null)
+        {
+            throw new InvalidOperationException(merged);
+        }
+
         if (!string.IsNullOrWhiteSpace(visitNumber))
         {
             var byVisit = await _encounters.FirstOrDefaultAsync(
@@ -267,5 +319,17 @@ public sealed class EncounterService
         }
 
         return (provider.Id, provider.Name);
+    }
+
+    private async Task<string?> RejectMergedPatientMessageAsync(long patientId, CancellationToken ct)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return null;
+        }
+
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        return clinical.Severity == RuleSeverity.HardStop ? clinical.Message : null;
     }
 }

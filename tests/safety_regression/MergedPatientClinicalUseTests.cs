@@ -225,6 +225,97 @@ public class MergedPatientClinicalUseTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task CreateEncounter_ForMergedPatient_IsHardStopped()
+    {
+        await using var c = _factory.Create();
+        var (patient, _) = await SeedAsync(c, "MERGE-ENC");
+        patient.Status = PatientStatus.Merged;
+        await c.SaveChangesAsync();
+
+        var result = await Encounters(c).CreateAsync(
+            patient.Id,
+            new CreateEncounterRequest(
+                "VIS-MERGE-LOSER",
+                EncounterType.Inpatient,
+                EncounterStatus.Active,
+                _factory.Clock.UtcNow,
+                null, null, null, null, null, null, null, null, null));
+        Assert.False(result.Succeeded);
+        Assert.Equal(MergedMessage, result.Error);
+    }
+
+    [Fact]
+    public async Task UpdateEncounter_ForMergedPatient_IsHardStopped()
+    {
+        await using var c = _factory.Create();
+        var (patient, _) = await SeedAsync(c, "MERGE-ENC-UPD");
+        var created = await Encounters(c).CreateAsync(
+            patient.Id,
+            new CreateEncounterRequest(
+                "VIS-MERGE-UPD",
+                EncounterType.Inpatient,
+                EncounterStatus.Active,
+                _factory.Clock.UtcNow,
+                null, null, null, null, null, null, null, null, null));
+        Assert.True(created.Succeeded);
+
+        patient.Status = PatientStatus.Merged;
+        await c.SaveChangesAsync();
+
+        var updated = await Encounters(c).UpdateAsync(
+            patient.Id,
+            created.Value!.Id,
+            new UpdateEncounterRequest(
+                EncounterType.Inpatient,
+                EncounterStatus.Active,
+                _factory.Clock.UtcNow,
+                null, null, null, null, "ICU", null, null));
+        Assert.False(updated.Succeeded);
+        Assert.Equal(MergedMessage, updated.Error);
+    }
+
+    [Fact]
+    public async Task UpsertVisitFromHl7_ForMergedPatient_DoesNotCreateVisit()
+    {
+        await using var c = _factory.Create();
+        var (patient, _) = await SeedAsync(c, "MERGE-ENC-HL7");
+        patient.Status = PatientStatus.Merged;
+        await c.SaveChangesAsync();
+
+        var note = await Encounters(c).UpsertVisitFromHl7Async(
+            patient.Id,
+            "VIS-MERGE-HL7",
+            null,
+            _factory.Clock.UtcNow,
+            null,
+            "ED",
+            null,
+            null,
+            "A01");
+        Assert.Equal(MergedMessage, note);
+        Assert.DoesNotContain(c.Encounters.Local, e => e.VisitNumber == "VIS-MERGE-HL7");
+    }
+
+    [Fact]
+    public async Task UpsertVisitFromHl7_A11_CancelsExistingVisit()
+    {
+        await using var c = _factory.Create();
+        var (patient, _) = await SeedAsync(c, "ADT-A11");
+
+        await Encounters(c).UpsertVisitFromHl7Async(
+            patient.Id, "VIS-A11", null, _factory.Clock.UtcNow, null, "ED", null, null, "A01");
+        await c.SaveChangesAsync();
+
+        var note = await Encounters(c).UpsertVisitFromHl7Async(
+            patient.Id, "VIS-A11", null, null, null, null, null, null, "A11");
+        await c.SaveChangesAsync();
+
+        Assert.Equal("Visit VIS-A11 cancelled.", note);
+        var visit = Assert.Single(c.Encounters, e => e.VisitNumber == "VIS-A11");
+        Assert.Equal(EncounterStatus.Cancelled, visit.Status);
+    }
+
+    [Fact]
     public async Task AddAntibody_OnMergedPatient_IsHardStopped()
     {
         await using var c = _factory.Create();
@@ -255,6 +346,15 @@ public class MergedPatientClinicalUseTests : IClassFixture<SqliteContextFactory>
                 new EfRepository<TestDefinition>(c),
                 new EfRepository<AntibodyHistory>(c)),
             c, _factory.Clock, _factory.CurrentUser);
+
+    private EncounterService Encounters(BloodBankDbContext c) =>
+        new(
+            new EfRepository<Encounter>(c),
+            new EfRepository<Patient>(c),
+            new EfRepository<OrderingProvider>(c),
+            new OrderingProviderService(new EfRepository<OrderingProvider>(c), c),
+            c,
+            _factory.Clock);
 
     private SpecimenService Specimens(BloodBankDbContext c) =>
         new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c), c, _factory.Clock);
