@@ -106,6 +106,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `LK-ATTEMPT-PERM` | Caller has `lookback.manage` when recording a lookback notification attempt | HardStop when a permission evaluator is present and the privilege is missing |
 | `PRT-LABEL-PERM` | Caller has `print.label` when printing a specimen, compatibility, or component label | HardStop when a permission evaluator is present and the privilege is missing |
 | `PRT-REPRINT-PERM` | Caller has `print.reprint` when reprinting a stored print job | HardStop when a permission evaluator is present and the privilege is missing |
+| `ORD-CREATE-PERM` | Caller has `patient.write` when creating an order from the workspace | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-UPD-PERM` | Caller has `patient.write` when updating an order | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-CXL-PERM` | Caller has `patient.write` when cancelling an order | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-LINK-PERM` | Caller has `patient.write` when linking a specimen to an order | HardStop when a permission evaluator is present and the privilege is missing |

@@ -5,6 +5,21 @@ namespace BloodBankLIS.Domain.Tests;
 public class OrderAuthorizationRuleTests
 {
     [Fact]
+    public void Create_WithoutPatientWrite_IsHardStop()
+    {
+        var result = OrderAuthorizationRule.EvaluateCreate(hasPatientWrite: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(OrderAuthorizationRule.CreateCode, result.Code);
+    }
+
+    [Fact]
+    public void Create_WithPatientWrite_Passes()
+    {
+        var result = OrderAuthorizationRule.EvaluateCreate(hasPatientWrite: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
     public void Update_WithoutPatientWrite_IsHardStop()
     {
         var result = OrderAuthorizationRule.EvaluateUpdate(hasPatientWrite: false);

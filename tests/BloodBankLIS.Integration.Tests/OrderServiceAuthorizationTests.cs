@@ -26,7 +26,7 @@ public class OrderServiceAuthorizationTests : IClassFixture<SqliteContextFactory
             permissions: permissions,
             currentUser: _factory.CurrentUser);
 
-    private async Task<(Patient patient, Encounter encounter, OrderingLocation location, Order order)> SeedOrderAsync(
+    private async Task<(Patient patient, Encounter encounter, OrderingLocation location)> SeedContextAsync(
         BloodBankDbContext c)
     {
         var patient = new Patient
@@ -52,6 +52,13 @@ public class OrderServiceAuthorizationTests : IClassFixture<SqliteContextFactory
         };
         c.Encounters.Add(encounter);
         await c.SaveChangesAsync();
+        return (patient, encounter, location);
+    }
+
+    private async Task<(Patient patient, Encounter encounter, OrderingLocation location, Order order)> SeedOrderAsync(
+        BloodBankDbContext c)
+    {
+        var (patient, encounter, location) = await SeedContextAsync(c);
 
         var created = await Orders(c).CreateAsync(patient.Id, new CreateOrderRequest(
             encounter.Id, location.Id, $"ORD-{Guid.NewGuid():N}"[..16],
@@ -59,6 +66,59 @@ public class OrderServiceAuthorizationTests : IClassFixture<SqliteContextFactory
             OrderPriority.Routine, DateTime.UtcNow, null, OrderSource.Manual, null, null));
         Assert.True(created.Succeeded);
         return (patient, encounter, location, created.Value!);
+    }
+
+    [Fact]
+    public async Task Create_WithoutPatientWrite_IsRejected()
+    {
+        await using var c = _factory.Create();
+        var (patient, encounter, location) = await SeedContextAsync(c);
+        var request = new CreateOrderRequest(
+            encounter.Id, location.Id, $"ORD-{Guid.NewGuid():N}"[..16],
+            [new OrderLineInputDto(OrderCategory.Test, "ABORH", null)],
+            OrderPriority.Routine, DateTime.UtcNow, null, OrderSource.Manual, null, null);
+
+        var denied = await Orders(c, new FixedPermissionEvaluator(1, PermissionCodes.LookbackManage))
+            .CreateAsync(patient.Id, request);
+        Assert.False(denied.Succeeded);
+        Assert.Contains("patient.write", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.False(await c.Orders.AnyAsync(o => o.OrderNumber == request.OrderNumber));
+
+        var allowed = await Orders(c, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .CreateAsync(patient.Id, request);
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(request.OrderNumber, allowed.Value!.OrderNumber);
+    }
+
+    [Fact]
+    public async Task CreateFromHl7_DoesNotRequirePatientWrite()
+    {
+        await using var c = _factory.Create();
+        var (patient, encounter, location) = await SeedContextAsync(c);
+        var request = new CreateOrderRequest(
+            encounter.Id, location.Id, $"ORD-{Guid.NewGuid():N}"[..16],
+            [new OrderLineInputDto(OrderCategory.Test, "ABORH", null)],
+            OrderPriority.Routine, DateTime.UtcNow, null, OrderSource.Hl7, "EHR", null);
+
+        var result = await Orders(c, new FixedPermissionEvaluator(1, PermissionCodes.LookbackManage))
+            .CreateFromHl7Async(patient.Id, request);
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(OrderSource.Hl7, result.Value!.Source);
+    }
+
+    [Fact]
+    public async Task CreateForAllocation_DoesNotRequirePatientWrite()
+    {
+        await using var c = _factory.Create();
+        var (patient, encounter, location) = await SeedContextAsync(c);
+        var request = new CreateOrderRequest(
+            encounter.Id, location.Id, $"XM-{Guid.NewGuid():N}"[..16],
+            [new OrderLineInputDto(OrderCategory.Test, "ABORH", null)],
+            OrderPriority.Stat, DateTime.UtcNow, null, OrderSource.Manual, null, "tech-test");
+
+        var result = await Orders(c, new FixedPermissionEvaluator(1, PermissionCodes.CompatibilityAllocate))
+            .CreateForAllocationAsync(patient.Id, request);
+        Assert.True(result.Succeeded, result.Error);
     }
 
     [Fact]

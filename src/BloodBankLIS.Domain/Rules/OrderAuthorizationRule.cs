@@ -1,14 +1,22 @@
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
-/// Privilege gates for order mutations that are not invoked by inbound HL7 ORM.
-/// Order create remains ungated in the service so the interface processor can post.
+/// Privilege gates for workspace order mutations.
+/// Inbound HL7 ORM and allocation-created crossmatch orders use ungated create paths.
 /// </summary>
 public static class OrderAuthorizationRule
 {
+    public const string CreateCode = "ORD-CREATE-PERM";
     public const string UpdateCode = "ORD-UPD-PERM";
     public const string CancelCode = "ORD-CXL-PERM";
     public const string LinkCode = "ORD-LINK-PERM";
+
+    public static RuleResult EvaluateCreate(bool hasPatientWrite) =>
+        hasPatientWrite
+            ? RuleResult.Pass(CreateCode)
+            : RuleResult.HardStop(
+                CreateCode,
+                "Creating an order requires the patient.write permission.");
 
     public static RuleResult EvaluateUpdate(bool hasPatientWrite) =>
         hasPatientWrite

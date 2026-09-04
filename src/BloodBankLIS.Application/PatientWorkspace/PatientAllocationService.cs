@@ -412,7 +412,7 @@ public sealed class PatientAllocationService
         if (product.RequiresCrossmatch && xmTest is not null)
         {
             var orderNumber = $"XM-{Guid.NewGuid():N}"[..16].ToUpperInvariant();
-            var orderResult = await _orders.CreateAsync(patientId, new CreateOrderRequest(
+            var orderResult = await _orders.CreateForAllocationAsync(patientId, new CreateOrderRequest(
                 encounterId!.Value,
                 locationId!.Value,
                 orderNumber,

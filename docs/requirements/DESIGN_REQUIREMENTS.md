@@ -56,3 +56,4 @@
 | SRS-BB-055 | Manual quarantine, hold, mark-missing, and mark-damaged are authorized inside `InventoryService` with `inventory.release` (`INV-Q-PERM` / `INV-HOLD-SET-PERM` / `INV-MISS-PERM` / `INV-DMG-PERM`). | FRS-BB-094 |
 | SRS-BB-057 | The expiration sweep is authorized inside `InventoryService.ExpireDueUnitsAsync` with `inventory.discard` (`INV-EXP-PERM`). Callers that skip the API filter cannot expire on-hand units. | FRS-BB-096 |
 | SRS-BB-059 | Workspace merge is authorized inside `PatientMergeService.MergeAsync` with `patient.merge` (`PAT-MERGE-PERM`). `MergeFromHl7Async` stays ungated for ADT A18/A40. | FRS-BB-098 |
+| SRS-BB-061 | Workspace order create is authorized inside `OrderService.CreateAsync` with `patient.write` (`ORD-CREATE-PERM`). `CreateFromHl7Async` and `CreateForAllocationAsync` stay ungated. | FRS-BB-100 |

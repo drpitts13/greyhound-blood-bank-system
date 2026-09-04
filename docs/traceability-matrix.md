@@ -131,6 +131,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-060 / FRS-BB-094 | Manual quarantine, hold, mark-missing, and mark-damaged require inventory.release in Application | `INV-Q-PERM`, `INV-HOLD-SET-PERM`, `INV-MISS-PERM`, `INV-DMG-PERM` | `InventoryAuthorizationRuleTests`; InventoryService disposition permission tests | D,I | RISK-BB-062 |
 | URS-BB-062 / FRS-BB-096 | Expiration sweep requires inventory.discard in Application | `INV-EXP-PERM` | `InventoryAuthorizationRuleTests`; InventoryService expire permission test | D,I | RISK-BB-064 |
 | URS-BB-064 / FRS-BB-098 | Workspace patient merge requires patient.merge in Application | `PAT-MERGE-PERM` | `PatientAuthorizationRuleTests`; PatientMergeService permission tests | D,I | RISK-BB-067 |
+| URS-BB-066 / FRS-BB-100 | Workspace order create requires patient.write in Application | `ORD-CREATE-PERM` | `OrderAuthorizationRuleTests`; `OrderServiceAuthorizationTests` | D,I | RISK-BB-069 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

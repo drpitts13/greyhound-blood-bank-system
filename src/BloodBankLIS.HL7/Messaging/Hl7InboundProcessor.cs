@@ -420,7 +420,7 @@ public sealed class Hl7InboundProcessor
         var testCode = string.IsNullOrWhiteSpace(data.TestCode)
             ? data.OrderType.ToString()
             : data.TestCode.Trim().ToUpperInvariant();
-        var createResult = await _ordersService.CreateAsync(patient.Id, new CreateOrderRequest(
+        var createResult = await _ordersService.CreateFromHl7Async(patient.Id, new CreateOrderRequest(
             encounter.Id,
             location.Id,
             data.PlacerOrderId,

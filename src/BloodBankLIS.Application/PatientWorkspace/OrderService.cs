@@ -171,6 +171,31 @@ public sealed class OrderService
 
     public async Task<OperationResult<Order>> CreateAsync(long patientId, CreateOrderRequest request, CancellationToken ct = default)
     {
+        var unauthorized = await RejectUnauthorizedAsync<Order>(OrderAuthorizationRule.EvaluateCreate, ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
+        return await CreateCoreAsync(patientId, request, ct);
+    }
+
+    /// <summary>
+    /// Inbound ORM. The interface identity is not a directory user with patient.write.
+    /// </summary>
+    public Task<OperationResult<Order>> CreateFromHl7Async(
+        long patientId, CreateOrderRequest request, CancellationToken ct = default) =>
+        CreateCoreAsync(patientId, request, ct);
+
+    /// <summary>
+    /// Crossmatch order created as a side effect of an already-authorized allocation.
+    /// </summary>
+    public Task<OperationResult<Order>> CreateForAllocationAsync(
+        long patientId, CreateOrderRequest request, CancellationToken ct = default) =>
+        CreateCoreAsync(patientId, request, ct);
+
+    private async Task<OperationResult<Order>> CreateCoreAsync(long patientId, CreateOrderRequest request, CancellationToken ct)
+    {
         if (request.Lines.Count == 0)
         {
             return OperationResult<Order>.Fail("At least one test or product is required.");
