@@ -63,4 +63,19 @@ public class InventoryAuthorizationRuleTests
         var result = InventoryAuthorizationRule.EvaluateModify(hasInventoryModify: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void CorrectIdentity_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateCorrectIdentity(hasInventoryCorrectIdentity: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.CorrectIdentityCode, result.Code);
+    }
+
+    [Fact]
+    public void CorrectIdentity_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateCorrectIdentity(hasInventoryCorrectIdentity: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

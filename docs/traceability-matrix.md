@@ -105,6 +105,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-030 / FRS-BB-059 | Specimen accession, edit, and reject require privileges in Application | `SPEC-ACC-PERM`, `SPEC-EDIT-PERM`, `SPEC-REJ-PERM` | `SpecimenAuthorizationRuleTests`; Phase 3 specimen permission tests | D,I | RISK-BB-032 |
 | URS-BB-031 / FRS-BB-061 | Patient demographic update requires patient.write in Application | `PAT-WRITE-PERM` | `PatientAuthorizationRuleTests`; PatientService permission test | D,I | RISK-BB-033 |
 | URS-BB-032 / FRS-BB-062 | Product modification requires inventory.modify in Application | `INV-MOD-PERM` | `InventoryAuthorizationRuleTests`; BloodProductModificationService permission test | D,I | RISK-BB-034 |
+| URS-BB-033 / FRS-BB-063 | Unit identity correction requires inventory.correct-identity in Application | `INV-ID-PERM` | `InventoryAuthorizationRuleTests`; ComponentIdentityCorrectionService permission test | D,I | RISK-BB-035 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

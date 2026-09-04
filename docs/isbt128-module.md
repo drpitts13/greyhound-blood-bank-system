@@ -68,7 +68,7 @@ Example: `G123417654321|E0206000`
 | POST | `/api/isbt/scan-sessions/scans` | Add scan(s) |
 | POST | `/api/isbt/scan-sessions/complete` | Validate + receive |
 | POST | `/api/isbt/manual-entry` | Structured human-readable receive |
-| POST | `/api/isbt/identity-corrections` | Controlled identity correction |
+| POST | `/api/isbt/identity-corrections` | Controlled identity correction. Application requires `inventory.correct-identity` (`INV-ID-PERM`). |
 | POST | `/api/isbt/units/{id}/recall` | Recall |
 | POST | `/api/isbt/units/{id}/quarantine` | Quarantine (quality disposition) |
 | POST | `/api/inventory/units/{id}/hold` | Operational hold (not quarantine) |

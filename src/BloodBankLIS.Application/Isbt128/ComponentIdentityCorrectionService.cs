@@ -30,6 +30,7 @@ public sealed class ComponentIdentityCorrectionService
     private readonly IClock _clock;
     private readonly ICurrentUser _user;
     private readonly IAuditWriter _audit;
+    private readonly IPermissionEvaluator? _permissions;
 
     public ComponentIdentityCorrectionService(
         IInventoryRepository inventory,
@@ -38,7 +39,8 @@ public sealed class ComponentIdentityCorrectionService
         IUnitOfWork uow,
         IClock clock,
         ICurrentUser user,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IPermissionEvaluator? permissions = null)
     {
         _inventory = inventory;
         _corrections = corrections;
@@ -47,6 +49,7 @@ public sealed class ComponentIdentityCorrectionService
         _clock = clock;
         _user = user;
         _audit = audit;
+        _permissions = permissions;
     }
 
     public async Task<OperationResult<BloodComponentIdentityCorrection>> CorrectAsync(
@@ -54,6 +57,17 @@ public sealed class ComponentIdentityCorrectionService
         bool postEventAuthorized = false,
         CancellationToken ct = default)
     {
+        if (_permissions is not null)
+        {
+            var allowed = await _permissions.HasPermissionAsync(
+                _user.UserName, PermissionCodes.InventoryCorrectIdentity, ct);
+            var auth = InventoryAuthorizationRule.EvaluateCorrectIdentity(allowed);
+            if (auth.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<BloodComponentIdentityCorrection>.Fail(auth.Message);
+            }
+        }
+
         if (!CorrectableFields.Contains(request.Field))
             return OperationResult<BloodComponentIdentityCorrection>.Fail(
                 $"{IsbtErrorCodes.ComponentIdentityLocked}: Field '{request.Field}' is not correctable.");
