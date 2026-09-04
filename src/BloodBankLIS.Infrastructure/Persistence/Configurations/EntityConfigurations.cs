@@ -300,6 +300,10 @@ public sealed class InventoryLocationConfiguration : IEntityTypeConfiguration<In
         b.HasKey(l => l.Id);
         b.Property(l => l.Code).HasMaxLength(50).IsRequired();
         b.Property(l => l.Name).HasMaxLength(150).IsRequired();
+        b.Property(l => l.Department).HasMaxLength(100);
+        b.Property(l => l.Notes).HasMaxLength(500);
+        b.Property(l => l.StorageTempMinC).HasPrecision(18, 1);
+        b.Property(l => l.StorageTempMaxC).HasPrecision(18, 1);
         b.Property(l => l.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(l => l.ModifiedBy).HasMaxLength(100);
 
@@ -542,6 +546,10 @@ public sealed class AllocationConfiguration : IEntityTypeConfiguration<Allocatio
 
         b.HasOne(a => a.Unit).WithMany().HasForeignKey(a => a.BloodProductId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(a => new { a.BloodProductId, a.Status });
+        b.HasIndex(a => a.BloodProductId)
+            .IsUnique()
+            .HasFilter("[Status] = 0")
+            .HasDatabaseName("IX_Allocations_OneReservedPerUnit");
         b.HasIndex(a => a.PatientId);
         b.HasIndex(a => a.EncounterId);
         b.HasIndex(a => a.OrderId);
@@ -582,6 +590,10 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
         b.HasOne(i => i.Unit).WithMany().HasForeignKey(i => i.BloodProductId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(i => i.Override).WithMany().HasForeignKey(i => i.OverrideId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(i => i.BloodProductId);
+        b.HasIndex(i => i.BloodProductId)
+            .IsUnique()
+            .HasFilter("[Status] = 0")
+            .HasDatabaseName("IX_Issues_OneOpenIssuePerUnit");
         b.HasIndex(i => i.PatientId);
         b.HasIndex(i => new { i.TestsIncompleteAtIssue, i.RetrospectiveCrossmatchCompletedUtc });
         b.HasIndex(i => i.EncounterId);
@@ -756,6 +768,8 @@ public sealed class ChargeCodeConfiguration : IEntityTypeConfiguration<ChargeCod
         b.Property(c => c.Description).HasMaxLength(300).IsRequired();
         b.Property(c => c.DefaultAmount).HasPrecision(18, 2);
         b.Property(c => c.CptCode).HasMaxLength(20);
+        b.Property(c => c.RevenueCode).HasMaxLength(4);
+        b.Property(c => c.Modifier).HasMaxLength(2);
         b.Property(c => c.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(c => c.ModifiedBy).HasMaxLength(100);
 
@@ -790,6 +804,11 @@ public sealed class BillingEventConfiguration : IEntityTypeConfiguration<Billing
         b.Property(e => e.DedupeKey).HasMaxLength(200).IsRequired();
         b.Property(e => e.ReviewedBy).HasMaxLength(100);
         b.Property(e => e.CancellationReason).HasMaxLength(1000);
+        b.Property(e => e.ProcedureCode).HasMaxLength(20);
+        b.Property(e => e.RevenueCode).HasMaxLength(4);
+        b.Property(e => e.Modifier).HasMaxLength(2);
+        b.Property(e => e.Description).HasMaxLength(300);
+        b.Property(e => e.PerformingLocationCode).HasMaxLength(50);
         b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(e => e.ModifiedBy).HasMaxLength(100);
 

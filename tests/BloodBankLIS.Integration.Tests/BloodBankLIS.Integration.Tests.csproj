@@ -20,6 +20,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\safety_regression\**\*Tests.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\BloodBankLIS.Infrastructure\BloodBankLIS.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\BloodBankLIS.Application\BloodBankLIS.Application.csproj" />
     <ProjectReference Include="..\..\src\BloodBankLIS.Domain\BloodBankLIS.Domain.csproj" />

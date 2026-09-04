@@ -114,7 +114,29 @@ public static class DevelopmentSqliteBootstrap
         ("ElectronicSignatures", "ConsumedUtc", """ALTER TABLE "ElectronicSignatures" ADD COLUMN "ConsumedUtc" TEXT NULL"""),
         ("ModificationRules", "ExpirationModificationCodeId", """ALTER TABLE "ModificationRules" ADD COLUMN "ExpirationModificationCodeId" INTEGER NOT NULL DEFAULT 0"""),
         ("ModificationRules", "ModificationCode", """ALTER TABLE "ModificationRules" ADD COLUMN "ModificationCode" TEXT NOT NULL DEFAULT ''"""),
-        ("ProductTypes", "RequiresRetype", """ALTER TABLE "ProductTypes" ADD COLUMN "RequiresRetype" INTEGER NOT NULL DEFAULT 0""")
+        ("ProductTypes", "RequiresRetype", """ALTER TABLE "ProductTypes" ADD COLUMN "RequiresRetype" INTEGER NOT NULL DEFAULT 0"""),
+        ("InventoryLocations", "Department", """ALTER TABLE "InventoryLocations" ADD COLUMN "Department" TEXT NULL"""),
+        ("InventoryLocations", "AllowsIssue", """ALTER TABLE "InventoryLocations" ADD COLUMN "AllowsIssue" INTEGER NOT NULL DEFAULT 1"""),
+        ("InventoryLocations", "AllowsRemoteIssue", """ALTER TABLE "InventoryLocations" ADD COLUMN "AllowsRemoteIssue" INTEGER NOT NULL DEFAULT 0"""),
+        ("InventoryLocations", "AllowsElectronicIssue", """ALTER TABLE "InventoryLocations" ADD COLUMN "AllowsElectronicIssue" INTEGER NOT NULL DEFAULT 1"""),
+        ("InventoryLocations", "RequiresSecondVerifier", """ALTER TABLE "InventoryLocations" ADD COLUMN "RequiresSecondVerifier" INTEGER NOT NULL DEFAULT 0"""),
+        ("InventoryLocations", "IsSatellite", """ALTER TABLE "InventoryLocations" ADD COLUMN "IsSatellite" INTEGER NOT NULL DEFAULT 0"""),
+        ("InventoryLocations", "AllowsRbc", """ALTER TABLE "InventoryLocations" ADD COLUMN "AllowsRbc" INTEGER NOT NULL DEFAULT 1"""),
+        ("InventoryLocations", "AllowsPlasma", """ALTER TABLE "InventoryLocations" ADD COLUMN "AllowsPlasma" INTEGER NOT NULL DEFAULT 1"""),
+        ("InventoryLocations", "AllowsPlatelets", """ALTER TABLE "InventoryLocations" ADD COLUMN "AllowsPlatelets" INTEGER NOT NULL DEFAULT 1"""),
+        ("InventoryLocations", "AllowsCryo", """ALTER TABLE "InventoryLocations" ADD COLUMN "AllowsCryo" INTEGER NOT NULL DEFAULT 1"""),
+        ("InventoryLocations", "AllowsWholeBlood", """ALTER TABLE "InventoryLocations" ADD COLUMN "AllowsWholeBlood" INTEGER NOT NULL DEFAULT 1"""),
+        ("InventoryLocations", "StorageTempMinC", """ALTER TABLE "InventoryLocations" ADD COLUMN "StorageTempMinC" TEXT NULL"""),
+        ("InventoryLocations", "StorageTempMaxC", """ALTER TABLE "InventoryLocations" ADD COLUMN "StorageTempMaxC" TEXT NULL"""),
+        ("InventoryLocations", "DefaultInTransitHours", """ALTER TABLE "InventoryLocations" ADD COLUMN "DefaultInTransitHours" INTEGER NULL"""),
+        ("InventoryLocations", "Notes", """ALTER TABLE "InventoryLocations" ADD COLUMN "Notes" TEXT NULL"""),
+        ("ChargeCodes", "RevenueCode", """ALTER TABLE "ChargeCodes" ADD COLUMN "RevenueCode" TEXT NULL"""),
+        ("ChargeCodes", "Modifier", """ALTER TABLE "ChargeCodes" ADD COLUMN "Modifier" TEXT NULL"""),
+        ("BillingEvents", "ProcedureCode", """ALTER TABLE "BillingEvents" ADD COLUMN "ProcedureCode" TEXT NULL"""),
+        ("BillingEvents", "RevenueCode", """ALTER TABLE "BillingEvents" ADD COLUMN "RevenueCode" TEXT NULL"""),
+        ("BillingEvents", "Modifier", """ALTER TABLE "BillingEvents" ADD COLUMN "Modifier" TEXT NULL"""),
+        ("BillingEvents", "Description", """ALTER TABLE "BillingEvents" ADD COLUMN "Description" TEXT NULL"""),
+        ("BillingEvents", "PerformingLocationCode", """ALTER TABLE "BillingEvents" ADD COLUMN "PerformingLocationCode" TEXT NULL""")
     ];
 
     public static async Task InitializeAsync(
@@ -172,6 +194,56 @@ public static class DevelopmentSqliteBootstrap
         }
 
         await BackfillModificationCodesAsync(context, ct);
+        await BackfillInventoryLocationPolicyAsync(context, ct);
+        await ApplyAdditiveIndexesAsync(context, logger, ct);
+    }
+
+    private static readonly (string Name, string Sql)[] AdditiveIndexes =
+    [
+        ("IX_Allocations_OneReservedPerUnit",
+            """CREATE UNIQUE INDEX IF NOT EXISTS "IX_Allocations_OneReservedPerUnit" ON "Allocations" ("BloodProductId") WHERE "Status" = 0"""),
+        ("IX_Issues_OneOpenIssuePerUnit",
+            """CREATE UNIQUE INDEX IF NOT EXISTS "IX_Issues_OneOpenIssuePerUnit" ON "Issues" ("BloodProductId") WHERE "Status" = 0""")
+    ];
+
+    private static async Task ApplyAdditiveIndexesAsync(
+        BloodBankDbContext context,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        foreach (var (name, sql) in AdditiveIndexes)
+        {
+            if (await IndexExistsAsync(context, name, ct))
+            {
+                continue;
+            }
+
+            logger.LogWarning("SQLite development database is missing index {Index}. Creating it.", name);
+            await context.Database.ExecuteSqlRawAsync(sql, ct);
+        }
+    }
+
+    private static async Task<bool> IndexExistsAsync(
+        BloodBankDbContext context,
+        string indexName,
+        CancellationToken ct)
+    {
+        await context.Database.OpenConnectionAsync(ct);
+        try
+        {
+            await using var command = context.Database.GetDbConnection().CreateCommand();
+            command.CommandText = """SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = $name LIMIT 1""";
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "$name";
+            parameter.Value = indexName;
+            command.Parameters.Add(parameter);
+            var result = await command.ExecuteScalarAsync(ct);
+            return result is not null && result is not DBNull;
+        }
+        finally
+        {
+            await context.Database.CloseConnectionAsync();
+        }
     }
 
     private static async Task BackfillModificationCodesAsync(BloodBankDbContext context, CancellationToken ct)
@@ -196,6 +268,34 @@ public static class DevelopmentSqliteBootstrap
                 ELSE 'MOD-'
             END || COALESCE((SELECT ProductCode FROM ProductTypes WHERE Id = ModificationRules.SourceProductTypeId), CAST(Id AS TEXT))
             WHERE TRIM(ModificationCode) = ''
+            """,
+            ct);
+    }
+
+    private static async Task BackfillInventoryLocationPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await TableExistsAsync(context, "InventoryLocations", ct)
+            || !await ColumnExistsAsync(context, "InventoryLocations", "AllowsRbc", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE InventoryLocations
+            SET AllowsPlasma = 0, AllowsPlatelets = 0, AllowsCryo = 0,
+                StorageTempMinC = COALESCE(StorageTempMinC, '1'),
+                StorageTempMaxC = COALESCE(StorageTempMaxC, '6')
+            WHERE Code = 'FRIDGE-1'
+            """,
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE InventoryLocations
+            SET AllowsRbc = 0, AllowsWholeBlood = 0, AllowsPlatelets = 0,
+                StorageTempMinC = COALESCE(StorageTempMinC, '-30'),
+                StorageTempMaxC = COALESCE(StorageTempMaxC, '-18')
+            WHERE Code = 'FREEZER-1'
             """,
             ct);
     }

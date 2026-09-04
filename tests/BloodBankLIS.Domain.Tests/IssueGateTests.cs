@@ -32,6 +32,7 @@ public class IssueGateTests
         UnitAntigens = [],
         SpecialRequirementsMet = true,
         UnresolvedAboRhDiscrepancy = false,
+        HasSecondConcordantAboRh = true,
         NowUtc = Now
     };
 
@@ -184,5 +185,182 @@ public class IssueGateTests
         var evaluation = IssueGate.Evaluate(context);
         Assert.True(evaluation.IsHardStopped);
         Assert.Contains(evaluation.HardStops, r => r.Code == IssueGate.UnitStatusCode);
+    }
+
+    [Fact]
+    public void MissingCrossmatch_WhenElectronicIssueEligible_IsAllowed()
+    {
+        var context = PassingContext() with
+        {
+            HasValidCrossmatch = false,
+            IsElectronicIssue = true,
+            ElectronicCrossmatchEligible = true
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsAllowed);
+    }
+
+    [Fact]
+    public void RemoteIssue_WithoutEligibility_IsHardStopped()
+    {
+        var context = PassingContext() with
+        {
+            HasValidCrossmatch = false,
+            LocationKnown = true,
+            LocationAllowsIssue = false,
+            LocationAllowsRemoteIssue = true,
+            IsRemoteIssue = true,
+            ElectronicCrossmatchEligible = false
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == InventoryLocationPolicyRule.ExmEligibilityCode);
+    }
+
+    [Fact]
+    public void CellularIssue_WithoutSecondAbo_IsHardStopped()
+    {
+        var context = PassingContext() with { HasSecondConcordantAboRh = false };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == SecondAboDeterminationRule.IssueCode);
+    }
+
+    [Fact]
+    public void EmergencyCellularIssue_WithoutSecondAbo_IsWarning()
+    {
+        var context = PassingContext() with
+        {
+            HasSecondConcordantAboRh = false,
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.False(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.Warnings, r => r.Code == SecondAboDeterminationRule.IssueCode);
+    }
+
+    [Fact]
+    public void Emergency_UnknownPatientType_IsWarning()
+    {
+        var context = PassingContext() with
+        {
+            PatientBloodTypeKnown = false,
+            PatientAboRh = new AboRh(AboGroup.Unknown, RhType.Unknown),
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.False(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.Warnings, r => r.Code == IssueGate.PatientAboRhCode);
+    }
+
+    [Fact]
+    public void Emergency_AboMismatch_IsWarning()
+    {
+        var context = PassingContext() with
+        {
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false,
+            UnitAboRh = new AboRh(AboGroup.B, RhType.Positive)
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.False(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.Warnings, r => r.Code == AboCompatibilityRule.AboCode);
+        Assert.Contains(evaluation.Warnings, r => r.Code == EmergencyUncrossmatchedAboRule.AboCode);
+    }
+
+    [Fact]
+    public void Emergency_NonO_Unit_IsWarning()
+    {
+        var context = PassingContext() with
+        {
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false,
+            UnitAboRh = new AboRh(AboGroup.A, RhType.Positive)
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.Contains(evaluation.Warnings, r => r.Code == EmergencyUncrossmatchedAboRule.AboCode);
+    }
+
+    [Fact]
+    public void Emergency_OPos_ToChildbearingFemale_IsRhWarning()
+    {
+        var context = PassingContext() with
+        {
+            IsEmergencyRelease = true,
+            HasValidCrossmatch = false,
+            PatientAboRh = new AboRh(AboGroup.O, RhType.Negative),
+            UnitAboRh = new AboRh(AboGroup.O, RhType.Positive),
+            PatientSex = Sex.Female,
+            PatientAgeYears = 25
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.Contains(evaluation.Warnings, r => r.Code == EmergencyUncrossmatchedAboRule.RhCode);
+    }
+
+    [Fact]
+    public void LinkedOrderOnHold_IsHardStopped()
+    {
+        var context = PassingContext() with { OrderLinked = true, OrderIsFulfillable = false };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == OrderControlRule.IssueCode);
+    }
+
+    [Fact]
+    public void PlasmaIssue_WithoutSecondAbo_IsAllowed()
+    {
+        var context = PassingContext() with
+        {
+            ComponentClass = ComponentClass.Plasma,
+            UnitAboRh = new AboRh(AboGroup.A, RhType.Positive),
+            RequiresCrossmatch = false,
+            HasValidCrossmatch = false,
+            HasSecondConcordantAboRh = false
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsAllowed);
+    }
+
+    [Fact]
+    public void IssueFromStorageOnlyLocation_IsHardStopped()
+    {
+        var context = PassingContext() with
+        {
+            LocationKnown = true,
+            LocationAllowsIssue = false,
+            LocationAllowsRemoteIssue = false
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == InventoryLocationPolicyRule.IssueAllowedCode);
+    }
+
+    [Fact]
+    public void AutologousUnit_ToReservedPatient_IsAllowed()
+    {
+        var context = PassingContext() with
+        {
+            DonationRestriction = DonationRestriction.Autologous,
+            ReservedPatientId = 7,
+            IssuePatientId = 7
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsAllowed);
+    }
+
+    [Fact]
+    public void AutologousUnit_ToDifferentPatient_IsHardStopped()
+    {
+        var context = PassingContext() with
+        {
+            DonationRestriction = DonationRestriction.Autologous,
+            ReservedPatientId = 7,
+            IssuePatientId = 99
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == AutologousDirectedRule.IssueCode);
     }
 }

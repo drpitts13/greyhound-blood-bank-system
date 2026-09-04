@@ -27,12 +27,20 @@ public sealed class AntibodyScreenCompatLoader
     }
 
     /// <summary>
+    /// True when any antibody history row exists, including deactivated
+    /// ("currently undetectable") records. Historical findings must remain visible
+    /// to computer-crossmatch eligibility.
+    /// </summary>
+    public Task<bool> HasAntibodyHistoryAsync(long patientId, CancellationToken ct = default) =>
+        _antibodies.AnyAsync(a => a.PatientId == patientId, ct);
+
+    /// <summary>
     /// True when complex crossmatch is required: positive ABSC (verified, current or historical)
     /// and/or any antibody history row.
     /// </summary>
     public async Task<bool> RequiresComplexCrossmatchAsync(long patientId, CancellationToken ct = default)
     {
-        if (await _antibodies.AnyAsync(a => a.PatientId == patientId, ct))
+        if (await HasAntibodyHistoryAsync(patientId, ct))
         {
             return true;
         }

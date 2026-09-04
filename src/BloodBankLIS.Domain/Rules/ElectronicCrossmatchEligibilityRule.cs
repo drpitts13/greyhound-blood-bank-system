@@ -10,32 +10,44 @@ public static class ElectronicCrossmatchEligibilityRule
 {
     public const string Code = "XM-EC-ELIGIBLE";
 
+    public const string CurrentTypeCode = "XM-EC-ABORH";
+    public const string SecondTypeCode = "XM-EC-SECOND";
+    public const string ScreenCode = "XM-EC-SCREEN";
+    public const string HistoryCode = "XM-EC-HISTORY";
+    public const string FacilityCode = "XM-EC-POLICY";
+
+    public static IReadOnlyList<RuleResult> EvaluateCriteria(
+        bool currentAboRhConfirmed,
+        bool antibodyScreenNegative,
+        bool hasAntibodyHistory,
+        bool hasSecondConcordantAboRh)
+    {
+        return
+        [
+            currentAboRhConfirmed
+                ? RuleResult.Pass(CurrentTypeCode, "Current ABO/Rh is confirmed.")
+                : RuleResult.HardStop(CurrentTypeCode, "Electronic crossmatch requires a confirmed current ABO/Rh."),
+            hasSecondConcordantAboRh
+                ? RuleResult.Pass(SecondTypeCode, "Two concordant ABO/Rh determinations are on file.")
+                : RuleResult.HardStop(SecondTypeCode, "Electronic crossmatch requires two concordant ABO/Rh determinations."),
+            antibodyScreenNegative
+                ? RuleResult.Pass(ScreenCode, "Current antibody screen is negative.")
+                : RuleResult.HardStop(ScreenCode, "Electronic crossmatch requires a negative antibody screen."),
+            hasAntibodyHistory
+                ? RuleResult.HardStop(HistoryCode, "Electronic crossmatch is not permitted with a history of clinically significant antibodies, including antibodies that are currently undetectable.")
+                : RuleResult.Pass(HistoryCode, "No clinically significant antibody history.")
+        ];
+    }
+
     public static RuleResult Evaluate(
         bool currentAboRhConfirmed,
         bool antibodyScreenNegative,
         bool hasAntibodyHistory,
         bool hasSecondConcordantAboRh)
     {
-        if (!currentAboRhConfirmed)
-        {
-            return RuleResult.HardStop(Code, "Electronic crossmatch requires a confirmed current ABO/Rh.");
-        }
-
-        if (!hasSecondConcordantAboRh)
-        {
-            return RuleResult.HardStop(Code, "Electronic crossmatch requires two concordant ABO/Rh determinations.");
-        }
-
-        if (!antibodyScreenNegative)
-        {
-            return RuleResult.HardStop(Code, "Electronic crossmatch requires a negative antibody screen.");
-        }
-
-        if (hasAntibodyHistory)
-        {
-            return RuleResult.HardStop(Code, "Electronic crossmatch is not permitted with a history of clinically significant antibodies.");
-        }
-
-        return RuleResult.Pass(Code);
+        var firstStop = EvaluateCriteria(
+                currentAboRhConfirmed, antibodyScreenNegative, hasAntibodyHistory, hasSecondConcordantAboRh)
+            .FirstOrDefault(r => r.Severity == RuleSeverity.HardStop);
+        return firstStop ?? RuleResult.Pass(Code);
     }
 }

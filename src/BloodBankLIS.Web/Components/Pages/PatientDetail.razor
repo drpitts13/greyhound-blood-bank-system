@@ -37,6 +37,15 @@ else
                 <div class="label">Blood type</div>
                 <div class="value" style="font-size:1.4rem;">@(_currentType is null ? "—" : Ui.BloodType(_currentType.Abo, _currentType.RhD))</div>
             </div>
+            @if (_exm is not null)
+            {
+                <div class="stat" style="text-align:center;padding:.6rem 1rem;">
+                    <div class="label">Electronic XM</div>
+                    <div class="value" style="font-size:1rem;">
+                        <span class="badge @(_exm.Eligible ? "badge-green" : "badge-amber")">@(_exm.Eligible ? "Eligible" : "Not eligible")</span>
+                    </div>
+                </div>
+            }
             @if (CanEditDemographics)
             {
                 <button class="btn btn-secondary" @onclick="ToggleEditDemographics">@(_editingDemographics ? "Cancel edit" : "Edit demographics")</button>
@@ -83,10 +92,11 @@ else
         </div>
     }
 
-    @if (_activeAntibodies.Count > 0)
+    @if (_antibodyHistory.Count > 0)
     {
         <div class="alert alert-warning">
-            <strong>Active antibodies:</strong> @string.Join(", ", _activeAntibodies.Select(a => a.AntibodySpecificity))
+            <strong>Antibody history:</strong>
+            @string.Join(", ", _antibodyHistory.Select(a => a.IsActive ? a.AntibodySpecificity : $"{a.AntibodySpecificity} (historical / currently undetectable)"))
         </div>
     }
 
@@ -112,6 +122,42 @@ else
     @if (_tab == "overview")
     {
     <div class="bb-grid cols-2">
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Electronic crossmatch eligibility</h3></div>
+            <p class="muted">AABB 5.16 computer XM checklist (SafeTrace / SoftBank). Serologic XM is required when any item fails.</p>
+            @if (_exm is null)
+            {
+                <div class="empty">Eligibility could not be loaded.</div>
+            }
+            else
+            {
+                <p>
+                    <span class="badge @(_exm.Eligible ? "badge-green" : "badge-amber")">@(_exm.Eligible ? "Eligible" : "Not eligible")</span>
+                    @if (!_exm.Eligible && !string.IsNullOrWhiteSpace(_exm.BlockingReason))
+                    {
+                        <span class="muted"> @_exm.BlockingReason</span>
+                    }
+                </p>
+                <table class="bb">
+                    <thead><tr><th>Criterion</th><th>Status</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in _exm.Criteria)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@c.Label</strong>
+                                    <div class="muted">@c.Detail</div>
+                                </td>
+                                <td>
+                                    <span class="badge @(c.Satisfied ? "badge-green" : "badge-red")">@(c.Satisfied ? "Met" : "Not met")</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
         <!-- Blood type -->
         <div class="bb-card">
             <div class="bb-card-title"><h3>Blood type history</h3></div>
@@ -1195,9 +1241,9 @@ else
     private PatientDemoEditModel _demo = new();
     private Feedback? _demoFb;
     private BloodTypeDto? _currentType;
+    private ElectronicCrossmatchEligibilityDto? _exm;
     private List<BloodTypeDto> _typeHistory = new();
     private List<AntibodyDto> _antibodyHistory = new();
-    private List<AntibodyDto> _activeAntibodies = new();
     private List<SpecialRequirementDto> _specialRequirements = new();
     private Feedback? _srFb;
     private SpecialTransfusionRequirementType _srType = SpecialTransfusionRequirementType.Irradiated;
@@ -1373,7 +1419,7 @@ else
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
 
     private bool NeedsAbHistoryOverride =>
-        _activeAntibodies.Count > 0
+        _antibodyHistory.Count > 0
         && _selectedUnit?.RequiresCrossmatch == true
         && SelectedXmResultType == ResultValueType.Crossmatch;
 
@@ -1392,9 +1438,9 @@ else
         _patient = p.Value;
 
         _currentType = (await Api.GetCurrentBloodTypeAsync(Id)).Value;
+        _exm = (await Api.GetPatientElectronicCrossmatchEligibilityAsync(Id)).Value;
         _typeHistory = (await Api.GetBloodTypeHistoryAsync(Id)).Value ?? new();
         _antibodyHistory = (await Api.GetAntibodyHistoryAsync(Id)).Value ?? new();
-        _activeAntibodies = _antibodyHistory.Where(a => a.IsActive).ToList();
         _antigenProfiles = (await Api.GetAntigenProfilesAsync(Id)).Value ?? new();
         _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
         _specimens = (await Api.GetPatientSpecimensAsync(Id)).Value ?? new();
@@ -1455,7 +1501,7 @@ else
             await LoadCompatibleUnitsAsync();
             var tests = await Api.GetPatientCrossmatchTestsAsync(Id);
             _crossmatchTests = tests.Value ?? new();
-            if (_activeAntibodies.Count > 0
+            if (_antibodyHistory.Count > 0
                 && _crossmatchTests.Any(t => t.ResultValueType == ResultValueType.ComplexCrossmatch))
             {
                 _allocXmTestCode = _crossmatchTests.First(t => t.ResultValueType == ResultValueType.ComplexCrossmatch).Code;
@@ -2446,6 +2492,7 @@ else
     private async Task LoadHeaderType()
     {
         _currentType = (await Api.GetCurrentBloodTypeAsync(Id)).Value;
+        _exm = (await Api.GetPatientElectronicCrossmatchEligibilityAsync(Id)).Value;
         _typeHistory = (await Api.GetBloodTypeHistoryAsync(Id)).Value ?? new();
     }
 

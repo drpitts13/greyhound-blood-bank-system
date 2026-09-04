@@ -1,0 +1,24 @@
+# Open clinical and regulatory decisions
+
+Do not guess. When a rule depends on an external standard or facility policy
+that is not available in this repository, implement the control as configurable
+and record the question here.
+
+These items are labeled **REQUIRES REGULATORY / SME VERIFICATION**.
+This software is compliance-supporting and validation-ready. It is not
+automatically FDA, AABB, CAP, or CLIA certified.
+
+| ID | Topic | Question | Current software behavior | Suggested owner |
+|---|---|---|---|---|
+| OCD-001 | Electronic XM after undetectable antibody | Does a historically identified, currently undetectable antibody permanently preclude computer XM? | Any antibody-history row (active or deactivated) blocks electronic XM (`XM-EC-HISTORY`). Antigen-negative requirements still evaluate all history rows. | Transfusion medicine medical director |
+| OCD-002 | Specimen validity windows | Confirm alloimmunization-risk vs standard specimen windows and lookback days against current AABB language and facility SOP. | Defaults: 72 hours when recent transfusion/pregnancy; 168 hours otherwise; 90-day lookback. Facility policy keys exist. | Blood bank supervisor + medical director |
+| OCD-003 | Uncrossmatched ABO/Rh | Confirm whether uncrossmatched RBC/WB must be group O, and whether childbearing-age Rh-negative recipients require O-negative, including age cutoff. | Defaults on (`UncrossmatchedCellularMustBeGroupO`, `UncrossmatchedONegForChildbearing`, age 50). Emergency path is Warning + override, not "ignore all rules." | Medical director |
+| OCD-004 | ISBT 128 licensed tables | Confirm DIN check, ABO/RhD codes, product codes, and data structures against current ICCBBA documentation. | Parsers and placeholder catalogs are present. Seeded codes are not a licensed ICCBBA extract. | Interface / ISBT administrator + ICCBBA licensee |
+| OCD-005 | Receipt temperature range | Confirm 1–10 °C (and frozen-product ranges) against current product circulars and facility SOP. | Default receive-temperature HardStop uses 1–10 °C when the policy is enabled. | Inventory supervisor |
+| OCD-006 | Computer XM AABB 5.16 validation | When may the facility enable electronic XM in production? | `AllowElectronicCrossmatch` is a facility policy flag. Disabled policy is a HardStop (`XM-EC-POLICY`). | Quality + medical director |
+| OCD-007 | Record retention | Confirm retention years against current 21 CFR 606.160 interpretation and state law. | Default retention metadata is 10 years; clinical/audit purge is not implemented. | Quality / compliance |
+| OCD-008 | Second-verifier policy | Which workflows require a distinct directory second user vs validated electronic identification? | Configurable flags exist for issue, receive, discard, quarantine release, directed conversion, and transfusion dual ID. | Medical director + nursing |
+
+When a decision is closed, move the row to the bottom with the effective date,
+the chosen configuration values, and the validation evidence ID. Do not delete
+the history.

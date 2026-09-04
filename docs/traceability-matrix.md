@@ -82,5 +82,11 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-AU-01 | Audit every clinical action | architecture 4.1 | Each use case writes AuditEvent | A | 21 CFR 606.160(a) |
 | R-AU-02 | No silent data change | safety-rules 7 | Corrections versioned, originals kept; append-only interceptor | A,I | 21 CFR 606.160 |
 | R-AU-03 | Record retention | SystemSettings Record.RetentionYears | 10-year metadata; no purge of product/compatibility/transfusion/audit | I | 21 CFR 606.160(d) |
+| URS-BB-007 / FRS-BB-041 | One active reservation and one open issue per unit | `IX_Allocations_OneReservedPerUnit`; `IX_Issues_OneOpenIssuePerUnit`; `InventoryConcurrency` | `AllocationIssueConcurrencyTests` | I | RISK-BB-006 |
+| URS-BB-008 / FRS-BB-032 | Autologous/directed issue only to designated recipient | `IssueGate` + `AutologousDirectedRule` `ISS-AUTO-DIR` | `IssueGateSafetyRegressionTests`; Phase 4 | D,I | RISK-BB-007 |
+| URS-BB-009 / FRS-BB-033 | Electronic XM blocked by any antibody history row | `ElectronicCrossmatchEligibilityService` `XM-EC-HISTORY` | `ElectronicXmHistoryRegressionTests` | I | RISK-BB-005; OCD-001 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
+
+Stable ID map: `docs/requirements/USER_REQUIREMENTS.md`, `FUNCTIONAL_REQUIREMENTS.md`, `DESIGN_REQUIREMENTS.md`.
+Living risk register: `docs/risk/RISK_REGISTER.md`.

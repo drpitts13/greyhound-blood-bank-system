@@ -223,6 +223,11 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("BloodProductId", "Status");
 
+                    b.HasIndex("BloodProductId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Allocations_OneReservedPerUnit")
+                        .HasFilter("[Status] = 0");
+
                     b.ToTable("Allocations", (string)null);
                 });
 
@@ -3779,6 +3784,11 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BloodProductId");
+
+                    b.HasIndex("BloodProductId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Issues_OneOpenIssuePerUnit")
+                        .HasFilter("[Status] = 0");
 
                     b.HasIndex("EncounterId");
 

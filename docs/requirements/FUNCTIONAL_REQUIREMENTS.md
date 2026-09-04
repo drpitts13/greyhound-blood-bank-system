@@ -1,0 +1,19 @@
+# Functional requirements
+
+| ID | Requirement | URS | Design | Tests |
+|---|---|---|---|---|
+| FRS-BB-001 | Patient identity match at issue requires two tokens that match stored MRN/DOB/name fields (`PatientIdentityMatchRule`). | URS-BB-001 | `IssueGate` `ISS-IDENTITY` | Domain + issue integration |
+| FRS-BB-002 | Antibody history is append-only. Deactivation requires a reason and does not delete the row. Deactivated rows remain visible and continue to block electronic XM. | URS-BB-002 | `AntibodyHistory`; `ElectronicCrossmatchEligibilityService` | `ElectronicXmHistoryRegressionTests` |
+| FRS-BB-010 | Specimen expiration is computed from collection time and alloimmunization-risk policy. Expired specimens HardStop issue. | URS-BB-003 | `SpecimenExpirationRule` | Domain expiry boundary |
+| FRS-BB-020 | Verified results are not overwritten. Corrections create a new version and retain the original. | URS-BB-004 | `ResultService` | Result versioning tests |
+| FRS-BB-030 | Compatibility decisions return structured `RuleResult` codes and messages. The engine never downgrades a HardStop. | URS-BB-005 | `RuleEvaluation` | Aggregation tests |
+| FRS-BB-031 | `IssueGate` evaluates identity, specimen, ABO/Rh, allocation, XM, special requirements, appearance, location, emergency ABO, antigen-negative, and autologous/directed rules before issue. | URS-BB-006 | `IssueGate` | `IssueGateSafetyRegressionTests` |
+| FRS-BB-032 | Autologous/directed issue to a non-designated patient is HardStop `ISS-AUTO-DIR` inside the issue gate. | URS-BB-008 | `AutologousDirectedRule` | Domain + issue integration |
+| FRS-BB-033 | Electronic XM eligibility is an evaluated service (`eligible` + criteria), not a checkbox. Any antibody-history row fails `XM-EC-HISTORY`. | URS-BB-009 | `ElectronicCrossmatchEligibilityService` | Eligibility tests |
+| FRS-BB-040 | Emergency/MTP issue is a distinct type. Missing XM becomes an overridable Warning; ABO/identity/status HardStops still apply unless a listed emergency warning conversion exists. Override reason and authorizer are required. | URS-BB-006 | `IssuingService` | Phase 4 emergency tests |
+| FRS-BB-041 | At most one `Reserved` allocation and one `Issued` issue exist per unit (filtered unique indexes). Concurrent conflicts fail closed. | URS-BB-007 | `IX_Allocations_OneReservedPerUnit`, `IX_Issues_OneOpenIssuePerUnit` | `AllocationIssueConcurrencyTests` |
+| FRS-BB-050 | Inventory transitions are allow-listed. Each transition writes `InventoryStatusHistory` + audit. | URS-BB-010 | `InventoryStatusTransition` | Transition tests |
+| FRS-BB-060 | Audit events are append-only and written in the same save pipeline as the change. | URS-BB-011 | `BloodBankDbContext` | Audit tests |
+| FRS-BB-070 | Configuration catalogs are versioned/effective-dated where modeled and write `ConfigurationChangeHistory`. | URS-BB-012 | Admin services | Admin catalog tests |
+| FRS-BB-080 | HL7 inbound stores raw message, parse status, ACK, and error-queue entries. | URS-BB-013 | `BloodBankLIS.HL7` | HL7 tests |
+| FRS-BB-090 | Downtime recovery is documented; duplicate prevention uses unique keys listed in `docs/DOWNTIME_PLAN.md`. | URS-BB-014 | Downtime plan | Operational checklist |

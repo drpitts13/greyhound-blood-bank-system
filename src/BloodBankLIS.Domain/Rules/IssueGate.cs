@@ -59,6 +59,59 @@ public sealed record IssueGateContext
     /// <summary>Coded SoftBank/SafeTrace appearance catalog at issue.</summary>
     public UnitAppearance Appearance { get; init; } = UnitAppearance.Acceptable;
 
+    /// <summary>Unit has a configured current inventory location.</summary>
+    public bool LocationKnown { get; init; }
+
+    public bool LocationActive { get; init; } = true;
+
+    public bool LocationAllowsIssue { get; init; } = true;
+
+    public bool LocationAllowsRemoteIssue { get; init; }
+
+    public bool LocationAllowsElectronicIssue { get; init; } = true;
+
+    public bool LocationRequiresSecondVerifier { get; init; }
+
+    public bool LocationAllowsComponent { get; init; } = true;
+
+    public bool HasSecondVerifier { get; init; }
+
+    public bool IsRemoteIssue { get; init; }
+
+    public bool IsElectronicIssue { get; init; }
+
+    /// <summary>AABB 5.16 computer-crossmatch preconditions hold for this patient.</summary>
+    public bool ElectronicCrossmatchEligible { get; init; }
+
+    /// <summary>Facility requires two concordant ABO/Rh determinations for RBC/WB issue.</summary>
+    public bool RequireSecondAboForCellularIssue { get; init; } = true;
+
+    /// <summary>Current type plus a matching historical or second-sample determination.</summary>
+    public bool HasSecondConcordantAboRh { get; init; }
+
+    public Sex PatientSex { get; init; }
+
+    public int? PatientAgeYears { get; init; }
+
+    public bool UncrossmatchedMustBeGroupO { get; init; } = true;
+
+    public bool UncrossmatchedONegForChildbearing { get; init; } = true;
+
+    public int ChildbearingAgeYears { get; init; } = 50;
+
+    /// <summary>Allogeneic, autologous, or directed. Autologous/directed must match <see cref="ReservedPatientId"/>.</summary>
+    public DonationRestriction DonationRestriction { get; init; } = DonationRestriction.Allogeneic;
+
+    public long? ReservedPatientId { get; init; }
+
+    public long IssuePatientId { get; init; }
+
+    /// <summary>Issue is tied to a product or test order.</summary>
+    public bool OrderLinked { get; init; }
+
+    /// <summary>Linked order is still open for fulfillment (not hold/cancel/complete).</summary>
+    public bool OrderIsFulfillable { get; init; } = true;
+
     public required DateTime NowUtc { get; init; }
     public TimeSpan SpecimenNearExpiryWindow { get; init; } = TimeSpan.FromHours(12);
     public TimeSpan UnitNearExpiryWindow { get; init; } = TimeSpan.FromHours(24);
@@ -108,9 +161,7 @@ public static class IssueGate
 
             SpecimenExpirationRule.Evaluate(c.SpecimenExpiresUtc, c.NowUtc, c.SpecimenNearExpiryWindow),
 
-            c.PatientBloodTypeKnown
-                ? RuleResult.Pass(PatientAboRhCode)
-                : RuleResult.HardStop(PatientAboRhCode, "Patient ABO/Rh is not established."),
+            EvaluatePatientTypeKnown(c),
 
             c.UnitAboRh.IsKnown
                 ? RuleResult.Pass(UnitAboRhCode)
@@ -133,7 +184,8 @@ public static class IssueGate
             CrossmatchValidityRule.Evaluate(
                 RequiresCrossmatchEffective(c),
                 c.HasValidCrossmatch,
-                c.IsEmergencyRelease),
+                c.IsEmergencyRelease,
+                c.ElectronicCrossmatchEligible && (c.IsElectronicIssue || c.IsRemoteIssue)),
 
             c.SpecialRequirementsMet
                 ? RuleResult.Pass(SpecialReqCode)
@@ -145,14 +197,54 @@ public static class IssueGate
 
             IssueAppearanceRule.Evaluate(c.Appearance),
 
-            EvaluateDiscrepancy(c)
+            EvaluateDiscrepancy(c),
+
+            AutologousDirectedRule.EvaluateIssue(c.DonationRestriction, c.ReservedPatientId, c.IssuePatientId),
+
+            SecondAboDeterminationRule.EvaluateForCellularIssue(
+                c.RequireSecondAboForCellularIssue,
+                c.HasSecondConcordantAboRh,
+                c.ComponentClass,
+                c.IsEmergencyRelease),
+
+            OrderControlRule.EvaluateIssue(c.OrderLinked, c.OrderIsFulfillable)
         };
+
+        results.AddRange(EmergencyUncrossmatchedAboRule.Evaluate(
+            c.IsEmergencyRelease,
+            c.ComponentClass,
+            c.UnitAboRh,
+            c.PatientAboRh,
+            c.PatientSex,
+            c.PatientAgeYears,
+            c.UncrossmatchedMustBeGroupO,
+            c.UncrossmatchedONegForChildbearing,
+            c.ChildbearingAgeYears));
+
+        results.AddRange(InventoryLocationPolicyRule.EvaluateIssue(
+            c.LocationKnown,
+            c.LocationActive,
+            c.LocationAllowsComponent,
+            c.LocationAllowsIssue,
+            c.LocationAllowsRemoteIssue,
+            c.LocationAllowsElectronicIssue,
+            c.LocationRequiresSecondVerifier,
+            c.HasSecondVerifier,
+            c.IsRemoteIssue,
+            c.IsElectronicIssue,
+            c.IsEmergencyRelease,
+            c.ElectronicCrossmatchEligible));
 
         // Ordered checks: (1) ABORH Ag/Ab, (2) non-ABORH antigen-neg for RBC/WB.
         // Complex XM (3) is enforced at allocation/order time; compatible XM (4) above.
         if (c.PatientBloodTypeKnown && c.UnitAboRh.IsKnown)
         {
-            results.AddRange(AboCompatibilityRule.Evaluate(c.PatientAboRh, c.UnitAboRh, c.ComponentClass));
+            var abo = AboCompatibilityRule.Evaluate(c.PatientAboRh, c.UnitAboRh, c.ComponentClass);
+            results.AddRange(c.IsEmergencyRelease
+                ? abo.Select(r => r.Severity == RuleSeverity.HardStop
+                    ? RuleResult.Warning(r.Code, r.Message)
+                    : r)
+                : abo);
         }
 
         results.AddRange(BloodAttributeCompatibilityRule.Evaluate(
@@ -169,6 +261,20 @@ public static class IssueGate
     internal static bool RequiresCrossmatchEffective(IssueGateContext c) =>
         c.RequiresCrossmatch
         || c.ComponentClass is ComponentClass.RedBloodCells or ComponentClass.WholeBlood;
+
+    private static RuleResult EvaluatePatientTypeKnown(IssueGateContext c)
+    {
+        if (c.PatientBloodTypeKnown)
+        {
+            return RuleResult.Pass(PatientAboRhCode);
+        }
+
+        return c.IsEmergencyRelease
+            ? RuleResult.Warning(
+                PatientAboRhCode,
+                "Patient ABO/Rh is not established; uncrossmatched emergency or MTP issue requires an authorized override.")
+            : RuleResult.HardStop(PatientAboRhCode, "Patient ABO/Rh is not established.");
+    }
 
     private static RuleResult EvaluateDiscrepancy(IssueGateContext c)
     {
