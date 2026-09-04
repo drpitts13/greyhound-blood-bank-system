@@ -19,6 +19,9 @@ public static class FacilityPolicyKeys
     public const string ExpectedArrivalDueHours = "Inventory.ExpectedArrivalDueHours";
     public const string NearExpiryWarningHours = "Inventory.NearExpiryWarningHours";
     public const string BlockSelfVerify = "Result.BlockSelfVerify";
+
+    /// <summary>The user who entered a unit ABO/Rh retype may not verify it.</summary>
+    public const string BlockRetypeSelfVerify = "Inventory.BlockRetypeSelfVerify";
     public const string RetentionYears = "Record.RetentionYears";
     public const string SignatureValidityMinutes = "Signature.ValidityMinutes";
 

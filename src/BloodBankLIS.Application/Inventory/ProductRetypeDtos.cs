@@ -40,12 +40,13 @@ public sealed record ProductRetypeResultDto(
     ResultStatus Status,
     string EnteredBy,
     DateTime EnteredUtc,
+    string? VerifiedBy,
     string DisplayValue)
 {
     public static ProductRetypeResultDto From(ProductRetypeResult r) => new(
         r.Id, r.BloodProductId, r.TestCode, r.InterpretedAbo, r.InterpretedRh,
         r.MatchesLabel, r.DiscrepancyDetail, r.Status, r.EnteredBy, r.EnteredUtc,
-        AboRhResultValue.FormatDisplay(r.Value));
+        r.VerifiedBy, AboRhResultValue.FormatDisplay(r.Value));
 }
 
 public sealed record ProductRetypeDetailDto(
@@ -59,6 +60,7 @@ public sealed record ProductRetypeDetailDto(
     string LabeledBloodType,
     UnitStatus Status,
     bool CanRecord,
+    bool CanVerify,
     string? BlockReason,
     bool AntiDRequired,
     IReadOnlyList<ProductRetypeSubtestDto> Subtests,

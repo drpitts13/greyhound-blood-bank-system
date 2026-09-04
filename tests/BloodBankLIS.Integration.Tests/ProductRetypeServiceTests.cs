@@ -1,3 +1,5 @@
+using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Domain.Entities;
@@ -31,14 +33,35 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             _factory.CurrentUser,
             new AuditWriter(context, _factory.Clock, _factory.CurrentUser));
 
-    private ProductRetypeService Retype(BloodBankDbContext context) =>
+    private ProductRetypeService Retype(BloodBankDbContext context, ICurrentUser? user = null) =>
         new(
             new InventoryRepository(context),
             new EfRepository<ProductRetypeResult>(context),
             new EfRepository<TestDefinition>(context),
             context,
             _factory.Clock,
-            _factory.CurrentUser);
+            user ?? _factory.CurrentUser);
+
+    private ProductRetypeService RetypeWithPolicy(BloodBankDbContext context, ICurrentUser? user = null) =>
+        new(
+            new InventoryRepository(context),
+            new EfRepository<ProductRetypeResult>(context),
+            new EfRepository<TestDefinition>(context),
+            context,
+            _factory.Clock,
+            user ?? _factory.CurrentUser,
+            new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
+
+    private static RecordProductRetypeRequest MatchOPos() => new(
+        AboGroup.O,
+        null,
+        new Dictionary<string, string>
+        {
+            [AboRhPanelSubtestCodes.AntiA] = "0",
+            [AboRhPanelSubtestCodes.AntiB] = "0"
+        });
+
+    private static ICurrentUser Verifier => new TestCurrentUser("tech-verify", "WORKSTATION-2");
 
     private async Task<(long ProductTypeId, long UnitId)> SeedReceivedUnitAsync(
         string unitNumber,
@@ -94,22 +117,25 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
-    public async Task MatchingRetype_MovesReceivedToAvailable()
+    public async Task MatchingRetype_StaysReceivedUntilVerifiedBySecondUser()
     {
         var (_, unitId) = await SeedReceivedUnitAsync("RT-MATCH", AboGroup.O, RhType.Positive);
         await using var context = _factory.Create();
-        var result = await Retype(context).RecordAsync(unitId, new RecordProductRetypeRequest(
-            AboGroup.O,
-            null,
-            new Dictionary<string, string>
-            {
-                [AboRhPanelSubtestCodes.AntiA] = "0",
-                [AboRhPanelSubtestCodes.AntiB] = "0"
-            }));
+        var entered = await Retype(context).RecordAsync(unitId, MatchOPos());
 
-        Assert.True(result.Succeeded);
-        Assert.Equal(UnitStatus.Available, result.Value!.Status);
-        Assert.True(result.Value.Latest!.MatchesLabel);
+        Assert.True(entered.Succeeded);
+        Assert.Equal(UnitStatus.Received, entered.Value!.Status);
+        Assert.True(entered.Value.CanVerify);
+        Assert.Equal(ResultStatus.Entered, entered.Value.Latest!.Status);
+
+        var self = await Retype(context).VerifyAsync(unitId, entered.Value.Latest.Id);
+        Assert.False(self.Succeeded);
+        Assert.Contains(self.Evaluation!.HardStops, r => r.Code == SelfVerifyRule.Code);
+
+        var verified = await Retype(context, Verifier).VerifyAsync(unitId, entered.Value.Latest.Id);
+        Assert.True(verified.Succeeded, verified.Error);
+        Assert.Equal(UnitStatus.Available, verified.Value!.Status);
+        Assert.Equal("tech-verify", verified.Value.Latest!.VerifiedBy);
 
         var unit = await context.BloodUnits.AsNoTracking().FirstAsync(u => u.Id == unitId);
         Assert.Equal(UnitStatus.Available, unit.Status);
@@ -132,9 +158,13 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             }));
 
         Assert.True(result.Succeeded);
-        Assert.Equal(UnitStatus.Quarantine, result.Value!.Status);
+        Assert.Equal(UnitStatus.Received, result.Value!.Status);
         Assert.False(result.Value.Latest!.MatchesLabel);
         Assert.NotNull(result.Value.Latest.DiscrepancyDetail);
+
+        var verified = await Retype(context, Verifier).VerifyAsync(unitId, result.Value.Latest.Id);
+        Assert.True(verified.Succeeded, verified.Error);
+        Assert.Equal(UnitStatus.Quarantine, verified.Value!.Status);
 
         var unit = await context.BloodUnits.AsNoTracking().FirstAsync(u => u.Id == unitId);
         Assert.Equal(UnitStatus.Quarantine, unit.Status);
@@ -213,5 +243,28 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
 
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(UnitStatus.Received, result.Unit!.Status);
+    }
+
+    [Fact]
+    public async Task SameUserMayVerifyWhenRetypeSelfVerifyPolicyIsOff()
+    {
+        var (_, unitId) = await SeedReceivedUnitAsync("RT-SELF-OK", AboGroup.O, RhType.Positive);
+        await using var context = _factory.Create();
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.BlockRetypeSelfVerify,
+            Value = "false",
+            Category = "Inventory",
+            Description = "Test override"
+        });
+        await context.SaveChangesAsync();
+
+        var entered = await RetypeWithPolicy(context).RecordAsync(unitId, MatchOPos());
+        Assert.True(entered.Succeeded);
+
+        var verified = await RetypeWithPolicy(context).VerifyAsync(unitId, entered.Value!.Latest!.Id);
+        Assert.True(verified.Succeeded, verified.Error);
+        Assert.Equal(UnitStatus.Available, verified.Value!.Status);
+        Assert.Equal(_factory.CurrentUser.UserName, verified.Value.Latest!.VerifiedBy);
     }
 }

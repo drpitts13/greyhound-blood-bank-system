@@ -322,6 +322,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ProductRetypeDetailDto>> RecordUnitRetypeAsync(long unitId, RecordProductRetypeRequest req, CancellationToken ct = default) =>
         SendAsync<ProductRetypeDetailDto>(HttpMethod.Post, $"api/inventory/units/{unitId}/retype", req, ct);
 
+    public Task<ApiResult<ProductRetypeDetailDto>> VerifyUnitRetypeAsync(long unitId, long resultId, CancellationToken ct = default) =>
+        SendAsync<ProductRetypeDetailDto>(HttpMethod.Post, $"api/inventory/units/{unitId}/retype/{resultId}/verify", ct: ct);
+
     // ---- ISBT 128 ----
     public Task<ApiResult<ParseIsbtInputResponse>> ParseIsbtAsync(ParseIsbtInputRequest req, CancellationToken ct = default) =>
         SendAsync<ParseIsbtInputResponse>(HttpMethod.Post, "api/isbt/parse", req, ct);

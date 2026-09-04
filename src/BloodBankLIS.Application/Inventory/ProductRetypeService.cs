@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -9,8 +10,8 @@ using BloodBankLIS.Domain.ValueObjects;
 namespace BloodBankLIS.Application.Inventory;
 
 /// <summary>
-/// Records front-type ABO/Rh retypes on inventory units and releases matching
-/// units from Received to Available (or Quarantine on discrepancy).
+/// Records front-type ABO/Rh retypes on inventory units. Matching units move from
+/// Received to Available only after verification (or Quarantine on discrepancy).
 /// </summary>
 public sealed class ProductRetypeService
 {
@@ -26,6 +27,7 @@ public sealed class ProductRetypeService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
+    private readonly FacilityPolicyService? _policy;
 
     public ProductRetypeService(
         IInventoryRepository inventory,
@@ -33,7 +35,8 @@ public sealed class ProductRetypeService
         IRepository<TestDefinition> tests,
         IUnitOfWork unitOfWork,
         IClock clock,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser,
+        FacilityPolicyService? policy = null)
     {
         _inventory = inventory;
         _results = results;
@@ -41,6 +44,7 @@ public sealed class ProductRetypeService
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
+        _policy = policy;
     }
 
     public async Task<IReadOnlyList<ProductRetypeWorkItemDto>> ListPendingAsync(CancellationToken ct = default)
@@ -60,7 +64,9 @@ public sealed class ProductRetypeService
         var latest = await LatestForUnitAsync(unitId, ct);
         var requires = unit.ProductType?.RequiresRetype == true;
         var antiDRequired = unit.RhD == RhType.Negative;
+        var awaitingVerify = latest?.Status == ResultStatus.Entered;
         var canRecord = requires && unit.Status == UnitStatus.Received;
+        var canVerify = canRecord && awaitingVerify;
         string? blockReason = null;
         if (!requires)
         {
@@ -69,6 +75,10 @@ public sealed class ProductRetypeService
         else if (unit.Status != UnitStatus.Received)
         {
             blockReason = $"Retype can only be recorded while the unit is Received (current status: {unit.Status}).";
+        }
+        else if (awaitingVerify)
+        {
+            blockReason = "An entered retype is awaiting verification. A second user must verify before the unit is released.";
         }
 
         return new ProductRetypeDetailDto(
@@ -82,6 +92,7 @@ public sealed class ProductRetypeService
             unit.BloodType.ToString(),
             unit.Status,
             canRecord,
+            canVerify,
             blockReason,
             antiDRequired,
             BuildSubtests(antiDRequired),
@@ -156,31 +167,94 @@ public sealed class ProductRetypeService
             subtests);
         var stored = AboRhResultValue.FormatPanel(panel);
 
-        var result = new ProductRetypeResult
+        var pending = await LatestEnteredTrackedAsync(unit.Id, ct);
+        if (pending is not null)
         {
-            BloodProductId = unit.Id,
-            TestDefinitionId = test.Id,
-            TestCode = test.Code,
-            Value = stored,
-            InterpretedAbo = outcome.InterpretedAbo,
-            InterpretedRh = outcome.InterpretedRh,
-            MatchesLabel = outcome.MatchesLabel,
-            DiscrepancyDetail = outcome.DiscrepancyDetail,
-            Status = ResultStatus.Verified,
-            EnteredBy = _currentUser.UserName,
-            EnteredUtc = now,
-            VerifiedBy = _currentUser.UserName,
-            VerifiedUtc = now
-        };
-        await _results.AddAsync(result, ct);
+            pending.TestDefinitionId = test.Id;
+            pending.TestCode = test.Code;
+            pending.Value = stored;
+            pending.InterpretedAbo = outcome.InterpretedAbo;
+            pending.InterpretedRh = outcome.InterpretedRh;
+            pending.MatchesLabel = outcome.MatchesLabel;
+            pending.DiscrepancyDetail = outcome.DiscrepancyDetail;
+            pending.Status = ResultStatus.Entered;
+            pending.EnteredBy = _currentUser.UserName;
+            pending.EnteredUtc = now;
+            pending.VerifiedBy = null;
+            pending.VerifiedUtc = null;
+        }
+        else
+        {
+            await _results.AddAsync(new ProductRetypeResult
+            {
+                BloodProductId = unit.Id,
+                TestDefinitionId = test.Id,
+                TestCode = test.Code,
+                Value = stored,
+                InterpretedAbo = outcome.InterpretedAbo,
+                InterpretedRh = outcome.InterpretedRh,
+                MatchesLabel = outcome.MatchesLabel,
+                DiscrepancyDetail = outcome.DiscrepancyDetail,
+                Status = ResultStatus.Entered,
+                EnteredBy = _currentUser.UserName,
+                EnteredUtc = now
+            }, ct);
+        }
 
-        if (outcome.MatchesLabel)
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        var detail = await GetForUnitAsync(unitId, ct);
+        return EvaluationResult<ProductRetypeDetailDto>.Ok(detail!);
+    }
+
+    public async Task<EvaluationResult<ProductRetypeDetailDto>> VerifyAsync(
+        long unitId,
+        long resultId,
+        CancellationToken ct = default)
+    {
+        var unit = await _inventory.GetUnitAsync(unitId, ct);
+        if (unit is null)
+        {
+            return EvaluationResult<ProductRetypeDetailDto>.Fail("Unit not found.");
+        }
+
+        if (unit.Status != UnitStatus.Received)
+        {
+            return EvaluationResult<ProductRetypeDetailDto>.Fail(
+                $"Retype can only be verified while the unit is Received (current status: {unit.Status}).");
+        }
+
+        var result = await _results.GetByIdAsync(resultId, ct);
+        if (result is null || result.BloodProductId != unit.Id)
+        {
+            return EvaluationResult<ProductRetypeDetailDto>.Fail("Retype result not found.");
+        }
+
+        if (result.Status != ResultStatus.Entered)
+        {
+            return EvaluationResult<ProductRetypeDetailDto>.Fail(
+                $"A retype with status {result.Status} cannot be verified.");
+        }
+
+        var blockSelfVerify = _policy is null || await _policy.GetBlockRetypeSelfVerifyAsync(ct);
+        var selfVerify = SelfVerifyRule.Evaluate(result.EnteredBy, _currentUser.UserName, blockSelfVerify);
+        if (selfVerify.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<ProductRetypeDetailDto>.Blocked(new RuleEvaluation([selfVerify]));
+        }
+
+        var now = _clock.UtcNow;
+        result.Status = ResultStatus.Verified;
+        result.VerifiedBy = _currentUser.UserName;
+        result.VerifiedUtc = now;
+
+        if (result.MatchesLabel)
         {
             ApplyStatus(unit, UnitStatus.Available, "ABO/Rh retype confirmed");
         }
         else
         {
-            var reason = outcome.DiscrepancyDetail ?? "ABO/Rh retype discrepancy";
+            var reason = result.DiscrepancyDetail ?? "ABO/Rh retype discrepancy";
             unit.QuarantineReason = reason;
             unit.QuarantineReasonCode = UnitQuarantineReason.RetypeDiscrepancy;
             ApplyStatus(unit, UnitStatus.Quarantine, reason);
@@ -197,6 +271,17 @@ public sealed class ProductRetypeService
             .OrderByDescending(r => r.EnteredUtc)
             .ThenByDescending(r => r.Id)
             .FirstOrDefault();
+
+    private async Task<ProductRetypeResult?> LatestEnteredTrackedAsync(long unitId, CancellationToken ct)
+    {
+        var latest = await LatestForUnitAsync(unitId, ct);
+        if (latest is null || latest.Status != ResultStatus.Entered)
+        {
+            return null;
+        }
+
+        return await _results.GetByIdAsync(latest.Id, ct);
+    }
 
     private void ApplyStatus(BloodUnit unit, UnitStatus toStatus, string reason)
     {

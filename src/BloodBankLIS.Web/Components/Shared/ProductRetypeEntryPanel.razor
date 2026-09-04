@@ -15,7 +15,11 @@
             <p>
                 @Detail.Latest.DisplayValue
                 <span class="@Ui.Badge(Detail.Latest.Status)">@Detail.Latest.Status</span>
-                by @Detail.Latest.EnteredBy at @Detail.Latest.EnteredUtc.ToString("yyyy-MM-dd HH:mm")
+                entered by @Detail.Latest.EnteredBy at @Detail.Latest.EnteredUtc.ToString("yyyy-MM-dd HH:mm")
+                @if (!string.IsNullOrWhiteSpace(Detail.Latest.VerifiedBy))
+                {
+                    <span> · verified by @Detail.Latest.VerifiedBy</span>
+                }
             </p>
             @if (!Detail.Latest.MatchesLabel)
             {
@@ -30,7 +34,15 @@
 
     <Outcome Value="_fb" />
 
-    @if (!string.IsNullOrWhiteSpace(Detail.BlockReason) && !Detail.CanRecord)
+    @if (Detail.CanVerify)
+    {
+        <div class="alert alert-warning">@(Detail.BlockReason ?? "An entered retype is awaiting verification.")</div>
+        @if (Session.Has(PermissionCodes.ResultVerify))
+        {
+            <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="VerifyAsync">Verify retype</button>
+        }
+    }
+    else if (!string.IsNullOrWhiteSpace(Detail.BlockReason) && !Detail.CanRecord)
     {
         <p class="muted">@Detail.BlockReason</p>
     }
@@ -152,9 +164,26 @@
         _busy = false;
         if (r.Succeeded && r.Value is not null)
         {
+            _fb = r.ToFeedback("Retype entered. A second user must verify before the unit is released.");
+            await OnSaved.InvokeAsync();
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+        }
+    }
+
+    private async Task VerifyAsync()
+    {
+        if (Detail.Latest is null) return;
+        _busy = true;
+        var r = await Api.VerifyUnitRetypeAsync(Detail.UnitId, Detail.Latest.Id);
+        _busy = false;
+        if (r.Succeeded && r.Value is not null)
+        {
             var msg = r.Value.Latest?.MatchesLabel == true
-                ? "Retype confirmed. Unit is Available."
-                : (r.Value.Latest?.DiscrepancyDetail ?? "Retype recorded. Unit moved to Quarantine.");
+                ? "Retype verified. Unit is Available."
+                : (r.Value.Latest?.DiscrepancyDetail ?? "Retype verified. Unit moved to Quarantine.");
             _fb = r.ToFeedback(msg);
             await OnSaved.InvokeAsync();
         }

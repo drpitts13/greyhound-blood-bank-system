@@ -180,6 +180,16 @@ public static class InventoryEndpoints
             var result = await service.RecordAsync(id, request, ct);
             return EndpointResults.FromEvaluation(result, d => d);
         }).RequirePermission(PermissionCodes.ResultEnter);
+
+        group.MapPost("/units/{id:long}/retype/{resultId:long}/verify", async (
+            long id,
+            long resultId,
+            ProductRetypeService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.VerifyAsync(id, resultId, ct);
+            return EndpointResults.FromEvaluation(result, d => d);
+        }).RequirePermission(PermissionCodes.ResultVerify);
     }
 
     private static IResult ToHttpResult(InventoryActionResult result) =>

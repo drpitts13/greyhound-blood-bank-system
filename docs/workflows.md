@@ -17,8 +17,9 @@ flowchart TD
     flag -->|Yes| rec[Create BloodProduct in Received]
     rec --> histR[InventoryStatusHistory: null -> Received]
     histR --> retype[Record front-type ABO/Rh retype]
-    retype -->|Match| avail[Status -> Available]
-    retype -->|Mismatch| q2[Status -> Quarantine for supervisor review]
+    retype --> verify[Second user verifies retype]
+    verify -->|Match| avail[Status -> Available]
+    verify -->|Mismatch| q2[Status -> Quarantine for supervisor review]
     flag -->|No| d[Create BloodProduct in Quarantine or Available]
     d --> e[Record InventoryStatusHistory]
     e --> f{Release checks pass?}
@@ -29,9 +30,9 @@ flowchart TD
 
 - Use case: `ExpectUnitAsync` (packing-list / ASN), `ReceiveExpectedUnitAsync`, `CancelExpectedUnitAsync`, `ReceiveUnitCommand` (walk-in), `ReleaseUnitFromQuarantineCommand`, `RecordProductRetype`.
 - Expected inbound (SoftBank/SafeTrace consignee receipt): `POST /api/inventory/units/expected` creates `Expected` without visual inspection and sets `ExpectedArrivalDueUtc` from `Inventory.ExpectedArrivalDueHours` (default 24). The expected worklist (`GET /api/inventory/units/expected`) flags overdue packing lists (`INV-EXPECT-OVERDUE`). Confirm arrival (`receive-expected`) applies `INV-RCV-VISUAL` and lands in `Received` (retype) or `Quarantine`; late arrival is still allowed and is audited as late. Cancel moves to `CancelledAssignment`. Walk-in receive remains available for units that arrive without a prior packing list.
-- Products with Retype Y start in `Received`. ISBT "Release to Available" is ignored until a matching retype is recorded.
+- Products with Retype Y start in `Received`. ISBT "Release to Available" is ignored until a matching retype is verified.
 - Front-type retype: Anti-A and Anti-B always; Anti-D required only when the unit is labeled Rh negative.
-- Matching retype: `Received -> Available`. Mismatch: `Received -> Quarantine` with the discrepancy as the reason (supervisor uses existing release).
+- Recording a retype leaves the unit `Received` (`Entered`). Verify (`POST /api/inventory/units/{id}/retype/{resultId}/verify`) applies `RES-SELF-VERIFY` when `Inventory.BlockRetypeSelfVerify` is on (default). Matching verify: `Received -> Available`. Mismatch: `Received -> Quarantine` with the discrepancy as the reason (supervisor uses existing release).
 - Checks: unit number unique; expiration in the future; product type known; ABO/Rh present; coded appearance Acceptable (`INV-RCV-APPEAR` / `INV-RCV-VISUAL`; policy `Inventory.RequireReceiveVisualInspection`, default true); shipping-container temperature in 1–10 °C (`INV-RCV-TEMP`; policy `Inventory.RequireReceiveTemperature`, default true); autologous/directed recipient designated (`INV-AUTO-DIR`); distinct directory second verifier (`INV-RCV-2ND`; policy `Inventory.RequireReceiveVerifier`, default true). Defects (clots, hemolysis, leaking, …) and out-of-range temperatures are not received — return the unit to the supplier. Expect-unit (packing list) does not require visual, temperature, or a second verifier until arrival is confirmed; autologous/directed still require the intended recipient on the packing list.
 - Quarantine release (`INV-Q-RELEASE-2ND`) requires a distinct active directory user as second verifier (SoftBank/SafeTrace quality release). Policy: `Inventory.RequireQuarantineReleaseVerifier` (default true).
 - Discard (`INV-DISC-2ND`) requires a distinct active directory user as second verifier (SoftBank/SafeTrace dual control to destroy a unit). Policy: `Inventory.RequireDiscardVerifier` (default true).

@@ -74,6 +74,9 @@ public sealed class FacilityPolicyService
     public Task<bool> GetBlockSelfVerifyAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.BlockSelfVerify, false, ct);
 
+    public Task<bool> GetBlockRetypeSelfVerifyAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.BlockRetypeSelfVerify, true, ct);
+
     public Task<int> GetSignatureValidityMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.SignatureValidityMinutes, 15, ct);
 

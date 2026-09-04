@@ -20,6 +20,7 @@ automatically FDA, AABB, CAP, or CLIA certified.
 | OCD-008 | Second-verifier policy | Which workflows require a distinct directory second user vs validated electronic identification? | Configurable flags exist for issue, receive, discard, quarantine release, directed conversion, and transfusion dual ID. | Medical director + nursing |
 | OCD-009 | Inactive patient clinical use | May an Inactive (not Merged) patient receive testing, allocation, or issue? | Merged records are HardStop `PAT-MERGED-INACTIVE`. Inactive records remain usable. | Medical director + registration |
 | OCD-010 | Manual merge authorization | Does merging two patient records require a second authorizer in addition to `patient.merge`? | Manual merge requires `patient.merge` (not `patient.write`). Seeded to Supervisor and Administrator, not Technologist. Reason is required. Discordant ABO/Rh remains a HardStop. A second authorizer is not implemented. | Medical director + registration + quality |
+| OCD-011 | Unit retype self-verify | May the same user who entered a unit ABO/Rh retype verify it and release the unit? | Default `Inventory.BlockRetypeSelfVerify` is on. Record leaves the unit Received. Verify applies `RES-SELF-VERIFY` and only then moves to Available or Quarantine. | Blood bank supervisor + medical director |
 
 When a decision is closed, move the row to the bottom with the effective date,
 the chosen configuration values, and the validation evidence ID. Do not delete
