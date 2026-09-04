@@ -136,6 +136,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-069 / FRS-BB-103 | Direct interface transfusion documentation requires transfusion.document in Application | `TXN-IFACE-PERM` | `IssueAuthorizationRuleTests`; `InterfaceTransfusionAuthorizationTests` | D,I | RISK-BB-072 |
 | URS-BB-071 / FRS-BB-105 | ISBT scan-session start and add-scan require inventory.receive in Application | `INV-SCAN-START-PERM`, `INV-SCAN-ADD-PERM` | `InventoryAuthorizationRuleTests`; `ScanSessionAuthorizationTests` | D,I | RISK-BB-074 |
 | URS-BB-073 / FRS-BB-107 | User activate/lock/password-reset require admin.users.manage in Application | `USR-ACTIVE-PERM`, `USR-LOCK-PERM`, `USR-RESET-PERM` | `AdminAuthorizationRuleTests`; `UserAdminAuthorizationTests` | D,I | RISK-BB-076 |
+| URS-BB-074 / FRS-BB-108 | Test-definition catalog writes require admin.tests.manage in Application | `TEST-CREATE-PERM`, `TEST-UPD-PERM`, `TEST-ACT-PERM`, `TEST-DEACT-PERM`, `TEST-CLONE-PERM` | `TestCatalogAuthorizationRuleTests`; `TestDefinitionAuthorizationTests` | D,I | RISK-BB-078 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

@@ -46,6 +46,8 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
     private readonly IRepository<SpecimenTypeDefinition> _specimenTypeRepo;
 
+    private readonly IPermissionEvaluator? _permissionEvaluator;
+
 
 
     public TestDefinitionAdminService(
@@ -68,7 +70,9 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         IAuditWriter audit,
 
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+
+        IPermissionEvaluator? permissionEvaluator = null)
 
         : base(unitOfWork, clock, currentUser, audit, history)
 
@@ -83,6 +87,8 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
         _bloodAttrRepo = bloodAttrRepo;
 
         _specimenTypeRepo = specimenTypeRepo;
+
+        _permissionEvaluator = permissionEvaluator;
 
     }
 
@@ -121,6 +127,12 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
     {
 
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(TestCatalogAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
 
 
@@ -177,6 +189,12 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
     {
 
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(TestCatalogAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
 
 
@@ -258,6 +276,12 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
     {
 
+        var denied = await RejectUnauthorizedEvalAsync(TestCatalogAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
 
         if (entity is null)
@@ -324,6 +348,12 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
     {
 
+        var denied = await RejectUnauthorizedAsync(TestCatalogAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
 
         if (entity is null)
@@ -363,6 +393,12 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
     public async Task<OperationResult<TestDefinitionDto>> CloneAsync(long id, string newCode, CancellationToken ct = default)
 
     {
+
+        var denied = await RejectUnauthorizedAsync(TestCatalogAuthorizationRule.EvaluateClone, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         if (string.IsNullOrWhiteSpace(newCode))
 
@@ -668,6 +704,37 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
             .ToList();
 
+    private async Task<EvaluationResult<TestDefinitionDto>?> RejectUnauthorizedEvalAsync(
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, PermissionCodes.AdminTestsManage, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<TestDefinitionDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<TestDefinitionDto>?> RejectUnauthorizedAsync(
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, PermissionCodes.AdminTestsManage, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<TestDefinitionDto>.Fail(auth.Message)
+            : null;
+    }
 }
-
-

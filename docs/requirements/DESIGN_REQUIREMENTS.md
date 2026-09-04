@@ -61,3 +61,4 @@
 | SRS-BB-064 | Direct interface transfusion documentation is authorized inside `InterfaceTransfusionService.DocumentAsync` with `transfusion.document` (`TXN-IFACE-PERM`). `DocumentFromHl7Async` stays ungated for inbound BPAM. | FRS-BB-103 |
 | SRS-BB-066 | Scan-session start and add-scan are authorized inside `ScanSessionService` with `inventory.receive` (`INV-SCAN-START-PERM` / `INV-SCAN-ADD-PERM`). Complete remains `INV-RCV-PERM`. | FRS-BB-105 |
 | SRS-BB-068 | User activate/deactivate, lock/unlock, and password-reset request are authorized inside `UserAdminService` with `admin.users.manage` (`USR-ACTIVE-PERM` / `USR-LOCK-PERM` / `USR-RESET-PERM`). | FRS-BB-107 |
+| SRS-BB-069 | Test-definition create/update/activate/deactivate/clone are authorized inside `TestDefinitionAdminService` with `admin.tests.manage` (`TEST-CREATE-PERM` / `TEST-UPD-PERM` / `TEST-ACT-PERM` / `TEST-DEACT-PERM` / `TEST-CLONE-PERM`). | FRS-BB-108 |

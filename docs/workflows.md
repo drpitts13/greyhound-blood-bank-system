@@ -270,6 +270,7 @@ flowchart LR
 - Patient name, date of birth, and sex can also be edited on the patient record. Application requires `patient.write` (`PAT-WRITE-PERM`). Creating a patient requires the same privilege (`PAT-CREATE-PERM`). MRN stays immutable after create. A later ADT A08 may overwrite those demographic fields through the HL7 processor (not `PatientService`). ADT patient insert also bypasses `PatientService`.
 - Manual merge of a duplicate into the surviving record requires `patient.merge` in `PatientMergeService.MergeAsync` (`PAT-MERGE-PERM`; Supervisor and Administrator by default). A reason is required. History is reassigned, not deleted. ADT A18/A40 uses `MergeFromHl7Async` and stays ungated.
 - Directory user create/update/role assignment requires `admin.users.manage` in `UserAdminService` (`USR-CREATE-PERM` / `USR-UPD-PERM` / `USR-ASSIGN-PERM`). Activate/deactivate, lock/unlock, and password-reset request use the same privilege (`USR-ACTIVE-PERM` / `USR-LOCK-PERM` / `USR-RESET-PERM`). Role create/update requires `admin.roles.manage` (`ROLE-CREATE-PERM` / `ROLE-UPD-PERM`).
+- Creating, updating, activating, deactivating, or cloning a test definition requires `admin.tests.manage` in `TestDefinitionAdminService` (`TEST-CREATE-PERM` / `TEST-UPD-PERM` / `TEST-ACT-PERM` / `TEST-DEACT-PERM` / `TEST-CLONE-PERM`).
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---

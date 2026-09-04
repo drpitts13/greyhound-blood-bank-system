@@ -116,6 +116,11 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `USR-ACTIVE-PERM` | Caller has `admin.users.manage` when activating or deactivating a directory user | HardStop when a permission evaluator is present and the privilege is missing |
 | `USR-LOCK-PERM` | Caller has `admin.users.manage` when locking or unlocking a directory user | HardStop when a permission evaluator is present and the privilege is missing |
 | `USR-RESET-PERM` | Caller has `admin.users.manage` when requesting a password reset | HardStop when a permission evaluator is present and the privilege is missing |
+| `TEST-CREATE-PERM` | Caller has `admin.tests.manage` when creating a test definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `TEST-UPD-PERM` | Caller has `admin.tests.manage` when updating a test definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `TEST-ACT-PERM` | Caller has `admin.tests.manage` when activating a test definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `TEST-DEACT-PERM` | Caller has `admin.tests.manage` when deactivating a test definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `TEST-CLONE-PERM` | Caller has `admin.tests.manage` when cloning a test definition | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-UPD-PERM` | Caller has `patient.write` when updating an order | HardStop when a permission evaluator is present and the privilege is missing |
