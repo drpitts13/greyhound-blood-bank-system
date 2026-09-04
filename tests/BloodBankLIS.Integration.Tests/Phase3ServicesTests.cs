@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Application.Specimens;
@@ -50,6 +51,16 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         });
         await c.SaveChangesAsync();
     }
+
+    private SpecialRequirementService SpecialRequirements(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+        new(
+            new EfRepository<SpecialTransfusionRequirement>(c),
+            new EfRepository<Patient>(c),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            permissions);
 
     private ImmunohematologyService Immuno(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
         new(
@@ -602,6 +613,30 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         var deactivated = await Immuno(context, new FixedPermissionEvaluator(2, PermissionCodes.ImmunoOverride))
             .DeactivateAntibodyAsync(added.Value.Id, "Reclassified as historical");
+        Assert.True(deactivated.Succeeded, deactivated.Error);
+    }
+
+    [Fact]
+    public async Task SpecialRequirementWrites_RequireImmunoPermissions()
+    {
+        var patientId = await EnsurePatientAsync("MRN-SR-PERM");
+        await using var context = _factory.Create();
+        var noRecord = await SpecialRequirements(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .AddAsync(patientId, new AddSpecialRequirementRequest(SpecialTransfusionRequirementType.Irradiated, "Needed"));
+        Assert.False(noRecord.Succeeded);
+        Assert.Contains("immuno.record", noRecord.Error, StringComparison.OrdinalIgnoreCase);
+
+        var added = await SpecialRequirements(context, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord))
+            .AddAsync(patientId, new AddSpecialRequirementRequest(SpecialTransfusionRequirementType.Irradiated, "Needed"));
+        Assert.True(added.Succeeded, added.Error);
+
+        var noOverride = await SpecialRequirements(context, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord))
+            .DeactivateAsync(added.Value!.Id, "No longer indicated");
+        Assert.False(noOverride.Succeeded);
+        Assert.Contains("immuno.override", noOverride.Error, StringComparison.OrdinalIgnoreCase);
+
+        var deactivated = await SpecialRequirements(context, new FixedPermissionEvaluator(2, PermissionCodes.ImmunoOverride))
+            .DeactivateAsync(added.Value.Id, "No longer indicated");
         Assert.True(deactivated.Succeeded, deactivated.Error);
     }
 

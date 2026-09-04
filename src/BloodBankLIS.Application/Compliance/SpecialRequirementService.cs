@@ -36,6 +36,7 @@ public sealed class SpecialRequirementService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IPermissionEvaluator? _permissions;
 
     public SpecialRequirementService(
         IRepository<SpecialTransfusionRequirement> requirements,
@@ -43,7 +44,8 @@ public sealed class SpecialRequirementService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IPermissionEvaluator? permissions = null)
     {
         _requirements = requirements;
         _patients = patients;
@@ -51,6 +53,7 @@ public sealed class SpecialRequirementService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _permissions = permissions;
     }
 
     public async Task<IReadOnlyList<SpecialTransfusionRequirement>> ListActiveAsync(long patientId, CancellationToken ct = default)
@@ -70,6 +73,13 @@ public sealed class SpecialRequirementService
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
             return OperationResult<SpecialTransfusionRequirement>.Fail("A reason is required.");
+        }
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.ImmunoRecord, ImmunoAuthorizationRule.EvaluateSpecialRequirementAdd, ct);
+        if (denied is not null)
+        {
+            return denied;
         }
 
         var patient = await _patients.GetByIdAsync(patientId, ct);
@@ -114,6 +124,13 @@ public sealed class SpecialRequirementService
             return OperationResult<SpecialTransfusionRequirement>.Fail("A reason is required to deactivate a special requirement.");
         }
 
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.ImmunoOverride, ImmunoAuthorizationRule.EvaluateSpecialRequirementDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var row = await _requirements.GetByIdAsync(id, ct);
         if (row is null)
         {
@@ -135,5 +152,22 @@ public sealed class SpecialRequirementService
         _audit.Record(AuditEventType.Deactivate, nameof(SpecialTransfusionRequirement), id, reason: reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SpecialTransfusionRequirement>.Ok(row);
+    }
+
+    private async Task<OperationResult<SpecialTransfusionRequirement>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(_currentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<SpecialTransfusionRequirement>.Fail(auth.Message)
+            : null;
     }
 }

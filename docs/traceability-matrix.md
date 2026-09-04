@@ -93,6 +93,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-019 / FRS-BB-021 | Manual ABO/Rh requires immuno.override in Application | `ImmunoAuthorizationRule` `IH-ABO-PERM`; `ImmunohematologyService` | `ImmunoAuthorizationRuleTests`; Phase 3 manual ABO tests | D,I | RISK-BB-020 |
 | URS-BB-002 / FRS-BB-002 | Antibody and antigen writes require immuno privileges in Application | `IH-AB-ADD-PERM`, `IH-AB-DEACT-PERM`, `IH-AG-PERM` | `ImmunoAuthorizationRuleTests`; Phase 3 antibody permission tests | D,I | RISK-BB-021 |
 | URS-BB-020 / FRS-BB-022 | Patient ABO/Rh is not self-verified; current type waits for a second user | `Result.BlockAboSelfVerify`; `RES-SELF-VERIFY`; MarkComplete skip for ABORH | Phase 3 ABO self-verify and MarkComplete tests; RulesEngine Weak D via second user | D,I | RISK-BB-022; OCD-013 |
+| URS-BB-021 / FRS-BB-023 | Special-requirement writes require immuno privileges in Application | `SR-ADD-PERM`, `SR-DEACT-PERM` | `ImmunoAuthorizationRuleTests`; Phase 3 special-requirement permission test | D,I | RISK-BB-023 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
