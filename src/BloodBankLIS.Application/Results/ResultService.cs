@@ -53,6 +53,7 @@ public sealed class ResultService
     private readonly RuleEngineService? _ruleEngine;
     private readonly IRepository<Allocation>? _allocations;
     private readonly FacilityPolicyService? _policy;
+    private readonly IRepository<Patient>? _patients;
 
     public ResultService(
         IRepository<TestResult> results,
@@ -80,11 +81,13 @@ public sealed class ResultService
         RuleEngineService? ruleEngine = null,
         IRepository<Allocation>? allocations = null,
         FacilityPolicyService? policy = null,
-        IRepository<PhaseDefinition>? phaseDefinitions = null)
+        IRepository<PhaseDefinition>? phaseDefinitions = null,
+        IRepository<Patient>? patients = null)
     {
         _ruleEngine = ruleEngine;
         _allocations = allocations;
         _policy = policy;
+        _patients = patients;
         _results = results;
         _specimens = specimens;
         _bloodTypes = bloodTypes;
@@ -828,6 +831,19 @@ public sealed class ResultService
         if (specimen.Status != SpecimenStatus.Accepted)
         {
             return OperationResult<Specimen>.Fail($"Specimen {specimen.AccessionNumber} is {specimen.Status}; only Accepted specimens allow result entry.");
+        }
+
+        if (_patients is not null)
+        {
+            var patient = await _patients.GetByIdAsync(specimen.PatientId, ct);
+            if (patient is not null)
+            {
+                var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+                if (clinical.Severity == RuleSeverity.HardStop)
+                {
+                    return OperationResult<Specimen>.Fail(clinical.Message);
+                }
+            }
         }
 
         if (specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)

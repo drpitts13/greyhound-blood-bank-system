@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Immunohematology;
 
@@ -69,9 +70,10 @@ public sealed class ImmunohematologyService
             return OperationResult<PatientBloodTypeHistory>.Fail("A reason is required to manually record ABO/Rh.");
         }
 
-        if (await _patients.GetByIdAsync(patientId, ct) is null)
+        var patientGate = await RejectMergedOrMissingPatientAsync<PatientBloodTypeHistory>(patientId, ct);
+        if (patientGate is not null)
         {
-            return OperationResult<PatientBloodTypeHistory>.Fail("Patient not found.");
+            return patientGate;
         }
 
         var current = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == patientId && h.IsCurrent, ct);
@@ -112,9 +114,10 @@ public sealed class ImmunohematologyService
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (await _patients.GetByIdAsync(patientId, ct) is null)
+        var patientGate = await RejectMergedOrMissingPatientAsync<AntigenProfile>(patientId, ct);
+        if (patientGate is not null)
         {
-            return OperationResult<AntigenProfile>.Fail("Patient not found.");
+            return patientGate;
         }
 
         var definition = await _bloodAttributes.GetByIdAsync(request.BloodAttributeDefinitionId, ct);
@@ -155,9 +158,10 @@ public sealed class ImmunohematologyService
     public async Task<OperationResult<AntibodyHistory>> AddAntibodyAsync(
         long patientId, long? bloodAttributeDefinitionId, string? specificity, AntibodyStatus status, string? comment, CancellationToken ct = default)
     {
-        if (await _patients.GetByIdAsync(patientId, ct) is null)
+        var patientGate = await RejectMergedOrMissingPatientAsync<AntibodyHistory>(patientId, ct);
+        if (patientGate is not null)
         {
-            return OperationResult<AntibodyHistory>.Fail("Patient not found.");
+            return patientGate;
         }
 
         string resolvedSpecificity;
@@ -216,6 +220,12 @@ public sealed class ImmunohematologyService
             return OperationResult<AntibodyHistory>.Fail("Antibody record is already inactive.");
         }
 
+        var patientGate = await RejectMergedOrMissingPatientAsync<AntibodyHistory>(antibody.PatientId, ct);
+        if (patientGate is not null)
+        {
+            return patientGate;
+        }
+
         antibody.IsActive = false;
         antibody.DeactivationReason = reason;
         _antibodies.Update(antibody);
@@ -230,5 +240,19 @@ public sealed class ImmunohematologyService
 
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<AntibodyHistory>.Ok(antibody);
+    }
+
+    private async Task<OperationResult<T>?> RejectMergedOrMissingPatientAsync<T>(long patientId, CancellationToken ct)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return OperationResult<T>.Fail("Patient not found.");
+        }
+
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        return clinical.Severity == RuleSeverity.HardStop
+            ? OperationResult<T>.Fail(clinical.Message)
+            : null;
     }
 }

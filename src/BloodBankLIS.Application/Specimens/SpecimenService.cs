@@ -95,6 +95,12 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail("Patient not found.");
         }
 
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        if (clinical.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(clinical.Message);
+        }
+
         if (await _specimens.AnyAsync(s => s.AccessionNumber == request.AccessionNumber, ct))
         {
             return OperationResult<Specimen>.Fail($"Accession number '{request.AccessionNumber}' already exists.");

@@ -10,3 +10,4 @@
 | SRS-BB-006 | SQLite development databases apply additive columns/indexes via `DevelopmentSqliteBootstrap` so unique safety indexes exist on existing files. | FRS-BB-041 |
 | SRS-BB-007 | Authorization is evaluated in the Application layer, not only in the UI. | FRS-BB-040 |
 | SRS-BB-008 | ISBT raw scan, parsed fields, and display values are stored separately. | URS identity / ISBT docs |
+| SRS-BB-009 | A merged (losing) patient is rejected at each clinical write path (accession, order, result, immunohematology, allocate, XM, issue), not only at issue. | FRS-BB-003 |

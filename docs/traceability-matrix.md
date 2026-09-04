@@ -85,7 +85,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-007 / FRS-BB-041 | One active reservation and one open issue per unit | `IX_Allocations_OneReservedPerUnit`; `IX_Issues_OneOpenIssuePerUnit`; `InventoryConcurrency` | `AllocationIssueConcurrencyTests` | I | RISK-BB-006 |
 | URS-BB-008 / FRS-BB-032 | Autologous/directed issue only to designated recipient | `IssueGate` + `AutologousDirectedRule` `ISS-AUTO-DIR` | `IssueGateSafetyRegressionTests`; Phase 4 | D,I | RISK-BB-007 |
 | URS-BB-009 / FRS-BB-033 | Electronic XM blocked by any antibody history row | `ElectronicCrossmatchEligibilityService` `XM-EC-HISTORY` | `ElectronicXmHistoryRegressionTests` | I | RISK-BB-005; OCD-001 |
-| URS-BB-015 / FRS-BB-003 | Merged patient record cannot be used clinically | `PatientMergeRule` `PAT-MERGED-INACTIVE`; IssueGate; CompatibilityService | `MergedPatientClinicalUseTests` | D,I | RISK-BB-015; OCD-009 |
+| URS-BB-015 / FRS-BB-003 | Merged patient record cannot be used clinically | `PatientMergeRule` `PAT-MERGED-INACTIVE`; IssueGate; CompatibilityService; SpecimenService; OrderService; ResultService; ImmunohematologyService | `MergedPatientClinicalUseTests` | D,I | RISK-BB-015; OCD-009 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

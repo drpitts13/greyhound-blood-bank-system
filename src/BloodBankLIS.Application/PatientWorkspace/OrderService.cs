@@ -170,7 +170,17 @@ public sealed class OrderService
             return OperationResult<Order>.Fail("At least one test or product is required.");
         }
 
-        var patientExists = await _patients.AnyAsync(p => p.Id == patientId, ct);
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        var patientExists = patient is not null;
+        if (patient is not null)
+        {
+            var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+            if (clinical.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<Order>.Fail(clinical.Message);
+            }
+        }
+
         var encounter = await _encounters.GetByIdAsync(request.EncounterId, ct);
         var encounterExists = encounter is not null;
         var encounterBelongs = encounter?.PatientId == patientId;
@@ -273,6 +283,12 @@ public sealed class OrderService
             return OperationResult<Order>.Fail("Order not found.");
         }
 
+        var merged = await RejectMergedPatientMessageAsync(patientId, ct);
+        if (merged is not null)
+        {
+            return OperationResult<Order>.Fail(merged);
+        }
+
         var editRule = OrderValidator.ValidateEditable(order);
         if (editRule is not null)
         {
@@ -356,6 +372,12 @@ public sealed class OrderService
             return OperationResult<Order>.Fail("Order not found.");
         }
 
+        var merged = await RejectMergedPatientMessageAsync(patientId, ct);
+        if (merged is not null)
+        {
+            return OperationResult<Order>.Fail(merged);
+        }
+
         order.Status = OrderStatus.Cancelled;
         order.CancellationReason = request.CancellationReason.Trim();
 
@@ -391,6 +413,12 @@ public sealed class OrderService
         if (order is null)
         {
             return OperationResult<PatientOrderDto>.Fail("Order not found.");
+        }
+
+        var merged = await RejectMergedPatientMessageAsync(patientId, ct);
+        if (merged is not null)
+        {
+            return OperationResult<PatientOrderDto>.Fail(merged);
         }
 
         var editRule = OrderValidator.ValidateEditable(order);
@@ -638,5 +666,17 @@ public sealed class OrderService
         }
 
         return (provider.Id, provider.Name);
+    }
+
+    private async Task<string?> RejectMergedPatientMessageAsync(long patientId, CancellationToken ct)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return null;
+        }
+
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        return clinical.Severity == RuleSeverity.HardStop ? clinical.Message : null;
     }
 }

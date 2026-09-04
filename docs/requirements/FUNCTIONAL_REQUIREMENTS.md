@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | FRS-BB-001 | Patient identity match at issue requires two tokens that match stored MRN/DOB/name fields (`PatientIdentityMatchRule`). | URS-BB-001 | `IssueGate` `ISS-IDENTITY` | Domain + issue integration |
 | FRS-BB-002 | Antibody history is append-only. Deactivation requires a reason and does not delete the row. Deactivated rows remain visible and continue to block electronic XM. | URS-BB-002 | `AntibodyHistory`; `ElectronicCrossmatchEligibilityService` | `ElectronicXmHistoryRegressionTests` |
-| FRS-BB-003 | Merged patient records HardStop issue, allocation, compatibility evaluation, and crossmatch (`PAT-MERGED-INACTIVE`). Inactive status is not blocked. | URS-BB-015 | `PatientMergeRule.EvaluateClinicalUse`; `IssueGate` | `MergedPatientClinicalUseTests` |
+| FRS-BB-003 | Merged patient records HardStop accession, orders, result entry, immunohematology writes, issue, allocation, compatibility evaluation, and crossmatch (`PAT-MERGED-INACTIVE`). Inactive status is not blocked. | URS-BB-015 | `PatientMergeRule.EvaluateClinicalUse`; `IssueGate`; Specimen/Order/Result/Immuno services | `MergedPatientClinicalUseTests` |
 | FRS-BB-010 | Specimen expiration is computed from collection time and alloimmunization-risk policy. Expired specimens HardStop issue. | URS-BB-003 | `SpecimenExpirationRule` | Domain expiry boundary |
 | FRS-BB-020 | Verified results are not overwritten. Corrections create a new version and retain the original. | URS-BB-004 | `ResultService` | Result versioning tests |
 | FRS-BB-030 | Compatibility decisions return structured `RuleResult` codes and messages. The engine never downgrades a HardStop. | URS-BB-005 | `RuleEvaluation` | Aggregation tests |
