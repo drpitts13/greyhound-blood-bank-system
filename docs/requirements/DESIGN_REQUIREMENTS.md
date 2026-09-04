@@ -22,3 +22,4 @@
 | SRS-BB-018 | `LookbackService.RecallByDinAsync` checks `lookback.manage` when a permission evaluator is present, then fails closed if any `RecallAsync` does not succeed. Reserved-state → Recalled is an allowed inventory transition. | FRS-BB-024 |
 | SRS-BB-019 | Quarantine release is authorized inside `InventoryService` with `inventory.release`. Callers that skip the API filter cannot move a held unit to Available. | FRS-BB-052 |
 | SRS-BB-020 | Directed-to-allogeneic conversion is authorized inside `InventoryService` with `inventory.release`. Callers that skip the API filter cannot clear the directed reservation. | FRS-BB-053 |
+| SRS-BB-021 | Operational-hold release is authorized inside `InventoryService` with `inventory.release`. Callers that skip the API filter cannot move a held unit to Available. | FRS-BB-054 |

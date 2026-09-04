@@ -97,6 +97,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-022 / FRS-BB-024 | Lookback DIN recall fails closed and can recall reserved units | `LK-RECALL-PERM`; reserved → Recalled transitions | `LookbackAuthorizationRuleTests`; Compliance lookback tests; `InventoryStatusTransitionTests` | D,I | RISK-BB-024; OCD-014 |
 | URS-BB-023 / FRS-BB-052 | Quarantine release requires inventory.release in Application | `INV-REL-PERM`; dual verifier still applies | `InventoryAuthorizationRuleTests`; InventoryService permission test | D,I | RISK-BB-025 |
 | URS-BB-024 / FRS-BB-053 | Directed-to-allogeneic conversion requires inventory.release in Application | `INV-DIR-PERM`; reason and dual verifier still apply | `InventoryAuthorizationRuleTests`; InventoryService directed-conversion permission test | D,I | RISK-BB-026 |
+| URS-BB-025 / FRS-BB-054 | Operational-hold release requires inventory.release in Application | `INV-HOLD-PERM` | `InventoryAuthorizationRuleTests`; InventoryService hold-release permission test | D,I | RISK-BB-027 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

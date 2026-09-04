@@ -795,6 +795,13 @@ public sealed class InventoryService
 
     public async Task<InventoryActionResult> ReleaseFromHoldAsync(long unitId, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            InventoryAuthorizationRule.EvaluateHoldRelease, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");

@@ -55,6 +55,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `INV-Q-RELEASE-2ND` | Distinct directory user as second verifier to release a unit from quality quarantine | HardStop when `Inventory.RequireQuarantineReleaseVerifier` is true (default) |
 | `INV-REL-PERM` | Caller has `inventory.release` when releasing from quarantine | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-DIR-PERM` | Caller has `inventory.release` when converting a directed unit to allogeneic | HardStop when a permission evaluator is present and the privilege is missing |
+| `INV-HOLD-PERM` | Caller has `inventory.release` when releasing a unit from operational hold | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-DISC-2ND` | Distinct directory user as second verifier to discard a unit | HardStop when `Inventory.RequireDiscardVerifier` is true (default) |
 | `INV-RCV-VISUAL` | Unit passed visual inspection at receipt (no clots, hemolysis, or container defects) | HardStop when `Inventory.RequireReceiveVisualInspection` is true (default) |
 | `INV-RCV-APPEAR` | Coded appearance at receipt is Acceptable (not Clots/Hemolysis/Leaking/…) | HardStop when visual inspection is required (default) |
@@ -125,7 +126,7 @@ Modified   -> (terminal)
 ```
 
 - `Expected` is packing-list / ASN inventory that is not yet in house. It is not transferable or issuable. Arrival confirmation applies `INV-RCV-VISUAL` and lands in `Received` or `Quarantine`.
-- `OnHold` is an operational hold (paperwork, pending review). It is not a quality quarantine: quarantine cannot move to hold, and a held unit cannot be issued until released to Available or escalated to Quarantine.
+- `OnHold` is an operational hold (paperwork, pending review). It is not a quality quarantine: quarantine cannot move to hold, and a held unit cannot be issued until released to Available or escalated to Quarantine. Release from hold requires `inventory.release` (`INV-HOLD-PERM`).
 - `Missing` is a physical-inventory discrepancy (SoftBank/SafeTrace). It is not issuable. Locating a missing unit lands in `Quarantine` for inspection, not Available. Missing and damaged units appear on the discrepancy worklist (`GET /api/inventory/units/discrepancy`).
 - `Damaged` is container integrity failure found after the unit is already in inventory. It is not issuable. Inspection lands in `Quarantine`; discard is the terminal alternative.
 - `ReturnedToSupplier` is the SoftBank/SafeTrace consignee reject / unused-stock return to the vendor. Distinct from ward `Returned` and from packing-list `CancelledAssignment`. Terminal; not issuable.

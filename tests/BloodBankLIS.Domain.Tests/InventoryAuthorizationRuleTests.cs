@@ -33,4 +33,19 @@ public class InventoryAuthorizationRuleTests
         var result = InventoryAuthorizationRule.EvaluateDirectedConversion(hasInventoryRelease: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void HoldRelease_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateHoldRelease(hasInventoryRelease: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.HoldReleaseCode, result.Code);
+    }
+
+    [Fact]
+    public void HoldRelease_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateHoldRelease(hasInventoryRelease: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

@@ -994,6 +994,34 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ReleaseFromHold_WithoutInventoryRelease_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            var received = await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-HOLD-PERM", productTypeId));
+            unitId = received.Unit!.Id;
+            await CreateService(context).ReleaseFromQuarantineAsync(unitId, "tech2");
+            await CreateService(context).HoldAsync(unitId, "Pending packing slip");
+        }
+
+        await using var act = _factory.Create();
+        var denied = CreateService(act, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive));
+        var result = await denied.ReleaseFromHoldAsync(unitId);
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.HoldReleaseCode);
+        Assert.Equal(UnitStatus.OnHold, (await act.BloodUnits.FindAsync(unitId))!.Status);
+
+        var allowed = CreateService(act, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease));
+        var ok = await allowed.ReleaseFromHoldAsync(unitId);
+        Assert.True(ok.Succeeded, ok.Error);
+        Assert.Equal(UnitStatus.Available, ok.Unit!.Status);
+        Assert.Null(ok.Unit.HoldReason);
+    }
+
+    [Fact]
     public async Task Hold_FromQuarantine_IsBlocked()
     {
         var productTypeId = await EnsureProductTypeAsync();
