@@ -191,6 +191,59 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task RecordAttempt_WithoutLookbackManage_IsRejected()
+    {
+        await using var c = _factory.Create();
+        var productType = new ProductType
+        {
+            ProductCode = "RBC-LB-ATT",
+            Name = "Lookback attempt RBC",
+            ComponentClass = ComponentClass.RedBloodCells
+        };
+        c.ProductTypes.Add(productType);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit
+        {
+            UnitNumber = "U-LB-ATT",
+            ProductTypeId = productType.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Din = "W000066666666",
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Transfused
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        var note = new LookbackNotification
+        {
+            Din = unit.Din!,
+            BloodProductId = unit.Id,
+            Status = LookbackNotificationStatus.Pending,
+            Reason = "Donor subsequently reactive"
+        };
+        c.LookbackNotifications.Add(note);
+        await c.SaveChangesAsync();
+        var notificationId = note.Id;
+        var request = new RecordLookbackAttemptRequest(
+            "Dr. Record", "Physician notified", LookbackNotificationStatus.Attempted);
+
+        var denied = await Lookback(c, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .RecordAttemptAsync(notificationId, request);
+        Assert.False(denied.Succeeded);
+        Assert.Contains("lookback.manage", denied.Error, StringComparison.OrdinalIgnoreCase);
+        var unchanged = await c.LookbackNotifications.AsNoTracking().SingleAsync(n => n.Id == notificationId);
+        Assert.Equal(LookbackNotificationStatus.Pending, unchanged.Status);
+        Assert.Null(unchanged.AttemptedBy);
+        Assert.Null(unchanged.AttemptedUtc);
+
+        var allowed = await Lookback(c, new FixedPermissionEvaluator(1, PermissionCodes.LookbackManage))
+            .RecordAttemptAsync(notificationId, request);
+        Assert.True(allowed.Succeeded);
+        Assert.Equal(LookbackNotificationStatus.Attempted, allowed.Value!.Status);
+        Assert.Equal("Dr. Record", allowed.Value.PhysicianOfRecord);
+    }
+
+    [Fact]
     public async Task FindByRecipient_ReturnsIssuedUnitsRelatedComponentsAndCoRecipients()
     {
         const string sharedDin = "W000022222222";

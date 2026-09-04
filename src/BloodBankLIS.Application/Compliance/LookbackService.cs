@@ -237,6 +237,13 @@ public sealed class LookbackService
         long notificationId, RecordLookbackAttemptRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var unauthorized = await RejectUnauthorizedAttemptAsync(ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
         var row = await _notifications.GetByIdAsync(notificationId, ct);
         if (row is null)
         {
@@ -467,7 +474,14 @@ public sealed class LookbackService
     private static string NormalizeDin(string din) =>
         new string((din ?? string.Empty).Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
 
-    private async Task<OperationResult<LookbackReportDto>?> RejectUnauthorizedRecallAsync(CancellationToken ct)
+    private Task<OperationResult<LookbackReportDto>?> RejectUnauthorizedRecallAsync(CancellationToken ct) =>
+        RejectUnauthorizedAsync<LookbackReportDto>(LookbackAuthorizationRule.EvaluateRecall, ct);
+
+    private Task<OperationResult<LookbackNotification>?> RejectUnauthorizedAttemptAsync(CancellationToken ct) =>
+        RejectUnauthorizedAsync<LookbackNotification>(LookbackAuthorizationRule.EvaluateAttempt, ct);
+
+    private async Task<OperationResult<T>?> RejectUnauthorizedAsync<T>(
+        Func<bool, RuleResult> evaluate, CancellationToken ct)
     {
         if (_permissions is null)
         {
@@ -475,9 +489,9 @@ public sealed class LookbackService
         }
 
         var allowed = await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.LookbackManage, ct);
-        var auth = LookbackAuthorizationRule.EvaluateRecall(allowed);
+        var auth = evaluate(allowed);
         return auth.Severity == RuleSeverity.HardStop
-            ? OperationResult<LookbackReportDto>.Fail(auth.Message)
+            ? OperationResult<T>.Fail(auth.Message)
             : null;
     }
 }

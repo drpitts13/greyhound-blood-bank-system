@@ -124,6 +124,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-048 / FRS-BB-081 | Return to supplier requires inventory.receive in Application | `INV-RTS-PERM` | `InventoryAuthorizationRuleTests`; InventoryService return-to-supplier permission test | D,I | RISK-BB-051 |
 | URS-BB-050 / FRS-BB-083 | Locate missing / inspect damaged require inventory.release in Application | `INV-LOC-PERM`, `INV-INSP-PERM` | `InventoryAuthorizationRuleTests`; InventoryService locate/inspect permission tests | D,I | RISK-BB-053 |
 | URS-BB-051 / FRS-BB-084 | Packing-list expect and cancel require inventory.receive in Application | `INV-EXPECT-PERM`, `INV-EXPECT-CXL-PERM` | `InventoryAuthorizationRuleTests`; InventoryService expect/cancel permission tests | D,I | RISK-BB-054 |
+| URS-BB-053 / FRS-BB-086 | Lookback notification attempt requires lookback.manage in Application | `LK-ATTEMPT-PERM` | `LookbackAuthorizationRuleTests`; Compliance lookback attempt permission test | D,I | RISK-BB-056 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

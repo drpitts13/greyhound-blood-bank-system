@@ -246,6 +246,8 @@ flowchart TD
 
 Creating or closing a quality-system deviation requires `deviation.manage` (`DEV-PERM`) in the Application service.
 
+DIN lookback recall requires `lookback.manage` (`LK-RECALL-PERM`) in the Application service. Recording a recipient-notification attempt (`RecordAttemptAsync`) requires the same privilege (`LK-ATTEMPT-PERM`). Find-by-DIN and recipient traceback remain ungated in the service; the HTTP group still requires `lookback.manage`.
+
 ---
 
 ## 10. HL7 message flows
