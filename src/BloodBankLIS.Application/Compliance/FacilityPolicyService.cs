@@ -79,4 +79,19 @@ public sealed class FacilityPolicyService
 
     public Task<int> GetRetentionYearsAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.RetentionYears, 10, ct);
+
+    public Task<bool> GetAllowElectronicCrossmatchAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.AllowElectronicCrossmatch, true, ct);
+
+    public Task<bool> GetRequireSecondAboForCellularIssueAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireSecondAboForCellularIssue, true, ct);
+
+    public Task<bool> GetUncrossmatchedCellularMustBeGroupOAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.UncrossmatchedCellularMustBeGroupO, true, ct);
+
+    public Task<bool> GetUncrossmatchedONegForChildbearingAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.UncrossmatchedONegForChildbearing, true, ct);
+
+    public Task<int> GetChildbearingAgeYearsAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.ChildbearingAgeYears, 50, ct);
 }

@@ -24,5 +24,6 @@ The legacy copy at `docs/risk-register.md` points here.
 | RISK-BB-012 | Identity | Wrong patient selected | Name-only matching | Wrong-blood transfusion | Critical | Medium | Two-token identity HardStop | Barcode-first workflows | Identity tests | Low | Open / controlled |
 | RISK-BB-013 | Recall | Recalled unit issued | Status not consulted | Recalled component transfused | Critical | Low | Non-issuable status + early recall reject | Keep both layers | IssueGate recalled test | Low | Open / controlled |
 | RISK-BB-014 | ISBT | Incorrect DIN/product parse | Unvalidated ICCBBA tables | Wrong component identity | Critical | Medium | Raw/parsed/display separation; placeholder catalogs | OCD-004 licensed tables | ISBT parser tests | Medium | Open — SME |
+| RISK-BB-015 | Issue / XM / allocate | Work performed on a merged (losing) patient record | Issue/allocate/XM used the retired id | Wrong-patient transfusion or split history | Critical | Medium | `PAT-MERGED-INACTIVE` HardStop in IssueGate and CompatibilityService | Keep survivor-only clinical use; Inactive remains allowed (OCD-009) | `MergedPatientClinicalUseTests`; IssueGate merge test | Low | Mitigated this cycle |
 
 Citations are validation evidence, not certification.

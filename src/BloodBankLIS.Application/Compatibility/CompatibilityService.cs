@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -31,6 +32,7 @@ public sealed class CompatibilityService
     private readonly ICurrentUser _currentUser;
     private readonly IRepository<Issue>? _issues;
     private readonly IAuditWriter? _audit;
+    private readonly FacilityPolicyService? _policy;
 
     public CompatibilityService(
         IInventoryRepository inventory,
@@ -46,7 +48,8 @@ public sealed class CompatibilityService
         IClock clock,
         ICurrentUser currentUser,
         IRepository<Issue>? issues = null,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        FacilityPolicyService? policy = null)
     {
         _inventory = inventory;
         _crossmatches = crossmatches;
@@ -62,6 +65,7 @@ public sealed class CompatibilityService
         _currentUser = currentUser;
         _issues = issues;
         _audit = audit;
+        _policy = policy;
     }
 
     public async Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(RecordCrossmatchRequest request, CancellationToken ct = default)
@@ -74,9 +78,10 @@ public sealed class CompatibilityService
             return EvaluationResult<Crossmatch>.Fail("Unit not found.");
         }
 
-        if (await _patients.GetByIdAsync(request.PatientId, ct) is null)
+        var xmPatient = await RejectMergedPatientAsync<Crossmatch>(request.PatientId, ct);
+        if (xmPatient is not null)
         {
-            return EvaluationResult<Crossmatch>.Fail("Patient not found.");
+            return xmPatient;
         }
 
         var specimen = await _specimens.GetByIdAsync(request.SpecimenId, ct);
@@ -89,7 +94,16 @@ public sealed class CompatibilityService
 
         if (request.Method == CrossmatchMethod.Electronic)
         {
-            var currentAboRhConfirmed = await _bloodTypes.AnyAsync(h => h.PatientId == request.PatientId && h.IsCurrent, ct);
+            if (_policy is not null && !await _policy.GetAllowElectronicCrossmatchAsync(ct))
+            {
+                return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([
+                    RuleResult.HardStop(
+                        "XM-EC-DISABLED",
+                        "Electronic crossmatch is disabled in facility policy until AABB 5.16 validation is complete.")]));
+            }
+
+            var currentAboRhConfirmed = await _bloodTypes.AnyAsync(
+                h => h.PatientId == request.PatientId && h.IsCurrent && h.Abo != AboGroup.Unknown && h.RhD != RhType.Unknown, ct);
             var history = await _bloodTypes.ListAsync(h => h.PatientId == request.PatientId, ct);
             var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
                 history.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
@@ -195,9 +209,10 @@ public sealed class CompatibilityService
             return EvaluationResult<RuleEvaluation>.Fail("Unit not found.");
         }
 
-        if (await _patients.GetByIdAsync(request.PatientId, ct) is null)
+        var evalPatient = await RejectMergedPatientAsync<RuleEvaluation>(request.PatientId, ct);
+        if (evalPatient is not null)
         {
-            return EvaluationResult<RuleEvaluation>.Fail("Patient not found.");
+            return evalPatient;
         }
 
         var results = new List<RuleResult>();
@@ -234,9 +249,10 @@ public sealed class CompatibilityService
             return EvaluationResult<Allocation>.Fail("Unit not found.");
         }
 
-        if (await _patients.GetByIdAsync(request.PatientId, ct) is null)
+        var allocPatient = await RejectMergedPatientAsync<Allocation>(request.PatientId, ct);
+        if (allocPatient is not null)
         {
-            return EvaluationResult<Allocation>.Fail("Patient not found.");
+            return allocPatient;
         }
 
         var autoDir = AutologousDirectedRule.EvaluateIssue(
@@ -314,7 +330,15 @@ public sealed class CompatibilityService
             RelatedEntityType = nameof(Allocation)
         });
 
-        await _unitOfWork.SaveChangesAsync(ct);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+        catch (Exception ex) when (InventoryConcurrency.AsFailure<Allocation>(ex) is { } conflict)
+        {
+            return conflict;
+        }
+
         return EvaluationResult<Allocation>.Ok(allocation, evaluation);
     }
 
@@ -370,5 +394,19 @@ public sealed class CompatibilityService
 
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<Allocation>.Ok(allocation);
+    }
+
+    private async Task<EvaluationResult<T>?> RejectMergedPatientAsync<T>(long patientId, CancellationToken ct)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return EvaluationResult<T>.Fail("Patient not found.");
+        }
+
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        return clinical.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<T>.Blocked(new RuleEvaluation([clinical]))
+            : null;
     }
 }

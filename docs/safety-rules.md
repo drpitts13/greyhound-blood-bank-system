@@ -25,6 +25,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | Code | Rule | Severity if violated |
 |---|---|---|
 | `ISS-IDENTITY` | Patient identity confirmed and matches specimen + unit tag | HardStop |
+| `PAT-MERGED-INACTIVE` | Patient record is not a merged (losing) identity — issue/allocate/XM continue on the survivor | HardStop |
 | `ISS-SPEC-EXISTS` | A current specimen exists for the patient | HardStop |
 | `ISS-SPEC-PATIENT` | Specimen belongs to the same patient | HardStop |
 | `ISS-SPEC-EXPIRED` | Specimen is not past its expiration | HardStop |

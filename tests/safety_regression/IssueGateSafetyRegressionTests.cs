@@ -131,6 +131,14 @@ public class IssueGateSafetyRegressionTests
     }
 
     [Fact]
+    public void MergedPatientRecord_IsHardStopped()
+    {
+        var evaluation = IssueGate.Evaluate(Passing() with { PatientStatus = PatientStatus.Merged });
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == PatientMergeRule.ClinicalUseCode);
+    }
+
+    [Fact]
     public void AutologousReservedToOtherPatient_IsHardStopped()
     {
         var evaluation = IssueGate.Evaluate(Passing() with

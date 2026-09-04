@@ -106,6 +106,9 @@ public sealed record IssueGateContext
 
     public long IssuePatientId { get; init; }
 
+    /// <summary>Merged records cannot be issued against; Active/Inactive remain usable.</summary>
+    public PatientStatus PatientStatus { get; init; } = PatientStatus.Active;
+
     /// <summary>Issue is tied to a product or test order.</summary>
     public bool OrderLinked { get; init; }
 
@@ -200,6 +203,8 @@ public static class IssueGate
             EvaluateDiscrepancy(c),
 
             AutologousDirectedRule.EvaluateIssue(c.DonationRestriction, c.ReservedPatientId, c.IssuePatientId),
+
+            PatientMergeRule.EvaluateClinicalUse(c.PatientStatus),
 
             SecondAboDeterminationRule.EvaluateForCellularIssue(
                 c.RequireSecondAboForCellularIssue,

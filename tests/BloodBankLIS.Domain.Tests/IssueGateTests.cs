@@ -351,6 +351,15 @@ public class IssueGateTests
     }
 
     [Fact]
+    public void MergedPatientRecord_IsHardStopped()
+    {
+        var context = PassingContext() with { PatientStatus = PatientStatus.Merged };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == PatientMergeRule.ClinicalUseCode);
+    }
+
+    [Fact]
     public void AutologousUnit_ToDifferentPatient_IsHardStopped()
     {
         var context = PassingContext() with
