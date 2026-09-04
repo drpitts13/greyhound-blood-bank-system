@@ -26,6 +26,8 @@ public sealed class OrderService
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly RuleEngineService? _ruleEngine;
+    private readonly IPermissionEvaluator? _permissions;
+    private readonly ICurrentUser? _currentUser;
 
     public OrderService(
         IRepository<Order> orders,
@@ -41,9 +43,13 @@ public sealed class OrderService
         IRepository<TestGrouper> testGroupers,
         IClock clock,
         IUnitOfWork unitOfWork,
-        RuleEngineService? ruleEngine = null)
+        RuleEngineService? ruleEngine = null,
+        IPermissionEvaluator? permissions = null,
+        ICurrentUser? currentUser = null)
     {
         _ruleEngine = ruleEngine;
+        _permissions = permissions;
+        _currentUser = currentUser;
         _orders = orders;
         _orderLines = orderLines;
         _orderSpecimens = orderSpecimens;
@@ -256,7 +262,7 @@ public sealed class OrderService
 
         if (request.SpecimenId is > 0)
         {
-            var link = await LinkSpecimenAsync(patientId, order.Id, new LinkOrderSpecimenRequest(request.SpecimenId.Value), ct);
+            var link = await LinkSpecimenCoreAsync(patientId, order.Id, new LinkOrderSpecimenRequest(request.SpecimenId.Value), ct);
             if (!link.Succeeded)
             {
                 return OperationResult<Order>.Fail(link.Error ?? "Order was created but the specimen could not be linked.");
@@ -275,6 +281,12 @@ public sealed class OrderService
         if (request.Lines.Count == 0)
         {
             return OperationResult<Order>.Fail("At least one test or product is required.");
+        }
+
+        var unauthorized = await RejectUnauthorizedAsync<Order>(OrderAuthorizationRule.EvaluateUpdate, ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
         }
 
         var order = await _orders.FirstOrDefaultAsync(o => o.Id == orderId && o.PatientId == patientId, ct);
@@ -366,6 +378,12 @@ public sealed class OrderService
 
     public async Task<OperationResult<Order>> CancelAsync(long patientId, long orderId, CancelOrderRequest request, CancellationToken ct = default)
     {
+        var unauthorized = await RejectUnauthorizedAsync<Order>(OrderAuthorizationRule.EvaluateCancel, ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
         var order = await _orders.FirstOrDefaultAsync(o => o.Id == orderId && o.PatientId == patientId, ct);
         if (order is null)
         {
@@ -409,6 +427,21 @@ public sealed class OrderService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var unauthorized = await RejectUnauthorizedAsync<PatientOrderDto>(OrderAuthorizationRule.EvaluateLink, ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
+        return await LinkSpecimenCoreAsync(patientId, orderId, request, ct);
+    }
+
+    private async Task<OperationResult<PatientOrderDto>> LinkSpecimenCoreAsync(
+        long patientId,
+        long orderId,
+        LinkOrderSpecimenRequest request,
+        CancellationToken ct)
+    {
         var order = await _orders.FirstOrDefaultAsync(o => o.Id == orderId && o.PatientId == patientId, ct);
         if (order is null)
         {
@@ -678,5 +711,21 @@ public sealed class OrderService
 
         var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
         return clinical.Severity == RuleSeverity.HardStop ? clinical.Message : null;
+    }
+
+    private async Task<OperationResult<T>?> RejectUnauthorizedAsync<T>(
+        Func<bool, RuleResult> evaluate, CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var userName = _currentUser?.UserName ?? string.Empty;
+        var allowed = await _permissions.HasPermissionAsync(userName, PermissionCodes.PatientWrite, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<T>.Fail(auth.Message)
+            : null;
     }
 }

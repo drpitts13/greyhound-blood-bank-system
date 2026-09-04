@@ -64,7 +64,7 @@ flowchart TD
     i --> j[Audit + ready for testing]
 ```
 
-- Use cases: `CreateOrderCommand`, `AccessionSpecimenCommand`, `LinkOrderSpecimenCommand`, `RejectSpecimenCommand`.
+- Use cases: `CreateOrderCommand`, `AccessionSpecimenCommand`, `LinkOrderSpecimenCommand`, `RejectSpecimenCommand`. Updating or cancelling an order, or linking a specimen from the workspace, requires `patient.write` (`ORD-UPD-PERM` / `ORD-CXL-PERM` / `ORD-LINK-PERM`) in `OrderService`. Inbound ORM create remains ungated in the service.
 - Checks: patient identity resolved; collection date/time present and not in the future; specimen type valid.
 - Accession requires `specimen.accession` (`SPEC-ACC-PERM`). Editing collection metadata requires `specimen.edit` (`SPEC-EDIT-PERM`). Rejecting a specimen requires `specimen.reject` (`SPEC-REJ-PERM`) in the Application service.
 - Expiration: computed from policy (e.g. type-and-screen specimen valid 3 days when patient may have been transfused/pregnant; configurable in `SystemConfiguration`). See `safety-rules.md`.

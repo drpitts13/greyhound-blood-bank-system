@@ -126,6 +126,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-051 / FRS-BB-084 | Packing-list expect and cancel require inventory.receive in Application | `INV-EXPECT-PERM`, `INV-EXPECT-CXL-PERM` | `InventoryAuthorizationRuleTests`; InventoryService expect/cancel permission tests | D,I | RISK-BB-054 |
 | URS-BB-053 / FRS-BB-086 | Lookback notification attempt requires lookback.manage in Application | `LK-ATTEMPT-PERM` | `LookbackAuthorizationRuleTests`; Compliance lookback attempt permission test | D,I | RISK-BB-056 |
 | URS-BB-055 / FRS-BB-088 | Label print requires print.label; reprint requires print.reprint in PrintService | `PRT-LABEL-PERM`, `PRT-REPRINT-PERM` | `PrintAuthorizationRuleTests`; Phase 6 print permission tests | D,I | RISK-BB-058 |
+| URS-BB-057 / FRS-BB-091 | Order update, cancel, and specimen-link require patient.write in OrderService | `ORD-UPD-PERM`, `ORD-CXL-PERM`, `ORD-LINK-PERM` | `OrderAuthorizationRuleTests`; `OrderServiceAuthorizationTests` | D,I | RISK-BB-059 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
