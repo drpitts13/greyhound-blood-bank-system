@@ -1,5 +1,7 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using BloodBankLIS.Printing;
@@ -15,12 +17,13 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
 
     public Phase6PrintingTests(SqliteContextFactory factory) => _factory = factory;
 
-    private PrintService Printing(BloodBankDbContext c) =>
+    private PrintService Printing(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
         new(new EfRepository<PrintJob>(c), new EfRepository<Specimen>(c), new EfRepository<Patient>(c),
             new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c),
             new EfRepository<Crossmatch>(c), new EfRepository<PatientBloodTypeHistory>(c),
             c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            new ILabelRenderer[] { new ZplLabelRenderer(), new PreviewLabelRenderer() });
+            new ILabelRenderer[] { new ZplLabelRenderer(), new PreviewLabelRenderer() },
+            permissions);
 
     private async Task<long> CreatePatientAsync(BloodBankDbContext c, string mrn)
     {
@@ -206,6 +209,59 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
             e => e.EntityType == nameof(PrintJob) && e.EventType == AuditEventType.Reprint && e.EntityId == jobId);
         Assert.NotNull(reprintEvent);
         Assert.Contains("jammed", reprintEvent!.Reason!);
+    }
+
+    [Fact]
+    public async Task PrintSpecimenLabel_WithoutPrintLabel_IsRejected()
+    {
+        long specimenId;
+        await using (var setup = _factory.Create())
+        {
+            var patientId = await CreatePatientAsync(setup, "PRT-PERM-1");
+            var specimen = new Specimen
+            {
+                AccessionNumber = "ACC-PRT-PERM-1",
+                PatientId = patientId,
+                SpecimenType = "EDTA",
+                CollectedUtc = _factory.Clock.UtcNow.AddHours(-1),
+                Status = SpecimenStatus.Accepted
+            };
+            setup.Specimens.Add(specimen);
+            await setup.SaveChangesAsync();
+            specimenId = specimen.Id;
+        }
+
+        await using var context = _factory.Create();
+        var before = await context.PrintJobs.CountAsync();
+        var denied = await Printing(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .PrintSpecimenLabelAsync(specimenId, new PrintRequest());
+        Assert.False(denied.Succeeded);
+        Assert.Contains("print.label", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(before, await context.PrintJobs.CountAsync());
+
+        var allowed = await Printing(context, new FixedPermissionEvaluator(1, PermissionCodes.PrintLabel))
+            .PrintSpecimenLabelAsync(specimenId, new PrintRequest());
+        Assert.True(allowed.Succeeded);
+        Assert.Equal(PrintJobType.SpecimenLabel, allowed.Value!.JobType);
+    }
+
+    [Fact]
+    public async Task Reprint_WithoutPrintReprint_IsRejected()
+    {
+        long jobId = await PrintASpecimenLabelAsync("PRT-PERM-2", "ACC-PRT-PERM-2");
+
+        await using var context = _factory.Create();
+        var before = await context.PrintJobs.CountAsync();
+        var denied = await Printing(context, new FixedPermissionEvaluator(1, PermissionCodes.PrintLabel))
+            .ReprintAsync(jobId, "Label jammed in printer");
+        Assert.False(denied.Succeeded);
+        Assert.Contains("print.reprint", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(before, await context.PrintJobs.CountAsync());
+
+        var allowed = await Printing(context, new FixedPermissionEvaluator(1, PermissionCodes.PrintReprint))
+            .ReprintAsync(jobId, "Label jammed in printer");
+        Assert.True(allowed.Succeeded);
+        Assert.True(allowed.Value!.IsReprint);
     }
 
     private async Task<long> PrintASpecimenLabelAsync(string mrn, string accession)

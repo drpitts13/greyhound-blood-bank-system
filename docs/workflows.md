@@ -123,7 +123,7 @@ flowchart TD
     u --> bill[Billing trigger: UnitIssued]
 ```
 
-- Use cases: `RecordCrossmatchCommand`, `AllocateUnitCommand`, `IssueUnitCommand`, `DocumentTransfusionCommand`. Allocation requires `compatibility.allocate` (`XM-ALLOC-PERM`) and recording a crossmatch requires `compatibility.crossmatch` (`XM-PERM`) in the Application service. Releasing a reservation requires `compatibility.allocate` (`XM-REL-PERM`). Issue requires `issue.create` (`ISS-CREATE-PERM`) before the issue gate. Documenting a transfusion requires `transfusion.document` (`TXN-DOC-PERM`) in the Application service. Ward receipt requires the same privilege (`TXN-WARD-PERM`).
+- Use cases: `RecordCrossmatchCommand`, `AllocateUnitCommand`, `IssueUnitCommand`, `DocumentTransfusionCommand`. Allocation requires `compatibility.allocate` (`XM-ALLOC-PERM`) and recording a crossmatch requires `compatibility.crossmatch` (`XM-PERM`) in the Application service. Releasing a reservation requires `compatibility.allocate` (`XM-REL-PERM`). Issue requires `issue.create` (`ISS-CREATE-PERM`) before the issue gate. Documenting a transfusion requires `transfusion.document` (`TXN-DOC-PERM`) in the Application service. Ward receipt requires the same privilege (`TXN-WARD-PERM`). Printing a specimen, compatibility, or component label requires `print.label` (`PRT-LABEL-PERM`) in `PrintService`. Reprinting a stored job requires a reason and `print.reprint` (`PRT-REPRINT-PERM`).
 - The **issue gate** (`safety-rules.md` section 1) runs the full check set before any unit leaves inventory.
 - Electronic crossmatch path is allowed only when its preconditions are met (current ABO/Rh confirmed, negative antibody screen current/historical, no antibody history); otherwise serologic crossmatch is required (HardStop). Positive antibody screen (current or historical) or antibody history requires a complex crossmatch unless an authorized `ALLOC-XM-AB-HISTORY` override is recorded.
 - Compatibility evaluation order: (1) ABO/Rh antigen/antibody conflict, (2) non-ABORH antigen-negative for RBC/WB (`ISS-ANTIGEN-NEG` Warning, supervisor+ override), (3) complex XM when indicated, (4) compatible XM required for RBC/WB.
@@ -290,4 +290,4 @@ flowchart LR
 | Product modification | Modify, Create/Update(status) | Reason |
 | Patient demographics edit | Update | No |
 | ABO/Rh manual edit | Update(blood type history) | Yes |
-| P-tag reprint | Reprint | Reason |
+| P-tag reprint | Reprint | Reason; `print.reprint` (`PRT-REPRINT-PERM`) |

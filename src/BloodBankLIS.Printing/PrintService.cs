@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Printing.Rendering;
 using BloodBankLIS.Printing.Templates;
 
@@ -29,6 +30,7 @@ public sealed class PrintService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IPermissionEvaluator? _permissions;
     private readonly IReadOnlyDictionary<LabelFormat, ILabelRenderer> _renderers;
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
@@ -46,7 +48,8 @@ public sealed class PrintService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IEnumerable<ILabelRenderer> renderers)
+        IEnumerable<ILabelRenderer> renderers,
+        IPermissionEvaluator? permissions = null)
     {
         _printJobs = printJobs;
         _specimens = specimens;
@@ -61,6 +64,7 @@ public sealed class PrintService
         _currentUser = currentUser;
         _audit = audit;
         _renderers = renderers.ToDictionary(r => r.Format);
+        _permissions = permissions;
     }
 
     public async Task<OperationResult<PrintJob>> PrintSpecimenLabelAsync(long specimenId, PrintRequest request, CancellationToken ct = default)
@@ -178,6 +182,12 @@ public sealed class PrintService
             return OperationResult<PrintJob>.Fail("A reason is required to reprint.");
         }
 
+        var unauthorized = await RejectUnauthorizedReprintAsync(ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
         var original = await _printJobs.GetByIdAsync(printJobId, ct);
         if (original is null)
         {
@@ -244,6 +254,12 @@ public sealed class PrintService
         long contextId,
         CancellationToken ct)
     {
+        var unauthorized = await RejectUnauthorizedLabelAsync(ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
         if (!_renderers.TryGetValue(request.Format, out var renderer))
         {
             return OperationResult<PrintJob>.Fail($"No renderer registered for format {request.Format}.");
@@ -285,4 +301,25 @@ public sealed class PrintService
         string.IsNullOrWhiteSpace(patient.MiddleName)
             ? $"{patient.LastName}, {patient.FirstName}"
             : $"{patient.LastName}, {patient.FirstName} {patient.MiddleName}";
+
+    private Task<OperationResult<PrintJob>?> RejectUnauthorizedLabelAsync(CancellationToken ct) =>
+        RejectUnauthorizedAsync(PermissionCodes.PrintLabel, PrintAuthorizationRule.EvaluateLabel, ct);
+
+    private Task<OperationResult<PrintJob>?> RejectUnauthorizedReprintAsync(CancellationToken ct) =>
+        RejectUnauthorizedAsync(PermissionCodes.PrintReprint, PrintAuthorizationRule.EvaluateReprint, ct);
+
+    private async Task<OperationResult<PrintJob>?> RejectUnauthorizedAsync(
+        string permissionCode, Func<bool, RuleResult> evaluate, CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(_currentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<PrintJob>.Fail(auth.Message)
+            : null;
+    }
 }

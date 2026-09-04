@@ -98,6 +98,8 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `INV-RCL-PERM` | Caller has `inventory.recall` when recalling a unit through inventory (not lookback DIN recall) | HardStop when a permission evaluator is present and the privilege is missing |
 | `LK-RECALL-PERM` | Caller has `lookback.manage` when recalling components by DIN | HardStop when a permission evaluator is present and the privilege is missing |
 | `LK-ATTEMPT-PERM` | Caller has `lookback.manage` when recording a lookback notification attempt | HardStop when a permission evaluator is present and the privilege is missing |
+| `PRT-LABEL-PERM` | Caller has `print.label` when printing a specimen, compatibility, or component label | HardStop when a permission evaluator is present and the privilege is missing |
+| `PRT-REPRINT-PERM` | Caller has `print.reprint` when reprinting a stored print job | HardStop when a permission evaluator is present and the privilege is missing |
 | `RXN-PERM` | Caller has `reaction.investigate` when updating a reaction investigation or recording fatality notifications | HardStop when a permission evaluator is present and the privilege is missing |
 | `DEV-PERM` | Caller has `deviation.manage` when creating or updating a quality-system deviation | HardStop when a permission evaluator is present and the privilege is missing |
 | `RET-REISSUE` | Returned unit may re-enter Available only when temperature, seal, visual, and time-out-of-storage checks pass | HardStop / Warning |
@@ -201,7 +203,7 @@ Expiration: `ResultExpiresUtc = min(anchor + offset, earliest source ExpiresUtc)
 | Override a compatibility/issue Warning | Yes | Yes | Yes | `Override` |
 | Discard a unit | Yes | Yes | No (reason required) | `Discard` |
 | Change a verified result | Yes | Yes | Yes | `Correct` |
-| Reprint a compatibility tag | Yes | Yes | No (reason required) | `Reprint` |
+| Reprint a compatibility tag | Yes | Yes | No (reason required) | `Reprint`; HardStop `PRT-REPRINT-PERM` without `print.reprint` |
 | Return an issued unit to inventory | Yes | Yes | No (reason required) | `Return` |
 | Manually alter ABO/Rh history | Yes | Yes | Yes | `Update` (blood type history); HardStop `IH-ABO-PERM` without `immuno.override` |
 | Deactivate an antibody record | Yes | Yes | No (reason required) | `Update` (antibody history); HardStop `IH-AB-DEACT-PERM` without `immuno.override` |
