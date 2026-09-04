@@ -81,6 +81,21 @@ public class Hl7MapperTests
     }
 
     [Fact]
+    public void AdtMapper_ExtractsPriorMrnFromMrg()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A40|C40|P|2.5\r" +
+            "PID|1||MRN-LIVE^^^HOSP^MR||Smith^Jane\r" +
+            "MRG|MRN-OLD^^^HOSP^MR");
+
+        var data = Hl7AdtMapper.Map(message);
+
+        Assert.Equal("A40", data.TriggerEvent);
+        Assert.Equal("MRN-LIVE", data.Mrn);
+        Assert.Equal("MRN-OLD", data.PriorMrn);
+    }
+
+    [Fact]
     public void BpamMapper_ExtractsUnitAndVolume()
     {
         var message = Hl7Parser.Parse(

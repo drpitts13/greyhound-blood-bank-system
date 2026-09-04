@@ -67,12 +67,13 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.EncounterDischargeUtc, "Discharge date/time", "Discharge timestamp.", "PV1-45", false),
         new(InterfaceDataItemKeys.EncounterCurrentLocation, "Current location", "Patient location.", "PV1-3-1", false),
         new(InterfaceDataItemKeys.EncounterAttendingProviderId, "Attending provider ID", "Attending provider identifier.", "PV1-7-1", false),
-        new(InterfaceDataItemKeys.EncounterAttendingProviderName, "Attending provider name", "Attending provider name (XCN).", "PV1-7", false)
+        new(InterfaceDataItemKeys.EncounterAttendingProviderName, "Attending provider name", "Attending provider name (XCN).", "PV1-7", false),
+        new(InterfaceDataItemKeys.PatientPriorMrn, "Prior medical record number", "MRG prior patient identifier for ADT merge (A18/A40).", "MRG-1-1", false)
     ];
 
     private static readonly IReadOnlyList<InterfaceDataItem> Orders =
     [
-        new(InterfaceDataItemKeys.OrderControl, "Order control", "ORC-1 (NW, CA, …).", "ORC-1", true),
+        new(InterfaceDataItemKeys.OrderControl, "Order control", "ORC-1 (NW, CA, DC, HD, RL, XO, SC).", "ORC-1", true),
         new(InterfaceDataItemKeys.OrderNumber, "Placer order number", "Placer order id.", "ORC-2-1", true),
         new(InterfaceDataItemKeys.PatientMrn, "Medical record number", "Patient MRN.", "PID-3-1", true),
         new(InterfaceDataItemKeys.OrderTestCode, "Test / service code", "Universal service id.", "OBR-4-1", true),
@@ -100,7 +101,12 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.BillingServiceDate, "Service date", "Transaction date.", "FT1-4", true),
         new(InterfaceDataItemKeys.BillingTransactionType, "Transaction type", "Typically CG (charge).", "FT1-6", true),
         new(InterfaceDataItemKeys.BillingCode, "Billing code", "Transaction / charge code.", "FT1-7", true),
-        new(InterfaceDataItemKeys.BillingQuantity, "Quantity", "Transaction quantity.", "FT1-9", false)
+        new(InterfaceDataItemKeys.BillingDescription, "Transaction description", "Charge description.", "FT1-8", false),
+        new(InterfaceDataItemKeys.BillingQuantity, "Quantity", "Transaction quantity.", "FT1-9", false),
+        new(InterfaceDataItemKeys.BillingRevenueCode, "Revenue code", "UB-04 revenue / department code.", "FT1-13", false),
+        new(InterfaceDataItemKeys.BillingPerformingLocation, "Performing location", "Assigned patient / issue location.", "FT1-16", false),
+        new(InterfaceDataItemKeys.BillingProcedureCode, "Procedure code", "CPT or HCPCS on the charge.", "FT1-25", false),
+        new(InterfaceDataItemKeys.BillingModifier, "Procedure modifier", "CPT/HCPCS modifier.", "FT1-26", false)
     ];
 
     private static readonly IReadOnlyList<InterfaceDataItem> Bpam =

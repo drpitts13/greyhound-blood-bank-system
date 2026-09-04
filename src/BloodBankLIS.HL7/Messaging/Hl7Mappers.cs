@@ -20,7 +20,8 @@ public sealed record Hl7PatientData(
     DateTime? DischargeUtc,
     string? CurrentLocation,
     string? AttendingProviderId,
-    string? AttendingProviderName);
+    string? AttendingProviderName,
+    string? PriorMrn);
 
 /// <summary>Order details extracted from an inbound ORM/OML message (ORC/OBR/PV1).</summary>
 public sealed record Hl7OrderData(
@@ -68,7 +69,8 @@ public static class Hl7AdtMapper
             DischargeUtc: ParseHl7DateTime(map.Get(message, InterfaceDataItemKeys.EncounterDischargeUtc)),
             CurrentLocation: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterCurrentLocation)),
             AttendingProviderId: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterAttendingProviderId)),
-            AttendingProviderName: MapPersonName(message, map, InterfaceDataItemKeys.EncounterAttendingProviderName));
+            AttendingProviderName: MapPersonName(message, map, InterfaceDataItemKeys.EncounterAttendingProviderName),
+            PriorMrn: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.PatientPriorMrn)));
     }
 
     public static Sex MapSex(string code) => code.ToUpperInvariant() switch

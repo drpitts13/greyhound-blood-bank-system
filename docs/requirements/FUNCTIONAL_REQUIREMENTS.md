@@ -16,5 +16,5 @@
 | FRS-BB-050 | Inventory transitions are allow-listed. Each transition writes `InventoryStatusHistory` + audit. | URS-BB-010 | `InventoryStatusTransition` | Transition tests |
 | FRS-BB-060 | Audit events are append-only and written in the same save pipeline as the change. | URS-BB-011 | `BloodBankDbContext` | Audit tests |
 | FRS-BB-070 | Configuration catalogs are versioned/effective-dated where modeled and write `ConfigurationChangeHistory`. | URS-BB-012 | Admin services | Admin catalog tests |
-| FRS-BB-080 | HL7 inbound stores raw message, parse status, ACK, and error-queue entries. | URS-BB-013 | `BloodBankLIS.HL7` | HL7 tests |
+| FRS-BB-080 | HL7 inbound stores raw message, parse status, ACK, and error-queue entries. ADT/ORM follow a merged MRN to the survivor and do not write demographics onto the loser. ADT A18/A40 apply <c>PatientMergeService</c> when configured. | URS-BB-013, URS-BB-015 | `Hl7InboundProcessor`; `PatientMergeFollow` | Phase 5 HL7 merge tests |
 | FRS-BB-090 | Downtime recovery is documented; duplicate prevention uses unique keys listed in `docs/DOWNTIME_PLAN.md`. | URS-BB-014 | Downtime plan | Operational checklist |

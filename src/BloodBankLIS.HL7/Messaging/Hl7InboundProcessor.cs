@@ -1,9 +1,11 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.HL7.Parsing;
 
 namespace BloodBankLIS.HL7.Messaging;
@@ -38,6 +40,7 @@ public sealed class Hl7InboundProcessor
     private readonly IInterfaceFieldMappingRepository? _mappings;
     private readonly IInterfaceValueTranslationRepository? _translations;
     private readonly InterfaceTransfusionService? _bpam;
+    private readonly PatientMergeService? _merges;
 
     public Hl7InboundProcessor(
         IRepository<Hl7MessageLog> logs,
@@ -54,7 +57,8 @@ public sealed class Hl7InboundProcessor
         IRepository<InterfaceEndpoint>? endpoints = null,
         IInterfaceFieldMappingRepository? mappings = null,
         InterfaceTransfusionService? bpam = null,
-        IInterfaceValueTranslationRepository? translations = null)
+        IInterfaceValueTranslationRepository? translations = null,
+        PatientMergeService? merges = null)
     {
         _logs = logs;
         _errors = errors;
@@ -71,6 +75,7 @@ public sealed class Hl7InboundProcessor
         _mappings = mappings;
         _bpam = bpam;
         _translations = translations;
+        _merges = merges;
     }
 
     /// <summary>
@@ -206,7 +211,24 @@ public sealed class Hl7InboundProcessor
             throw new Hl7MappingException("ADT message has no patient identifier (PID-3).");
         }
 
-        var patient = await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == data.Mrn, ct);
+        if (data.TriggerEvent is "A18" or "A40")
+        {
+            return await HandleAdtMergeAsync(data, ct);
+        }
+
+        var patient = _merges is not null
+            ? await _merges.FindByMrnAsync(data.Mrn, followMerge: true, ct)
+            : await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == data.Mrn, ct);
+        patient = await PatientMergeFollow.ResolveClinicalRecordAsync(_patients, patient, ct);
+        if (patient is not null)
+        {
+            var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+            if (clinical.Severity == RuleSeverity.HardStop)
+            {
+                throw new Hl7MappingException(clinical.Message);
+            }
+        }
+
         var created = false;
         if (patient is null)
         {
@@ -255,6 +277,81 @@ public sealed class Hl7InboundProcessor
         return created ? $"Patient {data.Mrn} created." : $"Patient {data.Mrn} updated.";
     }
 
+    private async Task<string> HandleAdtMergeAsync(Hl7PatientData data, CancellationToken ct)
+    {
+        if (_merges is null)
+        {
+            throw new Hl7MappingException("Patient merge is not configured for this inbound processor.");
+        }
+
+        if (string.IsNullOrWhiteSpace(data.PriorMrn))
+        {
+            throw new Hl7MappingException("ADT merge message has no prior patient identifier (MRG-1).");
+        }
+
+        if (string.Equals(data.Mrn, data.PriorMrn, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new Hl7MappingException("ADT merge cannot use the same MRN for survivor and prior records.");
+        }
+
+        var survivor = await _merges.FindByMrnAsync(data.Mrn, followMerge: true, ct);
+        if (survivor is null)
+        {
+            survivor = new Patient
+            {
+                MedicalRecordNumber = data.Mrn,
+                LastName = data.LastName,
+                FirstName = data.FirstName,
+                MiddleName = data.MiddleName,
+                DateOfBirth = data.DateOfBirth ?? default,
+                Sex = data.Sex
+            };
+            await _patients.AddAsync(survivor, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+        else
+        {
+            survivor.LastName = data.LastName;
+            survivor.FirstName = data.FirstName;
+            survivor.MiddleName = data.MiddleName;
+            if (data.DateOfBirth is not null) survivor.DateOfBirth = data.DateOfBirth.Value;
+            survivor.Sex = data.Sex;
+            _patients.Update(survivor);
+        }
+
+        var duplicate = await _merges.FindByMrnAsync(data.PriorMrn, followMerge: false, ct);
+        if (duplicate is null)
+        {
+            throw new Hl7MappingException($"Prior patient '{data.PriorMrn}' was not found; merge was not applied.");
+        }
+
+        var merged = await _merges.MergeAsync(
+            survivor.Id,
+            duplicate.Id,
+            $"HL7 ADT^{data.TriggerEvent} merge of {data.PriorMrn} into {data.Mrn}.",
+            ct);
+        if (!merged.Succeeded)
+        {
+            throw new Hl7MappingException(merged.Error ?? "Patient merge failed.");
+        }
+
+        var visitNote = await _encounters.UpsertVisitFromHl7Async(
+            merged.Value!.Id,
+            data.VisitNumber ?? string.Empty,
+            data.AccountNumber,
+            data.AdmitUtc,
+            data.DischargeUtc,
+            data.CurrentLocation,
+            data.AttendingProviderId,
+            data.AttendingProviderName,
+            data.TriggerEvent,
+            ct);
+
+        return visitNote is null
+            ? $"Patient {data.PriorMrn} merged into {data.Mrn}."
+            : $"Patient {data.PriorMrn} merged into {data.Mrn}. {visitNote}";
+    }
+
     private async Task<string> HandleOrmAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)
     {
         var data = Hl7OrmMapper.Map(message, map);
@@ -263,25 +360,38 @@ public sealed class Hl7InboundProcessor
             throw new Hl7MappingException("Order message has no placer order id (ORC-2/OBR-2).");
         }
 
-        var patient = await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == data.Mrn, ct);
+        var patient = _merges is not null
+            ? await _merges.FindByMrnAsync(data.Mrn, followMerge: true, ct)
+            : await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == data.Mrn, ct);
+        patient = await PatientMergeFollow.ResolveClinicalRecordAsync(_patients, patient, ct);
         if (patient is null)
         {
             throw new Hl7MappingException($"No patient found for MRN '{data.Mrn}'; order cannot be created.");
         }
 
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        if (clinical.Severity == RuleSeverity.HardStop)
+        {
+            throw new Hl7MappingException(clinical.Message);
+        }
+
         var existing = await _orders.FirstOrDefaultAsync(o => o.OrderNumber == data.PlacerOrderId, ct);
 
-        if (string.Equals(data.OrderControl, "CA", StringComparison.OrdinalIgnoreCase))
+        if (!OrderControlRule.IsNewOrder(data.OrderControl))
         {
             if (existing is null)
             {
-                throw new Hl7MappingException($"Cancel for unknown order '{data.PlacerOrderId}'.");
+                throw new Hl7MappingException($"Order control {data.OrderControl} for unknown order '{data.PlacerOrderId}'.");
             }
 
-            existing.Status = OrderStatus.Cancelled;
-            existing.CancellationReason ??= "Cancelled via HL7 ORM";
+            var applied = OrderControlRule.Apply(existing, data.OrderControl, reason: null);
+            if (applied.Severity == RuleSeverity.HardStop)
+            {
+                throw new Hl7MappingException(applied.Message);
+            }
+
             _orders.Update(existing);
-            return $"Order {data.PlacerOrderId} cancelled.";
+            return $"Order {data.PlacerOrderId}: {applied.Message}";
         }
 
         if (existing is not null)

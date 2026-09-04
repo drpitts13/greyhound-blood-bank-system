@@ -76,6 +76,7 @@ public static class DependencyInjection
         services.AddScoped<ComponentIdentityCorrectionService>();
         services.AddScoped<CompatibilityRulesEngine>();
         services.AddScoped<PatientService>();
+        services.AddScoped<PatientMergeService>();
         services.AddScoped<SpecimenService>();
         services.AddScoped<OrderingProviderService>();
         services.AddScoped<OrderingLocationService>();
@@ -91,6 +92,7 @@ public static class DependencyInjection
         services.AddScoped<BloodAttributeCompatLoader>();
         services.AddScoped<AntibodyScreenCompatLoader>();
         services.AddScoped<CompatibilityService>();
+        services.AddScoped<ElectronicCrossmatchEligibilityService>();
         services.AddScoped<IssuingService>();
         services.AddScoped<InterfaceTransfusionService>();
         services.AddScoped<BillingService>();

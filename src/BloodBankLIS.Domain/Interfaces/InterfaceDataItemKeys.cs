@@ -4,6 +4,7 @@ namespace BloodBankLIS.Domain.Interfaces;
 public static class InterfaceDataItemKeys
 {
     public const string PatientMrn = "Patient.MedicalRecordNumber";
+    public const string PatientPriorMrn = "Patient.PriorMedicalRecordNumber";
     public const string PatientLastName = "Patient.LastName";
     public const string PatientFirstName = "Patient.FirstName";
     public const string PatientMiddleName = "Patient.MiddleName";
@@ -37,6 +38,11 @@ public static class InterfaceDataItemKeys
     public const string BillingTransactionType = "BillingEvent.TransactionType";
     public const string BillingCode = "BillingEvent.BillingCode";
     public const string BillingQuantity = "BillingEvent.Quantity";
+    public const string BillingDescription = "BillingEvent.Description";
+    public const string BillingRevenueCode = "BillingEvent.RevenueCode";
+    public const string BillingProcedureCode = "BillingEvent.ProcedureCode";
+    public const string BillingModifier = "BillingEvent.Modifier";
+    public const string BillingPerformingLocation = "BillingEvent.PerformingLocationCode";
 
     public const string UnitNumber = "BloodUnit.UnitNumber";
     public const string UnitDin = "BloodUnit.Din";
