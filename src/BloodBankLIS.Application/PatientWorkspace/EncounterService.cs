@@ -15,6 +15,8 @@ public sealed class EncounterService
     private readonly OrderingProviderService _orderingProviders;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
+    private readonly IPermissionEvaluator? _permissions;
+    private readonly ICurrentUser? _currentUser;
 
     public EncounterService(
         IRepository<Encounter> encounters,
@@ -22,7 +24,9 @@ public sealed class EncounterService
         IRepository<OrderingProvider> providers,
         OrderingProviderService orderingProviders,
         IUnitOfWork unitOfWork,
-        IClock clock)
+        IClock clock,
+        IPermissionEvaluator? permissions = null,
+        ICurrentUser? currentUser = null)
     {
         _encounters = encounters;
         _patients = patients;
@@ -30,6 +34,8 @@ public sealed class EncounterService
         _orderingProviders = orderingProviders;
         _unitOfWork = unitOfWork;
         _clock = clock;
+        _permissions = permissions;
+        _currentUser = currentUser;
     }
 
     public Task<IReadOnlyList<Encounter>> ListByPatientAsync(long patientId, CancellationToken ct = default) =>
@@ -40,6 +46,12 @@ public sealed class EncounterService
 
     public async Task<OperationResult<Encounter>> CreateAsync(long patientId, CreateEncounterRequest request, CancellationToken ct = default)
     {
+        var unauthorized = await RejectUnauthorizedAsync(EncounterAuthorizationRule.EvaluateCreate, ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
         if (await _patients.GetByIdAsync(patientId, ct) is null)
         {
             return OperationResult<Encounter>.Fail("Patient not found.");
@@ -90,6 +102,12 @@ public sealed class EncounterService
 
     public async Task<OperationResult<Encounter>> UpdateAsync(long patientId, long encounterId, UpdateEncounterRequest request, CancellationToken ct = default)
     {
+        var unauthorized = await RejectUnauthorizedAsync(EncounterAuthorizationRule.EvaluateUpdate, ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
         var encounter = await _encounters.FirstOrDefaultAsync(e => e.Id == encounterId && e.PatientId == patientId, ct);
         if (encounter is null)
         {
@@ -331,5 +349,21 @@ public sealed class EncounterService
 
         var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
         return clinical.Severity == RuleSeverity.HardStop ? clinical.Message : null;
+    }
+
+    private async Task<OperationResult<Encounter>?> RejectUnauthorizedAsync(
+        Func<bool, RuleResult> evaluate, CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var userName = _currentUser?.UserName ?? string.Empty;
+        var allowed = await _permissions.HasPermissionAsync(userName, PermissionCodes.PatientWrite, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<Encounter>.Fail(auth.Message)
+            : null;
     }
 }

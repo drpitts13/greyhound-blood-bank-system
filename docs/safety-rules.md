@@ -103,6 +103,8 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ORD-UPD-PERM` | Caller has `patient.write` when updating an order | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-CXL-PERM` | Caller has `patient.write` when cancelling an order | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-LINK-PERM` | Caller has `patient.write` when linking a specimen to an order | HardStop when a permission evaluator is present and the privilege is missing |
+| `ENC-CREATE-PERM` | Caller has `patient.write` when creating a visit from the workspace | HardStop when a permission evaluator is present and the privilege is missing |
+| `ENC-UPD-PERM` | Caller has `patient.write` when updating a visit from the workspace | HardStop when a permission evaluator is present and the privilege is missing |
 | `RXN-PERM` | Caller has `reaction.investigate` when updating a reaction investigation or recording fatality notifications | HardStop when a permission evaluator is present and the privilege is missing |
 | `DEV-PERM` | Caller has `deviation.manage` when creating or updating a quality-system deviation | HardStop when a permission evaluator is present and the privilege is missing |
 | `RET-REISSUE` | Returned unit may re-enter Available only when temperature, seal, visual, and time-out-of-storage checks pass | HardStop / Warning |
