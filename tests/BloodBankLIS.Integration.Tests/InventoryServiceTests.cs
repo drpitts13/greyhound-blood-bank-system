@@ -225,6 +225,25 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ReceiveUnit_WithoutInventoryReceive_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        await using var context = _factory.Create();
+
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
+            .ReceiveUnitAsync(NewUnitRequest("U-RCV-PERM", productTypeId));
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.ReceiveCode);
+        Assert.False(await context.BloodUnits.AnyAsync(u => u.UnitNumber == "U-RCV-PERM"));
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .ReceiveUnitAsync(NewUnitRequest("U-RCV-PERM", productTypeId));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal("U-RCV-PERM", allowed.Unit!.UnitNumber);
+    }
+
+    [Fact]
     public async Task ReleaseFromQuarantine_WithoutInventoryRelease_IsHardStopped()
     {
         var productTypeId = await EnsureProductTypeAsync();

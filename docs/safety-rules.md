@@ -82,7 +82,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `PAT-WRITE-PERM` | Caller has `patient.write` when updating patient demographics | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-MOD-PERM` | Caller has `inventory.modify` when dividing, pooling, or applying a product modification | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-ID-PERM` | Caller has `inventory.correct-identity` when correcting unit ISBT identity | HardStop when a permission evaluator is present and the privilege is missing |
-| `INV-RCV-PERM` | Caller has `inventory.receive` when completing an ISBT scan session or creating a manual component | HardStop when a permission evaluator is present and the privilege is missing |
+| `INV-RCV-PERM` | Caller has `inventory.receive` when completing an ISBT scan session, creating a manual component, or receiving via walk-in / expected-arrival / normalized intake | HardStop when a permission evaluator is present and the privilege is missing |
 | `RXN-PERM` | Caller has `reaction.investigate` when updating a reaction investigation or recording fatality notifications | HardStop when a permission evaluator is present and the privilege is missing |
 | `RET-REISSUE` | Returned unit may re-enter Available only when temperature, seal, visual, and time-out-of-storage checks pass | HardStop / Warning |
 

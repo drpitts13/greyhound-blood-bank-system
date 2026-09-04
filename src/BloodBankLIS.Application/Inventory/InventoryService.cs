@@ -203,6 +203,12 @@ public sealed class InventoryService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var denied = await RejectUnauthorizedReceiveAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var appearance = await EvaluateReceiveAppearanceAsync(
             request.VisualInspectionAcceptable, request.Appearance, ct);
         if (appearance is not null)
@@ -413,6 +419,12 @@ public sealed class InventoryService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var denied = await RejectUnauthorizedReceiveAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
         {
@@ -521,6 +533,13 @@ public sealed class InventoryService
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(draft);
+
+        var denied = await RejectUnauthorizedReceiveAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         draft.RebuildIdentity();
 
         var appear = await EvaluateReceiveAppearanceAsync(visualInspectionAcceptable, appearance, ct);
@@ -1170,6 +1189,21 @@ public sealed class InventoryService
         var allowed = await _permissions.HasPermissionAsync(
             _currentUser.UserName, PermissionCodes.InventoryRelease, ct);
         var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<InventoryActionResult?> RejectUnauthorizedReceiveAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.InventoryReceive, ct);
+        var auth = InventoryAuthorizationRule.EvaluateReceive(allowed);
         return auth.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
             : null;
