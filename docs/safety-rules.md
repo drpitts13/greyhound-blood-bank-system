@@ -40,6 +40,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ISS-RET-PERM` | Caller has `issue.return` when returning an issued unit to inventory | HardStop |
 | `TXN-DOC-PERM` | Caller has `transfusion.document` when documenting a transfusion | HardStop |
 | `TXN-WARD-PERM` | Caller has `transfusion.document` when recording ward receipt of an issued unit | HardStop |
+| `TXN-IFACE-PERM` | Caller has `transfusion.document` when documenting a transfusion through `InterfaceTransfusionService.DocumentAsync` | HardStop when a permission evaluator is present and the privilege is missing |
 | `ISS-AUTO-DIR` | Autologous/directed unit is issued or allocated only to the reserved patient — evaluated inside `IssueGate` (not only the issuing service) | HardStop |
 | `ISS-XM-REQUIRED` | If product requires crossmatch, a compatible, unexpired crossmatch exists (unless emergency release) | HardStop |
 | `XM-ALLOC-PERM` | Caller has `compatibility.allocate` when reserving a unit to a patient | HardStop when a permission evaluator is present and the privilege is missing |

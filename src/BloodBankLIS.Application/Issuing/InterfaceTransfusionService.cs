@@ -1,7 +1,9 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Issuing;
 
@@ -32,6 +34,7 @@ public sealed class InterfaceTransfusionService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IPermissionEvaluator? _permissions;
 
     public InterfaceTransfusionService(
         IRepository<Patient> patients,
@@ -43,7 +46,8 @@ public sealed class InterfaceTransfusionService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IPermissionEvaluator? permissions = null)
     {
         _patients = patients;
         _units = units;
@@ -55,11 +59,42 @@ public sealed class InterfaceTransfusionService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _permissions = permissions;
     }
 
-    public async Task<string> DocumentAsync(InterfaceTransfusionRequest request, CancellationToken ct = default)
+    public async Task<OperationResult<string>> DocumentAsync(InterfaceTransfusionRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        if (_permissions is not null)
+        {
+            var allowed = await _permissions.HasPermissionAsync(
+                _currentUser.UserName, PermissionCodes.TransfusionDocument, ct);
+            var auth = IssueAuthorizationRule.EvaluateInterfaceDocument(allowed);
+            if (auth.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<string>.Fail(auth.Message);
+            }
+        }
+
+        try
+        {
+            return OperationResult<string>.Ok(await DocumentCoreAsync(request, ct));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return OperationResult<string>.Fail(ex.Message);
+        }
+    }
+
+    public Task<string> DocumentFromHl7Async(InterfaceTransfusionRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return DocumentCoreAsync(request, ct);
+    }
+
+    private async Task<string> DocumentCoreAsync(InterfaceTransfusionRequest request, CancellationToken ct)
+    {
 
         if (string.IsNullOrWhiteSpace(request.Mrn))
         {

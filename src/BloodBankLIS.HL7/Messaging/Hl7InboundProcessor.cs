@@ -450,7 +450,7 @@ public sealed class Hl7InboundProcessor
         var data = Hl7BpamMapper.Map(message, map);
         try
         {
-            return await _bpam.DocumentAsync(new InterfaceTransfusionRequest(
+            return await _bpam.DocumentFromHl7Async(new InterfaceTransfusionRequest(
                 data.Mrn,
                 data.UnitNumber,
                 data.Din,

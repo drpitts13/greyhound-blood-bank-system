@@ -133,6 +133,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-064 / FRS-BB-098 | Workspace patient merge requires patient.merge in Application | `PAT-MERGE-PERM` | `PatientAuthorizationRuleTests`; PatientMergeService permission tests | D,I | RISK-BB-067 |
 | URS-BB-066 / FRS-BB-100 | Workspace order create requires patient.write in Application | `ORD-CREATE-PERM` | `OrderAuthorizationRuleTests`; `OrderServiceAuthorizationTests` | D,I | RISK-BB-069 |
 | URS-BB-068 / FRS-BB-102 | User/role directory writes require admin.users.manage or admin.roles.manage in Application | `USR-CREATE-PERM`, `USR-UPD-PERM`, `USR-ASSIGN-PERM`, `ROLE-CREATE-PERM`, `ROLE-UPD-PERM` | `AdminAuthorizationRuleTests`; `UserAdminAuthorizationTests` | D,I | RISK-BB-071 |
+| URS-BB-069 / FRS-BB-103 | Direct interface transfusion documentation requires transfusion.document in Application | `TXN-IFACE-PERM` | `IssueAuthorizationRuleTests`; `InterfaceTransfusionAuthorizationTests` | D,I | RISK-BB-072 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

@@ -15,6 +15,7 @@ public static class IssueAuthorizationRule
     public const string ReturnCode = "ISS-RET-PERM";
     public const string DocumentTransfusionCode = "TXN-DOC-PERM";
     public const string WardReceiptCode = "TXN-WARD-PERM";
+    public const string InterfaceDocumentCode = "TXN-IFACE-PERM";
 
     public static RuleResult EvaluateCreate(bool hasIssueCreate) =>
         hasIssueCreate
@@ -76,4 +77,11 @@ public static class IssueAuthorizationRule
             : RuleResult.HardStop(
                 WardReceiptCode,
                 "Recording ward receipt of an issued unit requires the transfusion.document permission.");
+
+    public static RuleResult EvaluateInterfaceDocument(bool hasTransfusionDocument) =>
+        hasTransfusionDocument
+            ? RuleResult.Pass(InterfaceDocumentCode)
+            : RuleResult.HardStop(
+                InterfaceDocumentCode,
+                "Documenting a transfusion from the interface service requires the transfusion.document permission.");
 }
