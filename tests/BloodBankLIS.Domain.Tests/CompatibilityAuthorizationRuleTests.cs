@@ -33,4 +33,19 @@ public class CompatibilityAuthorizationRuleTests
         var result = CompatibilityAuthorizationRule.EvaluateCrossmatch(hasCompatibilityCrossmatch: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Release_WithoutPermission_IsHardStop()
+    {
+        var result = CompatibilityAuthorizationRule.EvaluateRelease(hasCompatibilityAllocate: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(CompatibilityAuthorizationRule.ReleaseCode, result.Code);
+    }
+
+    [Fact]
+    public void Release_WithPermission_Passes()
+    {
+        var result = CompatibilityAuthorizationRule.EvaluateRelease(hasCompatibilityAllocate: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

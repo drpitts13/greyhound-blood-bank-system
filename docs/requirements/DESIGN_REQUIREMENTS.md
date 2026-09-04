@@ -31,3 +31,4 @@
 | SRS-BB-027 | Patient demographic updates are authorized inside `PatientService` with `patient.write`. Callers that skip the API filter cannot change name, date of birth, sex, status, or pregnancy history used at identification and issue. | FRS-BB-061 |
 | SRS-BB-028 | Product divide, pool, and 1:1 modifications are authorized inside `BloodProductModificationService` with `inventory.modify`. Callers that skip the API filter cannot retire a unit into a modified product used after quarantine release. | FRS-BB-062 |
 | SRS-BB-029 | Unit identity correction is authorized inside `ComponentIdentityCorrectionService` with `inventory.correct-identity`. Callers that skip the API filter cannot rewrite DIN, product code, or ABO/Rh identity used at issue. | FRS-BB-063 |
+| SRS-BB-030 | Allocation release is authorized inside `CompatibilityService` with `compatibility.allocate` (`XM-REL-PERM`). The patient workspace release path uses the same service. | FRS-BB-064 |

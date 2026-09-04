@@ -306,6 +306,28 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ReleaseAllocation_WithoutCompatibilityAllocate_IsHardStopped()
+    {
+        await using var c = _factory.Create();
+        var (patient, unit) = await SeedAvailableUnitAsync(c, "PERM-REL");
+        var reserved = await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(unit.Id, patient.Id));
+        Assert.True(reserved.Succeeded, reserved.Error);
+
+        var denied = await Compatibility(c, new FixedPermissionEvaluator(1, PermissionCodes.CompatibilityCrossmatch))
+            .ReleaseAllocationAsync(reserved.Value!.Id, "Not needed");
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == CompatibilityAuthorizationRule.ReleaseCode);
+        Assert.Equal(AllocationStatus.Reserved, (await c.Allocations.FindAsync(reserved.Value.Id))!.Status);
+        Assert.Equal(UnitStatus.Assigned, (await c.BloodUnits.FindAsync(unit.Id))!.Status);
+
+        var allowed = await Compatibility(c, new FixedPermissionEvaluator(1, PermissionCodes.CompatibilityAllocate))
+            .ReleaseAllocationAsync(reserved.Value.Id, "Not needed");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(AllocationStatus.Released, allowed.Value!.Status);
+        Assert.Equal(UnitStatus.Available, (await c.BloodUnits.FindAsync(unit.Id))!.Status);
+    }
+
+    [Fact]
     public async Task RecordCrossmatch_WithoutCompatibilityCrossmatch_IsHardStopped()
     {
         await using var c = _factory.Create();

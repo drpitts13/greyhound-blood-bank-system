@@ -370,6 +370,15 @@ public sealed class CompatibilityService
             return EvaluationResult<Allocation>.Fail("A reason is required to release an allocation.");
         }
 
+        var denied = await RejectUnauthorizedAsync<Allocation>(
+            PermissionCodes.CompatibilityAllocate,
+            CompatibilityAuthorizationRule.EvaluateRelease,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var allocation = await _allocations.GetByIdAsync(allocationId, ct);
         if (allocation is null)
         {
