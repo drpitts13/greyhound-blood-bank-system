@@ -68,4 +68,19 @@ public class IssueAuthorizationRuleTests
             requiresOverride: false, IssueType.Standard, hasOverridePermission: false);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Return_WithoutPermission_IsHardStop()
+    {
+        var result = IssueAuthorizationRule.EvaluateReturn(hasIssueReturn: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(IssueAuthorizationRule.ReturnCode, result.Code);
+    }
+
+    [Fact]
+    public void Return_WithPermission_Passes()
+    {
+        var result = IssueAuthorizationRule.EvaluateReturn(hasIssueReturn: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

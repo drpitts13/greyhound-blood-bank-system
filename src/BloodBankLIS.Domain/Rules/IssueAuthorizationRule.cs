@@ -11,6 +11,7 @@ public static class IssueAuthorizationRule
     public const string CreateCode = "ISS-CREATE-PERM";
     public const string EmergencyCode = "ISS-EMERG-PERM";
     public const string OverrideCode = "ISS-OVR-PERM";
+    public const string ReturnCode = "ISS-RET-PERM";
 
     public static RuleResult EvaluateCreate(bool hasIssueCreate) =>
         hasIssueCreate
@@ -51,4 +52,11 @@ public static class IssueAuthorizationRule
                 OverrideCode,
                 "Overriding an issue warning requires the issue.override permission.");
     }
+
+    public static RuleResult EvaluateReturn(bool hasIssueReturn) =>
+        hasIssueReturn
+            ? RuleResult.Pass(ReturnCode)
+            : RuleResult.HardStop(
+                ReturnCode,
+                "Returning an issued unit to inventory requires the issue.return permission.");
 }

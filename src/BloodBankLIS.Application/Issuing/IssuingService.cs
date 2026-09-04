@@ -523,6 +523,13 @@ public sealed class IssuingService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var returnAuth = IssueAuthorizationRule.EvaluateReturn(
+            await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.IssueReturn, ct));
+        if (returnAuth.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Return>.Blocked(new RuleEvaluation([returnAuth]));
+        }
+
         if (string.IsNullOrWhiteSpace(request.Reason))
         {
             return EvaluationResult<Return>.Fail("A reason is required to return a unit.");

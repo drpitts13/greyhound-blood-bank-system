@@ -110,6 +110,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-035 / FRS-BB-065 | ISBT scan complete and manual entry require inventory.receive in Application | `INV-RCV-PERM` | `InventoryAuthorizationRuleTests`; ISBT manual-entry permission test | D,I | RISK-BB-037 |
 | URS-BB-036 / FRS-BB-066 | Reaction investigation writes require reaction.investigate in Application | `RXN-PERM` | `ReactionAuthorizationRuleTests`; ReactionInvestigationService permission test | D,I | RISK-BB-038 |
 | URS-BB-037 / FRS-BB-067 | Walk-in, expected-arrival, and normalized receive require inventory.receive in Application | `INV-RCV-PERM` | `InventoryAuthorizationRuleTests`; InventoryService receive permission test | D,I | RISK-BB-039 |
+| URS-BB-038 / FRS-BB-068 | Issue return requires issue.return in Application | `ISS-RET-PERM` | `IssueAuthorizationRuleTests`; Issuing return permission test | D,I | RISK-BB-040 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

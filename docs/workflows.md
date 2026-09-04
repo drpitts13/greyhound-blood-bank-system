@@ -180,7 +180,7 @@ flowchart TD
     e --> g
 ```
 
-- Use case: `ReturnUnitCommand`. Stores the per-check evaluation JSON so reissue decisions are auditable.
+- Use case: `ReturnUnitCommand`. Stores the per-check evaluation JSON so reissue decisions are auditable. Returning an issued unit requires `issue.return` (`ISS-RET-PERM`) in the Application service.
 
 ---
 
