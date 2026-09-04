@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
@@ -20,7 +21,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
     public InventoryServiceTests(SqliteContextFactory factory) => _factory = factory;
 
-    private InventoryService CreateService(BloodBankDbContext context)
+    private InventoryService CreateService(BloodBankDbContext context, IPermissionEvaluator? permissions = null)
     {
         var repository = new InventoryRepository(context);
         var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser);
@@ -38,7 +39,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             audit,
             new EfRepository<User>(context),
             new FacilityPolicyService(new EfRepository<SystemSetting>(context)),
-            new EfRepository<Patient>(context));
+            new EfRepository<Patient>(context),
+            permissions);
     }
 
     private async Task EnsureSecondVerifierAsync(string userName = "tech2")
@@ -220,6 +222,27 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var result = await service.QuarantineAsync(received.Unit.Id, UnitQuarantineReason.Unspecified);
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == QuarantineReasonRule.Code);
+    }
+
+    [Fact]
+    public async Task ReleaseFromQuarantine_WithoutInventoryRelease_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive));
+        var received = await service.ReceiveUnitAsync(NewUnitRequest("U-Q-PERM", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var released = await service.ReleaseFromQuarantineAsync(received.Unit!.Id, "tech2");
+        Assert.False(released.Succeeded);
+        Assert.Contains(released.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.QuarantineReleaseCode);
+        Assert.Equal(UnitStatus.Quarantine, (await context.BloodUnits.FindAsync(received.Unit.Id))!.Status);
+
+        var allowed = CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease));
+        var ok = await allowed.ReleaseFromQuarantineAsync(received.Unit.Id, "tech2");
+        Assert.True(ok.Succeeded, ok.Error);
+        Assert.Equal(UnitStatus.Available, ok.Unit!.Status);
     }
 
     [Fact]

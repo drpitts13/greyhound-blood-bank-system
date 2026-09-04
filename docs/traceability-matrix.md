@@ -95,6 +95,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-020 / FRS-BB-022 | Patient ABO/Rh is not self-verified; current type waits for a second user | `Result.BlockAboSelfVerify`; `RES-SELF-VERIFY`; MarkComplete skip for ABORH | Phase 3 ABO self-verify and MarkComplete tests; RulesEngine Weak D via second user | D,I | RISK-BB-022; OCD-013 |
 | URS-BB-021 / FRS-BB-023 | Special-requirement writes require immuno privileges in Application | `SR-ADD-PERM`, `SR-DEACT-PERM` | `ImmunoAuthorizationRuleTests`; Phase 3 special-requirement permission test | D,I | RISK-BB-023 |
 | URS-BB-022 / FRS-BB-024 | Lookback DIN recall fails closed and can recall reserved units | `LK-RECALL-PERM`; reserved → Recalled transitions | `LookbackAuthorizationRuleTests`; Compliance lookback tests; `InventoryStatusTransitionTests` | D,I | RISK-BB-024; OCD-014 |
+| URS-BB-023 / FRS-BB-052 | Quarantine release requires inventory.release in Application | `INV-REL-PERM`; dual verifier still applies | `InventoryAuthorizationRuleTests`; InventoryService permission test | D,I | RISK-BB-025 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

@@ -46,6 +46,7 @@ public sealed class InventoryService
     private readonly IRepository<User>? _users;
     private readonly FacilityPolicyService? _policy;
     private readonly IRepository<Patient>? _patients;
+    private readonly IPermissionEvaluator? _permissions;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -58,7 +59,8 @@ public sealed class InventoryService
         IAuditWriter audit,
         IRepository<User>? users = null,
         FacilityPolicyService? policy = null,
-        IRepository<Patient>? patients = null)
+        IRepository<Patient>? patients = null,
+        IPermissionEvaluator? permissions = null)
     {
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -71,6 +73,7 @@ public sealed class InventoryService
         _users = users;
         _policy = policy;
         _patients = patients;
+        _permissions = permissions;
     }
 
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
@@ -651,6 +654,12 @@ public sealed class InventoryService
     public async Task<InventoryActionResult> ReleaseFromQuarantineAsync(
         long unitId, string? secondVerifier = null, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedReleaseAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
         {
@@ -1133,5 +1142,20 @@ public sealed class InventoryService
 
         await _unitOfWork.SaveChangesAsync(ct);
         return InventoryActionResult.Ok(unit);
+    }
+
+    private async Task<InventoryActionResult?> RejectUnauthorizedReleaseAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.InventoryRelease, ct);
+        var auth = InventoryAuthorizationRule.EvaluateQuarantineRelease(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 }
