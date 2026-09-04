@@ -102,6 +102,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-027 / FRS-BB-056 | Allocate and crossmatch require compatibility privileges in Application | `XM-ALLOC-PERM`, `XM-PERM` | `CompatibilityAuthorizationRuleTests`; PatientAllocation permission tests | D,I | RISK-BB-029 |
 | URS-BB-028 / FRS-BB-057 | Issue requires issue.create in Application | `ISS-CREATE-PERM`; emergency still needs `ISS-EMERG-PERM` | `IssueAuthorizationRuleTests`; Phase 4 issue-create permission test | D,I | RISK-BB-030 |
 | URS-BB-029 / FRS-BB-058 | Result enter and verified-result correction require privileges in Application | `RES-ENTER-PERM`, `RES-CORRECT-PERM` | `ResultAuthorizationRuleTests`; Phase 3 and ProductRetype permission tests | D,I | RISK-BB-031 |
+| URS-BB-030 / FRS-BB-059 | Specimen accession, edit, and reject require privileges in Application | `SPEC-ACC-PERM`, `SPEC-EDIT-PERM`, `SPEC-REJ-PERM` | `SpecimenAuthorizationRuleTests`; Phase 3 specimen permission tests | D,I | RISK-BB-032 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

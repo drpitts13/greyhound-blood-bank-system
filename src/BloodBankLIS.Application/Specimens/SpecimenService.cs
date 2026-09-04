@@ -26,6 +26,8 @@ public sealed class SpecimenService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly IAuditWriter? _audit;
+    private readonly ICurrentUser? _currentUser;
+    private readonly IPermissionEvaluator? _permissions;
 
     public SpecimenService(
         IRepository<Specimen> specimens,
@@ -35,7 +37,9 @@ public sealed class SpecimenService
         IClock clock,
         IRepository<TransfusionEvent>? transfusions = null,
         FacilityPolicyService? policy = null,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        ICurrentUser? currentUser = null,
+        IPermissionEvaluator? permissions = null)
     {
         _specimens = specimens;
         _patients = patients;
@@ -45,6 +49,8 @@ public sealed class SpecimenService
         _unitOfWork = unitOfWork;
         _clock = clock;
         _audit = audit;
+        _currentUser = currentUser;
+        _permissions = permissions;
     }
 
     public async Task<SpecimenDto?> GetAsync(long id, CancellationToken ct = default)
@@ -66,6 +72,13 @@ public sealed class SpecimenService
     public async Task<OperationResult<Specimen>> AccessionAsync(AccessionSpecimenRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenAccession, SpecimenAuthorizationRule.EvaluateAccession, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         if (string.IsNullOrWhiteSpace(request.AccessionNumber))
         {
@@ -157,6 +170,13 @@ public sealed class SpecimenService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenEdit, SpecimenAuthorizationRule.EvaluateEdit, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var specimen = await _specimens.GetByIdAsync(specimenId, ct);
         if (specimen is null)
         {
@@ -217,6 +237,13 @@ public sealed class SpecimenService
         if (string.IsNullOrWhiteSpace(reason))
         {
             return OperationResult<Specimen>.Fail("A reason is required to reject a specimen.");
+        }
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenReject, SpecimenAuthorizationRule.EvaluateReject, ct);
+        if (denied is not null)
+        {
+            return denied;
         }
 
         var specimen = await _specimens.GetByIdAsync(specimenId, ct);
@@ -323,4 +350,22 @@ public sealed class SpecimenService
 
     private static string? ResolveDescription(string typeCode, IReadOnlyDictionary<string, string> descriptions) =>
         descriptions.TryGetValue(typeCode, out var description) ? description : null;
+
+    private async Task<OperationResult<Specimen>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var userName = _currentUser?.UserName ?? string.Empty;
+        var allowed = await _permissions.HasPermissionAsync(userName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<Specimen>.Fail(auth.Message)
+            : null;
+    }
 }

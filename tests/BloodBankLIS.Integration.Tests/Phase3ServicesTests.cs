@@ -19,8 +19,9 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
     public Phase3ServicesTests(SqliteContextFactory factory) => _factory = factory;
 
-    private SpecimenService Specimens(BloodBankDbContext c) =>
-        new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c), c, _factory.Clock);
+    private SpecimenService Specimens(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+        new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c),
+            c, _factory.Clock, currentUser: _factory.CurrentUser, permissions: permissions);
 
     private static ICurrentUser Verifier => new TestCurrentUser("tech-verify", "WORKSTATION-2");
 
@@ -173,6 +174,23 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Accession_WithoutSpecimenAccession_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-ACC-PERM");
+        await using var context = _factory.Create();
+        var denied = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenEdit))
+            .AccessionAsync(new AccessionSpecimenRequest("ACC-PERM", patientId, "EDTA", _factory.Clock.UtcNow.AddHours(-1)));
+        Assert.False(denied.Succeeded);
+        Assert.Equal(SpecimenAuthorizationRule.EvaluateAccession(false).Message, denied.Error);
+        Assert.False(await context.Specimens.AnyAsync(s => s.AccessionNumber == "ACC-PERM"));
+
+        var allowed = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenAccession))
+            .AccessionAsync(new AccessionSpecimenRequest("ACC-PERM", patientId, "EDTA", _factory.Clock.UtcNow.AddHours(-1)));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(SpecimenStatus.Accepted, allowed.Value!.Status);
+    }
+
+    [Fact]
     public async Task Reject_RequiresReason_AndSetsStatus()
     {
         var patientId = await EnsurePatientAsync("MRN-REJ");
@@ -191,6 +209,25 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(SpecimenStatus.Rejected, rejected.Value!.Status);
             Assert.Equal("Hemolyzed", rejected.Value.RejectionReason);
         }
+    }
+
+    [Fact]
+    public async Task Reject_WithoutSpecimenReject_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-REJ-PERM");
+        var specimenId = await AccessionAsync("ACC-REJ-PERM", patientId);
+
+        await using var context = _factory.Create();
+        var denied = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenAccession))
+            .RejectAsync(specimenId, "Hemolyzed");
+        Assert.False(denied.Succeeded);
+        Assert.Equal(SpecimenAuthorizationRule.EvaluateReject(false).Message, denied.Error);
+        Assert.Equal(SpecimenStatus.Accepted, (await context.Specimens.FindAsync(specimenId))!.Status);
+
+        var allowed = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenReject))
+            .RejectAsync(specimenId, "Hemolyzed");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(SpecimenStatus.Rejected, allowed.Value!.Status);
     }
 
     [Fact]
@@ -213,6 +250,26 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("ACC-EDIT", updated.Value.AccessionNumber);
         Assert.Equal("EDTA", updated.Value.SpecimenType);
         Assert.Equal(SpecimenStatus.Accepted, updated.Value.Status);
+    }
+
+    [Fact]
+    public async Task Update_WithoutSpecimenEdit_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-PERM");
+        var specimenId = await AccessionAsync("ACC-EDIT-PERM", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-6);
+
+        await using var context = _factory.Create();
+        var denied = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenAccession))
+            .UpdateAsync(specimenId, new UpdateSpecimenRequest(collected, Barcode: "BC-X"));
+        Assert.False(denied.Succeeded);
+        Assert.Equal(SpecimenAuthorizationRule.EvaluateEdit(false).Message, denied.Error);
+        Assert.Null((await context.Specimens.FindAsync(specimenId))!.Barcode);
+
+        var allowed = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenEdit))
+            .UpdateAsync(specimenId, new UpdateSpecimenRequest(collected, Barcode: "BC-X"));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal("BC-X", allowed.Value!.Barcode);
     }
 
     [Fact]

@@ -75,6 +75,9 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `RES-VERIFY-PERM` | Caller has `result.verify` when verifying a test result or unit ABO/Rh retype | HardStop when a permission evaluator is present and the privilege is missing |
 | `RES-ENTER-PERM` | Caller has `result.enter` when entering or updating an unverified result or unit retype | HardStop when a permission evaluator is present and the privilege is missing |
 | `RES-CORRECT-PERM` | Caller has `result.correct` when correcting a verified result | HardStop when a permission evaluator is present and the privilege is missing |
+| `SPEC-ACC-PERM` | Caller has `specimen.accession` when accessioning a specimen | HardStop when a permission evaluator is present and the privilege is missing |
+| `SPEC-EDIT-PERM` | Caller has `specimen.edit` when editing specimen collection metadata | HardStop when a permission evaluator is present and the privilege is missing |
+| `SPEC-REJ-PERM` | Caller has `specimen.reject` when rejecting a specimen | HardStop when a permission evaluator is present and the privilege is missing |
 | `RET-REISSUE` | Returned unit may re-enter Available only when temperature, seal, visual, and time-out-of-storage checks pass | HardStop / Warning |
 
 If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning within that workflow (see section 5) rather than a HardStop, and an `Override` + signature is mandatory. Issuing any unit is HardStop `ISS-CREATE-PERM` without `issue.create`. Emergency or MTP issue is also HardStop `ISS-EMERG-PERM` unless the user has `issue.emergency-release`. Non-emergency warning overrides are HardStop `ISS-OVR-PERM` without `issue.override`.
