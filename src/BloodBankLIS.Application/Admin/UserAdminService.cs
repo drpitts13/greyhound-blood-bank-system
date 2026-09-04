@@ -230,6 +230,13 @@ public sealed class UserAdminService : ConfigAdminServiceBase
 
     public async Task<OperationResult<AdminUserDto>> SetActiveAsync(long id, bool active, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync<AdminUserDto>(
+            PermissionCodes.AdminUsersManage, AdminAuthorizationRule.EvaluateSetActive, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var user = await _users.GetByIdAsync(id, ct);
         if (user is null)
         {
@@ -254,6 +261,13 @@ public sealed class UserAdminService : ConfigAdminServiceBase
 
     public async Task<OperationResult<AdminUserDto>> SetLockedAsync(long id, bool locked, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync<AdminUserDto>(
+            PermissionCodes.AdminUsersManage, AdminAuthorizationRule.EvaluateSetLocked, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var user = await _users.GetByIdAsync(id, ct);
         if (user is null)
         {
@@ -278,6 +292,13 @@ public sealed class UserAdminService : ConfigAdminServiceBase
     /// <summary>Password reset placeholder: records the request for audit; no credential store yet.</summary>
     public async Task<OperationResult<AdminUserDto>> RequestPasswordResetAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync<AdminUserDto>(
+            PermissionCodes.AdminUsersManage, AdminAuthorizationRule.EvaluatePasswordReset, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var user = await _users.GetByIdAsync(id, ct);
         if (user is null)
         {

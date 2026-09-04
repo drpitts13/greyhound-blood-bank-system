@@ -78,4 +78,49 @@ public class AdminAuthorizationRuleTests
         var result = AdminAuthorizationRule.EvaluateUpdateRole(hasAdminRolesManage: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void SetActive_WithoutPermission_IsHardStop()
+    {
+        var result = AdminAuthorizationRule.EvaluateSetActive(hasAdminUsersManage: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(AdminAuthorizationRule.SetActiveCode, result.Code);
+    }
+
+    [Fact]
+    public void SetActive_WithPermission_Passes()
+    {
+        var result = AdminAuthorizationRule.EvaluateSetActive(hasAdminUsersManage: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void SetLocked_WithoutPermission_IsHardStop()
+    {
+        var result = AdminAuthorizationRule.EvaluateSetLocked(hasAdminUsersManage: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(AdminAuthorizationRule.SetLockedCode, result.Code);
+    }
+
+    [Fact]
+    public void SetLocked_WithPermission_Passes()
+    {
+        var result = AdminAuthorizationRule.EvaluateSetLocked(hasAdminUsersManage: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void PasswordReset_WithoutPermission_IsHardStop()
+    {
+        var result = AdminAuthorizationRule.EvaluatePasswordReset(hasAdminUsersManage: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(AdminAuthorizationRule.PasswordResetCode, result.Code);
+    }
+
+    [Fact]
+    public void PasswordReset_WithPermission_Passes()
+    {
+        var result = AdminAuthorizationRule.EvaluatePasswordReset(hasAdminUsersManage: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

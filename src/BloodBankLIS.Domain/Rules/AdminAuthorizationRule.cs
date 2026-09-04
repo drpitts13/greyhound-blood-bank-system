@@ -9,6 +9,9 @@ public static class AdminAuthorizationRule
     public const string CreateUserCode = "USR-CREATE-PERM";
     public const string UpdateUserCode = "USR-UPD-PERM";
     public const string AssignRolesCode = "USR-ASSIGN-PERM";
+    public const string SetActiveCode = "USR-ACTIVE-PERM";
+    public const string SetLockedCode = "USR-LOCK-PERM";
+    public const string PasswordResetCode = "USR-RESET-PERM";
     public const string CreateRoleCode = "ROLE-CREATE-PERM";
     public const string UpdateRoleCode = "ROLE-UPD-PERM";
 
@@ -32,6 +35,27 @@ public static class AdminAuthorizationRule
             : RuleResult.HardStop(
                 AssignRolesCode,
                 "Assigning roles requires the admin.users.manage permission.");
+
+    public static RuleResult EvaluateSetActive(bool hasAdminUsersManage) =>
+        hasAdminUsersManage
+            ? RuleResult.Pass(SetActiveCode)
+            : RuleResult.HardStop(
+                SetActiveCode,
+                "Activating or deactivating a directory user requires the admin.users.manage permission.");
+
+    public static RuleResult EvaluateSetLocked(bool hasAdminUsersManage) =>
+        hasAdminUsersManage
+            ? RuleResult.Pass(SetLockedCode)
+            : RuleResult.HardStop(
+                SetLockedCode,
+                "Locking or unlocking a directory user requires the admin.users.manage permission.");
+
+    public static RuleResult EvaluatePasswordReset(bool hasAdminUsersManage) =>
+        hasAdminUsersManage
+            ? RuleResult.Pass(PasswordResetCode)
+            : RuleResult.HardStop(
+                PasswordResetCode,
+                "Requesting a password reset requires the admin.users.manage permission.");
 
     public static RuleResult EvaluateCreateRole(bool hasAdminRolesManage) =>
         hasAdminRolesManage

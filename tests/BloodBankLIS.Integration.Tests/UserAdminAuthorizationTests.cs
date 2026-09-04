@@ -106,4 +106,59 @@ public class UserAdminAuthorizationTests : IClassFixture<SqliteContextFactory>
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Contains(PermissionCodes.IssueCreate, allowed.Value!.Permissions);
     }
+
+    [Fact]
+    public async Task SetActive_WithoutAdminUsersManage_IsRejected()
+    {
+        await using var c = _factory.Create();
+        await DatabaseSeeder.SeedAsync(c);
+        var tech = await c.Users.SingleAsync(u => u.UserName == "tech1");
+
+        var denied = await Users(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigView))
+            .SetActiveAsync(tech.Id, false, "Coverage.");
+        Assert.False(denied.Succeeded);
+        Assert.Contains("admin.users.manage", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.True((await c.Users.SingleAsync(u => u.Id == tech.Id)).IsActive);
+
+        var allowed = await Users(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminUsersManage))
+            .SetActiveAsync(tech.Id, false, "Coverage.");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.False(allowed.Value!.IsActive);
+    }
+
+    [Fact]
+    public async Task SetLocked_WithoutAdminUsersManage_IsRejected()
+    {
+        await using var c = _factory.Create();
+        await DatabaseSeeder.SeedAsync(c);
+        var tech = await c.Users.SingleAsync(u => u.UserName == "tech1");
+
+        var denied = await Users(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigView))
+            .SetLockedAsync(tech.Id, true, "Lockout.");
+        Assert.False(denied.Succeeded);
+        Assert.Contains("admin.users.manage", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.False((await c.Users.SingleAsync(u => u.Id == tech.Id)).IsLocked);
+
+        var allowed = await Users(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminUsersManage))
+            .SetLockedAsync(tech.Id, true, "Lockout.");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.True(allowed.Value!.IsLocked);
+    }
+
+    [Fact]
+    public async Task RequestPasswordReset_WithoutAdminUsersManage_IsRejected()
+    {
+        await using var c = _factory.Create();
+        await DatabaseSeeder.SeedAsync(c);
+        var tech = await c.Users.SingleAsync(u => u.UserName == "tech1");
+
+        var denied = await Users(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigView))
+            .RequestPasswordResetAsync(tech.Id, "Forgot.");
+        Assert.False(denied.Succeeded);
+        Assert.Contains("admin.users.manage", denied.Error, StringComparison.OrdinalIgnoreCase);
+
+        var allowed = await Users(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminUsersManage))
+            .RequestPasswordResetAsync(tech.Id, "Forgot.");
+        Assert.True(allowed.Succeeded, allowed.Error);
+    }
 }

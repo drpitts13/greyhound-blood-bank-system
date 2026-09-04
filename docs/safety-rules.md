@@ -113,6 +113,9 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `USR-CREATE-PERM` | Caller has `admin.users.manage` when creating a directory user | HardStop when a permission evaluator is present and the privilege is missing |
 | `USR-UPD-PERM` | Caller has `admin.users.manage` when updating a directory user | HardStop when a permission evaluator is present and the privilege is missing |
 | `USR-ASSIGN-PERM` | Caller has `admin.users.manage` when assigning roles | HardStop when a permission evaluator is present and the privilege is missing |
+| `USR-ACTIVE-PERM` | Caller has `admin.users.manage` when activating or deactivating a directory user | HardStop when a permission evaluator is present and the privilege is missing |
+| `USR-LOCK-PERM` | Caller has `admin.users.manage` when locking or unlocking a directory user | HardStop when a permission evaluator is present and the privilege is missing |
+| `USR-RESET-PERM` | Caller has `admin.users.manage` when requesting a password reset | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-UPD-PERM` | Caller has `patient.write` when updating an order | HardStop when a permission evaluator is present and the privilege is missing |
