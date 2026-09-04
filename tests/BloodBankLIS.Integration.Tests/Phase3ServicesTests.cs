@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Application.Specimens;
@@ -45,7 +46,7 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         await c.SaveChangesAsync();
     }
 
-    private ImmunohematologyService Immuno(BloodBankDbContext c) =>
+    private ImmunohematologyService Immuno(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
         new(
             new EfRepository<PatientBloodTypeHistory>(c),
             new EfRepository<AntibodyHistory>(c),
@@ -55,7 +56,8 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
             c,
             _factory.Clock,
             _factory.CurrentUser,
-            new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            permissions);
 
     private async Task<long> EnsurePatientAsync(string mrn)
     {
@@ -528,11 +530,27 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         await using (var verify = _factory.Create())
         {
-            var audit = await verify.AuditEvents
-                .Where(a => a.EntityType == nameof(PatientBloodTypeHistory) && a.EntityId == patientId)
-                .SingleAsync();
-            Assert.Equal("Historical record import", audit.Reason);
+            Assert.Contains(
+                await verify.AuditEvents
+                    .Where(a => a.EntityType == nameof(PatientBloodTypeHistory) && a.EntityId == patientId)
+                    .ToListAsync(),
+                a => a.Reason == "Historical record import");
         }
+    }
+
+    [Fact]
+    public async Task ManualBloodType_WithoutImmunoOverride_IsRejected()
+    {
+        var patientId = await EnsurePatientAsync("MRN-IH-PERM");
+        await using var context = _factory.Create();
+        var denied = await Immuno(context, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord))
+            .RecordBloodTypeManualAsync(patientId, AboGroup.O, RhType.Positive, "Historical record import");
+        Assert.False(denied.Succeeded);
+        Assert.Contains("immuno.override", denied.Error, StringComparison.OrdinalIgnoreCase);
+
+        var allowed = await Immuno(context, new FixedPermissionEvaluator(2, PermissionCodes.ImmunoOverride))
+            .RecordBloodTypeManualAsync(patientId, AboGroup.O, RhType.Positive, "Historical record import");
+        Assert.True(allowed.Succeeded, allowed.Error);
     }
 
     [Fact]

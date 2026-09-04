@@ -114,7 +114,7 @@
             <div class="field"><label>Issued to (location)</label><input @bind="_issue.IssuedToLocation" /></div>
             <div class="field"><label>Cooler / transport id</label><input @bind="_issue.CoolerId" placeholder="Optional cooler checkout" /></div>
             <div class="field"><label>Issue type</label>
-                <select @bind="_issue.IssueType">@foreach (var t in Enum.GetValues<IssueType>()) { <option value="@t">@t</option> }</select>
+                <select @bind="_issue.IssueType">@foreach (var t in AllowedIssueTypes) { <option value="@t">@t</option> }</select>
             </div>
         </div>
         <div class="form-row">
@@ -273,6 +273,11 @@
 </div>
 
 @code {
+    private IEnumerable<IssueType> AllowedIssueTypes =>
+        Enum.GetValues<IssueType>().Where(t =>
+            t is not (IssueType.EmergencyRelease or IssueType.MassiveTransfusion)
+            || Session.Has(PermissionCodes.IssueEmergencyRelease));
+
     private bool _busy;
 
     private IssueModel _issue = new();

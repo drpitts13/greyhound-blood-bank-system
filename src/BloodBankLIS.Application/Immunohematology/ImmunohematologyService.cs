@@ -23,6 +23,7 @@ public sealed class ImmunohematologyService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IPermissionEvaluator? _permissions;
 
     public ImmunohematologyService(
         IRepository<PatientBloodTypeHistory> bloodTypes,
@@ -33,7 +34,8 @@ public sealed class ImmunohematologyService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IPermissionEvaluator? permissions = null)
     {
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
@@ -44,6 +46,7 @@ public sealed class ImmunohematologyService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _permissions = permissions;
     }
 
     public Task<PatientBloodTypeHistory?> GetCurrentBloodTypeAsync(long patientId, CancellationToken ct = default) =>
@@ -68,6 +71,17 @@ public sealed class ImmunohematologyService
         if (string.IsNullOrWhiteSpace(reason))
         {
             return OperationResult<PatientBloodTypeHistory>.Fail("A reason is required to manually record ABO/Rh.");
+        }
+
+        if (_permissions is not null)
+        {
+            var allowed = await _permissions.HasPermissionAsync(
+                _currentUser.UserName, PermissionCodes.ImmunoOverride, ct);
+            var auth = ImmunoAuthorizationRule.EvaluateManualBloodType(allowed);
+            if (auth.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<PatientBloodTypeHistory>.Fail(auth.Message);
+            }
         }
 
         var patientGate = await RejectMergedOrMissingPatientAsync<PatientBloodTypeHistory>(patientId, ct);

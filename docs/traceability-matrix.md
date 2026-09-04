@@ -89,7 +89,8 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-017 / FRS-BB-003 | Manual and ADT merge reassign history to the survivor | `PatientMergeService`; `POST /api/patients/{id}/merge` requires `patient.merge`; ADT A18/A40 | `PatientMergeServiceTests`; Phase 8 security seed tests; Phase 5 HL7 merge tests | I | RISK-BB-015; RISK-BB-017; OCD-010 |
 | URS-BB-003 / FRS-BB-010 | Expired specimen cannot establish results | `ResultService.ValidateSpecimenForEntryAsync` on enter and verify | `MergedPatientClinicalUseTests` expired-verify case | I | RISK-BB-016 |
 | URS-BB-018 / FRS-BB-051 | Unit retype stays Received until a second user verifies | `ProductRetypeService` enter/verify; `RES-SELF-VERIFY` | `ProductRetypeServiceTests` | I | RISK-BB-018; OCD-011 |
-| URS-BB-006 / FRS-BB-040 | Emergency/MTP issue requires a distinct privilege | `IssueAuthorizationRule` `ISS-EMERG-PERM`; `issue.emergency-release` | `IssueAuthorizationRuleTests`; Phase 8 seed tests | D,I | RISK-BB-019 |
+| URS-BB-006 / FRS-BB-040 | Emergency/MTP issue requires a distinct privilege | `IssueAuthorizationRule` `ISS-EMERG-PERM`; `issue.emergency-release`; issue UI hides those types | `IssueAuthorizationRuleTests`; Phase 8 seed tests | D,I | RISK-BB-019 |
+| URS-BB-019 / FRS-BB-021 | Manual ABO/Rh requires immuno.override in Application | `ImmunoAuthorizationRule` `IH-ABO-PERM`; `ImmunohematologyService` | `ImmunoAuthorizationRuleTests`; Phase 3 manual ABO tests | D,I | RISK-BB-020 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

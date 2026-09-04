@@ -15,4 +15,5 @@
 | SRS-BB-011 | ADT and ORM resolve a merged MRN to the surviving patient (`PatientMergeFollow` / `FindByMrn` follow) before writing demographics or placing orders. | FRS-BB-080, FRS-BB-003 |
 | SRS-BB-012 | Manual patient merge is authorized with `patient.merge`, not `patient.write`. The API default-denies; the UI hides the action. A second authorizer is not required (OCD-010). | FRS-BB-003 |
 | SRS-BB-013 | Product retype record does not change unit status. Verify is a separate Application action that applies `SelfVerifyRule` before Available/Quarantine. | FRS-BB-051 |
-| SRS-BB-014 | Emergency/MTP issue is authorized with `issue.emergency-release` in `IssuingService`, not only in the UI. Standard issue does not grant emergency release. | FRS-BB-040 |
+| SRS-BB-014 | Emergency/MTP issue is authorized with `issue.emergency-release` in `IssuingService`, not only in the UI. Standard issue does not grant emergency release. The issue-type list hides Emergency/MTP without that permission. | FRS-BB-040 |
+| SRS-BB-015 | Manual ABO/Rh write is authorized with `immuno.override` inside `ImmunohematologyService`. Callers that skip the API filter cannot set the current type. | FRS-BB-021 |
