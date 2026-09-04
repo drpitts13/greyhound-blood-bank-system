@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Entities;
@@ -5,6 +6,7 @@ using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Isbt128.Parsing;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -56,7 +58,9 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
         await context.SaveChangesAsync();
     }
 
-    private ManualComponentEntryService CreateManual(BloodBankDbContext context)
+    private ManualComponentEntryService CreateManual(
+        BloodBankDbContext context,
+        IPermissionEvaluator? permissions = null)
     {
         var lookups = new IsbtLookupCatalog(
             new EfRepository<IsbtAboRhdCode>(context),
@@ -73,7 +77,8 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
 
         var dinCheck = new PlaceholderDinCheckCharacterValidator();
 
-        return new ManualComponentEntryService(lookups, dinCheck, inventory, _factory.Clock, _factory.CurrentUser);
+        return new ManualComponentEntryService(
+            lookups, dinCheck, inventory, _factory.Clock, _factory.CurrentUser, permissions: permissions);
     }
 
     private ScanSessionService CreateScanSession(BloodBankDbContext context)
@@ -150,6 +155,41 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
 
         Assert.False(dup.Succeeded);
         Assert.Contains(IsbtErrorCodes.ComponentDuplicate, dup.Error);
+    }
+
+    [Fact]
+    public async Task ManualEntry_WithoutInventoryReceive_IsHardStopped()
+    {
+        await using var context = _factory.Create();
+        await SeedLookupsAsync(context);
+        var productTypeId = (await context.ProductTypes.FirstAsync(t => t.ProductCode == "RBC-ISBT")).Id;
+        var dinCheck = new PlaceholderDinCheckCharacterValidator();
+        const string din13 = "G888817654321";
+        var check = dinCheck.ComputeCheckCharacter(din13);
+        var request = new ManualComponentEntryRequest(
+            DonationNumber: $"{din13}{check}",
+            AboRhdCode: "DEMO",
+            ProductDescriptionCode: "E0206",
+            CollectionTypeCode: "0",
+            DivisionCode: "00",
+            ExtendedDivisionCode: null,
+            ExpirationLocal: _factory.Clock.UtcNow.AddDays(30),
+            ExpirationHasExplicitTime: false,
+            ProductTypeId: productTypeId,
+            ReleaseToAvailable: true,
+            SecondVerifier: "tech2",
+            ReceiveTemperatureCelsius: 4.0m);
+
+        var denied = await CreateManual(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryModify))
+            .CreateAsync(request);
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.ReceiveCode);
+        Assert.False(await context.BloodUnits.AnyAsync(u => u.Din == din13 || u.UnitNumber.Contains(din13)));
+
+        var allowed = await CreateManual(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .CreateAsync(request);
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Contains(din13, allowed.Unit!.ComponentIdentity);
     }
 
     [Fact]

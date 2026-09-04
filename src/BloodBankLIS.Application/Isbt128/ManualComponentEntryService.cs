@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Isbt128.Parsing;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Isbt128;
 
@@ -17,24 +18,33 @@ public sealed class ManualComponentEntryService
     private readonly InventoryService _inventory;
     private readonly IClock _clock;
     private readonly ICurrentUser _user;
+    private readonly IPermissionEvaluator? _permissions;
 
     public ManualComponentEntryService(
         IsbtLookupCatalog lookups,
         IDinCheckCharacterValidator dinCheck,
         InventoryService inventory,
         IClock clock,
-        ICurrentUser user)
+        ICurrentUser user,
+        IPermissionEvaluator? permissions = null)
     {
         _lookups = lookups;
         _dinCheck = dinCheck;
         _inventory = inventory;
         _clock = clock;
         _user = user;
+        _permissions = permissions;
     }
 
     public async Task<InventoryActionResult> CreateAsync(ManualComponentEntryRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         if (string.IsNullOrWhiteSpace(request.DonationNumber))
             return InventoryActionResult.Fail($"{IsbtErrorCodes.InvalidDinLength}: Donation/unit number is required.");
@@ -112,5 +122,20 @@ public sealed class ManualComponentEntryService
             request.DonationRestriction,
             request.ReservedPatientId,
             ct);
+    }
+
+    private async Task<InventoryActionResult?> RejectUnauthorizedAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _user.UserName, PermissionCodes.InventoryReceive, ct);
+        var auth = InventoryAuthorizationRule.EvaluateReceive(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 }

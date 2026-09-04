@@ -107,6 +107,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-032 / FRS-BB-062 | Product modification requires inventory.modify in Application | `INV-MOD-PERM` | `InventoryAuthorizationRuleTests`; BloodProductModificationService permission test | D,I | RISK-BB-034 |
 | URS-BB-033 / FRS-BB-063 | Unit identity correction requires inventory.correct-identity in Application | `INV-ID-PERM` | `InventoryAuthorizationRuleTests`; ComponentIdentityCorrectionService permission test | D,I | RISK-BB-035 |
 | URS-BB-034 / FRS-BB-064 | Allocation release requires compatibility.allocate in Application | `XM-REL-PERM` | `CompatibilityAuthorizationRuleTests`; PatientAllocation release permission test | D,I | RISK-BB-036 |
+| URS-BB-035 / FRS-BB-065 | ISBT scan complete and manual entry require inventory.receive in Application | `INV-RCV-PERM` | `InventoryAuthorizationRuleTests`; ISBT manual-entry permission test | D,I | RISK-BB-037 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

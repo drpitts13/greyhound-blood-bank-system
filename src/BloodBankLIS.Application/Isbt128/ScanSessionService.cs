@@ -42,6 +42,7 @@ public sealed class ScanSessionService
     private readonly IUnitOfWork _uow;
     private readonly IClock _clock;
     private readonly ICurrentUser _user;
+    private readonly IPermissionEvaluator? _permissions;
 
     public ScanSessionService(
         IRepository<BloodComponentScanSession> sessions,
@@ -52,7 +53,8 @@ public sealed class ScanSessionService
         InventoryService inventoryService,
         IUnitOfWork uow,
         IClock clock,
-        ICurrentUser user)
+        ICurrentUser user,
+        IPermissionEvaluator? permissions = null)
     {
         _sessions = sessions;
         _lines = lines;
@@ -63,6 +65,7 @@ public sealed class ScanSessionService
         _uow = uow;
         _clock = clock;
         _user = user;
+        _permissions = permissions;
     }
 
     public async Task<OperationResult<ScanSessionDto>> StartAsync(StartScanSessionRequest request, CancellationToken ct = default)
@@ -177,6 +180,17 @@ public sealed class ScanSessionService
 
     public async Task<InventoryActionResult> CompleteAsync(CompleteScanSessionRequest request, CancellationToken ct = default)
     {
+        if (_permissions is not null)
+        {
+            var allowed = await _permissions.HasPermissionAsync(
+                _user.UserName, PermissionCodes.InventoryReceive, ct);
+            var auth = InventoryAuthorizationRule.EvaluateReceive(allowed);
+            if (auth.Severity == RuleSeverity.HardStop)
+            {
+                return InventoryActionResult.Blocked(new RuleEvaluation([auth]));
+            }
+        }
+
         var session = await _sessions.FirstOrDefaultAsync(s => s.SessionKey == request.SessionKey, ct);
         if (session is null)
             return InventoryActionResult.Fail("Scan session not found.");

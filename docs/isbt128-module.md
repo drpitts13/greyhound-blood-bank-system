@@ -66,8 +66,8 @@ Example: `G123417654321|E0206000`
 | POST | `/api/isbt/parse` | Sanitize, classify, parse one input |
 | POST | `/api/isbt/scan-sessions` | Start accumulator |
 | POST | `/api/isbt/scan-sessions/scans` | Add scan(s) |
-| POST | `/api/isbt/scan-sessions/complete` | Validate + receive |
-| POST | `/api/isbt/manual-entry` | Structured human-readable receive |
+| POST | `/api/isbt/scan-sessions/complete` | Validate + receive. Application requires `inventory.receive` (`INV-RCV-PERM`). |
+| POST | `/api/isbt/manual-entry` | Structured human-readable receive. Application requires `inventory.receive` (`INV-RCV-PERM`). |
 | POST | `/api/isbt/identity-corrections` | Controlled identity correction. Application requires `inventory.correct-identity` (`INV-ID-PERM`). |
 | POST | `/api/isbt/units/{id}/recall` | Recall |
 | POST | `/api/isbt/units/{id}/quarantine` | Quarantine (quality disposition) |
