@@ -24,14 +24,18 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
     private static ICurrentUser Verifier => new TestCurrentUser("tech-verify", "WORKSTATION-2");
 
-    private ResultService Results(BloodBankDbContext c, int securityLevel = 2, ICurrentUser? user = null)
+    private ResultService Results(
+        BloodBankDbContext c,
+        int securityLevel = 2,
+        ICurrentUser? user = null,
+        IPermissionEvaluator? permissions = null)
     {
         var current = user ?? _factory.CurrentUser;
         return new(new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
             c, _factory.Clock, current, new AuditWriter(c, _factory.Clock, current),
             exceptionDefinitions: new EfRepository<ExceptionDefinition>(c),
             overrides: new EfRepository<Override>(c),
-            permissions: new FixedPermissionEvaluator(securityLevel));
+            permissions: permissions ?? new FixedPermissionEvaluator(securityLevel));
     }
 
     private static async Task EnsureDeltaExceptionAsync(BloodBankDbContext c)
@@ -339,6 +343,38 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(AboGroup.O, current!.Abo);
             Assert.Equal(RhType.Positive, current.RhD);
             Assert.Equal(resultId, current.SourceResultId);
+        }
+    }
+
+    [Fact]
+    public async Task VerifyResult_WithoutResultVerify_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-ABO-PERM");
+        var specimenId = await AccessionAsync("ACC-ABO-PERM", patientId);
+        long resultId;
+
+        await using (var context = _factory.Create())
+        {
+            var entered = await Results(context).EnterAboRhAsync(new EnterAboRhRequest(specimenId, AboGroup.O, RhType.Positive));
+            resultId = entered.Value!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var denied = await Results(
+                context,
+                user: Verifier,
+                permissions: new FixedPermissionEvaluator(2, PermissionCodes.ResultEnter)).VerifyResultAsync(resultId);
+            Assert.False(denied.Succeeded);
+            Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == ResultAuthorizationRule.VerifyCode);
+            Assert.Equal(ResultStatus.Entered, (await context.TestResults.FindAsync(resultId))!.Status);
+
+            var verified = await Results(
+                context,
+                user: Verifier,
+                permissions: new FixedPermissionEvaluator(2, PermissionCodes.ResultVerify)).VerifyResultAsync(resultId);
+            Assert.True(verified.Succeeded, verified.Error);
+            Assert.Equal(ResultStatus.Verified, verified.Value!.Status);
         }
     }
 

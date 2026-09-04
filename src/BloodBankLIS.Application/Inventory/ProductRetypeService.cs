@@ -28,6 +28,7 @@ public sealed class ProductRetypeService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly FacilityPolicyService? _policy;
+    private readonly IPermissionEvaluator? _permissions;
 
     public ProductRetypeService(
         IInventoryRepository inventory,
@@ -36,7 +37,8 @@ public sealed class ProductRetypeService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IPermissionEvaluator? permissions = null)
     {
         _inventory = inventory;
         _results = results;
@@ -45,6 +47,7 @@ public sealed class ProductRetypeService
         _clock = clock;
         _currentUser = currentUser;
         _policy = policy;
+        _permissions = permissions;
     }
 
     public async Task<IReadOnlyList<ProductRetypeWorkItemDto>> ListPendingAsync(CancellationToken ct = default)
@@ -218,6 +221,12 @@ public sealed class ProductRetypeService
             return EvaluationResult<ProductRetypeDetailDto>.Fail("Unit not found.");
         }
 
+        var denied = await RejectUnauthorizedVerifyAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         if (unit.Status != UnitStatus.Received)
         {
             return EvaluationResult<ProductRetypeDetailDto>.Fail(
@@ -264,6 +273,21 @@ public sealed class ProductRetypeService
 
         var detail = await GetForUnitAsync(unitId, ct);
         return EvaluationResult<ProductRetypeDetailDto>.Ok(detail!);
+    }
+
+    private async Task<EvaluationResult<ProductRetypeDetailDto>?> RejectUnauthorizedVerifyAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.ResultVerify, ct);
+        var auth = ResultAuthorizationRule.EvaluateVerify(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<ProductRetypeDetailDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 
     private async Task<ProductRetypeResult?> LatestForUnitAsync(long unitId, CancellationToken ct) =>

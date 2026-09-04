@@ -476,6 +476,12 @@ public sealed class ResultService
             return EvaluationResult<TestResult>.Fail("Result not found.");
         }
 
+        var denied = await RejectUnauthorizedVerifyAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var specimenGate = await ValidateSpecimenForEntryAsync(result.SpecimenId, result.TestCode, ct);
         if (!specimenGate.Succeeded)
         {
@@ -1545,5 +1551,20 @@ public sealed class ResultService
 
         var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
         return clinical.Severity == RuleSeverity.HardStop ? clinical.Message : null;
+    }
+
+    private async Task<EvaluationResult<TestResult>?> RejectUnauthorizedVerifyAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.ResultVerify, ct);
+        var auth = ResultAuthorizationRule.EvaluateVerify(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<TestResult>.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 }

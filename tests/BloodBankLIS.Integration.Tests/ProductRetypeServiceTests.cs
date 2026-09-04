@@ -33,14 +33,18 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             _factory.CurrentUser,
             new AuditWriter(context, _factory.Clock, _factory.CurrentUser));
 
-    private ProductRetypeService Retype(BloodBankDbContext context, ICurrentUser? user = null) =>
+    private ProductRetypeService Retype(
+        BloodBankDbContext context,
+        ICurrentUser? user = null,
+        IPermissionEvaluator? permissions = null) =>
         new(
             new InventoryRepository(context),
             new EfRepository<ProductRetypeResult>(context),
             new EfRepository<TestDefinition>(context),
             context,
             _factory.Clock,
-            user ?? _factory.CurrentUser);
+            user ?? _factory.CurrentUser,
+            permissions: permissions);
 
     private ProductRetypeService RetypeWithPolicy(BloodBankDbContext context, ICurrentUser? user = null) =>
         new(
@@ -141,6 +145,30 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Available, unit.Status);
         Assert.Contains(await context.InventoryStatusHistory.Where(h => h.BloodProductId == unitId).ToListAsync(),
             h => h.ToStatus == UnitStatus.Available && h.Reason != null && h.Reason.Contains("retype", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task Verify_WithoutResultVerify_IsHardStopped()
+    {
+        var (_, unitId) = await SeedReceivedUnitAsync("RT-PERM", AboGroup.O, RhType.Positive);
+        await using var context = _factory.Create();
+        var entered = await Retype(context).RecordAsync(unitId, MatchOPos());
+        Assert.True(entered.Succeeded);
+
+        var denied = await Retype(
+            context,
+            Verifier,
+            new FixedPermissionEvaluator(1, PermissionCodes.ResultEnter)).VerifyAsync(unitId, entered.Value!.Latest!.Id);
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == ResultAuthorizationRule.VerifyCode);
+        Assert.Equal(UnitStatus.Received, (await context.BloodUnits.FindAsync(unitId))!.Status);
+
+        var allowed = await Retype(
+            context,
+            Verifier,
+            new FixedPermissionEvaluator(1, PermissionCodes.ResultVerify)).VerifyAsync(unitId, entered.Value.Latest.Id);
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(UnitStatus.Available, allowed.Value!.Status);
     }
 
     [Fact]
