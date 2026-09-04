@@ -18,27 +18,22 @@ public static class PatientEndpoints
             return Results.Ok(patients.Select(PatientDto.From));
         });
 
-        group.MapGet("/{id:long}", async (long id, EntityCrudService<Patient> service, CancellationToken ct) =>
+        group.MapGet("/{id:long}", async (long id, EntityCrudService<Patient> service, PatientService patients, CancellationToken ct) =>
         {
             var patient = await service.GetAsync(id, ct);
-            return patient is null ? Results.NotFound() : Results.Ok(PatientDto.From(patient));
+            if (patient is null)
+            {
+                return Results.NotFound();
+            }
+
+            await patients.RecordAccessAsync(id, ct);
+            return Results.Ok(PatientDto.From(patient));
         });
 
-        group.MapPost("/", async (CreatePatientRequest request, EntityCrudService<Patient> service, CancellationToken ct) =>
-        {
-            var patient = new Patient
-            {
-                MedicalRecordNumber = request.MedicalRecordNumber,
-                LastName = request.LastName,
-                FirstName = request.FirstName,
-                MiddleName = request.MiddleName,
-                DateOfBirth = request.DateOfBirth,
-                Sex = request.Sex
-            };
-
-            await service.CreateAsync(patient, ct);
-            return Results.Created($"/api/patients/{patient.Id}", PatientDto.From(patient));
-        }).RequirePermission(PermissionCodes.PatientWrite);
+        group.MapPost("/", async (CreatePatientRequest request, PatientService patients, CancellationToken ct) =>
+            EndpointResults.Created(await patients.CreateAsync(request, ct),
+                p => ($"/api/patients/{p.Id}", (object)PatientDto.From(p))))
+            .RequirePermission(PermissionCodes.PatientWrite);
 
         group.MapPut("/{id:long}", async (
             long id,

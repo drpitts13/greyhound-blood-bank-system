@@ -83,6 +83,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `SPEC-EDIT-PERM` | Caller has `specimen.edit` when editing specimen collection metadata | HardStop when a permission evaluator is present and the privilege is missing |
 | `SPEC-REJ-PERM` | Caller has `specimen.reject` when rejecting a specimen | HardStop when a permission evaluator is present and the privilege is missing |
 | `PAT-WRITE-PERM` | Caller has `patient.write` when updating patient demographics | HardStop when a permission evaluator is present and the privilege is missing |
+| `PAT-CREATE-PERM` | Caller has `patient.write` when creating a patient record | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-MOD-PERM` | Caller has `inventory.modify` when dividing, pooling, or applying a product modification | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-ID-PERM` | Caller has `inventory.correct-identity` when correcting unit ISBT identity | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-RCV-PERM` | Caller has `inventory.receive` when completing an ISBT scan session, creating a manual component, or receiving via walk-in / expected-arrival / normalized intake | HardStop when a permission evaluator is present and the privilege is missing |

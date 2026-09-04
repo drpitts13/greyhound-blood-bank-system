@@ -49,3 +49,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-042 | Transferring a unit between storage locations is limited to staff with inventory.transfer. | P1 | FRS-BB-073 |
 | URS-BB-043 | Recalling a unit from inventory (not via lookback DIN recall) is limited to staff with inventory.recall. | P0 | FRS-BB-074 |
 | URS-BB-044 | Creating or closing a quality-system deviation is limited to staff with deviation.manage. | P4 | FRS-BB-075 |
+| URS-BB-045 | Creating a patient record is limited to staff with patient.write. | P1 | FRS-BB-076 |

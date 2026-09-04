@@ -87,6 +87,23 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Create_WithoutPatientWrite_IsHardStopped()
+    {
+        await using var context = _factory.Create();
+        var denied = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientMerge))
+            .CreateAsync(new CreatePatientRequest("MRN-CREATE-PERM", "New", "Pat", null, new DateOnly(1980, 1, 1), Sex.Unknown));
+        Assert.False(denied.Succeeded);
+        Assert.Equal(PatientAuthorizationRule.EvaluateCreate(false).Message, denied.Error);
+        Assert.False(await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN-CREATE-PERM"));
+
+        var allowed = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .CreateAsync(new CreatePatientRequest("MRN-CREATE-PERM", "New", "Pat", null, new DateOnly(1980, 1, 1), Sex.Unknown));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal("MRN-CREATE-PERM", allowed.Value!.MedicalRecordNumber);
+        Assert.Equal("New", allowed.Value.LastName);
+    }
+
+    [Fact]
     public async Task Update_BlankLastName_Fails()
     {
         var id = await EnsurePatientAsync("MRN-DEMO-BLANK");
