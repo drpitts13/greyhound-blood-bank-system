@@ -138,6 +138,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-073 / FRS-BB-107 | User activate/lock/password-reset require admin.users.manage in Application | `USR-ACTIVE-PERM`, `USR-LOCK-PERM`, `USR-RESET-PERM` | `AdminAuthorizationRuleTests`; `UserAdminAuthorizationTests` | D,I | RISK-BB-076 |
 | URS-BB-074 / FRS-BB-108 | Test-definition catalog writes require admin.tests.manage in Application | `TEST-CREATE-PERM`, `TEST-UPD-PERM`, `TEST-ACT-PERM`, `TEST-DEACT-PERM`, `TEST-CLONE-PERM` | `TestCatalogAuthorizationRuleTests`; `TestDefinitionAuthorizationTests` | D,I | RISK-BB-078 |
 | URS-BB-076 / FRS-BB-110 | Blood-attribute catalog writes require admin.config.edit or admin.config.activate in Application | `ATTR-CREATE-PERM`, `ATTR-UPD-PERM`, `ATTR-ACT-PERM`, `ATTR-DEACT-PERM` | `BloodAttributeAuthorizationRuleTests`; `BloodAttributeAuthorizationTests` | D,I | RISK-BB-080 |
+| URS-BB-078 / FRS-BB-112 | Reflex-rule catalog writes require admin.tests.manage or admin.config.activate in Application | `REFLEX-CREATE-PERM`, `REFLEX-UPD-PERM`, `REFLEX-ACT-PERM`, `REFLEX-DEACT-PERM` | `ReflexRuleAuthorizationRuleTests`; `ReflexRuleAuthorizationTests` | D,I | RISK-BB-082 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

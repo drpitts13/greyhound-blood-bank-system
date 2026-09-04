@@ -272,6 +272,7 @@ flowchart LR
 - Directory user create/update/role assignment requires `admin.users.manage` in `UserAdminService` (`USR-CREATE-PERM` / `USR-UPD-PERM` / `USR-ASSIGN-PERM`). Activate/deactivate, lock/unlock, and password-reset request use the same privilege (`USR-ACTIVE-PERM` / `USR-LOCK-PERM` / `USR-RESET-PERM`). Role create/update requires `admin.roles.manage` (`ROLE-CREATE-PERM` / `ROLE-UPD-PERM`).
 - Creating, updating, activating, deactivating, or cloning a test definition requires `admin.tests.manage` in `TestDefinitionAdminService` (`TEST-CREATE-PERM` / `TEST-UPD-PERM` / `TEST-ACT-PERM` / `TEST-DEACT-PERM` / `TEST-CLONE-PERM`).
 - Creating or updating a blood-attribute definition requires `admin.config.edit` in `BloodAttributeAdminService` (`ATTR-CREATE-PERM` / `ATTR-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`ATTR-ACT-PERM` / `ATTR-DEACT-PERM`).
+- Creating or updating a reflex rule requires `admin.tests.manage` in `ReflexRuleAdminService` (`REFLEX-CREATE-PERM` / `REFLEX-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`REFLEX-ACT-PERM` / `REFLEX-DEACT-PERM`).
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---

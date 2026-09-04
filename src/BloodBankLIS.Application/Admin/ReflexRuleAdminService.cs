@@ -13,6 +13,7 @@ public sealed class ReflexRuleAdminService : ConfigAdminServiceBase
 
     private readonly IRepository<ReflexRule> _repo;
     private readonly IRepository<TestDefinition> _testRepo;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public ReflexRuleAdminService(
         IRepository<ReflexRule> repo,
@@ -21,11 +22,13 @@ public sealed class ReflexRuleAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _repo = repo;
         _testRepo = testRepo;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<ReflexRuleDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -45,6 +48,13 @@ public sealed class ReflexRuleAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<ReflexRuleDto>> CreateAsync(SaveReflexRuleRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminTestsManage, ReflexRuleAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = new ReflexRule { IsDraft = true, IsActive = false, Version = 1 };
         Apply(entity, req);
@@ -71,6 +81,13 @@ public sealed class ReflexRuleAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<ReflexRuleDto>> UpdateAsync(long id, SaveReflexRuleRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminTestsManage, ReflexRuleAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
@@ -109,6 +126,13 @@ public sealed class ReflexRuleAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<ReflexRuleDto>> ActivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigActivate, ReflexRuleAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -140,6 +164,13 @@ public sealed class ReflexRuleAdminService : ConfigAdminServiceBase
 
     public async Task<OperationResult<ReflexRuleDto>> DeactivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate, ReflexRuleAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -206,6 +237,42 @@ public sealed class ReflexRuleAdminService : ConfigAdminServiceBase
         e.TriggerResultValue = req.TriggerResultValue?.Trim() ?? string.Empty;
         e.ReflexTestCode = (req.ReflexTestCode ?? string.Empty).Trim().ToUpperInvariant();
         e.ChangeReason = req.ChangeReason;
+    }
+
+    private async Task<EvaluationResult<ReflexRuleDto>?> RejectUnauthorizedEvalAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<ReflexRuleDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<ReflexRuleDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<ReflexRuleDto>.Fail(auth.Message)
+            : null;
     }
 
     private static ReflexRuleDto Map(ReflexRule r) => new(

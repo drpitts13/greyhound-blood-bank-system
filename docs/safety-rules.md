@@ -125,6 +125,10 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ATTR-UPD-PERM` | Caller has `admin.config.edit` when updating a blood attribute definition | HardStop when a permission evaluator is present and the privilege is missing |
 | `ATTR-ACT-PERM` | Caller has `admin.config.activate` when activating a blood attribute definition | HardStop when a permission evaluator is present and the privilege is missing |
 | `ATTR-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a blood attribute definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `REFLEX-CREATE-PERM` | Caller has `admin.tests.manage` when creating a reflex rule | HardStop when a permission evaluator is present and the privilege is missing |
+| `REFLEX-UPD-PERM` | Caller has `admin.tests.manage` when updating a reflex rule | HardStop when a permission evaluator is present and the privilege is missing |
+| `REFLEX-ACT-PERM` | Caller has `admin.config.activate` when activating a reflex rule | HardStop when a permission evaluator is present and the privilege is missing |
+| `REFLEX-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a reflex rule | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-UPD-PERM` | Caller has `patient.write` when updating an order | HardStop when a permission evaluator is present and the privilege is missing |
