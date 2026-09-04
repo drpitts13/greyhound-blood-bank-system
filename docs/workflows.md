@@ -234,6 +234,8 @@ flowchart TD
     e --> f[Close blocked until workup complete + e-signature]
 ```
 
+- Opening from a suspected transfusion is an automatic issue-path write. Updating the investigation, recording CBER notification, or recording the written fatality report requires `reaction.investigate` (`RXN-PERM`) in the Application service.
+
 ---
 
 ## 10. HL7 message flows

@@ -76,6 +76,7 @@ public sealed class ReactionInvestigationService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IPermissionEvaluator? _permissions;
 
     public ReactionInvestigationService(
         IRepository<ReactionInvestigation> investigations,
@@ -84,7 +85,8 @@ public sealed class ReactionInvestigationService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IPermissionEvaluator? permissions = null)
     {
         _investigations = investigations;
         _transfusions = transfusions;
@@ -93,6 +95,7 @@ public sealed class ReactionInvestigationService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _permissions = permissions;
     }
 
     public Task<IReadOnlyList<ReactionInvestigation>> ListAsync(CancellationToken ct = default) =>
@@ -130,6 +133,13 @@ public sealed class ReactionInvestigationService
         long id, UpdateReactionInvestigationRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var row = await _investigations.GetByIdAsync(id, ct);
         if (row is null)
         {
@@ -201,6 +211,12 @@ public sealed class ReactionInvestigationService
 
     public async Task<OperationResult<ReactionInvestigation>> RecordCberNotificationAsync(long id, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var row = await _investigations.GetByIdAsync(id, ct);
         if (row is null)
         {
@@ -215,6 +231,12 @@ public sealed class ReactionInvestigationService
 
     public async Task<OperationResult<ReactionInvestigation>> RecordWrittenReportAsync(long id, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var row = await _investigations.GetByIdAsync(id, ct);
         if (row is null)
         {
@@ -253,5 +275,20 @@ public sealed class ReactionInvestigationService
             ChangedUtc = _clock.UtcNow
         });
         row.RemainderQuarantined = true;
+    }
+
+    private async Task<OperationResult<ReactionInvestigation>?> RejectUnauthorizedAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.ReactionInvestigate, ct);
+        var auth = ReactionAuthorizationRule.EvaluateInvestigate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<ReactionInvestigation>.Fail(auth.Message)
+            : null;
     }
 }
