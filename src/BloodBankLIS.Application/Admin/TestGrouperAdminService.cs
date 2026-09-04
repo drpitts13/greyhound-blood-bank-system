@@ -14,6 +14,7 @@ public sealed class TestGrouperAdminService : ConfigAdminServiceBase
 
     private readonly IRepository<TestGrouper> _repo;
     private readonly IRepository<TestDefinition> _testRepo;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public TestGrouperAdminService(
         IRepository<TestGrouper> repo,
@@ -22,11 +23,13 @@ public sealed class TestGrouperAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _repo = repo;
         _testRepo = testRepo;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<TestGrouperDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -46,6 +49,13 @@ public sealed class TestGrouperAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<TestGrouperDto>> CreateAsync(SaveTestGrouperRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminTestsManage, TestGrouperAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = new TestGrouper { IsDraft = true, IsActive = false, Version = 1 };
         Apply(entity, req);
@@ -71,6 +81,13 @@ public sealed class TestGrouperAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<TestGrouperDto>> UpdateAsync(long id, SaveTestGrouperRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminTestsManage, TestGrouperAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
@@ -108,6 +125,13 @@ public sealed class TestGrouperAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<TestGrouperDto>> ActivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigActivate, TestGrouperAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -138,6 +162,13 @@ public sealed class TestGrouperAdminService : ConfigAdminServiceBase
 
     public async Task<OperationResult<TestGrouperDto>> DeactivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate, TestGrouperAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -179,6 +210,42 @@ public sealed class TestGrouperAdminService : ConfigAdminServiceBase
         e.Name = req.Name?.Trim() ?? string.Empty;
         e.MemberTestsJson = TestGrouperMembers.ToJson(MapMembers(req.Members));
         e.ChangeReason = req.ChangeReason;
+    }
+
+    private async Task<EvaluationResult<TestGrouperDto>?> RejectUnauthorizedEvalAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<TestGrouperDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<TestGrouperDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<TestGrouperDto>.Fail(auth.Message)
+            : null;
     }
 
     private static IReadOnlyList<TestGrouperMember> MapMembers(IReadOnlyList<TestGrouperMemberDto>? items) =>

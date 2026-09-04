@@ -274,6 +274,7 @@ flowchart LR
 - Creating or updating a blood-attribute definition requires `admin.config.edit` in `BloodAttributeAdminService` (`ATTR-CREATE-PERM` / `ATTR-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`ATTR-ACT-PERM` / `ATTR-DEACT-PERM`).
 - Creating or updating a reflex rule requires `admin.tests.manage` in `ReflexRuleAdminService` (`REFLEX-CREATE-PERM` / `REFLEX-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`REFLEX-ACT-PERM` / `REFLEX-DEACT-PERM`).
 - Creating or updating a subtest definition requires `admin.tests.manage` in `SubtestDefinitionAdminService` (`SUBTEST-CREATE-PERM` / `SUBTEST-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`SUBTEST-ACT-PERM` / `SUBTEST-DEACT-PERM`).
+- Creating or updating a test grouper requires `admin.tests.manage` in `TestGrouperAdminService` (`GROUPER-CREATE-PERM` / `GROUPER-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`GROUPER-ACT-PERM` / `GROUPER-DEACT-PERM`).
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---
