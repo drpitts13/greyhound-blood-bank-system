@@ -13,6 +13,7 @@ public sealed class SubtestDefinitionAdminService : ConfigAdminServiceBase
     private const string EntityType = nameof(SubtestDefinition);
 
     private readonly IRepository<SubtestDefinition> _repo;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public SubtestDefinitionAdminService(
         IRepository<SubtestDefinition> repo,
@@ -20,10 +21,12 @@ public sealed class SubtestDefinitionAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _repo = repo;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<SubtestDefinitionDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -43,6 +46,13 @@ public sealed class SubtestDefinitionAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<SubtestDefinitionDto>> CreateAsync(SaveSubtestDefinitionRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminTestsManage, SubtestCatalogAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = new SubtestDefinition { IsDraft = true, IsActive = false, Version = 1 };
         Apply(entity, req);
@@ -67,6 +77,13 @@ public sealed class SubtestDefinitionAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<SubtestDefinitionDto>> UpdateAsync(long id, SaveSubtestDefinitionRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminTestsManage, SubtestCatalogAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
@@ -103,6 +120,13 @@ public sealed class SubtestDefinitionAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<SubtestDefinitionDto>> ActivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigActivate, SubtestCatalogAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -132,6 +156,13 @@ public sealed class SubtestDefinitionAdminService : ConfigAdminServiceBase
 
     public async Task<OperationResult<SubtestDefinitionDto>> DeactivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate, SubtestCatalogAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -170,6 +201,42 @@ public sealed class SubtestDefinitionAdminService : ConfigAdminServiceBase
             ? null
             : SubtestChoiceDefinitions.ToJson(MapChoices(req.Choices));
         e.ChangeReason = req.ChangeReason;
+    }
+
+    private async Task<EvaluationResult<SubtestDefinitionDto>?> RejectUnauthorizedEvalAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<SubtestDefinitionDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<SubtestDefinitionDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<SubtestDefinitionDto>.Fail(auth.Message)
+            : null;
     }
 
     private static IReadOnlyList<SubtestChoiceDefinition> MapChoices(IReadOnlyList<SubtestChoiceDto>? items) =>
