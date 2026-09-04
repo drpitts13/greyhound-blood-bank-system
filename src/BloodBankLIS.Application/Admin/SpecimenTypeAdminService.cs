@@ -14,6 +14,7 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
 
     private readonly IRepository<SpecimenTypeDefinition> _repo;
     private readonly IRepository<TestDefinition> _testRepo;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public SpecimenTypeAdminService(
         IRepository<SpecimenTypeDefinition> repo,
@@ -22,11 +23,13 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _repo = repo;
         _testRepo = testRepo;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<SpecimenTypeDefinitionDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -46,6 +49,13 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<SpecimenTypeDefinitionDto>> CreateAsync(SaveSpecimenTypeDefinitionRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigEdit, SpecimenTypeAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = new SpecimenTypeDefinition { IsDraft = true, IsActive = false, Version = 1 };
         Apply(entity, req);
@@ -71,6 +81,13 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<SpecimenTypeDefinitionDto>> UpdateAsync(long id, SaveSpecimenTypeDefinitionRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigEdit, SpecimenTypeAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
@@ -108,6 +125,13 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<SpecimenTypeDefinitionDto>> ActivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigActivate, SpecimenTypeAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -138,6 +162,13 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
 
     public async Task<OperationResult<SpecimenTypeDefinitionDto>> DeactivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate, SpecimenTypeAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _repo.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -180,5 +211,41 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
         e.ExcludedTestCodesJson = SpecimenTypeExcludedTests.Serialize(req.ExcludedTestCodes ?? []);
         e.SortOrder = req.SortOrder;
         e.ChangeReason = req.ChangeReason;
+    }
+
+    private async Task<EvaluationResult<SpecimenTypeDefinitionDto>?> RejectUnauthorizedEvalAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<SpecimenTypeDefinitionDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<SpecimenTypeDefinitionDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<SpecimenTypeDefinitionDto>.Fail(auth.Message)
+            : null;
     }
 }
