@@ -198,4 +198,34 @@ public class InventoryAuthorizationRuleTests
         var result = InventoryAuthorizationRule.EvaluateInspectDamaged(hasInventoryRelease: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Expect_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateExpect(hasInventoryReceive: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.ExpectCode, result.Code);
+    }
+
+    [Fact]
+    public void Expect_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateExpect(hasInventoryReceive: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void CancelExpected_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateCancelExpected(hasInventoryReceive: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.CancelExpectedCode, result.Code);
+    }
+
+    [Fact]
+    public void CancelExpected_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateCancelExpected(hasInventoryReceive: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

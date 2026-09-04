@@ -48,3 +48,4 @@
 | SRS-BB-042 | Unit blood-attribute save is authorized inside `InventoryService` with `inventory.receive` (`INV-ATTR-PERM`). Callers that skip the API filter cannot label antigens used at issue. | FRS-BB-077 |
 | SRS-BB-044 | Return to supplier is authorized inside `InventoryService` with `inventory.receive` (`INV-RTS-PERM`). Callers that skip the API filter cannot remove a unit from on-hand inventory this way. | FRS-BB-081 |
 | SRS-BB-046 | Locate-missing and inspect-damaged are authorized inside `InventoryService` with `inventory.release` (`INV-LOC-PERM` / `INV-INSP-PERM`). Units still enter Quarantine, not Available. | FRS-BB-083 |
+| SRS-BB-047 | Packing-list expect and cancel-expected are authorized inside `InventoryService` with `inventory.receive` (`INV-EXPECT-PERM` / `INV-EXPECT-CXL-PERM`). Expected units are not issuable until arrival is confirmed. | FRS-BB-084 |

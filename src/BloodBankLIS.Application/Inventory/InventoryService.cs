@@ -341,6 +341,13 @@ public sealed class InventoryService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var denied = await RejectUnauthorizedReceiveAsync(
+            InventoryAuthorizationRule.EvaluateExpect, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var restriction = await EvaluateDonationRestrictionAsync(
             request.DonationRestriction, request.ReservedPatientId, ct);
         if (restriction is not null)
@@ -505,6 +512,13 @@ public sealed class InventoryService
         if (string.IsNullOrWhiteSpace(reason))
         {
             return InventoryActionResult.Fail("A reason is required to cancel an expected unit.");
+        }
+
+        var denied = await RejectUnauthorizedReceiveAsync(
+            InventoryAuthorizationRule.EvaluateCancelExpected, ct);
+        if (denied is not null)
+        {
+            return denied;
         }
 
         var unit = await _repository.GetUnitAsync(unitId, ct);
@@ -1260,7 +1274,11 @@ public sealed class InventoryService
             : null;
     }
 
-    private async Task<InventoryActionResult?> RejectUnauthorizedReceiveAsync(CancellationToken ct)
+    private Task<InventoryActionResult?> RejectUnauthorizedReceiveAsync(CancellationToken ct) =>
+        RejectUnauthorizedReceiveAsync(InventoryAuthorizationRule.EvaluateReceive, ct);
+
+    private async Task<InventoryActionResult?> RejectUnauthorizedReceiveAsync(
+        Func<bool, RuleResult> evaluate, CancellationToken ct)
     {
         if (_permissions is null)
         {
@@ -1269,7 +1287,7 @@ public sealed class InventoryService
 
         var allowed = await _permissions.HasPermissionAsync(
             _currentUser.UserName, PermissionCodes.InventoryReceive, ct);
-        var auth = InventoryAuthorizationRule.EvaluateReceive(allowed);
+        var auth = evaluate(allowed);
         return auth.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
             : null;

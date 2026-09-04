@@ -5,7 +5,8 @@ namespace BloodBankLIS.Domain.Rules;
 /// (quarantine release, unused-directed conversion, operational-hold release,
 /// locating a missing unit, inspecting a damaged unit)
 /// or that retire a unit into a modified product, rewrite unit identity,
-/// receive a unit, save unit blood attributes used at compatibility,
+/// receive a unit, record or cancel an expected packing-list unit,
+/// save unit blood attributes used at compatibility,
 /// return a unit to the supplier, discard a unit, transfer a unit between
 /// locations, or recall a unit.
 /// Lookback DIN recall uses <c>lookback.manage</c> instead (OCD-014).
@@ -25,6 +26,8 @@ public static class InventoryAuthorizationRule
     public const string ReturnToSupplierCode = "INV-RTS-PERM";
     public const string LocateMissingCode = "INV-LOC-PERM";
     public const string InspectDamagedCode = "INV-INSP-PERM";
+    public const string ExpectCode = "INV-EXPECT-PERM";
+    public const string CancelExpectedCode = "INV-EXPECT-CXL-PERM";
 
     public static RuleResult EvaluateQuarantineRelease(bool hasInventoryRelease) =>
         hasInventoryRelease
@@ -116,6 +119,20 @@ public static class InventoryAuthorizationRule
             : RuleResult.HardStop(
                 InspectDamagedCode,
                 "Inspecting a damaged unit requires the inventory.release permission.");
+
+    public static RuleResult EvaluateExpect(bool hasInventoryReceive) =>
+        hasInventoryReceive
+            ? RuleResult.Pass(ExpectCode)
+            : RuleResult.HardStop(
+                ExpectCode,
+                "Recording an expected inbound unit requires the inventory.receive permission.");
+
+    public static RuleResult EvaluateCancelExpected(bool hasInventoryReceive) =>
+        hasInventoryReceive
+            ? RuleResult.Pass(CancelExpectedCode)
+            : RuleResult.HardStop(
+                CancelExpectedCode,
+                "Cancelling an expected inbound unit requires the inventory.receive permission.");
 }
 
 

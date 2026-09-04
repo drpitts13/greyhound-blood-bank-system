@@ -925,6 +925,47 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ExpectUnit_WithoutInventoryReceive_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
+            .ExpectUnitAsync(NewUnitRequest("U-EXPECT-PERM", productTypeId));
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.ExpectCode);
+        Assert.False(await context.BloodUnits.AnyAsync(u => u.UnitNumber == "U-EXPECT-PERM"));
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .ExpectUnitAsync(NewUnitRequest("U-EXPECT-PERM", productTypeId));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(UnitStatus.Expected, allowed.Unit!.Status);
+    }
+
+    [Fact]
+    public async Task CancelExpected_WithoutInventoryReceive_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var setup = _factory.Create())
+        {
+            unitId = (await CreateService(setup).ExpectUnitAsync(NewUnitRequest("U-EXPECT-CXL-PERM", productTypeId))).Unit!.Id;
+        }
+
+        await using var context = _factory.Create();
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
+            .CancelExpectedUnitAsync(unitId, "Supplier cancelled ASN");
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.CancelExpectedCode);
+        Assert.Equal(UnitStatus.Expected, (await context.BloodUnits.FindAsync(unitId))!.Status);
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
+            .CancelExpectedUnitAsync(unitId, "Supplier cancelled ASN");
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(UnitStatus.CancelledAssignment, allowed.Unit!.Status);
+    }
+
+    [Fact]
     public async Task ReceiveExpected_NotExpected_Fails()
     {
         var productTypeId = await EnsureProductTypeAsync();

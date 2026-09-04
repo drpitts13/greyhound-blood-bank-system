@@ -89,6 +89,8 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `INV-MOD-PERM` | Caller has `inventory.modify` when dividing, pooling, or applying a product modification | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-ID-PERM` | Caller has `inventory.correct-identity` when correcting unit ISBT identity | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-RCV-PERM` | Caller has `inventory.receive` when completing an ISBT scan session, creating a manual component, or receiving via walk-in / expected-arrival / normalized intake | HardStop when a permission evaluator is present and the privilege is missing |
+| `INV-EXPECT-PERM` | Caller has `inventory.receive` when recording an expected inbound packing-list unit | HardStop when a permission evaluator is present and the privilege is missing |
+| `INV-EXPECT-CXL-PERM` | Caller has `inventory.receive` when cancelling an expected inbound packing-list unit | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-ATTR-PERM` | Caller has `inventory.receive` when saving a unit antigen or antibody attribute | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-RTS-PERM` | Caller has `inventory.receive` when returning a unit to the supplier | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-DISC-PERM` | Caller has `inventory.discard` when discarding a unit | HardStop when a permission evaluator is present and the privilege is missing |
