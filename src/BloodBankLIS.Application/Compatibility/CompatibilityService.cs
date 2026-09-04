@@ -33,6 +33,7 @@ public sealed class CompatibilityService
     private readonly IRepository<Issue>? _issues;
     private readonly IAuditWriter? _audit;
     private readonly FacilityPolicyService? _policy;
+    private readonly IPermissionEvaluator? _permissions;
 
     public CompatibilityService(
         IInventoryRepository inventory,
@@ -49,7 +50,8 @@ public sealed class CompatibilityService
         ICurrentUser currentUser,
         IRepository<Issue>? issues = null,
         IAuditWriter? audit = null,
-        FacilityPolicyService? policy = null)
+        FacilityPolicyService? policy = null,
+        IPermissionEvaluator? permissions = null)
     {
         _inventory = inventory;
         _crossmatches = crossmatches;
@@ -66,11 +68,21 @@ public sealed class CompatibilityService
         _issues = issues;
         _audit = audit;
         _policy = policy;
+        _permissions = permissions;
     }
 
     public async Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(RecordCrossmatchRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync<Crossmatch>(
+            PermissionCodes.CompatibilityCrossmatch,
+            CompatibilityAuthorizationRule.EvaluateCrossmatch,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var unit = await _inventory.GetUnitAsync(request.BloodUnitId, ct);
         if (unit is null)
@@ -243,6 +255,15 @@ public sealed class CompatibilityService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var denied = await RejectUnauthorizedAsync<Allocation>(
+            PermissionCodes.CompatibilityAllocate,
+            CompatibilityAuthorizationRule.EvaluateAllocate,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _inventory.GetUnitAsync(request.BloodUnitId, ct);
         if (unit is null)
         {
@@ -407,6 +428,23 @@ public sealed class CompatibilityService
         var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
         return clinical.Severity == RuleSeverity.HardStop
             ? EvaluationResult<T>.Blocked(new RuleEvaluation([clinical]))
+            : null;
+    }
+
+    private async Task<EvaluationResult<T>?> RejectUnauthorizedAsync<T>(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(_currentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<T>.Blocked(new RuleEvaluation([auth]))
             : null;
     }
 }

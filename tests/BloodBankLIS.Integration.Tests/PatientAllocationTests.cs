@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
@@ -28,11 +29,12 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             new EfRepository<TestDefinition>(c),
             new EfRepository<AntibodyHistory>(c));
 
-    private CompatibilityService Compatibility(BloodBankDbContext c) =>
+    private CompatibilityService Compatibility(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
             new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
             new EfRepository<PatientBloodTypeHistory>(c),
-            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser);
+            BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
+            permissions: permissions);
 
     private OrderService Orders(BloodBankDbContext c) =>
         new(new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
@@ -62,6 +64,48 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             _factory.Clock,
             _factory.CurrentUser,
             c);
+
+    private async Task<(Patient Patient, BloodUnit Unit)> SeedAvailableUnitAsync(BloodBankDbContext c, string key)
+    {
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-{key}",
+            LastName = "Perm",
+            FirstName = "Alloc",
+            DateOfBirth = new DateOnly(1988, 2, 2)
+        };
+        c.Patients.Add(patient);
+        var rbc = new ProductType
+        {
+            ProductCode = key,
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-{key}",
+            ProductTypeId = rbc.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Available
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+        return (patient, unit);
+    }
 
     private async Task SeedCrossmatchCatalogAsync(BloodBankDbContext c)
     {
@@ -241,6 +285,56 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         Assert.Single(list);
         Assert.Equal(unit.UnitNumber, list[0].UnitNumber);
         Assert.Equal(ProductAllocationDisplayStatus.Reserved, list[0].DisplayStatus);
+    }
+
+    [Fact]
+    public async Task Allocate_WithoutCompatibilityAllocate_IsHardStopped()
+    {
+        await using var c = _factory.Create();
+        var (patient, unit) = await SeedAvailableUnitAsync(c, "PERM-ALLOC");
+
+        var denied = await Compatibility(c, new FixedPermissionEvaluator(1, PermissionCodes.CompatibilityCrossmatch))
+            .AllocateUnitAsync(new AllocateUnitRequest(unit.Id, patient.Id));
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == CompatibilityAuthorizationRule.AllocateCode);
+        Assert.Equal(UnitStatus.Available, (await c.BloodUnits.FindAsync(unit.Id))!.Status);
+
+        var allowed = await Compatibility(c, new FixedPermissionEvaluator(1, PermissionCodes.CompatibilityAllocate))
+            .AllocateUnitAsync(new AllocateUnitRequest(unit.Id, patient.Id));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(AllocationStatus.Reserved, allowed.Value!.Status);
+    }
+
+    [Fact]
+    public async Task RecordCrossmatch_WithoutCompatibilityCrossmatch_IsHardStopped()
+    {
+        await using var c = _factory.Create();
+        var (patient, unit) = await SeedAvailableUnitAsync(c, "PERM-XM");
+        var specimen = new Specimen
+        {
+            AccessionNumber = "ACC-PERM-XM",
+            PatientId = patient.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-2),
+            ReceivedUtc = _factory.Clock.UtcNow.AddHours(-1),
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(2),
+            Status = SpecimenStatus.Accepted
+        };
+        c.Specimens.Add(specimen);
+        await c.SaveChangesAsync();
+
+        var request = new RecordCrossmatchRequest(
+            unit.Id, patient.Id, specimen.Id, CrossmatchMethod.Serologic, CrossmatchResult.Compatible);
+        var denied = await Compatibility(c, new FixedPermissionEvaluator(1, PermissionCodes.CompatibilityAllocate))
+            .RecordCrossmatchAsync(request);
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == CompatibilityAuthorizationRule.CrossmatchCode);
+        Assert.False(await c.Crossmatches.AnyAsync(x => x.BloodProductId == unit.Id));
+
+        var allowed = await Compatibility(c, new FixedPermissionEvaluator(1, PermissionCodes.CompatibilityCrossmatch))
+            .RecordCrossmatchAsync(request);
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(CrossmatchResult.Compatible, allowed.Value!.Result);
     }
 
     [Fact]

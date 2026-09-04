@@ -24,3 +24,4 @@
 | SRS-BB-020 | Directed-to-allogeneic conversion is authorized inside `InventoryService` with `inventory.release`. Callers that skip the API filter cannot clear the directed reservation. | FRS-BB-053 |
 | SRS-BB-021 | Operational-hold release is authorized inside `InventoryService` with `inventory.release`. Callers that skip the API filter cannot move a held unit to Available. | FRS-BB-054 |
 | SRS-BB-022 | Result verify and unit retype verify are authorized inside `ResultService` and `ProductRetypeService` with `result.verify`. Callers that skip the API filter cannot establish current type or move a unit to Available. | FRS-BB-055 |
+| SRS-BB-023 | Allocation and crossmatch are authorized inside `CompatibilityService` with `compatibility.allocate` and `compatibility.crossmatch`. The patient workspace allocate path uses the same service. | FRS-BB-056 |
