@@ -36,3 +36,4 @@
 | SRS-BB-032 | Reaction investigation update, CBER notification, and written-report stamps are authorized inside `ReactionInvestigationService` with `reaction.investigate`. `OpenForTransfusionAsync` is not privilege-gated so the issue path can still open a case. | FRS-BB-066 |
 | SRS-BB-033 | Walk-in, expected-arrival, and normalized-component receive are authorized inside `InventoryService` with `inventory.receive`. Callers that skip the API filter cannot create an issuable unit through those paths. | FRS-BB-067 |
 | SRS-BB-034 | Issue return is authorized inside `IssuingService` with `issue.return` (`ISS-RET-PERM`). Callers that skip the API filter cannot place an issued unit back into inventory. | FRS-BB-068 |
+| SRS-BB-035 | Transfusion documentation is authorized inside `IssuingService` with `transfusion.document` (`TXN-DOC-PERM`). Callers that skip the API filter cannot mark a unit Transfused. | FRS-BB-069 |

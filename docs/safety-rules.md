@@ -38,6 +38,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ISS-ALLOCATION` | Unit is allocated/reserved to THIS patient | HardStop |
 | `ISS-CREATE-PERM` | Caller has `issue.create` when issuing a unit | HardStop |
 | `ISS-RET-PERM` | Caller has `issue.return` when returning an issued unit to inventory | HardStop |
+| `TXN-DOC-PERM` | Caller has `transfusion.document` when documenting a transfusion | HardStop |
 | `ISS-AUTO-DIR` | Autologous/directed unit is issued or allocated only to the reserved patient — evaluated inside `IssueGate` (not only the issuing service) | HardStop |
 | `ISS-XM-REQUIRED` | If product requires crossmatch, a compatible, unexpired crossmatch exists (unless emergency release) | HardStop |
 | `XM-ALLOC-PERM` | Caller has `compatibility.allocate` when reserving a unit to a patient | HardStop when a permission evaluator is present and the privilege is missing |
@@ -87,7 +88,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `RXN-PERM` | Caller has `reaction.investigate` when updating a reaction investigation or recording fatality notifications | HardStop when a permission evaluator is present and the privilege is missing |
 | `RET-REISSUE` | Returned unit may re-enter Available only when temperature, seal, visual, and time-out-of-storage checks pass | HardStop / Warning |
 
-If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning within that workflow (see section 5) rather than a HardStop, and an `Override` + signature is mandatory. Issuing any unit is HardStop `ISS-CREATE-PERM` without `issue.create`. Emergency or MTP issue is also HardStop `ISS-EMERG-PERM` unless the user has `issue.emergency-release`. Non-emergency warning overrides are HardStop `ISS-OVR-PERM` without `issue.override`. Returning an issued unit is HardStop `ISS-RET-PERM` without `issue.return`.
+If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning within that workflow (see section 5) rather than a HardStop, and an `Override` + signature is mandatory. Issuing any unit is HardStop `ISS-CREATE-PERM` without `issue.create`. Emergency or MTP issue is also HardStop `ISS-EMERG-PERM` unless the user has `issue.emergency-release`. Non-emergency warning overrides are HardStop `ISS-OVR-PERM` without `issue.override`. Returning an issued unit is HardStop `ISS-RET-PERM` without `issue.return`. Documenting a transfusion is HardStop `TXN-DOC-PERM` without `transfusion.document`.
 
 ---
 

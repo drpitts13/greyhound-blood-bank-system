@@ -3,7 +3,8 @@ using BloodBankLIS.Domain.Enums;
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
-/// Privilege gates for issue.create, emergency/MTP issue, and warning overrides.
+/// Privilege gates for issue.create, emergency/MTP issue, warning overrides,
+/// issue return, and transfusion documentation.
 /// Distinct from <see cref="IssueGate"/> clinical checks.
 /// </summary>
 public static class IssueAuthorizationRule
@@ -12,6 +13,7 @@ public static class IssueAuthorizationRule
     public const string EmergencyCode = "ISS-EMERG-PERM";
     public const string OverrideCode = "ISS-OVR-PERM";
     public const string ReturnCode = "ISS-RET-PERM";
+    public const string DocumentTransfusionCode = "TXN-DOC-PERM";
 
     public static RuleResult EvaluateCreate(bool hasIssueCreate) =>
         hasIssueCreate
@@ -59,4 +61,11 @@ public static class IssueAuthorizationRule
             : RuleResult.HardStop(
                 ReturnCode,
                 "Returning an issued unit to inventory requires the issue.return permission.");
+
+    public static RuleResult EvaluateDocumentTransfusion(bool hasTransfusionDocument) =>
+        hasTransfusionDocument
+            ? RuleResult.Pass(DocumentTransfusionCode)
+            : RuleResult.HardStop(
+                DocumentTransfusionCode,
+                "Documenting a transfusion requires the transfusion.document permission.");
 }

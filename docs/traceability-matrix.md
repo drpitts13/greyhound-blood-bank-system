@@ -111,6 +111,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-036 / FRS-BB-066 | Reaction investigation writes require reaction.investigate in Application | `RXN-PERM` | `ReactionAuthorizationRuleTests`; ReactionInvestigationService permission test | D,I | RISK-BB-038 |
 | URS-BB-037 / FRS-BB-067 | Walk-in, expected-arrival, and normalized receive require inventory.receive in Application | `INV-RCV-PERM` | `InventoryAuthorizationRuleTests`; InventoryService receive permission test | D,I | RISK-BB-039 |
 | URS-BB-038 / FRS-BB-068 | Issue return requires issue.return in Application | `ISS-RET-PERM` | `IssueAuthorizationRuleTests`; Issuing return permission test | D,I | RISK-BB-040 |
+| URS-BB-039 / FRS-BB-069 | Transfusion documentation requires transfusion.document in Application | `TXN-DOC-PERM` | `IssueAuthorizationRuleTests`; Issuing transfusion-document permission test | D,I | RISK-BB-041 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

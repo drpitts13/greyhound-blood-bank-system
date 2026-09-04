@@ -109,4 +109,59 @@ public class IssuingReturnAuthorizationTests : IClassFixture<SqliteContextFactor
         Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(unit.Id))!.Status);
         Assert.Equal(IssueStatus.Returned, (await context.Issues.FindAsync(issue.Id))!.Status);
     }
+
+    [Fact]
+    public async Task DocumentTransfusion_WithoutTransfusionDocument_IsHardStopped()
+    {
+        await using var context = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = "MRN-TXN-PERM",
+            LastName = "Transfuse",
+            FirstName = "Pat",
+            DateOfBirth = new DateOnly(1970, 1, 1)
+        };
+        var product = new ProductType { ProductCode = "RBC-TXN-PERM", Name = "RBC" };
+        context.Patients.Add(patient);
+        context.ProductTypes.Add(product);
+        await context.SaveChangesAsync();
+
+        var unit = new BloodUnit
+        {
+            UnitNumber = "U-TXN-PERM",
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Status = UnitStatus.Issued,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10)
+        };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync();
+
+        var issue = new Issue
+        {
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            IssuedUtc = _factory.Clock.UtcNow,
+            IssuedBy = "tech-test",
+            Status = IssueStatus.Issued,
+            WardReceivedUtc = _factory.Clock.UtcNow,
+            WardReceivedBy = "ward-nurse"
+        };
+        context.Issues.Add(issue);
+        await context.SaveChangesAsync();
+
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate))
+            .DocumentTransfusionAsync(issue.Id, new DocumentTransfusionRequest(TransfusionDisposition.Completed));
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == IssueAuthorizationRule.DocumentTransfusionCode);
+        Assert.Equal(UnitStatus.Issued, (await context.BloodUnits.FindAsync(unit.Id))!.Status);
+        Assert.Equal(IssueStatus.Issued, (await context.Issues.FindAsync(issue.Id))!.Status);
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.TransfusionDocument))
+            .DocumentTransfusionAsync(issue.Id, new DocumentTransfusionRequest(TransfusionDisposition.Completed));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(UnitStatus.Transfused, (await context.BloodUnits.FindAsync(unit.Id))!.Status);
+        Assert.Equal(IssueStatus.Transfused, (await context.Issues.FindAsync(issue.Id))!.Status);
+    }
 }

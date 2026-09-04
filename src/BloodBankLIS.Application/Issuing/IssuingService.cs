@@ -624,6 +624,13 @@ public sealed class IssuingService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var documentAuth = IssueAuthorizationRule.EvaluateDocumentTransfusion(
+            await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.TransfusionDocument, ct));
+        if (documentAuth.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([documentAuth]));
+        }
+
         if (request.FinalDisposition == TransfusionDisposition.Returned)
         {
             return EvaluationResult<TransfusionEvent>.Fail("Use the return workflow to return an unused unit to inventory.");

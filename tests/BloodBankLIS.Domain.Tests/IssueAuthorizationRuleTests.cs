@@ -83,4 +83,19 @@ public class IssueAuthorizationRuleTests
         var result = IssueAuthorizationRule.EvaluateReturn(hasIssueReturn: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void DocumentTransfusion_WithoutPermission_IsHardStop()
+    {
+        var result = IssueAuthorizationRule.EvaluateDocumentTransfusion(hasTransfusionDocument: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(IssueAuthorizationRule.DocumentTransfusionCode, result.Code);
+    }
+
+    [Fact]
+    public void DocumentTransfusion_WithPermission_Passes()
+    {
+        var result = IssueAuthorizationRule.EvaluateDocumentTransfusion(hasTransfusionDocument: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }
