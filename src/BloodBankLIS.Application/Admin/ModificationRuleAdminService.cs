@@ -21,6 +21,7 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
     private readonly IRepository<ModificationRule> _rules;
     private readonly IRepository<ProductType> _products;
     private readonly IRepository<ExpirationModificationCode> _expirationCodes;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public ModificationRuleAdminService(
         IRepository<ModificationRule> rules,
@@ -30,12 +31,14 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _rules = rules;
         _products = products;
         _expirationCodes = expirationCodes;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<ModificationRuleDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -77,6 +80,13 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
     {
         ArgumentNullException.ThrowIfNull(req);
 
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminModificationRulesManage, ModificationRuleAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = new ModificationRule { IsActive = false, Version = 1 };
         Apply(entity, req);
 
@@ -100,6 +110,13 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<ModificationRuleDto>> UpdateAsync(long id, SaveModificationRuleRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminModificationRulesManage, ModificationRuleAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _rules.GetByIdAsync(id, ct);
         if (entity is null)
@@ -139,6 +156,13 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<ModificationRuleDto>> ActivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedEvalAsync(
+            PermissionCodes.AdminConfigActivate, ModificationRuleAuthorizationRule.EvaluateActivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _rules.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -166,6 +190,13 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
 
     public async Task<OperationResult<ModificationRuleDto>> DeactivateAsync(long id, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate, ModificationRuleAuthorizationRule.EvaluateDeactivate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _rules.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -236,4 +267,40 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
         string.IsNullOrWhiteSpace(product?.Isbt128ProductCode)
             ? product?.ProductCode ?? string.Empty
             : product.Isbt128ProductCode;
+
+    private async Task<EvaluationResult<ModificationRuleDto>?> RejectUnauthorizedEvalAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<ModificationRuleDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<OperationResult<ModificationRuleDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<ModificationRuleDto>.Fail(auth.Message)
+            : null;
+    }
 }
