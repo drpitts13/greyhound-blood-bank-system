@@ -29,6 +29,7 @@ public sealed record SaveExceptionDefinitionRequest(
 public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
 {
     private readonly IRepository<ExceptionDefinition> _exceptions;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public ExceptionDefinitionAdminService(
         IRepository<ExceptionDefinition> exceptions,
@@ -36,10 +37,12 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _exceptions = exceptions;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<ExceptionDefinitionDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -64,6 +67,15 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<ExceptionDefinitionDto>> CreateAsync(SaveExceptionDefinitionRequest request, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, ExceptionCatalogAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var ruleCode = request.RuleCode.Trim().ToUpperInvariant();
         if (await _exceptions.AnyAsync(e => e.RuleCode == ruleCode, ct))
         {
@@ -97,6 +109,15 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<ExceptionDefinitionDto>> UpdateAsync(long id, SaveExceptionDefinitionRequest request, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, ExceptionCatalogAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _exceptions.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -131,6 +152,17 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<ExceptionDefinitionDto>> SetActiveAsync(long id, bool active, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate,
+            active
+                ? ExceptionCatalogAuthorizationRule.EvaluateActivate
+                : ExceptionCatalogAuthorizationRule.EvaluateDeactivate,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _exceptions.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -169,4 +201,22 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
 
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private async Task<EvaluationResult<ExceptionDefinitionDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<ExceptionDefinitionDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
 }

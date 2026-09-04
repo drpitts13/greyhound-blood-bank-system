@@ -143,6 +143,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-081 / FRS-BB-115 | Test-grouper catalog writes require admin.tests.manage or admin.config.activate in Application | `GROUPER-CREATE-PERM`, `GROUPER-UPD-PERM`, `GROUPER-ACT-PERM`, `GROUPER-DEACT-PERM` | `TestGrouperAuthorizationRuleTests`; `TestGrouperAuthorizationTests` | D,I | RISK-BB-085 |
 | URS-BB-083 / FRS-BB-117 | Order/test rule catalog writes require admin.tests.manage or admin.config.activate in Application | `RULEDEF-CREATE-PERM`, `RULEDEF-UPD-PERM`, `RULEDEF-ACT-PERM`, `RULEDEF-DEACT-PERM` | `RuleDefinitionAuthorizationRuleTests`; `RuleDefinitionAuthorizationTests` | D,I | RISK-BB-087 |
 | URS-BB-084 / FRS-BB-118 | Phase-catalog writes require admin.tests.manage or admin.config.activate in Application | `PHASE-CREATE-PERM`, `PHASE-UPD-PERM`, `PHASE-ACT-PERM`, `PHASE-DEACT-PERM` | `PhaseCatalogAuthorizationRuleTests`; `PhaseDefinitionAuthorizationTests` | D,I | RISK-BB-089 |
+| URS-BB-086 / FRS-BB-120 | Exception-catalog writes require admin.config.edit or admin.config.activate in Application | `EXC-CREATE-PERM`, `EXC-UPD-PERM`, `EXC-ACT-PERM`, `EXC-DEACT-PERM` | `ExceptionCatalogAuthorizationRuleTests`; `ExceptionDefinitionAuthorizationTests` | D,I | RISK-BB-092 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

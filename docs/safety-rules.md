@@ -145,6 +145,10 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `PHASE-UPD-PERM` | Caller has `admin.tests.manage` when updating a phase definition | HardStop when a permission evaluator is present and the privilege is missing |
 | `PHASE-ACT-PERM` | Caller has `admin.config.activate` when activating a phase definition | HardStop when a permission evaluator is present and the privilege is missing |
 | `PHASE-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a phase definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `EXC-CREATE-PERM` | Caller has `admin.config.edit` when creating an exception definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `EXC-UPD-PERM` | Caller has `admin.config.edit` when updating an exception definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `EXC-ACT-PERM` | Caller has `admin.config.activate` when activating an exception definition | HardStop when a permission evaluator is present and the privilege is missing |
+| `EXC-DEACT-PERM` | Caller has `admin.config.activate` when deactivating an exception definition | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-UPD-PERM` | Caller has `patient.write` when updating an order | HardStop when a permission evaluator is present and the privilege is missing |
