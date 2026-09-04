@@ -228,4 +228,64 @@ public class InventoryAuthorizationRuleTests
         var result = InventoryAuthorizationRule.EvaluateCancelExpected(hasInventoryReceive: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Quarantine_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateQuarantine(hasInventoryRelease: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.QuarantineCode, result.Code);
+    }
+
+    [Fact]
+    public void Quarantine_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateQuarantine(hasInventoryRelease: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void PlaceHold_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluatePlaceHold(hasInventoryRelease: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.PlaceHoldCode, result.Code);
+    }
+
+    [Fact]
+    public void PlaceHold_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluatePlaceHold(hasInventoryRelease: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void MarkMissing_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateMarkMissing(hasInventoryRelease: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.MarkMissingCode, result.Code);
+    }
+
+    [Fact]
+    public void MarkMissing_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateMarkMissing(hasInventoryRelease: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void MarkDamaged_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateMarkDamaged(hasInventoryRelease: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.MarkDamagedCode, result.Code);
+    }
+
+    [Fact]
+    public void MarkDamaged_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateMarkDamaged(hasInventoryRelease: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

@@ -65,6 +65,10 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `INV-HOLD-PERM` | Caller has `inventory.release` when releasing a unit from operational hold | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-LOC-PERM` | Caller has `inventory.release` when locating a missing unit into quarantine | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-INSP-PERM` | Caller has `inventory.release` when inspecting a damaged unit into quarantine | HardStop when a permission evaluator is present and the privilege is missing |
+| `INV-Q-PERM` | Caller has `inventory.release` when placing a unit in quality quarantine | HardStop when a permission evaluator is present and the privilege is missing |
+| `INV-HOLD-SET-PERM` | Caller has `inventory.release` when placing a unit on operational hold | HardStop when a permission evaluator is present and the privilege is missing |
+| `INV-MISS-PERM` | Caller has `inventory.release` when marking a unit missing | HardStop when a permission evaluator is present and the privilege is missing |
+| `INV-DMG-PERM` | Caller has `inventory.release` when marking a unit damaged | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-DISC-2ND` | Distinct directory user as second verifier to discard a unit | HardStop when `Inventory.RequireDiscardVerifier` is true (default) |
 | `INV-RCV-VISUAL` | Unit passed visual inspection at receipt (no clots, hemolysis, or container defects) | HardStop when `Inventory.RequireReceiveVisualInspection` is true (default) |
 | `INV-RCV-APPEAR` | Coded appearance at receipt is Acceptable (not Clots/Hemolysis/Leaking/…) | HardStop when visual inspection is required (default) |

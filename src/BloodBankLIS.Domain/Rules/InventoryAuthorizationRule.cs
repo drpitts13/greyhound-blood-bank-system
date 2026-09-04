@@ -4,6 +4,8 @@ namespace BloodBankLIS.Domain.Rules;
 /// Privilege gates for inventory actions that make a unit issuable
 /// (quarantine release, unused-directed conversion, operational-hold release,
 /// locating a missing unit, inspecting a damaged unit)
+/// or that take a unit out of Available (manual quarantine, operational hold,
+/// mark missing, mark damaged)
 /// or that retire a unit into a modified product, rewrite unit identity,
 /// receive a unit, record or cancel an expected packing-list unit,
 /// save unit blood attributes used at compatibility,
@@ -28,6 +30,10 @@ public static class InventoryAuthorizationRule
     public const string InspectDamagedCode = "INV-INSP-PERM";
     public const string ExpectCode = "INV-EXPECT-PERM";
     public const string CancelExpectedCode = "INV-EXPECT-CXL-PERM";
+    public const string QuarantineCode = "INV-Q-PERM";
+    public const string PlaceHoldCode = "INV-HOLD-SET-PERM";
+    public const string MarkMissingCode = "INV-MISS-PERM";
+    public const string MarkDamagedCode = "INV-DMG-PERM";
 
     public static RuleResult EvaluateQuarantineRelease(bool hasInventoryRelease) =>
         hasInventoryRelease
@@ -133,6 +139,34 @@ public static class InventoryAuthorizationRule
             : RuleResult.HardStop(
                 CancelExpectedCode,
                 "Cancelling an expected inbound unit requires the inventory.receive permission.");
+
+    public static RuleResult EvaluateQuarantine(bool hasInventoryRelease) =>
+        hasInventoryRelease
+            ? RuleResult.Pass(QuarantineCode)
+            : RuleResult.HardStop(
+                QuarantineCode,
+                "Placing a unit in quarantine requires the inventory.release permission.");
+
+    public static RuleResult EvaluatePlaceHold(bool hasInventoryRelease) =>
+        hasInventoryRelease
+            ? RuleResult.Pass(PlaceHoldCode)
+            : RuleResult.HardStop(
+                PlaceHoldCode,
+                "Placing a unit on operational hold requires the inventory.release permission.");
+
+    public static RuleResult EvaluateMarkMissing(bool hasInventoryRelease) =>
+        hasInventoryRelease
+            ? RuleResult.Pass(MarkMissingCode)
+            : RuleResult.HardStop(
+                MarkMissingCode,
+                "Marking a unit missing requires the inventory.release permission.");
+
+    public static RuleResult EvaluateMarkDamaged(bool hasInventoryRelease) =>
+        hasInventoryRelease
+            ? RuleResult.Pass(MarkDamagedCode)
+            : RuleResult.HardStop(
+                MarkDamagedCode,
+                "Marking a unit damaged requires the inventory.release permission.");
 }
 
 

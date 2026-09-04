@@ -707,6 +707,12 @@ public sealed class InventoryService
             return InventoryActionResult.Blocked(new RuleEvaluation([coded]));
         }
 
+        var denied = await RejectUnauthorizedAsync(InventoryAuthorizationRule.EvaluateQuarantine, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
@@ -852,6 +858,12 @@ public sealed class InventoryService
         if (string.IsNullOrWhiteSpace(reason))
             return InventoryActionResult.Fail("A hold reason is required.");
 
+        var denied = await RejectUnauthorizedAsync(InventoryAuthorizationRule.EvaluatePlaceHold, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
             return InventoryActionResult.Fail("Unit not found.");
@@ -888,6 +900,12 @@ public sealed class InventoryService
     {
         if (string.IsNullOrWhiteSpace(reason))
             return InventoryActionResult.Fail("A reason is required to mark a unit missing.");
+
+        var denied = await RejectUnauthorizedAsync(InventoryAuthorizationRule.EvaluateMarkMissing, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
@@ -934,6 +952,12 @@ public sealed class InventoryService
     {
         if (string.IsNullOrWhiteSpace(reason))
             return InventoryActionResult.Fail("A reason is required to mark a unit damaged.");
+
+        var denied = await RejectUnauthorizedAsync(InventoryAuthorizationRule.EvaluateMarkDamaged, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
