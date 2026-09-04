@@ -70,6 +70,12 @@ public sealed class ScanSessionService
 
     public async Task<OperationResult<ScanSessionDto>> StartAsync(StartScanSessionRequest request, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(InventoryAuthorizationRule.EvaluateScanStart, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var expected = request.ExpectedStructures is { Count: > 0 }
             ? request.ExpectedStructures.ToList()
             : DefaultExpected.ToList();
@@ -97,6 +103,12 @@ public sealed class ScanSessionService
 
     public async Task<OperationResult<ScanSessionDto>> AddScanAsync(AddScanRequest request, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(InventoryAuthorizationRule.EvaluateScanAdd, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var session = await _sessions.FirstOrDefaultAsync(s => s.SessionKey == request.SessionKey, ct);
         if (session is null)
             return OperationResult<ScanSessionDto>.Fail("Scan session not found.");
@@ -239,6 +251,23 @@ public sealed class ScanSessionService
         }
 
         return result;
+    }
+
+    private async Task<OperationResult<ScanSessionDto>?> RejectUnauthorizedAsync(
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _user.UserName, PermissionCodes.InventoryReceive, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<ScanSessionDto>.Fail(auth.Message)
+            : null;
     }
 
     private async Task<(bool Success, IReadOnlyList<string> Errors)> ApplySegmentAsync(

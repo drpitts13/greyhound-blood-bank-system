@@ -59,3 +59,4 @@
 | SRS-BB-061 | Workspace order create is authorized inside `OrderService.CreateAsync` with `patient.write` (`ORD-CREATE-PERM`). `CreateFromHl7Async` and `CreateForAllocationAsync` stay ungated. | FRS-BB-100 |
 | SRS-BB-063 | User create/update/assign-roles are authorized inside `UserAdminService` with `admin.users.manage` (`USR-CREATE-PERM` / `USR-UPD-PERM` / `USR-ASSIGN-PERM`). Role create/update use `admin.roles.manage` (`ROLE-CREATE-PERM` / `ROLE-UPD-PERM`). | FRS-BB-102 |
 | SRS-BB-064 | Direct interface transfusion documentation is authorized inside `InterfaceTransfusionService.DocumentAsync` with `transfusion.document` (`TXN-IFACE-PERM`). `DocumentFromHl7Async` stays ungated for inbound BPAM. | FRS-BB-103 |
+| SRS-BB-066 | Scan-session start and add-scan are authorized inside `ScanSessionService` with `inventory.receive` (`INV-SCAN-START-PERM` / `INV-SCAN-ADD-PERM`). Complete remains `INV-RCV-PERM`. | FRS-BB-105 |

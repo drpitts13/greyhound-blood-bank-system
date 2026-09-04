@@ -35,6 +35,8 @@ public static class InventoryAuthorizationRule
     public const string MarkMissingCode = "INV-MISS-PERM";
     public const string MarkDamagedCode = "INV-DMG-PERM";
     public const string ExpireCode = "INV-EXP-PERM";
+    public const string ScanStartCode = "INV-SCAN-START-PERM";
+    public const string ScanAddCode = "INV-SCAN-ADD-PERM";
 
     public static RuleResult EvaluateQuarantineRelease(bool hasInventoryRelease) =>
         hasInventoryRelease
@@ -175,6 +177,20 @@ public static class InventoryAuthorizationRule
             : RuleResult.HardStop(
                 ExpireCode,
                 "Running the expiration sweep requires the inventory.discard permission.");
+
+    public static RuleResult EvaluateScanStart(bool hasInventoryReceive) =>
+        hasInventoryReceive
+            ? RuleResult.Pass(ScanStartCode)
+            : RuleResult.HardStop(
+                ScanStartCode,
+                "Starting an ISBT scan session requires the inventory.receive permission.");
+
+    public static RuleResult EvaluateScanAdd(bool hasInventoryReceive) =>
+        hasInventoryReceive
+            ? RuleResult.Pass(ScanAddCode)
+            : RuleResult.HardStop(
+                ScanAddCode,
+                "Adding a scan to an ISBT session requires the inventory.receive permission.");
 }
 
 

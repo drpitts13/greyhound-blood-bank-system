@@ -303,4 +303,34 @@ public class InventoryAuthorizationRuleTests
         var result = InventoryAuthorizationRule.EvaluateExpire(hasInventoryDiscard: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void ScanStart_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateScanStart(hasInventoryReceive: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.ScanStartCode, result.Code);
+    }
+
+    [Fact]
+    public void ScanStart_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateScanStart(hasInventoryReceive: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void ScanAdd_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateScanAdd(hasInventoryReceive: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.ScanAddCode, result.Code);
+    }
+
+    [Fact]
+    public void ScanAdd_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateScanAdd(hasInventoryReceive: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }
