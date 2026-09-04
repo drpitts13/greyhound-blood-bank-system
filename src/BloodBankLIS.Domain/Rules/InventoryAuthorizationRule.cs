@@ -9,8 +9,8 @@ namespace BloodBankLIS.Domain.Rules;
 /// or that retire a unit into a modified product, rewrite unit identity,
 /// receive a unit, record or cancel an expected packing-list unit,
 /// save unit blood attributes used at compatibility,
-/// return a unit to the supplier, discard a unit, transfer a unit between
-/// locations, or recall a unit.
+/// return a unit to the supplier, discard a unit, expire due units,
+/// transfer a unit between locations, or recall a unit.
 /// Lookback DIN recall uses <c>lookback.manage</c> instead (OCD-014).
 /// </summary>
 public static class InventoryAuthorizationRule
@@ -34,6 +34,7 @@ public static class InventoryAuthorizationRule
     public const string PlaceHoldCode = "INV-HOLD-SET-PERM";
     public const string MarkMissingCode = "INV-MISS-PERM";
     public const string MarkDamagedCode = "INV-DMG-PERM";
+    public const string ExpireCode = "INV-EXP-PERM";
 
     public static RuleResult EvaluateQuarantineRelease(bool hasInventoryRelease) =>
         hasInventoryRelease
@@ -167,6 +168,13 @@ public static class InventoryAuthorizationRule
             : RuleResult.HardStop(
                 MarkDamagedCode,
                 "Marking a unit damaged requires the inventory.release permission.");
+
+    public static RuleResult EvaluateExpire(bool hasInventoryDiscard) =>
+        hasInventoryDiscard
+            ? RuleResult.Pass(ExpireCode)
+            : RuleResult.HardStop(
+                ExpireCode,
+                "Running the expiration sweep requires the inventory.discard permission.");
 }
 
 

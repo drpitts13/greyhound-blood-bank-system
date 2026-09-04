@@ -1865,7 +1865,8 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         await using (var context = _factory.Create())
         {
             var expired = await CreateService(context).ExpireDueUnitsAsync();
-            Assert.True(expired >= 1);
+            Assert.True(expired.Succeeded, expired.Error);
+            Assert.True(expired.AffectedCount >= 1);
         }
 
         await using (var verify = _factory.Create())
@@ -1873,6 +1874,41 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(UnitStatus.Expired, (await verify.BloodUnits.FindAsync(pastDueId))!.Status);
             Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(futureId))!.Status);
         }
+    }
+
+    [Fact]
+    public async Task ExpireDueUnits_WithoutInventoryDiscard_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long pastDueId;
+        await using (var setup = _factory.Create())
+        {
+            var pastDue = new BloodUnit
+            {
+                UnitNumber = "U-EXP-PERM",
+                ProductTypeId = productTypeId,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1),
+                Status = UnitStatus.Available
+            };
+            setup.BloodUnits.Add(pastDue);
+            await setup.SaveChangesAsync();
+            pastDueId = pastDue.Id;
+        }
+
+        await using var context = _factory.Create();
+        var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease))
+            .ExpireDueUnitsAsync();
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.ExpireCode);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(pastDueId))!.Status);
+
+        var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryDiscard))
+            .ExpireDueUnitsAsync();
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.True(allowed.AffectedCount >= 1);
+        Assert.Equal(UnitStatus.Expired, (await context.BloodUnits.FindAsync(pastDueId))!.Status);
     }
 
     [Fact]

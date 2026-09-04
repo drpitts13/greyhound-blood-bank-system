@@ -98,6 +98,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `INV-ATTR-PERM` | Caller has `inventory.receive` when saving a unit antigen or antibody attribute | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-RTS-PERM` | Caller has `inventory.receive` when returning a unit to the supplier | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-DISC-PERM` | Caller has `inventory.discard` when discarding a unit | HardStop when a permission evaluator is present and the privilege is missing |
+| `INV-EXP-PERM` | Caller has `inventory.discard` when running the expiration sweep | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-XFER-PERM` | Caller has `inventory.transfer` when moving a unit between storage locations | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-RCL-PERM` | Caller has `inventory.recall` when recalling a unit through inventory (not lookback DIN recall) | HardStop when a permission evaluator is present and the privilege is missing |
 | `LK-RECALL-PERM` | Caller has `lookback.manage` when recalling components by DIN | HardStop when a permission evaluator is present and the privilege is missing |

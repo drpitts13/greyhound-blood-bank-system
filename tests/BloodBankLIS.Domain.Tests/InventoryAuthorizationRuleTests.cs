@@ -288,4 +288,19 @@ public class InventoryAuthorizationRuleTests
         var result = InventoryAuthorizationRule.EvaluateMarkDamaged(hasInventoryRelease: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Expire_WithoutPermission_IsHardStop()
+    {
+        var result = InventoryAuthorizationRule.EvaluateExpire(hasInventoryDiscard: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InventoryAuthorizationRule.ExpireCode, result.Code);
+    }
+
+    [Fact]
+    public void Expire_WithPermission_Passes()
+    {
+        var result = InventoryAuthorizationRule.EvaluateExpire(hasInventoryDiscard: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

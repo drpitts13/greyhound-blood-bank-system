@@ -1220,15 +1220,22 @@ public sealed class InventoryService
     }
 
     /// <summary>Sweeps units that are at/past expiration into the Expired status.</summary>
-    public async Task<int> ExpireDueUnitsAsync(CancellationToken ct = default)
+    public async Task<InventoryActionResult> ExpireDueUnitsAsync(CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedExpireAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var now = _clock.UtcNow;
         var due = await _repository.GetExpirableUnitsAsync(now, ct);
         if (due.Count == 0)
         {
-            return 0;
+            return InventoryActionResult.OkSweep(0);
         }
 
+        var expired = 0;
         foreach (var unit in due)
         {
             if (!InventoryStatusTransition.IsAllowed(unit.Status, UnitStatus.Expired))
@@ -1250,9 +1257,11 @@ public sealed class InventoryService
                 ChangedBy = _currentUser.UserName,
                 ChangedUtc = now
             });
+            expired++;
         }
 
-        return await _unitOfWork.SaveChangesAsync(ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return InventoryActionResult.OkSweep(expired);
     }
 
     private async Task<InventoryActionResult> ChangeStatusAsync(BloodUnit unit, UnitStatus toStatus, string reason, CancellationToken ct)
@@ -1327,6 +1336,21 @@ public sealed class InventoryService
         var allowed = await _permissions.HasPermissionAsync(
             _currentUser.UserName, PermissionCodes.InventoryDiscard, ct);
         var auth = InventoryAuthorizationRule.EvaluateDiscard(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
+
+    private async Task<InventoryActionResult?> RejectUnauthorizedExpireAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(
+            _currentUser.UserName, PermissionCodes.InventoryDiscard, ct);
+        var auth = InventoryAuthorizationRule.EvaluateExpire(allowed);
         return auth.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
             : null;

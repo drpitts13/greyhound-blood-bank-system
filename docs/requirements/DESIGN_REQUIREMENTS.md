@@ -54,3 +54,4 @@
 | SRS-BB-052 | Order update, cancel, and public specimen-link are authorized inside `OrderService` with `patient.write` (`ORD-UPD-PERM` / `ORD-CXL-PERM` / `ORD-LINK-PERM`). `CreateAsync` and `AssociateCurrentSpecimenAsync` stay ungated for HL7 ORM. | FRS-BB-091 |
 | SRS-BB-053 | Manual visit create/update are authorized inside `EncounterService` with `patient.write` (`ENC-CREATE-PERM` / `ENC-UPD-PERM`). `UpsertVisitFromHl7Async` and `EnsureEncounterForHl7OrderAsync` stay ungated. | FRS-BB-092 |
 | SRS-BB-055 | Manual quarantine, hold, mark-missing, and mark-damaged are authorized inside `InventoryService` with `inventory.release` (`INV-Q-PERM` / `INV-HOLD-SET-PERM` / `INV-MISS-PERM` / `INV-DMG-PERM`). | FRS-BB-094 |
+| SRS-BB-057 | The expiration sweep is authorized inside `InventoryService.ExpireDueUnitsAsync` with `inventory.discard` (`INV-EXP-PERM`). Callers that skip the API filter cannot expire on-hand units. | FRS-BB-096 |

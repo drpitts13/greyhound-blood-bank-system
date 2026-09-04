@@ -162,8 +162,10 @@ public static class InventoryEndpoints
         // Operational sweep that expires units past their expiration date/time.
         group.MapPost("/expire-due", async (InventoryService service, CancellationToken ct) =>
         {
-            var count = await service.ExpireDueUnitsAsync(ct);
-            return Results.Ok(new { expired = count });
+            var result = await service.ExpireDueUnitsAsync(ct);
+            return result.Succeeded
+                ? Results.Ok(new { expired = result.AffectedCount })
+                : ToFailure(result);
         }).RequirePermission(PermissionCodes.InventoryDiscard);
 
         group.MapGet("/retypes/pending", async (ProductRetypeService service, CancellationToken ct) =>
