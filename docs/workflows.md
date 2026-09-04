@@ -253,7 +253,7 @@ flowchart LR
 ```
 
 - Inbound messages are persisted to `HL7Messages` first, then parsed, then mapped to Application commands (which run the same safety checks as the API). Failures go to `InterfaceErrorQueue` and produce a NAK.
-- Patient name, date of birth, and sex can also be edited on the patient record (`patient.write`). MRN stays immutable. A later ADT A08 may overwrite those demographic fields.
+- Patient name, date of birth, and sex can also be edited on the patient record. Application requires `patient.write` (`PAT-WRITE-PERM`). MRN stays immutable. A later ADT A08 may overwrite those demographic fields through the HL7 processor (not `PatientService`).
 - Manual merge of a duplicate into the surviving record requires `patient.merge` (Supervisor and Administrator by default). A reason is required. History is reassigned, not deleted. ADT A18/A40 merge is an interface action, not this HTTP permission.
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 

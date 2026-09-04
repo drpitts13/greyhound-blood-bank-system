@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Patients;
 
@@ -19,24 +20,41 @@ public sealed class PatientService
     private readonly IClock _clock;
     private readonly SpecimenService _specimens;
     private readonly IAuditWriter? _audit;
+    private readonly ICurrentUser? _currentUser;
+    private readonly IPermissionEvaluator? _permissions;
 
     public PatientService(
         IRepository<Patient> patients,
         IUnitOfWork unitOfWork,
         IClock clock,
         SpecimenService specimens,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        ICurrentUser? currentUser = null,
+        IPermissionEvaluator? permissions = null)
     {
         _patients = patients;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _specimens = specimens;
         _audit = audit;
+        _currentUser = currentUser;
+        _permissions = permissions;
     }
 
     public async Task<OperationResult<Patient>> UpdateAsync(long id, UpdatePatientRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        if (_permissions is not null)
+        {
+            var userName = _currentUser?.UserName ?? string.Empty;
+            var allowed = await _permissions.HasPermissionAsync(userName, PermissionCodes.PatientWrite, ct);
+            var auth = PatientAuthorizationRule.EvaluateWrite(allowed);
+            if (auth.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<Patient>.Fail(auth.Message);
+            }
+        }
 
         var patient = await _patients.GetByIdAsync(id, ct);
         if (patient is null)

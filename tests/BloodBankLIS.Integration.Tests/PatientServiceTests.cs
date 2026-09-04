@@ -1,8 +1,10 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,8 +19,9 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
     private static SpecimenService Specimens(BloodBankDbContext c, SqliteContextFactory factory) =>
         new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c), c, factory.Clock);
 
-    private PatientService Patients(BloodBankDbContext c) =>
-        new(new EfRepository<Patient>(c), c, _factory.Clock, Specimens(c, _factory));
+    private PatientService Patients(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+        new(new EfRepository<Patient>(c), c, _factory.Clock, Specimens(c, _factory),
+            currentUser: _factory.CurrentUser, permissions: permissions);
 
     private async Task<long> EnsurePatientAsync(string mrn)
     {
@@ -61,6 +64,26 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(Sex.Female, result.Value.Sex);
         Assert.Equal(PatientStatus.Inactive, result.Value.Status);
         Assert.Equal("MRN-DEMO-EDIT", result.Value.MedicalRecordNumber);
+    }
+
+    [Fact]
+    public async Task Update_WithoutPatientWrite_IsHardStopped()
+    {
+        var id = await EnsurePatientAsync("MRN-DEMO-PERM");
+
+        await using var context = _factory.Create();
+        var denied = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientMerge))
+            .UpdateAsync(id, new UpdatePatientRequest(
+                "Hijacked", "Alex", null, new DateOnly(1975, 6, 15), Sex.Female, PatientStatus.Active));
+        Assert.False(denied.Succeeded);
+        Assert.Equal(PatientAuthorizationRule.EvaluateWrite(false).Message, denied.Error);
+        Assert.Equal("Original", (await context.Patients.FindAsync(id))!.LastName);
+
+        var allowed = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .UpdateAsync(id, new UpdatePatientRequest(
+                "Hijacked", "Alex", null, new DateOnly(1975, 6, 15), Sex.Female, PatientStatus.Active));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal("Hijacked", allowed.Value!.LastName);
     }
 
     [Fact]
