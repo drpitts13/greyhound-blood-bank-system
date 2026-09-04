@@ -40,7 +40,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             new EfRepository<User>(context),
             new FacilityPolicyService(new EfRepository<SystemSetting>(context)),
             new EfRepository<Patient>(context),
-            permissions);
+            permissions: permissions);
     }
 
     private async Task EnsureSecondVerifierAsync(string userName = "tech2")
@@ -451,6 +451,27 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var result = await CreateService(act).ConvertDirectedToAllogeneicAsync(unitId, "  ", "tech2");
         Assert.False(result.Succeeded);
         Assert.Equal("A reason is required to convert a directed unit to allogeneic inventory.", result.Error);
+    }
+
+    [Fact]
+    public async Task ConvertDirected_WithoutInventoryRelease_IsHardStopped()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var (unitId, _) = await ReceiveDirectedAsync("U-DIR-PERM", productTypeId);
+        await using var act = _factory.Create();
+        var denied = CreateService(act, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive));
+        var result = await denied.ConvertDirectedToAllogeneicAsync(
+            unitId, "Intended recipient discharged", "tech2");
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.DirectedConversionCode);
+        Assert.Equal(DonationRestriction.Directed, (await act.BloodUnits.FindAsync(unitId))!.DonationRestriction);
+
+        var allowed = CreateService(act, new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease));
+        var ok = await allowed.ConvertDirectedToAllogeneicAsync(
+            unitId, "Intended recipient discharged", "tech2");
+        Assert.True(ok.Succeeded, ok.Error);
+        Assert.Equal(DonationRestriction.Allogeneic, ok.Unit!.DonationRestriction);
+        Assert.Null(ok.Unit.ReservedPatientId);
     }
 
     [Fact]

@@ -654,7 +654,8 @@ public sealed class InventoryService
     public async Task<InventoryActionResult> ReleaseFromQuarantineAsync(
         long unitId, string? secondVerifier = null, CancellationToken ct = default)
     {
-        var denied = await RejectUnauthorizedReleaseAsync(ct);
+        var denied = await RejectUnauthorizedAsync(
+            InventoryAuthorizationRule.EvaluateQuarantineRelease, ct);
         if (denied is not null)
         {
             return denied;
@@ -913,6 +914,13 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("A reason is required to convert a directed unit to allogeneic inventory.");
         }
 
+        var denied = await RejectUnauthorizedAsync(
+            InventoryAuthorizationRule.EvaluateDirectedConversion, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var unit = await _repository.GetUnitAsync(unitId, ct);
         if (unit is null)
         {
@@ -1144,7 +1152,8 @@ public sealed class InventoryService
         return InventoryActionResult.Ok(unit);
     }
 
-    private async Task<InventoryActionResult?> RejectUnauthorizedReleaseAsync(CancellationToken ct)
+    private async Task<InventoryActionResult?> RejectUnauthorizedAsync(
+        Func<bool, RuleResult> evaluate, CancellationToken ct)
     {
         if (_permissions is null)
         {
@@ -1153,7 +1162,7 @@ public sealed class InventoryService
 
         var allowed = await _permissions.HasPermissionAsync(
             _currentUser.UserName, PermissionCodes.InventoryRelease, ct);
-        var auth = InventoryAuthorizationRule.EvaluateQuarantineRelease(allowed);
+        var auth = evaluate(allowed);
         return auth.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
             : null;
