@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Compliance;
 
@@ -108,6 +109,7 @@ public sealed class LookbackService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IPermissionEvaluator? _permissions;
 
     public LookbackService(
         IInventoryRepository inventory,
@@ -121,7 +123,8 @@ public sealed class LookbackService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IPermissionEvaluator? permissions = null)
     {
         _inventory = inventory;
         _units = units;
@@ -135,6 +138,7 @@ public sealed class LookbackService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _permissions = permissions;
     }
 
     public async Task<OperationResult<LookbackReportDto>> FindByDinAsync(string din, CancellationToken ct = default)
@@ -178,6 +182,12 @@ public sealed class LookbackService
             return OperationResult<LookbackReportDto>.Fail("A reason is required to recall by DIN.");
         }
 
+        var denied = await RejectUnauthorizedRecallAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var find = await FindByDinAsync(din, ct);
         if (!find.Succeeded || find.Value is null)
         {
@@ -206,7 +216,15 @@ public sealed class LookbackService
 
             if (unit.Status != UnitStatus.Recalled && unit.Status != UnitStatus.Discarded)
             {
-                await _inventoryService.RecallAsync(unit.Id, reason, ct);
+                var recalled = await _inventoryService.RecallAsync(unit.Id, reason, ct);
+                if (!recalled.Succeeded)
+                {
+                    var detail = recalled.Error
+                        ?? recalled.Evaluation?.HardStops.FirstOrDefault()?.Message
+                        ?? "Recall failed.";
+                    return OperationResult<LookbackReportDto>.Fail(
+                        $"Could not recall unit {unit.UnitNumber}: {detail}");
+                }
             }
         }
 
@@ -448,4 +466,18 @@ public sealed class LookbackService
 
     private static string NormalizeDin(string din) =>
         new string((din ?? string.Empty).Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+
+    private async Task<OperationResult<LookbackReportDto>?> RejectUnauthorizedRecallAsync(CancellationToken ct)
+    {
+        if (_permissions is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.LookbackManage, ct);
+        var auth = LookbackAuthorizationRule.EvaluateRecall(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<LookbackReportDto>.Fail(auth.Message)
+            : null;
+    }
 }

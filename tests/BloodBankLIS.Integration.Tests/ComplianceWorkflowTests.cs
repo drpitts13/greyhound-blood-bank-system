@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
@@ -5,6 +6,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +19,7 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
 
     public ComplianceWorkflowTests(SqliteContextFactory factory) => _factory = factory;
 
-    private LookbackService Lookback(BloodBankDbContext c)
+    private LookbackService Lookback(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
     {
         var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
         var inventory = new InventoryService(
@@ -37,7 +39,8 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Patient>(c),
             new EfRepository<LookbackNotification>(c),
             inventory,
-            c, _factory.Clock, _factory.CurrentUser, audit);
+            c, _factory.Clock, _factory.CurrentUser, audit,
+            permissions);
     }
 
     [Fact]
@@ -112,6 +115,79 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         await using var verify = _factory.Create();
         Assert.Equal(UnitStatus.Recalled, (await verify.BloodUnits.FindAsync(availableId))!.Status);
         Assert.Equal(UnitStatus.Transfused, (await verify.BloodUnits.FindAsync(transfusedId))!.Status);
+    }
+
+    [Fact]
+    public async Task RecallByDin_RecallsCrossmatchedUnit()
+    {
+        const string din = "W000044444444";
+        long unitId;
+        await using (var c = _factory.Create())
+        {
+            var productType = new ProductType
+            {
+                ProductCode = "RBC-LB-XM",
+                Name = "Lookback XM RBC",
+                ComponentClass = ComponentClass.RedBloodCells
+            };
+            c.ProductTypes.Add(productType);
+            await c.SaveChangesAsync();
+
+            var unit = new BloodUnit
+            {
+                UnitNumber = "U-LB-XM",
+                ProductTypeId = productType.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Din = din,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+                Status = UnitStatus.Crossmatched
+            };
+            c.BloodUnits.Add(unit);
+            await c.SaveChangesAsync();
+            unitId = unit.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var recalled = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+            Assert.True(recalled.Succeeded, recalled.Error);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Recalled, (await verify.BloodUnits.FindAsync(unitId))!.Status);
+    }
+
+    [Fact]
+    public async Task RecallByDin_WithoutLookbackManage_IsRejected()
+    {
+        const string din = "W000055555555";
+        await using var c = _factory.Create();
+        var productType = new ProductType
+        {
+            ProductCode = "RBC-LB-PERM",
+            Name = "Lookback perm RBC",
+            ComponentClass = ComponentClass.RedBloodCells
+        };
+        c.ProductTypes.Add(productType);
+        await c.SaveChangesAsync();
+        c.BloodUnits.Add(new BloodUnit
+        {
+            UnitNumber = "U-LB-PERM",
+            ProductTypeId = productType.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Din = din,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Available
+        });
+        await c.SaveChangesAsync();
+
+        var denied = await Lookback(c, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
+            .RecallByDinAsync(din, "Donor subsequently reactive");
+        Assert.False(denied.Succeeded);
+        Assert.Contains("lookback.manage", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(UnitStatus.Available, (await c.BloodUnits.SingleAsync(u => u.Din == din)).Status);
     }
 
     [Fact]
