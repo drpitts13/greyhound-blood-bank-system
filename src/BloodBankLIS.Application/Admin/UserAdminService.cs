@@ -23,6 +23,7 @@ public sealed class UserAdminService : ConfigAdminServiceBase
     private readonly IRepository<UserRole> _userRoles;
     private readonly IRepository<RolePermission> _rolePermissions;
     private readonly IIdentityAdminStore _identity;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public UserAdminService(
         IRepository<User> users,
@@ -35,7 +36,8 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _users = users;
@@ -44,6 +46,7 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         _userRoles = userRoles;
         _rolePermissions = rolePermissions;
         _identity = identity;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     // ---- Reads ----
@@ -105,6 +108,13 @@ public sealed class UserAdminService : ConfigAdminServiceBase
     {
         ArgumentNullException.ThrowIfNull(req);
 
+        var denied = await RejectUnauthorizedAsync<AdminUserDto>(
+            PermissionCodes.AdminUsersManage, AdminAuthorizationRule.EvaluateCreateUser, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         if (string.IsNullOrWhiteSpace(req.UserName))
         {
             return OperationResult<AdminUserDto>.Fail("Username is required.");
@@ -152,6 +162,13 @@ public sealed class UserAdminService : ConfigAdminServiceBase
     {
         ArgumentNullException.ThrowIfNull(req);
 
+        var denied = await RejectUnauthorizedAsync<AdminUserDto>(
+            PermissionCodes.AdminUsersManage, AdminAuthorizationRule.EvaluateUpdateUser, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var user = await _users.GetByIdAsync(id, ct);
         if (user is null)
         {
@@ -183,6 +200,13 @@ public sealed class UserAdminService : ConfigAdminServiceBase
     public async Task<OperationResult<AdminUserDto>> AssignRolesAsync(long id, AssignRolesRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedAsync<AdminUserDto>(
+            PermissionCodes.AdminUsersManage, AdminAuthorizationRule.EvaluateAssignRoles, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var user = await _users.GetByIdAsync(id, ct);
         if (user is null)
@@ -273,6 +297,13 @@ public sealed class UserAdminService : ConfigAdminServiceBase
     {
         ArgumentNullException.ThrowIfNull(req);
 
+        var denied = await RejectUnauthorizedAsync<AdminRoleDto>(
+            PermissionCodes.AdminRolesManage, AdminAuthorizationRule.EvaluateCreateRole, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         if (string.IsNullOrWhiteSpace(req.Name))
         {
             return OperationResult<AdminRoleDto>.Fail("Role name is required.");
@@ -307,6 +338,13 @@ public sealed class UserAdminService : ConfigAdminServiceBase
     public async Task<OperationResult<AdminRoleDto>> UpdateRoleAsync(long id, SaveRoleRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedAsync<AdminRoleDto>(
+            PermissionCodes.AdminRolesManage, AdminAuthorizationRule.EvaluateUpdateRole, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var role = await _roles.GetByIdAsync(id, ct);
         if (role is null)
@@ -435,6 +473,24 @@ public sealed class UserAdminService : ConfigAdminServiceBase
             ? ids.Where(roleNames.ContainsKey).Select(id => roleNames[id]).OrderBy(n => n).ToList()
             : new List<string>();
         return new AdminUserDto(u.Id, u.UserName, u.DisplayName, u.Email, u.IsActive, u.IsLocked, u.IsServiceAccount, u.LastLoginUtc, names);
+    }
+
+    private async Task<OperationResult<T>?> RejectUnauthorizedAsync<T>(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<T>.Fail(auth.Message)
+            : null;
     }
 
     private static AdminRoleDto MapRole(Role r, IReadOnlyDictionary<long, List<long>> permsByRole, IReadOnlyDictionary<long, string> permCodes)
