@@ -64,6 +64,7 @@ public static partial class DatabaseSeeder
         await SeedModificationRulesAsync(context, cancellationToken);
         await SeedDemoClinicalDataAsync(context, cancellationToken);
         await EnsureIsbtPermissionsAsync(context, cancellationToken);
+        await EnsureEmergencyReleasePermissionGrantAsync(context, cancellationToken);
         await SeedIsbt128LookupsAsync(context, cancellationToken);
         await SeedExtendedDemoScenariosAsync(context, cancellationToken);
 
@@ -117,6 +118,32 @@ public static partial class DatabaseSeeder
                 await context.SaveChangesAsync(ct);
             }
         }
+    }
+
+    /// <summary>
+    /// <c>issue.emergency-release</c> already existed in the catalog but was not
+    /// granted to Supervisor on upgraded databases.
+    /// </summary>
+    private static async Task EnsureEmergencyReleasePermissionGrantAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var perm = await context.Permissions.FirstOrDefaultAsync(p => p.Code == PermissionCodes.IssueEmergencyRelease, ct);
+        if (perm is null)
+        {
+            return;
+        }
+
+        var roles = await context.Roles
+            .Where(r => r.Name == "Administrator" || r.Name == "Dev Admin" || r.Name == "Supervisor")
+            .ToListAsync(ct);
+        foreach (var role in roles)
+        {
+            if (!await context.RolePermissions.AnyAsync(rp => rp.RoleId == role.Id && rp.PermissionId == perm.Id, ct))
+            {
+                context.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = perm.Id });
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
     }
 
     private static async Task SeedSystemSettingsAsync(BloodBankDbContext context, CancellationToken ct)
@@ -655,6 +682,7 @@ public static partial class DatabaseSeeder
             PermissionCodes.ImmunoOverride,
             PermissionCodes.InventoryDiscard,
             PermissionCodes.IssueOverride,
+            PermissionCodes.IssueEmergencyRelease,
             PermissionCodes.PatientMerge,
             PermissionCodes.PrintReprint,
             PermissionCodes.BillingCancel, PermissionCodes.BillingExport,

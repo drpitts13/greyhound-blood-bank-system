@@ -67,7 +67,7 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `RES-SELF-VERIFY` | The user who entered a unit ABO/Rh retype may not verify it | HardStop when `Inventory.BlockRetypeSelfVerify` is true (default) |
 | `RET-REISSUE` | Returned unit may re-enter Available only when temperature, seal, visual, and time-out-of-storage checks pass | HardStop / Warning |
 
-If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning within that workflow (see section 5) rather than a HardStop, and an `Override` + signature is mandatory.
+If `IssueType = EmergencyRelease`, `ISS-XM-REQUIRED` is evaluated as a Warning within that workflow (see section 5) rather than a HardStop, and an `Override` + signature is mandatory. Emergency or MTP issue is also HardStop `ISS-EMERG-PERM` unless the user has `issue.emergency-release`. Non-emergency warning overrides are HardStop `ISS-OVR-PERM` without `issue.override`.
 
 ---
 

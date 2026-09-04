@@ -106,6 +106,14 @@ public sealed class IssuingService
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var emergencyAuth = IssueAuthorizationRule.EvaluateEmergency(
+            request.IssueType,
+            await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.IssueEmergencyRelease, ct));
+        if (emergencyAuth.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Issue>.Blocked(new RuleEvaluation([emergencyAuth]));
+        }
+
         var unit = await _inventory.GetUnitAsync(request.BloodUnitId, ct);
         if (unit is null)
         {
@@ -239,6 +247,16 @@ public sealed class IssuingService
             if (string.IsNullOrWhiteSpace(request.OverrideReason) || string.IsNullOrWhiteSpace(request.AuthorizedBy))
             {
                 return EvaluationResult<Issue>.Blocked(evaluation);
+            }
+
+            var overrideAuth = IssueAuthorizationRule.EvaluateOverride(
+                true,
+                request.IssueType,
+                await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.IssueOverride, ct));
+            if (overrideAuth.Severity == RuleSeverity.HardStop)
+            {
+                return EvaluationResult<Issue>.Blocked(
+                    new RuleEvaluation(evaluation.Results.Append(overrideAuth).ToList()));
             }
 
             // Antigen-negative overrides require supervisor+ per ExceptionDefinitions catalog.

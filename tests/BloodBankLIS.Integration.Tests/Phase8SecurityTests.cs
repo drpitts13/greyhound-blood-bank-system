@@ -55,6 +55,7 @@ public class Phase8SecurityTests : IDisposable
         Assert.True(await evaluator.HasPermissionAsync("tech1", PermissionCodes.PatientWrite));
         Assert.False(await evaluator.HasPermissionAsync("tech1", PermissionCodes.PatientMerge));
         Assert.False(await evaluator.HasPermissionAsync("tech1", PermissionCodes.IssueOverride));
+        Assert.False(await evaluator.HasPermissionAsync("tech1", PermissionCodes.IssueEmergencyRelease));
         Assert.False(await evaluator.HasPermissionAsync("tech1", PermissionCodes.InventoryDiscard));
         Assert.False(await evaluator.HasPermissionAsync("tech1", PermissionCodes.ResultCorrect));
     }
@@ -67,6 +68,7 @@ public class Phase8SecurityTests : IDisposable
 
         var evaluator = Evaluator(c);
         Assert.True(await evaluator.HasPermissionAsync("supervisor", PermissionCodes.IssueOverride));
+        Assert.True(await evaluator.HasPermissionAsync("supervisor", PermissionCodes.IssueEmergencyRelease));
         Assert.True(await evaluator.HasPermissionAsync("supervisor", PermissionCodes.InventoryDiscard));
         Assert.True(await evaluator.HasPermissionAsync("supervisor", PermissionCodes.BillingCancel));
         Assert.True(await evaluator.HasPermissionAsync("supervisor", PermissionCodes.PatientMerge));
