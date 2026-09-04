@@ -9,6 +9,12 @@ public static class PermissionCodes
 {
     public const string PatientWrite = "patient.write";
 
+    /// <summary>
+    /// Combine a duplicate patient into the surviving record. Distinct from
+    /// <see cref="PatientWrite"/> so demographic edits do not imply merge.
+    /// </summary>
+    public const string PatientMerge = "patient.merge";
+
     public const string SpecimenAccession = "specimen.accession";
     public const string SpecimenReject = "specimen.reject";
     public const string SpecimenEdit = "specimen.edit";
@@ -78,7 +84,7 @@ public static class PermissionCodes
     /// <summary>Every defined permission code, used for seeding the permission table.</summary>
     public static readonly IReadOnlyList<string> All = new[]
     {
-        PatientWrite,
+        PatientWrite, PatientMerge,
         SpecimenAccession, SpecimenReject, SpecimenEdit,
         ResultEnter, ResultVerify, ResultCorrect,
         ImmunoRecord, ImmunoOverride,

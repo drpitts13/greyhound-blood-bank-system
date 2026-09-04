@@ -74,6 +74,6 @@ public static class PatientEndpoints
 
             var result = await merges.MergeAsync(id, duplicate.Id, request.Reason, ct);
             return EndpointResults.From(result, PatientDto.From);
-        }).RequirePermission(PermissionCodes.PatientWrite);
+        }).RequirePermission(PermissionCodes.PatientMerge);
     }
 }

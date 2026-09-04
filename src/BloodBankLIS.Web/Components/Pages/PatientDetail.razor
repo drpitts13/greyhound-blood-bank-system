@@ -49,6 +49,9 @@ else
             @if (CanEditDemographics)
             {
                 <button class="btn btn-secondary" @onclick="ToggleEditDemographics">@(_editingDemographics ? "Cancel edit" : "Edit demographics")</button>
+            }
+            @if (CanMergePatients)
+            {
                 <button class="btn btn-secondary" @onclick="ToggleMerge">@(_showMerge ? "Cancel merge" : "Merge duplicate")</button>
             }
             @if (Session.Has(PermissionCodes.LookbackManage))
@@ -100,12 +103,12 @@ else
             This patient record is merged. Continue testing, allocation, and issue on the surviving patient record.
             @if (_patient.MergedIntoPatientId is long survivorId)
             {
-                <button class="btn btn-primary btn-sm" style="margin-left:.75rem;" @onclick="() => Nav.NavigateTo($"/patients/{survivorId}")">Open surviving patient</button>
+                <button class="btn btn-primary btn-sm" style="margin-left:.75rem;" @onclick="() => OpenSurvivor(survivorId)">Open surviving patient</button>
             }
         </div>
     }
 
-    @if (_showMerge && CanEditDemographics)
+    @if (_showMerge && CanMergePatients)
     {
         <div class="bb-card" style="margin-bottom:1rem;">
             <div class="bb-card-title"><h3>Merge a duplicate into this patient</h3></div>
@@ -2198,6 +2201,13 @@ else
         _patient is not null
         && _patient.Status != PatientStatus.Merged
         && Session.Has(PermissionCodes.PatientWrite);
+
+    private bool CanMergePatients =>
+        _patient is not null
+        && _patient.Status != PatientStatus.Merged
+        && Session.Has(PermissionCodes.PatientMerge);
+
+    private void OpenSurvivor(long survivorId) => Nav.NavigateTo($"/patients/{survivorId}");
 
     private void OpenRecipientTrace()
     {

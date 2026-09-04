@@ -13,3 +13,4 @@
 | SRS-BB-009 | A merged (losing) patient is rejected at each clinical write path (accession, visit, order, result entry/verify/correct, immunohematology, special requirements, allocate, XM, issue), not only at issue. | FRS-BB-003 |
 | SRS-BB-010 | Result verification reuses the specimen entry gate (accepted, unexpired, surviving patient) before ABO/antibody history is posted. | FRS-BB-010, FRS-BB-003 |
 | SRS-BB-011 | ADT and ORM resolve a merged MRN to the surviving patient (`PatientMergeFollow` / `FindByMrn` follow) before writing demographics or placing orders. | FRS-BB-080, FRS-BB-003 |
+| SRS-BB-012 | Manual patient merge is authorized with `patient.merge`, not `patient.write`. The API default-denies; the UI hides the action. A second authorizer is not required (OCD-010). | FRS-BB-003 |

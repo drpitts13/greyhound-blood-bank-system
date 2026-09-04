@@ -19,7 +19,7 @@ automatically FDA, AABB, CAP, or CLIA certified.
 | OCD-007 | Record retention | Confirm retention years against current 21 CFR 606.160 interpretation and state law. | Default retention metadata is 10 years; clinical/audit purge is not implemented. | Quality / compliance |
 | OCD-008 | Second-verifier policy | Which workflows require a distinct directory second user vs validated electronic identification? | Configurable flags exist for issue, receive, discard, quarantine release, directed conversion, and transfusion dual ID. | Medical director + nursing |
 | OCD-009 | Inactive patient clinical use | May an Inactive (not Merged) patient receive testing, allocation, or issue? | Merged records are HardStop `PAT-MERGED-INACTIVE`. Inactive records remain usable. | Medical director + registration |
-| OCD-010 | Manual merge authorization | Does merging two patient records require a distinct privilege or second authorizer beyond `patient.write`? | Manual merge uses `PatientWrite`. Reason is required. Discordant ABO/Rh remains a HardStop. | Medical director + registration + quality |
+| OCD-010 | Manual merge authorization | Does merging two patient records require a second authorizer in addition to `patient.merge`? | Manual merge requires `patient.merge` (not `patient.write`). Seeded to Supervisor and Administrator, not Technologist. Reason is required. Discordant ABO/Rh remains a HardStop. A second authorizer is not implemented. | Medical director + registration + quality |
 
 When a decision is closed, move the row to the bottom with the effective date,
 the chosen configuration values, and the validation evidence ID. Do not delete

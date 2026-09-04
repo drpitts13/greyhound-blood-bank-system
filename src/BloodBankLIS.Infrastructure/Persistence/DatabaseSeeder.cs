@@ -655,6 +655,7 @@ public static partial class DatabaseSeeder
             PermissionCodes.ImmunoOverride,
             PermissionCodes.InventoryDiscard,
             PermissionCodes.IssueOverride,
+            PermissionCodes.PatientMerge,
             PermissionCodes.PrintReprint,
             PermissionCodes.BillingCancel, PermissionCodes.BillingExport,
             PermissionCodes.LookbackManage, PermissionCodes.ReactionInvestigate, PermissionCodes.DeviationManage

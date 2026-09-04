@@ -48,4 +48,14 @@ public class PermissionPolicyTests
     {
         Assert.Equal(PermissionCodes.All.Count, PermissionCodes.All.Distinct(StringComparer.Ordinal).Count());
     }
+
+    [Fact]
+    public void PatientWrite_DoesNotGrantPatientMerge()
+    {
+        var decision = PermissionPolicy.Evaluate(
+            isAuthenticated: true,
+            Set(PermissionCodes.PatientWrite),
+            PermissionCodes.PatientMerge);
+        Assert.Equal(AccessDecision.Forbidden, decision);
+    }
 }
