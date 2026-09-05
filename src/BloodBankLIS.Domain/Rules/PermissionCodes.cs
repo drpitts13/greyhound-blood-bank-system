@@ -22,6 +22,7 @@ public static class PermissionCodes
     public const string ResultEnter = "result.enter";
     public const string ResultVerify = "result.verify";
     public const string ResultCorrect = "result.correct";
+    public const string ResultInvalidate = "result.invalidate";
 
     public const string ImmunoRecord = "immuno.record";
     public const string ImmunoOverride = "immuno.override";
@@ -86,7 +87,7 @@ public static class PermissionCodes
     {
         PatientWrite, PatientMerge,
         SpecimenAccession, SpecimenReject, SpecimenEdit,
-        ResultEnter, ResultVerify, ResultCorrect,
+        ResultEnter, ResultVerify, ResultCorrect, ResultInvalidate,
         ImmunoRecord, ImmunoOverride,
         InventoryReceive, InventoryTransfer, InventoryRelease, InventoryDiscard,
         InventoryRecall, InventoryCorrectIdentity, InventoryModify,

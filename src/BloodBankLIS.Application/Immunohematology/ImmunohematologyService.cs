@@ -105,7 +105,7 @@ public sealed class ImmunohematologyService
         await _bloodTypes.AddAsync(entry, ct);
 
         _audit.Record(
-            AuditEventType.Update,
+            AuditEventType.Override,
             nameof(PatientBloodTypeHistory),
             patientId,
             oldValue: current is null ? null : new { current.Abo, current.RhD },
@@ -146,6 +146,10 @@ public sealed class ImmunohematologyService
         var existing = await _antigenProfiles.FirstOrDefaultAsync(
             p => p.PatientId == patientId && p.BloodAttributeDefinitionId == request.BloodAttributeDefinitionId, ct);
 
+        var previous = existing is null
+            ? null
+            : new { existing.Result, existing.Method, existing.TestedBy, existing.TestedUtc };
+
         if (existing is null)
         {
             existing = new AntigenProfile
@@ -169,6 +173,25 @@ public sealed class ImmunohematologyService
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
+
+        _audit.Record(
+            AuditEventType.Antibody,
+            nameof(AntigenProfile),
+            existing.Id,
+            oldValue: previous,
+            newValue: new
+            {
+                existing.PatientId,
+                existing.BloodAttributeDefinitionId,
+                existing.Result,
+                existing.Method,
+                existing.TestedBy
+            },
+            reason: previous is null
+                ? "Antigen phenotype recorded."
+                : "Antigen phenotype updated in place (OCD-022).");
+        await _unitOfWork.SaveChangesAsync(ct);
+
         return OperationResult<AntigenProfile>.Ok(existing);
     }
 
@@ -222,6 +245,21 @@ public sealed class ImmunohematologyService
 
         await _antibodies.AddAsync(antibody, ct);
         await _unitOfWork.SaveChangesAsync(ct);
+
+        _audit.Record(
+            AuditEventType.Antibody,
+            nameof(AntibodyHistory),
+            antibody.Id,
+            newValue: new
+            {
+                antibody.PatientId,
+                antibody.AntibodySpecificity,
+                antibody.Status,
+                antibody.BloodAttributeDefinitionId
+            },
+            reason: string.IsNullOrWhiteSpace(comment) ? "Antibody recorded." : comment.Trim());
+        await _unitOfWork.SaveChangesAsync(ct);
+
         return OperationResult<AntibodyHistory>.Ok(antibody);
     }
 
@@ -262,11 +300,11 @@ public sealed class ImmunohematologyService
         _antibodies.Update(antibody);
 
         _audit.Record(
-            AuditEventType.Update,
+            AuditEventType.Antibody,
             nameof(AntibodyHistory),
             antibody.Id,
-            oldValue: new { IsActive = true },
-            newValue: new { IsActive = false },
+            oldValue: new { IsActive = true, antibody.AntibodySpecificity },
+            newValue: new { IsActive = false, antibody.AntibodySpecificity },
             reason: reason);
 
         await _unitOfWork.SaveChangesAsync(ct);

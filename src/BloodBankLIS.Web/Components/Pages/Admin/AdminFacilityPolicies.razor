@@ -1,0 +1,164 @@
+@page "/admin/facility-policies"
+@using BloodBankLIS.Application.Admin
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Facility Policy &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Facility Policy</h1>
+</div>
+<p class="muted">SoftBank / SafeTrace facility parameters that drive specimen windows, dual verification, electronic crossmatch, inventory receive, and record retention. Edits require a reason and are audited (21 CFR 11.10, AABB 5.1.5, CLIA 493.1251).</p>
+
+<Outcome Value="_feedback" />
+
+<div class="flex gap" style="margin:1rem 0;flex-wrap:wrap;">
+    <input style="flex:1;min-width:16rem;" placeholder="Filter by name, key, or citation" @bind="_filter" @bind:event="oninput" />
+</div>
+
+@if (_loading)
+{
+    <div class="loading">Loading...</div>
+}
+else
+{
+    @foreach (var group in Filtered.GroupBy(p => p.Category))
+    {
+        <div class="bb-card" style="margin-bottom:1rem;">
+            <div class="bb-card-title"><h3>@group.Key</h3></div>
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Parameter</th>
+                        <th>Value</th>
+                        <th>Citation</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in group)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@p.DisplayName</strong>
+                                <div class="muted mono">@p.Key</div>
+                                <div class="muted">@p.Description</div>
+                            </td>
+                            <td class="mono">
+                                @if (_editId == p.Id && CanEdit)
+                                {
+                                    @if (p.Kind == "Boolean")
+                                    {
+                                        <select @bind="_draftValue">
+                                            <option value="true">true</option>
+                                            <option value="false">false</option>
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <input class="mono" @bind="_draftValue" />
+                                        @if (p.MinInclusive is not null || p.MaxInclusive is not null)
+                                        {
+                                            <div class="muted">@p.MinInclusive – @p.MaxInclusive</div>
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    @p.Value
+                                    @if (p.LegalHold)
+                                    {
+                                        <span class="badge badge-amber">Legal hold</span>
+                                    }
+                                }
+                            </td>
+                            <td class="muted">@p.Citation</td>
+                            <td class="right nowrap">
+                                @if (CanEdit && !p.LegalHold)
+                                {
+                                    @if (_editId == p.Id)
+                                    {
+                                        <div class="field" style="margin-bottom:.4rem;">
+                                            <label>Reason</label>
+                                            <input @bind="_reason" placeholder="Why this change is required" />
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(p)">Save</button>
+                                        <button class="btn btn-ghost btn-sm" @onclick="CancelEdit">Cancel</button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => Edit(p)">Edit</button>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private List<FacilityPolicyDto> _list = new();
+    private Feedback? _feedback;
+    private long? _editId;
+    private string _draftValue = string.Empty;
+    private string _reason = string.Empty;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+
+    private IEnumerable<FacilityPolicyDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _list
+            : _list.Where(p =>
+                p.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || p.Key.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || p.Citation.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || p.Description.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminFacilityPoliciesAsync();
+        _list = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void Edit(FacilityPolicyDto p)
+    {
+        _editId = p.Id;
+        _draftValue = p.Value;
+        _reason = string.Empty;
+    }
+
+    private void CancelEdit()
+    {
+        _editId = null;
+        _draftValue = string.Empty;
+        _reason = string.Empty;
+    }
+
+    private async Task SaveAsync(FacilityPolicyDto p)
+    {
+        _busy = true;
+        var r = await Api.UpdateAdminFacilityPolicyAsync(p.Id, new SaveFacilityPolicyRequest(_draftValue, _reason));
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _feedback = r.ToFeedback("Facility policy saved.");
+            CancelEdit();
+            await LoadAsync();
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+    }
+}

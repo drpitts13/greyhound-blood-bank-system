@@ -58,4 +58,20 @@ public class ImmunoAuthorizationRuleTests
         Assert.Equal(ImmunoAuthorizationRule.SpecialRequirementDeactivateCode, result.Code);
         Assert.Equal(RuleSeverity.HardStop, result.Severity);
     }
+
+    [Fact]
+    public void AntibodyIdWorkup_WithoutRecord_IsHardStop()
+    {
+        var result = ImmunoAuthorizationRule.EvaluateAntibodyIdWorkup(hasImmunoRecord: false);
+        Assert.Equal(ImmunoAuthorizationRule.AntibodyIdWorkupCode, result.Code);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+    }
+
+    [Fact]
+    public void AntibodyIdReview_WithoutOverride_IsHardStop()
+    {
+        var result = ImmunoAuthorizationRule.EvaluateAntibodyIdReview(hasImmunoOverride: false);
+        Assert.Equal(ImmunoAuthorizationRule.AntibodyIdReviewCode, result.Code);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+    }
 }

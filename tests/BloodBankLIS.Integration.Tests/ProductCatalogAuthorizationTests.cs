@@ -88,4 +88,27 @@ public class ProductCatalogAuthorizationTests : IClassFixture<SqliteContextFacto
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.True(allowed.Value!.IsActive);
     }
+
+    [Fact]
+    public async Task CreateAndUpdate_WriteConfigure()
+    {
+        await using var c = _factory.Create();
+        var code = $"P{Guid.NewGuid():N}"[..8].ToUpperInvariant();
+        var svc = Products(c);
+
+        var created = await svc.CreateAsync(Request(code));
+        Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(ProductType)
+            && a.EntityId == created.Value!.Id
+            && a.EventType == AuditEventType.Configure));
+
+        var updated = await svc.UpdateAsync(created.Value!.Id, Request(code) with { RequiresRetype = true, ChangeReason = "Require ABO/Rh retype." });
+        Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(ProductType) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
+    }
 }

@@ -112,7 +112,13 @@ public sealed class SpecialRequirementService
             EnteredBy = _currentUser.UserName
         };
         await _requirements.AddAsync(row, ct);
-        _audit.Record(AuditEventType.Create, nameof(SpecialTransfusionRequirement), null, newValue: new { patientId, request.RequirementType }, reason: request.Reason);
+        await _unitOfWork.SaveChangesAsync(ct);
+        _audit.Record(
+            AuditEventType.Antibody,
+            nameof(SpecialTransfusionRequirement),
+            row.Id,
+            newValue: new { row.PatientId, row.RequirementType, row.AntigenCode, row.IsActive },
+            reason: request.Reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SpecialTransfusionRequirement>.Ok(row);
     }
@@ -147,9 +153,16 @@ public sealed class SpecialRequirementService
             }
         }
 
+        var old = new { row.PatientId, row.RequirementType, row.AntigenCode, row.IsActive };
         row.IsActive = false;
         row.DeactivationReason = reason.Trim();
-        _audit.Record(AuditEventType.Deactivate, nameof(SpecialTransfusionRequirement), id, reason: reason);
+        _audit.Record(
+            AuditEventType.Deactivate,
+            nameof(SpecialTransfusionRequirement),
+            id,
+            oldValue: old,
+            newValue: new { row.PatientId, row.RequirementType, row.AntigenCode, row.IsActive, row.DeactivationReason },
+            reason: reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SpecialTransfusionRequirement>.Ok(row);
     }

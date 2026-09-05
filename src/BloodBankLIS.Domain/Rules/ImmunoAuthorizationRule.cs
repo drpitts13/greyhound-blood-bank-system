@@ -12,6 +12,8 @@ public static class ImmunoAuthorizationRule
     public const string AntigenProfileCode = "IH-AG-PERM";
     public const string SpecialRequirementAddCode = "SR-ADD-PERM";
     public const string SpecialRequirementDeactivateCode = "SR-DEACT-PERM";
+    public const string AntibodyIdWorkupCode = "ABID-WORKUP-PERM";
+    public const string AntibodyIdReviewCode = "ABID-REVIEW-PERM";
 
     public static RuleResult EvaluateManualBloodType(bool hasImmunoOverride) =>
         Require(hasImmunoOverride, ManualBloodTypeCode,
@@ -36,6 +38,14 @@ public static class ImmunoAuthorizationRule
     public static RuleResult EvaluateSpecialRequirementDeactivate(bool hasImmunoOverride) =>
         Require(hasImmunoOverride, SpecialRequirementDeactivateCode,
             "Deactivating a special transfusion requirement requires the immuno.override permission.");
+
+    public static RuleResult EvaluateAntibodyIdWorkup(bool hasImmunoRecord) =>
+        Require(hasImmunoRecord, AntibodyIdWorkupCode,
+            "Opening, interpreting, or voiding an antibody-identification workup requires the immuno.record permission.");
+
+    public static RuleResult EvaluateAntibodyIdReview(bool hasImmunoOverride) =>
+        Require(hasImmunoOverride, AntibodyIdReviewCode,
+            "Supervisor review of antibody identification requires the immuno.override permission.");
 
     private static RuleResult Require(bool granted, string code, string message) =>
         granted ? RuleResult.Pass(code) : RuleResult.HardStop(code, message);

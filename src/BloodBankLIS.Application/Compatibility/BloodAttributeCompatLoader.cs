@@ -3,6 +3,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Compatibility;
 
@@ -51,9 +52,27 @@ public sealed class BloodAttributeCompatLoader
         IReadOnlyDictionary<long, BloodAttributeDefinition> defs)
     {
         var results = new List<BloodAttributeCompatibilityRule.AntibodyRef>();
+        var catalog = defs.Values
+            .Select(d => new AntibodyCatalogItem(d.Id, d.Code, d.Name, d.AntibodyName))
+            .ToList();
         foreach (var ab in antibodies)
         {
-            if (ab.BloodAttributeDefinitionId is long defId && defs.TryGetValue(defId, out var def) && def.IsClinicallySignificant)
+            BloodAttributeDefinition? def = null;
+            if (ab.BloodAttributeDefinitionId is long defId)
+            {
+                defs.TryGetValue(defId, out def);
+            }
+
+            if (def is null)
+            {
+                var resolved = AntibodyIdentificationCatalogResolver.Resolve(null, ab.AntibodySpecificity, catalog);
+                if (resolved.DefinitionId is long resolvedId)
+                {
+                    defs.TryGetValue(resolvedId, out def);
+                }
+            }
+
+            if (def is not null && def.IsClinicallySignificant)
             {
                 results.Add(new BloodAttributeCompatibilityRule.AntibodyRef(def.Code, def.AntibodyName));
             }

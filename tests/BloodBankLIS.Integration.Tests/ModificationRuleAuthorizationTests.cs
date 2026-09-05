@@ -93,4 +93,29 @@ public class ModificationRuleAuthorizationTests : IClassFixture<SqliteContextFac
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.True(allowed.Value!.IsActive);
     }
+
+    [Fact]
+    public async Task CreateAndUpdate_WriteConfigure()
+    {
+        await using var c = _factory.Create();
+        var (sourceId, targetId, expId, code) = await SeedAsync(c);
+        var svc = Rules(c);
+
+        var created = await svc.CreateAsync(Request(sourceId, targetId, expId, code));
+        Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(ModificationRule)
+            && a.EntityId == created.Value!.Id
+            && a.EventType == AuditEventType.Configure));
+
+        var updated = await svc.UpdateAsync(
+            created.Value!.Id,
+            Request(sourceId, targetId, expId, code) with { Description = "Allow irradiate path.", ChangeReason = "Document allowed source-to-target path." });
+        Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(ModificationRule) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
+    }
 }

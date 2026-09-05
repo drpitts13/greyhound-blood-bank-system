@@ -207,6 +207,29 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
 
         var pending = await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending);
         Assert.Single(pending);
+        Assert.Equal(ResultSource.Manual, pending[0].CurrentResultSource);
+    }
+
+    [Fact]
+    public async Task PendingWorklist_IncludesInstrumentSource()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+
+        var entered = await Results(c).EnterResultAsync(new EnterResultRequest(
+            seed.specimen!.Id,
+            seed.line.TestCode!,
+            "Positive",
+            seed.order.Id,
+            Source: ResultSource.Instrument,
+            SourceReference: "Analyzer-RA17"));
+        Assert.True(entered.Succeeded, entered.Error);
+        Assert.Equal(ResultStatus.PendingVerification, entered.Value!.Status);
+
+        var pending = await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending);
+        Assert.Single(pending);
+        Assert.Equal(ResultSource.Instrument, pending[0].CurrentResultSource);
+        Assert.Equal(ResultStatus.PendingVerification, pending[0].CurrentResultStatus);
     }
 
     [Fact]

@@ -114,11 +114,13 @@ public class PatientTestHistoryTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(accession, row.AccessionNumber);
             Assert.Equal(orderNumber, row.OrderNumber);
             Assert.Equal(_factory.CurrentUser.UserName, row.VerifiedBy);
+            Assert.True(row.IsCurrent);
+            Assert.Equal(ResultStatus.Verified, row.Status);
         }
     }
 
     [Fact]
-    public async Task List_OmitsEnteredAndSupersededResults()
+    public async Task List_OmitsNeverVerified_AndIncludesSupersededVerified()
     {
         var (patientId, specimenId, _) = await SeedPatientWithSpecimenAsync("HID");
         long verifiedId;
@@ -144,7 +146,12 @@ public class PatientTestHistoryTests : IClassFixture<SqliteContextFactory>
         await using (var context = _factory.Create())
         {
             var rows = await History(context).ListByPatientAsync(patientId);
-            Assert.Empty(rows);
+            var row = Assert.Single(rows);
+            Assert.Equal("HGB", row.TestCode);
+            Assert.Equal("9.0", row.Value);
+            Assert.False(row.IsCurrent);
+            Assert.Equal(ResultStatus.Verified, row.Status);
+            Assert.Equal("Transcription error", row.Reason);
         }
     }
 }

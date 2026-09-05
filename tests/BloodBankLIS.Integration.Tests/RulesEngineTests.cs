@@ -579,6 +579,10 @@ public class RulesEngineTests : IClassFixture<SqliteContextFactory>
             .ToListAsync();
         Assert.Contains(history, h => h.Action == ConfigChangeAction.Create);
         Assert.Contains(history, h => h.Action == ConfigChangeAction.Activate);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(RuleDefinition)
+            && a.EntityId == created.Value.Id
+            && a.EventType == AuditEventType.Configure));
     }
 
     [Fact]
@@ -638,6 +642,10 @@ public class RulesEngineTests : IClassFixture<SqliteContextFactory>
             code, "Editable renamed", null, RuleLevel.Test, 100, false, WeakDCondition, WeakDAction, "typo"));
         Assert.True(withReason.Succeeded, Describe(withReason));
         Assert.Equal(2, withReason.Value!.Version);
+        Assert.True(await c.AuditEvents.CountAsync(a =>
+            a.EntityType == nameof(RuleDefinition)
+            && a.EntityId == created.Value.Id
+            && a.EventType == AuditEventType.Configure) >= 2);
     }
 
     private static string Describe<T>(BloodBankLIS.Application.Common.EvaluationResult<T> result) =>

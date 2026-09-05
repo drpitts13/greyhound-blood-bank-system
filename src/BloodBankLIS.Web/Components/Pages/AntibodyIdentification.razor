@@ -1,0 +1,970 @@
+@page "/patients/{PatientId:long}/antibody-id"
+@page "/patients/{PatientId:long}/antibody-id/{WorkupId:long}"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Antibody identification &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Antibody identification</h1>
+<p class="muted">
+    Record panel reactions, run assistance, then interpret. Assistance may suggest rule-outs and possible antibodies.
+    It does not identify antibodies. A technologist interpretation is required; supervisor review is required before history is posted.
+</p>
+
+<p><a href="@($"/patients/{PatientId}")">Back to patient</a> · <a href="/antibody-id">Open antibody ID worklist</a></p>
+
+<Outcome Value="_fb" />
+
+@if (!Session.Has(PermissionCodes.ImmunoRecord) && !Session.Has(PermissionCodes.ImmunoOverride))
+{
+    <div class="muted">Antibody-identification workups require immuno.record or immuno.override.</div>
+}
+else if (_workup is null)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Open workup</h3></div>
+        @if (_workups.Count == 0)
+        {
+            <div class="empty">No antibody-identification workups for this patient.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Opened</th><th>Specimen</th><th>Panel</th><th>Lot</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var w in _workups)
+                    {
+                        <tr>
+                            <td class="nowrap">@w.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @if (string.IsNullOrWhiteSpace(w.SpecimenAccession))
+                                {
+                                    <span class="muted">Unscoped</span>
+                                }
+                                else
+                                {
+                                    <span class="mono">@w.SpecimenAccession</span>
+                                }
+                            </td>
+                            <td>@w.PanelName</td>
+                            <td class="mono">@w.LotNumber</td>
+                            <td>@w.Status</td>
+                            <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => Open(w.Id)">Open</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @if (Session.Has(PermissionCodes.ImmunoRecord))
+        {
+            <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+            <h4>New workup</h4>
+            <div class="form-row">
+                <div class="field"><label>Specimen</label>
+                    <select @bind="_newSpecimenId">
+                        <option value="">None — applies to the whole patient (not recommended)</option>
+                        @foreach (var s in LinkableSpecimens)
+                        {
+                            <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType (@s.Status)</option>
+                        }
+                    </select>
+                </div>
+                <div class="field"><label>Panel lot</label>
+                    <select @bind="_newLotId">
+                        <option value="">Select an in-date lot</option>
+                        @foreach (var lot in _lots.Where(l => !l.IsExpired && l.IsActive && !l.IsSelectedCellLot))
+                        {
+                            <option value="@lot.Id">@lot.PanelName — @lot.ManufacturerName lot @lot.LotNumber (exp @lot.ExpiresOn)</option>
+                        }
+                    </select>
+                </div>
+                <div class="field"><label>Selected-cell lot (optional)</label>
+                    <select @bind="_selectedLotId">
+                        <option value="">None</option>
+                        @foreach (var lot in _lots.Where(l => !l.IsExpired && l.IsActive && l.IsSelectedCellLot))
+                        {
+                            <option value="@lot.Id">@lot.PanelName — lot @lot.LotNumber</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            @if (_newSpecimenId is null)
+            {
+                <div class="alert alert-warning">Without a specimen this workup is the identification of record for the whole patient and will block free-text ABID verify until completed or voided.</div>
+            }
+            <button class="btn btn-primary" disabled="@(_busy || _newLotId is null)" @onclick="CreateAsync">Open workup</button>
+        }
+    </div>
+}
+else
+{
+    <div class="alert alert-warning">
+        <strong>Assistance only.</strong> The system may propose exclusions and possible specificities.
+        It must not replace technologist judgment. Identified antibodies post to history only after supervisor acceptance.
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title">
+            <h3>Workup #@_workup.Id — @_workup.Status</h3>
+            <button class="btn btn-secondary btn-sm" @onclick="BackToList">All workups</button>
+        </div>
+        <div class="muted">
+            Specimen: @SpecimenLabel(_workup.SpecimenId)
+            @if (_workup.SpecimenId is null && _workup.Status is not AntibodyWorkupStatus.Completed and not AntibodyWorkupStatus.Voided)
+            {
+                <div class="alert alert-warning">Unscoped workup. Free-text ABID verify is blocked for this patient until this workup is completed or voided. Link a specimen below to narrow the identification of record.</div>
+            }
+            @if (LinkedSpecimenUnusable)
+            {
+                <div class="alert alert-danger">The linked specimen is rejected or cancelled. It cannot remain the identification of record. Void this workup or link a usable specimen.</div>
+            }
+            else if (LinkedSpecimenNotReady)
+            {
+                <div class="alert alert-danger">The linked specimen is collected and has not been received. It cannot remain the identification of record. Receive it, void this workup, or link a received specimen.</div>
+            }
+            else if (LinkedSpecimenUnaccepted)
+            {
+                <div class="alert alert-warning">The linked specimen is received but not accepted. Completing requires acknowledgment and still posts only technologist-Identified antibodies.</div>
+            }
+            else if (LinkedSpecimenExpired)
+            {
+                <div class="alert alert-warning">The linked specimen is expired. Completing requires acknowledgment and still posts only technologist-Identified antibodies.</div>
+            }
+            @if (_workup.SourceResultId is long sourceResultId)
+            {
+                <span> · Linked ABID result #@sourceResultId</span>
+            }
+        </div>
+        <div class="muted">
+            Lots: @string.Join("; ", _workup.Lots.Select(l => $"{l.PanelName} {l.LotNumber} exp {l.ExpiresOn}"))
+        </div>
+        @if (CanEdit)
+        {
+            <div class="form-row" style="margin-top:.75rem;">
+                <div class="field"><label>Link specimen</label>
+                    <select @bind="_linkSpecimenId">
+                        <option value="">Select a specimen</option>
+                        @foreach (var s in LinkableSpecimens)
+                        {
+                            <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType (@s.Status)</option>
+                        }
+                    </select>
+                </div>
+                <button class="btn btn-secondary btn-sm" disabled="@(_busy || _linkSpecimenId is null)" @onclick="LinkSpecimenAsync">Link specimen</button>
+            </div>
+            <p class="muted">Changing specimen scope after interpretation withdraws interpretation and review.</p>
+        }
+        @if (JudgmentStale)
+        {
+            <div class="alert alert-warning">
+                Panel reactions, selected cells, DAT, or specimen scope changed after the last interpretation.
+                Re-record interpretation and obtain supervisor review before completing. Prior Identified findings were withdrawn and will not post.
+            </div>
+        }
+        @if (_workup.Status == AntibodyWorkupStatus.Voided)
+        {
+            <p><strong>Voided:</strong> @_workup.VoidReason</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(_workup.TechnologistInterpretation))
+        {
+            <p><strong>Technologist (@_workup.TechnologistUser):</strong> @_workup.TechnologistInterpretation</p>
+        }
+        @if (_workup.ReviewedUtc is not null)
+        {
+            <p><strong>Supervisor (@_workup.SupervisorUser):</strong> @(_workup.SupervisorAccepted ? "Accepted" : "Rejected") @_workup.SupervisorComment</p>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Antibody history</h3></div>
+        <p class="muted">History is not removed by this workup. Active rows still drive antigen-negative selection even if the current panel does not detect them.</p>
+        @if (_antibodyHistory.Count == 0)
+        {
+            <div class="empty">No antibody history on file.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Specificity</th><th>Status</th><th>Active</th></tr></thead>
+                <tbody>
+                    @foreach (var a in _antibodyHistory.OrderByDescending(a => a.IsActive).ThenBy(a => a.AntibodySpecificity, StringComparer.Ordinal))
+                    {
+                        <tr>
+                            <td><strong>@a.AntibodySpecificity</strong></td>
+                            <td>@a.Status</td>
+                            <td>@(a.IsActive ? "Yes" : "No")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Patient antigen type</h3></div>
+        <p class="muted">Advisory only. A patient antigen-positive result makes an alloantibody of that specificity unexpected. It does not identify or exclude an antibody.</p>
+        @if (_antigenProfiles.Count == 0)
+        {
+            <div class="empty">No antigen profile on file. Phenotype/genotype comparison was not performed.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Antigen</th><th>Result</th><th>Method</th></tr></thead>
+                <tbody>
+                    @foreach (var p in _antigenProfiles.OrderBy(p => p.AntigenCode, StringComparer.Ordinal))
+                    {
+                        <tr>
+                            <td class="mono">@p.AntigenCode</td>
+                            <td>@p.Result</td>
+                            <td>@(string.IsNullOrWhiteSpace(p.Method) ? "—" : p.Method)
+                                @if (AntigenTypingMethodInfo.IndicatesPredictedGenotype(p.Method))
+                                {
+                                    <span class="muted"> (predicted genotype)</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>DAT / autocontrol context</h3></div>
+        <div class="form-row">
+            <div class="field"><label>DAT</label>
+                <select @bind="_dat">
+                    @foreach (var d in Enum.GetValues<AntibodyIdDatResult>())
+                    {
+                        <option value="@d">@d</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>DAT method</label><input @bind="_datMethod" /></div>
+        </div>
+        <div class="field"><label>Workup comment</label><input @bind="_comment" /></div>
+        @if (CanEdit)
+        {
+            <div class="flex gap">
+                <button class="btn btn-secondary" disabled="@_busy" @onclick="SaveContextAsync">Save DAT / comment</button>
+            </div>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Antigram</h3></div>
+        <div style="overflow:auto;">
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Cell</th>
+                        @foreach (var antigen in AntigenColumns)
+                        {
+                            <th>@antigen</th>
+                        }
+                        @foreach (var phase in _workup.InterpretivePhases)
+                        {
+                            <th>@phase</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var cell in _workup.Cells)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@cell.CellNumber</strong>
+                                @if (cell.Role != PanelCellRole.Panel)
+                                {
+                                    <div class="muted">@cell.Role</div>
+                                }
+                            </td>
+                            @foreach (var antigen in AntigenColumns)
+                            {
+                                <td class="mono">@ExpressionMark(cell, antigen)</td>
+                            }
+                            @foreach (var phase in _workup.InterpretivePhases)
+                            {
+                                <td>
+                                    @if (CanEdit)
+                                    {
+                                        <select value="@CurrentGrade(cell, phase)"
+                                                @onchange="e => SetGrade(cell.CellId, phase, e.Value?.ToString())">
+                                            @foreach (var g in Enum.GetValues<ReactionGrade>())
+                                            {
+                                                <option value="@g">@GradeLabel(g)</option>
+                                            }
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        @GradeLabel(CurrentGrade(cell, phase))
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        @if (CanEdit)
+        {
+            <div class="flex gap" style="margin-top:0.75rem;">
+                <button class="btn btn-primary" disabled="@_busy" @onclick="SaveReactionsAsync">Save reactions</button>
+                <button class="btn btn-secondary" disabled="@_busy" @onclick="RunAssistAsync">Run assistance</button>
+            </div>
+            <div class="form-row" style="margin-top:0.75rem;">
+                <div class="field"><label>Attach selected-cell lot</label>
+                    <select @bind="_attachLotId">
+                        <option value="">Select an in-date selected-cell lot</option>
+                        @foreach (var lot in AttachableLots)
+                        {
+                            <option value="@lot.Id">@lot.PanelName — lot @lot.LotNumber (exp @lot.ExpiresOn)</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" disabled="@(_busy || _attachLotId is null)" @onclick="AttachLotAsync">Attach lot and show cells</button>
+            <p class="muted">Use this after assistance asks for a homozygous selected cell (`ABID-SEL-CELL`). Then record those reactions and run assistance again.</p>
+        }
+        @if (_assistWarnings.Count > 0)
+        {
+            <div class="alert alert-warning" style="margin-top:0.75rem;">
+                <strong>Assistance warnings (not identifications)</strong>
+                <ul>
+                    @foreach (var w in _assistWarnings)
+                    {
+                        <li>@w.Message <span class="muted mono">(@w.Code)</span></li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Findings</h3></div>
+        <p class="muted">Assistance refreshes when reactions, lots, DAT, or specimen change. It is not an identification and is never posted.</p>
+        @if (_workup.Findings.Count == 0)
+        {
+            <div class="empty">No assistance or interpretation recorded yet.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Specificity</th><th>Class</th><th>Source</th><th>History</th><th>Rationale</th></tr></thead>
+                <tbody>
+                    @foreach (var f in OrderedFindings)
+                    {
+                        <tr>
+                            <td><strong>@f.Specificity</strong></td>
+                            <td>@f.Classification</td>
+                            <td>@f.Source</td>
+                            <td>@(f.PostedToHistory ? "Posted" : f.Source == AntibodyIdSource.Technologist && f.Classification == AntibodyIdClassification.Identified ? "Will post on complete" : "—")</td>
+                            <td>@f.Rationale</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    @if (CanEdit && Session.Has(PermissionCodes.ImmunoRecord))
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Technologist interpretation</h3></div>
+            <p class="muted">Record identified, possible, and excluded antibodies. Prefer the catalog so identified antibodies drive antigen-negative selection. Assistance rows are not identifications.</p>
+            @if (UnexcludedAssist.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Assistance cannot exclude @string.Join(", ", UnexcludedAssist.Select(f => f.Specificity)).
+                    Recording Identified does not identify those leftover specificities.
+                </div>
+            }
+            @if (IdentifiedDespiteExclusion.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Assistance would exclude @string.Join(", ", IdentifiedDespiteExclusion.Select(f => f.Specificity))
+                    on the reactions entered. Confirm the identification.
+                </div>
+            }
+            @if (ActiveAntibodyHistory.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Existing antibody history remains: @string.Join(", ", ActiveAntibodyHistory.Select(a => a.AntibodySpecificity)).
+                    Interpretation does not remove it.
+                </div>
+            }
+            @if (IncompletePanelCells.Count > 0 && _interpItems.Any(i => i.Classification == AntibodyIdClassification.Identified))
+            {
+                <div class="alert alert-warning">
+                    Cells missing an interpretive-phase reaction: @string.Join(", ", IncompletePanelCells.Select(c => c.CellNumber)).
+                    Identified antibodies cannot be accepted until those reactions are entered.
+                </div>
+            }
+            <div class="field"><label>Interpretation</label>
+                <textarea @bind="_interpretation" rows="3"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="field"><label>Catalog antibody</label>
+                    <FilterableComboBox TItem="BloodAttributeListItemDto" TValue="long?"
+                                        Items="_bloodAttributeCatalog"
+                                        @bind-Value="_interpCatalogId"
+                                        DisplayText="@(a => $"{a.AntibodyName} ({a.Code})")"
+                                        Placeholder="Select from catalog" />
+                </div>
+                <div class="field"><label>Or free-text specificity</label><input @bind="_interpSpec" placeholder="anti-Vel" /></div>
+                <div class="field"><label>Classification</label>
+                    <select @bind="_interpClass">
+                        <option value="@AntibodyIdClassification.Identified">Identified</option>
+                        <option value="@AntibodyIdClassification.Possible">Possible</option>
+                        <option value="@AntibodyIdClassification.Excluded">Excluded</option>
+                        <option value="@AntibodyIdClassification.Inconclusive">Inconclusive</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-secondary btn-sm" type="button" @onclick="AddInterpItem">Add specificity</button>
+            @if (_interpItems.Count > 0)
+            {
+                <ul>
+                    @foreach (var item in _interpItems)
+                    {
+                        <li>@item.Specificity — @item.Classification @(item.BloodAttributeDefinitionId is null ? "(free-text; will not drive antigen-negative unless resolved)" : "(catalog)")</li>
+                    }
+                </ul>
+            }
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveInterpretationAsync">Record interpretation</button>
+        </div>
+    }
+
+    @if (Session.Has(PermissionCodes.ImmunoOverride) && !JudgmentStale && _workup.Status != AntibodyWorkupStatus.Completed && _workup.Status != AntibodyWorkupStatus.Voided)
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Supervisor review</h3></div>
+            @if (IncompleteBlocksComplete)
+            {
+                <div class="alert alert-warning">Identified antibodies cannot be accepted while panel or selected cells are missing interpretive-phase reactions.</div>
+            }
+            @if (UnexcludedAssist.Count > 0)
+            {
+                <div class="alert alert-warning">Assistance cannot exclude @string.Join(", ", UnexcludedAssist.Select(f => f.Specificity)). Acceptance does not identify those specificities.</div>
+            }
+            @if (IdentifiedDespiteExclusion.Count > 0)
+            {
+                <div class="alert alert-warning">Assistance would exclude @string.Join(", ", IdentifiedDespiteExclusion.Select(f => f.Specificity)). Confirm before accept.</div>
+            }
+            @if (ActiveAntibodyHistory.Count > 0)
+            {
+                <div class="alert alert-warning">Existing antibody history remains: @string.Join(", ", ActiveAntibodyHistory.Select(a => a.AntibodySpecificity)).</div>
+            }
+            @if (NeedsCompleteAck)
+            {
+                <div class="field">
+                    <label>Acknowledgment</label>
+                    <input @bind="_reviewAck" placeholder="Reviewed leftover CannotExclude, history, DAT, or none-identified findings." />
+                </div>
+                <p class="muted">Required to accept when completion warnings are present. Acknowledgment does not identify antibodies.</p>
+            }
+            <div class="field"><label>Review comment</label><input @bind="_reviewComment" /></div>
+            <div class="flex gap">
+                <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady || ReviewAckBlocksAccept)" @onclick="() => ReviewAsync(true)">Accept</button>
+                <button class="btn btn-danger" disabled="@_busy" @onclick="() => ReviewAsync(false)">Reject</button>
+            </div>
+        </div>
+    }
+
+    @if (CanEdit && Session.Has(PermissionCodes.ImmunoRecord))
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Complete workup</h3></div>
+            @if (IncompletePanelCells.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Cells missing an interpretive-phase reaction: @string.Join(", ", IncompletePanelCells.Select(c => c.CellNumber)).
+                    A blank cell is not an exclusion.
+                    @if (IdentifiedToPost.Count > 0)
+                    {
+                        <span> Identified antibodies cannot post until those reactions are entered.</span>
+                    }
+                </div>
+            }
+            @if (IdentifiedDespiteExclusion.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Assistance would exclude @string.Join(", ", IdentifiedDespiteExclusion.Select(f => f.Specificity))
+                    on the reactions entered. Confirm before complete. Assistance does not identify or block.
+                </div>
+            }
+            @if (UnexcludedAssist.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Assistance cannot exclude @string.Join(", ", UnexcludedAssist.Select(f => f.Specificity)).
+                    Completing will not identify those specificities. Attach selected cells when a homozygous exclusion is needed.
+                </div>
+            }
+            @if (ActiveAntibodyHistory.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Existing antibody history remains on the record and still drives antigen-negative selection:
+                    @string.Join(", ", ActiveAntibodyHistory.Select(a => a.AntibodySpecificity)).
+                    Completing does not remove it.
+                </div>
+            }
+            @if (IdentifiedToPost.Count == 0)
+            {
+                <div class="alert alert-warning">No technologist-Identified antibodies will post to history. Complete only if none were identified.</div>
+            }
+            else
+            {
+                <p>Will post to antibody history after complete:</p>
+                <ul>
+                    @foreach (var f in IdentifiedToPost)
+                    {
+                        <li><strong>@f.Specificity</strong></li>
+                    }
+                </ul>
+            }
+            @if (NeedsCompleteAck)
+            {
+                <div class="field">
+                    <label>Acknowledgment</label>
+                    <input @bind="_completeAck" placeholder="Reviewed leftover CannotExclude, history, DAT, or none-identified findings." />
+                </div>
+                <p class="muted">Required when completion warnings are present. Acknowledgment does not identify antibodies.</p>
+            }
+            <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || AckBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady)" @onclick="CompleteAsync">Complete workup</button>
+            <p class="muted">Posts only the technologist-Identified specificities listed above, after supervisor acceptance. Assistance is never posted.</p>
+        </div>
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Void workup</h3></div>
+            <p class="muted">Voiding abandons this workup without posting history and releases the free-text ABID path for this specimen or patient.</p>
+            <div class="field"><label>Void reason</label><input @bind="_voidReason" /></div>
+            <button class="btn btn-danger" disabled="@(_busy || string.IsNullOrWhiteSpace(_voidReason))" @onclick="VoidAsync">Void workup</button>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public long PatientId { get; set; }
+    [Parameter] public long? WorkupId { get; set; }
+
+    private Feedback? _fb;
+    private bool _busy;
+    private List<AntibodyIdWorkupListItemDto> _workups = new();
+    private List<AntibodyPanelLotListItemDto> _lots = new();
+    private AntibodyIdWorkupDetailDto? _workup;
+    private long? _newLotId;
+    private long? _selectedLotId;
+    private long? _attachLotId;
+    private long? _newSpecimenId;
+    private long? _linkSpecimenId;
+    private List<SpecimenDto> _specimens = new();
+    private string? _voidReason;
+    private string? _completeAck;
+    private string? _reviewAck;
+    private IReadOnlyList<RuleMessage> _assistWarnings = Array.Empty<RuleMessage>();
+    private AntibodyIdDatResult _dat = AntibodyIdDatResult.NotPerformed;
+    private string? _datMethod;
+    private string? _comment;
+    private string _interpretation = "";
+    private string _interpSpec = "";
+    private long? _interpCatalogId;
+    private List<BloodAttributeListItemDto> _bloodAttributeCatalog = new();
+    private List<AntigenProfileDto> _antigenProfiles = new();
+    private List<AntibodyDto> _antibodyHistory = new();
+    private AntibodyIdClassification _interpClass = AntibodyIdClassification.Identified;
+    private readonly List<AntibodyIdInterpretationItem> _interpItems = new();
+    private string? _reviewComment;
+    private readonly Dictionary<(long CellId, string Phase), ReactionGrade> _grades = new();
+
+    private bool JudgmentStale =>
+        _workup is not null
+        && !string.IsNullOrWhiteSpace(_workup.TechnologistInterpretation)
+        && _workup.InterpretedUtc is null
+        && _workup.Status is not AntibodyWorkupStatus.Completed and not AntibodyWorkupStatus.Voided;
+
+    private bool CanEdit =>
+        _workup is not null
+        && _workup.Status is not AntibodyWorkupStatus.Completed and not AntibodyWorkupStatus.Voided
+        && Session.Has(PermissionCodes.ImmunoRecord);
+
+    private IReadOnlyList<SpecimenDto> LinkableSpecimens =>
+        _specimens
+            .Where(s => IsUsableForWorkup(s))
+            .OrderByDescending(s => s.CollectedUtc)
+            .ToList();
+
+    private bool IsUsableForWorkup(SpecimenDto s) =>
+        s.Status is not SpecimenStatus.Rejected
+            and not SpecimenStatus.Cancelled
+            and not SpecimenStatus.Expired
+            and not SpecimenStatus.Collected
+        && (s.ExpiresUtc is null || s.ExpiresUtc > DateTime.UtcNow);
+
+    private SpecimenDto? LinkedSpecimen =>
+        _workup?.SpecimenId is long sid ? _specimens.FirstOrDefault(s => s.Id == sid) : null;
+
+    private bool LinkedSpecimenUnusable =>
+        LinkedSpecimen is { Status: SpecimenStatus.Rejected or SpecimenStatus.Cancelled };
+
+    private bool LinkedSpecimenNotReady =>
+        LinkedSpecimen is { Status: SpecimenStatus.Collected };
+
+    private bool LinkedSpecimenUnaccepted =>
+        LinkedSpecimen is { Status: SpecimenStatus.Received };
+
+    private bool LinkedSpecimenExpired =>
+        LinkedSpecimen is { } s
+        && (s.Status == SpecimenStatus.Expired || (s.ExpiresUtc is DateTime exp && exp <= DateTime.UtcNow));
+
+    private IReadOnlyList<AntibodyPanelLotListItemDto> AttachableLots =>
+        _lots.Where(l =>
+                !l.IsExpired
+                && l.IsActive
+                && (_workup?.Lots.All(w => w.Id != l.Id) ?? true))
+            .OrderByDescending(l => l.IsSelectedCellLot)
+            .ThenBy(l => l.PanelName)
+            .ToList();
+
+    private IReadOnlyList<AntibodyIdFindingDto> OrderedFindings =>
+        (_workup?.Findings ?? [])
+            .OrderBy(f => f.Source == AntibodyIdSource.Technologist ? 0 : 1)
+            .ThenBy(f => f.Classification == AntibodyIdClassification.Identified ? 0 : 1)
+            .ThenBy(f => f.Specificity, StringComparer.Ordinal)
+            .ToList();
+
+    private IReadOnlyList<AntibodyIdFindingDto> IdentifiedDespiteExclusion =>
+        IdentifiedToPost
+            .Where(i => (_workup?.Findings ?? []).Any(f =>
+                f.Source == AntibodyIdSource.Assist
+                && f.Classification == AntibodyIdClassification.Excluded
+                && (string.Equals(f.Specificity, i.Specificity, StringComparison.Ordinal)
+                    || (i.BloodAttributeDefinitionId is long id && f.BloodAttributeDefinitionId == id))))
+            .ToList();
+
+    private IReadOnlyList<AntibodyIdFindingDto> UnexcludedAssist =>
+        (_workup?.Findings ?? [])
+            .Where(f => f.Source == AntibodyIdSource.Assist
+                        && f.Classification == AntibodyIdClassification.CannotExclude
+                        && IdentifiedToPost.All(i => !string.Equals(i.Specificity, f.Specificity, StringComparison.Ordinal)))
+            .ToList();
+
+    private IReadOnlyList<AntibodyDto> ActiveAntibodyHistory =>
+        _antibodyHistory.Where(a => a.IsActive).ToList();
+
+    private IReadOnlyList<AntibodyIdFindingDto> IdentifiedToPost =>
+        (_workup?.Findings ?? [])
+            .Where(f => f.Source == AntibodyIdSource.Technologist
+                        && f.Classification == AntibodyIdClassification.Identified
+                        && !f.PostedToHistory)
+            .ToList();
+
+    private IReadOnlyList<AntibodyIdCellDto> IncompletePanelCells =>
+        (_workup?.Cells ?? [])
+            .Where(c => c.Role != PanelCellRole.Autocontrol && !CellHasInterpretiveReaction(c))
+            .ToList();
+
+    private bool IncompleteBlocksComplete => IncompletePanelCells.Count > 0 && IdentifiedToPost.Count > 0;
+
+    private bool NeedsCompleteAck =>
+        IdentifiedToPost.Count == 0
+        || UnexcludedAssist.Count > 0
+        || IdentifiedDespiteExclusion.Count > 0
+        || ActiveAntibodyHistory.Count > 0
+        || (IncompletePanelCells.Count > 0 && IdentifiedToPost.Count == 0)
+        || (_dat == AntibodyIdDatResult.NotPerformed && AutocontrolLooksPositive)
+        || LinkedSpecimenExpired
+        || LinkedSpecimenUnaccepted;
+
+    private bool AckBlocksComplete => NeedsCompleteAck && string.IsNullOrWhiteSpace(_completeAck);
+
+    private bool ReviewAckBlocksAccept => NeedsCompleteAck && string.IsNullOrWhiteSpace(_reviewAck);
+
+    private bool AutocontrolLooksPositive =>
+        (_workup?.Cells ?? []).Any(c =>
+            c.Role == PanelCellRole.Autocontrol
+            && c.Reactions.Any(r => ReactionGradeInfo.IsPositive(r.Strength)));
+
+    private bool CellHasInterpretiveReaction(AntibodyIdCellDto cell)
+    {
+        var phases = _workup?.InterpretivePhases ?? [];
+        return cell.Reactions.Any(r =>
+            phases.Contains(r.PhaseCode, StringComparer.OrdinalIgnoreCase)
+            && ReactionGradeInfo.IsComplete(r.Strength));
+    }
+
+    private IReadOnlyList<string> AntigenColumns =>
+        _workup?.Cells
+            .SelectMany(c => c.Antigens.Select(a => a.AntigenCode))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(c => c, StringComparer.Ordinal)
+            .ToList()
+        ?? [];
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _lots = (await Api.GetAntibodyIdLotsAsync(true)).Value ?? new();
+        _workups = (await Api.GetAntibodyIdWorkupsAsync(PatientId)).Value ?? new();
+        _specimens = (await Api.GetPatientSpecimensAsync(PatientId)).Value ?? new();
+        _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
+        _antigenProfiles = (await Api.GetAntigenProfilesAsync(PatientId)).Value ?? new();
+        _antibodyHistory = (await Api.GetAntibodyHistoryAsync(PatientId)).Value ?? new();
+        if (WorkupId is long id)
+        {
+            var r = await Api.GetAntibodyIdWorkupAsync(id);
+            if (!r.Succeeded || r.Value is null || r.Value.PatientId != PatientId)
+            {
+                _fb = r.ToFeedback();
+                _workup = null;
+                return;
+            }
+
+            ApplyWorkup(r.Value);
+        }
+        else
+        {
+            _workup = null;
+        }
+    }
+
+    private void ApplyWorkup(AntibodyIdWorkupDetailDto workup)
+    {
+        _workup = workup;
+        _dat = workup.DatResult;
+        _datMethod = workup.DatMethod;
+        _comment = workup.Comment;
+        _interpretation = workup.TechnologistInterpretation ?? "";
+        _grades.Clear();
+        foreach (var cell in workup.Cells)
+        {
+            foreach (var phase in workup.InterpretivePhases)
+            {
+                var existing = cell.Reactions.LastOrDefault(r => string.Equals(r.PhaseCode, phase, StringComparison.OrdinalIgnoreCase));
+                _grades[(cell.CellId, phase)] = existing?.Strength ?? ReactionGrade.NotTested;
+            }
+        }
+    }
+
+    private void Open(long id) => Nav.NavigateTo($"/patients/{PatientId}/antibody-id/{id}");
+    private void BackToList() => Nav.NavigateTo($"/patients/{PatientId}/antibody-id");
+
+    private async Task CreateAsync()
+    {
+        if (_newLotId is null) return;
+        _busy = true;
+        var extra = _selectedLotId is long sid ? new[] { sid } : null;
+        var r = await Api.CreateAntibodyIdWorkupAsync(PatientId, new CreateAntibodyIdWorkupRequest(_newSpecimenId, _newLotId.Value, extra));
+        _fb = r.ToFeedback("Workup opened.");
+        _busy = false;
+        if (r.Succeeded && r.Value is not null)
+        {
+            Nav.NavigateTo($"/patients/{PatientId}/antibody-id/{r.Value.Id}");
+        }
+    }
+
+    private async Task LinkSpecimenAsync()
+    {
+        if (_workup is null || _linkSpecimenId is null) return;
+        _busy = true;
+        var r = await Api.LinkAntibodyIdSpecimenAsync(_workup.Id, new LinkAntibodyIdSpecimenRequest(_linkSpecimenId.Value));
+        _fb = r.ToFeedback("Specimen linked. Workup is now specimen-scoped.");
+        if (r.Succeeded && r.Value is not null)
+        {
+            ApplyWorkup(r.Value);
+            _linkSpecimenId = null;
+        }
+        _busy = false;
+    }
+
+    private async Task SaveContextAsync()
+    {
+        if (_workup is null) return;
+        _busy = true;
+        var dat = await Api.RecordAntibodyIdDatAsync(_workup.Id, new RecordAntibodyIdDatRequest(_dat, _datMethod));
+        if (!dat.Succeeded) { _fb = dat.ToFeedback(); _busy = false; return; }
+        var comment = await Api.RecordAntibodyIdCommentAsync(_workup.Id, _comment);
+        _fb = comment.ToFeedback("DAT and comment saved.");
+        if (comment.Succeeded && comment.Value is not null) ApplyWorkup(comment.Value);
+        _busy = false;
+    }
+
+    private async Task AttachLotAsync()
+    {
+        if (_workup is null || _attachLotId is null) return;
+        _busy = true;
+        var r = await Api.AttachAntibodyIdLotsAsync(_workup.Id, new AttachAntibodyIdLotsRequest([_attachLotId.Value]));
+        _fb = r.ToFeedback("Lot attached. Record selected-cell reactions, then run assistance again.");
+        if (r.Succeeded && r.Value is not null)
+        {
+            ApplyWorkup(r.Value);
+            _attachLotId = null;
+        }
+        _busy = false;
+    }
+
+    private async Task SaveReactionsAsync()
+    {
+        if (_workup is null) return;
+        _busy = true;
+        var payload = _grades.Select(kv => new RecordAntibodyIdReactionRequest(kv.Key.CellId, kv.Key.Phase, kv.Value)).ToList();
+        var r = await Api.RecordAntibodyIdReactionsAsync(_workup.Id, payload);
+        _fb = r.ToFeedback("Reactions saved.");
+        if (r.Succeeded && r.Value is not null) ApplyWorkup(r.Value);
+        _busy = false;
+    }
+
+    private async Task RunAssistAsync()
+    {
+        if (_workup is null) return;
+        _busy = true;
+        var r = await Api.RunAntibodyIdAssistAsync(_workup.Id);
+        _fb = r.ToFeedback("Assistance evaluated. This is not an identification.");
+        _assistWarnings = r.Warnings;
+        if (r.Succeeded)
+        {
+            var refreshed = await Api.GetAntibodyIdWorkupAsync(_workup.Id);
+            if (refreshed.Value is not null) ApplyWorkup(refreshed.Value);
+        }
+        _busy = false;
+    }
+
+    private void AddInterpItem()
+    {
+        if (_interpCatalogId is long catalogId)
+        {
+            var attr = _bloodAttributeCatalog.FirstOrDefault(a => a.Id == catalogId);
+            if (attr is null) return;
+            _interpItems.Add(new AntibodyIdInterpretationItem(attr.Id, attr.AntibodyName, _interpClass, "Technologist classification"));
+            _interpCatalogId = null;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_interpSpec)) return;
+        _interpItems.Add(new AntibodyIdInterpretationItem(null, _interpSpec.Trim(), _interpClass, "Technologist classification"));
+        _interpSpec = "";
+    }
+
+    private async Task SaveInterpretationAsync()
+    {
+        if (_workup is null) return;
+        _busy = true;
+        var r = await Api.RecordAntibodyIdInterpretationAsync(_workup.Id,
+            new RecordAntibodyIdInterpretationRequest(_interpretation, _interpItems));
+        _fb = r.ToFeedback("Technologist interpretation recorded.");
+        if (r.Succeeded && r.Value is not null)
+        {
+            ApplyWorkup(r.Value);
+            _interpItems.Clear();
+        }
+        _busy = false;
+    }
+
+    private async Task ReviewAsync(bool accepted)
+    {
+        if (_workup is null) return;
+        _busy = true;
+        var r = await Api.ReviewAntibodyIdWorkupAsync(
+            _workup.Id,
+            new ReviewAntibodyIdWorkupRequest(
+                accepted,
+                _reviewComment,
+                accepted && !string.IsNullOrWhiteSpace(_reviewAck) ? _reviewAck.Trim() : null));
+        _fb = r.ToFeedback(accepted ? "Supervisor accepted." : "Supervisor rejected.");
+        if (r.Succeeded && r.Value is not null)
+        {
+            ApplyWorkup(r.Value);
+            if (accepted)
+            {
+                _reviewAck = null;
+            }
+        }
+        _busy = false;
+    }
+
+    private async Task CompleteAsync()
+    {
+        if (_workup is null) return;
+        _busy = true;
+        var r = await Api.CompleteAntibodyIdWorkupAsync(
+            _workup.Id,
+            new CompleteAntibodyIdWorkupRequest(string.IsNullOrWhiteSpace(_completeAck) ? null : _completeAck.Trim()));
+        _fb = r.ToFeedback("Workup completed.");
+        if (r.Succeeded && r.Value is not null)
+        {
+            ApplyWorkup(r.Value);
+            _completeAck = null;
+        }
+        _busy = false;
+    }
+
+    private async Task VoidAsync()
+    {
+        if (_workup is null || string.IsNullOrWhiteSpace(_voidReason)) return;
+        _busy = true;
+        var r = await Api.VoidAntibodyIdWorkupAsync(_workup.Id, new VoidAntibodyIdWorkupRequest(_voidReason));
+        _fb = r.ToFeedback("Workup voided. No antibodies posted.");
+        if (r.Succeeded && r.Value is not null)
+        {
+            ApplyWorkup(r.Value);
+            _voidReason = null;
+        }
+        _busy = false;
+    }
+
+    private string SpecimenLabel(long? specimenId)
+    {
+        if (specimenId is not long id)
+        {
+            return "Not linked (patient-scoped until voided or completed)";
+        }
+
+        var specimen = _specimens.FirstOrDefault(s => s.Id == id);
+        return specimen is null
+            ? $"#{id}"
+            : $"{specimen.AccessionNumber} ({specimen.SpecimenType})";
+    }
+
+    private static string ExpressionMark(AntibodyIdCellDto cell, string antigen)
+    {
+        var typing = cell.Antigens.FirstOrDefault(a => string.Equals(a.AntigenCode, antigen, StringComparison.Ordinal));
+        return typing is null ? "" : typing.Expression switch
+        {
+            AntigenExpression.Homozygous => "+",
+            AntigenExpression.Present => "+",
+            AntigenExpression.Heterozygous => "+s",
+            AntigenExpression.Weak => "w",
+            AntigenExpression.Absent => "0",
+            _ => ""
+        };
+    }
+
+    private ReactionGrade CurrentGrade(AntibodyIdCellDto cell, string phase) =>
+        _grades.TryGetValue((cell.CellId, phase), out var g) ? g : ReactionGrade.NotTested;
+
+    private void SetGrade(long cellId, string phase, string? value)
+    {
+        if (Enum.TryParse<ReactionGrade>(value, out var grade))
+        {
+            _grades[(cellId, phase)] = grade;
+        }
+    }
+
+    private static string GradeLabel(ReactionGrade g) => g switch
+    {
+        ReactionGrade.Negative => "0",
+        ReactionGrade.Weak => "+w",
+        ReactionGrade.OnePlus => "1+",
+        ReactionGrade.TwoPlus => "2+",
+        ReactionGrade.ThreePlus => "3+",
+        ReactionGrade.FourPlus => "4+",
+        ReactionGrade.Microscopic => "m",
+        ReactionGrade.Hemolysis => "H",
+        ReactionGrade.MixedField => "mf",
+        ReactionGrade.Invalid => "inv",
+        _ => "NT"
+    };
+}

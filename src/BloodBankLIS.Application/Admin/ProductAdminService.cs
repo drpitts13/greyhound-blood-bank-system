@@ -95,7 +95,7 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         await UnitOfWork.SaveChangesAsync(ct);
 
         var dto = await GetAsync(entity.Id, ct);
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Create,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Configure,
             oldValue: null, newValue: dto, reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 
@@ -142,7 +142,7 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         await ApplyAttributesAsync(entity.Id, req.Attributes, ct);
 
         var after = await GetAsync(id, ct);
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Update,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Configure,
             oldValue: before, newValue: after, reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 

@@ -61,7 +61,7 @@ public class AdminConfigTests : IClassFixture<SqliteContextFactory>
         await using (var verify = _factory.Create())
         {
             var audit = await verify.AuditEvents
-                .Where(a => a.EntityType == nameof(TestDefinition) && a.EntityId == id && a.EventType == AuditEventType.Create)
+                .Where(a => a.EntityType == nameof(TestDefinition) && a.EntityId == id && a.EventType == AuditEventType.TestChange)
                 .ToListAsync();
             Assert.NotEmpty(audit);
             Assert.All(audit, a => Assert.Equal("tech-test", a.UserName));
@@ -125,6 +125,8 @@ public class AdminConfigTests : IClassFixture<SqliteContextFactory>
 
         Assert.True(update.Succeeded);
         Assert.Equal(2, update.Value!.Version);
+        Assert.Equal(2, await context.AuditEvents.CountAsync(a =>
+            a.EntityType == nameof(TestDefinition) && a.EntityId == created.Value.Id && a.EventType == AuditEventType.TestChange));
     }
 
     [Fact]

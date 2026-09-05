@@ -24,10 +24,10 @@ public static class ProductBillingValidator
                 "ISBT product description code must be 5 characters or fewer."));
         }
 
-        if (row.Trigger != BillingTriggerType.UnitIssued)
+        if (row.Trigger is not (BillingTriggerType.UnitIssued or BillingTriggerType.UnitTransfused))
         {
             results.Add(RuleResult.HardStop("PRODBILL.TRIGGER.INVALID",
-                "Product billing rows must use the UnitIssued trigger."));
+                "Product billing rows must use UnitIssued or UnitTransfused."));
         }
 
         if (duplicateActive)

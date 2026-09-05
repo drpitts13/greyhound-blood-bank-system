@@ -21,7 +21,8 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
     private SpecimenService Specimens(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
         new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c),
-            c, _factory.Clock, currentUser: _factory.CurrentUser, permissions: permissions);
+            c, _factory.Clock, audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            currentUser: _factory.CurrentUser, permissions: permissions);
 
     private static ICurrentUser Verifier => new TestCurrentUser("tech-verify", "WORKSTATION-2");
 
@@ -124,6 +125,8 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.True(result.Succeeded);
         Assert.Equal(SpecimenStatus.Accepted, result.Value!.Status);
         Assert.Equal(collected.AddHours(SpecimenValidityPolicy.DefaultStandardHours), result.Value.ExpiresUtc);
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EventType == AuditEventType.Specimen && a.EntityId == result.Value.Id && a.Reason == "Specimen accessioned."));
     }
 
     [Fact]
@@ -208,6 +211,8 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
             Assert.True(rejected.Succeeded);
             Assert.Equal(SpecimenStatus.Rejected, rejected.Value!.Status);
             Assert.Equal("Hemolyzed", rejected.Value.RejectionReason);
+            Assert.True(await context.AuditEvents.AnyAsync(a =>
+                a.EventType == AuditEventType.Specimen && a.EntityId == specimenId && a.Reason == "Hemolyzed"));
         }
     }
 
@@ -719,7 +724,7 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
                 await verify.AuditEvents
                     .Where(a => a.EntityType == nameof(PatientBloodTypeHistory) && a.EntityId == patientId)
                     .ToListAsync(),
-                a => a.Reason == "Historical record import");
+                a => a.EventType == AuditEventType.Override && a.Reason == "Historical record import");
         }
     }
 
@@ -787,6 +792,34 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task SpecialRequirement_AddAndDeactivate_WriteNamedAudits()
+    {
+        var patientId = await EnsurePatientAsync("MRN-SR-RA16-" + Guid.NewGuid().ToString("N")[..8]);
+        await using var context = _factory.Create();
+        var svc = SpecialRequirements(context);
+
+        var added = await svc.AddAsync(patientId, new AddSpecialRequirementRequest(
+            SpecialTransfusionRequirementType.AntigenNegative,
+            "History of anti-K",
+            AntigenCode: "K"));
+        Assert.True(added.Succeeded, added.Error);
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(SpecialTransfusionRequirement)
+            && a.EntityId == added.Value!.Id
+            && a.EventType == AuditEventType.Antibody
+            && a.Reason == "History of anti-K"));
+
+        var deactivated = await svc.DeactivateAsync(added.Value!.Id, "No longer indicated");
+        Assert.True(deactivated.Succeeded, deactivated.Error);
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(SpecialTransfusionRequirement)
+            && a.EntityId == added.Value.Id
+            && a.EventType == AuditEventType.Deactivate
+            && a.OldValueJson != null
+            && a.NewValueJson != null));
+    }
+
+    [Fact]
     public async Task Antibody_AddThenDeactivate_RequiresReason()
     {
         var patientId = await EnsurePatientAsync("MRN-AB");
@@ -822,6 +855,66 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         {
             Assert.Empty(await Immuno(verify).GetActiveAntibodiesAsync(patientId));
             Assert.Single(await Immuno(verify).GetAntibodyHistoryAsync(patientId));
+
+            var antibodyAudits = await verify.AuditEvents
+                .Where(a => a.EntityType == nameof(AntibodyHistory) && a.EntityId == antibodyId && a.EventType == AuditEventType.Antibody)
+                .ToListAsync();
+            Assert.Equal(2, antibodyAudits.Count);
+            Assert.Contains(antibodyAudits, a => a.Reason == "Detected on screen");
+            Assert.Contains(antibodyAudits, a => a.Reason == "Reclassified as historical");
         }
+    }
+
+    [Fact]
+    public async Task AntigenProfile_SaveThenUpdate_WritesAntibodyAudit_WithOldAndNew()
+    {
+        var patientId = await EnsurePatientAsync("MRN-AG-AUDIT");
+        long attrId;
+        long profileId;
+
+        await using (var context = _factory.Create())
+        {
+            var attr = new BloodAttributeDefinition
+            {
+                Code = "AG-AUDIT-K",
+                Name = "Kell audit",
+                AntibodyName = "anti-K",
+                IsClinicallySignificant = true,
+                SortOrder = 90,
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = _factory.Clock.UtcNow,
+                Version = 1
+            };
+            context.BloodAttributeDefinitions.Add(attr);
+            await context.SaveChangesAsync();
+            attrId = attr.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var first = await Immuno(context).SaveAntigenProfileAsync(
+                patientId, new SaveAntigenProfileRequest(attrId, AntigenResult.Negative, "Tube"));
+            Assert.True(first.Succeeded, first.Error);
+            profileId = first.Value!.Id;
+
+            var second = await Immuno(context).SaveAntigenProfileAsync(
+                patientId, new SaveAntigenProfileRequest(attrId, AntigenResult.Positive, "Gel"));
+            Assert.True(second.Succeeded, second.Error);
+            Assert.Equal(profileId, second.Value!.Id);
+            Assert.Equal(AntigenResult.Positive, second.Value.Result);
+        }
+
+        await using var verify = _factory.Create();
+        var audits = await verify.AuditEvents
+            .Where(a => a.EntityType == nameof(AntigenProfile) && a.EntityId == profileId && a.EventType == AuditEventType.Antibody)
+            .OrderBy(a => a.Id)
+            .ToListAsync();
+        Assert.Equal(2, audits.Count);
+        Assert.Equal("Antigen phenotype recorded.", audits[0].Reason);
+        Assert.Contains("Negative", audits[0].NewValueJson);
+        Assert.Equal("Antigen phenotype updated in place (OCD-022).", audits[1].Reason);
+        Assert.Contains("Negative", audits[1].OldValueJson);
+        Assert.Contains("Positive", audits[1].NewValueJson);
     }
 }

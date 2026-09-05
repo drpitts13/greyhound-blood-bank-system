@@ -42,6 +42,7 @@
                     <th>Order #</th>
                     <th>Accession</th>
                     <th>Status</th>
+                    <th>Source</th>
                     <th>Priority</th>
                     <th>Ordered</th>
                     <th></th>
@@ -66,6 +67,7 @@
                                 <span class="badge badge-gray">Pending</span>
                             }
                         </td>
+                        <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
                         <td>@item.Priority</td>
                         <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="right nowrap">
@@ -77,7 +79,7 @@
                     </tr>
                     @if (_expandedLineId == item.OrderLineId)
                     {
-                        <tr><td colspan="9">
+                        <tr><td colspan="10">
                             <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
                         </td></tr>
                     }

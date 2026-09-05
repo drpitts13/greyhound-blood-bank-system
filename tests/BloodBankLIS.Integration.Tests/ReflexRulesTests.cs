@@ -180,6 +180,14 @@ public class ReflexRulesTests : IClassFixture<SqliteContextFactory>
 
         var pending = await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending);
         Assert.Contains(pending, i => i.TestCode == "ABID" && i.SpecimenId == specimen.Id);
+
+        var reflexAudit = await c.AuditEvents.SingleAsync(a =>
+            a.EventType == AuditEventType.OrderChange
+            && a.EntityType == nameof(OrderLine)
+            && a.EntityId == order.Id
+            && a.Reason != null
+            && a.Reason.StartsWith("Reflex from verified"));
+        Assert.Contains("ABID", reflexAudit.NewValueJson);
     }
 
     [Fact]
@@ -251,6 +259,8 @@ public class ReflexRulesTests : IClassFixture<SqliteContextFactory>
             reflex,
             null));
         Assert.True(created.Succeeded, created.Error ?? string.Join("; ", created.Evaluation?.HardStops.Select(h => h.Message) ?? []));
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(ReflexRule) && a.EntityId == created.Value!.Id && a.EventType == AuditEventType.TestChange));
 
         var activated = await svc.ActivateAsync(created.Value!.Id, "seed");
         Assert.True(activated.Succeeded, activated.Error ?? string.Join("; ", activated.Evaluation?.HardStops.Select(h => h.Message) ?? []));

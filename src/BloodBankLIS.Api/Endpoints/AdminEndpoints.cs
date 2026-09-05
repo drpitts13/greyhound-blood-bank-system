@@ -28,11 +28,14 @@ public static class AdminEndpoints
         MapIsbtProductCodes(app);
         MapProviders(app);
         MapLocations(app);
+        MapInventoryLocations(app);
+        MapFacilityPolicies(app);
         MapChargeCodes(app);
         MapChargeRules(app);
         MapTestServiceBillings(app);
         MapProductBillings(app);
         MapExceptions(app);
+        MapCompatibilityRules(app);
         MapHl7(app);
         MapUsersAndRoles(app);
         MapHistory(app);
@@ -476,6 +479,66 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
 
+    private static void MapCompatibilityRules(WebApplication app)
+    {
+        var versions = app.MapGroup("/api/admin/compatibility-rule-versions")
+            .WithTags("Admin: Compatibility Rules")
+            .RequireAuthenticatedUser();
+
+        versions.MapGet("", async (CompatibilityRuleAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListVersionsAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        versions.MapGet("/catalog", (CompatibilityRuleAdminService svc) => Results.Ok(svc.ListCatalog()))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        versions.MapGet("/{id:long}", async (long id, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetVersionAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Compatibility table version not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        versions.MapGet("/{id:long}/rules", async (long id, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListRulesAsync(id, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        versions.MapPost("", async (SaveCompatibilityRuleVersionRequest req, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateVersionAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        versions.MapPut("/{id:long}", async (long id, SaveCompatibilityRuleVersionRequest req, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateVersionAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        versions.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ActivateVersionAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        versions.MapPost("/{id:long}/retire", async (long id, ReasonOnlyRequest? req, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.RetireVersionAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        versions.MapPost("/{id:long}/rules", async (long id, SaveCompatibilityRuleRequest req, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateRuleAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        var rules = app.MapGroup("/api/admin/compatibility-rules")
+            .WithTags("Admin: Compatibility Rules")
+            .RequireAuthenticatedUser();
+
+        rules.MapPut("/{id:long}", async (long id, SaveCompatibilityRuleRequest req, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateRuleAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        rules.MapPost("/{id:long}/activate", async (long id, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        rules.MapPost("/{id:long}/deactivate", async (long id, CompatibilityRuleAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
     private static void MapLocations(WebApplication app)
     {
         var group = app.MapGroup("/api/admin/locations").WithTags("Admin: Ordering Locations").RequireAuthenticatedUser();
@@ -505,6 +568,50 @@ public static class AdminEndpoints
         group.MapPost("/{id:long}/deactivate", async (long id, OrderingLocationAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapInventoryLocations(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/inventory-locations").WithTags("Admin: Inventory Locations").RequireAuthenticatedUser();
+
+        group.MapGet("", async (InventoryLocationAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, InventoryLocationAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Inventory location not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveInventoryLocationRequest req, InventoryLocationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveInventoryLocationRequest req, InventoryLocationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, InventoryLocationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, InventoryLocationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapFacilityPolicies(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/facility-policies").WithTags("Admin: Facility Policy").RequireAuthenticatedUser();
+
+        group.MapGet("", async (FacilityPolicyAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPut("/{id:long}", async (long id, SaveFacilityPolicyRequest req, FacilityPolicyAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
     }
 
     private static void MapChargeCodes(WebApplication app)

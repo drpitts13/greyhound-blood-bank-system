@@ -15,12 +15,15 @@ using BloodBankLIS.Domain.ValueObjects;
 namespace BloodBankLIS.Application.Results;
 
 /// <summary>
-/// Test result entry, verification, and the versioned correction workflow. Verified
-/// results are immutable; corrections create a new version and supersede the prior
-/// row (see docs/safety-rules.md sections 6-7). Verifying an ABO/Rh result appends
-/// to the patient's blood-type history and runs a delta check. Verifying a
-/// free-text/coded test marked <c>ContributesToAntibodyHistory</c> (ABID) posts
-/// identified specificities to <see cref="AntibodyHistory"/>.
+/// Test result entry, verification, invalidation, and the versioned correction
+/// workflow. Verified results are immutable; corrections and invalidations create
+/// a new version and supersede the prior row (see docs/safety-rules.md sections 6-7).
+/// Instrument and interface values start PendingVerification. Verifying an ABO/Rh
+/// result appends to the patient's blood-type history and runs a delta check.
+/// Verifying a free-text/coded test marked <c>ContributesToAntibodyHistory</c>
+/// (ABID) posts identified specificities to <see cref="AntibodyHistory"/>
+/// unless an antibody-identification workup is the identification of record
+/// (<c>ABID-WORKUP-OPEN</c> / <c>ABID-WORKUP-AUTHORITATIVE</c>).
 /// </summary>
 public sealed class ResultService
 {
@@ -54,6 +57,8 @@ public sealed class ResultService
     private readonly IRepository<Allocation>? _allocations;
     private readonly FacilityPolicyService? _policy;
     private readonly IRepository<Patient>? _patients;
+    private readonly IRepository<AntibodyIdentificationWorkup>? _antibodyWorkups;
+    private readonly IRepository<AntibodyIdentificationFinding>? _antibodyFindings;
 
     public ResultService(
         IRepository<TestResult> results,
@@ -82,7 +87,9 @@ public sealed class ResultService
         IRepository<Allocation>? allocations = null,
         FacilityPolicyService? policy = null,
         IRepository<PhaseDefinition>? phaseDefinitions = null,
-        IRepository<Patient>? patients = null)
+        IRepository<Patient>? patients = null,
+        IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null,
+        IRepository<AntibodyIdentificationFinding>? antibodyFindings = null)
     {
         _ruleEngine = ruleEngine;
         _allocations = allocations;
@@ -111,6 +118,8 @@ public sealed class ResultService
         _overrides = overrides;
         _permissions = permissions;
         _reflexRules = reflexRules;
+        _antibodyWorkups = antibodyWorkups;
+        _antibodyFindings = antibodyFindings;
     }
 
     public Task<TestResult?> GetAsync(long id, CancellationToken ct = default) =>
@@ -149,13 +158,17 @@ public sealed class ResultService
 
         var (value, units, interpretation) = build.Value!;
         var allWarnings = new List<RuleResult>();
+        var source = ResultProvenanceRule.Resolve(
+            request.Source, await UsedCatalogInterpretationAsync(normalizedCode, request, ct));
 
         var current = await GetCurrentResultAsync(request.OrderId, normalizedCode, request.SpecimenId, ct);
         OperationResult<TestResult> saveResult;
 
         if (current is null)
         {
-            saveResult = await EnterInternalAsync(request.SpecimenId, request.OrderId, normalizedCode, value, units, interpretation, ct, skipSpecimenCheck: true);
+            saveResult = await EnterInternalAsync(
+                request.SpecimenId, request.OrderId, normalizedCode, value, units, interpretation, ct,
+                skipSpecimenCheck: true, source: source, sourceReference: request.SourceReference);
         }
         else if (current.Status == ResultStatus.Verified)
         {
@@ -173,13 +186,20 @@ public sealed class ResultService
                 await _unitOfWork.SaveChangesAsync(ct);
             }
         }
-        else if (current.Status is ResultStatus.Entered or ResultStatus.Corrected)
+        else if (ResultLifecycleRule.CanUpdateInPlace(current.Status))
         {
-            saveResult = await UpdateResultInPlaceAsync(current, value, units, interpretation, ct);
+            saveResult = await UpdateResultInPlaceAsync(current, value, units, interpretation, ct, source, request.SourceReference);
+        }
+        else if (current.Status == ResultStatus.Invalidated)
+        {
+            saveResult = await EnterReplacementAfterInvalidateAsync(
+                current, value, units, interpretation, source, request.SourceReference, ct);
         }
         else
         {
-            saveResult = await EnterInternalAsync(request.SpecimenId, request.OrderId, normalizedCode, value, units, interpretation, ct, skipSpecimenCheck: true);
+            saveResult = await EnterInternalAsync(
+                request.SpecimenId, request.OrderId, normalizedCode, value, units, interpretation, ct,
+                skipSpecimenCheck: true, source: source, sourceReference: request.SourceReference);
         }
 
         if (!saveResult.Succeeded || saveResult.Value is null)
@@ -237,13 +257,104 @@ public sealed class ResultService
         var candidates = await _results.ListAsync(
             r => r.OrderId == orderId && r.SpecimenId == specimenId && r.TestCode == normalized && r.SupersededByResultId == null,
             ct);
-        return candidates.OrderByDescending(r => r.Version).FirstOrDefault();
+        var active = candidates
+            .Where(r => r.Status != ResultStatus.Invalidated)
+            .OrderByDescending(r => r.Version)
+            .FirstOrDefault();
+        return active ?? candidates.OrderByDescending(r => r.Version).FirstOrDefault();
     }
 
     public Task<OperationResult<TestResult>> EnterResultAsync(EnterResultRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        return EnterInternalAsync(request.SpecimenId, request.OrderId, request.TestCode, request.Value, request.Units, request.Interpretation, ct);
+        return EnterInternalAsync(
+            request.SpecimenId, request.OrderId, request.TestCode, request.Value, request.Units, request.Interpretation, ct,
+            source: request.Source, sourceReference: request.SourceReference);
+    }
+
+    /// <summary>
+    /// Posts an instrument/interface observation. Never verifies. Verified rows are
+    /// not overwritten; the sender must use the correction workflow.
+    /// </summary>
+    public async Task<OperationResult<TestResult>> EnterFromInterfaceAsync(
+        long specimenId,
+        long orderId,
+        string testCode,
+        string value,
+        string? units,
+        string? interpretation,
+        string? sourceReference,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(testCode))
+        {
+            return OperationResult<TestResult>.Fail("Interface result test code is required.");
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return OperationResult<TestResult>.Fail("Interface result value is required.");
+        }
+
+        var normalized = testCode.Trim().ToUpperInvariant();
+        var current = await GetCurrentResultAsync(orderId, normalized, specimenId, ct);
+        OperationResult<TestResult> saved;
+
+        if (current is null)
+        {
+            saved = await EnterInternalAsync(
+                specimenId, orderId, normalized, value.Trim(), units, interpretation, ct,
+                source: ResultSource.Interface, sourceReference: sourceReference, skipEnterAuthorization: true);
+        }
+        else if (current.Status == ResultStatus.Verified)
+        {
+            return OperationResult<TestResult>.Fail(
+                "A verified result cannot be overwritten by an interface. Use the correction workflow.");
+        }
+        else if (ResultLifecycleRule.CanUpdateInPlace(current.Status))
+        {
+            saved = await UpdateResultInPlaceAsync(
+                current, value.Trim(), units, interpretation, ct, ResultSource.Interface, sourceReference,
+                skipEnterAuthorization: true);
+        }
+        else if (current.Status == ResultStatus.Invalidated)
+        {
+            saved = await EnterReplacementAfterInvalidateAsync(
+                current, value.Trim(), units, interpretation, ResultSource.Interface, sourceReference, ct,
+                skipEnterAuthorization: true);
+        }
+        else
+        {
+            saved = await EnterInternalAsync(
+                specimenId, orderId, normalized, value.Trim(), units, interpretation, ct,
+                source: ResultSource.Interface, sourceReference: sourceReference, skipEnterAuthorization: true);
+        }
+
+        if (!saved.Succeeded || saved.Value is null)
+        {
+            return saved;
+        }
+
+        _audit.Record(
+            AuditEventType.Interface,
+            nameof(TestResult),
+            saved.Value.Id,
+            oldValue: current is null ? null : new { current.Status, current.Value, current.Source },
+            newValue: new { saved.Value.Status, saved.Value.Value, saved.Value.Source, saved.Value.SourceReference },
+            reason: "Inbound interface result posted; pending verification.");
+
+        if (_orderLines is not null)
+        {
+            var line = await _orderLines.FirstOrDefaultAsync(
+                l => l.OrderId == orderId && l.TestCode == normalized && l.IsActive, ct);
+            if (line is not null)
+            {
+                await SyncOrderLineStatusAsync(line.Id, saved.Value, ct);
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        return saved;
     }
 
     public async Task<OperationResult<TestResult>> EnterAboRhAsync(EnterAboRhRequest request, CancellationToken ct = default)
@@ -279,7 +390,11 @@ public sealed class ResultService
             value = AboRhResultValue.Format(request.Abo, request.RhD);
         }
 
-        var result = await EnterInternalAsync(request.SpecimenId, request.OrderId, AboRhTestCode, value, null, null, ct);
+        var source = ResultProvenanceRule.Resolve(
+            request.Source, catalogLogicApplied: request.Subtests is { Count: > 0 });
+        var result = await EnterInternalAsync(
+            request.SpecimenId, request.OrderId, AboRhTestCode, value, null, null, ct,
+            source: source, sourceReference: request.SourceReference);
         if (!result.Succeeded)
         {
             return result;
@@ -296,12 +411,18 @@ public sealed class ResultService
 
     private async Task<OperationResult<TestResult>> EnterInternalAsync(
         long specimenId, long? orderId, string testCode, string value, string? units, string? interpretation, CancellationToken ct,
-        bool skipSpecimenCheck = false)
+        bool skipSpecimenCheck = false,
+        ResultSource source = ResultSource.Manual,
+        string? sourceReference = null,
+        bool skipEnterAuthorization = false)
     {
-        var denied = await RejectUnauthorizedEnterAsync(ct);
-        if (denied is not null)
+        if (!skipEnterAuthorization)
         {
-            return denied;
+            var denied = await RejectUnauthorizedEnterAsync(ct);
+            if (denied is not null)
+            {
+                return denied;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(testCode))
@@ -330,6 +451,16 @@ public sealed class ResultService
         }
 
         var normalizedCode = testCode.ToUpperInvariant();
+        if (orderId is long existingOrderId)
+        {
+            var existing = await GetCurrentResultAsync(existingOrderId, normalizedCode, specimenId, ct);
+            if (existing?.Status == ResultStatus.Invalidated)
+            {
+                return await EnterReplacementAfterInvalidateAsync(
+                    existing, value, units, interpretation, source, sourceReference, ct);
+            }
+        }
+
         var warnings = await ValidateAgainstCatalogAsync(normalizedCode, value, ct);
 
         var result = new TestResult
@@ -342,12 +473,21 @@ public sealed class ResultService
             Value = value,
             Units = units,
             Interpretation = interpretation,
-            Status = ResultStatus.Entered,
+            Status = ResultLifecycleRule.InitialStatus(source),
+            Source = source,
+            SourceReference = string.IsNullOrWhiteSpace(sourceReference) ? null : sourceReference.Trim(),
             EnteredBy = _currentUser.UserName,
             EnteredUtc = _clock.UtcNow
         };
 
         await _results.AddAsync(result, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        _audit.Record(
+            AuditEventType.Result,
+            nameof(TestResult),
+            result.Id,
+            newValue: new { result.TestCode, result.Value, result.Status, result.Source, result.SourceReference },
+            reason: $"Result entered from {source}.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<TestResult>.Ok(result, warnings);
     }
@@ -501,11 +641,12 @@ public sealed class ResultService
             return EvaluationResult<TestResult>.Blocked(new RuleEvaluation([selfVerify]));
         }
 
-        if (result.Status is not (ResultStatus.Entered or ResultStatus.Corrected))
+        if (!ResultLifecycleRule.CanVerify(result.Status))
         {
             return EvaluationResult<TestResult>.Fail($"A result with status {result.Status} cannot be verified.");
         }
 
+        var previousStatus = result.Status;
         var now = _clock.UtcNow;
         var warnings = new List<RuleResult>();
         Override? authorizedOverride = null;
@@ -590,11 +731,18 @@ public sealed class ResultService
         }
         else
         {
+            var workupGate = await EvaluateAntibodyWorkupHistoryGateAsync(result, ct);
+            if (workupGate.Block is { } block)
+            {
+                return EvaluationResult<TestResult>.Blocked(new RuleEvaluation([block]));
+            }
+
             result.Status = ResultStatus.Verified;
             result.VerifiedBy = _currentUser.UserName;
             result.VerifiedUtc = now;
             await ApplyBloodAttributeResultAsync(result, ct);
-            warnings.AddRange(await ApplyAntibodyIdentificationResultAsync(result, ct));
+            warnings.AddRange(workupGate.Warnings);
+            warnings.AddRange(await ApplyAntibodyIdentificationResultAsync(result, workupGate.SkipPost, ct));
         }
 
         if (authorizedOverride is not null)
@@ -620,6 +768,14 @@ public sealed class ResultService
             var ruleOutcome = await _ruleEngine.ApplyTestRulesAsync(result, ct);
             warnings.AddRange(ruleOutcome.Warnings);
         }
+
+        _audit.Record(
+            AuditEventType.Verify,
+            nameof(TestResult),
+            result.Id,
+            oldValue: new { PreviousStatus = previousStatus, result.Value },
+            newValue: new { result.Status, result.VerifiedBy, result.VerifiedUtc, result.Source },
+            reason: "Result verified.");
 
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<TestResult>.Ok(result, warnings.Count > 0 ? new RuleEvaluation(warnings) : null);
@@ -692,7 +848,7 @@ public sealed class ResultService
             addedLines.Add(line);
 
             _audit.Record(
-                AuditEventType.Create,
+                AuditEventType.OrderChange,
                 nameof(OrderLine),
                 orderId,
                 newValue: new
@@ -843,6 +999,8 @@ public sealed class ResultService
             Value = newValue,
             Units = original.Units,
             Status = ResultStatus.Corrected,
+            Source = original.Source,
+            SourceReference = original.SourceReference,
             EnteredBy = _currentUser.UserName,
             EnteredUtc = _clock.UtcNow,
             CorrectionReason = reason
@@ -858,12 +1016,227 @@ public sealed class ResultService
             AuditEventType.Correct,
             nameof(TestResult),
             original.Id,
-            oldValue: new { original.Value, original.Status, original.Version },
-            newValue: new { correction.Value, NewVersion = correction.Version },
+            oldValue: new { original.Value, original.Status, original.Version, original.Source },
+            newValue: new { correction.Value, NewVersion = correction.Version, correction.Status, correction.Source },
             reason: reason);
 
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<TestResult>.Ok(correction);
+    }
+
+    public async Task<OperationResult<TestResult>> SubmitForVerificationAsync(long resultId, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedEnterAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var result = await _results.GetByIdAsync(resultId, ct);
+        if (result is null)
+        {
+            return OperationResult<TestResult>.Fail("Result not found.");
+        }
+
+        if (result.SupersededByResultId is not null)
+        {
+            return OperationResult<TestResult>.Fail("A superseded result cannot be submitted for verification.");
+        }
+
+        if (!ResultLifecycleRule.CanSubmitForVerification(result.Status))
+        {
+            return OperationResult<TestResult>.Fail($"A result with status {result.Status} cannot be submitted for verification.");
+        }
+
+        var previous = result.Status;
+        result.Status = ResultStatus.PendingVerification;
+        _results.Update(result);
+        _audit.Record(
+            AuditEventType.Result,
+            nameof(TestResult),
+            result.Id,
+            oldValue: new { Status = previous },
+            newValue: new { result.Status },
+            reason: "Submitted for verification.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<TestResult>.Ok(result);
+    }
+
+    /// <summary>
+    /// Retracts a result without destroying prior rows. Verified results get a new
+    /// Invalidated version. An unverified correction restores the prior verified row
+    /// as current (OCD-016). Posted ABO/antibody history is not auto-reverted (OCD-017).
+    /// </summary>
+    public async Task<OperationResult<TestResult>> InvalidateResultAsync(long resultId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return OperationResult<TestResult>.Fail("A reason is required to invalidate a result.");
+        }
+
+        var denied = await RejectUnauthorizedInvalidateAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var current = await _results.GetByIdAsync(resultId, ct);
+        if (current is null)
+        {
+            return OperationResult<TestResult>.Fail("Result not found.");
+        }
+
+        if (current.SupersededByResultId is not null)
+        {
+            return OperationResult<TestResult>.Fail("A superseded result cannot be invalidated.");
+        }
+
+        if (!ResultLifecycleRule.CanInvalidate(current.Status))
+        {
+            return OperationResult<TestResult>.Fail($"A result with status {current.Status} cannot be invalidated.");
+        }
+
+        var merged = await RejectMergedPatientMessageAsync(current.PatientId, ct);
+        if (merged is not null)
+        {
+            return OperationResult<TestResult>.Fail(merged);
+        }
+
+        var trimmedReason = reason.Trim();
+        var now = _clock.UtcNow;
+
+        if (ResultLifecycleRule.CreatesNewVersionOnInvalidate(current.Status))
+        {
+            var retraction = new TestResult
+            {
+                SpecimenId = current.SpecimenId,
+                PatientId = current.PatientId,
+                OrderId = current.OrderId,
+                TestCode = current.TestCode,
+                Version = current.Version + 1,
+                Value = current.Value,
+                Units = current.Units,
+                Interpretation = current.Interpretation,
+                Status = ResultStatus.Invalidated,
+                Source = current.Source,
+                SourceReference = current.SourceReference,
+                EnteredBy = current.EnteredBy,
+                EnteredUtc = current.EnteredUtc,
+                VerifiedBy = current.VerifiedBy,
+                VerifiedUtc = current.VerifiedUtc,
+                InvalidatedBy = _currentUser.UserName,
+                InvalidatedUtc = now,
+                InvalidationReason = trimmedReason
+            };
+            current.SupersededByResult = retraction;
+            await _results.AddAsync(retraction, ct);
+            _audit.Record(
+                AuditEventType.Invalidate,
+                nameof(TestResult),
+                current.Id,
+                oldValue: new { current.Value, current.Status, current.Version },
+                newValue: new { retraction.Status, NewVersion = retraction.Version, retraction.InvalidatedBy },
+                reason: trimmedReason);
+            await _unitOfWork.SaveChangesAsync(ct);
+            return OperationResult<TestResult>.Ok(retraction);
+        }
+
+        if (ResultLifecycleRule.RestoresPriorVerifiedOnInvalidate(current.Status))
+        {
+            var prior = await _results.FirstOrDefaultAsync(
+                r => r.SupersededByResultId == current.Id && r.Status == ResultStatus.Verified, ct);
+            if (prior is not null)
+            {
+                prior.SupersededByResultId = null;
+                prior.SupersededByResult = null;
+                _results.Update(prior);
+                current.SupersededByResultId = prior.Id;
+            }
+
+            current.Status = ResultStatus.Invalidated;
+            current.InvalidatedBy = _currentUser.UserName;
+            current.InvalidatedUtc = now;
+            current.InvalidationReason = trimmedReason;
+            _results.Update(current);
+            _audit.Record(
+                AuditEventType.Invalidate,
+                nameof(TestResult),
+                current.Id,
+                oldValue: new { Status = ResultStatus.Corrected, current.Value, current.Version },
+                newValue: new
+                {
+                    current.Status,
+                    RestoredResultId = prior?.Id,
+                    current.InvalidatedBy
+                },
+                reason: trimmedReason);
+            await _unitOfWork.SaveChangesAsync(ct);
+            return OperationResult<TestResult>.Ok(current);
+        }
+
+        var previousStatus = current.Status;
+        current.Status = ResultStatus.Invalidated;
+        current.InvalidatedBy = _currentUser.UserName;
+        current.InvalidatedUtc = now;
+        current.InvalidationReason = trimmedReason;
+        _results.Update(current);
+        _audit.Record(
+            AuditEventType.Invalidate,
+            nameof(TestResult),
+            current.Id,
+            oldValue: new { Status = previousStatus, current.Value },
+            newValue: new { current.Status, current.InvalidatedBy },
+            reason: trimmedReason);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<TestResult>.Ok(current);
+    }
+
+    private async Task<OperationResult<TestResult>> EnterReplacementAfterInvalidateAsync(
+        TestResult invalidated,
+        string value,
+        string? units,
+        string? interpretation,
+        ResultSource source,
+        string? sourceReference,
+        CancellationToken ct,
+        bool skipEnterAuthorization = false)
+    {
+        if (!skipEnterAuthorization)
+        {
+            var denied = await RejectUnauthorizedEnterAsync(ct);
+            if (denied is not null)
+            {
+                return denied;
+            }
+        }
+
+        var replacement = new TestResult
+        {
+            SpecimenId = invalidated.SpecimenId,
+            PatientId = invalidated.PatientId,
+            OrderId = invalidated.OrderId,
+            TestCode = invalidated.TestCode,
+            Version = invalidated.Version + 1,
+            Value = value,
+            Units = units,
+            Interpretation = interpretation,
+            Status = ResultLifecycleRule.InitialStatus(source),
+            Source = source,
+            SourceReference = string.IsNullOrWhiteSpace(sourceReference) ? null : sourceReference.Trim(),
+            EnteredBy = _currentUser.UserName,
+            EnteredUtc = _clock.UtcNow
+        };
+        invalidated.SupersededByResult = replacement;
+        await _results.AddAsync(replacement, ct);
+        _audit.Record(
+            AuditEventType.Result,
+            nameof(TestResult),
+            invalidated.Id,
+            oldValue: new { invalidated.Status, invalidated.Version },
+            newValue: new { replacement.Value, replacement.Status, NewVersion = replacement.Version, replacement.Source },
+            reason: "Re-entry after invalidation.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<TestResult>.Ok(replacement);
     }
 
     private async Task<OperationResult<Specimen>> ValidateSpecimenForEntryAsync(long specimenId, string testCode, CancellationToken ct)
@@ -1120,6 +1493,34 @@ public sealed class ResultService
         return OperationResult<(string, string?, string?)>.Ok((request.Value.Trim(), request.Units, request.Interpretation));
     }
 
+    private async Task<bool> UsedCatalogInterpretationAsync(
+        string normalizedCode, SaveTestResultRequest request, CancellationToken ct)
+    {
+        if (request.Subtests is not { Count: > 0 })
+        {
+            return false;
+        }
+
+        var valueType = await ResolveResultValueTypeAsync(normalizedCode, ct);
+        if (valueType == ResultValueType.AboRh)
+        {
+            return true;
+        }
+
+        if (valueType != ResultValueType.Subtest || string.IsNullOrWhiteSpace(request.Interpretation))
+        {
+            return false;
+        }
+
+        if (_testDefinitions is null)
+        {
+            return true;
+        }
+
+        var def = await _testDefinitions.FirstOrDefaultAsync(d => d.IsActive && d.Code == normalizedCode, ct);
+        return def is not null && !string.IsNullOrWhiteSpace(def.InterpretationLogicJson);
+    }
+
     private async Task<ResultValueType> ResolveResultValueTypeAsync(string testCode, CancellationToken ct)
     {
         if (_testDefinitions is null)
@@ -1134,20 +1535,48 @@ public sealed class ResultService
     }
 
     private async Task<OperationResult<TestResult>> UpdateResultInPlaceAsync(
-        TestResult existing, string value, string? units, string? interpretation, CancellationToken ct)
+        TestResult existing,
+        string value,
+        string? units,
+        string? interpretation,
+        CancellationToken ct,
+        ResultSource? source = null,
+        string? sourceReference = null,
+        bool skipEnterAuthorization = false)
     {
-        var denied = await RejectUnauthorizedEnterAsync(ct);
-        if (denied is not null)
+        if (!skipEnterAuthorization)
         {
-            return denied;
+            var denied = await RejectUnauthorizedEnterAsync(ct);
+            if (denied is not null)
+            {
+                return denied;
+            }
         }
 
+        var previous = new { existing.Value, existing.Units, existing.Interpretation, existing.Status, existing.Source };
         existing.Value = value;
         existing.Units = units;
         existing.Interpretation = interpretation;
+        if (source is not null)
+        {
+            existing.Source = source.Value;
+        }
+
+        if (sourceReference is not null)
+        {
+            existing.SourceReference = string.IsNullOrWhiteSpace(sourceReference) ? null : sourceReference.Trim();
+        }
+
         existing.EnteredBy = _currentUser.UserName;
         existing.EnteredUtc = _clock.UtcNow;
         _results.Update(existing);
+        _audit.Record(
+            AuditEventType.Result,
+            nameof(TestResult),
+            existing.Id,
+            oldValue: previous,
+            newValue: new { existing.Value, existing.Units, existing.Interpretation, existing.Status, existing.Source },
+            reason: "Unreleased result updated.");
         await _unitOfWork.SaveChangesAsync(ct);
         var warnings = await ValidateAgainstCatalogAsync(existing.TestCode, value, ct);
         return OperationResult<TestResult>.Ok(existing, warnings);
@@ -1219,11 +1648,12 @@ public sealed class ResultService
     /// is verified. Catalog matches reuse the blood-attribute history path; unmatched
     /// anti-* tokens are stored as free-text history and surface <c>RES-ABID-UNMATCHED</c>.
     /// Historical antibodies are never removed by a later negative or different ID.
+    /// When a completed workup is the identification of record, posting is skipped.
     /// </summary>
     private async Task<IReadOnlyList<RuleResult>> ApplyAntibodyIdentificationResultAsync(
-        TestResult result, CancellationToken ct)
+        TestResult result, bool skipPost, CancellationToken ct)
     {
-        if (_testDefinitions is null || _antibodies is null)
+        if (skipPost || _testDefinitions is null || _antibodies is null)
         {
             return Array.Empty<RuleResult>();
         }
@@ -1279,7 +1709,7 @@ public sealed class ResultService
         }
 
         _audit.Record(
-            AuditEventType.Update,
+            AuditEventType.Antibody,
             nameof(AntibodyHistory),
             result.PatientId,
             newValue: new
@@ -1298,6 +1728,93 @@ public sealed class ResultService
                     AntibodyIdentificationParser.UnmatchedRuleCode,
                     $"Antibody identification includes specificities not in the catalog: {string.Join(", ", unmatched)}. Posted as free-text history.")
             };
+    }
+
+    private sealed record AntibodyWorkupHistoryGate(
+        RuleResult? Block,
+        bool SkipPost,
+        IReadOnlyList<RuleResult> Warnings);
+
+    private async Task<AntibodyWorkupHistoryGate> EvaluateAntibodyWorkupHistoryGateAsync(
+        TestResult result, CancellationToken ct)
+    {
+        if (_antibodyWorkups is null || _testDefinitions is null)
+        {
+            return new AntibodyWorkupHistoryGate(null, false, []);
+        }
+
+        var def = await _testDefinitions.FirstOrDefaultAsync(
+            d => d.IsActive && d.Code == result.TestCode, ct);
+        if (def is null
+            || !def.ContributesToAntibodyHistory
+            || def.ResultValueType is not (ResultValueType.FreeText or ResultValueType.Coded))
+        {
+            return new AntibodyWorkupHistoryGate(null, false, []);
+        }
+
+        var workups = await _antibodyWorkups.ListAsync(
+            w => w.PatientId == result.PatientId && w.Status != AntibodyWorkupStatus.Voided, ct);
+
+        var openInScope = workups.Any(w =>
+            AntibodyIdentificationHistoryPostRule.IsOpen(w.Status)
+            && AntibodyIdentificationHistoryPostRule.AppliesToOpenWorkup(
+                w.SpecimenId, w.SourceResultId, result.SpecimenId, result.Id));
+        var completedInScope = workups
+            .Where(w =>
+                w.Status == AntibodyWorkupStatus.Completed
+                && AntibodyIdentificationHistoryPostRule.AppliesToCompletedWorkup(
+                    w.SpecimenId, w.SourceResultId, result.SpecimenId, result.Id))
+            .ToList();
+
+        var catalogEntities = _bloodAttributes is null
+            ? []
+            : await _bloodAttributes.ListAsync(d => d.IsActive, ct);
+        var catalog = catalogEntities
+            .Select(d => new AntibodyCatalogItem(d.Id, d.Code, d.Name, d.AntibodyName))
+            .ToList();
+        var hits = catalog.Count == 0
+            ? Array.Empty<AntibodyIdentificationHit>()
+            : AntibodyIdentificationParser.Resolve(result.Value, catalog);
+        var freeTextNames = AntibodyIdentificationParser.PostedLabels(hits);
+        if (freeTextNames.Count == 0 && catalog.Count == 0)
+        {
+            freeTextNames = AntibodyIdentificationParser.AntibodyLikeTokens(result.Value);
+        }
+
+        var open = AntibodyIdentificationHistoryPostRule.EvaluateOpenWorkup(
+            openInScope, freeTextNames.Count > 0);
+        if (open.Severity == RuleSeverity.HardStop)
+        {
+            return new AntibodyWorkupHistoryGate(open, false, []);
+        }
+
+        var identified = await LoadWorkupIdentifiedSpecificitiesAsync(
+            completedInScope.Select(w => w.Id).ToList(), ct);
+        var completed = AntibodyIdentificationHistoryPostRule.EvaluateCompletedWorkup(
+            completedInScope.Count > 0, freeTextNames, identified);
+        return new AntibodyWorkupHistoryGate(
+            null,
+            AntibodyIdentificationHistoryPostRule.ShouldSkipFreeTextPost(completedInScope.Count > 0),
+            completed.Where(r => r.Severity == RuleSeverity.Warning).ToList());
+    }
+
+    private async Task<IReadOnlyList<string>> LoadWorkupIdentifiedSpecificitiesAsync(
+        IReadOnlyList<long> workupIds, CancellationToken ct)
+    {
+        if (_antibodyFindings is null || workupIds.Count == 0)
+        {
+            return [];
+        }
+
+        var findings = await _antibodyFindings.ListAsync(
+            f => workupIds.Contains(f.WorkupId)
+                 && f.Source == AntibodyIdSource.Technologist
+                 && f.Classification == AntibodyIdClassification.Identified, ct);
+        return findings
+            .Where(f => f.Rationale != "Superseded by a later technologist interpretation.")
+            .Select(f => f.Specificity)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
     }
 
     private async Task ApplyFreeTextAntibodyResultAsync(
@@ -1523,6 +2040,8 @@ public sealed class ResultService
             ResultStatus.Verified => ResultStatus.Verified,
             ResultStatus.Corrected => ResultStatus.Corrected,
             ResultStatus.Entered => ResultStatus.Entered,
+            ResultStatus.PendingVerification => ResultStatus.PendingVerification,
+            ResultStatus.Invalidated => ResultStatus.Pending,
             _ => ResultStatus.Pending
         };
         _orderLines.Update(line);
@@ -1547,7 +2066,7 @@ public sealed class ResultService
             .ToList();
         order.ResultStatus = lineStatuses.All(s => s == ResultStatus.Verified)
             ? ResultStatus.Verified
-            : lineStatuses.Any(s => s is ResultStatus.Entered or ResultStatus.Corrected or ResultStatus.Verified)
+            : lineStatuses.Any(s => s is ResultStatus.Entered or ResultStatus.Corrected or ResultStatus.PendingVerification or ResultStatus.Verified)
                 ? ResultStatus.Entered
                 : ResultStatus.Pending;
         _orders.Update(order);
@@ -1588,6 +2107,12 @@ public sealed class ResultService
     private async Task<OperationResult<TestResult>?> RejectUnauthorizedCorrectAsync(CancellationToken ct)
     {
         var auth = await AuthorizeAsync(PermissionCodes.ResultCorrect, ResultAuthorizationRule.EvaluateCorrect, ct);
+        return auth is null ? null : OperationResult<TestResult>.Fail(auth.Message);
+    }
+
+    private async Task<OperationResult<TestResult>?> RejectUnauthorizedInvalidateAsync(CancellationToken ct)
+    {
+        var auth = await AuthorizeAsync(PermissionCodes.ResultInvalidate, ResultAuthorizationRule.EvaluateInvalidate, ct);
         return auth is null ? null : OperationResult<TestResult>.Fail(auth.Message);
     }
 

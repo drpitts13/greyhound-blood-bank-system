@@ -1,4 +1,5 @@
 using BloodBankLIS.Api.Auth;
+using BloodBankLIS.Application.Audit;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -20,22 +21,28 @@ public static class AuditEndpoints
         group.MapGet("/", async (
             string? entityType,
             long? entityId,
+            string? eventType,
+            string? userName,
+            DateTime? fromUtc,
+            DateTime? toUtc,
             int skip,
             int take,
             BloodBankDbContext context,
             CancellationToken ct) =>
         {
-            var query = context.AuditEvents.AsNoTracking();
-
-            if (!string.IsNullOrWhiteSpace(entityType))
+            if (!AuditTrailQuery.TryParseEventType(eventType, out var parsedEventType))
             {
-                query = query.Where(a => a.EntityType == entityType);
+                return Results.BadRequest(new { error = $"Unknown audit event type '{eventType}'." });
             }
 
-            if (entityId is not null)
-            {
-                query = query.Where(a => a.EntityId == entityId);
-            }
+            var query = AuditTrailQuery.Apply(
+                context.AuditEvents.AsNoTracking(),
+                entityType,
+                entityId,
+                parsedEventType,
+                userName,
+                fromUtc,
+                toUtc);
 
             take = take <= 0 ? 200 : Math.Min(take, 1000);
             skip = Math.Max(0, skip);

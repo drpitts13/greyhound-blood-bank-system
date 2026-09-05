@@ -2,7 +2,7 @@
 
 Status: Implemented in Phase 5. The HL7 layer (`BloodBankLIS.HL7`) is an **original, in-house** HL7 v2.x parser/generator. It is fully isolated from business logic: it parses/serializes messages and maps fields, but all clinical actions go through the same Application use cases the API uses, so the safety checks in `safety-rules.md` always apply.
 
-Scope for the project: inbound **ADT** (demographics/encounter) and **ORM/OML** (orders); outbound **ORU** (results) and a standard outbound **DFT^P03** (billing). Queued outbound messages are transmitted over MLLP or a file-drop folder by `MllpSenderService` / `Hl7OutboundSender`. Inbound file-drop folders are polled by `Hl7FileDropService`.
+Scope for the project: inbound **ADT** (demographics/encounter), **ORM/OML** (orders), and **ORU** (unverified results); outbound **ORU** (verified results) and a standard outbound **DFT^P03** (billing). Queued outbound messages are transmitted over MLLP or a file-drop folder by `MllpSenderService` / `Hl7OutboundSender`. Inbound file-drop folders are polled by `Hl7FileDropService`.
 
 ---
 
@@ -54,6 +54,20 @@ Action: create or cancel the order through `OrderService` (same safety checks as
 
 ### 2.3 Outbound ORU (results)
 Builds `MSH + PID + OBR + OBX` from a verified `TestResult` using the enabled Results outbound endpoint's MSH identity and field map. Stored in `HL7Messages` with direction Outbound.
+
+### 2.3a Inbound ORU (unverified results)
+Default catalog (customizable per endpoint):
+| Data item | Default HL7 |
+|---|---|
+| `Patient.MedicalRecordNumber` | `PID-3-1` |
+| `Order.OrderNumber` | `ORC-2-1` |
+| `TestResult.ObrTestCode` | `OBR-4-1` |
+| `TestResult.Value` | `OBX-5` |
+| `TestResult.Units` | `OBX-6` |
+| `TestResult.Interpretation` | `OBX-8` |
+| `TestResult.ObxStatus` | `OBX-11` |
+
+Action: post through `ResultService.EnterFromInterfaceAsync`. Source is `Interface`; initial status is `PendingVerification` (OCD-018). Verified rows are never overwritten (sender must use the correction workflow). Specimen must be an accepted specimen already linked to the order. OBX-11 empty/`F`/`C`/`P`/`R` may post; other statuses NAK (`RES-IFACE-OBX-STATUS`, OCD-019). Audit event type is `Interface`. The interface path does not require `result.enter`.
 
 ### 2.4 Outbound DFT (billing)
 Triggered when charge capture creates a `BillingEvent`. Builds `MSH + EVN + PID + FT1` DFT^P03. Default `FT1-6` is `CG`, `FT1-7` is the billing code, `FT1-4` is the service date. Transaction amount is omitted — catalog price is internal only.

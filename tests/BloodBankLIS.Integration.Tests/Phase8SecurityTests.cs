@@ -1,6 +1,11 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Domain.Entities.Identity;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Infrastructure.Audit;
+using BloodBankLIS.Infrastructure.Common;
+using BloodBankLIS.Infrastructure.Identity;
 using BloodBankLIS.Infrastructure.Persistence;
 using BloodBankLIS.Security.Authorization;
 using BloodBankLIS.Security.Signatures;
@@ -194,5 +199,38 @@ public class Phase8SecurityTests : IDisposable
         Assert.True(await signatures.IsValidForCurrentUserAsync(signatureId));
         Assert.False(await signatures.IsValidForCurrentUserAsync(signatureId, "SomethingElse"));
         Assert.False(await signatures.IsValidForCurrentUserAsync(999999, "IssueOverride"));
+    }
+
+    [Fact]
+    public async Task AssignRoles_WritesUserRoleAudit()
+    {
+        await using var c = _factory.Create();
+        await DatabaseSeeder.SeedAsync(c);
+
+        var env = new StaticEnvironmentInfo("Development", isDevMode: false);
+        var users = new UserAdminService(
+            new EfRepository<User>(c),
+            new EfRepository<Role>(c),
+            new EfRepository<Permission>(c),
+            new EfRepository<UserRole>(c),
+            new EfRepository<RolePermission>(c),
+            new IdentityAdminStore(c),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser, env),
+            new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env));
+
+        var tech = await c.Users.SingleAsync(u => u.UserName == "tech1");
+        var assigned = await users.AssignRolesAsync(
+            tech.Id,
+            new AssignRolesRequest(["Supervisor"], "Coverage on the evening bench."));
+        Assert.True(assigned.Succeeded, assigned.Error);
+
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EventType == AuditEventType.UserRole
+            && a.EntityType == nameof(User)
+            && a.EntityId == tech.Id
+            && a.Reason == "Coverage on the evening bench."));
     }
 }

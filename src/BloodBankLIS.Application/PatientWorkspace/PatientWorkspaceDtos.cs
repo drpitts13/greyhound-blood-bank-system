@@ -169,4 +169,8 @@ public sealed record PatientTestHistoryRowDto(
     long? OrderId,
     string? OrderNumber,
     int Version,
-    string? VerifiedBy);
+    string? VerifiedBy,
+    ResultStatus Status,
+    ResultSource Source,
+    bool IsCurrent,
+    string? Reason);

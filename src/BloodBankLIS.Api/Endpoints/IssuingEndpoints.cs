@@ -67,6 +67,10 @@ public static class IssuingEndpoints
             Results.Ok(await service.ListInTransitAsync(ct)))
             .RequirePermission(PermissionCodes.IssueCreate);
 
+        issues.MapGet("/pending-second-abo", async (IssuingService service, CancellationToken ct) =>
+            Results.Ok(await service.ListPendingSecondAboAsync(ct)))
+            .RequirePermission(PermissionCodes.IssueCreate);
+
         issues.MapGet("/{id:long}", async (long id, IssuingService service, CancellationToken ct) =>
         {
             var issue = await service.GetAsync(id, ct);
@@ -81,9 +85,21 @@ public static class IssuingEndpoints
             EndpointResults.FromEvaluation(await service.ReturnUnitAsync(id, request, ct), r => ReturnDto.From(r)))
             .RequirePermission(PermissionCodes.IssueReturn);
 
-        issues.MapPost("/{id:long}/transfusion", async (long id, DocumentTransfusionRequest request, IssuingService service, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await service.DocumentTransfusionAsync(id, request, ct), t => TransfusionEventDto.From(t)))
-            .RequirePermission(PermissionCodes.TransfusionDocument);
+        issues.MapPost("/{id:long}/transfusion", async (
+            long id,
+            DocumentTransfusionRequest request,
+            IssuingService service,
+            BillingService billing,
+            CancellationToken ct) =>
+        {
+            var result = await service.DocumentTransfusionAsync(id, request, ct);
+            if (result.Succeeded)
+            {
+                await billing.CaptureForTransfusionAsync(id, result.Value!.FinalDisposition, ct);
+            }
+
+            return EndpointResults.FromEvaluation(result, t => TransfusionEventDto.From(t));
+        }).RequirePermission(PermissionCodes.TransfusionDocument);
     }
 
     private static bool IsOverrideAttempt(IssueUnitRequest request) =>

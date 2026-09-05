@@ -58,6 +58,8 @@ public sealed record AuditEventVm(
     string UserName,
     string? Workstation,
     DateTime OccurredUtc,
+    string? OldValueJson,
+    string? NewValueJson,
     string? Reason,
     long? SignatureId);
 

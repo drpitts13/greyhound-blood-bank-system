@@ -35,6 +35,16 @@ public sealed record Hl7OrderData(
     string? OrderingProviderName,
     string? OrderingLocationCode);
 
+/// <summary>Result details extracted from an inbound ORU message (PID/ORC/OBR/OBX).</summary>
+public sealed record Hl7ResultData(
+    string Mrn,
+    string? PlacerOrderId,
+    string TestCode,
+    string Value,
+    string? Units,
+    string? Interpretation,
+    string? ObxStatus);
+
 /// <summary>Blood-product administration details extracted from an inbound RAS/BPS message.</summary>
 public sealed record Hl7BpamData(
     string Mrn,
@@ -164,6 +174,50 @@ public static class Hl7OrmMapper
 
     private static string FirstNonEmpty(params string[] values) =>
         values.FirstOrDefault(v => !string.IsNullOrEmpty(v)) ?? string.Empty;
+
+    private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
+}
+
+/// <summary>Pure mapping of inbound ORU observation fields (docs/hl7-design.md 2.3a).</summary>
+public static class Hl7OruMapper
+{
+    public static Hl7ResultData Map(Hl7Message message, Hl7FieldMap? map = null)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        map ??= Hl7FieldMap.Default(InterfaceType.Results, Hl7Direction.Inbound);
+
+        var testCode = FirstCoded(
+            map.Get(message, InterfaceDataItemKeys.ResultObrTestCode),
+            map.Get(message, InterfaceDataItemKeys.ResultObxIdentifier));
+
+        return new Hl7ResultData(
+            Mrn: map.Get(message, InterfaceDataItemKeys.PatientMrn),
+            PlacerOrderId: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderNumber)),
+            TestCode: testCode,
+            Value: FirstCoded(map.Get(message, InterfaceDataItemKeys.ResultValue)),
+            Units: NullIfEmpty(FirstCoded(map.Get(message, InterfaceDataItemKeys.ResultUnits))),
+            Interpretation: NullIfEmpty(FirstCoded(map.Get(message, InterfaceDataItemKeys.ResultInterpretation))),
+            ObxStatus: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.ResultObxStatus)));
+    }
+
+    private static string FirstCoded(params string[] values)
+    {
+        foreach (var value in values)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            var code = value.Split('^', 2)[0].Trim();
+            if (code.Length > 0)
+            {
+                return code;
+            }
+        }
+
+        return string.Empty;
+    }
 
     private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
 }

@@ -71,7 +71,7 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
         await _repo.AddAsync(entity, ct);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Create,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.TestChange,
             oldValue: null, newValue: SpecimenTypeDefinitionDtoMapping.From(entity), reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 
@@ -116,7 +116,7 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
         }
 
         _repo.Update(entity);
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Update,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.TestChange,
             oldValue: before, newValue: SpecimenTypeDefinitionDtoMapping.From(entity), reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 

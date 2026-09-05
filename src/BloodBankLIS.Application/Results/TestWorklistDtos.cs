@@ -27,5 +27,6 @@ public sealed record TestWorkItemDto(
     ResultStatus? CurrentResultStatus,
     string? CurrentResultValue,
     string? CurrentResultInterpretation,
+    ResultSource? CurrentResultSource,
     bool CanEnterResults,
     string? BlockReason);

@@ -200,6 +200,9 @@ public sealed class TestResultConfiguration : IEntityTypeConfiguration<TestResul
         b.Property(r => r.EnteredBy).HasMaxLength(100);
         b.Property(r => r.VerifiedBy).HasMaxLength(100);
         b.Property(r => r.CorrectionReason).HasMaxLength(500);
+        b.Property(r => r.SourceReference).HasMaxLength(200);
+        b.Property(r => r.InvalidatedBy).HasMaxLength(100);
+        b.Property(r => r.InvalidationReason).HasMaxLength(500);
         b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(r => r.ModifiedBy).HasMaxLength(100);
 

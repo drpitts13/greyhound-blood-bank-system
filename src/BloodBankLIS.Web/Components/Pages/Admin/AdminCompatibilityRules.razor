@@ -1,0 +1,422 @@
+@page "/admin/compatibility-rules"
+@using BloodBankLIS.Application.Admin
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Compatibility Tables &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Compatibility Tables</h1>
+    @if (CanEdit)
+    {
+        <button class="btn btn-primary" @onclick="NewVersion">New version</button>
+    }
+</div>
+<p class="muted">SafeTrace / SoftBank compatibility dictionaries: versioned ABO, Rh, antigen, and electronic XM rules by component class. Activate one table at a time. Issue still enforces domain rules; these rows are the audited facility catalog (AABB 5.14 / 5.16, 21 CFR 11.10).</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadVersionsAsync" /> Include retired</label>
+    </div>
+    @if (_loadingVersions)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_versions.Count == 0)
+    {
+        <div class="empty">No compatibility table versions.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Version</th><th>Policy</th><th>Effective</th><th>Rules</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var v in _versions)
+                {
+                    <tr class="@(_selectedVersionId == v.Id ? "selected" : null)">
+                        <td class="mono">@v.Version</td>
+                        <td class="mono">@v.PolicyVersion</td>
+                        <td>@v.EffectiveDate.ToString("yyyy-MM-dd")</td>
+                        <td>@v.RuleCount</td>
+                        <td>@(v.IsActive ? "Active" : v.RetiredDate is { } retired ? $"Retired {retired:yyyy-MM-dd}" : "Draft")</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => SelectVersionAsync(v.Id)">Rules</button>
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => EditVersion(v)">Edit</button>
+                            }
+                            @if (CanActivate && !v.IsActive)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => PromptActivate(v.Id)">Activate</button>
+                            }
+                            @if (CanActivate && v.IsActive)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => PromptRetire(v.Id)">Retire</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_versionDraft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editVersionId is null ? "New compatibility table version" : $"Edit: {_versionDraft.Version}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Version</label><input class="mono" @bind="_versionDraft.Version" /></div>
+            <div class="field"><label>Policy version</label><input class="mono" @bind="_versionDraft.PolicyVersion" /></div>
+            <div class="field"><label>Effective date</label><input type="date" @bind="_versionDraft.EffectiveDate" /></div>
+        </div>
+        <div class="field"><label>Review notes</label><input @bind="_versionDraft.Notes" /></div>
+        @if (_editVersionId is not null)
+        {
+            <div class="field"><label>Reason</label><input @bind="_versionDraft.Reason" placeholder="Why this table is changing" /></div>
+        }
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveVersionAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="() => _versionDraft = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_activateId is not null || _retireId is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_activateId is not null ? "Activate compatibility table" : "Retire compatibility table")</h2>
+        <p class="muted">Activating retires the current active table. Reason is required (AABB 5.1.5 / 21 CFR 11.10).</p>
+        <div class="field"><label>Reason</label><input @bind="_actionReason" placeholder="Medical director approval / policy change" /></div>
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="ConfirmVersionActionAsync">Confirm</button>
+            <button class="btn btn-ghost" @onclick="CancelVersionAction">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_selectedVersionId is long selectedId)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="flex-between">
+            <h2>Rules</h2>
+            @if (CanEdit)
+            {
+                <button class="btn btn-primary btn-sm" @onclick="NewRule">Add rule</button>
+            }
+        </div>
+        @if (_loadingRules)
+        {
+            <div class="loading">Loading...</div>
+        }
+        else if (_rules.Count == 0)
+        {
+            <div class="empty">No rules on this version.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Code</th><th>Component</th><th>Severity</th><th>Description</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var r in _rules)
+                    {
+                        <tr>
+                            <td class="mono">@r.RuleCode</td>
+                            <td>@r.ComponentClass</td>
+                            <td>@r.Severity</td>
+                            <td>@r.Description</td>
+                            <td>@(r.IsActive ? "Active" : "Inactive")</td>
+                            <td class="right nowrap">
+                                @if (CanEdit)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => EditRule(r)">Edit</button>
+                                    @if (r.IsActive && CanActivate)
+                                    {
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => SetRuleActiveAsync(r.Id, false)">Deactivate</button>
+                                    }
+                                    else if (!r.IsActive && CanActivate)
+                                    {
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => SetRuleActiveAsync(r.Id, true)">Activate</button>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@if (_ruleDraft is not null && CanEdit && _selectedVersionId is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editRuleId is null ? "New rule" : $"Edit: {_ruleDraft.RuleCode}")</h2>
+        <div class="form-row">
+            <div class="field">
+                <label>Rule code</label>
+                <input class="mono" list="compat-catalog" @bind="_ruleDraft.RuleCode" @bind:after="ApplyCatalogHint" disabled="@(_editRuleId is not null)" />
+                <datalist id="compat-catalog">
+                    @foreach (var c in _catalog)
+                    {
+                        <option value="@c.RuleCode">@c.Description</option>
+                    }
+                </datalist>
+            </div>
+            <div class="field">
+                <label>Component</label>
+                <select @bind="_ruleDraft.ComponentClass">
+                    @foreach (var c in Enum.GetValues<ComponentClass>())
+                    {
+                        <option value="@c">@c</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Severity</label>
+                <select @bind="_ruleDraft.Severity">
+                    <option value="HardStop">HardStop</option>
+                    <option value="Warning">Warning</option>
+                    <option value="Pass">Pass</option>
+                </select>
+            </div>
+        </div>
+        <div class="field"><label>Family</label><input @bind="_ruleDraft.RuleFamily" /></div>
+        <div class="field"><label>Description</label><input @bind="_ruleDraft.Description" /></div>
+        <div class="field"><label>Expression JSON</label><input class="mono" @bind="_ruleDraft.ExpressionJson" /></div>
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveRuleAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="() => _ruleDraft = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loadingVersions = true;
+    private bool _loadingRules;
+    private bool _busy;
+    private bool _includeInactive = true;
+    private List<CompatibilityRuleVersionDto> _versions = new();
+    private List<CompatibilityRuleDto> _rules = new();
+    private List<CompatibilityRuleDefinition> _catalog = new();
+    private Feedback? _feedback;
+    private long? _selectedVersionId;
+    private long? _editVersionId;
+    private long? _editRuleId;
+    private long? _activateId;
+    private long? _retireId;
+    private string _actionReason = string.Empty;
+    private VersionDraft? _versionDraft;
+    private RuleDraft? _ruleDraft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var catalog = await Api.GetAdminCompatibilityCatalogAsync();
+        _catalog = catalog.Value ?? new();
+        await LoadVersionsAsync();
+    }
+
+    private async Task LoadVersionsAsync()
+    {
+        _loadingVersions = true;
+        var r = await Api.GetAdminCompatibilityVersionsAsync(_includeInactive);
+        _versions = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loadingVersions = false;
+        if (_selectedVersionId is long id && _versions.All(v => v.Id != id))
+        {
+            _selectedVersionId = null;
+            _rules.Clear();
+        }
+        else if (_selectedVersionId is long selected)
+        {
+            await LoadRulesAsync(selected);
+        }
+        else if (_versions.FirstOrDefault(v => v.IsActive) is { } active)
+        {
+            await SelectVersionAsync(active.Id);
+        }
+    }
+
+    private async Task SelectVersionAsync(long id)
+    {
+        _selectedVersionId = id;
+        _ruleDraft = null;
+        await LoadRulesAsync(id);
+    }
+
+    private async Task LoadRulesAsync(long versionId)
+    {
+        _loadingRules = true;
+        var r = await Api.GetAdminCompatibilityRulesAsync(versionId);
+        _rules = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loadingRules = false;
+    }
+
+    private void NewVersion()
+    {
+        _editVersionId = null;
+        _versionDraft = new VersionDraft { EffectiveDate = DateOnly.FromDateTime(DateTime.UtcNow) };
+        _feedback = null;
+    }
+
+    private void EditVersion(CompatibilityRuleVersionDto v)
+    {
+        _editVersionId = v.Id;
+        _versionDraft = VersionDraft.From(v);
+        _feedback = null;
+    }
+
+    private async Task SaveVersionAsync()
+    {
+        if (_versionDraft is null) return;
+        _busy = true;
+        var req = new SaveCompatibilityRuleVersionRequest(
+            _versionDraft.Version, _versionDraft.PolicyVersion, _versionDraft.EffectiveDate, _versionDraft.Notes, _versionDraft.Reason);
+        var r = _editVersionId is null
+            ? await Api.CreateAdminCompatibilityVersionAsync(req)
+            : await Api.UpdateAdminCompatibilityVersionAsync(_editVersionId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editVersionId is null ? "Version created." : "Version saved.");
+        if (r.Succeeded)
+        {
+            _versionDraft = null;
+            await LoadVersionsAsync();
+        }
+    }
+
+    private void PromptActivate(long id)
+    {
+        _activateId = id;
+        _retireId = null;
+        _actionReason = string.Empty;
+    }
+
+    private void PromptRetire(long id)
+    {
+        _retireId = id;
+        _activateId = null;
+        _actionReason = string.Empty;
+    }
+
+    private void CancelVersionAction()
+    {
+        _activateId = null;
+        _retireId = null;
+        _actionReason = string.Empty;
+    }
+
+    private async Task ConfirmVersionActionAsync()
+    {
+        _busy = true;
+        var r = _activateId is long activateId
+            ? await Api.ActivateAdminCompatibilityVersionAsync(activateId, _actionReason)
+            : await Api.RetireAdminCompatibilityVersionAsync(_retireId!.Value, _actionReason);
+        _busy = false;
+        _feedback = r.ToFeedback(_activateId is not null ? "Version activated." : "Version retired.");
+        if (r.Succeeded)
+        {
+            CancelVersionAction();
+            await LoadVersionsAsync();
+        }
+    }
+
+    private void NewRule()
+    {
+        _editRuleId = null;
+        _ruleDraft = new RuleDraft();
+        _feedback = null;
+    }
+
+    private void EditRule(CompatibilityRuleDto r)
+    {
+        _editRuleId = r.Id;
+        _ruleDraft = RuleDraft.From(r);
+        _feedback = null;
+    }
+
+    private void ApplyCatalogHint()
+    {
+        if (_ruleDraft is null) return;
+        var match = _catalog.FirstOrDefault(c => string.Equals(c.RuleCode, _ruleDraft.RuleCode, StringComparison.OrdinalIgnoreCase));
+        if (match is null) return;
+        _ruleDraft.ComponentClass = match.ComponentClass;
+        _ruleDraft.RuleFamily = match.RuleFamily;
+        _ruleDraft.Severity = match.Severity;
+        if (string.IsNullOrWhiteSpace(_ruleDraft.Description))
+        {
+            _ruleDraft.Description = match.Description;
+        }
+    }
+
+    private async Task SaveRuleAsync()
+    {
+        if (_ruleDraft is null || _selectedVersionId is not long versionId) return;
+        _busy = true;
+        var req = new SaveCompatibilityRuleRequest(
+            _ruleDraft.RuleCode, _ruleDraft.ComponentClass, _ruleDraft.RuleFamily,
+            _ruleDraft.ExpressionJson, _ruleDraft.Severity, _ruleDraft.Description);
+        var r = _editRuleId is null
+            ? await Api.CreateAdminCompatibilityRuleAsync(versionId, req)
+            : await Api.UpdateAdminCompatibilityRuleAsync(_editRuleId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editRuleId is null ? "Rule created." : "Rule saved.");
+        if (r.Succeeded)
+        {
+            _ruleDraft = null;
+            await LoadVersionsAsync();
+        }
+    }
+
+    private async Task SetRuleActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminCompatibilityRuleActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.ToFeedback(active ? "Rule activated." : "Rule deactivated.");
+        if (r.Succeeded) await LoadVersionsAsync();
+    }
+
+    private sealed class VersionDraft
+    {
+        public string Version { get; set; } = string.Empty;
+        public string PolicyVersion { get; set; } = string.Empty;
+        public DateOnly EffectiveDate { get; set; }
+        public string Notes { get; set; } = "INSTITUTIONAL_POLICY_REVIEW required.";
+        public string? Reason { get; set; }
+
+        public static VersionDraft From(CompatibilityRuleVersionDto v) => new()
+        {
+            Version = v.Version,
+            PolicyVersion = v.PolicyVersion,
+            EffectiveDate = v.EffectiveDate,
+            Notes = v.Notes
+        };
+    }
+
+    private sealed class RuleDraft
+    {
+        public string RuleCode { get; set; } = string.Empty;
+        public ComponentClass ComponentClass { get; set; } = ComponentClass.RedBloodCells;
+        public string RuleFamily { get; set; } = "ABO";
+        public string ExpressionJson { get; set; } = "{}";
+        public string Severity { get; set; } = "HardStop";
+        public string Description { get; set; } = string.Empty;
+
+        public static RuleDraft From(CompatibilityRuleDto r) => new()
+        {
+            RuleCode = r.RuleCode,
+            ComponentClass = r.ComponentClass,
+            RuleFamily = r.RuleFamily,
+            ExpressionJson = r.ExpressionJson,
+            Severity = r.Severity,
+            Description = r.Description
+        };
+    }
+}

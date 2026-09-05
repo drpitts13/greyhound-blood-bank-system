@@ -39,11 +39,16 @@ public class IssuingReturnAuthorizationTests : IClassFixture<SqliteContextFactor
             productAttributeAssignments: new EfRepository<ProductAttributeAssignment>(context),
             orders: new EfRepository<Order>(context),
             users: new EfRepository<User>(context),
+            locations: new EfRepository<InventoryLocation>(context),
             bloodAttributeCompat: new BloodAttributeCompatLoader(
                 new EfRepository<AntibodyHistory>(context),
                 new EfRepository<AntigenProfile>(context),
                 new EfRepository<UnitBloodAttribute>(context),
                 new EfRepository<BloodAttributeDefinition>(context)),
+            antibodyScreenCompat: new AntibodyScreenCompatLoader(
+                new EfRepository<TestResult>(context),
+                new EfRepository<TestDefinition>(context),
+                new EfRepository<AntibodyHistory>(context)),
             policy: new FacilityPolicyService(new EfRepository<SystemSetting>(context)),
             reactions: new ReactionInvestigationService(
                 new EfRepository<ReactionInvestigation>(context),

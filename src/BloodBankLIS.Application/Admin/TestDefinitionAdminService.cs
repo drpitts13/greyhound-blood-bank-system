@@ -170,7 +170,7 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
 
 
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Create,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.TestChange,
 
             oldValue: null, newValue: Map(entity), reason: req.ChangeReason);
 
@@ -258,7 +258,7 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
         _repo.Update(entity);
 
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Update,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.TestChange,
 
             oldValue: before, newValue: Map(entity), reason: req.ChangeReason);
 
@@ -482,7 +482,7 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
 
 
-        RecordChange(EntityType, clone.Id, clone.Version, ConfigChangeAction.Clone, AuditEventType.Clone,
+        RecordChange(EntityType, clone.Id, clone.Version, ConfigChangeAction.Clone, AuditEventType.TestChange,
 
             oldValue: new { SourceId = source.Id, source.Code }, newValue: Map(clone), reason: $"Cloned from {source.Code}");
 
@@ -704,7 +704,7 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
             .ToList();
 
-    private async Task<EvaluationResult<TestDefinitionDto>?> RejectUnauthorizedEvalAsync(
+private async Task<EvaluationResult<TestDefinitionDto>?> RejectUnauthorizedEvalAsync(
         Func<bool, RuleResult> evaluate,
         CancellationToken ct)
     {

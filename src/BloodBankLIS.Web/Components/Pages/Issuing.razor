@@ -5,10 +5,43 @@
 <PageTitle>Issue &amp; Transfuse &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Issue &amp; Transfuse</h1>
-<p class="muted">The issue gate runs all safety checks. Overrides require a reason and an electronic signature.</p>
+<p class="muted">The issue gate runs all safety checks, including storage-location policy and electronic / remote issue eligibility (AABB 5.16). Overrides require a reason and an electronic signature.</p>
 
 @if (Session.Has(PermissionCodes.IssueCreate))
 {
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Second ABO/Rh due</h3></div>
+        <p class="muted">Patients with reserved units who still need a concordant historical or second-sample type before routine red-cell issue (AABB 5.14 / CAP TRM.40650).</p>
+        @if (_secondAboItems.Count == 0)
+        {
+            <div class="muted">No reserved units waiting on a second ABO/Rh.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>MRN</th>
+                        <th>Current type</th>
+                        <th>Reserved</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _secondAboItems)
+                    {
+                        <tr>
+                            <td><a href="@($"/patients/{row.PatientId}")">@row.DisplayName</a></td>
+                            <td class="mono">@row.MedicalRecordNumber</td>
+                            <td class="mono">@row.CurrentAboRh</td>
+                            <td>@row.ReservedUnitCount</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
     <div class="bb-card">
         <div class="bb-card-title"><h3>Retrospective crossmatch due</h3></div>
         <p class="muted">Emergency and MTP issues released without a compatible crossmatch stay here until retrospective testing is recorded (21 CFR 606.151(b)).</p>
@@ -314,6 +347,7 @@
     private List<DirectoryUserDto> _directoryUsers = new();
     private List<RetrospectiveCrossmatchWorkItemDto> _retroItems = new();
     private List<InTransitWorkItemDto> _inTransitItems = new();
+    private List<SecondAboWorkItemDto> _secondAboItems = new();
 
     private IEnumerable<DirectoryUserDto> SecondVerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
@@ -332,6 +366,8 @@
         if (retro.Succeeded) _retroItems = retro.Value ?? new();
         var transit = await Api.GetInTransitIssuesAsync();
         if (transit.Succeeded) _inTransitItems = transit.Value ?? new();
+        var secondAbo = await Api.GetPendingSecondAboAsync();
+        if (secondAbo.Succeeded) _secondAboItems = secondAbo.Value ?? new();
     }
 
     private IssueUnitRequest BuildRequest(string? overrideReason, string? authorizedBy) => new(

@@ -548,14 +548,23 @@ public static partial class DatabaseSeeder
             VerifiedResult(visit, order.Id, "ABSC", "Negative", now.AddHours(-4)),
             VerifiedResult(visit, order.Id, "WEAKD", "Negative", now.AddHours(-3)));
 
-        context.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
-        {
-            PatientId = visit.Patient.Id,
-            Abo = AboGroup.A,
-            RhD = RhType.Negative,
-            Source = BloodTypeSource.TestResult,
-            IsCurrent = true
-        });
+        context.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory
+            {
+                PatientId = visit.Patient.Id,
+                Abo = AboGroup.A,
+                RhD = RhType.Negative,
+                Source = BloodTypeSource.HistoricalImport,
+                IsCurrent = false
+            },
+            new PatientBloodTypeHistory
+            {
+                PatientId = visit.Patient.Id,
+                Abo = AboGroup.A,
+                RhD = RhType.Negative,
+                Source = BloodTypeSource.TestResult,
+                IsCurrent = true
+            });
 
         await context.SaveChangesAsync(ct);
     }
@@ -650,14 +659,23 @@ public static partial class DatabaseSeeder
             VerifiedResult(visit, screenOrder.Id, "ABSC", "Positive", now.AddHours(-5)),
             VerifiedResult(visit, idOrder.Id, "ABID", "anti-K", now.AddHours(-4)));
 
-        context.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
-        {
-            PatientId = visit.Patient.Id,
-            Abo = AboGroup.O,
-            RhD = RhType.Positive,
-            Source = BloodTypeSource.TestResult,
-            IsCurrent = true
-        });
+        context.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory
+            {
+                PatientId = visit.Patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Source = BloodTypeSource.HistoricalImport,
+                IsCurrent = false
+            },
+            new PatientBloodTypeHistory
+            {
+                PatientId = visit.Patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Source = BloodTypeSource.TestResult,
+                IsCurrent = true
+            });
 
         context.AntibodyHistory.Add(new AntibodyHistory
         {

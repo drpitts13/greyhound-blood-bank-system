@@ -43,7 +43,12 @@ public static class Hl7DftBuilder
             .Set(map.Path(InterfaceDataItemKeys.BillingServiceDate), translator.ToExternal(InterfaceDataItemKeys.BillingServiceDate, billingEvent.ServiceDateUtc.ToString(Hl7MessageBuilder.Hl7TimestampFormat)))
             .Set(map.Path(InterfaceDataItemKeys.BillingTransactionType), translator.ToExternal(InterfaceDataItemKeys.BillingTransactionType, "CG"))
             .Set(map.Path(InterfaceDataItemKeys.BillingCode), translator.ToExternal(InterfaceDataItemKeys.BillingCode, billingEvent.BillingCode))
-            .Set(map.Path(InterfaceDataItemKeys.BillingQuantity), translator.ToExternal(InterfaceDataItemKeys.BillingQuantity, "1"));
+            .Set(map.Path(InterfaceDataItemKeys.BillingDescription), translator.ToExternal(InterfaceDataItemKeys.BillingDescription, billingEvent.Description))
+            .Set(map.Path(InterfaceDataItemKeys.BillingQuantity), translator.ToExternal(InterfaceDataItemKeys.BillingQuantity, "1"))
+            .Set(map.Path(InterfaceDataItemKeys.BillingRevenueCode), translator.ToExternal(InterfaceDataItemKeys.BillingRevenueCode, billingEvent.RevenueCode))
+            .Set(map.Path(InterfaceDataItemKeys.BillingPerformingLocation), translator.ToExternal(InterfaceDataItemKeys.BillingPerformingLocation, billingEvent.PerformingLocationCode))
+            .Set(map.Path(InterfaceDataItemKeys.BillingProcedureCode), translator.ToExternal(InterfaceDataItemKeys.BillingProcedureCode, billingEvent.ProcedureCode))
+            .Set(map.Path(InterfaceDataItemKeys.BillingModifier), translator.ToExternal(InterfaceDataItemKeys.BillingModifier, billingEvent.Modifier));
 
         return builder.Build();
     }

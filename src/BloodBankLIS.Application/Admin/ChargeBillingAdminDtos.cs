@@ -7,7 +7,9 @@ public sealed record SaveChargeCodeRequest(
     string Code,
     string Description,
     decimal DefaultAmount,
-    string? CptCode);
+    string? CptCode,
+    string? RevenueCode = null,
+    string? Modifier = null);
 
 public sealed record ChargeRuleDto(
     long Id,

@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -59,8 +60,24 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             new EfRepository<InterfaceEndpoint>(c),
             new InterfaceFieldMappingRepository(c),
             translations: new InterfaceValueTranslationRepository(c),
-            merges: withMerge ? Merge(c) : null);
+            merges: withMerge ? Merge(c) : null,
+            results: Results(c),
+            orderSpecimens: new EfRepository<OrderSpecimen>(c),
+            specimens: new EfRepository<Specimen>(c));
     }
+
+    private ResultService Results(BloodBankDbContext c) =>
+        new(
+            new EfRepository<TestResult>(c),
+            new EfRepository<Specimen>(c),
+            new EfRepository<PatientBloodTypeHistory>(c),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            orders: new EfRepository<Order>(c),
+            orderLines: new EfRepository<OrderLine>(c),
+            patients: new EfRepository<Patient>(c));
 
     private PatientMergeService Merge(BloodBankDbContext c) =>
         new(
@@ -120,6 +137,93 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         $"PID|1||{mrn}^^^HOSP^MR||Doe^John\r" +
         $"ORC|{orderControl}|{placerId}\r" +
         $"OBR|1|{placerId}||{serviceId}^Service";
+
+    private static string Oru(
+        string controlId,
+        string mrn,
+        string placerId,
+        string testCode,
+        string value,
+        string obxStatus = "F") =>
+        $"MSH|^~\\&|ANALYZER|LAB|BBLIS|BB|20260530120000||ORU^R01|{controlId}|P|2.5\r" +
+        $"PID|1||{mrn}^^^HOSP^MR||Doe^John\r" +
+        $"ORC|RE|{placerId}\r" +
+        $"OBR|1|{placerId}||{testCode}^{testCode}\r" +
+        $"OBX|1|ST|{testCode}^{testCode}||{value}|||N|||{obxStatus}";
+
+    private async Task SeedLinkedOrderAsync(
+        BloodBankDbContext context,
+        string mrn,
+        string accession,
+        string placerId,
+        string testCode)
+    {
+        var patient = new Patient
+        {
+            MedicalRecordNumber = mrn,
+            LastName = "Oru",
+            FirstName = "In",
+            DateOfBirth = new DateOnly(1990, 1, 1),
+            Sex = Sex.Unknown
+        };
+        context.Patients.Add(patient);
+        await context.SaveChangesAsync();
+
+        var location = new OrderingLocation { Code = $"BB-{placerId}", Name = "Blood Bank", IsActive = true };
+        context.OrderingLocations.Add(location);
+        await context.SaveChangesAsync();
+
+        var encounter = new Encounter
+        {
+            PatientId = patient.Id,
+            VisitNumber = $"VIS-{placerId}",
+            Status = EncounterStatus.Active
+        };
+        context.Encounters.Add(encounter);
+        await context.SaveChangesAsync();
+
+        var specimen = new Specimen
+        {
+            AccessionNumber = accession,
+            PatientId = patient.Id,
+            EncounterId = encounter.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-1),
+            Status = SpecimenStatus.Accepted
+        };
+        context.Specimens.Add(specimen);
+        await context.SaveChangesAsync();
+
+        var order = new Order
+        {
+            OrderNumber = placerId,
+            PatientId = patient.Id,
+            EncounterId = encounter.Id,
+            OrderingLocationId = location.Id,
+            TestCode = testCode,
+            Status = OrderStatus.InProcess,
+            OrderedUtc = _factory.Clock.UtcNow
+        };
+        context.Orders.Add(order);
+        await context.SaveChangesAsync();
+
+        context.OrderLines.Add(new OrderLine
+        {
+            OrderId = order.Id,
+            LineNumber = 1,
+            LineName = testCode,
+            TestCode = testCode,
+            ResultStatus = ResultStatus.Pending,
+            IsActive = true
+        });
+        context.OrderSpecimens.Add(new OrderSpecimen
+        {
+            OrderId = order.Id,
+            SpecimenId = specimen.Id,
+            IsPrimary = true
+        });
+        await context.SaveChangesAsync();
+    }
 
     [Fact]
     public async Task InboundAdt_CreatesPatient_AndAcksAccept()
@@ -768,5 +872,94 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         await using var verify = _factory.Create();
         var stored = await verify.Hl7Messages.FindAsync(messageId);
         Assert.Equal(Hl7MessageStatus.Acked, stored!.Status);
+    }
+
+    [Fact]
+    public async Task InboundOru_PostsPendingVerification_AndWritesInterfaceAudit()
+    {
+        await using var context = _factory.Create();
+        await SeedLinkedOrderAsync(context, "HL7-ORU-1", "ACC-HL7-ORU-1", "PLACER-ORU-1", "HGB");
+
+        var result = await Processor(context).ProcessAsync(Oru("CTRL-ORU-1", "HL7-ORU-1", "PLACER-ORU-1", "HGB", "13.4"));
+        Assert.True(result.Accepted, result.Log.ErrorDetail);
+        Assert.Contains("PendingVerification", result.AckMessage);
+
+        var posted = await context.TestResults.SingleAsync(r => r.SourceReference == "CTRL-ORU-1");
+        Assert.Equal(ResultStatus.PendingVerification, posted.Status);
+        Assert.Equal(ResultSource.Interface, posted.Source);
+        Assert.Equal("13.4", posted.Value);
+        Assert.Equal("HGB", posted.TestCode);
+        Assert.NotEqual(ResultStatus.Verified, posted.Status);
+
+        var audit = await context.AuditEvents.SingleAsync(
+            a => a.EventType == AuditEventType.Interface && a.EntityId == posted.Id);
+        Assert.Equal("Inbound interface result posted; pending verification.", audit.Reason);
+        Assert.Contains("13.4", audit.NewValueJson);
+    }
+
+    [Fact]
+    public async Task InboundOru_DoesNotOverwriteVerifiedResult()
+    {
+        await using var context = _factory.Create();
+        await SeedLinkedOrderAsync(context, "HL7-ORU-V", "ACC-HL7-ORU-V", "PLACER-ORU-V", "HGB");
+        var order = await context.Orders.SingleAsync(o => o.OrderNumber == "PLACER-ORU-V");
+        var specimen = await context.Specimens.SingleAsync(s => s.AccessionNumber == "ACC-HL7-ORU-V");
+        context.TestResults.Add(new TestResult
+        {
+            PatientId = order.PatientId,
+            SpecimenId = specimen.Id,
+            OrderId = order.Id,
+            TestCode = "HGB",
+            Value = "10.0",
+            Status = ResultStatus.Verified,
+            Source = ResultSource.Manual,
+            Version = 1
+        });
+        await context.SaveChangesAsync();
+
+        var result = await Processor(context).ProcessAsync(Oru("CTRL-ORU-V", "HL7-ORU-V", "PLACER-ORU-V", "HGB", "14.0"));
+        Assert.False(result.Accepted);
+        Assert.Equal(AckCode.ApplicationError, result.AckCode);
+        Assert.Contains("verified", result.Log.ErrorDetail, StringComparison.OrdinalIgnoreCase);
+
+        var current = await context.TestResults.SingleAsync(r => r.OrderId == order.Id && r.TestCode == "HGB");
+        Assert.Equal("10.0", current.Value);
+        Assert.Equal(ResultStatus.Verified, current.Status);
+    }
+
+    [Fact]
+    public async Task InboundOru_RejectsDestructiveObxStatus()
+    {
+        await using var context = _factory.Create();
+        await SeedLinkedOrderAsync(context, "HL7-ORU-X", "ACC-HL7-ORU-X", "PLACER-ORU-X", "HGB");
+        var order = await context.Orders.SingleAsync(o => o.OrderNumber == "PLACER-ORU-X");
+
+        var result = await Processor(context).ProcessAsync(
+            Oru("CTRL-ORU-X", "HL7-ORU-X", "PLACER-ORU-X", "HGB", "9.9", obxStatus: "X"));
+        Assert.False(result.Accepted);
+        Assert.Contains("not accepted", result.Log.ErrorDetail, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await context.TestResults.Where(r => r.OrderId == order.Id).ToListAsync());
+    }
+
+    [Fact]
+    public async Task InboundOru_RejectsOrderForDifferentPatient()
+    {
+        await using var context = _factory.Create();
+        await SeedLinkedOrderAsync(context, "HL7-ORU-OWN", "ACC-HL7-ORU-OWN", "PLACER-ORU-OWN", "HGB");
+        context.Patients.Add(new Patient
+        {
+            MedicalRecordNumber = "HL7-ORU-OTHER",
+            LastName = "Other",
+            FirstName = "Pat",
+            DateOfBirth = new DateOnly(1988, 2, 2),
+            Sex = Sex.Unknown
+        });
+        await context.SaveChangesAsync();
+
+        var result = await Processor(context).ProcessAsync(
+            Oru("CTRL-ORU-OWN", "HL7-ORU-OTHER", "PLACER-ORU-OWN", "HGB", "11.1"));
+        Assert.False(result.Accepted);
+        Assert.Contains("does not belong", result.Log.ErrorDetail, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await context.TestResults.Where(r => r.SourceReference == "CTRL-ORU-OWN").ToListAsync());
     }
 }

@@ -103,6 +103,14 @@ public static class ResultEndpoints
             EndpointResults.From(await service.CorrectResultAsync(id, request.NewValue, request.Reason, ct), r => TestResultDto.From(r)))
             .RequirePermission(PermissionCodes.ResultCorrect);
 
+        group.MapPost("/{id:long}/submit-for-verification", async (long id, ResultService service, CancellationToken ct) =>
+            EndpointResults.From(await service.SubmitForVerificationAsync(id, ct), r => TestResultDto.From(r)))
+            .RequirePermission(PermissionCodes.ResultEnter);
+
+        group.MapPost("/{id:long}/invalidate", async (long id, InvalidateResultRequest request, ResultService service, CancellationToken ct) =>
+            EndpointResults.From(await service.InvalidateResultAsync(id, request.Reason, ct), r => TestResultDto.From(r)))
+            .RequirePermission(PermissionCodes.ResultInvalidate);
+
         app.MapGet("/api/specimens/{specimenId:long}/results", async (long specimenId, ResultService service, CancellationToken ct) =>
         {
             var results = await service.GetBySpecimenAsync(specimenId, ct);

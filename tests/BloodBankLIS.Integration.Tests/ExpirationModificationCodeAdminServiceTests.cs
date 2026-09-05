@@ -130,18 +130,19 @@ public class ExpirationModificationCodeAdminServiceTests : IClassFixture<SqliteC
     }
 
     [Fact]
-    public async Task Create_WritesCreateAudit()
+    public async Task Create_WritesConfigureAudit()
     {
         long id;
+        var code = $"7{Guid.NewGuid():N}"[..8].ToUpperInvariant();
         await using (var context = _factory.Create())
         {
-            var created = await CreateService(context).CreateAsync(NewRequest("7H", 7));
+            var created = await CreateService(context).CreateAsync(NewRequest(code, 7));
             id = created.Value!.Id;
         }
 
         await using var verify = _factory.Create();
         var audit = await verify.AuditEvents
-            .Where(a => a.EntityType == nameof(ExpirationModificationCode) && a.EntityId == id && a.EventType == AuditEventType.Create)
+            .Where(a => a.EntityType == nameof(ExpirationModificationCode) && a.EntityId == id && a.EventType == AuditEventType.Configure)
             .ToListAsync();
         Assert.NotEmpty(audit);
     }

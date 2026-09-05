@@ -108,6 +108,32 @@ public static class AntibodyIdentificationParser
                || normalized.StartsWith("anti", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Labels that a verified ABID result would post: catalog antibody names,
+    /// plus unmatched anti-* tokens. Used to compare free-text verify against a workup.
+    /// </summary>
+    public static IReadOnlyList<string> PostedLabels(IReadOnlyList<AntibodyIdentificationHit> hits)
+    {
+        if (hits.Count == 0)
+        {
+            return [];
+        }
+
+        return hits
+            .Select(h => h.CatalogItem?.AntibodyName
+                         ?? (LooksLikeAntibodyToken(h.Token) ? h.Token : null))
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Fallback when the catalog is empty: anti-* tokens that would post as free-text.
+    /// </summary>
+    public static IReadOnlyList<string> AntibodyLikeTokens(string? value) =>
+        SplitTokens(value).Where(LooksLikeAntibodyToken).ToList();
+
     private static AntibodyCatalogItem? MatchCatalog(string token, IReadOnlyList<AntibodyCatalogItem> catalog)
     {
         var stripped = StripAntiPrefix(token);

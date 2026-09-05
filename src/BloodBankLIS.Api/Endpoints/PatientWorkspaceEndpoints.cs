@@ -1,4 +1,5 @@
 using BloodBankLIS.Api.Auth;
+using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -143,6 +144,17 @@ public static class PatientWorkspaceEndpoints
             return result.Succeeded
                 ? Results.Ok(result.Value)
                 : Results.BadRequest(new { error = result.Error });
+        });
+
+        group.MapGet("/electronic-crossmatch-eligibility", async (
+            long patientId,
+            ElectronicCrossmatchEligibilityService service,
+            CancellationToken ct) =>
+        {
+            var dto = await service.AssessAsync(patientId, ct);
+            return dto is null
+                ? Results.NotFound(new { error = "Patient not found." })
+                : Results.Ok(dto);
         });
 
         group.MapGet("/crossmatch-tests", async (PatientAllocationService service, CancellationToken ct) =>

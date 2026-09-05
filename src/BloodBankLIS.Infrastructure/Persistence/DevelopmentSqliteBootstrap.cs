@@ -136,7 +136,12 @@ public static class DevelopmentSqliteBootstrap
         ("BillingEvents", "RevenueCode", """ALTER TABLE "BillingEvents" ADD COLUMN "RevenueCode" TEXT NULL"""),
         ("BillingEvents", "Modifier", """ALTER TABLE "BillingEvents" ADD COLUMN "Modifier" TEXT NULL"""),
         ("BillingEvents", "Description", """ALTER TABLE "BillingEvents" ADD COLUMN "Description" TEXT NULL"""),
-        ("BillingEvents", "PerformingLocationCode", """ALTER TABLE "BillingEvents" ADD COLUMN "PerformingLocationCode" TEXT NULL""")
+        ("BillingEvents", "PerformingLocationCode", """ALTER TABLE "BillingEvents" ADD COLUMN "PerformingLocationCode" TEXT NULL"""),
+        ("TestResults", "Source", """ALTER TABLE "TestResults" ADD COLUMN "Source" INTEGER NOT NULL DEFAULT 0"""),
+        ("TestResults", "SourceReference", """ALTER TABLE "TestResults" ADD COLUMN "SourceReference" TEXT NULL"""),
+        ("TestResults", "InvalidatedBy", """ALTER TABLE "TestResults" ADD COLUMN "InvalidatedBy" TEXT NULL"""),
+        ("TestResults", "InvalidatedUtc", """ALTER TABLE "TestResults" ADD COLUMN "InvalidatedUtc" TEXT NULL"""),
+        ("TestResults", "InvalidationReason", """ALTER TABLE "TestResults" ADD COLUMN "InvalidationReason" TEXT NULL""")
     ];
 
     public static async Task InitializeAsync(

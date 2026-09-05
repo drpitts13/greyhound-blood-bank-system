@@ -1,3 +1,4 @@
+using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
@@ -216,5 +217,104 @@ public class SecondAboDeterminationRuleTests
     {
         var current = new AboRh(AboGroup.A, RhType.Positive);
         Assert.False(SecondAboDeterminationRule.HasSecondConcordant([new(current, true)]));
+    }
+
+    [Fact]
+    public void CellularIssue_WithoutSecondType_IsHardStop()
+    {
+        var result = SecondAboDeterminationRule.EvaluateForCellularIssue(
+            required: true,
+            hasSecondConcordant: false,
+            ComponentClass.RedBloodCells,
+            isEmergencyRelease: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(SecondAboDeterminationRule.IssueCode, result.Code);
+    }
+
+    [Fact]
+    public void EmergencyCellularIssue_WithoutSecondType_IsWarning()
+    {
+        var result = SecondAboDeterminationRule.EvaluateForCellularIssue(
+            required: true,
+            hasSecondConcordant: false,
+            ComponentClass.RedBloodCells,
+            isEmergencyRelease: true);
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+    }
+
+    [Fact]
+    public void PlasmaIssue_SkipsSecondType()
+    {
+        var result = SecondAboDeterminationRule.EvaluateForCellularIssue(
+            required: true,
+            hasSecondConcordant: false,
+            ComponentClass.Plasma,
+            isEmergencyRelease: false);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+}
+
+public class OrderControlRuleTests
+{
+    [Fact]
+    public void HoldThenRelease_ReturnsToInProcess()
+    {
+        var order = new Order { Status = OrderStatus.New };
+        Assert.Equal(RuleSeverity.Pass, OrderControlRule.Apply(order, "HD", null).Severity);
+        Assert.Equal(OrderStatus.OnHold, order.Status);
+        Assert.Equal(RuleSeverity.Pass, OrderControlRule.Apply(order, "RL", null).Severity);
+        Assert.Equal(OrderStatus.InProcess, order.Status);
+    }
+
+    [Fact]
+    public void CancelCompleted_IsHardStop()
+    {
+        var order = new Order { Status = OrderStatus.Completed };
+        var result = OrderControlRule.Apply(order, "CA", null);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(OrderStatus.Completed, order.Status);
+    }
+
+    [Fact]
+    public void IssueAgainstHeldOrder_IsHardStop()
+    {
+        var result = OrderControlRule.EvaluateIssue(orderLinked: true, orderIsFulfillable: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(OrderControlRule.IssueCode, result.Code);
+    }
+}
+
+public class EmergencyUncrossmatchedAboRuleTests
+{
+    [Fact]
+    public void NonO_UncrossmatchedRbc_IsWarning()
+    {
+        var results = EmergencyUncrossmatchedAboRule.Evaluate(
+            true,
+            ComponentClass.RedBloodCells,
+            new AboRh(AboGroup.A, RhType.Positive),
+            new AboRh(AboGroup.O, RhType.Positive),
+            Sex.Male,
+            40,
+            requireGroupO: true,
+            requireONegForChildbearing: true,
+            childbearingAgeYears: 50);
+        Assert.Contains(results, r => r.Code == EmergencyUncrossmatchedAboRule.AboCode && r.Severity == RuleSeverity.Warning);
+    }
+
+    [Fact]
+    public void KnownRhPositive_SkipsChildbearingRhWarning()
+    {
+        var results = EmergencyUncrossmatchedAboRule.Evaluate(
+            true,
+            ComponentClass.RedBloodCells,
+            new AboRh(AboGroup.O, RhType.Positive),
+            new AboRh(AboGroup.O, RhType.Positive),
+            Sex.Female,
+            25,
+            requireGroupO: true,
+            requireONegForChildbearing: true,
+            childbearingAgeYears: 50);
+        Assert.DoesNotContain(results, r => r.Severity != RuleSeverity.Pass);
     }
 }

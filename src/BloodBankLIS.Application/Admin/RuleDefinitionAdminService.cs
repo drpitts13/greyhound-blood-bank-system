@@ -84,7 +84,7 @@ public sealed class RuleDefinitionAdminService : ConfigAdminServiceBase
         await _repo.AddAsync(entity, ct);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Create,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Configure,
             oldValue: null, newValue: Map(entity), reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 
@@ -130,7 +130,7 @@ public sealed class RuleDefinitionAdminService : ConfigAdminServiceBase
         }
 
         _repo.Update(entity);
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Update,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Configure,
             oldValue: before, newValue: Map(entity), reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 

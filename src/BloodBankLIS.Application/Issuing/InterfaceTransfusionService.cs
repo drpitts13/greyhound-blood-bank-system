@@ -192,11 +192,12 @@ public sealed class InterfaceTransfusionService
         AppendStatus(trackedUnit, terminal, $"Transfusion {transfusion.FinalDisposition} (HL7 BPAM)", now, nameof(TransfusionEvent), issue.Id);
 
         _audit.Record(
-            AuditEventType.Update,
+            AuditEventType.Transfusion,
             nameof(BloodUnit),
             trackedUnit.Id,
             oldValue: new { Status = UnitStatus.Issued },
-            newValue: new { Status = terminal, Source = "HL7-BPAM", request.ReactionSuspected });
+            newValue: new { Status = terminal, Source = "HL7-BPAM", request.ReactionSuspected },
+            reason: "Transfusion documented from inbound BPAM.");
 
         await _unitOfWork.SaveChangesAsync(ct);
 

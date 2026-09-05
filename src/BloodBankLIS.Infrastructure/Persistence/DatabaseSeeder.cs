@@ -33,6 +33,10 @@ public static partial class DatabaseSeeder
         await EnsureNearExpiryWarningHoursPolicyAsync(context, cancellationToken);
         await EnsureInTransitDueHoursPolicyAsync(context, cancellationToken);
         await EnsureBlockAboSelfVerifyPolicyAsync(context, cancellationToken);
+        await EnsureAllowElectronicCrossmatchPolicyAsync(context, cancellationToken);
+        await EnsureRequireSecondAboForCellularIssuePolicyAsync(context, cancellationToken);
+        await EnsureUncrossmatchedIssuePoliciesAsync(context, cancellationToken);
+        await EnsureAntibodyIdentificationPoliciesAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
@@ -42,6 +46,7 @@ public static partial class DatabaseSeeder
         await EnsureProductTypeIsbtCodesAsync(context, cancellationToken);
         await SeedProductAttributesAsync(context, cancellationToken);
         await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
+        await SeedAntibodyIdentificationPanelsAsync(context, cancellationToken);
         await SeedSpecimenTypeDefinitionsAsync(context, cancellationToken);
         await SeedSubtestDefinitionsAsync(context, cancellationToken);
         await SeedPhaseDefinitionsAsync(context, cancellationToken);
@@ -61,12 +66,14 @@ public static partial class DatabaseSeeder
         await SeedOrderingProvidersAsync(context, cancellationToken);
         await SeedChargeMasterAsync(context, cancellationToken);
         await SeedBillingCatalogsAsync(context, cancellationToken);
+        await EnsureTransfusionBillingAsync(context, cancellationToken);
         await SeedExpirationModificationCodesAsync(context, cancellationToken);
         await SeedModificationRulesAsync(context, cancellationToken);
         await SeedDemoClinicalDataAsync(context, cancellationToken);
         await EnsureIsbtPermissionsAsync(context, cancellationToken);
         await EnsureEmergencyReleasePermissionGrantAsync(context, cancellationToken);
         await SeedIsbt128LookupsAsync(context, cancellationToken);
+        await EnsureCompatibilityRuleCatalogAsync(context, cancellationToken);
         await SeedExtendedDemoScenariosAsync(context, cancellationToken);
 
         if (seedDevAdmin)
@@ -287,6 +294,41 @@ public static partial class DatabaseSeeder
                 Value = "15",
                 Category = "Signatures",
                 Description = "Electronic signature reuse window before consumption."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.AllowElectronicCrossmatch,
+                Value = "true",
+                Category = "Issue",
+                Description = "Permit computer XM and electronic issue after AABB 5.16 preconditions."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.RequireSecondAboForCellularIssue,
+                Value = "true",
+                Category = "Issue",
+                Description = "Require two concordant ABO/Rh determinations before non-emergency RBC or whole-blood issue."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.UncrossmatchedCellularMustBeGroupO,
+                Value = "true",
+                Category = "Issue",
+                Description = "Uncrossmatched emergency or MTP red cells and whole blood should be group O."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.UncrossmatchedONegForChildbearing,
+                Value = "true",
+                Category = "Issue",
+                Description = "Uncrossmatched red cells for childbearing-potential recipients should be RhD-negative."
+            },
+            new SystemSetting
+            {
+                Key = FacilityPolicyKeys.ChildbearingAgeYears,
+                Value = "50",
+                Category = "Issue",
+                Description = "Inclusive upper age treated as childbearing potential when applying uncrossmatched RhD policy."
             });
         await context.SaveChangesAsync(ct);
     }
@@ -357,6 +399,146 @@ public static partial class DatabaseSeeder
             Description = "When true, the user who entered a patient ABO/Rh cannot verify it."
         });
         await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureAllowElectronicCrossmatchPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.AllowElectronicCrossmatch, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.AllowElectronicCrossmatch,
+            Value = "true",
+            Category = "Issue",
+            Description = "Permit computer XM and electronic issue after AABB 5.16 preconditions."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureRequireSecondAboForCellularIssuePolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.RequireSecondAboForCellularIssue, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RequireSecondAboForCellularIssue,
+            Value = "true",
+            Category = "Issue",
+            Description = "Require two concordant ABO/Rh determinations before non-emergency RBC or whole-blood issue."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureUncrossmatchedIssuePoliciesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await EnsureSettingAsync(
+            context,
+            FacilityPolicyKeys.UncrossmatchedCellularMustBeGroupO,
+            "true",
+            "Issue",
+            "Uncrossmatched emergency or MTP red cells and whole blood should be group O.",
+            ct);
+        await EnsureSettingAsync(
+            context,
+            FacilityPolicyKeys.UncrossmatchedONegForChildbearing,
+            "true",
+            "Issue",
+            "Uncrossmatched red cells for childbearing-potential recipients should be RhD-negative.",
+            ct);
+        await EnsureSettingAsync(
+            context,
+            FacilityPolicyKeys.ChildbearingAgeYears,
+            "50",
+            "Issue",
+            "Inclusive upper age treated as childbearing potential when applying uncrossmatched RhD policy.",
+            ct);
+    }
+
+    private static async Task EnsureSettingAsync(
+        BloodBankDbContext context,
+        string key,
+        string value,
+        string category,
+        string description,
+        CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == key, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = key,
+            Value = value,
+            Category = category,
+            Description = description
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Ensures the active compatibility table contains the documented domain rule codes
+    /// (SafeTrace / SoftBank compatibility dictionary). Does not overwrite facility edits.
+    /// </summary>
+    private static async Task EnsureCompatibilityRuleCatalogAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var version = await context.CompatibilityRuleVersions
+            .OrderByDescending(v => v.IsActive)
+            .ThenByDescending(v => v.EffectiveDate)
+            .FirstOrDefaultAsync(ct);
+        if (version is null)
+        {
+            version = new CompatibilityRuleVersion
+            {
+                Version = "1.0",
+                PolicyVersion = "AABB-5.14",
+                EffectiveDate = new DateOnly(2020, 1, 1),
+                IsActive = true,
+                Notes = "Institutional compatibility table seeded from domain rule codes. MEDICAL_DIRECTOR_APPROVAL required before production use."
+            };
+            context.CompatibilityRuleVersions.Add(version);
+            await context.SaveChangesAsync(ct);
+        }
+
+        var existing = await context.CompatibilityRules
+            .Where(r => r.CompatibilityRuleVersionId == version.Id)
+            .Select(r => r.RuleCode)
+            .ToListAsync(ct);
+        var known = new HashSet<string>(existing, StringComparer.OrdinalIgnoreCase);
+
+        var added = false;
+        foreach (var definition in CompatibilityRuleCatalog.Defaults)
+        {
+            if (!known.Add(definition.RuleCode))
+            {
+                continue;
+            }
+
+            context.CompatibilityRules.Add(new CompatibilityRule
+            {
+                CompatibilityRuleVersionId = version.Id,
+                RuleCode = definition.RuleCode,
+                ComponentClass = definition.ComponentClass,
+                RuleFamily = definition.RuleFamily,
+                ExpressionJson = "{}",
+                Severity = definition.Severity,
+                Description = definition.Description,
+                IsActive = true
+            });
+            added = true;
+        }
+
+        if (added)
+        {
+            await context.SaveChangesAsync(ct);
+        }
     }
 
     private static async Task EnsureQuarantineReleaseVerifierPolicyAsync(BloodBankDbContext context, CancellationToken ct)
@@ -704,6 +886,7 @@ public static partial class DatabaseSeeder
         var supervisorCodes = technologistCodes.Concat(new[]
         {
             PermissionCodes.ResultCorrect,
+            PermissionCodes.ResultInvalidate,
             PermissionCodes.ImmunoOverride,
             PermissionCodes.InventoryDiscard,
             PermissionCodes.IssueOverride,
@@ -957,12 +1140,13 @@ public static partial class DatabaseSeeder
             return;
         }
 
-        var aboRh = new ChargeCode { Code = "BB-ABORH", Description = "ABO/Rh typing", DefaultAmount = 35.00m, CptCode = "86900" };
-        var screen = new ChargeCode { Code = "BB-SCREEN", Description = "Antibody screen", DefaultAmount = 55.00m, CptCode = "86850" };
-        var xm = new ChargeCode { Code = "BB-XM", Description = "Crossmatch", DefaultAmount = 75.00m, CptCode = "86920" };
-        var rbcIssue = new ChargeCode { Code = "BB-RBC-ISSUE", Description = "Red blood cell unit issued", DefaultAmount = 250.00m, CptCode = "P9021" };
-        var unitIssue = new ChargeCode { Code = "BB-UNIT-ISSUE", Description = "Blood product unit issued", DefaultAmount = 200.00m };
-        context.ChargeCodes.AddRange(aboRh, screen, xm, rbcIssue, unitIssue);
+        var aboRh = new ChargeCode { Code = "BB-ABORH", Description = "ABO/Rh typing", DefaultAmount = 35.00m, CptCode = "86900", RevenueCode = "0301" };
+        var screen = new ChargeCode { Code = "BB-SCREEN", Description = "Antibody screen", DefaultAmount = 55.00m, CptCode = "86850", RevenueCode = "0301" };
+        var xm = new ChargeCode { Code = "BB-XM", Description = "Crossmatch", DefaultAmount = 75.00m, CptCode = "86920", RevenueCode = "0301" };
+        var rbcIssue = new ChargeCode { Code = "BB-RBC-ISSUE", Description = "Red blood cell unit issued", DefaultAmount = 250.00m, CptCode = "P9021", RevenueCode = "0381" };
+        var unitIssue = new ChargeCode { Code = "BB-UNIT-ISSUE", Description = "Blood product unit issued", DefaultAmount = 200.00m, RevenueCode = "0380" };
+        var rbcTx = new ChargeCode { Code = "BB-RBC-TX", Description = "Red blood cell unit transfused", DefaultAmount = 75.00m, CptCode = "36430", RevenueCode = "0390" };
+        context.ChargeCodes.AddRange(aboRh, screen, xm, rbcIssue, unitIssue, rbcTx);
         await context.SaveChangesAsync(ct);
 
         context.ChargeRules.AddRange(
@@ -972,7 +1156,8 @@ public static partial class DatabaseSeeder
             new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "CXM", ChargeCodeId = xm.Id },
             // Product-specific rule plus a catch-all for any other issued unit.
             new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = "RBC-LR", ChargeCodeId = rbcIssue.Id },
-            new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = null, ChargeCodeId = unitIssue.Id });
+            new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = null, ChargeCodeId = unitIssue.Id },
+            new ChargeRule { TriggerType = BillingTriggerType.UnitTransfused, TriggerKey = "RBC-LR", ChargeCodeId = rbcTx.Id });
 
         await context.SaveChangesAsync(ct);
     }
@@ -1001,6 +1186,59 @@ public static partial class DatabaseSeeder
                 ChargeCodeId = rbcIssue.Id,
                 Description = "Red blood cell unit issued",
                 Trigger = BillingTriggerType.UnitIssued,
+                IsbtProductCode = "E0336"
+            });
+            if (codes.TryGetValue("BB-RBC-TX", out var rbcTx))
+            {
+                context.ProductBillings.Add(new ProductBilling
+                {
+                    ChargeCodeId = rbcTx.Id,
+                    Description = "Red blood cell unit transfused",
+                    Trigger = BillingTriggerType.UnitTransfused,
+                    IsbtProductCode = "E0336"
+                });
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureTransfusionBillingAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var rbcTx = await context.ChargeCodes.FirstOrDefaultAsync(c => c.Code == "BB-RBC-TX", ct);
+        if (rbcTx is null)
+        {
+            rbcTx = new ChargeCode
+            {
+                Code = "BB-RBC-TX",
+                Description = "Red blood cell unit transfused",
+                DefaultAmount = 75.00m,
+                CptCode = "36430",
+                RevenueCode = "0390"
+            };
+            context.ChargeCodes.Add(rbcTx);
+            await context.SaveChangesAsync(ct);
+        }
+
+        if (!await context.ChargeRules.AnyAsync(
+                r => r.TriggerType == BillingTriggerType.UnitTransfused && r.TriggerKey == "RBC-LR", ct))
+        {
+            context.ChargeRules.Add(new ChargeRule
+            {
+                TriggerType = BillingTriggerType.UnitTransfused,
+                TriggerKey = "RBC-LR",
+                ChargeCodeId = rbcTx.Id
+            });
+        }
+
+        if (!await context.ProductBillings.AnyAsync(
+                r => r.Trigger == BillingTriggerType.UnitTransfused && r.IsbtProductCode == "E0336", ct))
+        {
+            context.ProductBillings.Add(new ProductBilling
+            {
+                ChargeCodeId = rbcTx.Id,
+                Description = "Red blood cell unit transfused",
+                Trigger = BillingTriggerType.UnitTransfused,
                 IsbtProductCode = "E0336"
             });
         }
@@ -1829,11 +2067,20 @@ public static partial class DatabaseSeeder
             context.InventoryLocations,
             (InventoryLocation l) => l.Code,
             [
-                new InventoryLocation { Code = "FRIDGE-1", Name = "Main Blood Bank Refrigerator", LocationType = LocationType.Refrigerator },
-                new InventoryLocation { Code = "FREEZER-1", Name = "Plasma Freezer", LocationType = LocationType.Freezer },
-                new InventoryLocation { Code = "ISSUE", Name = "Issue Window", LocationType = LocationType.Issue }
+                SeedStorageLocation("FRIDGE-1", "Main Blood Bank Refrigerator", LocationType.Refrigerator),
+                SeedStorageLocation("FREEZER-1", "Plasma Freezer", LocationType.Freezer),
+                SeedStorageLocation("ISSUE", "Issue Window", LocationType.Issue),
+                SeedStorageLocation("PLT-1", "Platelet Incubator", LocationType.PlateletIncubator),
+                SeedStorageLocation("OR-FRIDGE", "OR Satellite Refrigerator", LocationType.SatelliteRefrigerator)
             ],
             ct);
+    }
+
+    private static InventoryLocation SeedStorageLocation(string code, string name, LocationType type)
+    {
+        var location = new InventoryLocation { Code = code, Name = name, LocationType = type, IsActive = true };
+        InventoryLocationPolicyRule.ApplyTypeDefaults(location);
+        return location;
     }
 
     private static async Task SeedOrderingLocationsAsync(BloodBankDbContext context, CancellationToken ct)
@@ -2093,14 +2340,23 @@ public static partial class DatabaseSeeder
         context.BloodUnits.AddRange(unit1, unit2, unitIssued);
         await context.SaveChangesAsync(ct);
 
-        context.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
-        {
-            PatientId = patient.Id,
-            Abo = AboGroup.O,
-            RhD = RhType.Positive,
-            Source = BloodTypeSource.TestResult,
-            IsCurrent = true
-        });
+        context.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Source = BloodTypeSource.HistoricalImport,
+                IsCurrent = false
+            },
+            new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Source = BloodTypeSource.TestResult,
+                IsCurrent = true
+            });
 
         var allocation = new Allocation
         {

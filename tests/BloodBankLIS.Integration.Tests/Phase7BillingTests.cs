@@ -332,6 +332,66 @@ public class Phase7BillingTests : IDisposable
     }
 
     [Fact]
+    public async Task CaptureForTransfusion_Completed_CreatesChargeFromCatalogAndRule()
+    {
+        long issueId;
+        await using (var setup = _factory.Create())
+        {
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitTransfused, "RBC-LR", "RULE-TX", 75m);
+            var catalogCodeId = await SeedChargeCodeAsync(setup, "CAT-TX-E0336", 80m);
+            setup.ProductBillings.Add(new ProductBilling
+            {
+                ChargeCodeId = catalogCodeId,
+                IsbtProductCode = "E0336",
+                Trigger = BillingTriggerType.UnitTransfused
+            });
+            await setup.SaveChangesAsync();
+            issueId = await CreateIssuedUnitAsync(setup, "BILL-TX-1", "RBC-LR", "E0336");
+        }
+
+        await using var context = _factory.Create();
+        var publisher = new CapturingPublisher();
+        var billing = Billing(context, publisher);
+
+        var wasted = await billing.CaptureForTransfusionAsync(issueId, TransfusionDisposition.Wasted);
+        Assert.True(wasted.Succeeded);
+        Assert.Empty(wasted.Value!);
+
+        var completed = await billing.CaptureForTransfusionAsync(issueId, TransfusionDisposition.Completed);
+        Assert.True(completed.Succeeded);
+        Assert.Equal(2, completed.Value!.Count);
+        Assert.Contains(completed.Value, e => e.SourceKind == BillingChargeSourceKind.ChargeRule && e.BillingCode == "RULE-TX");
+        Assert.Contains(completed.Value, e => e.SourceKind == BillingChargeSourceKind.Product && e.BillingCode == "CAT-TX-E0336");
+        Assert.All(completed.Value, e => Assert.Equal(BillingTriggerType.UnitTransfused, e.TriggerType));
+
+        var again = await billing.CaptureForTransfusionAsync(issueId, TransfusionDisposition.Completed);
+        Assert.True(again.Succeeded);
+        Assert.Empty(again.Value!);
+    }
+
+    [Fact]
+    public async Task CaptureForIssueAndTransfusion_AreSeparateCharges()
+    {
+        long issueId;
+        await using (var setup = _factory.Create())
+        {
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitIssued, "RBC-LR", "RULE-ISSUE", 200m);
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitTransfused, "RBC-LR", "RULE-TX2", 75m);
+            issueId = await CreateIssuedUnitAsync(setup, "BILL-TX-2", "RBC-LR", "E0336");
+        }
+
+        await using var context = _factory.Create();
+        var billing = Billing(context);
+        var issued = await billing.CaptureForIssueAsync(issueId);
+        var transfused = await billing.CaptureForTransfusionAsync(issueId, TransfusionDisposition.Completed);
+
+        Assert.True(issued.Succeeded);
+        Assert.True(transfused.Succeeded);
+        Assert.Equal("RULE-ISSUE", Assert.Single(issued.Value!).BillingCode);
+        Assert.Equal("RULE-TX2", Assert.Single(transfused.Value!).BillingCode);
+    }
+
+    [Fact]
     public async Task CaptureForIssue_NoIsbtMatch_CreatesNothingFromCatalog()
     {
         long issueId;

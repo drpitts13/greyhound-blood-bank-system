@@ -47,6 +47,14 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<PatientBloodTypeHistory> PatientBloodTypeHistory => Set<PatientBloodTypeHistory>();
     public DbSet<AntibodyHistory> AntibodyHistory => Set<AntibodyHistory>();
     public DbSet<AntigenProfile> AntigenProfiles => Set<AntigenProfile>();
+    public DbSet<AntibodyPanelManufacturer> AntibodyPanelManufacturers => Set<AntibodyPanelManufacturer>();
+    public DbSet<AntibodyPanelLot> AntibodyPanelLots => Set<AntibodyPanelLot>();
+    public DbSet<AntibodyPanelCell> AntibodyPanelCells => Set<AntibodyPanelCell>();
+    public DbSet<AntibodyPanelCellAntigen> AntibodyPanelCellAntigens => Set<AntibodyPanelCellAntigen>();
+    public DbSet<AntibodyIdentificationWorkup> AntibodyIdentificationWorkups => Set<AntibodyIdentificationWorkup>();
+    public DbSet<AntibodyIdentificationWorkupLot> AntibodyIdentificationWorkupLots => Set<AntibodyIdentificationWorkupLot>();
+    public DbSet<AntibodyIdentificationReaction> AntibodyIdentificationReactions => Set<AntibodyIdentificationReaction>();
+    public DbSet<AntibodyIdentificationFinding> AntibodyIdentificationFindings => Set<AntibodyIdentificationFinding>();
     public DbSet<UnitBloodAttribute> UnitBloodAttributes => Set<UnitBloodAttribute>();
     public DbSet<BloodUnit> BloodUnits => Set<BloodUnit>();
     public DbSet<ProductRetypeResult> ProductRetypeResults => Set<ProductRetypeResult>();

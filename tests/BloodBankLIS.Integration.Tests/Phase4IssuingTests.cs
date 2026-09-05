@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
@@ -41,7 +42,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
             new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
 
-    private IssuingService Issuing(BloodBankDbContext c)
+    private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
     {
         var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
         return new IssuingService(
@@ -55,14 +56,16 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new EfRepository<ProductAttributeAssignment>(c),
             new EfRepository<Order>(c),
             new EfRepository<User>(c),
+            new EfRepository<InventoryLocation>(c),
             BloodAttrCompat(c),
+            AntibodyScreenCompat(c),
             new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
             new ReactionInvestigationService(
                 new EfRepository<ReactionInvestigation>(c),
                 new EfRepository<TransfusionEvent>(c),
                 new InventoryRepository(c),
                 c, _factory.Clock, _factory.CurrentUser, audit),
-            new FixedPermissionEvaluator(3),
+            permissions ?? new FixedPermissionEvaluator(3),
             c, _factory.Clock, _factory.CurrentUser, audit);
     }
 
@@ -85,7 +88,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Patient>(c));
     }
 
-    private sealed record Scenario(long PatientId, long SpecimenId, long UnitId, long ProductTypeId, string Mrn);
+    private sealed record Scenario(
+        long PatientId, long SpecimenId, long UnitId, long ProductTypeId, string Mrn, string DateOfBirth = "1975-06-01");
 
     private static IssueUnitRequest IssueReq(
         Scenario s,
@@ -94,7 +98,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         string? authorizedBy = null) =>
         new(s.UnitId, s.PatientId,
             PatientIdentifier1Value: s.Mrn,
-            PatientIdentifier2Value: "1975-06-01",
+            PatientIdentifier2Value: s.DateOfBirth,
             IssueType: issueType,
             OverrideReason: overrideReason,
             AuthorizedBy: authorizedBy);
@@ -107,16 +111,22 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         string key,
         AboGroup patientAbo = AboGroup.O, RhType patientRh = RhType.Positive,
         AboGroup unitAbo = AboGroup.O, RhType unitRh = RhType.Positive,
-        bool requiresCrossmatch = true)
+        bool requiresCrossmatch = true,
+        bool includeHistoricalAbo = true,
+        bool includeCurrentAbo = true,
+        Sex sex = Sex.Unknown,
+        DateOnly? dateOfBirth = null)
     {
         await using var c = _factory.Create();
+        var birth = dateOfBirth ?? new DateOnly(1975, 6, 1);
 
         var patient = new Patient
         {
             MedicalRecordNumber = $"MRN-{key}",
             LastName = "Issue",
             FirstName = "Test",
-            DateOfBirth = new DateOnly(1975, 6, 1)
+            DateOfBirth = birth,
+            Sex = sex
         };
         c.Patients.Add(patient);
 
@@ -130,14 +140,28 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         c.ProductTypes.Add(productType);
         await c.SaveChangesAsync();
 
-        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        if (includeCurrentAbo)
         {
-            PatientId = patient.Id,
-            Abo = patientAbo,
-            RhD = patientRh,
-            Source = BloodTypeSource.TestResult,
-            IsCurrent = true
-        });
+            c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = patientAbo,
+                RhD = patientRh,
+                Source = BloodTypeSource.TestResult,
+                IsCurrent = true
+            });
+        }
+        if (includeHistoricalAbo && includeCurrentAbo)
+        {
+            c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = patientAbo,
+                RhD = patientRh,
+                Source = BloodTypeSource.HistoricalImport,
+                IsCurrent = false
+            });
+        }
 
         var specimen = new Specimen
         {
@@ -163,7 +187,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         c.BloodUnits.Add(unit);
         await c.SaveChangesAsync();
 
-        return new Scenario(patient.Id, specimen.Id, unit.Id, productType.Id, $"MRN-{key}");
+        return new Scenario(patient.Id, specimen.Id, unit.Id, productType.Id, $"MRN-{key}", birth.ToString("yyyy-MM-dd"));
     }
 
     private async Task RecordCompatibleCrossmatchAsync(Scenario s)
@@ -218,7 +242,37 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         {
             Assert.Equal(UnitStatus.Transfused, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
             Assert.Equal(IssueStatus.Transfused, (await verify.Issues.FindAsync(issueId))!.Status);
+            var xm = await verify.Crossmatches.SingleAsync(x => x.BloodProductId == s.UnitId);
+            var allocation = await verify.Allocations.SingleAsync(a => a.BloodProductId == s.UnitId);
+            Assert.True(await verify.AuditEvents.AnyAsync(a =>
+                a.EventType == AuditEventType.Crossmatch && a.EntityId == xm.Id));
+            Assert.True(await verify.AuditEvents.AnyAsync(a =>
+                a.EventType == AuditEventType.Assignment && a.EntityId == allocation.Id));
+            Assert.True(await verify.AuditEvents.AnyAsync(a =>
+                a.EventType == AuditEventType.Issue && a.EntityId == s.UnitId));
+            Assert.True(await verify.AuditEvents.AnyAsync(a =>
+                a.EventType == AuditEventType.Transfusion && a.EntityId == s.UnitId));
         }
+    }
+
+    [Fact]
+    public async Task Issue_WithoutIssueCreate_IsHardStopped()
+    {
+        var s = await SeedAsync("ISS-PERM");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var denied = await Issuing(c, new FixedPermissionEvaluator(3, PermissionCodes.PatientWrite))
+            .IssueUnitAsync(IssueReq(s));
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == IssueAuthorizationRule.CreateCode);
+        Assert.Equal(UnitStatus.Assigned, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+
+        var allowed = await Issuing(c, new FixedPermissionEvaluator(3, PermissionCodes.IssueCreate))
+            .IssueUnitAsync(IssueReq(s));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(IssueStatus.Issued, allowed.Value!.Status);
     }
 
     [Fact]
@@ -403,6 +457,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.True(issued.Succeeded);
             Assert.Equal(IssueType.EmergencyRelease, issued.Value!.IssueType);
             Assert.NotNull(issued.Value.OverrideId);
+            Assert.True(issued.Value.TestsIncompleteAtIssue);
             issueId = issued.Value.Id;
         }
 
@@ -416,10 +471,39 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                 a.EventType == AuditEventType.Override && a.Reason == "Massive hemorrhage, uncrossmatched O units required");
             Assert.Equal("Massive hemorrhage, uncrossmatched O units required", overrideAudit.Reason);
 
+            Assert.True(await verify.AuditEvents.AnyAsync(a =>
+                a.EventType == AuditEventType.EmergencyRelease
+                && a.EntityType == nameof(BloodUnit)
+                && a.EntityId == s.UnitId));
+
             Assert.Equal(UnitStatus.Issued, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
             Assert.True((await verify.Issues.FindAsync(issueId))!.TestsIncompleteAtIssue);
             Assert.NotNull((await verify.Issues.FindAsync(issueId))!.RetrospectiveCrossmatchDueUtc);
         }
+    }
+
+    [Fact]
+    public async Task MassiveTransfusion_WithOverride_RecordsUncrossmatchedStatusAndDetails()
+    {
+        var s = await SeedAsync("MTP");
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.MassiveTransfusion,
+            overrideReason: "MTP pack, uncrossmatched group O issued", authorizedBy: "dr-authorizer"));
+
+        Assert.True(issued.Succeeded);
+        Assert.Equal(IssueType.MassiveTransfusion, issued.Value!.IssueType);
+        Assert.True(issued.Value.TestsIncompleteAtIssue);
+
+        var persisted = await c.Issues.FindAsync(issued.Value.Id);
+        Assert.Equal(CrossmatchClinicalStatus.NotCrossmatchedEmergency, persisted!.CrossmatchStatus);
+        Assert.Equal("MTP pack, uncrossmatched group O issued", persisted.EmergencyReleaseDetails);
+        Assert.NotNull(persisted.RetrospectiveCrossmatchDueUtc);
+
+        var queue = await Issuing(c).ListPendingRetrospectiveCrossmatchesAsync();
+        Assert.Contains(queue, q => q.IssueId == persisted.Id && q.IssueType == IssueType.MassiveTransfusion);
     }
 
     [Fact]
@@ -580,7 +664,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         Assert.False(result.Succeeded);
         Assert.True(result.Evaluation!.IsHardStopped);
-        Assert.Contains(result.Evaluation.HardStops, r => r.Code == ElectronicCrossmatchEligibilityRule.Code);
+        Assert.Contains(result.Evaluation.HardStops, r => r.Code == ElectronicCrossmatchEligibilityRule.HistoryCode);
     }
 
     [Fact]
@@ -728,14 +812,107 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task CellularIssue_WithoutSecondAbo_IsHardStopped()
+    {
+        var s = await SeedAsync("ISS1ABO", includeHistoricalAbo: false);
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+        Assert.False(issued.Succeeded);
+        Assert.Contains(issued.Evaluation!.HardStops, r => r.Code == SecondAboDeterminationRule.IssueCode);
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_WithoutSecondAbo_RequiresOverride()
+    {
+        var s = await SeedAsync("EM1ABO", includeHistoricalAbo: false);
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var blocked = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.EmergencyRelease));
+        Assert.False(blocked.Succeeded);
+        Assert.True(blocked.RequiresOverride);
+        Assert.Contains(blocked.Evaluation!.Warnings, r => r.Code == SecondAboDeterminationRule.IssueCode);
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease,
+            overrideReason: "Uncrossmatched O units; second type pending", authorizedBy: "dr-authorizer"));
+        Assert.True(issued.Succeeded);
+        Assert.Contains(issued.Evaluation!.Warnings, r => r.Code == SecondAboDeterminationRule.IssueCode);
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_NonO_Unit_WarnsGroupO()
+    {
+        var s = await SeedAsync("EM-A", patientAbo: AboGroup.A, unitAbo: AboGroup.A);
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var blocked = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.EmergencyRelease));
+        Assert.True(blocked.RequiresOverride);
+        Assert.Contains(blocked.Evaluation!.Warnings, r => r.Code == EmergencyUncrossmatchedAboRule.AboCode);
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_OPos_ToChildbearingFemale_WarnsRh()
+    {
+        var s = await SeedAsync(
+            "EM-F",
+            includeCurrentAbo: false,
+            includeHistoricalAbo: false,
+            unitRh: RhType.Positive,
+            sex: Sex.Female,
+            dateOfBirth: new DateOnly(2001, 1, 15));
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var blocked = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.EmergencyRelease));
+        Assert.True(blocked.RequiresOverride);
+        Assert.Contains(blocked.Evaluation!.Warnings, r => r.Code == EmergencyUncrossmatchedAboRule.RhCode);
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_UnknownPatientType_RequiresOverride()
+    {
+        var s = await SeedAsync("EM-UNK", includeCurrentAbo: false, includeHistoricalAbo: false);
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var blocked = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.EmergencyRelease));
+        Assert.True(blocked.RequiresOverride);
+        Assert.Contains(blocked.Evaluation!.Warnings, r => r.Code == IssueGate.PatientAboRhCode);
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease,
+            overrideReason: "Trauma, untyped recipient, group O issued", authorizedBy: "dr-authorizer"));
+        Assert.True(issued.Succeeded);
+    }
+
+    [Fact]
+    public async Task SecondAboWorklist_ListsReservedPatientsMissingSecondType()
+    {
+        var missing = await SeedAsync("WL-MISS", includeHistoricalAbo: false);
+        var ready = await SeedAsync("WL-OK");
+        await AllocateAsync(missing);
+        await AllocateAsync(ready);
+
+        await using var c = _factory.Create();
+        var items = await Issuing(c).ListPendingSecondAboAsync();
+        Assert.Contains(items, i => i.PatientId == missing.PatientId);
+        Assert.DoesNotContain(items, i => i.PatientId == ready.PatientId);
+    }
+
+    [Fact]
     public async Task ElectronicCrossmatch_WithoutSecondAbo_IsBlocked()
     {
-        var s = await SeedAsync("ONEABO", requiresCrossmatch: false);
+        var s = await SeedAsync("ONEABO", requiresCrossmatch: false, includeHistoricalAbo: false);
         await using var ctx = _factory.Create();
         var result = await Compatibility(ctx).RecordCrossmatchAsync(
             new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Electronic));
         Assert.False(result.Succeeded);
-        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ElectronicCrossmatchEligibilityRule.Code);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ElectronicCrossmatchEligibilityRule.SecondTypeCode);
     }
 
     [Fact]

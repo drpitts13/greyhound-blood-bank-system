@@ -1,15 +1,31 @@
 @page "/audit"
+@using BloodBankLIS.Domain.Enums
 @inject BloodBankApiClient Api
 
 <PageTitle>Audit Trail &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Audit Trail</h1>
-<p class="muted">Append-only record of every clinical action. Paginated (max 1000 per page); records are retained and not purged.</p>
+<p class="muted">Append-only record of clinical actions (who / what / when / where / old / new / why). Paginated (max 1000 per page); records are retained and not purged.</p>
 
 <div class="bb-card">
     <div class="form-row">
-        <div class="field"><label>Entity type</label><input @bind="_entityType" placeholder="e.g. BloodUnit, Patient, Issue" /></div>
+        <div class="field">
+            <label>Event type</label>
+            <select @bind="_eventType">
+                <option value="">All events</option>
+                @foreach (var t in EventTypes)
+                {
+                    <option value="@t">@t</option>
+                }
+            </select>
+        </div>
+        <div class="field"><label>User</label><input @bind="_userName" placeholder="e.g. tech1" /></div>
+        <div class="field"><label>Entity type</label><input @bind="_entityType" placeholder="e.g. BloodUnit, TestResult" /></div>
         <div class="field"><label>Entity id (optional)</label><input type="number" @bind="_entityId" /></div>
+    </div>
+    <div class="form-row">
+        <div class="field"><label>From date (UTC)</label><input type="date" @bind="_fromDate" /></div>
+        <div class="field"><label>To date (UTC, inclusive)</label><input type="date" @bind="_toDate" /></div>
     </div>
     <button class="btn btn-secondary" disabled="@_busy" @onclick="() => LoadAsync(0)">Search</button>
 </div>
@@ -30,7 +46,7 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>When (UTC)</th><th>Action</th><th>Entity</th><th>User</th><th>Workstation</th><th>Reason</th><th>Sig</th></tr></thead>
+            <thead><tr><th>When (UTC)</th><th>Action</th><th>Entity</th><th>User</th><th>Workstation</th><th>Reason</th><th>Old / new</th><th>Sig</th></tr></thead>
             <tbody>
                 @foreach (var e in _events)
                 {
@@ -41,6 +57,24 @@
                         <td>@e.UserName</td>
                         <td class="muted">@e.Workstation</td>
                         <td>@e.Reason</td>
+                        <td>
+                            @if (HasValues(e))
+                            {
+                                <details>
+                                    <summary>Values</summary>
+                                    @if (!string.IsNullOrWhiteSpace(e.OldValueJson))
+                                    {
+                                        <div class="muted">Old</div>
+                                        <pre class="mono audit-json">@e.OldValueJson</pre>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(e.NewValueJson))
+                                    {
+                                        <div class="muted">New</div>
+                                        <pre class="mono audit-json">@e.NewValueJson</pre>
+                                    }
+                                </details>
+                            }
+                        </td>
                         <td class="mono">@(e.SignatureId?.ToString() ?? "")</td>
                     </tr>
                 }
@@ -55,9 +89,16 @@
 </div>
 
 @code {
+    private static readonly AuditEventType[] EventTypes =
+        Enum.GetValues<AuditEventType>().OrderBy(t => t.ToString()).ToArray();
+
     private List<AuditEventVm> _events = new();
+    private string? _eventType;
+    private string? _userName;
     private string? _entityType;
     private long? _entityId;
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
     private int _skip;
     private int _take = 200;
     private int _total;
@@ -67,16 +108,25 @@
 
     protected override async Task OnInitializedAsync() => await LoadAsync(0);
 
+    private static bool HasValues(AuditEventVm e) =>
+        !string.IsNullOrWhiteSpace(e.OldValueJson) || !string.IsNullOrWhiteSpace(e.NewValueJson);
+
     private async Task LoadAsync(int skip)
     {
         _loading = true;
         _busy = true;
         _skip = skip;
+        var fromUtc = _fromDate is DateTime from ? DateTime.SpecifyKind(from.Date, DateTimeKind.Utc) : (DateTime?)null;
+        var toUtc = _toDate is DateTime to ? DateTime.SpecifyKind(to.Date.AddDays(1), DateTimeKind.Utc) : (DateTime?)null;
         var r = await Api.GetAuditEventsAsync(
             string.IsNullOrWhiteSpace(_entityType) ? null : _entityType,
             _entityId is > 0 ? _entityId : null,
             _skip,
-            _take);
+            _take,
+            string.IsNullOrWhiteSpace(_eventType) ? null : _eventType,
+            string.IsNullOrWhiteSpace(_userName) ? null : _userName,
+            fromUtc,
+            toUtc);
         _loading = false;
         _busy = false;
         _fb = null;

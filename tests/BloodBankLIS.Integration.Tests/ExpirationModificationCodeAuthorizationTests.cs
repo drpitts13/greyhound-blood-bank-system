@@ -70,4 +70,29 @@ public class ExpirationModificationCodeAuthorizationTests : IClassFixture<Sqlite
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.True(allowed.Value!.IsActive);
     }
+
+    [Fact]
+    public async Task CreateAndUpdate_WriteConfigure()
+    {
+        await using var c = _factory.Create();
+        var code = $"X{Guid.NewGuid():N}"[..8].ToUpperInvariant();
+        var svc = Codes(c);
+
+        var created = await svc.CreateAsync(Request(code));
+        Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(ExpirationModificationCode)
+            && a.EntityId == created.Value!.Id
+            && a.EventType == AuditEventType.Configure));
+
+        var updated = await svc.UpdateAsync(
+            created.Value!.Id,
+            Request(code) with { OffsetAmount = 12, ChangeReason = "Shorten modified-unit shelf life." });
+        Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(ExpirationModificationCode) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
+    }
 }

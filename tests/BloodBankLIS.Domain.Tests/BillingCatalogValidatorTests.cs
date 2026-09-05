@@ -57,4 +57,21 @@ public class BillingCatalogValidatorTests
         var result = ProductBillingValidator.Validate(row, chargeCodeMissing: false, duplicateActive: false);
         Assert.False(result.IsHardStopped);
     }
+
+    [Fact]
+    public void Product_AcceptsUnitTransfused()
+    {
+        var row = new ProductBilling { ChargeCodeId = 1, IsbtProductCode = "E0336", Trigger = BillingTriggerType.UnitTransfused };
+        var result = ProductBillingValidator.Validate(row, chargeCodeMissing: false, duplicateActive: false);
+        Assert.False(result.IsHardStopped);
+    }
+
+    [Fact]
+    public void Product_RejectsTestVerifiedTrigger()
+    {
+        var row = new ProductBilling { ChargeCodeId = 1, IsbtProductCode = "E0336", Trigger = BillingTriggerType.TestVerified };
+        var result = ProductBillingValidator.Validate(row, chargeCodeMissing: false, duplicateActive: false);
+        Assert.True(result.IsHardStopped);
+        Assert.Contains(result.HardStops, r => r.Code == "PRODBILL.TRIGGER.INVALID");
+    }
 }

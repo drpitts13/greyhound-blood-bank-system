@@ -23,6 +23,10 @@
             <h3>Charge Rules</h3>
             <p>Map result verification and unit issue events to charge codes. Optional key scopes a rule to one test or product.</p>
         </a>
+        <a class="admin-card" href="admin/compatibility-rules">
+            <h3>Compatibility Tables</h3>
+            <p>Versioned ABO/Rh, antigen, and electronic XM rules by component class (AABB 5.14 / 5.16). Medical-director review required.</p>
+        </a>
     }
     @if (Session.Has(PermissionCodes.AdminAuditReview))
     {
@@ -37,9 +41,17 @@
             <h3>Exceptions</h3>
             <p>Clinical exception catalog and minimum security level required to override each rule.</p>
         </a>
+        <a class="admin-card" href="admin/facility-policies">
+            <h3>Facility Policy</h3>
+            <p>Specimen windows, dual verification, electronic XM, inventory receive, and retention (AABB / CLIA / 21 CFR).</p>
+        </a>
         <a class="admin-card" href="admin/hl7">
             <h3>Interface Setup</h3>
             <p>HL7 interfaces: type, direction, IP/port, vendor presets, field mapping, and value translation table.</p>
+        </a>
+        <a class="admin-card" href="admin/inventory-locations">
+            <h3>Inventory Locations</h3>
+            <p>Storage sites, satellite refrigerators, remote/electronic issue, and AABB storage-class rules.</p>
         </a>
         <a class="admin-card" href="admin/isbt-product-codes">
             <h3>ISBT Product Codes</h3>
@@ -59,7 +71,7 @@
         </a>
         <a class="admin-card" href="admin/product-billing">
             <h3>Product Billing</h3>
-            <p>Billing code, optional price, and UnitIssued trigger mapped to an ISBT product code.</p>
+            <p>Billing code, optional price, and UnitIssued or UnitTransfused trigger mapped to an ISBT product code.</p>
         </a>
         <a class="admin-card" href="admin/products">
             <h3>Products</h3>

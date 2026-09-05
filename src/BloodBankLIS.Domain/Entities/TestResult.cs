@@ -35,6 +35,11 @@ public class TestResult : BaseEntity
 
     public ResultStatus Status { get; set; } = ResultStatus.Pending;
 
+    public ResultSource Source { get; set; } = ResultSource.Manual;
+
+    /// <summary>Instrument identifier, HL7 control id, or calculation rule key.</summary>
+    public string? SourceReference { get; set; }
+
     public string? EnteredBy { get; set; }
 
     public DateTime? EnteredUtc { get; set; }
@@ -44,4 +49,10 @@ public class TestResult : BaseEntity
     public DateTime? VerifiedUtc { get; set; }
 
     public string? CorrectionReason { get; set; }
+
+    public string? InvalidatedBy { get; set; }
+
+    public DateTime? InvalidatedUtc { get; set; }
+
+    public string? InvalidationReason { get; set; }
 }

@@ -1,0 +1,109 @@
+@page "/antibody-id"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Antibody identification worklist &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Antibody identification</h1>
+<p class="muted">
+    Open workups across patients. Assistance does not identify antibodies.
+    An unscoped open workup is the identification of record for the whole patient and blocks free-text ABID verify until completed or voided.
+</p>
+
+<Outcome Value="_fb" />
+
+@if (!Session.Has(PermissionCodes.ImmunoRecord) && !Session.Has(PermissionCodes.ImmunoOverride))
+{
+    <div class="muted">Antibody-identification workups require immuno.record or immuno.override.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="bb-card-title">
+            <h3>Open workups</h3>
+            <button class="btn btn-secondary btn-sm" type="button" @onclick="LoadAsync">Refresh</button>
+        </div>
+        @if (_loading)
+        {
+            <div class="loading">Loading worklist...</div>
+        }
+        else if (_items.Count == 0)
+        {
+            <div class="empty">No open antibody-identification workups. Open a workup from a patient's Antibodies card.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>MRN</th>
+                        <th>Specimen</th>
+                        <th>Panel</th>
+                        <th>Lot</th>
+                        <th>Status</th>
+                        <th>Opened</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var w in _items)
+                    {
+                        <tr>
+                            <td>@(w.PatientName ?? "—")</td>
+                            <td class="mono">@(w.PatientMrn ?? "—")</td>
+                            <td>
+                                @if (string.IsNullOrWhiteSpace(w.SpecimenAccession))
+                                {
+                                    <span class="muted">Unscoped</span>
+                                }
+                                else
+                                {
+                                    <span class="mono">@w.SpecimenAccession</span>
+                                }
+                            </td>
+                            <td>@w.PanelName</td>
+                            <td class="mono">@w.LotNumber</td>
+                            <td>@w.Status</td>
+                            <td class="nowrap">@w.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="right nowrap">
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatient(w.PatientId)">Patient</button>
+                                <button class="btn btn-primary btn-sm" type="button" @onclick="() => OpenWorkup(w)">Open</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    private readonly List<AntibodyIdWorkupListItemDto> _items = new();
+    private Feedback? _fb;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetOpenAntibodyIdWorkupsAsync();
+        _items.Clear();
+        if (r.Succeeded && r.Value is not null)
+        {
+            _items.AddRange(r.Value);
+        }
+        else
+        {
+            _fb = r.ToFeedback();
+        }
+        _loading = false;
+    }
+
+    private void OpenPatient(long patientId) => Nav.NavigateTo($"/patients/{patientId}");
+
+    private void OpenWorkup(AntibodyIdWorkupListItemDto workup) =>
+        Nav.NavigateTo($"/patients/{workup.PatientId}/antibody-id/{workup.Id}");
+}

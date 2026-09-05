@@ -98,7 +98,7 @@ public sealed class TestWorklistService
         if (pendingOnly)
         {
             orders = orders
-                .Where(o => o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued))
+                .Where(o => o.Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued or OrderStatus.OnHold))
                 .ToList();
         }
 
@@ -172,7 +172,8 @@ public sealed class TestWorklistService
             var resultKey = BuildResultKey(order.Id, line.TestCode, resolvedSpecimenId);
             currentResults.TryGetValue(resultKey, out var current);
 
-            var isPending = current is null || current.Status is ResultStatus.Entered or ResultStatus.Corrected;
+            var isPending = current is null
+                || current.Status is ResultStatus.Entered or ResultStatus.Corrected or ResultStatus.PendingVerification or ResultStatus.Invalidated;
             var isCompleted = current?.Status == ResultStatus.Verified;
 
             if (filter == TestWorklistFilter.Pending && !isPending)
@@ -222,6 +223,7 @@ public sealed class TestWorklistService
                 current?.Status,
                 current?.Value,
                 current?.Interpretation,
+                current?.Source,
                 canEnter,
                 blockReason));
         }

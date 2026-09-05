@@ -114,6 +114,14 @@ public sealed record InTransitWorkItemDto(
         i.CoolerId, i.IssuedToLocation, i.Status);
 }
 
+public sealed record SecondAboWorkItemDto(
+    long PatientId,
+    string MedicalRecordNumber,
+    string DisplayName,
+    string CurrentAboRh,
+    int ReservedUnitCount,
+    string Reason);
+
 public sealed record RetrospectiveCrossmatchWorkItemDto(
     long IssueId,
     long PatientId,

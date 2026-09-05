@@ -28,6 +28,17 @@ public static class ChargeCodeValidator
             results.Add(RuleResult.HardStop("CHARGE.CODE.DUPLICATE", $"Another charge code already uses '{code.Code}'."));
         }
 
+        if (!string.IsNullOrWhiteSpace(code.RevenueCode)
+            && (code.RevenueCode.Length is < 3 or > 4 || !code.RevenueCode.All(char.IsDigit)))
+        {
+            results.Add(RuleResult.HardStop("CHARGE.REVENUE.FORMAT", "Revenue code must be 3 or 4 digits (UB-04)."));
+        }
+
+        if (!string.IsNullOrWhiteSpace(code.Modifier) && code.Modifier.Length > 2)
+        {
+            results.Add(RuleResult.HardStop("CHARGE.MODIFIER.LENGTH", "Procedure modifier cannot exceed 2 characters."));
+        }
+
         return new RuleEvaluation(results);
     }
 }

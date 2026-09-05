@@ -43,6 +43,23 @@ public class ChargeBillingValidatorTests
     }
 
     [Fact]
+    public void ChargeCode_RejectsNonNumericRevenueCode()
+    {
+        var code = new ChargeCode { Code = "BB-X", Description = "X", DefaultAmount = 1m, RevenueCode = "AB" };
+        var result = ChargeCodeValidator.Validate(code, duplicateCode: false);
+        Assert.True(result.IsHardStopped);
+        Assert.Contains(result.HardStops, r => r.Code == "CHARGE.REVENUE.FORMAT");
+    }
+
+    [Fact]
+    public void ChargeCode_AcceptsFourDigitRevenueAndModifier()
+    {
+        var code = new ChargeCode { Code = "BB-X", Description = "X", DefaultAmount = 1m, RevenueCode = "0381", Modifier = "26" };
+        var result = ChargeCodeValidator.Validate(code, duplicateCode: false);
+        Assert.False(result.IsHardStopped);
+    }
+
+    [Fact]
     public void ChargeRule_RejectsMissingChargeCode()
     {
         var rule = new ChargeRule { TriggerType = BillingTriggerType.TestVerified, ChargeCodeId = 0 };

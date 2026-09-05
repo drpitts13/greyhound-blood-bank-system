@@ -1,14 +1,15 @@
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
-/// Privilege gates for entering, correcting, and verifying results, including unit
-/// ABO/Rh retype that can move a unit to Available.
+/// Privilege gates for entering, correcting, verifying, and invalidating results,
+/// including unit ABO/Rh retype that can move a unit to Available.
 /// </summary>
 public static class ResultAuthorizationRule
 {
     public const string EnterCode = "RES-ENTER-PERM";
     public const string CorrectCode = "RES-CORRECT-PERM";
     public const string VerifyCode = "RES-VERIFY-PERM";
+    public const string InvalidateCode = "RES-INVALIDATE-PERM";
 
     public static RuleResult EvaluateEnter(bool hasResultEnter) =>
         hasResultEnter
@@ -30,5 +31,12 @@ public static class ResultAuthorizationRule
             : RuleResult.HardStop(
                 VerifyCode,
                 "Verifying a result requires the result.verify permission.");
+
+    public static RuleResult EvaluateInvalidate(bool hasResultInvalidate) =>
+        hasResultInvalidate
+            ? RuleResult.Pass(InvalidateCode)
+            : RuleResult.HardStop(
+                InvalidateCode,
+                "Invalidating a result requires the result.invalidate permission.");
 }
 

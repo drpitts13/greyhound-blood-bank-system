@@ -42,4 +42,19 @@ public static class FacilityPolicyKeys
 
     /// <summary>Upper age (inclusive) treated as childbearing potential when sex is not male.</summary>
     public const string ChildbearingAgeYears = "Compatibility.ChildbearingAgeYears";
+
+    /// <summary>When true, heterozygous (single-dose) cells do not rule out dosage-sensitive antibodies.</summary>
+    public const string AntibodyIdDosageAware = "AntibodyId.DosageAware";
+
+    /// <summary>Minimum homozygous (double-dose) negative cells required to exclude a dosage-sensitive antibody.</summary>
+    public const string AntibodyIdMinHomozygousExclusions = "AntibodyId.MinHomozygousExclusions";
+
+    /// <summary>Minimum antigen-positive negative cells required to exclude when dosage-aware evaluation is off.</summary>
+    public const string AntibodyIdMinHeterozygousExclusions = "AntibodyId.MinHeterozygousExclusions";
+
+    /// <summary>When true, supervisor review is required before an identification workup can complete.</summary>
+    public const string AntibodyIdRequireSupervisorReview = "AntibodyId.RequireSupervisorReview";
+
+    /// <summary>When true, the interpreting technologist cannot also perform supervisor review.</summary>
+    public const string AntibodyIdBlockSelfReview = "AntibodyId.BlockSelfReview";
 }

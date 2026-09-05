@@ -3,6 +3,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.ValueObjects;
+using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,11 +22,13 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         return new(new EfRepository<Encounter>(c), new EfRepository<Patient>(c), new EfRepository<OrderingProvider>(c), providers, c, clock);
     }
 
-    private static OrderService Orders(BloodBankDbContext c) =>
+    private OrderService Orders(BloodBankDbContext c) =>
         new(new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
             new EfRepository<Encounter>(c), new EfRepository<OrderingLocation>(c), new EfRepository<Patient>(c),
             new EfRepository<Specimen>(c), new EfRepository<OrderingProvider>(c), new EfRepository<ProductType>(c),
-            new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c), new FixedClock(DateTime.UtcNow), c);
+            new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c), new FixedClock(DateTime.UtcNow), c,
+            ruleEngine: null,
+            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
 
     private static PatientProductHistoryService History(BloodBankDbContext c) =>
         new(new EfRepository<Allocation>(c), new EfRepository<Crossmatch>(c), new EfRepository<Issue>(c),
@@ -82,6 +85,11 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
             [new OrderLineInputDto(OrderCategory.Test, "ABORH", null)],
             OrderPriority.Stat, DateTime.UtcNow, provider.Id, OrderSource.Manual, null, null));
         Assert.True(order.Succeeded);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EventType == AuditEventType.OrderChange
+            && a.EntityType == nameof(Order)
+            && a.EntityId == order.Value!.Id
+            && a.Reason == "Order created."));
 
         var list = await Orders(c).ListByPatientAsync(patient.Id);
         Assert.Single(list);

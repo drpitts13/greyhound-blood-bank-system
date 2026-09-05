@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Audit;
 using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -98,5 +99,46 @@ public class AuditPipelineTests : IClassFixture<SqliteContextFactory>
 
         context.Patients.Add(NewPatient("MRN-DUP"));
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task Query_ByNamedEventType_ReturnsOnlyMatchingRows()
+    {
+        await using var context = _factory.Create();
+        context.AuditEvents.AddRange(
+            new AuditEvent
+            {
+                EventType = AuditEventType.Issue,
+                EntityType = nameof(BloodUnit),
+                EntityId = 9,
+                UserName = "tech-test",
+                OccurredUtc = _factory.Clock.UtcNow,
+                Reason = "Standard issue"
+            },
+            new AuditEvent
+            {
+                EventType = AuditEventType.EmergencyRelease,
+                EntityType = nameof(BloodUnit),
+                EntityId = 9,
+                UserName = "supervisor",
+                OccurredUtc = _factory.Clock.UtcNow,
+                OldValueJson = "{\"Status\":1}",
+                NewValueJson = "{\"Status\":4}",
+                Reason = "Uncrossmatched"
+            });
+        await context.SaveChangesAsync();
+
+        var filtered = await AuditTrailQuery.Apply(
+            context.AuditEvents.AsNoTracking(),
+            entityType: nameof(BloodUnit),
+            entityId: 9,
+            eventType: AuditEventType.EmergencyRelease,
+            userName: null,
+            fromUtc: null,
+            toUtc: null).ToListAsync();
+
+        Assert.Single(filtered);
+        Assert.Equal("Uncrossmatched", filtered[0].Reason);
+        Assert.Contains("Status", filtered[0].NewValueJson);
     }
 }

@@ -150,6 +150,15 @@ public sealed class CompatibilityService
 
         await _crossmatches.AddAsync(crossmatch, ct);
         await _unitOfWork.SaveChangesAsync(ct);
+        _audit?.Record(
+            AuditEventType.Crossmatch,
+            nameof(Crossmatch),
+            crossmatch.Id,
+            newValue: new { crossmatch.BloodProductId, crossmatch.PatientId, crossmatch.Method, crossmatch.Result },
+            reason: request.Method == CrossmatchMethod.Electronic
+                ? "Electronic crossmatch recorded."
+                : "Serologic crossmatch recorded.");
+        await _unitOfWork.SaveChangesAsync(ct);
         await TryCloseRetrospectiveCrossmatchAsync(crossmatch, ct);
         return EvaluationResult<Crossmatch>.Ok(crossmatch);
     }
@@ -185,7 +194,7 @@ public sealed class CompatibilityService
             open.RetrospectiveCrossmatchId = xm.Id;
             _issues.Update(open);
             _audit?.Record(
-                AuditEventType.Update,
+                AuditEventType.Crossmatch,
                 nameof(Issue),
                 open.Id,
                 newValue: new { xm.Id, xm.Result },
@@ -196,7 +205,7 @@ public sealed class CompatibilityService
             open.CrossmatchStatus = CrossmatchClinicalStatus.Incompatible;
             _issues.Update(open);
             _audit?.Record(
-                AuditEventType.Update,
+                AuditEventType.Crossmatch,
                 nameof(Issue),
                 open.Id,
                 newValue: new { xm.Id, xm.Result },
@@ -360,6 +369,15 @@ public sealed class CompatibilityService
             return conflict;
         }
 
+        _audit?.Record(
+            AuditEventType.Assignment,
+            nameof(Allocation),
+            allocation.Id,
+            oldValue: new { Status = fromStatus },
+            newValue: new { unit.Status, allocation.PatientId, allocation.AssignmentType },
+            reason: "Unit assigned to patient.");
+        await _unitOfWork.SaveChangesAsync(ct);
+
         return EvaluationResult<Allocation>.Ok(allocation, evaluation);
     }
 
@@ -421,6 +439,14 @@ public sealed class CompatibilityService
             RelatedEntityType = nameof(Allocation),
             RelatedEntityId = allocation.Id
         });
+
+        _audit?.Record(
+            AuditEventType.Assignment,
+            nameof(Allocation),
+            allocation.Id,
+            oldValue: new { AllocationStatus = AllocationStatus.Reserved, UnitStatus = fromStatus },
+            newValue: new { AllocationStatus = allocation.Status, UnitStatus = unit.Status },
+            reason: reason.Trim());
 
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<Allocation>.Ok(allocation);

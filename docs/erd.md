@@ -122,6 +122,21 @@ Index: (`PatientId`,`IsActive`).
 ### AntigenProfiles
 `Id`, `PatientId` (FK Patients), `AntigenCode` (e.g. K, Fya, Jkb), `Result` (Positive/Negative/NotTested), `Method`, `TestedUtc`, `TestedBy`, `SourceResultId NULL`. Index: (`PatientId`,`AntigenCode`).
 
+### AntibodyPanelManufacturers
+`Id`, `Code`, `Name`, versioned-config columns. Index: (`Code`).
+
+### AntibodyPanelLots
+`Id`, `ManufacturerId`, `LotNumber`, `ExpiresOn`, `PanelName`, `IsSelectedCellLot`, `IsActive`. Unique (`ManufacturerId`,`LotNumber`).
+
+### AntibodyPanelCells / AntibodyPanelCellAntigens
+Cell: `LotId`, `CellNumber`, `Role` (Panel/Selected/Autocontrol), `SortOrder`. Antigen: `CellId`, `BloodAttributeDefinitionId`, `Expression` (NotTested/Absent/Present/Heterozygous/Homozygous/Weak).
+
+### AntibodyIdentificationWorkups
+`Id`, `PatientId`, `SpecimenId NULL`, `SourceResultId NULL`, `PrimaryLotId`, `Status` (InProgress/PendingInterpretation/PendingSupervisorReview/Completed/Voided), `DatResult`, `DatMethod`, `Comment`, technologist interpretation fields, supervisor review fields, `CompletedUtc`. Index: (`PatientId`), (`Status`).
+
+### AntibodyIdentificationWorkupLots / Reactions / Findings
+Lot attachment (`WorkupId`,`LotId`). Reaction: `WorkupId`, `CellId`, `PhaseCode`, `Strength`. Finding: specificity, classification, source (Assist/Technologist/Supervisor/History), rationale, `PostedToHistory`. Assist findings never post history.
+
 ---
 
 ## 4. Specimen & Order

@@ -73,7 +73,7 @@ public sealed class ExpirationModificationCodeAdminService : ConfigAdminServiceB
         await UnitOfWork.SaveChangesAsync(ct);
 
         var dto = Map(entity);
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Create,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Configure,
             oldValue: null, newValue: dto, reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 
@@ -120,7 +120,7 @@ public sealed class ExpirationModificationCodeAdminService : ConfigAdminServiceB
         _codes.Update(entity);
 
         var after = Map(entity);
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Update,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Configure,
             oldValue: before, newValue: after, reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 

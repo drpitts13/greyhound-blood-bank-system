@@ -86,7 +86,8 @@ public static class InterfaceDataItemCatalog
     private static readonly IReadOnlyList<InterfaceDataItem> Results =
     [
         ..PatientDemographics,
-        new(InterfaceDataItemKeys.ResultObrTestCode, "OBR test code", "Observation request identifier.", "OBR-4", true),
+        new(InterfaceDataItemKeys.OrderNumber, "Placer order number", "Placer / filler order id on the result.", "ORC-2-1", true),
+        new(InterfaceDataItemKeys.ResultObrTestCode, "OBR test code", "Observation request identifier.", "OBR-4-1", true),
         new(InterfaceDataItemKeys.ResultVerifiedUtc, "Verified date/time", "Observation date/time.", "OBR-7", false),
         new(InterfaceDataItemKeys.ResultObxIdentifier, "OBX identifier", "Observation identifier.", "OBX-3", true),
         new(InterfaceDataItemKeys.ResultValue, "Result value", "Observation value.", "OBX-5", true),

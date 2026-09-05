@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.PatientWorkspace;
+using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
@@ -41,6 +42,9 @@ public sealed class Hl7InboundProcessor
     private readonly IInterfaceValueTranslationRepository? _translations;
     private readonly InterfaceTransfusionService? _bpam;
     private readonly PatientMergeService? _merges;
+    private readonly ResultService? _results;
+    private readonly IRepository<OrderSpecimen>? _orderSpecimens;
+    private readonly IRepository<Specimen>? _specimens;
 
     public Hl7InboundProcessor(
         IRepository<Hl7MessageLog> logs,
@@ -58,7 +62,10 @@ public sealed class Hl7InboundProcessor
         IInterfaceFieldMappingRepository? mappings = null,
         InterfaceTransfusionService? bpam = null,
         IInterfaceValueTranslationRepository? translations = null,
-        PatientMergeService? merges = null)
+        PatientMergeService? merges = null,
+        ResultService? results = null,
+        IRepository<OrderSpecimen>? orderSpecimens = null,
+        IRepository<Specimen>? specimens = null)
     {
         _logs = logs;
         _errors = errors;
@@ -76,6 +83,9 @@ public sealed class Hl7InboundProcessor
         _bpam = bpam;
         _translations = translations;
         _merges = merges;
+        _results = results;
+        _orderSpecimens = orderSpecimens;
+        _specimens = specimens;
     }
 
     /// <summary>
@@ -200,6 +210,7 @@ public sealed class Hl7InboundProcessor
             "ADT" => await HandleAdtAsync(message, map, ct),
             "ORM" or "OML" => await HandleOrmAsync(message, map, ct),
             "RAS" or "BPS" => await HandleBpamAsync(message, map, ct),
+            "ORU" => await HandleOruAsync(message, map, ct),
             _ => throw new Hl7MappingException($"Unsupported message type '{message.MessageType}'.")
         };
 
@@ -440,6 +451,113 @@ public sealed class Hl7InboundProcessor
         return $"Order {data.PlacerOrderId} created.";
     }
 
+    private async Task<string> HandleOruAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)
+    {
+        if (_results is null)
+        {
+            throw new Hl7MappingException("Interface result posting is not configured.");
+        }
+
+        var data = Hl7OruMapper.Map(message, map);
+        if (string.IsNullOrWhiteSpace(data.Mrn))
+        {
+            throw new Hl7MappingException("ORU message has no patient identifier (PID-3).");
+        }
+
+        if (string.IsNullOrWhiteSpace(data.TestCode))
+        {
+            throw new Hl7MappingException("ORU message has no test code (OBR-4/OBX-3).");
+        }
+
+        if (string.IsNullOrWhiteSpace(data.Value))
+        {
+            throw new Hl7MappingException("ORU message has no result value (OBX-5).");
+        }
+
+        var statusGate = InterfaceResultAcceptanceRule.Evaluate(data.ObxStatus);
+        if (statusGate.Severity == RuleSeverity.HardStop)
+        {
+            throw new Hl7MappingException(statusGate.Message);
+        }
+
+        if (string.IsNullOrWhiteSpace(data.PlacerOrderId))
+        {
+            throw new Hl7MappingException("ORU message has no placer order id (ORC-2/OBR-2).");
+        }
+
+        var patient = _merges is not null
+            ? await _merges.FindByMrnAsync(data.Mrn, followMerge: true, ct)
+            : await _patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == data.Mrn, ct);
+        patient = await PatientMergeFollow.ResolveClinicalRecordAsync(_patients, patient, ct);
+        if (patient is null)
+        {
+            throw new Hl7MappingException($"No patient found for MRN '{data.Mrn}'; result cannot be posted.");
+        }
+
+        var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
+        if (clinical.Severity == RuleSeverity.HardStop)
+        {
+            throw new Hl7MappingException(clinical.Message);
+        }
+
+        var order = await _orders.FirstOrDefaultAsync(o => o.OrderNumber == data.PlacerOrderId, ct);
+        if (order is null)
+        {
+            throw new Hl7MappingException($"Order '{data.PlacerOrderId}' was not found; result cannot be posted.");
+        }
+
+        if (order.PatientId != patient.Id)
+        {
+            throw new Hl7MappingException(
+                $"Order '{data.PlacerOrderId}' does not belong to patient '{data.Mrn}'.");
+        }
+
+        var specimen = await ResolveAcceptedSpecimenAsync(order.Id, patient.Id, ct);
+        if (specimen is null)
+        {
+            throw new Hl7MappingException(
+                $"Order '{data.PlacerOrderId}' has no accepted specimen; result cannot be posted.");
+        }
+
+        var posted = await _results.EnterFromInterfaceAsync(
+            specimen.Id,
+            order.Id,
+            data.TestCode,
+            data.Value,
+            data.Units,
+            data.Interpretation,
+            message.MessageControlId,
+            ct);
+        if (!posted.Succeeded)
+        {
+            throw new Hl7MappingException(posted.Error ?? "Interface result could not be posted.");
+        }
+
+        return $"Result {data.TestCode} posted from interface as {posted.Value!.Status}.";
+    }
+
+    private async Task<Specimen?> ResolveAcceptedSpecimenAsync(long orderId, long patientId, CancellationToken ct)
+    {
+        if (_orderSpecimens is not null && _specimens is not null)
+        {
+            var links = await _orderSpecimens.ListAsync(l => l.OrderId == orderId, ct);
+            var ids = links
+                .OrderByDescending(l => l.IsPrimary)
+                .Select(l => l.SpecimenId)
+                .ToList();
+            foreach (var id in ids)
+            {
+                var linked = await _specimens.GetByIdAsync(id, ct);
+                if (linked is not null && linked.PatientId == patientId && linked.Status == SpecimenStatus.Accepted)
+                {
+                    return linked;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private async Task<string> HandleBpamAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)
     {
         if (_bpam is null)
@@ -477,6 +595,7 @@ public sealed class Hl7InboundProcessor
             "ADT" => InterfaceType.Adt,
             "ORM" or "OML" => InterfaceType.Orders,
             "RAS" or "BPS" => InterfaceType.Bpam,
+            "ORU" => InterfaceType.Results,
             _ => InterfaceType.Adt
         };
 

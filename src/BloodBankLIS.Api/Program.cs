@@ -118,6 +118,7 @@ app.MapSpecimenEndpoints();
 app.MapResultEndpoints();
 app.MapTestWorklistEndpoints();
 app.MapImmunohematologyEndpoints();
+app.MapAntibodyIdentificationEndpoints();
 app.MapCompatibilityEndpoints();
 app.MapIssuingEndpoints();
 app.MapHl7Endpoints();

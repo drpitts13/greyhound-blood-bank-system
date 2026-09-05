@@ -155,6 +155,7 @@ table.bb tbody tr:hover { background: #fafbfe; }
 .bb-combobox-clear { color: var(--bb-muted); }
 .bb-combobox-empty { color: var(--bb-muted); cursor: default; }
 .bb-combobox-empty:hover { background: transparent; }
+.audit-json { margin: .25rem 0 .5rem; white-space: pre-wrap; word-break: break-word; max-width: 28rem; font-size: .75rem; }
 .form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 1rem; }
 @media (max-width: 720px) { .form-row { grid-template-columns: 1fr; } }
 

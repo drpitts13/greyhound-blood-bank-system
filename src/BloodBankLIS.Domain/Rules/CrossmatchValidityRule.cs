@@ -10,9 +10,13 @@ public static class CrossmatchValidityRule
 {
     public const string Code = "ISS-XM-REQUIRED";
 
-    public static RuleResult Evaluate(bool requiresCrossmatch, bool hasValidCrossmatch, bool isEmergencyRelease)
+    public static RuleResult Evaluate(
+        bool requiresCrossmatch,
+        bool hasValidCrossmatch,
+        bool isEmergencyRelease,
+        bool electronicIssueEligible = false)
     {
-        if (!requiresCrossmatch || hasValidCrossmatch)
+        if (!requiresCrossmatch || hasValidCrossmatch || electronicIssueEligible)
         {
             return RuleResult.Pass(Code);
         }

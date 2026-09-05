@@ -89,6 +89,7 @@ public static class DependencyInjection
         services.AddScoped<ResultService>();
         services.AddScoped<TestWorklistService>();
         services.AddScoped<ImmunohematologyService>();
+        services.AddScoped<AntibodyIdentificationService>();
         services.AddScoped<BloodAttributeCompatLoader>();
         services.AddScoped<AntibodyScreenCompatLoader>();
         services.AddScoped<CompatibilityService>();
@@ -113,6 +114,9 @@ public static class DependencyInjection
         services.AddScoped<IsbtProductCodeAdminService>();
         services.AddScoped<OrderingProviderAdminService>();
         services.AddScoped<OrderingLocationAdminService>();
+        services.AddScoped<InventoryLocationAdminService>();
+        services.AddScoped<FacilityPolicyAdminService>();
+        services.AddScoped<CompatibilityRuleAdminService>();
         services.AddScoped<ChargeCodeAdminService>();
         services.AddScoped<ChargeRuleAdminService>();
         services.AddScoped<TestServiceBillingAdminService>();

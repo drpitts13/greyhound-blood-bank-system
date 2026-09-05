@@ -299,7 +299,13 @@ else
 
         <!-- Antibodies -->
         <div class="bb-card">
-            <div class="bb-card-title"><h3>Antibodies</h3></div>
+            <div class="bb-card-title">
+                <h3>Antibodies</h3>
+                @if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
+                {
+                    <a class="btn btn-secondary btn-sm" href="@($"/patients/{Id}/antibody-id")">Antibody identification</a>
+                }
+            </div>
             @if (_antibodyHistory.Count == 0)
             {
                 <div class="empty">No antibodies on record.</div>
@@ -872,7 +878,7 @@ else
                                     <div style="margin-bottom:.75rem;">
                                         <strong>Tests from linked orders</strong>
                                         <table class="bb" style="margin-top:.35rem;">
-                                            <thead><tr><th>Test</th><th>Order #</th><th>Status</th></tr></thead>
+                                            <thead><tr><th>Test</th><th>Order #</th><th>Status</th><th>Source</th></tr></thead>
                                             <tbody>
                                                 @foreach (var item in _specimenWorklist)
                                                 {
@@ -880,6 +886,7 @@ else
                                                         <td>@item.TestName <span class="mono muted">@item.TestCode</span></td>
                                                         <td class="mono">@item.OrderNumber</td>
                                                         <td>@(item.CurrentResultStatus?.ToString() ?? (item.CanEnterResults ? "Pending" : item.BlockReason ?? "Blocked"))</td>
+                                                        <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
                                                     </tr>
                                                 }
                                             </tbody>
@@ -933,7 +940,7 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Status</th><th>Priority</th><th>Ordered</th><th></th></tr></thead>
+                    <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Status</th><th>Source</th><th>Priority</th><th>Ordered</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var item in _testWorklist)
                         {
@@ -951,6 +958,7 @@ else
                                         <span class="badge badge-gray">Pending</span>
                                     }
                                 </td>
+                                <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
                                 <td>@item.Priority</td>
                                 <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                                 <td class="right">
@@ -961,7 +969,7 @@ else
                             </tr>
                             @if (_expandedTestLineId == item.OrderLineId)
                             {
-                                <tr><td colspan="7">
+                                <tr><td colspan="8">
                                     <TestResultEntryPanel WorkItem="item" OnSaved="OnTestResultSaved" />
                                 </td></tr>
                             }
@@ -979,6 +987,7 @@ else
                 <h3>Test history</h3>
                 <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadTestHistoryAsync">Refresh</button>
             </div>
+            <p class="muted">Released values including prior versions retained after correction or invalidation.</p>
             <div class="form-row" style="margin-bottom:.75rem;">
                 <div class="field" style="flex:1;">
                     <label>Search</label>
@@ -991,20 +1000,22 @@ else
             }
             else if (FilteredTestHistory.Count == 0)
             {
-                <div class="empty">@(string.IsNullOrWhiteSpace(_testHistorySearch) ? "No verified results." : "No verified results match this search.")</div>
+                <div class="empty">@(string.IsNullOrWhiteSpace(_testHistorySearch) ? "No released results." : "No released results match this search.")</div>
             }
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Verified</th><th>Test</th><th>Result</th><th>Interpretation</th><th>Accession</th><th>Order</th><th>Verified by</th></tr></thead>
+                    <thead><tr><th>Verified</th><th>Test</th><th>Ver.</th><th>Result</th><th>Status</th><th>Reason</th><th>Accession</th><th>Order</th><th>Verified by</th></tr></thead>
                     <tbody>
                         @foreach (var h in FilteredTestHistory)
                         {
-                            <tr>
+                            <tr class="@(h.IsCurrent ? null : "row-muted")">
                                 <td class="nowrap">@h.VerifiedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                                 <td><strong>@h.TestName</strong> <span class="mono muted">@h.TestCode</span></td>
+                                <td>@h.Version</td>
                                 <td>@DisplayHistoryValue(h)</td>
-                                <td>@(h.Interpretation ?? "—")</td>
+                                <td><span class="@Ui.Badge(h.Status)">@h.Status</span>@(h.IsCurrent ? null : " prior")</td>
+                                <td>@(h.Reason ?? "—")</td>
                                 <td class="mono">@(string.IsNullOrWhiteSpace(h.AccessionNumber) ? "—" : h.AccessionNumber)</td>
                                 <td class="mono">@(h.OrderNumber ?? "—")</td>
                                 <td>@(h.VerifiedBy ?? "—")</td>
@@ -1389,6 +1400,8 @@ else
     private long? _correctId;
     private string _correctValue = string.Empty;
     private string _correctReason = string.Empty;
+    private long? _invalidateId;
+    private string _invalidateReason = string.Empty;
     private long? _deltaOverrideResultId;
     private long? _deltaOverrideSpecimenId;
     private string _deltaOverrideReason = string.Empty;
@@ -2108,7 +2121,9 @@ else
                     h.TestCode.Contains(q, StringComparison.OrdinalIgnoreCase)
                     || h.TestName.Contains(q, StringComparison.OrdinalIgnoreCase)
                     || h.AccessionNumber.Contains(q, StringComparison.OrdinalIgnoreCase)
-                    || (h.OrderNumber?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false))
+                    || (h.OrderNumber?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (h.Reason?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || h.Status.ToString().Contains(q, StringComparison.OrdinalIgnoreCase))
                 .ToList();
         }
     }
@@ -2456,6 +2471,18 @@ else
     private static string DisplayResultValue(TestResultDto r) =>
         r.TestCode == "ABORH" ? AboRhResultValue.FormatDisplay(r.Value) : (r.Value ?? "—");
 
+    private List<TestResultDto> PriorVersions(TestResultDto current) =>
+        _results
+            .Where(p => p.Id != current.Id
+                && string.Equals(p.TestCode, current.TestCode, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(p => p.Version)
+            .ToList();
+
+    private static string VersionReason(TestResultDto r) =>
+        !string.IsNullOrWhiteSpace(r.InvalidationReason) ? r.InvalidationReason
+        : !string.IsNullOrWhiteSpace(r.CorrectionReason) ? r.CorrectionReason
+        : r.SourceReference ?? "—";
+
     private static string DisplayHistoryValue(PatientTestHistoryRowDto r) =>
         r.TestCode == "ABORH" ? AboRhResultValue.FormatDisplay(r.Value) : (r.Value ?? "—");
 
@@ -2469,15 +2496,23 @@ else
     }
 
     private bool IsAboSelfVerifyBlocked(TestResultDto r) =>
-        r.Status is ResultStatus.Entered or ResultStatus.Corrected
+        r.Status is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
         && string.Equals(r.TestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
         && !string.IsNullOrWhiteSpace(r.EnteredBy)
         && string.Equals(r.EnteredBy, Session.UserName, StringComparison.OrdinalIgnoreCase);
 
     private bool CanVerifyResult(TestResultDto r) =>
-        r.Status is ResultStatus.Entered or ResultStatus.Corrected
+        r.Status is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
         && Session.Has(PermissionCodes.ResultVerify)
         && !IsAboSelfVerifyBlocked(r);
+
+    private bool CanSubmitForVerification(TestResultDto r) =>
+        r.Status is ResultStatus.Entered
+        && Session.Has(PermissionCodes.ResultEnter);
+
+    private bool CanInvalidateResult(TestResultDto r) =>
+        r.Status is not ResultStatus.Invalidated and not ResultStatus.Pending
+        && Session.Has(PermissionCodes.ResultInvalidate);
 
     private async Task VerifyAsync(long resultId, long specimenId)
     {
@@ -2568,6 +2603,42 @@ else
         if (r.Succeeded) { _correctId = null; await ReloadResults(specimenId); }
     }
 
+    private void BeginInvalidate(TestResultDto r)
+    {
+        _invalidateId = r.Id;
+        _invalidateReason = string.Empty;
+    }
+
+    private async Task SubmitForVerificationAsync(long resultId, long specimenId)
+    {
+        _busy = true;
+        var r = await Api.SubmitResultForVerificationAsync(resultId);
+        _busy = false;
+        _resultFb = r.ToFeedback("Submitted for verification.");
+        if (r.Succeeded)
+        {
+            await ReloadResults(specimenId);
+        }
+    }
+
+    private async Task InvalidateAsync(long specimenId)
+    {
+        if (_invalidateId is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.InvalidateResultAsync(_invalidateId.Value, new InvalidateResultRequest(_invalidateReason));
+        _busy = false;
+        _resultFb = r.ToFeedback("Result invalidated.");
+        if (r.Succeeded)
+        {
+            _invalidateId = null;
+            await ReloadResults(specimenId);
+        }
+    }
+
     private async Task ReloadResults(long specimenId) =>
         _results = (await Api.GetSpecimenResultsAsync(specimenId)).Value ?? new();
 
@@ -2619,17 +2690,22 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Test</th><th>Value</th><th>Ver.</th><th>Status</th><th>Verified by</th><th></th></tr></thead>
+                    <thead><tr><th>Test</th><th>Value</th><th>Ver.</th><th>Status</th><th>Source</th><th>Verified by</th><th></th></tr></thead>
                     <tbody>
-                        @foreach (var r in _results.Where(r => r.SupersededByResultId is null))
+                        @foreach (var r in _results.Where(r => ResultLifecycleRule.IsCurrentRow(r.SupersededByResultId)))
                         {
                             <tr>
                                 <td class="mono">@r.TestCode</td>
                                 <td>@DisplayResultValue(r)</td>
                                 <td>@r.Version</td>
                                 <td><span class="@Ui.Badge(r.Status)">@r.Status</span></td>
+                                <td>@r.Source</td>
                                 <td>@r.VerifiedBy</td>
                                 <td class="right">
+                                    @if (CanSubmitForVerification(r))
+                                    {
+                                        <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SubmitForVerificationAsync(r.Id, s.Id)">Submit</button>
+                                    }
                                     @if (CanVerifyResult(r))
                                     {
                                         <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => VerifyAsync(r.Id, s.Id)">Verify</button>
@@ -2642,11 +2718,15 @@ else
                                     {
                                         <button class="btn btn-ghost btn-sm" @onclick="() => BeginCorrect(r)">Correct</button>
                                     }
+                                    @if (CanInvalidateResult(r))
+                                    {
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => BeginInvalidate(r)">Invalidate</button>
+                                    }
                                 </td>
                             </tr>
                             @if (_correctId == r.Id)
                             {
-                                <tr><td colspan="6">
+                                <tr><td colspan="7">
                                     <div class="form-row">
                                         <div class="field"><label>New value</label><input @bind="_correctValue" /></div>
                                         <div class="field"><label>Reason</label><input @bind="_correctReason" /></div>
@@ -2654,6 +2734,41 @@ else
                                     <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => CorrectAsync(s.Id)">Save correction</button>
                                     <button class="btn btn-secondary btn-sm" @onclick="() => _correctId = null">Cancel</button>
                                 </td></tr>
+                            }
+                            @if (_invalidateId == r.Id)
+                            {
+                                <tr><td colspan="7">
+                                    <div class="field"><label>Invalidation reason</label><input @bind="_invalidateReason" /></div>
+                                    <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => InvalidateAsync(s.Id)">Invalidate result</button>
+                                    <button class="btn btn-secondary btn-sm" @onclick="() => _invalidateId = null">Cancel</button>
+                                </td></tr>
+                            }
+                            @if (PriorVersions(r) is { Count: > 0 } priors)
+                            {
+                                <tr>
+                                    <td colspan="7">
+                                        <details>
+                                            <summary class="muted">@priors.Count prior version@(priors.Count == 1 ? "" : "s") retained</summary>
+                                            <table class="bb" style="margin-top:.35rem;">
+                                                <thead><tr><th>Ver.</th><th>Value</th><th>Status</th><th>Source</th><th>Reason</th><th>Who</th><th>When (UTC)</th></tr></thead>
+                                                <tbody>
+                                                @foreach (var p in priors)
+                                                {
+                                                    <tr>
+                                                        <td>@p.Version</td>
+                                                        <td>@DisplayResultValue(p)</td>
+                                                        <td><span class="@Ui.Badge(p.Status)">@p.Status</span></td>
+                                                        <td>@p.Source</td>
+                                                        <td>@VersionReason(p)</td>
+                                                        <td>@(p.InvalidatedBy ?? p.VerifiedBy ?? p.EnteredBy)</td>
+                                                        <td class="mono">@(p.InvalidatedUtc ?? p.VerifiedUtc ?? p.EnteredUtc)</td>
+                                                    </tr>
+                                                }
+                                                </tbody>
+                                            </table>
+                                        </details>
+                                    </td>
+                                </tr>
                             }
                         }
                     </tbody>

@@ -14,8 +14,14 @@ public class ChargeCode : BaseEntity
 
     public decimal DefaultAmount { get; set; }
 
-    /// <summary>Placeholder CPT mapping for a future billing export phase.</summary>
+    /// <summary>CPT or HCPCS procedure code snapshotted onto DFT FT1-25.</summary>
     public string? CptCode { get; set; }
+
+    /// <summary>UB-04 revenue code (typically 4 digits) mapped to DFT FT1-13.</summary>
+    public string? RevenueCode { get; set; }
+
+    /// <summary>CPT/HCPCS modifier mapped to DFT FT1-26.</summary>
+    public string? Modifier { get; set; }
 
     public bool IsActive { get; set; } = true;
 }

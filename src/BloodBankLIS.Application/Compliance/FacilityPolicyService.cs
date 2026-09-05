@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Compliance;
 
@@ -100,4 +101,20 @@ public sealed class FacilityPolicyService
 
     public Task<int> GetChildbearingAgeYearsAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.ChildbearingAgeYears, 50, ct);
+
+    public async Task<AntibodyIdentificationPolicy> GetAntibodyIdentificationPolicyAsync(CancellationToken ct = default)
+    {
+        var dosageAware = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdDosageAware, true, ct);
+        var minHom = await GetIntAsync(FacilityPolicyKeys.AntibodyIdMinHomozygousExclusions, 1, ct);
+        var minHet = await GetIntAsync(FacilityPolicyKeys.AntibodyIdMinHeterozygousExclusions, 2, ct);
+        var requireReview = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdRequireSupervisorReview, true, ct);
+        var blockSelf = await GetBoolAsync(FacilityPolicyKeys.AntibodyIdBlockSelfReview, true, ct);
+        return new AntibodyIdentificationPolicy(
+            dosageAware,
+            Math.Clamp(minHom, 1, 5),
+            Math.Clamp(minHet, 1, 5),
+            requireReview,
+            blockSelf,
+            AntibodyIdentificationPolicy.DefaultDosageSensitiveCodes);
+    }
 }

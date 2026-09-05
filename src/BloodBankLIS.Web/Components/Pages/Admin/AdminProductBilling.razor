@@ -89,6 +89,7 @@
             <div class="field"><label>Trigger</label>
                 <select @bind="_draft.Trigger">
                     <option value="@BillingTriggerType.UnitIssued">UnitIssued</option>
+                    <option value="@BillingTriggerType.UnitTransfused">UnitTransfused</option>
                 </select>
             </div>
             <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>

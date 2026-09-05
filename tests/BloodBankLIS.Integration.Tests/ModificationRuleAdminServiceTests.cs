@@ -269,21 +269,22 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
-    public async Task Create_WritesCreateAudit()
+    public async Task Create_WritesConfigureAudit()
     {
-        var (sourceId, targetId) = await EnsureProductTypesAsync("AUDIT");
+        var suffix = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        var (sourceId, targetId) = await EnsureProductTypesAsync($"AUD{suffix}");
         var codeId = await EnsureExpirationCodeAsync();
         long id;
         await using (var context = _factory.Create())
         {
             var service = CreateService(context);
-            var created = await service.CreateAsync(NewRequest(sourceId, targetId, codeId));
+            var created = await service.CreateAsync(NewRequest(sourceId, targetId, codeId, modificationCode: $"MC{suffix}"));
             id = created.Value!.Id;
         }
 
         await using var verify = _factory.Create();
         var audit = await verify.AuditEvents
-            .Where(a => a.EntityType == nameof(ModificationRule) && a.EntityId == id && a.EventType == AuditEventType.Create)
+            .Where(a => a.EntityType == nameof(ModificationRule) && a.EntityId == id && a.EventType == AuditEventType.Configure)
             .ToListAsync();
         Assert.NotEmpty(audit);
     }

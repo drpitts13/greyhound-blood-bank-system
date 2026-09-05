@@ -44,6 +44,7 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             context,
             _factory.Clock,
             user ?? _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, user ?? _factory.CurrentUser),
             permissions: permissions);
 
     private ProductRetypeService RetypeWithPolicy(BloodBankDbContext context, ICurrentUser? user = null) =>
@@ -54,6 +55,7 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             context,
             _factory.Clock,
             user ?? _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, user ?? _factory.CurrentUser),
             new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
 
     private static RecordProductRetypeRequest MatchOPos() => new(
@@ -145,6 +147,17 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Available, unit.Status);
         Assert.Contains(await context.InventoryStatusHistory.Where(h => h.BloodProductId == unitId).ToListAsync(),
             h => h.ToStatus == UnitStatus.Available && h.Reason != null && h.Reason.Contains("retype", StringComparison.OrdinalIgnoreCase));
+
+        var retypeId = entered.Value.Latest.Id;
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EventType == AuditEventType.Result && a.EntityType == nameof(ProductRetypeResult) && a.EntityId == retypeId));
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EventType == AuditEventType.Verify && a.EntityType == nameof(ProductRetypeResult) && a.EntityId == retypeId));
+        Assert.Contains(
+            await context.AuditEvents
+                .Where(a => a.EventType == AuditEventType.ProductStatus && a.EntityType == nameof(BloodUnit) && a.EntityId == unitId)
+                .ToListAsync(),
+            a => a.Reason != null && a.Reason.Contains("retype", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

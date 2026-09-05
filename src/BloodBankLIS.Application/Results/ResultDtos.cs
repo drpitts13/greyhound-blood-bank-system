@@ -9,7 +9,9 @@ public sealed record EnterResultRequest(
     string Value,
     long? OrderId = null,
     string? Units = null,
-    string? Interpretation = null);
+    string? Interpretation = null,
+    ResultSource Source = ResultSource.Manual,
+    string? SourceReference = null);
 
 /// <param name="Subtests">Optional panel subtests (Anti-A, Anti-B, Anti-D, A-Cells, B-Cells; Control and Weak-D optional).</param>
 public sealed record EnterAboRhRequest(
@@ -17,9 +19,13 @@ public sealed record EnterAboRhRequest(
     AboGroup Abo,
     RhType RhD,
     IReadOnlyDictionary<string, string>? Subtests = null,
-    long? OrderId = null);
+    long? OrderId = null,
+    ResultSource Source = ResultSource.Manual,
+    string? SourceReference = null);
 
 public sealed record CorrectResultRequest(string NewValue, string Reason);
+
+public sealed record InvalidateResultRequest(string Reason);
 
 /// <summary>Optional override payload when verifying an ABO/Rh result that disagrees with history.</summary>
 public sealed record VerifyResultRequest(
@@ -48,7 +54,9 @@ public sealed record SaveTestResultRequest(
     string? OverrideReason = null,
     string? AuthorizedBy = null,
     AboRhHistoryResolution? HistoryResolution = null,
-    long? SignatureId = null);
+    long? SignatureId = null,
+    ResultSource Source = ResultSource.Manual,
+    string? SourceReference = null);
 
 public sealed record TestResultDto(
     long Id,
@@ -62,14 +70,20 @@ public sealed record TestResultDto(
     string? Units,
     string? Interpretation,
     ResultStatus Status,
+    ResultSource Source,
+    string? SourceReference,
     string? EnteredBy,
     DateTime? EnteredUtc,
     string? VerifiedBy,
     DateTime? VerifiedUtc,
-    string? CorrectionReason)
+    string? CorrectionReason,
+    string? InvalidatedBy,
+    DateTime? InvalidatedUtc,
+    string? InvalidationReason)
 {
     public static TestResultDto From(TestResult r) => new(
         r.Id, r.SpecimenId, r.PatientId, r.OrderId, r.TestCode, r.Version, r.SupersededByResultId,
-        r.Value, r.Units, r.Interpretation, r.Status, r.EnteredBy, r.EnteredUtc,
-        r.VerifiedBy, r.VerifiedUtc, r.CorrectionReason);
+        r.Value, r.Units, r.Interpretation, r.Status, r.Source, r.SourceReference,
+        r.EnteredBy, r.EnteredUtc, r.VerifiedBy, r.VerifiedUtc, r.CorrectionReason,
+        r.InvalidatedBy, r.InvalidatedUtc, r.InvalidationReason);
 }

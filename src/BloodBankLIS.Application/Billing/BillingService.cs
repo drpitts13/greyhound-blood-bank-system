@@ -16,7 +16,8 @@ public readonly record struct BillingTriggerContext(
     DateTime ServiceDateUtc,
     long? PatientId,
     string? Key,
-    string? IsbtProductCode = null);
+    string? IsbtProductCode = null,
+    string? PerformingLocationCode = null);
 
 /// <summary>
 /// Event-driven charge capture (docs/printing-billing.md Part B). Translates triggers
@@ -102,7 +103,27 @@ public sealed class BillingService
     }
 
     /// <summary>Captures charges for an issued unit. Safe to call repeatedly (idempotent).</summary>
-    public async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForIssueAsync(long issueId, CancellationToken ct = default)
+    public Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForIssueAsync(
+        long issueId, CancellationToken ct = default) =>
+        CaptureForUnitEventAsync(issueId, BillingTriggerType.UnitIssued, ct);
+
+    /// <summary>
+    /// SoftBank / SafeTrace administration charge: captured when transfusion is
+    /// documented complete. Other dispositions do not bill. Idempotent.
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForTransfusionAsync(
+        long issueId, TransfusionDisposition disposition, CancellationToken ct = default)
+    {
+        if (disposition != TransfusionDisposition.Completed)
+        {
+            return OperationResult<IReadOnlyList<BillingEvent>>.Ok(Array.Empty<BillingEvent>());
+        }
+
+        return await CaptureForUnitEventAsync(issueId, BillingTriggerType.UnitTransfused, ct);
+    }
+
+    private async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForUnitEventAsync(
+        long issueId, BillingTriggerType triggerType, CancellationToken ct)
     {
         var issue = await _issues.GetByIdAsync(issueId, ct);
         if (issue is null)
@@ -120,14 +141,18 @@ public sealed class BillingService
             isbt = FirstNonEmpty(unit.ProductDescriptionCode, unit.Isbt128ProductCode, product?.Isbt128ProductCode);
         }
 
+        var serviceDate = triggerType == BillingTriggerType.UnitTransfused
+            ? _clock.UtcNow
+            : issue.IssuedUtc;
         var context = new BillingTriggerContext(
-            BillingTriggerType.UnitIssued,
-            nameof(Issue),
+            triggerType,
+            triggerType == BillingTriggerType.UnitTransfused ? nameof(TransfusionEvent) : nameof(Issue),
             issue.Id,
-            issue.IssuedUtc,
+            serviceDate,
             issue.PatientId,
             NormalizeKey(key),
-            NormalizeKey(isbt));
+            NormalizeKey(isbt),
+            string.IsNullOrWhiteSpace(issue.IssuedToLocation) ? null : issue.IssuedToLocation.Trim());
 
         return await CaptureAsync(context, ct);
     }
@@ -265,9 +290,7 @@ public sealed class BillingService
                 context,
                 BillingChargeSourceKind.ChargeRule,
                 rule.Id,
-                code.Id,
-                code.Code,
-                code.DefaultAmount,
+                code,
                 created,
                 ct);
         }
@@ -298,9 +321,7 @@ public sealed class BillingService
                 context,
                 BillingChargeSourceKind.TestService,
                 row.Id,
-                code.Id,
-                code.Code,
-                code.DefaultAmount,
+                code,
                 created,
                 ct);
         }
@@ -311,7 +332,8 @@ public sealed class BillingService
         List<BillingEvent> created,
         CancellationToken ct)
     {
-        if (context.TriggerType != BillingTriggerType.UnitIssued || string.IsNullOrWhiteSpace(context.IsbtProductCode))
+        if (context.TriggerType is not (BillingTriggerType.UnitIssued or BillingTriggerType.UnitTransfused)
+            || string.IsNullOrWhiteSpace(context.IsbtProductCode))
         {
             return;
         }
@@ -331,9 +353,7 @@ public sealed class BillingService
                 context,
                 BillingChargeSourceKind.Product,
                 row.Id,
-                code.Id,
-                code.Code,
-                code.DefaultAmount,
+                code,
                 created,
                 ct);
         }
@@ -343,9 +363,7 @@ public sealed class BillingService
         BillingTriggerContext context,
         BillingChargeSourceKind sourceKind,
         long sourceId,
-        long? chargeCodeId,
-        string billingCode,
-        decimal? amount,
+        ChargeCode code,
         List<BillingEvent> created,
         CancellationToken ct)
     {
@@ -357,18 +375,23 @@ public sealed class BillingService
 
         var billingEvent = new BillingEvent
         {
-            ChargeCodeId = chargeCodeId,
-            BillingCode = billingCode,
+            ChargeCodeId = code.Id,
+            BillingCode = code.Code,
             TriggerType = context.TriggerType,
             TriggerEntityType = context.TriggerEntityType,
             TriggerEntityId = context.TriggerEntityId,
             PatientId = context.PatientId,
             ServiceDateUtc = context.ServiceDateUtc,
-            Amount = amount,
+            Amount = code.DefaultAmount,
             SourceKind = sourceKind,
             SourceId = sourceId,
             DedupeKey = dedupeKey,
-            Status = BillingEventStatus.Pending
+            Status = BillingEventStatus.Pending,
+            ProcedureCode = code.CptCode,
+            RevenueCode = code.RevenueCode,
+            Modifier = code.Modifier,
+            Description = code.Description,
+            PerformingLocationCode = context.PerformingLocationCode
         };
 
         await _events.AddAsync(billingEvent, ct);

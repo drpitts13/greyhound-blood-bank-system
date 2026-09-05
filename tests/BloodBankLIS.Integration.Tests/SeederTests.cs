@@ -34,7 +34,9 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "RBC-LR" && p.RequiresRetype));
             Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "FFP" && !p.RequiresRetype));
             Assert.True(await verify.TestDefinitions.AnyAsync(t => t.Code == AboRhRetypeRule.TestCode && t.Category == TestCategory.AboRhRetype));
-            Assert.Equal(3, await verify.InventoryLocations.CountAsync());
+            Assert.Equal(5, await verify.InventoryLocations.CountAsync());
+            Assert.True(await verify.AntibodyPanelLots.AnyAsync(l => l.LotNumber == "GHP-ABID-2026A" && l.IsActive));
+            Assert.True(await verify.AntibodyPanelCells.CountAsync() >= 10);
 
             // The original demo patient plus the five extended scenarios.
             Assert.Equal(6, await verify.Patients.CountAsync());

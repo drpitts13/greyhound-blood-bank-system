@@ -46,6 +46,8 @@ public sealed class InventoryService
     private readonly IRepository<User>? _users;
     private readonly FacilityPolicyService? _policy;
     private readonly IRepository<Patient>? _patients;
+    private readonly IRepository<InventoryLocation>? _locations;
+    private readonly IRepository<ProductType>? _productTypes;
     private readonly IPermissionEvaluator? _permissions;
 
     public InventoryService(
@@ -60,6 +62,8 @@ public sealed class InventoryService
         IRepository<User>? users = null,
         FacilityPolicyService? policy = null,
         IRepository<Patient>? patients = null,
+        IRepository<InventoryLocation>? locations = null,
+        IRepository<ProductType>? productTypes = null,
         IPermissionEvaluator? permissions = null)
     {
         _repository = repository;
@@ -73,6 +77,8 @@ public sealed class InventoryService
         _users = users;
         _policy = policy;
         _patients = patients;
+        _locations = locations;
+        _productTypes = productTypes;
         _permissions = permissions;
     }
 
@@ -564,7 +570,6 @@ public sealed class InventoryService
         {
             return denied;
         }
-
         draft.RebuildIdentity();
 
         var appear = await EvaluateReceiveAppearanceAsync(visualInspectionAcceptable, appearance, ct);
@@ -1122,6 +1127,25 @@ public sealed class InventoryService
         if (!TransferableStatuses.Contains(unit.Status))
         {
             return InventoryActionResult.Fail($"A unit with status {unit.Status} cannot be transferred.");
+        }
+
+        if (_locations is not null)
+        {
+            var destination = await _locations.GetByIdAsync(toLocationId, ct);
+            var productType = unit.ProductType
+                ?? (_productTypes is not null ? await _productTypes.GetByIdAsync(unit.ProductTypeId, ct) : null);
+            var component = productType?.ComponentClass ?? ComponentClass.Other;
+            var storage = InventoryLocationPolicyRule.EvaluateTransfer(
+                destination is not null,
+                destination?.IsActive ?? false,
+                destination is not null && InventoryLocationPolicyRule.AllowsComponent(destination, component),
+                destination?.StorageTempMinC,
+                destination?.StorageTempMaxC);
+            var evaluation = new RuleEvaluation(storage);
+            if (evaluation.IsHardStopped)
+            {
+                return InventoryActionResult.Blocked(evaluation);
+            }
         }
 
         var fromLocationId = unit.CurrentLocationId;

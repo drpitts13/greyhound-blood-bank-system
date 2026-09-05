@@ -157,4 +157,23 @@ public class Hl7MapperTests
         Assert.Equal("XM", data.TestCode);
         Assert.Equal(OrderType.Crossmatch, data.OrderType);
     }
+
+    [Fact]
+    public void OruMapper_ExtractsObservationAndOrder()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|ANALYZER|LAB|BBLIS|BB|20260530120000||ORU^R01|C7|P|2.5\r" +
+            "PID|1||MRN555^^^HOSP^MR||Lee^Pat\r" +
+            "ORC|RE|PLACER-ORU\r" +
+            "OBR|1|PLACER-ORU||HGB^Hemoglobin\r" +
+            "OBX|1|ST|HGB^Hemoglobin||12.2|g/dL||N|||F");
+
+        var data = Hl7OruMapper.Map(message);
+        Assert.Equal("MRN555", data.Mrn);
+        Assert.Equal("PLACER-ORU", data.PlacerOrderId);
+        Assert.Equal("HGB", data.TestCode);
+        Assert.Equal("12.2", data.Value);
+        Assert.Equal("g/dL", data.Units);
+        Assert.Equal("F", data.ObxStatus);
+    }
 }

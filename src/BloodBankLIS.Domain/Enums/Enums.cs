@@ -141,7 +141,23 @@ public enum ResultStatus
     Pending = 0,
     Entered = 1,
     Verified = 2,
-    Corrected = 3
+    Corrected = 3,
+    /// <summary>Entered value awaiting a distinct verification step (typical for instrument/interface).</summary>
+    PendingVerification = 4,
+    /// <summary>Retracted; the row is retained. A new version may replace it.</summary>
+    Invalidated = 5
+}
+
+/// <summary>
+/// Provenance of a test result value. Manual and calculated values start Entered;
+/// instrument and interface values start PendingVerification.
+/// </summary>
+public enum ResultSource
+{
+    Manual = 0,
+    Instrument = 1,
+    Interface = 2,
+    Calculated = 3
 }
 
 public enum BloodTypeSource
@@ -352,7 +368,13 @@ public enum IssueType
 {
     Standard = 0,
     EmergencyRelease = 1,
-    MassiveTransfusion = 2
+    MassiveTransfusion = 2,
+
+    /// <summary>Computer (electronic) crossmatch issue without a serologic XM (AABB 5.16).</summary>
+    ElectronicIssue = 3,
+
+    /// <summary>Issue from a satellite / remote storage site (SafeTrace remote issue).</summary>
+    RemoteIssue = 4
 }
 
 public enum IssueStatus
@@ -392,7 +414,8 @@ public enum BillingTriggerType
 {
     TestVerified = 0,
     UnitIssued = 1,
-    Procedure = 2
+    Procedure = 2,
+    UnitTransfused = 3
 }
 
 /// <summary>Which catalog produced a captured billing event.</summary>
@@ -496,7 +519,10 @@ public enum LocationType
     Freezer = 1,
     Issue = 2,
     Transit = 3,
-    External = 4
+    External = 4,
+    PlateletIncubator = 5,
+    SatelliteRefrigerator = 6,
+    Cooler = 7
 }
 
 /// <summary>
@@ -528,7 +554,22 @@ public enum AuditEventType
     SignatureFailed = 20,
     Lookback = 21,
     ReactionInvestigation = 22,
-    Deviation = 23
+    Deviation = 23,
+    Merge = 24,
+    PatientAccess = 25,
+    Specimen = 26,
+    OrderChange = 27,
+    TestChange = 28,
+    Result = 29,
+    Antibody = 30,
+    ProductStatus = 31,
+    Assignment = 32,
+    Crossmatch = 33,
+    Transfusion = 34,
+    EmergencyRelease = 35,
+    Interface = 36,
+    UserRole = 37,
+    Invalidate = 38
 }
 
 /// <summary>
@@ -727,6 +768,7 @@ public enum IdentityTokenType
     DateOfBirth = 1,
     FullName = 2,
     AccountNumber = 3,
+    PriorMedicalRecordNumber = 4,
     Other = 99
 }
 
@@ -792,4 +834,83 @@ public enum ElectronicSignatureAuthenticationMethod
     Pin = 1,
     FederatedStepUp = 2,
     DevMode = 3
+}
+
+/// <summary>Role of a reagent red cell on an antibody-identification panel.</summary>
+public enum PanelCellRole
+{
+    Panel = 0,
+    Selected = 1,
+    Autocontrol = 2
+}
+
+/// <summary>Known antigen expression on a panel cell (antigram typing).</summary>
+public enum AntigenExpression
+{
+    NotTested = 0,
+    Absent = 1,
+    Present = 2,
+    Heterozygous = 3,
+    Homozygous = 4,
+    Weak = 5
+}
+
+/// <summary>Graded serologic reaction recorded on a panel cell at a phase.</summary>
+public enum ReactionGrade
+{
+    NotTested = 0,
+    Negative = 1,
+    Weak = 2,
+    OnePlus = 3,
+    TwoPlus = 4,
+    ThreePlus = 5,
+    FourPlus = 6,
+    Microscopic = 7,
+    Hemolysis = 8,
+    MixedField = 9,
+    Invalid = 10
+}
+
+/// <summary>Lifecycle of an antibody-identification workup.</summary>
+public enum AntibodyWorkupStatus
+{
+    InProgress = 0,
+    PendingInterpretation = 1,
+    PendingSupervisorReview = 2,
+    Completed = 3,
+    Voided = 4
+}
+
+/// <summary>
+/// How a specificity is classified on a workup. Assist may emit Excluded,
+/// Possible, CannotExclude, Inconclusive, or Historical — never Identified.
+/// </summary>
+public enum AntibodyIdClassification
+{
+    Excluded = 0,
+    Possible = 1,
+    Identified = 2,
+    Historical = 3,
+    Inconclusive = 4,
+    CannotExclude = 5
+}
+
+/// <summary>Who asserted an antibody-identification finding.</summary>
+public enum AntibodyIdSource
+{
+    Assist = 0,
+    Technologist = 1,
+    Supervisor = 2,
+    History = 3
+}
+
+/// <summary>DAT context captured on an antibody-identification workup.</summary>
+public enum AntibodyIdDatResult
+{
+    NotPerformed = 0,
+    Negative = 1,
+    PositiveIgG = 2,
+    PositiveC3 = 3,
+    PositiveBoth = 4,
+    Pending = 5
 }

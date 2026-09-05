@@ -138,7 +138,9 @@ public sealed class ChargeCodeAdminService : ConfigAdminServiceBase
         entity.Code = (request.Code ?? string.Empty).Trim().ToUpperInvariant();
         entity.Description = request.Description?.Trim() ?? string.Empty;
         entity.DefaultAmount = request.DefaultAmount;
-        entity.CptCode = string.IsNullOrWhiteSpace(request.CptCode) ? null : request.CptCode.Trim();
+        entity.CptCode = string.IsNullOrWhiteSpace(request.CptCode) ? null : request.CptCode.Trim().ToUpperInvariant();
+        entity.RevenueCode = string.IsNullOrWhiteSpace(request.RevenueCode) ? null : request.RevenueCode.Trim();
+        entity.Modifier = string.IsNullOrWhiteSpace(request.Modifier) ? null : request.Modifier.Trim().ToUpperInvariant();
     }
 
     private async Task<EvaluationResult<ChargeCodeDto>?> RejectUnauthorizedAsync(

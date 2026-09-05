@@ -125,7 +125,7 @@ public sealed class Hl7ConfigAdminService : ConfigAdminServiceBase
         await _mappings.ReplaceForEndpointAsync(entity, mappingEntities, ct);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Create,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Interface,
             oldValue: null, newValue: Map(entity, mappingEntities), reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 
@@ -170,7 +170,7 @@ public sealed class Hl7ConfigAdminService : ConfigAdminServiceBase
 
         _endpoints.Update(entity);
         await _mappings.ReplaceForEndpointAsync(entity, mappingEntities, ct);
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Update,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Interface,
             oldValue: before, newValue: Map(entity, mappingEntities), reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 

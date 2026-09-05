@@ -174,7 +174,10 @@ Negative: discard as `tech1` → **403** (`inventory.discard`).
    interface error-queue entry.
 4. `POST /api/hl7/outbound/results/{verifiedResultId}` as `admin` → an `ORU^R01` is
    queued for the verified result.
-5. `POST /api/hl7/messages/{id}/replay` as `admin` → replay is idempotent and audited.
+5. Inbound `ORU^R01` for an existing order with a linked accepted specimen → **200**
+   with an `AA` ACK; result stored as `Interface` / `PendingVerification`; a verified
+   result for the same test is NAK/`AE` (no silent overwrite).
+6. `POST /api/hl7/messages/{id}/replay` as `admin` → replay is idempotent and audited.
 
 Pass/fail: PASS if ACK/NAK codes match outcomes, demographics-only updates apply, and
 replays do not duplicate effects.
@@ -232,8 +235,10 @@ and privileged requests proceed.
 ## S-13 — Audit completeness and immutability
 
 1. After exercising S-01..S-11, `GET /api/audit-events?entityType=...&entityId=...` as
-   `viewer` returns the chain of `Create/Update/Verify/Issue/Return/Discard/Override/
-   Reprint` events for the affected entities.
-2. There is **no** API path to update or delete an audit event.
+   `viewer` returns the chain of named events for the affected entities, including
+   old/new JSON where recorded.
+2. `GET /api/audit-events?eventType=EmergencyRelease` as `viewer` returns only
+   emergency/MTP issue events; an unknown `eventType` is **400**.
+3. There is **no** API path to update or delete an audit event.
 
 Pass/fail: PASS if every clinical action produced an audit event and audit is read-only.

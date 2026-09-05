@@ -5,6 +5,7 @@ using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Common;
 using BloodBankLIS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
 
@@ -74,6 +75,78 @@ public class AdminInterfaceSetupTests : IClassFixture<SqliteContextFactory>
         Assert.NotNull(loaded);
         Assert.Equal(InterfaceVendorCodes.Epic, loaded!.VendorCode);
         Assert.NotEmpty(loaded.FieldMappings);
+        Assert.True(await verify.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(InterfaceEndpoint)
+            && a.EntityId == id
+            && a.EventType == AuditEventType.Interface));
+    }
+
+    [Fact]
+    public async Task ResultsEndpoint_CreateAndUpdate_WriteInterface()
+    {
+        var preset = Hl7ConfigAdminService.VendorPreset(InterfaceVendorCodes.Epic, InterfaceType.Results, Hl7Direction.Inbound);
+        Assert.NotNull(preset);
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var name = "ORU-RA14-" + suffix;
+        await using var context = _factory.Create();
+        var svc = Service(context);
+        var created = await svc.CreateAsync(new SaveHl7EndpointRequest(
+            name,
+            InterfaceType.Results,
+            Hl7Direction.Inbound,
+            InterfaceTransport.File,
+            null,
+            null,
+            $@"C:\hl7\oru-ra14-{suffix}",
+            null,
+            null,
+            InterfaceVendorCodes.Epic,
+            InterfaceMappingMode.Vendor,
+            "Test",
+            preset!.Connection.SendingApplication,
+            preset.Connection.SendingFacility,
+            preset.Connection.ReceivingApplication,
+            preset.Connection.ReceivingFacility,
+            null,
+            null,
+            null,
+            null,
+            true,
+            preset.Mappings,
+            "draft ORU endpoint"));
+        Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var updated = await svc.UpdateAsync(created.Value!.Id, new SaveHl7EndpointRequest(
+            name,
+            InterfaceType.Results,
+            Hl7Direction.Inbound,
+            InterfaceTransport.File,
+            null,
+            null,
+            $@"C:\hl7\oru-ra14-{suffix}-b",
+            null,
+            null,
+            InterfaceVendorCodes.Epic,
+            InterfaceMappingMode.Vendor,
+            "Test",
+            preset.Connection.SendingApplication,
+            preset.Connection.SendingFacility,
+            preset.Connection.ReceivingApplication,
+            preset.Connection.ReceivingFacility,
+            null,
+            null,
+            null,
+            null,
+            true,
+            preset.Mappings,
+            "moved ORU drop folder"));
+        Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var events = await context.AuditEvents
+            .Where(a => a.EntityType == nameof(InterfaceEndpoint) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Interface));
     }
 
     [Fact]

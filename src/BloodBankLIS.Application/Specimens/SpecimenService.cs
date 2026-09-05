@@ -159,6 +159,13 @@ public sealed class SpecimenService
 
         await _specimens.AddAsync(specimen, ct);
         await _unitOfWork.SaveChangesAsync(ct);
+        _audit?.Record(
+            AuditEventType.Specimen,
+            nameof(Specimen),
+            specimen.Id,
+            newValue: new { specimen.AccessionNumber, specimen.SpecimenType, specimen.CollectedUtc, specimen.ExpiresUtc, specimen.Status },
+            reason: "Specimen accessioned.");
+        await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
     }
 
@@ -215,7 +222,7 @@ public sealed class SpecimenService
 
         _specimens.Update(specimen);
         _audit?.Record(
-            AuditEventType.Update,
+            AuditEventType.Specimen,
             nameof(Specimen),
             specimen.Id,
             oldValue: previous,
@@ -257,9 +264,17 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail($"A specimen with status {specimen.Status} cannot be rejected.");
         }
 
+        var previousStatus = specimen.Status;
         specimen.Status = SpecimenStatus.Rejected;
         specimen.RejectionReason = reason;
         _specimens.Update(specimen);
+        _audit?.Record(
+            AuditEventType.Specimen,
+            nameof(Specimen),
+            specimen.Id,
+            oldValue: new { Status = previousStatus },
+            newValue: new { specimen.Status, specimen.RejectionReason },
+            reason: reason.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
     }
@@ -290,7 +305,7 @@ public sealed class SpecimenService
             var previous = specimen.ExpiresUtc;
             specimen.ExpiresUtc = next;
             _audit?.Record(
-                AuditEventType.Update,
+                AuditEventType.Specimen,
                 nameof(Specimen),
                 specimen.Id,
                 oldValue: new { ExpiresUtc = previous },

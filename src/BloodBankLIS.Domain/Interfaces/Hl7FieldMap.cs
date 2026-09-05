@@ -114,8 +114,14 @@ public sealed class Hl7FieldMap
         [InterfaceDataItemKeys.EncounterAdmitUtc] = ["PV1-44", "PV1-44-1"],
         [InterfaceDataItemKeys.EncounterDischargeUtc] = ["PV1-45", "PV1-45-1"],
         [InterfaceDataItemKeys.EncounterCurrentLocation] = ["PV1-3-1", "PV1-3-2", "PV1-3"],
-        [InterfaceDataItemKeys.OrderNumber] = ["ORC-2-1", "OBR-2-1", "ORC-2", "OBR-2"],
-        [InterfaceDataItemKeys.OrderLocationCode] = ["ORC-13-1", "ORC-13"]
+        [InterfaceDataItemKeys.OrderNumber] = ["ORC-2-1", "OBR-2-1", "ORC-2", "OBR-2", "OBR-3-1"],
+        [InterfaceDataItemKeys.OrderLocationCode] = ["ORC-13-1", "ORC-13"],
+        [InterfaceDataItemKeys.ResultObrTestCode] = ["OBR-4-1", "OBR-4", "OBX-3-1"],
+        [InterfaceDataItemKeys.ResultObxIdentifier] = ["OBX-3-1", "OBX-3"],
+        [InterfaceDataItemKeys.ResultValue] = ["OBX-5-1", "OBX-5"],
+        [InterfaceDataItemKeys.ResultUnits] = ["OBX-6-1", "OBX-6"],
+        [InterfaceDataItemKeys.ResultInterpretation] = ["OBX-8-1", "OBX-8"],
+        [InterfaceDataItemKeys.ResultObxStatus] = ["OBX-11"]
     };
 }
 

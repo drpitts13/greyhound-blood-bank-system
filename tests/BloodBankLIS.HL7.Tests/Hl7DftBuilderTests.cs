@@ -104,4 +104,29 @@ public class Hl7DftBuilderTests
         var message = Hl7Parser.Parse(raw);
         Assert.Equal("71020", message.Get("FT1-7-1"));
     }
+
+    [Fact]
+    public void Build_IncludesRevenueProcedureModifierAndLocation()
+    {
+        var billing = new BillingEvent
+        {
+            BillingCode = "BB-RBC-ISSUE",
+            Description = "Red blood cell unit issued",
+            RevenueCode = "0381",
+            ProcedureCode = "P9021",
+            Modifier = "BL",
+            PerformingLocationCode = "OR-FRIDGE",
+            ServiceDateUtc = new DateTime(2026, 9, 3, 12, 0, 0, DateTimeKind.Utc)
+        };
+
+        var raw = Hl7DftBuilder.Build(null, billing, "DFT5", new DateTime(2026, 9, 3, 12, 0, 0, DateTimeKind.Utc));
+        var message = Hl7Parser.Parse(raw);
+
+        Assert.Equal("Red blood cell unit issued", message.Get("FT1-8"));
+        Assert.Equal("0381", message.Get("FT1-13"));
+        Assert.Equal("OR-FRIDGE", message.Get("FT1-16"));
+        Assert.Equal("P9021", message.Get("FT1-25"));
+        Assert.Equal("BL", message.Get("FT1-26"));
+        Assert.Equal(string.Empty, message.Get("FT1-10"));
+    }
 }

@@ -2,11 +2,13 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.PatientWorkspace;
 
 /// <summary>
-/// Read-only list of the patient's current verified test results.
+/// Read-only longitudinal list of the patient's released test results,
+/// including superseded verified versions retained after correction or invalidation.
 /// </summary>
 public sealed class PatientTestHistoryService
 {
@@ -31,11 +33,8 @@ public sealed class PatientTestHistoryService
         long patientId,
         CancellationToken ct = default)
     {
-        var results = await _results.ListAsync(
-            r => r.PatientId == patientId
-                 && r.SupersededByResultId == null
-                 && r.Status == ResultStatus.Verified,
-            ct);
+        var all = await _results.ListAsync(r => r.PatientId == patientId, ct);
+        var results = all.Where(r => r.VerifiedUtc is not null).ToList();
 
         if (results.Count == 0)
         {
@@ -49,7 +48,9 @@ public sealed class PatientTestHistoryService
         var testNames = ResolveTestNames(await _testDefinitions.ListAsync(ct));
 
         return results
-            .OrderByDescending(r => r.VerifiedUtc ?? r.EnteredUtc ?? r.CreatedUtc)
+            .OrderByDescending(r => ResultLifecycleRule.IsCurrentRow(r.SupersededByResultId))
+            .ThenByDescending(r => r.VerifiedUtc ?? r.EnteredUtc ?? r.CreatedUtc)
+            .ThenByDescending(r => r.Version)
             .Select(r =>
             {
                 var accession = specimens.TryGetValue(r.SpecimenId, out var specimen)
@@ -59,6 +60,11 @@ public sealed class PatientTestHistoryService
                     ? order.OrderNumber
                     : null;
                 var testName = testNames.TryGetValue(r.TestCode, out var name) ? name : r.TestCode;
+                var successor = r.SupersededByResultId is long nextId
+                    ? all.FirstOrDefault(s => s.Id == nextId)
+                    : null;
+                var reason = FirstReason(r.InvalidationReason, r.CorrectionReason,
+                    successor?.InvalidationReason, successor?.CorrectionReason);
                 return new PatientTestHistoryRowDto(
                     r.Id,
                     r.VerifiedUtc ?? r.EnteredUtc ?? r.CreatedUtc,
@@ -71,10 +77,17 @@ public sealed class PatientTestHistoryService
                     r.OrderId,
                     orderNumber,
                     r.Version,
-                    r.VerifiedBy);
+                    r.VerifiedBy,
+                    r.Status,
+                    r.Source,
+                    ResultLifecycleRule.IsCurrentRow(r.SupersededByResultId),
+                    reason);
             })
             .ToList();
     }
+
+    private static string? FirstReason(params string?[] reasons) =>
+        reasons.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r));
 
     private static Dictionary<string, string> ResolveTestNames(IReadOnlyList<TestDefinition> definitions)
     {

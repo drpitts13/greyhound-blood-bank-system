@@ -27,6 +27,7 @@ public sealed class ProductRetypeService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
+    private readonly IAuditWriter _audit;
     private readonly FacilityPolicyService? _policy;
     private readonly IPermissionEvaluator? _permissions;
 
@@ -37,6 +38,7 @@ public sealed class ProductRetypeService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
+        IAuditWriter audit,
         FacilityPolicyService? policy = null,
         IPermissionEvaluator? permissions = null)
     {
@@ -46,6 +48,7 @@ public sealed class ProductRetypeService
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
+        _audit = audit;
         _policy = policy;
         _permissions = permissions;
     }
@@ -177,6 +180,7 @@ public sealed class ProductRetypeService
         var stored = AboRhResultValue.FormatPanel(panel);
 
         var pending = await LatestEnteredTrackedAsync(unit.Id, ct);
+        var wasUpdate = pending is not null;
         if (pending is not null)
         {
             pending.TestDefinitionId = test.Id;
@@ -210,6 +214,22 @@ public sealed class ProductRetypeService
             }, ct);
         }
 
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        var saved = await LatestForUnitAsync(unit.Id, ct);
+        _audit.Record(
+            AuditEventType.Result,
+            nameof(ProductRetypeResult),
+            saved?.Id,
+            newValue: new
+            {
+                unit.Id,
+                saved?.Value,
+                saved?.InterpretedAbo,
+                saved?.InterpretedRh,
+                saved?.MatchesLabel
+            },
+            reason: wasUpdate ? "Unit ABO/Rh retype updated." : "Unit ABO/Rh retype entered.");
         await _unitOfWork.SaveChangesAsync(ct);
 
         var detail = await GetForUnitAsync(unitId, ct);
@@ -259,21 +279,39 @@ public sealed class ProductRetypeService
         }
 
         var now = _clock.UtcNow;
+        var fromStatus = unit.Status;
         result.Status = ResultStatus.Verified;
         result.VerifiedBy = _currentUser.UserName;
         result.VerifiedUtc = now;
 
+        string statusReason;
         if (result.MatchesLabel)
         {
-            ApplyStatus(unit, UnitStatus.Available, "ABO/Rh retype confirmed");
+            statusReason = "ABO/Rh retype confirmed";
+            ApplyStatus(unit, UnitStatus.Available, statusReason);
         }
         else
         {
-            var reason = result.DiscrepancyDetail ?? "ABO/Rh retype discrepancy";
-            unit.QuarantineReason = reason;
+            statusReason = result.DiscrepancyDetail ?? "ABO/Rh retype discrepancy";
+            unit.QuarantineReason = statusReason;
             unit.QuarantineReasonCode = UnitQuarantineReason.RetypeDiscrepancy;
-            ApplyStatus(unit, UnitStatus.Quarantine, reason);
+            ApplyStatus(unit, UnitStatus.Quarantine, statusReason);
         }
+
+        _audit.Record(
+            AuditEventType.Verify,
+            nameof(ProductRetypeResult),
+            result.Id,
+            oldValue: new { Status = ResultStatus.Entered },
+            newValue: new { result.Status, result.VerifiedBy, result.MatchesLabel },
+            reason: statusReason);
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = fromStatus },
+            newValue: new { unit.Status },
+            reason: statusReason);
 
         await _unitOfWork.SaveChangesAsync(ct);
 

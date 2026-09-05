@@ -102,7 +102,7 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
         await _exceptions.AddAsync(entity, ct);
         await UnitOfWork.SaveChangesAsync(ct);
         var dto = ExceptionDefinitionDto.From(entity);
-        RecordChange("ExceptionDefinition", entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Create, null, dto, null);
+        RecordChange("ExceptionDefinition", entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<ExceptionDefinitionDto>.Ok(dto, validation);
     }
@@ -145,7 +145,7 @@ public sealed class ExceptionDefinitionAdminService : ConfigAdminServiceBase
         entity.IsOverridable = request.IsOverridable;
         _exceptions.Update(entity);
 
-        RecordChange("ExceptionDefinition", entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Update, old, ExceptionDefinitionDto.From(entity), null);
+        RecordChange("ExceptionDefinition", entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, ExceptionDefinitionDto.From(entity), null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<ExceptionDefinitionDto>.Ok(ExceptionDefinitionDto.From(entity), validation);
     }

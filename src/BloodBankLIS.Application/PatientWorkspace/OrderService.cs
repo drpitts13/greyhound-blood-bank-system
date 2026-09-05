@@ -26,6 +26,7 @@ public sealed class OrderService
     private readonly IClock _clock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly RuleEngineService? _ruleEngine;
+    private readonly IAuditWriter? _audit;
     private readonly IPermissionEvaluator? _permissions;
     private readonly ICurrentUser? _currentUser;
 
@@ -44,10 +45,12 @@ public sealed class OrderService
         IClock clock,
         IUnitOfWork unitOfWork,
         RuleEngineService? ruleEngine = null,
+        IAuditWriter? audit = null,
         IPermissionEvaluator? permissions = null,
         ICurrentUser? currentUser = null)
     {
         _ruleEngine = ruleEngine;
+        _audit = audit;
         _permissions = permissions;
         _currentUser = currentUser;
         _orders = orders;
@@ -284,6 +287,12 @@ public sealed class OrderService
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
+        _audit?.Record(
+            AuditEventType.OrderChange,
+            nameof(Order),
+            order.Id,
+            newValue: new { order.OrderNumber, order.Status, order.Source, LineCount = builtLines.Count },
+            reason: "Order created.");
 
         if (request.SpecimenId is > 0)
         {
@@ -298,6 +307,7 @@ public sealed class OrderService
             await AssociateCurrentSpecimenAsync(order.Id, patientId, request.EncounterId, ct);
         }
 
+        await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Order>.Ok(order, ruleOutcome.Warnings);
     }
 
@@ -396,7 +406,13 @@ public sealed class OrderService
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
-        await AssociateCurrentSpecimenAsync(order.Id, patientId, request.EncounterId, ct);
+        _audit?.Record(
+            AuditEventType.OrderChange,
+            nameof(Order),
+            order.Id,
+            newValue: new { order.OrderNumber, order.Status, LineCount = builtLines.Count },
+            reason: "Order updated.");
+        await _unitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<Order>.Ok(order, ruleOutcome.Warnings);
     }
@@ -421,6 +437,7 @@ public sealed class OrderService
             return OperationResult<Order>.Fail(merged);
         }
 
+        var previousStatus = order.Status;
         order.Status = OrderStatus.Cancelled;
         order.CancellationReason = request.CancellationReason.Trim();
 
@@ -440,6 +457,13 @@ public sealed class OrderService
         }
 
         _orders.Update(order);
+        _audit?.Record(
+            AuditEventType.OrderChange,
+            nameof(Order),
+            order.Id,
+            oldValue: new { Status = previousStatus },
+            newValue: new { order.Status, order.CancellationReason },
+            reason: order.CancellationReason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Order>.Ok(order);
     }
@@ -509,6 +533,13 @@ public sealed class OrderService
         }
 
         await SyncOrderSpecimenAsync(orderId, specimen.Id, ct);
+        _audit?.Record(
+            AuditEventType.OrderChange,
+            nameof(Order),
+            order.Id,
+            newValue: new { order.OrderNumber, SpecimenId = specimen.Id, specimen.AccessionNumber },
+            reason: "Specimen linked to order.");
+        await _unitOfWork.SaveChangesAsync(ct);
 
         var updated = (await ListByPatientAsync(patientId, ct: ct)).FirstOrDefault(o => o.Id == orderId);
         return updated is null

@@ -71,7 +71,7 @@ public sealed class ReflexRuleAdminService : ConfigAdminServiceBase
         await _repo.AddAsync(entity, ct);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.Create,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Create, AuditEventType.TestChange,
             oldValue: null, newValue: Map(entity), reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 
@@ -117,7 +117,7 @@ public sealed class ReflexRuleAdminService : ConfigAdminServiceBase
         }
 
         _repo.Update(entity);
-        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Update,
+        RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.TestChange,
             oldValue: before, newValue: Map(entity), reason: req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 

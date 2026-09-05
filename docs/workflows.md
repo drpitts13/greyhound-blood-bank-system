@@ -257,12 +257,14 @@ flowchart LR
     subgraph inbound [Inbound]
       adt[ADT A01/A04/A08] --> pat[Update Patient/Encounter]
       orm[ORM/OML] --> ord[Create Order]
+      oruIn[ORU R01] --> res[Post pending Interface result]
     end
     subgraph outbound [Outbound]
       ver[Result verified] --> oru[Build ORU + MLLP send]
     end
     pat --> ack[Send ACK/NAK]
     ord --> ack
+    res --> ack
     oru --> log[Log to HL7Messages]
 ```
 
@@ -289,21 +291,40 @@ flowchart LR
 
 ---
 
+## 10a. Antibody identification (antigram)
+
+- Open a workup on an in-date panel lot (`ABID-LOT-EXPIRED` / `ABID-LOT-INACTIVE`). Application requires `immuno.record` (`ABID-WORKUP-PERM`). Optional selected-cell lots may be attached.
+- Enter cell/phase reaction grades, DAT (when applicable), autocontrol, and comments.
+- Run assistance. Findings are advisory (Excluded / Possible / CannotExclude / Historical). The engine never identifies antibodies. Saving reactions, attaching lots, recording DAT, or linking a specimen refreshes stored assistance to match the current antigram. Refresh is not an identification. Dosage `CannotExclude` warns `ABID-SEL-CELL`; attach an in-date selected-cell lot to the open workup, record those reactions, and run assistance again.
+- Technologist records interpretation and may classify Identified / Possible / Excluded. Live assistance leftovers (`ABID-UNEXCLUDED`, `ABID-SEL-CELL`, history, incomplete panel) warn at interpret and do not identify antibodies. Assist rows cannot be Identified (`ABID-ASSIST-IDENTIFIED`). Catalog antibodies are preferred; free-text Identified specificities are resolved when unique (`ABID-INTERP-UNMATCHED` if not). Identifying a specificity when the patient is antigen-positive warns (`ABID-INTERP-PHENO` / `ABID-INTERP-GENO`) and still requires technologist judgment. Identifying a specificity that assistance would exclude on the current reactions warns (`ABID-INTERP-EXCLUDED`) and still requires technologist judgment. Changing reactions, attaching selected cells, recording DAT, or linking/changing specimen after interpretation withdraws that interpretation and supervisor review; both must be repeated (`ABID-INTERP-STALE` / `ABID-REVIEW-STALE`).
+- Supervisor review requires `immuno.override` (`ABID-REVIEW-PERM`). Default policy blocks the same user (`ABID-REVIEW-SELF`) and requires acceptance before complete (`ABID-REVIEW-REQUIRED`). Accept HardStops Identified sign-off on a blank panel, a rejected/cancelled specimen, or a collected-not-received specimen. Clinical completion warnings require a supervisor acknowledgment (`ABID-REVIEW-ACK`) that does not identify antibodies.
+- Complete posts only technologist-Identified specificities to `AntibodyHistory`. Completing with none identified warns `ABID-COMPLETE-NONE`. Clinical completion warnings (`ABID-COMPLETE-NONE`, `ABID-UNEXCLUDED`, `ABID-SEL-CELL`, `ABID-INTERP-EXCLUDED`, `ABID-HIST-REMAINS`, `ABID-HIST-UNDETECTED`, `ABID-DAT-INDICATED`, incomplete-panel warning, phenotype/genotype conflict) HardStop until the technologist records an acknowledgment (`ABID-COMPLETE-ACK`). Acknowledgment does not identify antibodies. Autocontrol reactive without DAT warns `ABID-DAT-INDICATED`. Identified antibodies cannot post while a panel or selected cell has no interpretive-phase reaction (`ABID-INCOMPLETE-RXN`). Completing warns if assistance still cannot exclude other specificities (`ABID-UNEXCLUDED`) or still needs a homozygous selected cell (`ABID-SEL-CELL`). Those warnings do not identify the leftover antibodies. Existing antibody history remains visible on the workup and still drives antigen-negative selection (`ABID-HIST-REMAINS`). A current panel that would exclude a historical specificity warns `ABID-HIST-UNDETECTED` and does not remove history. Free-text ABID verify still exists when no workup is in scope; an open or completed workup is the identification of record (`ABID-WORKUP-OPEN` / `ABID-WORKUP-AUTHORITATIVE`, OCD-023).
+- Void abandons an incomplete workup with a required reason. It does not post history and releases the free-text ABID path. Completed workups cannot be voided.
+- UI: `/antibody-id` lists open workups (patient, MRN, accession or Unscoped). `/patients/{id}/antibody-id` is the patient workup list and antigram. The patient list shows specimen accession or Unscoped. Prefer linking a specimen when opening a workup so the identification-of-record gate stays specimen-scoped. Creating without a specimen warns `ABID-WORKUP-UNSCOPED`. An open workup can link or change specimen (`POST /api/antibody-id/{id}/specimen`); completed or voided workups HardStop (`ABID-WORKUP-SPECIMEN`). Linking onto a specimen that already has an open workup HardStops (`ABID-WORKUP-DUP-OPEN`). A second overlapping open workup HardStops (`ABID-WORKUP-DUP-OPEN`). Rejected, cancelled, expired, or collected-not-received specimens cannot be opened or linked (`ABID-WORKUP-SPEC-UNUSABLE` / `ABID-WORKUP-SPEC-EXPIRED` / `ABID-WORKUP-SPEC-NOT-READY`). Received-not-accepted warns (`ABID-WORKUP-SPEC-UNACCEPTED`). Completing after the linked specimen is rejected, cancelled, or collected HardStops; completing after it expires or is still only received warns and requires acknowledgment (OCD-025, OCD-026). The specimen picker hides collected, rejected, cancelled, and expired draws.
+
+---
+
 ## 11. Audit and signature touchpoints (summary)
 
 | Workflow | Audit event(s) | E-signature required |
 |---|---|---|
 | Unit intake/release | Create, Update(status) | No |
-| Accessioning/reject | Create, Update(status), Update(metadata) | No |
+| Accessioning/reject | Specimen | No |
+| Order create/cancel | OrderChange | No |
 | Result verify | Verify | Per policy |
 | Result correction | Correct | Yes |
-| Allocation | Update(status) | No |
+| Allocation | Assignment | No |
+| Crossmatch | Crossmatch | No |
 | Issue (standard) | Issue | No (unless override) |
-| Issue (emergency release) | Issue, Override | Yes |
+| Issue (emergency release) | EmergencyRelease, Override | Yes |
+| Transfusion | Transfusion | Per policy |
+| Role assignment | UserRole | Reason when granting admin |
 | Warning override | Override | Yes |
 | Return | Return, Update(status) | No |
 | Discard | Discard, Update(status) | Confirmation + reason |
 | Product modification | Modify, Create/Update(status) | Reason |
 | Patient demographics edit | Update | No |
 | ABO/Rh manual edit | Update(blood type history) | Yes |
+| Antibody-identification assist / interpret | Result | No |
+| Antibody-identification supervisor review / complete | Verify; Antibody when history posted | No (policy review is the second person) |
 | P-tag reprint | Reprint | Reason; `print.reprint` (`PRT-REPRINT-PERM`) |

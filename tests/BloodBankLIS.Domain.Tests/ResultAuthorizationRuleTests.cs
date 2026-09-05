@@ -48,4 +48,19 @@ public class ResultAuthorizationRuleTests
         var result = ResultAuthorizationRule.EvaluateVerify(hasResultVerify: true);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Invalidate_WithoutPermission_IsHardStop()
+    {
+        var result = ResultAuthorizationRule.EvaluateInvalidate(hasResultInvalidate: false);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(ResultAuthorizationRule.InvalidateCode, result.Code);
+    }
+
+    [Fact]
+    public void Invalidate_WithPermission_Passes()
+    {
+        var result = ResultAuthorizationRule.EvaluateInvalidate(hasResultInvalidate: true);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

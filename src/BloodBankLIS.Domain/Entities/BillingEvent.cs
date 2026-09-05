@@ -49,4 +49,19 @@ public class BillingEvent : BaseEntity
     public DateTime? ExportedUtc { get; set; }
 
     public string? CancellationReason { get; set; }
+
+    /// <summary>Snapshotted CPT/HCPCS from the charge master at capture (DFT FT1-25).</summary>
+    public string? ProcedureCode { get; set; }
+
+    /// <summary>Snapshotted UB-04 revenue code (DFT FT1-13).</summary>
+    public string? RevenueCode { get; set; }
+
+    /// <summary>Snapshotted procedure modifier (DFT FT1-26).</summary>
+    public string? Modifier { get; set; }
+
+    /// <summary>Snapshotted charge description (DFT FT1-8).</summary>
+    public string? Description { get; set; }
+
+    /// <summary>Issuing or performing location code (DFT FT1-16).</summary>
+    public string? PerformingLocationCode { get; set; }
 }

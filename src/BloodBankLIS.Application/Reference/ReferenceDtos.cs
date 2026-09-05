@@ -28,10 +28,16 @@ public sealed record InventoryLocationDto(
     string Code,
     string Name,
     LocationType LocationType,
-    bool IsActive)
+    bool IsActive,
+    bool AllowsIssue = true,
+    bool AllowsRemoteIssue = false,
+    bool AllowsElectronicIssue = true,
+    bool RequiresSecondVerifier = false,
+    bool IsSatellite = false)
 {
     public static InventoryLocationDto From(InventoryLocation l) => new(
-        l.Id, l.Code, l.Name, l.LocationType, l.IsActive);
+        l.Id, l.Code, l.Name, l.LocationType, l.IsActive,
+        l.AllowsIssue, l.AllowsRemoteIssue, l.AllowsElectronicIssue, l.RequiresSecondVerifier, l.IsSatellite);
 }
 
 public sealed record OrderingLocationRefDto(long Id, string Code, string? Name, string? Department, bool IsActive, string DisplayName)

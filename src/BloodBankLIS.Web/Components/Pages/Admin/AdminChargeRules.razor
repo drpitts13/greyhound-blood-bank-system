@@ -98,7 +98,7 @@
                                         Clearable="true"
                                         Placeholder="Any test, or pick a test code..." />
                 }
-                else if (_draft.TriggerType == BillingTriggerType.UnitIssued)
+                else if (_draft.TriggerType is BillingTriggerType.UnitIssued or BillingTriggerType.UnitTransfused)
                 {
                     <FilterableComboBox TItem="ProductDefinitionDto" TValue="string?"
                                         Items="_products"

@@ -9,6 +9,10 @@
     {
         <NavLink href="test-worklist" ActiveClass="active">Test Worklist</NavLink>
     }
+    @if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
+    {
+        <NavLink href="antibody-id" ActiveClass="active">Antibody ID</NavLink>
+    }
     <NavLink href="inventory" ActiveClass="active">Inventory</NavLink>
     @if (Session.Has(PermissionCodes.InventoryReceive))
     {
@@ -62,6 +66,7 @@
             <NavLink href="admin/blood-attributes" ActiveClass="active">Blood Attributes</NavLink>
             <NavLink href="admin/charge-codes" ActiveClass="active">Charge Codes</NavLink>
             <NavLink href="admin/charge-rules" ActiveClass="active">Charge Rules</NavLink>
+            <NavLink href="admin/compatibility-rules" ActiveClass="active">Compatibility Tables</NavLink>
         }
         @if (Session.Has(PermissionCodes.AdminAuditReview))
         {
@@ -70,10 +75,12 @@
         @if (Session.Has(PermissionCodes.AdminConfigView))
         {
             <NavLink href="admin/exceptions" ActiveClass="active">Exceptions</NavLink>
+            <NavLink href="admin/facility-policies" ActiveClass="active">Facility Policy</NavLink>
             <NavLink href="admin/expiration-codes" ActiveClass="active">Expiration Codes</NavLink>
             <NavLink href="admin/hl7" ActiveClass="active">Interface Setup</NavLink>
+            <NavLink href="admin/inventory-locations" ActiveClass="active">Inventory Locations</NavLink>
             <NavLink href="admin/isbt-product-codes" ActiveClass="active">ISBT Product Codes</NavLink>
-            <NavLink href="admin/locations" ActiveClass="active">Locations</NavLink>
+            <NavLink href="admin/locations" ActiveClass="active">Ordering Locations</NavLink>
             <NavLink href="admin/modification-rules" ActiveClass="active">Modification Rules</NavLink>
             <NavLink href="admin/rules" ActiveClass="active">Order &amp; Test Rules</NavLink>
             <NavLink href="admin/phases" ActiveClass="active">Phases</NavLink>

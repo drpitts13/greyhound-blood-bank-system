@@ -29,7 +29,9 @@ public static class Ui
     {
         ResultStatus.Verified => "badge badge-green",
         ResultStatus.Entered => "badge badge-blue",
+        ResultStatus.PendingVerification => "badge badge-amber",
         ResultStatus.Corrected => "badge badge-amber",
+        ResultStatus.Invalidated => "badge badge-red",
         _ => "badge badge-gray"
     };
 
