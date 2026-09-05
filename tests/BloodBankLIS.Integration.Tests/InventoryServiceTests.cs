@@ -2250,4 +2250,39 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(unitNumber));
     }
+
+    [Fact]
+    public async Task Transfer_WritesProductStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var unitNumber = $"U-XFER-AUD-{key}";
+        await using var context = _factory.Create();
+        var location = new InventoryLocation
+        {
+            Code = $"LOC-XFER-AUD-{key}",
+            Name = "Transfer audit fridge",
+            LocationType = LocationType.Refrigerator
+        };
+        context.InventoryLocations.Add(location);
+        await context.SaveChangesAsync();
+
+        var svc = CreateService(context);
+        var received = await svc.ReceiveUnitAsync(NewUnitRequest(unitNumber, productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var transferred = await svc.TransferAsync(received.Unit!.Id, location.Id, "Move to issue fridge");
+        Assert.True(transferred.Succeeded, transferred.Error);
+        Assert.Equal(location.Id, transferred.Unit!.CurrentLocationId);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == received.Unit.Id
+            && e.Reason == "Unit transferred."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(unitNumber));
+    }
 }

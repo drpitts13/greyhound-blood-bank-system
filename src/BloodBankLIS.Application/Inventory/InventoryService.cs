@@ -1435,6 +1435,20 @@ public sealed class InventoryService
             ChangedUtc = _clock.UtcNow
         });
 
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { LocationId = fromLocationId, unit.Status },
+            newValue: new
+            {
+                unit.UnitNumber,
+                unit.Status,
+                LocationId = toLocationId,
+                Path = "Transfer",
+                TransferReason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim()
+            },
+            reason: "Unit transferred.");
         await _unitOfWork.SaveChangesAsync(ct);
         return InventoryActionResult.Ok(unit);
     }
