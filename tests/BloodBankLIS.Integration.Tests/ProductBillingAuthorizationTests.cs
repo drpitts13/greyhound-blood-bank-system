@@ -87,4 +87,31 @@ public class ProductBillingAuthorizationTests : IClassFixture<SqliteContextFacto
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.False(allowed.Value!.IsActive);
     }
+
+    [Fact]
+    public async Task CreateAndUpdate_WriteConfigure()
+    {
+        await using var c = _factory.Create();
+        var code = await SeedCodeAsync(c);
+        var isbt = UniqueIsbt();
+        var svc = Rows(c);
+
+        var created = await svc.CreateAsync(
+            new SaveProductBillingRequest(code.Id, null, BillingTriggerType.UnitIssued, isbt));
+        Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(ProductBilling)
+            && a.EntityId == created.Value!.Id
+            && a.EventType == AuditEventType.Configure));
+
+        var updated = await svc.UpdateAsync(
+            created.Value!.Id,
+            new SaveProductBillingRequest(code.Id, "Issued RBC", BillingTriggerType.UnitIssued, isbt));
+        Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(ProductBilling) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
+    }
 }

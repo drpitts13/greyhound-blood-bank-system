@@ -81,7 +81,7 @@ public sealed class ProductBillingAdminService : ConfigAdminServiceBase
         await UnitOfWork.SaveChangesAsync(ct);
 
         var dto = ProductBillingDto.From(entity, code);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Create, null, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<ProductBillingDto>.Ok(dto, validation);
     }
@@ -117,7 +117,7 @@ public sealed class ProductBillingAdminService : ConfigAdminServiceBase
 
         _rows.Update(entity);
         var dto = ProductBillingDto.From(entity, code);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Update, old, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<ProductBillingDto>.Ok(dto, validation);
     }
