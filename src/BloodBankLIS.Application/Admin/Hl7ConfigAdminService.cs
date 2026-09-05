@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.Rules.Config;
 
 namespace BloodBankLIS.Application.Admin;
@@ -19,6 +20,7 @@ public sealed class Hl7ConfigAdminService : ConfigAdminServiceBase
 
     private readonly IRepository<InterfaceEndpoint> _endpoints;
     private readonly IInterfaceFieldMappingRepository _mappings;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public Hl7ConfigAdminService(
         IRepository<InterfaceEndpoint> endpoints,
@@ -27,11 +29,13 @@ public sealed class Hl7ConfigAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _endpoints = endpoints;
         _mappings = mappings;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public static IReadOnlyList<InterfaceDataItemDto> DataItems(InterfaceType type, Hl7Direction direction) =>
@@ -99,6 +103,13 @@ public sealed class Hl7ConfigAdminService : ConfigAdminServiceBase
     {
         ArgumentNullException.ThrowIfNull(req);
 
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminHl7Manage, Hl7EndpointAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = new InterfaceEndpoint { IsEnabled = false, Version = 1 };
         Apply(entity, req);
         var mappingEntities = ToEntities(req.FieldMappings);
@@ -124,6 +135,13 @@ public sealed class Hl7ConfigAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<Hl7EndpointDto>> UpdateAsync(long id, SaveHl7EndpointRequest req, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminHl7Manage, Hl7EndpointAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _endpoints.GetByIdAsync(id, ct);
         if (entity is null)
@@ -161,6 +179,15 @@ public sealed class Hl7ConfigAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<Hl7EndpointDto>> SetEnabledAsync(long id, bool enabled, string? reason, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminHl7Manage,
+            enabled ? Hl7EndpointAuthorizationRule.EvaluateEnable : Hl7EndpointAuthorizationRule.EvaluateDisable,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _endpoints.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -272,5 +299,23 @@ public sealed class Hl7ConfigAdminService : ConfigAdminServiceBase
             e.Environment, e.SendingApplication, e.SendingFacility, e.ReceivingApplication, e.ReceivingFacility,
             e.AckTimeoutSeconds, e.MaxRetryCount, e.RetryDelaySeconds, e.MessageLoggingLevel, e.ReplayAllowed, e.Version,
             mapped);
+    }
+
+    private async Task<EvaluationResult<Hl7EndpointDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<Hl7EndpointDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 }

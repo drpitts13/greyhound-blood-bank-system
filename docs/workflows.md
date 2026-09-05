@@ -282,6 +282,7 @@ flowchart LR
 - Creating or updating a product definition requires `admin.products.manage` in `ProductAdminService` (`PROD-CREATE-PERM` / `PROD-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`PROD-ACT-PERM` / `PROD-DEACT-PERM`).
 - Creating or updating a modification rule requires `admin.modification-rules.manage` in `ModificationRuleAdminService` (`MODRULE-CREATE-PERM` / `MODRULE-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`MODRULE-ACT-PERM` / `MODRULE-DEACT-PERM`).
 - Creating or updating an expiration modification code requires `admin.modification-rules.manage` in `ExpirationModificationCodeAdminService` (`EXPCODE-CREATE-PERM` / `EXPCODE-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`EXPCODE-ACT-PERM` / `EXPCODE-DEACT-PERM`).
+- Creating, updating, enabling, or disabling an HL7 endpoint requires `admin.hl7.manage` in `Hl7ConfigAdminService` (`HL7EP-CREATE-PERM` / `HL7EP-UPD-PERM` / `HL7EP-ENABLE-PERM` / `HL7EP-DISABLE-PERM`).
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---
