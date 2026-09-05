@@ -81,7 +81,7 @@ public sealed class ChargeRuleAdminService : ConfigAdminServiceBase
         await UnitOfWork.SaveChangesAsync(ct);
 
         var dto = ChargeRuleDto.From(entity, code);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Create, null, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<ChargeRuleDto>.Ok(dto, validation);
     }
@@ -117,7 +117,7 @@ public sealed class ChargeRuleAdminService : ConfigAdminServiceBase
 
         _rules.Update(entity);
         var dto = ChargeRuleDto.From(entity, code);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Update, old, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<ChargeRuleDto>.Ok(dto, validation);
     }

@@ -82,7 +82,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-BL-04 | Charge review queue | printing-billing B.4 | Status flow + cancel audit | A | |
 | R-SE-01 | Roles/permissions | architecture 4.2; erd.md; validation-scripts S-12 | PermissionPolicy truth table; evaluator role→permission resolution; default-deny | D,I | |
 | R-SE-02 | Electronic signature | erd.md ElectronicSignatures; safety-rules 5; 21 CFR Part 11 | Re-auth + unused-signature binding | I | 21 CFR Part 11 |
-| R-AU-01 | Audit every clinical action | architecture 4.1; FRS-BB-078; FRS-BB-085; FRS-BB-087; FRS-BB-089; FRS-BB-093; FRS-BB-095; FRS-BB-104; FRS-BB-106; FRS-BB-109; FRS-BB-111; FRS-BB-114; FRS-BB-116; FRS-BB-119; FRS-BB-121; FRS-BB-126; FRS-BB-129; FRS-BB-131 | Named events plus searchable who/what/when/old/new on `/audit` | A,I | 21 CFR 606.160(a) |
+| R-AU-01 | Audit every clinical action | architecture 4.1; FRS-BB-078; FRS-BB-085; FRS-BB-087; FRS-BB-089; FRS-BB-093; FRS-BB-095; FRS-BB-104; FRS-BB-106; FRS-BB-109; FRS-BB-111; FRS-BB-114; FRS-BB-116; FRS-BB-119; FRS-BB-121; FRS-BB-126; FRS-BB-129; FRS-BB-131; FRS-BB-148 | Named events plus searchable who/what/when/old/new on `/audit` | A,I | 21 CFR 606.160(a) |
 | R-AU-02 | No silent data change | safety-rules 7 | Corrections versioned, originals kept; append-only interceptor | A,I | 21 CFR 606.160 |
 | R-AU-03 | Record retention | SystemSettings Record.RetentionYears | 10-year metadata; no purge of product/compatibility/transfusion/audit | I | 21 CFR 606.160(d) |
 | URS-BB-007 / FRS-BB-041 | One active reservation and one open issue per unit | `IX_Allocations_OneReservedPerUnit`; `IX_Issues_OneOpenIssuePerUnit`; `InventoryConcurrency` | `AllocationIssueConcurrencyTests` | I | RISK-BB-006 |
@@ -182,6 +182,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-109 / FRS-BB-143 | Inventory-location catalog writes require admin.config.edit or admin.config.activate in Application | `INVLOC-CREATE-PERM`, `INVLOC-UPD-PERM`, `INVLOC-ACT-PERM`, `INVLOC-DEACT-PERM` | `InventoryLocationAuthorizationRuleTests`; `InventoryLocationAuthorizationTests` | D,I | RISK-BB-116 |
 | URS-BB-111 / FRS-BB-145 | Facility-policy update requires admin.config.edit in Application | `FACPOL-UPD-PERM` | `FacilityPolicyAuthorizationRuleTests`; `FacilityPolicyAuthorizationTests` | D,I | RISK-BB-118 |
 | URS-BB-113 / FRS-BB-147 | Lookback DIN search and recipient traceback require lookback.manage in Application | `LK-FIND-PERM`, `LK-TRACE-PERM` | `LookbackAuthorizationRuleTests`; `LookbackSearchAuthorizationTests` | D,I | RISK-BB-120 |
+| URS-BB-114 / FRS-BB-148 | Charge-rule create/update write Configure | `ChargeRuleAdminService` | `ChargeRuleAuthorizationTests.CreateAndUpdate_WriteConfigure` | A | RISK-BB-121 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

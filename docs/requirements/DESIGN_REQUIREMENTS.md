@@ -106,3 +106,4 @@
 | SRS-BB-104 | Inventory-location create/update are authorized inside `InventoryLocationAdminService` with `admin.config.edit` (`INVLOC-CREATE-PERM` / `INVLOC-UPD-PERM`). Activate/deactivate use `admin.config.activate` (`INVLOC-ACT-PERM` / `INVLOC-DEACT-PERM`). | FRS-BB-143 |
 | SRS-BB-106 | Facility-policy update is authorized inside `FacilityPolicyAdminService` with `admin.config.edit` (`FACPOL-UPD-PERM`). List stays ungated so missing catalog keys can still be materialized. | FRS-BB-145 |
 | SRS-BB-108 | Lookback DIN search and recipient traceback are authorized inside `LookbackService` with `lookback.manage` (`LK-FIND-PERM` / `LK-TRACE-PERM`). | FRS-BB-147 |
+| SRS-BB-109 | `ChargeRuleAdminService` create/update write `AuditEventType.Configure`. | FRS-BB-148 |

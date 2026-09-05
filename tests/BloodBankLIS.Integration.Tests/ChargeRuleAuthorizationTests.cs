@@ -85,4 +85,30 @@ public class ChargeRuleAuthorizationTests : IClassFixture<SqliteContextFactory>
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.False(allowed.Value!.IsActive);
     }
+
+    [Fact]
+    public async Task CreateAndUpdate_WriteConfigure()
+    {
+        await using var c = _factory.Create();
+        var code = await SeedCodeAsync(c);
+        var key = $"K{Guid.NewGuid():N}"[..8];
+        var svc = Rules(c);
+
+        var created = await svc.CreateAsync(new SaveChargeRuleRequest(BillingTriggerType.TestVerified, key, code.Id));
+        Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(ChargeRule)
+            && a.EntityId == created.Value!.Id
+            && a.EventType == AuditEventType.Configure));
+
+        var updated = await svc.UpdateAsync(
+            created.Value!.Id,
+            new SaveChargeRuleRequest(BillingTriggerType.UnitIssued, key, code.Id));
+        Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(ChargeRule) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
+    }
 }
