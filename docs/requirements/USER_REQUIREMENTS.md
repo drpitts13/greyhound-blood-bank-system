@@ -110,3 +110,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-104 | Creating or updating an ordering provider is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P7 | FRS-BB-138 |
 | URS-BB-106 | Creating or updating an ordering location is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P7 | FRS-BB-140 |
 | URS-BB-108 | Reviewing a captured charge is limited to staff with billing.review. Cancelling is limited to staff with billing.cancel. Exporting is limited to staff with billing.export. | P7 | FRS-BB-142 |
+| URS-BB-109 | Creating or updating an inventory location is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P7 | FRS-BB-143 |

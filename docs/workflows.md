@@ -293,6 +293,7 @@ flowchart LR
 - Creating or updating an ordering provider requires `admin.config.edit` in `OrderingProviderAdminService` (`ORDPROV-CREATE-PERM` / `ORDPROV-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`ORDPROV-ACT-PERM` / `ORDPROV-DEACT-PERM`).
 - Creating or updating an ordering location requires `admin.config.edit` in `OrderingLocationAdminService` (`ORDLOC-CREATE-PERM` / `ORDLOC-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`ORDLOC-ACT-PERM` / `ORDLOC-DEACT-PERM`).
 - Reviewing a captured charge requires `billing.review` in `BillingService` (`BILL-REV-PERM`). Cancelling requires `billing.cancel` (`BILL-CXL-PERM`). Exporting requires `billing.export` (`BILL-EXP-PERM`). Capture stays ungated.
+- Creating or updating an inventory location requires `admin.config.edit` in `InventoryLocationAdminService` (`INVLOC-CREATE-PERM` / `INVLOC-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`INVLOC-ACT-PERM` / `INVLOC-DEACT-PERM`).
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---

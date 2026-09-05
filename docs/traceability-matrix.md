@@ -179,6 +179,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-104 / FRS-BB-138 | Ordering-provider catalog writes require admin.config.edit or admin.config.activate in Application | `ORDPROV-CREATE-PERM`, `ORDPROV-UPD-PERM`, `ORDPROV-ACT-PERM`, `ORDPROV-DEACT-PERM` | `OrderingProviderAuthorizationRuleTests`; `OrderingProviderAuthorizationTests` | D,I | RISK-BB-111 |
 | URS-BB-106 / FRS-BB-140 | Ordering-location catalog writes require admin.config.edit or admin.config.activate in Application | `ORDLOC-CREATE-PERM`, `ORDLOC-UPD-PERM`, `ORDLOC-ACT-PERM`, `ORDLOC-DEACT-PERM` | `OrderingLocationAuthorizationRuleTests`; `OrderingLocationAuthorizationTests` | D,I | RISK-BB-113 |
 | URS-BB-108 / FRS-BB-142 | Charge review/cancel/export require billing.review, billing.cancel, or billing.export in Application | `BILL-REV-PERM`, `BILL-CXL-PERM`, `BILL-EXP-PERM` | `BillingAuthorizationRuleTests`; `BillingAuthorizationTests` | D,I | RISK-BB-115 |
+| URS-BB-109 / FRS-BB-143 | Inventory-location catalog writes require admin.config.edit or admin.config.activate in Application | `INVLOC-CREATE-PERM`, `INVLOC-UPD-PERM`, `INVLOC-ACT-PERM`, `INVLOC-DEACT-PERM` | `InventoryLocationAuthorizationRuleTests`; `InventoryLocationAuthorizationTests` | D,I | RISK-BB-116 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

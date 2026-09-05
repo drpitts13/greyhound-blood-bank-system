@@ -11,6 +11,7 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
     private const string EntityType = nameof(InventoryLocation);
 
     private readonly IRepository<InventoryLocation> _locations;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public InventoryLocationAdminService(
         IRepository<InventoryLocation> locations,
@@ -18,10 +19,12 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _locations = locations;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<InventoryLocationAdminDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -43,6 +46,13 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, InventoryLocationAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = new InventoryLocation { IsActive = true };
         Apply(entity, request, applyTypeDefaults: request.ApplyTypeDefaults || IsUnspecifiedStorage(request));
@@ -69,6 +79,13 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, InventoryLocationAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _locations.GetByIdAsync(id, ct);
         if (entity is null)
@@ -98,6 +115,15 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         bool active,
         CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate,
+            active ? InventoryLocationAuthorizationRule.EvaluateActivate : InventoryLocationAuthorizationRule.EvaluateDeactivate,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _locations.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -148,4 +174,22 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         && request.AllowsPlatelets is null
         && request.AllowsCryo is null
         && request.AllowsWholeBlood is null;
+
+    private async Task<EvaluationResult<InventoryLocationAdminDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<InventoryLocationAdminDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
 }
