@@ -234,7 +234,18 @@ public sealed class LookbackService
             }
         }
 
-        _audit.Record(AuditEventType.Lookback, nameof(BloodUnit), null, newValue: new { Din = normalized }, reason: reason);
+        _audit.Record(
+            AuditEventType.Lookback,
+            nameof(BloodUnit),
+            units.FirstOrDefault()?.Id,
+            newValue: new
+            {
+                Din = normalized,
+                UnitCount = units.Count,
+                PendingNotificationCount = units.Count(u =>
+                    u.Status is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped)
+            },
+            reason: reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return await FindByDinAsync(normalized, ct);
     }
@@ -256,11 +267,21 @@ public sealed class LookbackService
             return OperationResult<LookbackNotification>.Fail("Lookback notification not found.");
         }
 
+        var oldStatus = row.Status;
+        var oldPhysician = row.PhysicianOfRecord;
+        var oldNotes = row.Notes;
         row.Status = request.Status;
         row.PhysicianOfRecord = request.PhysicianOfRecord;
         row.Notes = request.Notes;
         row.AttemptedUtc = _clock.UtcNow;
         row.AttemptedBy = _currentUser.UserName;
+        _audit.Record(
+            AuditEventType.Lookback,
+            nameof(LookbackNotification),
+            row.Id,
+            oldValue: new { Status = oldStatus, PhysicianOfRecord = oldPhysician, Notes = oldNotes },
+            newValue: new { row.Status, row.PhysicianOfRecord, row.Notes, row.AttemptedBy, row.AttemptedUtc },
+            reason: "Lookback notification attempt recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<LookbackNotification>.Ok(row);
     }

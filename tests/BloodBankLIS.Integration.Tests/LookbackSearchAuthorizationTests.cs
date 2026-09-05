@@ -47,17 +47,18 @@ public class LookbackSearchAuthorizationTests : IClassFixture<SqliteContextFacto
     {
         await using var c = _factory.Create();
         const string din = "W000077777777";
-        c.ProductTypes.Add(new ProductType
+        var findProduct = new ProductType
         {
             ProductCode = "RBC-LB-FIND",
             Name = "Lookback find RBC",
             ComponentClass = ComponentClass.RedBloodCells
-        });
+        };
+        c.ProductTypes.Add(findProduct);
         await c.SaveChangesAsync();
         c.BloodUnits.Add(new BloodUnit
         {
             UnitNumber = "U-LB-FIND",
-            ProductTypeId = c.ProductTypes.Single().Id,
+            ProductTypeId = findProduct.Id,
             Abo = AboGroup.O,
             RhD = RhType.Positive,
             Din = din,
@@ -104,5 +105,84 @@ public class LookbackSearchAuthorizationTests : IClassFixture<SqliteContextFacto
             .FindByRecipientAsync("MRN-LB-TRACE", null);
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal("MRN-LB-TRACE", allowed.Value!.Patient.MedicalRecordNumber);
+    }
+
+    [Fact]
+    public async Task RecallAndRecordAttempt_WriteLookback()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var din = $"W0000{key}";
+        var product = new ProductType
+        {
+            ProductCode = $"RBC-LB-AUD-{key}",
+            Name = "Lookback audit RBC",
+            ComponentClass = ComponentClass.RedBloodCells
+        };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+
+        var available = new BloodUnit
+        {
+            UnitNumber = $"U-LB-AUD-A-{key}",
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Din = din,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Available
+        };
+        var transfused = new BloodUnit
+        {
+            UnitNumber = $"U-LB-AUD-T-{key}",
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Din = din,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Transfused
+        };
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-LB-AUD-{key}",
+            LastName = "Lookback",
+            FirstName = "Audit",
+            DateOfBirth = new DateOnly(1980, 1, 1)
+        };
+        c.Patients.Add(patient);
+        c.BloodUnits.AddRange(available, transfused);
+        await c.SaveChangesAsync();
+        c.Issues.Add(new Issue
+        {
+            BloodProductId = transfused.Id,
+            PatientId = patient.Id,
+            IssuedUtc = _factory.Clock.UtcNow.AddHours(-2),
+            IssuedBy = "tech-test",
+            Status = IssueStatus.Transfused
+        });
+        await c.SaveChangesAsync();
+
+        var recalled = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+        Assert.True(recalled.Succeeded, recalled.Error);
+        var notification = Assert.Single(recalled.Value!.Notifications);
+
+        var attempted = await Lookback(c).RecordAttemptAsync(
+            notification.Id,
+            new RecordLookbackAttemptRequest("Dr. Record", "Physician notified", LookbackNotificationStatus.Attempted));
+        Assert.True(attempted.Succeeded, attempted.Error);
+
+        var events = c.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Lookback
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId is not null
+            && e.Reason == "Donor subsequently reactive");
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Lookback
+            && e.EntityType == nameof(LookbackNotification)
+            && e.EntityId == notification.Id
+            && e.Reason == "Lookback notification attempt recorded."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null);
     }
 }
