@@ -65,6 +65,35 @@ public class AntibodyIdentificationTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task VerifyAbid_WritesAntibodyWithHistoryIds()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var (patientId, specimenId) = await SeedAsync($"MRN-ABID-AUD-{suffix}", $"ACC-ABID-AUD-{suffix}");
+
+        await using var context = _factory.Create();
+        var entered = await Results(context).EnterResultAsync(
+            new EnterResultRequest(specimenId, "ABID", "anti-K"));
+        Assert.True(entered.Succeeded, entered.Error);
+
+        var verified = await Results(context).VerifyResultAsync(entered.Value!.Id);
+        Assert.True(verified.Succeeded, verified.Error);
+
+        var history = Assert.Single(await context.AntibodyHistory
+            .Where(a => a.PatientId == patientId && a.IsActive)
+            .ToListAsync());
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Antibody
+            && e.EntityType == nameof(AntibodyHistory)
+            && e.EntityId == history.Id
+            && e.Reason == "Identified on verified ABID."
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains($"\"PatientId\":{patientId}")
+            && e.NewValueJson.Contains($"\"SourceResultId\":{entered.Value.Id}")
+            && e.NewValueJson.Contains($"\"HistoryIds\":[{history.Id}]"));
+    }
+
+    [Fact]
     public async Task VerifyAbid_Negative_DoesNotPostHistory()
     {
         var (patientId, specimenId) = await SeedAsync("MRN-ABID-NEG", "ACC-ABID-NEG");

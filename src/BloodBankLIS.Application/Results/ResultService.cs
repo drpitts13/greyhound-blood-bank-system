@@ -1681,6 +1681,7 @@ public sealed class ResultService
         }
 
         var posted = new List<string>();
+        var postedRows = new List<AntibodyHistory>();
         var unmatched = new List<string>();
 
         foreach (var hit in hits)
@@ -1688,9 +1689,13 @@ public sealed class ResultService
             if (hit.CatalogItem is { } item)
             {
                 var attrDef = catalogEntities.First(d => d.Id == item.Id);
-                await ApplyPatientAntibodyResultAsync(
+                var row = await ApplyPatientAntibodyResultAsync(
                     result.PatientId, attrDef, AntigenResult.Positive, result.Id, ct);
-                posted.Add(attrDef.AntibodyName);
+                if (row is not null)
+                {
+                    postedRows.Add(row);
+                    posted.Add(attrDef.AntibodyName);
+                }
                 continue;
             }
 
@@ -1699,25 +1704,29 @@ public sealed class ResultService
                 continue;
             }
 
-            await ApplyFreeTextAntibodyResultAsync(result.PatientId, hit.Token, result.Id, ct);
+            var freeText = await ApplyFreeTextAntibodyResultAsync(result.PatientId, hit.Token, result.Id, ct);
+            postedRows.Add(freeText);
             posted.Add(hit.Token);
             unmatched.Add(hit.Token);
         }
 
-        if (posted.Count == 0)
+        if (postedRows.Count == 0)
         {
             return Array.Empty<RuleResult>();
         }
 
+        await _unitOfWork.SaveChangesAsync(ct);
         _audit.Record(
             AuditEventType.Antibody,
             nameof(AntibodyHistory),
-            result.PatientId,
+            postedRows[0].Id,
             newValue: new
             {
+                PatientId = result.PatientId,
                 SourceResultId = result.Id,
                 TestCode = result.TestCode,
-                Specificities = posted
+                Specificities = posted,
+                HistoryIds = postedRows.Select(r => r.Id).ToList()
             },
             reason: $"Identified on verified {result.TestCode}.");
 
@@ -1818,7 +1827,7 @@ public sealed class ResultService
             .ToList();
     }
 
-    private async Task ApplyFreeTextAntibodyResultAsync(
+    private async Task<AntibodyHistory> ApplyFreeTextAntibodyResultAsync(
         long patientId, string specificity, long sourceResultId, CancellationToken ct)
     {
         var existing = await _antibodies!.FirstOrDefaultAsync(
@@ -1831,10 +1840,10 @@ public sealed class ResultService
             existing.Status = AntibodyStatus.Identified;
             existing.SourceResultId = sourceResultId;
             _antibodies.Update(existing);
-            return;
+            return existing;
         }
 
-        await _antibodies.AddAsync(new AntibodyHistory
+        var row = new AntibodyHistory
         {
             PatientId = patientId,
             AntibodySpecificity = specificity,
@@ -1842,7 +1851,9 @@ public sealed class ResultService
             IsActive = true,
             SourceResultId = sourceResultId,
             Comment = "Posted from verified antibody identification."
-        }, ct);
+        };
+        await _antibodies.AddAsync(row, ct);
+        return row;
     }
 
     private async Task ApplyBloodAttributeResultAsync(TestResult result, CancellationToken ct)
@@ -1949,7 +1960,7 @@ public sealed class ResultService
         }
     }
 
-    private async Task ApplyPatientAntibodyResultAsync(
+    private async Task<AntibodyHistory?> ApplyPatientAntibodyResultAsync(
         long patientId, BloodAttributeDefinition attrDef, AntigenResult resultValue, long sourceResultId, CancellationToken ct)
     {
         if (resultValue == AntigenResult.Positive)
@@ -1960,7 +1971,7 @@ public sealed class ResultService
                      && a.IsActive, ct);
             if (existing is null)
             {
-                await _antibodies.AddAsync(new AntibodyHistory
+                var row = new AntibodyHistory
                 {
                     PatientId = patientId,
                     BloodAttributeDefinitionId = attrDef.Id,
@@ -1968,17 +1979,16 @@ public sealed class ResultService
                     Status = AntibodyStatus.Identified,
                     IsActive = true,
                     SourceResultId = sourceResultId
-                }, ct);
-            }
-            else
-            {
-                existing.AntibodySpecificity = attrDef.AntibodyName;
-                existing.Status = AntibodyStatus.Identified;
-                existing.SourceResultId = sourceResultId;
-                _antibodies.Update(existing);
+                };
+                await _antibodies.AddAsync(row, ct);
+                return row;
             }
 
-            return;
+            existing.AntibodySpecificity = attrDef.AntibodyName;
+            existing.Status = AntibodyStatus.Identified;
+            existing.SourceResultId = sourceResultId;
+            _antibodies.Update(existing);
+            return existing;
         }
 
         if (resultValue == AntigenResult.Negative)
@@ -1995,6 +2005,8 @@ public sealed class ResultService
                 _antibodies.Update(active);
             }
         }
+
+        return null;
     }
 
     private async Task UpsertUnitBloodAttributeAsync(
