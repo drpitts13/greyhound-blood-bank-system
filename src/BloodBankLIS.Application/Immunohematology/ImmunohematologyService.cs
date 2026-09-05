@@ -25,6 +25,7 @@ public sealed class ImmunohematologyService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
+    private readonly IRepository<AntibodyIdentificationFinding>? _findings;
 
     public ImmunohematologyService(
         IRepository<PatientBloodTypeHistory> bloodTypes,
@@ -37,7 +38,8 @@ public sealed class ImmunohematologyService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
-        IRepository<AntibodyIdentificationWorkup>? workups = null)
+        IRepository<AntibodyIdentificationWorkup>? workups = null,
+        IRepository<AntibodyIdentificationFinding>? findings = null)
     {
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
@@ -50,6 +52,7 @@ public sealed class ImmunohematologyService
         _audit = audit;
         _permissions = permissions;
         _workups = workups;
+        _findings = findings;
     }
 
     public Task<PatientBloodTypeHistory?> GetCurrentBloodTypeAsync(long patientId, CancellationToken ct = default) =>
@@ -90,6 +93,7 @@ public sealed class ImmunohematologyService
         }
 
         var current = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == patientId && h.IsCurrent, ct);
+        var typeChanged = current is null || current.Abo != abo || current.RhD != rhD;
         if (current is not null)
         {
             current.IsCurrent = false;
@@ -116,7 +120,23 @@ public sealed class ImmunohematologyService
             reason: reason);
 
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<PatientBloodTypeHistory>.Ok(entry);
+
+        IReadOnlyList<RuleResult>? warnings = null;
+        if (typeChanged)
+        {
+            var bloodTypeOpen = AntibodyIdentificationHistoryPostRule.EvaluateBloodTypeOpenWorkup(
+                await HasOpenWorkupAsync(patientId, ct));
+            if (bloodTypeOpen.Severity == RuleSeverity.Warning)
+            {
+                await WithdrawOpenWorkupJudgmentAsync(
+                    patientId,
+                    "Patient ABO/Rh changed while an antibody-identification workup was open. Interpretation and supervisor review must be repeated. This does not identify antibodies.",
+                    ct);
+                warnings = [bloodTypeOpen];
+            }
+        }
+
+        return OperationResult<PatientBloodTypeHistory>.Ok(entry, warnings);
     }
 
     public Task<IReadOnlyList<AntigenProfile>> GetAntigenProfilesAsync(long patientId, CancellationToken ct = default) =>
@@ -148,6 +168,10 @@ public sealed class ImmunohematologyService
 
         var existing = await _antigenProfiles.FirstOrDefaultAsync(
             p => p.PatientId == patientId && p.BloodAttributeDefinitionId == request.BloodAttributeDefinitionId, ct);
+
+        var phenotypeChanged = existing is null
+            || existing.Result != request.Result
+            || !string.Equals(existing.Method, request.Method, StringComparison.Ordinal);
 
         var previous = existing is null
             ? null
@@ -195,7 +219,22 @@ public sealed class ImmunohematologyService
                 : "Antigen phenotype updated in place (OCD-022).");
         await _unitOfWork.SaveChangesAsync(ct);
 
-        return OperationResult<AntigenProfile>.Ok(existing);
+        IReadOnlyList<RuleResult>? warnings = null;
+        if (phenotypeChanged)
+        {
+            var antigenOpen = AntibodyIdentificationHistoryPostRule.EvaluateAntigenOpenWorkup(
+                await HasOpenWorkupAsync(patientId, ct));
+            if (antigenOpen.Severity == RuleSeverity.Warning)
+            {
+                await WithdrawOpenWorkupJudgmentAsync(
+                    patientId,
+                    "Patient antigen type changed while an antibody-identification workup was open. Interpretation and supervisor review must be repeated. This does not identify antibodies.",
+                    ct);
+                warnings = [antigenOpen];
+            }
+        }
+
+        return OperationResult<AntigenProfile>.Ok(existing, warnings);
     }
 
     public async Task<OperationResult<AntibodyHistory>> AddAntibodyAsync(
@@ -326,6 +365,71 @@ public sealed class ImmunohematologyService
 
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<AntibodyHistory>.Ok(antibody);
+    }
+
+    private async Task WithdrawOpenWorkupJudgmentAsync(long patientId, string reason, CancellationToken ct)
+    {
+        if (_workups is null)
+        {
+            return;
+        }
+
+        var open = await _workups.ListAsync(
+            w => w.PatientId == patientId
+                && (w.Status == AntibodyWorkupStatus.InProgress
+                    || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                    || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+            ct);
+        foreach (var listed in open)
+        {
+            var workup = await _workups.GetByIdAsync(listed.Id, ct);
+            if (workup is null)
+            {
+                continue;
+            }
+
+            var hadJudgment = workup.InterpretedUtc is not null || workup.ReviewedUtc is not null;
+            if (hadJudgment && _findings is not null)
+            {
+                var listedFindings = await _findings.ListAsync(
+                    f => f.WorkupId == workup.Id && f.Source == AntibodyIdSource.Technologist, ct);
+                foreach (var listedFinding in listedFindings.Where(f =>
+                             f.Rationale != "Superseded by a later technologist interpretation."))
+                {
+                    var finding = await _findings.GetByIdAsync(listedFinding.Id, ct);
+                    if (finding is null)
+                    {
+                        continue;
+                    }
+
+                    finding.Rationale = "Superseded by a later technologist interpretation.";
+                    _findings.Update(finding);
+                }
+            }
+
+            if (hadJudgment)
+            {
+                workup.InterpretedUtc = null;
+                workup.SupervisorAccepted = false;
+                workup.SupervisorUser = null;
+                workup.ReviewedUtc = null;
+                workup.SupervisorComment = null;
+                if (workup.Status is AntibodyWorkupStatus.PendingSupervisorReview)
+                {
+                    workup.Status = AntibodyWorkupStatus.PendingInterpretation;
+                }
+            }
+
+            _workups.Update(workup);
+            _audit.Record(
+                AuditEventType.Antibody,
+                nameof(AntibodyIdentificationWorkup),
+                workup.Id,
+                newValue: new { TypeChangedAfterJudgment = hadJudgment, workup.Status },
+                reason: reason);
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
     }
 
     private Task<bool> HasOpenWorkupAsync(long patientId, CancellationToken ct) =>

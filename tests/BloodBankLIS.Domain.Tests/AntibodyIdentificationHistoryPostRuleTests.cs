@@ -192,4 +192,38 @@ public class AntibodyIdentificationHistoryPostRuleTests
 
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void AntigenOpenWorkup_IsWarning()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateAntigenOpenWorkup(hasOpenWorkupOnPatient: true);
+
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(AntibodyIdentificationHistoryPostRule.AntigenOpenCode, result.Code);
+    }
+
+    [Fact]
+    public void AntigenNoOpenWorkup_Passes()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateAntigenOpenWorkup(hasOpenWorkupOnPatient: false);
+
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void BloodTypeOpenWorkup_IsWarning()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateBloodTypeOpenWorkup(hasOpenWorkupOnPatient: true);
+
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(AntibodyIdentificationHistoryPostRule.BloodTypeOpenCode, result.Code);
+    }
+
+    [Fact]
+    public void BloodTypeNoOpenWorkup_Passes()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateBloodTypeOpenWorkup(hasOpenWorkupOnPatient: false);
+
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

@@ -15,6 +15,8 @@ public static class AntibodyIdentificationHistoryPostRule
     public const string IssueOpenCode = "ABID-ISSUE-OPEN";
     public const string CrossmatchOpenCode = "ABID-XM-OPEN";
     public const string SpecialRequirementOpenCode = "ABID-SR-OPEN";
+    public const string AntigenOpenCode = "ABID-AG-OPEN";
+    public const string BloodTypeOpenCode = "ABID-ABO-OPEN";
     public const string AuthoritativeCode = "ABID-WORKUP-AUTHORITATIVE";
     public const string DisagreeCode = "ABID-WORKUP-DISAGREE";
 
@@ -156,6 +158,38 @@ public static class AntibodyIdentificationHistoryPostRule
         return RuleResult.Warning(
             SpecialRequirementOpenCode,
             "An open antibody-identification workup is the identification of record. Antigen-negative needs may change when the workup completes. This warning does not identify antibodies or block documenting special requirements.");
+    }
+
+    /// <summary>
+    /// Phenotype may be recorded during identification. Changing it withdraws
+    /// interpretation so complete cannot post against a prior type.
+    /// </summary>
+    public static RuleResult EvaluateAntigenOpenWorkup(bool hasOpenWorkupOnPatient)
+    {
+        if (!hasOpenWorkupOnPatient)
+        {
+            return RuleResult.Pass(AntigenOpenCode);
+        }
+
+        return RuleResult.Warning(
+            AntigenOpenCode,
+            "An open antibody-identification workup is the identification of record. Changing antigen type withdraws interpretation and review so they can be repeated against the current type. This warning does not identify antibodies.");
+    }
+
+    /// <summary>
+    /// Manual ABO/Rh may be recorded during identification. Changing it withdraws
+    /// interpretation so complete cannot post against a prior type.
+    /// </summary>
+    public static RuleResult EvaluateBloodTypeOpenWorkup(bool hasOpenWorkupOnPatient)
+    {
+        if (!hasOpenWorkupOnPatient)
+        {
+            return RuleResult.Pass(BloodTypeOpenCode);
+        }
+
+        return RuleResult.Warning(
+            BloodTypeOpenCode,
+            "An open antibody-identification workup is the identification of record. Changing ABO/Rh withdraws interpretation and review so they can be repeated against the current type. This warning does not identify antibodies.");
     }
 
     public static IReadOnlyList<RuleResult> EvaluateCompletedWorkup(

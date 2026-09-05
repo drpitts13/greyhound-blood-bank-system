@@ -855,6 +855,131 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
+    public async Task SaveAntigen_OpenWorkup_WarnsAndWithdrawsInterpretation()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patientId = await SeedPatientAsync($"MRN-ABID-AG-OPEN-{suffix}");
+        long workupId;
+
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            await RecordPanelAhgAsync(context, workupId, created.Value);
+            var interpreted = await Svc(context).RecordInterpretationAsync(workupId, new RecordAntibodyIdInterpretationRequest(
+                "anti-K identified.",
+                [new AntibodyIdInterpretationItem(attrId, "anti-K", AntibodyIdClassification.Identified, "Pattern reviewed against assistance.")]));
+            Assert.True(interpreted.Succeeded, interpreted.Error);
+            Assert.NotNull(interpreted.Value!.InterpretedUtc);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var saved = await Immuno(context).SaveAntigenProfileAsync(
+                patientId, new SaveAntigenProfileRequest(attrId, AntigenResult.Positive, "Gel"));
+            Assert.True(saved.Succeeded, saved.Error);
+            Assert.Contains(
+                saved.Warnings,
+                w => w.Code == AntibodyIdentificationHistoryPostRule.AntigenOpenCode);
+        }
+
+        await using var check = _factory.Create();
+        var workup = await check.AntibodyIdentificationWorkups.SingleAsync(w => w.Id == workupId);
+        Assert.Null(workup.InterpretedUtc);
+        Assert.Equal(AntibodyWorkupStatus.PendingInterpretation, workup.Status);
+        var blocked = await Svc(check).CompleteAsync(workupId, ReviewedWarnings());
+        Assert.False(blocked.Succeeded);
+        Assert.Contains(blocked.Evaluation!.HardStops, r =>
+            r.Code == AntibodyIdentificationInterpretationRule.InterpretationRequiredCode);
+    }
+
+    [Fact]
+    public async Task RecordBloodType_OpenWorkup_WarnsAndWithdrawsInterpretation()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patientId = await SeedPatientAsync($"MRN-ABID-ABO-OPEN-{suffix}");
+        long workupId;
+
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            await RecordPanelAhgAsync(context, workupId, created.Value);
+            var interpreted = await Svc(context).RecordInterpretationAsync(workupId, new RecordAntibodyIdInterpretationRequest(
+                "anti-K identified.",
+                [new AntibodyIdInterpretationItem(attrId, "anti-K", AntibodyIdClassification.Identified, "Pattern reviewed against assistance.")]));
+            Assert.True(interpreted.Succeeded, interpreted.Error);
+            Assert.NotNull(interpreted.Value!.InterpretedUtc);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var recorded = await Immuno(context).RecordBloodTypeManualAsync(
+                patientId, AboGroup.A, RhType.Negative, "Historical record import");
+            Assert.True(recorded.Succeeded, recorded.Error);
+            Assert.Contains(
+                recorded.Warnings,
+                w => w.Code == AntibodyIdentificationHistoryPostRule.BloodTypeOpenCode);
+        }
+
+        await using var check = _factory.Create();
+        var workup = await check.AntibodyIdentificationWorkups.SingleAsync(w => w.Id == workupId);
+        Assert.Null(workup.InterpretedUtc);
+        Assert.Equal(AntibodyWorkupStatus.PendingInterpretation, workup.Status);
+        var blocked = await Svc(check).CompleteAsync(workupId, ReviewedWarnings());
+        Assert.False(blocked.Succeeded);
+        Assert.Contains(blocked.Evaluation!.HardStops, r =>
+            r.Code == AntibodyIdentificationInterpretationRule.InterpretationRequiredCode);
+    }
+
+    [Fact]
+    public async Task RecordBloodType_SameType_DoesNotWithdrawInterpretation()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patientId = await SeedPatientAsync($"MRN-ABID-ABO-SAME-{suffix}");
+        long workupId;
+
+        await using (var context = _factory.Create())
+        {
+            var first = await Immuno(context).RecordBloodTypeManualAsync(
+                patientId, AboGroup.O, RhType.Positive, "Historical record import");
+            Assert.True(first.Succeeded, first.Error);
+
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            await RecordPanelAhgAsync(context, workupId, created.Value);
+            var interpreted = await Svc(context).RecordInterpretationAsync(workupId, new RecordAntibodyIdInterpretationRequest(
+                "anti-K identified.",
+                [new AntibodyIdInterpretationItem(attrId, "anti-K", AntibodyIdClassification.Identified, "Pattern reviewed against assistance.")]));
+            Assert.True(interpreted.Succeeded, interpreted.Error);
+            Assert.NotNull(interpreted.Value!.InterpretedUtc);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var recorded = await Immuno(context).RecordBloodTypeManualAsync(
+                patientId, AboGroup.O, RhType.Positive, "Same type restated");
+            Assert.True(recorded.Succeeded, recorded.Error);
+            Assert.DoesNotContain(
+                recorded.Warnings,
+                w => w.Code == AntibodyIdentificationHistoryPostRule.BloodTypeOpenCode);
+        }
+
+        await using var check = _factory.Create();
+        var workup = await check.AntibodyIdentificationWorkups.SingleAsync(w => w.Id == workupId);
+        Assert.NotNull(workup.InterpretedUtc);
+    }
+
+    [Fact]
     public async Task Complete_DoesNotDuplicateCatalogHistoryRow()
     {
         var (attrId, lotId) = await SeedPanelAsync();
@@ -1778,7 +1903,8 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
             unitOfWork: c,
             clock: _factory.Clock,
             currentUser: _factory.CurrentUser,
-            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            findings: new EfRepository<AntibodyIdentificationFinding>(c));
 
     private async Task SeedReservedUnitAsync(long patientId, string key)
     {
