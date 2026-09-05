@@ -1272,7 +1272,28 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Unit not found.");
 
         unit.SupplierReturnReason = reason.Trim();
-        return await ChangeStatusAsync(unit, UnitStatus.ReturnedToSupplier, reason.Trim(), ct);
+        var fromStatus = unit.Status;
+        var returned = await ChangeStatusAsync(unit, UnitStatus.ReturnedToSupplier, reason.Trim(), ct);
+        if (!returned.Succeeded)
+        {
+            return returned;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = fromStatus },
+            newValue: new
+            {
+                unit.UnitNumber,
+                Status = UnitStatus.ReturnedToSupplier,
+                Path = "ReturnToSupplier",
+                SupplierReturnReason = reason.Trim()
+            },
+            reason: "Unit returned to supplier.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return returned;
     }
 
     /// <summary>

@@ -2224,4 +2224,30 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(dNumber));
     }
+
+    [Fact]
+    public async Task ReturnToSupplier_WritesProductStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var unitNumber = $"U-RTS-AUD-{key}";
+        await using var context = _factory.Create();
+        var svc = CreateService(context);
+        var received = await svc.ReceiveUnitAsync(NewUnitRequest(unitNumber, productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var returned = await svc.ReturnToSupplierAsync(received.Unit!.Id, "Unused stock credit");
+        Assert.True(returned.Succeeded, returned.Error);
+        Assert.Equal(UnitStatus.ReturnedToSupplier, returned.Unit!.Status);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == received.Unit.Id
+            && e.Reason == "Unit returned to supplier."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(unitNumber));
+    }
 }
