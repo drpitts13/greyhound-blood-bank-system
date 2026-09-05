@@ -143,6 +143,12 @@ public sealed class LookbackService
 
     public async Task<OperationResult<LookbackReportDto>> FindByDinAsync(string din, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedFindAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var normalized = NormalizeDin(din);
         if (normalized.Length != 13)
         {
@@ -267,6 +273,12 @@ public sealed class LookbackService
     public async Task<OperationResult<RecipientTraceReportDto>> FindByRecipientAsync(
         string? mrn, long? patientId, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedTraceAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var resolved = await ResolveRecipientAsync(mrn, patientId, ct);
         if (!resolved.Succeeded)
         {
@@ -479,6 +491,12 @@ public sealed class LookbackService
 
     private Task<OperationResult<LookbackNotification>?> RejectUnauthorizedAttemptAsync(CancellationToken ct) =>
         RejectUnauthorizedAsync<LookbackNotification>(LookbackAuthorizationRule.EvaluateAttempt, ct);
+
+    private Task<OperationResult<LookbackReportDto>?> RejectUnauthorizedFindAsync(CancellationToken ct) =>
+        RejectUnauthorizedAsync<LookbackReportDto>(LookbackAuthorizationRule.EvaluateFind, ct);
+
+    private Task<OperationResult<RecipientTraceReportDto>?> RejectUnauthorizedTraceAsync(CancellationToken ct) =>
+        RejectUnauthorizedAsync<RecipientTraceReportDto>(LookbackAuthorizationRule.EvaluateTrace, ct);
 
     private async Task<OperationResult<T>?> RejectUnauthorizedAsync<T>(
         Func<bool, RuleResult> evaluate, CancellationToken ct)
