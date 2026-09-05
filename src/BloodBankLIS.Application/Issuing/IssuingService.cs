@@ -49,6 +49,7 @@ public sealed class IssuingService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
 
     public IssuingService(
         IInventoryRepository inventory,
@@ -77,7 +78,8 @@ public sealed class IssuingService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IRepository<AntibodyIdentificationWorkup>? workups = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -106,6 +108,7 @@ public sealed class IssuingService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _workups = workups;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -925,8 +928,14 @@ public sealed class IssuingService
             history.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
         var hasAntibodyHistory = await _antibodyScreenCompat.HasAntibodyHistoryAsync(patientId, ct);
         var screenNegative = !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(patientId, ct);
+        var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
+            w => w.PatientId == patientId
+                && (w.Status == AntibodyWorkupStatus.InProgress
+                    || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                    || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+            ct);
         return ElectronicCrossmatchEligibilityRule.Evaluate(
-            currentConfirmed, screenNegative, hasAntibodyHistory, secondAbo).Severity
+            currentConfirmed, screenNegative, hasAntibodyHistory, secondAbo, hasOpenWorkup).Severity
             == RuleSeverity.Pass;
     }
 

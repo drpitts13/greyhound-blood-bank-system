@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Compatibility;
@@ -30,12 +31,14 @@ public sealed class ElectronicCrossmatchEligibilityService
         [ElectronicCrossmatchEligibilityRule.CurrentTypeCode] = "Current ABO/Rh confirmed",
         [ElectronicCrossmatchEligibilityRule.SecondTypeCode] = "Second concordant ABO/Rh",
         [ElectronicCrossmatchEligibilityRule.ScreenCode] = "Antibody screen negative",
-        [ElectronicCrossmatchEligibilityRule.HistoryCode] = "No significant antibody history"
+        [ElectronicCrossmatchEligibilityRule.HistoryCode] = "No significant antibody history",
+        [ElectronicCrossmatchEligibilityRule.WorkupOpenCode] = "No open antibody-identification workup"
     };
 
     private readonly IRepository<Patient> _patients;
     private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
     private readonly IRepository<AntibodyHistory> _antibodies;
+    private readonly IRepository<AntibodyIdentificationWorkup> _workups;
     private readonly AntibodyScreenCompatLoader _antibodyScreen;
     private readonly FacilityPolicyService _policy;
 
@@ -43,12 +46,14 @@ public sealed class ElectronicCrossmatchEligibilityService
         IRepository<Patient> patients,
         IRepository<PatientBloodTypeHistory> bloodTypes,
         IRepository<AntibodyHistory> antibodies,
+        IRepository<AntibodyIdentificationWorkup> workups,
         AntibodyScreenCompatLoader antibodyScreen,
         FacilityPolicyService policy)
     {
         _patients = patients;
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
+        _workups = workups;
         _antibodyScreen = antibodyScreen;
         _policy = policy;
     }
@@ -68,9 +73,15 @@ public sealed class ElectronicCrossmatchEligibilityService
         // Deactivated ("currently undetectable") antibodies still block computer XM.
         var hasAntibodyHistory = await _antibodies.AnyAsync(a => a.PatientId == patientId, ct);
         var screenNegative = !await _antibodyScreen.HasPositiveAntibodyScreenAsync(patientId, ct);
+        var hasOpenWorkup = await _workups.AnyAsync(
+            w => w.PatientId == patientId
+                && (w.Status == AntibodyWorkupStatus.InProgress
+                    || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                    || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+            ct);
 
         var clinical = ElectronicCrossmatchEligibilityRule.EvaluateCriteria(
-            currentConfirmed, screenNegative, hasAntibodyHistory, secondAbo);
+            currentConfirmed, screenNegative, hasAntibodyHistory, secondAbo, hasOpenWorkup);
         var facility = facilityAllows
             ? RuleResult.Pass(ElectronicCrossmatchEligibilityRule.FacilityCode, "Electronic XM is enabled in facility policy.")
             : RuleResult.HardStop(

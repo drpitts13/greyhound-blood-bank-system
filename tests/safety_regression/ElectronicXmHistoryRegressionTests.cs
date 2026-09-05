@@ -62,6 +62,7 @@ public class ElectronicXmHistoryRegressionTests : IClassFixture<SqliteContextFac
             new EfRepository<Patient>(c),
             new EfRepository<PatientBloodTypeHistory>(c),
             new EfRepository<AntibodyHistory>(c),
+            new EfRepository<AntibodyIdentificationWorkup>(c),
             new AntibodyScreenCompatLoader(
                 new EfRepository<TestResult>(c),
                 new EfRepository<TestDefinition>(c),

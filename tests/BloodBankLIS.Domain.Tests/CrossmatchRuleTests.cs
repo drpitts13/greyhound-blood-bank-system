@@ -55,10 +55,25 @@ public class CrossmatchRuleTests
     public void ElectronicEligibility_Criteria_ReportEachCheck()
     {
         var results = ElectronicCrossmatchEligibilityRule.EvaluateCriteria(true, false, true, false);
-        Assert.Equal(4, results.Count);
+        Assert.Equal(5, results.Count);
         Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.ScreenCode && r.Severity == RuleSeverity.HardStop);
         Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.HistoryCode && r.Severity == RuleSeverity.HardStop);
         Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.SecondTypeCode && r.Severity == RuleSeverity.HardStop);
         Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.CurrentTypeCode && r.Severity == RuleSeverity.Pass);
+        Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.WorkupOpenCode && r.Severity == RuleSeverity.Pass);
+    }
+
+    [Fact]
+    public void ElectronicEligibility_OpenAntibodyIdWorkup_IsHardStop()
+    {
+        var result = ElectronicCrossmatchEligibilityRule.Evaluate(
+            currentAboRhConfirmed: true,
+            antibodyScreenNegative: true,
+            hasAntibodyHistory: false,
+            hasSecondConcordantAboRh: true,
+            hasOpenAntibodyIdWorkup: true);
+
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(ElectronicCrossmatchEligibilityRule.WorkupOpenCode, result.Code);
     }
 }

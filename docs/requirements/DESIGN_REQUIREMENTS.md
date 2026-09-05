@@ -4,7 +4,7 @@
 |---|---|---|
 | SRS-BB-001 | Domain rules are pure functions. They do not read the clock or database. Application services assemble facts and call the rule. | FRS-BB-030, FRS-BB-031 |
 | SRS-BB-002 | `IssueGate` is the single issue-time rule aggregation point. Additional HardStops may be appended (dual ID, second-verifier directory) but must not replace the gate. | FRS-BB-031 |
-| SRS-BB-003 | Electronic XM eligibility is computed by `ElectronicCrossmatchEligibilityService` / `ElectronicCrossmatchEligibilityRule` and reused by the patient workspace and issue pathway. | FRS-BB-033 |
+| SRS-BB-003 | Electronic XM eligibility is computed by `ElectronicCrossmatchEligibilityService` / `ElectronicCrossmatchEligibilityRule` and reused by the patient workspace and issue pathway. An open antibody-identification workup is `XM-EC-ABID-OPEN` (HardStop). | FRS-BB-033, FRS-BB-169 |
 | SRS-BB-004 | Assign and issue persist inside one unit-of-work. Unique filtered indexes enforce one active reservation and one open issue per unit. | FRS-BB-041 |
 | SRS-BB-005 | AntibodyHistory, PatientBloodTypeHistory, InventoryStatusHistory, AuditEvent, and ElectronicSignature cannot be deleted through normal application saves. | FRS-BB-002, FRS-BB-060 |
 | SRS-BB-006 | SQLite development databases apply additive columns/indexes via `DevelopmentSqliteBootstrap` so unique safety indexes exist on existing files. | FRS-BB-041 |
@@ -125,3 +125,4 @@
 | SRS-BB-127 | `PrintService.CreateJobAsync` writes `AuditEventType.Print` after the `PrintJob` id exists. `ReprintAsync` stays Reprint. | FRS-BB-166 |
 | SRS-BB-128 | `ResultSourceEntryCopy.TypedHint` and `Entered` name Manual for typed specimen-card entry. | FRS-BB-167 |
 | SRS-BB-129 | `AntibodyIdentificationService` workup lifecycle writes `AuditEventType.Antibody`. Accept and complete stay Verify. History post stays Antibody. | FRS-BB-168 |
+| SRS-BB-130 | `ElectronicCrossmatchEligibilityRule` includes `XM-EC-ABID-OPEN`. Eligibility, electronic RecordCrossmatch, and issue eligibility query InProgress, PendingInterpretation, and PendingSupervisorReview workups. | FRS-BB-169 |

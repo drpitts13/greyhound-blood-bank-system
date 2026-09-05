@@ -19,6 +19,7 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
             new EfRepository<Patient>(c),
             new EfRepository<PatientBloodTypeHistory>(c),
             new EfRepository<AntibodyHistory>(c),
+            new EfRepository<AntibodyIdentificationWorkup>(c),
             new AntibodyScreenCompatLoader(
                 new EfRepository<TestResult>(c),
                 new EfRepository<TestDefinition>(c),
@@ -182,5 +183,49 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
         Assert.False(dto!.Eligible);
         Assert.Contains(dto.Criteria, r => r.Code == ElectronicCrossmatchEligibilityRule.HistoryCode && !r.Satisfied);
         Assert.Contains("currently undetectable", dto.BlockingReason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Assess_OpenAntibodyIdWorkup_BlocksEligibility()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = "MRN-EXM-ABID-OPEN",
+            LastName = "Open",
+            FirstName = "Workup",
+            DateOfBirth = new DateOnly(1988, 3, 1)
+        };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                IsCurrent = false,
+                Source = BloodTypeSource.TestResult
+            },
+            new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                IsCurrent = true,
+                Source = BloodTypeSource.TestResult
+            });
+        c.AntibodyIdentificationWorkups.Add(new AntibodyIdentificationWorkup
+        {
+            PatientId = patient.Id,
+            PrimaryLotId = 1,
+            Status = AntibodyWorkupStatus.InProgress
+        });
+        await c.SaveChangesAsync();
+
+        var dto = await Service(c).AssessAsync(patient.Id);
+        Assert.False(dto!.Eligible);
+        Assert.Contains(dto.Criteria, r => r.Code == ElectronicCrossmatchEligibilityRule.WorkupOpenCode && !r.Satisfied);
+        Assert.Contains("antibody-identification workup is open", dto.BlockingReason, StringComparison.OrdinalIgnoreCase);
     }
 }

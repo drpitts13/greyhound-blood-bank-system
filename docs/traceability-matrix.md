@@ -87,7 +87,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-AU-03 | Record retention | SystemSettings Record.RetentionYears | 10-year metadata; no purge of product/compatibility/transfusion/audit | I | 21 CFR 606.160(d) |
 | URS-BB-007 / FRS-BB-041 | One active reservation and one open issue per unit | `IX_Allocations_OneReservedPerUnit`; `IX_Issues_OneOpenIssuePerUnit`; `InventoryConcurrency` | `AllocationIssueConcurrencyTests` | I | RISK-BB-006 |
 | URS-BB-008 / FRS-BB-032 | Autologous/directed issue only to designated recipient | `IssueGate` + `AutologousDirectedRule` `ISS-AUTO-DIR` | `IssueGateSafetyRegressionTests`; Phase 4 | D,I | RISK-BB-007 |
-| URS-BB-009 / FRS-BB-033 | Electronic XM blocked by any antibody history row | `ElectronicCrossmatchEligibilityService` `XM-EC-HISTORY` | `ElectronicXmHistoryRegressionTests` | I | RISK-BB-005; OCD-001 |
+| URS-BB-009 / FRS-BB-033 | Electronic XM blocked by any antibody history row or an open antibody-identification workup | `ElectronicCrossmatchEligibilityService` `XM-EC-HISTORY` / `XM-EC-ABID-OPEN` | `ElectronicXmHistoryRegressionTests`; `ElectronicCrossmatchEligibilityTests.Assess_OpenAntibodyIdWorkup_BlocksEligibility` | I | RISK-BB-005; RISK-BB-142; OCD-001 |
 | URS-BB-015 / FRS-BB-003 | Merged patient record cannot be used clinically | `PatientMergeRule` `PAT-MERGED-INACTIVE`; IssueGate; CompatibilityService; SpecimenService; EncounterService; OrderService; ResultService (enter/verify/correct); ImmunohematologyService; SpecialRequirementService; `PatientMergeFollow` on ADT/ORM | `MergedPatientClinicalUseTests`; Phase 5 HL7 merge tests | D,I | RISK-BB-015; RISK-BB-010; OCD-009 |
 | URS-BB-017 / FRS-BB-003 | Manual and ADT merge reassign history to the survivor | `PatientMergeService`; `POST /api/patients/{id}/merge` requires `patient.merge`; ADT A18/A40 | `PatientMergeServiceTests`; Phase 8 security seed tests; Phase 5 HL7 merge tests | I | RISK-BB-015; RISK-BB-017; OCD-010 |
 | URS-BB-003 / FRS-BB-010 | Expired specimen cannot establish results | `ResultService.ValidateSpecimenForEntryAsync` on enter and verify | `MergedPatientClinicalUseTests` expired-verify case | I | RISK-BB-016 |
@@ -201,6 +201,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-132 / FRS-BB-166 | First label print writes Print | `PrintService.CreateJobAsync` | `Phase6PrintingTests.PrintSpecimenLabel_WritesPrint` | A | RISK-BB-139 |
 | URS-BB-133 / FRS-BB-167 | Typed specimen entry labels Manual source | `ResultSourceEntryCopy`; `PatientDetail` | `ResultSourceEntryCopyTests` | A | RISK-BB-140 |
 | URS-BB-134 / FRS-BB-168 | ABID workup lifecycle writes Antibody | `AntibodyIdentificationService` | `AntibodyIdentificationWorkupTests.CreateWorkup_WritesAntibody` | A | RISK-BB-141 |
+| URS-BB-135 / FRS-BB-169 | Electronic XM HardStops while an antibody-identification workup is open | `ElectronicCrossmatchEligibilityRule` `XM-EC-ABID-OPEN` | `CrossmatchRuleTests.ElectronicEligibility_OpenAntibodyIdWorkup_IsHardStop`; `ElectronicCrossmatchEligibilityTests.Assess_OpenAntibodyIdWorkup_BlocksEligibility` | D,A,I | RISK-BB-142 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

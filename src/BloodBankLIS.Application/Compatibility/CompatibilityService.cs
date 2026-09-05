@@ -34,6 +34,7 @@ public sealed class CompatibilityService
     private readonly IAuditWriter? _audit;
     private readonly FacilityPolicyService? _policy;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
 
     public CompatibilityService(
         IInventoryRepository inventory,
@@ -51,7 +52,8 @@ public sealed class CompatibilityService
         IRepository<Issue>? issues = null,
         IAuditWriter? audit = null,
         FacilityPolicyService? policy = null,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<AntibodyIdentificationWorkup>? workups = null)
     {
         _inventory = inventory;
         _crossmatches = crossmatches;
@@ -69,6 +71,7 @@ public sealed class CompatibilityService
         _audit = audit;
         _policy = policy;
         _permissions = permissions;
+        _workups = workups;
     }
 
     public async Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(RecordCrossmatchRequest request, CancellationToken ct = default)
@@ -121,8 +124,14 @@ public sealed class CompatibilityService
                 history.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
             var requiresComplexXm = await _antibodyScreenCompat.RequiresComplexCrossmatchAsync(request.PatientId, ct);
             var screenNegative = request.AntibodyScreenNegative && !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(request.PatientId, ct);
+            var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
+                w => w.PatientId == request.PatientId
+                    && (w.Status == AntibodyWorkupStatus.InProgress
+                        || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                        || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+                ct);
             var eligibility = ElectronicCrossmatchEligibilityRule.Evaluate(
-                currentAboRhConfirmed, screenNegative, requiresComplexXm, secondAbo);
+                currentAboRhConfirmed, screenNegative, requiresComplexXm, secondAbo, hasOpenWorkup);
             if (eligibility.Severity == RuleSeverity.HardStop)
             {
                 return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation(new[] { eligibility }));
