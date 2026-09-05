@@ -98,3 +98,4 @@
 | SRS-BB-092 | `ModificationRuleAdminService` create/update write `AuditEventType.Configure`. | FRS-BB-131 |
 | SRS-BB-093 | Charge-code create/update are authorized inside `ChargeCodeAdminService` with `admin.config.edit` (`CHG-CREATE-PERM` / `CHG-UPD-PERM`). Activate/deactivate use `admin.config.activate` (`CHG-ACT-PERM` / `CHG-DEACT-PERM`). | FRS-BB-132 |
 | SRS-BB-094 | Charge-rule create/update are authorized inside `ChargeRuleAdminService` with `admin.config.edit` (`CHGRULE-CREATE-PERM` / `CHGRULE-UPD-PERM`). Activate/deactivate use `admin.config.activate` (`CHGRULE-ACT-PERM` / `CHGRULE-DEACT-PERM`). | FRS-BB-133 |
+| SRS-BB-096 | Product-billing create/update are authorized inside `ProductBillingAdminService` with `admin.config.edit` (`PRODBILL-CREATE-PERM` / `PRODBILL-UPD-PERM`). Activate/deactivate use `admin.config.activate` (`PRODBILL-ACT-PERM` / `PRODBILL-DEACT-PERM`). | FRS-BB-135 |

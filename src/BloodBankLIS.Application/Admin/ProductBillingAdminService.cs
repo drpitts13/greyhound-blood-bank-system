@@ -12,6 +12,7 @@ public sealed class ProductBillingAdminService : ConfigAdminServiceBase
 
     private readonly IRepository<ProductBilling> _rows;
     private readonly IRepository<ChargeCode> _codes;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public ProductBillingAdminService(
         IRepository<ProductBilling> rows,
@@ -20,11 +21,13 @@ public sealed class ProductBillingAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _rows = rows;
         _codes = codes;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<ProductBillingDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -56,6 +59,13 @@ public sealed class ProductBillingAdminService : ConfigAdminServiceBase
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, ProductBillingAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = new ProductBilling { IsActive = true };
         Apply(entity, request);
 
@@ -79,6 +89,13 @@ public sealed class ProductBillingAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<ProductBillingDto>> UpdateAsync(long id, SaveProductBillingRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, ProductBillingAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _rows.GetByIdAsync(id, ct);
         if (entity is null)
@@ -107,6 +124,15 @@ public sealed class ProductBillingAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<ProductBillingDto>> SetActiveAsync(long id, bool active, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate,
+            active ? ProductBillingAuthorizationRule.EvaluateActivate : ProductBillingAuthorizationRule.EvaluateDeactivate,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _rows.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -155,5 +181,23 @@ public sealed class ProductBillingAdminService : ConfigAdminServiceBase
         entity.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         entity.Trigger = request.Trigger;
         entity.IsbtProductCode = (request.IsbtProductCode ?? string.Empty).Trim().ToUpperInvariant();
+    }
+
+    private async Task<EvaluationResult<ProductBillingDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<ProductBillingDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 }

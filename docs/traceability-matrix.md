@@ -174,6 +174,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-097 / FRS-BB-131 | Modification-rule create/update write Configure | `ModificationRuleAdminService` | `ModificationRuleAuthorizationTests.CreateAndUpdate_WriteConfigure` | A | RISK-BB-103 |
 | URS-BB-098 / FRS-BB-132 | Charge-code catalog writes require admin.config.edit or admin.config.activate in Application | `CHG-CREATE-PERM`, `CHG-UPD-PERM`, `CHG-ACT-PERM`, `CHG-DEACT-PERM` | `ChargeCodeAuthorizationRuleTests`; `ChargeCodeAuthorizationTests` | D,I | RISK-BB-104 |
 | URS-BB-099 / FRS-BB-133 | Charge-rule catalog writes require admin.config.edit or admin.config.activate in Application | `CHGRULE-CREATE-PERM`, `CHGRULE-UPD-PERM`, `CHGRULE-ACT-PERM`, `CHGRULE-DEACT-PERM` | `ChargeRuleAuthorizationRuleTests`; `ChargeRuleAuthorizationTests` | D,I | RISK-BB-105 |
+| URS-BB-101 / FRS-BB-135 | Product-billing catalog writes require admin.config.edit or admin.config.activate in Application | `PRODBILL-CREATE-PERM`, `PRODBILL-UPD-PERM`, `PRODBILL-ACT-PERM`, `PRODBILL-DEACT-PERM` | `ProductBillingAuthorizationRuleTests`; `ProductBillingAuthorizationTests` | D,I | RISK-BB-107 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
