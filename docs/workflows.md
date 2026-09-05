@@ -290,6 +290,7 @@ flowchart LR
 - Creating or updating a charge rule requires `admin.config.edit` in `ChargeRuleAdminService` (`CHGRULE-CREATE-PERM` / `CHGRULE-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`CHGRULE-ACT-PERM` / `CHGRULE-DEACT-PERM`).
 - Creating or updating a product billing row requires `admin.config.edit` in `ProductBillingAdminService` (`PRODBILL-CREATE-PERM` / `PRODBILL-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`PRODBILL-ACT-PERM` / `PRODBILL-DEACT-PERM`).
 - Creating or updating a test/service billing row requires `admin.config.edit` in `TestServiceBillingAdminService` (`TSBILL-CREATE-PERM` / `TSBILL-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`TSBILL-ACT-PERM` / `TSBILL-DEACT-PERM`).
+- Creating or updating an ordering provider requires `admin.config.edit` in `OrderingProviderAdminService` (`ORDPROV-CREATE-PERM` / `ORDPROV-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`ORDPROV-ACT-PERM` / `ORDPROV-DEACT-PERM`).
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---

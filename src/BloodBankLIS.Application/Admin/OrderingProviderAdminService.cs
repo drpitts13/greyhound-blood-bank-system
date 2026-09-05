@@ -9,6 +9,7 @@ namespace BloodBankLIS.Application.Admin;
 public sealed class OrderingProviderAdminService : ConfigAdminServiceBase
 {
     private readonly IRepository<OrderingProvider> _providers;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public OrderingProviderAdminService(
         IRepository<OrderingProvider> providers,
@@ -16,10 +17,12 @@ public sealed class OrderingProviderAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _providers = providers;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<OrderingProviderDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -38,6 +41,15 @@ public sealed class OrderingProviderAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<OrderingProviderDto>> CreateAsync(SaveOrderingProviderRequest request, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, OrderingProviderAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var providerId = request.ProviderId.Trim();
         if (await _providers.AnyAsync(p => p.ProviderId == providerId, ct))
         {
@@ -71,6 +83,15 @@ public sealed class OrderingProviderAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<OrderingProviderDto>> UpdateAsync(long id, SaveOrderingProviderRequest request, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, OrderingProviderAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _providers.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -100,6 +121,15 @@ public sealed class OrderingProviderAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<OrderingProviderDto>> SetActiveAsync(long id, bool active, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate,
+            active ? OrderingProviderAuthorizationRule.EvaluateActivate : OrderingProviderAuthorizationRule.EvaluateDeactivate,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _providers.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -117,4 +147,22 @@ public sealed class OrderingProviderAdminService : ConfigAdminServiceBase
 
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private async Task<EvaluationResult<OrderingProviderDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<OrderingProviderDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
 }
