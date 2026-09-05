@@ -39,6 +39,8 @@ public sealed class AntibodyIdentificationService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<Allocation>? _allocations;
+    private readonly IRepository<Issue>? _issues;
 
     public AntibodyIdentificationService(
         IRepository<AntibodyPanelManufacturer> manufacturers,
@@ -61,7 +63,9 @@ public sealed class AntibodyIdentificationService
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
         IRepository<TestResult>? results = null,
-        IRepository<TestDefinition>? testDefinitions = null)
+        IRepository<TestDefinition>? testDefinitions = null,
+        IRepository<Allocation>? allocations = null,
+        IRepository<Issue>? issues = null)
     {
         _manufacturers = manufacturers;
         _lots = lots;
@@ -84,6 +88,8 @@ public sealed class AntibodyIdentificationService
         _permissions = permissions;
         _results = results;
         _testDefinitions = testDefinitions;
+        _allocations = allocations;
+        _issues = issues;
     }
 
     public async Task<IReadOnlyList<AntibodyPanelLotListItemDto>> ListLotsAsync(
@@ -1032,6 +1038,12 @@ public sealed class AntibodyIdentificationService
             completionResults.Add(datAtComplete);
         }
 
+        var productsOpen = await EvaluateOpenProductsAsync(workup.PatientId, ct);
+        if (productsOpen.Severity != RuleSeverity.Pass)
+        {
+            completionResults.Add(productsOpen);
+        }
+
         evaluation = new RuleEvaluation(completionResults);
         var acknowledgment = AntibodyIdentificationInterpretationRule.EvaluateCompleteAcknowledgment(
             completionResults, request?.WarningAcknowledgment);
@@ -1729,6 +1741,19 @@ public sealed class AntibodyIdentificationService
             ? OperationResult<T>.Fail(auth.Message)
             : null;
     }
+
+    private async Task<bool> HasReservedOrIssuedUnitsAsync(long patientId, CancellationToken ct)
+    {
+        var reserved = _allocations is not null && await _allocations.AnyAsync(
+            a => a.PatientId == patientId && a.Status == AllocationStatus.Reserved, ct);
+        var issued = _issues is not null && await _issues.AnyAsync(
+            i => i.PatientId == patientId && i.Status == IssueStatus.Issued, ct);
+        return reserved || issued;
+    }
+
+    private async Task<RuleResult> EvaluateOpenProductsAsync(long patientId, CancellationToken ct) =>
+        AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtCompletion(
+            await HasReservedOrIssuedUnitsAsync(patientId, ct));
 }
 
 file static class AntibodyIdInterpretationItemExtensions

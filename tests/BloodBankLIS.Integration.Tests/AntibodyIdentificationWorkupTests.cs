@@ -719,6 +719,54 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
+    public async Task Complete_WithReservedUnit_WarnsAndRequiresAcknowledgment()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patientId = await SeedPatientAsync($"MRN-ABID-PROD-{suffix}");
+        await SeedReservedUnitAsync(patientId, $"ABID-PROD-{suffix}");
+        long workupId;
+
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            await RecordPanelAhgAsync(context, workupId, created.Value);
+            var interpreted = await Svc(context).RecordInterpretationAsync(workupId, new RecordAntibodyIdInterpretationRequest(
+                "anti-K identified.",
+                [new AntibodyIdInterpretationItem(attrId, "anti-K", AntibodyIdClassification.Identified, "Pattern reviewed against assistance.")]));
+            Assert.True(interpreted.Succeeded, interpreted.Error);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var reviewed = await Svc(context, new TestCurrentUser("supervisor-abid", "WS-2"))
+                .ReviewAsync(workupId, AcceptReview("Agree with anti-K."));
+            Assert.True(reviewed.Succeeded, reviewed.Error);
+        }
+
+        await using var check = _factory.Create();
+        var withoutAck = await Svc(check).CompleteAsync(workupId);
+        Assert.False(withoutAck.Succeeded);
+        Assert.Contains(withoutAck.Evaluation!.HardStops, r =>
+            r.Code == AntibodyIdentificationInterpretationRule.CompleteAckCode);
+        Assert.Contains(withoutAck.Evaluation.Warnings, w =>
+            w.Code == AntibodyIdentificationInterpretationRule.ProductsOpenCode);
+        Assert.Empty(await check.AntibodyHistory.Where(a => a.PatientId == patientId).ToListAsync());
+
+        var completed = await Svc(check).CompleteAsync(workupId, ReviewedWarnings());
+        Assert.True(completed.Succeeded, completed.Error);
+        Assert.Contains(completed.Evaluation!.Warnings, w =>
+            w.Code == AntibodyIdentificationInterpretationRule.ProductsOpenCode);
+        var history = Assert.Single(await check.AntibodyHistory.Where(a => a.PatientId == patientId && a.IsActive).ToListAsync());
+        Assert.Equal("anti-K", history.AntibodySpecificity);
+        var allocation = Assert.Single(await check.Allocations.Where(a => a.PatientId == patientId).ToListAsync());
+        Assert.Equal(AllocationStatus.Reserved, allocation.Status);
+    }
+
+    [Fact]
     public async Task Complete_DoesNotDuplicateCatalogHistoryRow()
     {
         var (attrId, lotId) = await SeedPanelAsync();
@@ -1530,7 +1578,9 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
             current,
             new AuditWriter(c, _factory.Clock, current),
             results: new EfRepository<TestResult>(c),
-            testDefinitions: new EfRepository<TestDefinition>(c));
+            testDefinitions: new EfRepository<TestDefinition>(c),
+            allocations: new EfRepository<Allocation>(c),
+            issues: new EfRepository<Issue>(c));
     }
 
     private static CompleteAntibodyIdWorkupRequest ReviewedWarnings() =>
@@ -1631,6 +1681,43 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
             clock: _factory.Clock,
             currentUser: _factory.CurrentUser,
             audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+
+    private async Task SeedReservedUnitAsync(long patientId, string key)
+    {
+        await using var context = _factory.Create();
+        var productType = new ProductType
+        {
+            ProductCode = $"RBC-{key}",
+            Name = "Test RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        context.ProductTypes.Add(productType);
+        await context.SaveChangesAsync();
+
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-{key}",
+            ProductTypeId = productType.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Available
+        };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync();
+
+        context.Allocations.Add(new Allocation
+        {
+            BloodProductId = unit.Id,
+            PatientId = patientId,
+            Status = AllocationStatus.Reserved,
+            AssignmentType = AssignmentType.Reservation,
+            AllocatedUtc = _factory.Clock.UtcNow,
+            AllocatedBy = "tech-abid"
+        });
+        await context.SaveChangesAsync();
+    }
 
     private async Task<long> SeedPatientAsync(string mrn)
     {

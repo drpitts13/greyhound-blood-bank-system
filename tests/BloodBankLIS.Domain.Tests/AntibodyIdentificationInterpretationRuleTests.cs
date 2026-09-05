@@ -394,4 +394,21 @@ public class AntibodyIdentificationInterpretationRuleTests
         Assert.Equal(AntibodyPanelLotValidityRule.InactiveCode, result.Code);
         Assert.Equal(RuleSeverity.HardStop, result.Severity);
     }
+
+    [Fact]
+    public void OpenProductsAtCompletion_ReservedOrIssued_Warns()
+    {
+        var result = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtCompletion(true);
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(AntibodyIdentificationInterpretationRule.ProductsOpenCode, result.Code);
+        Assert.True(AntibodyIdentificationInterpretationRule.RequiresCompleteAcknowledgment(
+            AntibodyIdentificationInterpretationRule.ProductsOpenCode));
+    }
+
+    [Fact]
+    public void OpenProductsAtCompletion_None_Passes()
+    {
+        var result = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtCompletion(false);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

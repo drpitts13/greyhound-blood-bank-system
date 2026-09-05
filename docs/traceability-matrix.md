@@ -226,6 +226,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-157 / FRS-BB-191 | Compatibility XM save feedback names method and result | `CrossmatchEntryCopy`; `Compatibility` | `CrossmatchEntryCopyTests` | A | RISK-BB-194 |
 | URS-BB-158 / FRS-BB-192 | Worklist XM save feedback names source, method, and result | `CrossmatchEntryCopy`; `TestResultEntryPanel` | `CrossmatchEntryCopyTests` | A | RISK-BB-195 |
 | URS-BB-159 / FRS-BB-193 | Allocate, serologic XM, and issue warn while an antibody-identification workup is open | `AntibodyIdentificationHistoryPostRule` `ABID-ALLOC-OPEN` / `ABID-XM-OPEN` / `ABID-ISSUE-OPEN` | `AntibodyIdentificationHistoryPostRuleTests`; `Phase4IssuingTests.Allocate_OpenAntibodyIdWorkup_WarnsAndReserves`; `RecordCrossmatch_OpenAntibodyIdWorkup_WarnsAndRecords`; `Issue_OpenAntibodyIdWorkup_WarnsAndIssues` | D,A,I | RISK-BB-196; OCD-023 |
+| URS-BB-160 / FRS-BB-194 | Completing a reviewed workup warns when reserved or issued units remain | `AntibodyIdentificationInterpretationRule` `ABID-COMPLETE-PRODUCTS` | `AntibodyIdentificationInterpretationRuleTests`; `AntibodyIdentificationWorkupTests.Complete_WithReservedUnit_WarnsAndRequiresAcknowledgment` | D,A,I | RISK-BB-197; OCD-023 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

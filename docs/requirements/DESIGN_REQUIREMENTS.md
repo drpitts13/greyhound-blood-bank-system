@@ -150,3 +150,4 @@
 | SRS-BB-152 | `CrossmatchEntryCopy.Recorded` names method, Compatible/Incompatible, and id on the compatibility page. | FRS-BB-191 |
 | SRS-BB-153 | `CrossmatchEntryCopy.WorklistSaved` names source, method, and Compatible/Incompatible on worklist XM save. | FRS-BB-192 |
 | SRS-BB-154 | `AntibodyIdentificationHistoryPostRule.EvaluateAllocateOpenWorkup`, `EvaluateCrossmatchOpenWorkup`, and `EvaluateIssueOpenWorkup` emit Warning when any open workup exists on that patient. `CompatibilityService` and `IssuingService` append those warnings. | FRS-BB-193 |
+| SRS-BB-155 | `EvaluateOpenProductsAtCompletion` emits Warning `ABID-COMPLETE-PRODUCTS` when reserved or issued units exist. `AntibodyIdentificationService.CompleteAsync` adds that warning before `EvaluateCompleteAcknowledgment`. Optional `allocations` and `issues` constructor arguments supply the check. | FRS-BB-194 |
