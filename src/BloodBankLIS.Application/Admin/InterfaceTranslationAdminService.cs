@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Admin;
 
@@ -15,6 +16,7 @@ public sealed class InterfaceTranslationAdminService : ConfigAdminServiceBase
     private const string EntityType = nameof(InterfaceValueTranslation);
 
     private readonly IInterfaceValueTranslationRepository _translations;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public InterfaceTranslationAdminService(
         IInterfaceValueTranslationRepository translations,
@@ -22,10 +24,12 @@ public sealed class InterfaceTranslationAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _translations = translations;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public static IReadOnlyList<InterfaceDataItemDto> AllDataItems() =>
@@ -54,6 +58,14 @@ public sealed class InterfaceTranslationAdminService : ConfigAdminServiceBase
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(req);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminHl7Manage, InterfaceTranslationAuthorizationRule.EvaluateReplace, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var catalogError = ValidateCatalogKey(dataItemKey);
         if (catalogError is not null)
         {
@@ -193,5 +205,23 @@ public sealed class InterfaceTranslationAdminService : ConfigAdminServiceBase
 
             return hash == 0 ? 1 : hash;
         }
+    }
+
+    private async Task<EvaluationResult<InterfaceTranslationTableDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<InterfaceTranslationTableDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 }

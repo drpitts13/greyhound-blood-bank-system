@@ -149,6 +149,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-091 / FRS-BB-125 | Modification-rule catalog writes require admin.modification-rules.manage or admin.config.activate in Application | `MODRULE-CREATE-PERM`, `MODRULE-UPD-PERM`, `MODRULE-ACT-PERM`, `MODRULE-DEACT-PERM` | `ModificationRuleAuthorizationRuleTests`; `ModificationRuleAuthorizationTests` | D,I | RISK-BB-097 |
 | URS-BB-093 / FRS-BB-127 | Expiration-modification-code catalog writes require admin.modification-rules.manage or admin.config.activate in Application | `EXPCODE-CREATE-PERM`, `EXPCODE-UPD-PERM`, `EXPCODE-ACT-PERM`, `EXPCODE-DEACT-PERM` | `ExpirationModificationCodeAuthorizationRuleTests`; `ExpirationModificationCodeAuthorizationTests` | D,I | RISK-BB-099 |
 | URS-BB-094 / FRS-BB-128 | HL7 endpoint writes require admin.hl7.manage in Application | `HL7EP-CREATE-PERM`, `HL7EP-UPD-PERM`, `HL7EP-ENABLE-PERM`, `HL7EP-DISABLE-PERM` | `Hl7EndpointAuthorizationRuleTests`; `Hl7EndpointAuthorizationTests` | D,I | RISK-BB-100 |
+| URS-BB-096 / FRS-BB-130 | HL7 value-translation replace requires admin.hl7.manage in Application | `HL7XLAT-REPLACE-PERM` | `InterfaceTranslationAuthorizationRuleTests`; `InterfaceTranslationAuthorizationTests` | D,I | RISK-BB-102 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
