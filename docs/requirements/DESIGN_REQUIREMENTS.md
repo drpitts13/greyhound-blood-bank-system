@@ -143,3 +143,4 @@
 | SRS-BB-145 | `InventoryService.TransferAsync` writes `AuditEventType.ProductStatus` with from/to location after the location move. Status is unchanged. | FRS-BB-184 |
 | SRS-BB-146 | `InventoryService.ExpireDueUnitsAsync` writes `AuditEventType.ProductStatus` with old/new status for each unit that transitions to Expired. | FRS-BB-185 |
 | SRS-BB-147 | `ProductRetypeService.RecordAsync` writes `Result` with interpreted ABO/Rh; update includes old/new. `VerifyAsync` writes interpreted ABO/Rh on Verify old/new. | FRS-BB-186 |
+| SRS-BB-148 | `ComponentIdentityCorrectionService.CorrectAsync` writes `AuditEventType.Correct` after the correction id exists, with `CorrectionId` on old/new. The event entity remains `BloodUnit`. | FRS-BB-187 |

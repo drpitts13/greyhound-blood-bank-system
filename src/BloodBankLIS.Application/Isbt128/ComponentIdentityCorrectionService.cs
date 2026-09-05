@@ -148,14 +148,14 @@ public sealed class ComponentIdentityCorrectionService
         };
 
         await _corrections.AddAsync(correction, ct);
+        await _uow.SaveChangesAsync(ct);
         _audit.Record(
             AuditEventType.Correct,
             nameof(BloodUnit),
             unit.Id,
-            oldValue: new { Field = request.Field, Value = original },
-            newValue: new { Field = request.Field, Value = request.CorrectedValue },
+            oldValue: new { Field = request.Field, Value = original, CorrectionId = correction.Id },
+            newValue: new { Field = request.Field, Value = request.CorrectedValue, CorrectionId = correction.Id },
             reason: request.Reason);
-
         await _uow.SaveChangesAsync(ct);
         return OperationResult<BloodComponentIdentityCorrection>.Ok(correction);
     }

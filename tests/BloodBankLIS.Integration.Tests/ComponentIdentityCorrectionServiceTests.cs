@@ -67,4 +67,45 @@ public class ComponentIdentityCorrectionServiceTests : IClassFixture<SqliteConte
         Assert.Equal("DEMN", allowed.Value!.CorrectedValue);
         Assert.Equal("DEMN", (await context.BloodUnits.FindAsync(unit.Id))!.AboRhdCode);
     }
+
+    [Fact]
+    public async Task Correct_WritesCorrectWithCorrectionId()
+    {
+        await using var context = _factory.Create();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var product = new ProductType { ProductCode = $"RBC-ID-AUD-{suffix}", Name = "RBC" };
+        context.ProductTypes.Add(product);
+        await context.SaveChangesAsync();
+
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-ID-AUD-{suffix}",
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            AboRhdCode = "DEMO",
+            Status = UnitStatus.Available,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(30)
+        };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync();
+
+        var corrected = await CreateService(context)
+            .CorrectAsync(new CorrectIdentityRequest(unit.Id, "AboRhdCode", "DEMN", "Misread label"));
+        Assert.True(corrected.Succeeded, corrected.Error);
+        Assert.True(corrected.Value!.Id > 0);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Correct
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == unit.Id
+            && e.Reason == "Misread label"
+            && e.OldValueJson is not null
+            && e.OldValueJson.Contains($"\"CorrectionId\":{corrected.Value.Id}")
+            && e.OldValueJson.Contains("\"Value\":\"DEMO\"")
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains($"\"CorrectionId\":{corrected.Value.Id}")
+            && e.NewValueJson.Contains("\"Value\":\"DEMN\""));
+    }
 }
