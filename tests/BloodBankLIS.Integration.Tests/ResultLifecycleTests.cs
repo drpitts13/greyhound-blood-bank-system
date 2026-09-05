@@ -139,8 +139,20 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
             .SingleAsync();
         Assert.Contains("PendingVerification", audit.OldValueJson);
         Assert.Contains("Verified", audit.NewValueJson);
+        Assert.Contains("Manual", audit.OldValueJson);
+        Assert.Contains("Manual", audit.NewValueJson);
         Assert.Equal("Result verified.", audit.Reason);
         Assert.Equal("tech-verify", audit.UserName);
+
+        var submittedAudit = await verify.AuditEvents
+            .Where(a => a.EntityType == nameof(TestResult) && a.EntityId == resultId && a.EventType == AuditEventType.Result)
+            .ToListAsync();
+        Assert.Contains(submittedAudit, a =>
+            a.Reason == "Submitted for verification."
+            && a.OldValueJson is not null
+            && a.NewValueJson is not null
+            && a.OldValueJson.Contains("Manual")
+            && a.NewValueJson.Contains("Manual"));
     }
 
     [Fact]
@@ -182,6 +194,8 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
             .SingleAsync();
         Assert.Equal("Instrument QC failure", audit.Reason);
         Assert.Contains("Verified", audit.OldValueJson);
+        Assert.Contains("Manual", audit.OldValueJson);
+        Assert.Contains("Manual", audit.NewValueJson);
     }
 
     [Fact]
@@ -239,6 +253,15 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(originalId, correction.SupersededByResultId);
         Assert.True(ResultLifecycleRule.IsCurrentRow(original.SupersededByResultId));
         Assert.False(ResultLifecycleRule.IsCurrentRow(correction.SupersededByResultId));
+
+        var restoreAudit = await verify.AuditEvents
+            .Where(a => a.EventType == AuditEventType.Invalidate && a.EntityId == correctionId)
+            .ToListAsync();
+        Assert.Contains(restoreAudit, a =>
+            a.OldValueJson is not null
+            && a.NewValueJson is not null
+            && a.OldValueJson.Contains("Manual")
+            && a.NewValueJson.Contains("Manual"));
     }
 
     [Fact]
@@ -331,5 +354,68 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(ResultSource.Instrument, entered.Value!.Source);
         Assert.Equal(ResultStatus.PendingVerification, entered.Value.Status);
         Assert.Equal("ANALYZER-ABO", entered.Value.SourceReference);
+    }
+
+    [Fact]
+    public async Task ReenterAfterInvalidate_WritesSourceOnOldAndNew()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8];
+        var patientId = await EnsurePatientAsync($"MRN-LIFECYCLE-REENT-{key}");
+        var specimenId = await AccessionAsync($"ACC-LIFECYCLE-REENT-{key}", patientId);
+        long invalidatedId;
+
+        await using (var context = _factory.Create())
+        {
+            var location = new OrderingLocation { Code = $"LOC-REENT-{key}", Name = "Lab", IsActive = true };
+            context.OrderingLocations.Add(location);
+            await context.SaveChangesAsync();
+            var encounter = new Encounter
+            {
+                PatientId = patientId,
+                VisitNumber = $"VIS-REENT-{key}",
+                EncounterType = EncounterType.Inpatient,
+                Status = EncounterStatus.Active,
+                AdmitUtc = _factory.Clock.UtcNow.AddDays(-1)
+            };
+            context.Encounters.Add(encounter);
+            await context.SaveChangesAsync();
+            var order = new Order
+            {
+                OrderNumber = $"ORD-REENT-{key}",
+                PatientId = patientId,
+                EncounterId = encounter.Id,
+                OrderingLocationId = location.Id,
+                OrderCategory = OrderCategory.Test,
+                Priority = OrderPriority.Routine,
+                OrderedUtc = _factory.Clock.UtcNow,
+                Status = OrderStatus.InProcess
+            };
+            context.Orders.Add(order);
+            await context.SaveChangesAsync();
+
+            var entered = await Results(context).EnterResultAsync(
+                new EnterResultRequest(specimenId, "HGB", "9.0", order.Id, Source: ResultSource.Manual));
+            Assert.True(entered.Succeeded, entered.Error);
+            var invalidated = await Results(context).InvalidateResultAsync(entered.Value!.Id, "Wrong specimen");
+            Assert.True(invalidated.Succeeded, invalidated.Error);
+            invalidatedId = invalidated.Value!.Id;
+
+            var reentered = await Results(context).EnterFromInterfaceAsync(
+                specimenId, order.Id, "HGB", "9.4", "g/dL", null, "ANALYZER-REENT");
+            Assert.True(reentered.Succeeded, reentered.Error);
+            Assert.Equal(ResultSource.Interface, reentered.Value!.Source);
+        }
+
+        await using var verify = _factory.Create();
+        var events = verify.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Result
+            && e.EntityType == nameof(TestResult)
+            && e.EntityId == invalidatedId
+            && e.Reason == "Re-entry after invalidation."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.OldValueJson.Contains("Manual")
+            && e.NewValueJson.Contains("Interface"));
     }
 }

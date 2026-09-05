@@ -773,7 +773,7 @@ public sealed class ResultService
             AuditEventType.Verify,
             nameof(TestResult),
             result.Id,
-            oldValue: new { PreviousStatus = previousStatus, result.Value },
+            oldValue: new { PreviousStatus = previousStatus, result.Value, result.Source },
             newValue: new { result.Status, result.VerifiedBy, result.VerifiedUtc, result.Source },
             reason: "Result verified.");
 
@@ -1055,8 +1055,8 @@ public sealed class ResultService
             AuditEventType.Result,
             nameof(TestResult),
             result.Id,
-            oldValue: new { Status = previous },
-            newValue: new { result.Status },
+            oldValue: new { Status = previous, result.Source },
+            newValue: new { result.Status, result.Source },
             reason: "Submitted for verification.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<TestResult>.Ok(result);
@@ -1134,8 +1134,8 @@ public sealed class ResultService
                 AuditEventType.Invalidate,
                 nameof(TestResult),
                 current.Id,
-                oldValue: new { current.Value, current.Status, current.Version },
-                newValue: new { retraction.Status, NewVersion = retraction.Version, retraction.InvalidatedBy },
+                oldValue: new { current.Value, current.Status, current.Version, current.Source },
+                newValue: new { retraction.Status, NewVersion = retraction.Version, retraction.InvalidatedBy, retraction.Source },
                 reason: trimmedReason);
             await _unitOfWork.SaveChangesAsync(ct);
             return OperationResult<TestResult>.Ok(retraction);
@@ -1162,12 +1162,13 @@ public sealed class ResultService
                 AuditEventType.Invalidate,
                 nameof(TestResult),
                 current.Id,
-                oldValue: new { Status = ResultStatus.Corrected, current.Value, current.Version },
+                oldValue: new { Status = ResultStatus.Corrected, current.Value, current.Version, current.Source },
                 newValue: new
                 {
                     current.Status,
                     RestoredResultId = prior?.Id,
-                    current.InvalidatedBy
+                    current.InvalidatedBy,
+                    current.Source
                 },
                 reason: trimmedReason);
             await _unitOfWork.SaveChangesAsync(ct);
@@ -1184,8 +1185,8 @@ public sealed class ResultService
             AuditEventType.Invalidate,
             nameof(TestResult),
             current.Id,
-            oldValue: new { Status = previousStatus, current.Value },
-            newValue: new { current.Status, current.InvalidatedBy },
+            oldValue: new { Status = previousStatus, current.Value, current.Source },
+            newValue: new { current.Status, current.InvalidatedBy, current.Source },
             reason: trimmedReason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<TestResult>.Ok(current);
@@ -1232,7 +1233,7 @@ public sealed class ResultService
             AuditEventType.Result,
             nameof(TestResult),
             invalidated.Id,
-            oldValue: new { invalidated.Status, invalidated.Version },
+            oldValue: new { invalidated.Status, invalidated.Version, invalidated.Source, invalidated.Value },
             newValue: new { replacement.Value, replacement.Status, NewVersion = replacement.Version, replacement.Source },
             reason: "Re-entry after invalidation.");
         await _unitOfWork.SaveChangesAsync(ct);

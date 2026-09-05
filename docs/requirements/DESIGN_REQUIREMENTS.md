@@ -133,3 +133,4 @@
 | SRS-BB-135 | `LookbackService.RecallByDinAsync` writes `AuditEventType.Lookback` on a collected unit id. `RecordAttemptAsync` writes Lookback on `LookbackNotification` with old/new. | FRS-BB-174 |
 | SRS-BB-136 | `InventoryService.ReceiveUnitAsync` and `ReceiveNormalizedComponentAsync` write `AuditEventType.ProductStatus` after the unit id exists. | FRS-BB-175 |
 | SRS-BB-137 | `InventoryService.ExpectUnitAsync` writes `AuditEventType.ProductStatus` after the unit id exists. `ReceiveExpectedUnitAsync` and `CancelExpectedUnitAsync` write ProductStatus with Expected old/new. | FRS-BB-176 |
+| SRS-BB-138 | `ResultService` submit, verify, invalidate (new-version, restore-prior, in-place), and re-entry-after-invalidate audits include stored `ResultSource` on old/new. | FRS-BB-177 |
