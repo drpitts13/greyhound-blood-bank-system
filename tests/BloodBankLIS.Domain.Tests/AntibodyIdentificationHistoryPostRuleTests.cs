@@ -124,4 +124,55 @@ public class AntibodyIdentificationHistoryPostRuleTests
 
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Allocate_OpenWorkup_IsWarning()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateAllocateOpenWorkup(hasOpenWorkupOnPatient: true);
+
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(AntibodyIdentificationHistoryPostRule.AllocateOpenCode, result.Code);
+    }
+
+    [Fact]
+    public void Allocate_NoOpenWorkup_Passes()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateAllocateOpenWorkup(hasOpenWorkupOnPatient: false);
+
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void Crossmatch_OpenWorkup_IsWarning()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateCrossmatchOpenWorkup(hasOpenWorkupOnPatient: true);
+
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(AntibodyIdentificationHistoryPostRule.CrossmatchOpenCode, result.Code);
+    }
+
+    [Fact]
+    public void Crossmatch_NoOpenWorkup_Passes()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateCrossmatchOpenWorkup(hasOpenWorkupOnPatient: false);
+
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void Issue_OpenWorkup_IsWarning()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateIssueOpenWorkup(hasOpenWorkupOnPatient: true);
+
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(AntibodyIdentificationHistoryPostRule.IssueOpenCode, result.Code);
+    }
+
+    [Fact]
+    public void Issue_NoOpenWorkup_Passes()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateIssueOpenWorkup(hasOpenWorkupOnPatient: false);
+
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

@@ -149,3 +149,4 @@
 | SRS-BB-151 | `ProductRetypeEntryCopy.Saved`, `VerifiedAvailable`, and `VerifiedQuarantine` name the interpreted ABO/Rh on the retype panel. | FRS-BB-190 |
 | SRS-BB-152 | `CrossmatchEntryCopy.Recorded` names method, Compatible/Incompatible, and id on the compatibility page. | FRS-BB-191 |
 | SRS-BB-153 | `CrossmatchEntryCopy.WorklistSaved` names source, method, and Compatible/Incompatible on worklist XM save. | FRS-BB-192 |
+| SRS-BB-154 | `AntibodyIdentificationHistoryPostRule.EvaluateAllocateOpenWorkup`, `EvaluateCrossmatchOpenWorkup`, and `EvaluateIssueOpenWorkup` emit Warning when any open workup exists on that patient. `CompatibilityService` and `IssuingService` append those warnings. | FRS-BB-193 |

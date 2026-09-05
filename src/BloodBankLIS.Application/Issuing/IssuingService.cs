@@ -446,6 +446,18 @@ public sealed class IssuingService
             return conflict;
         }
 
+        var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
+            w => w.PatientId == request.PatientId
+                && (w.Status == AntibodyWorkupStatus.InProgress
+                    || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                    || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+            ct);
+        var issueOpen = AntibodyIdentificationHistoryPostRule.EvaluateIssueOpenWorkup(hasOpenWorkup);
+        if (issueOpen.Severity != RuleSeverity.Pass)
+        {
+            evaluation = new RuleEvaluation(evaluation.Results.Append(issueOpen).ToList());
+        }
+
         return EvaluationResult<Issue>.Ok(issue, evaluation);
     }
 

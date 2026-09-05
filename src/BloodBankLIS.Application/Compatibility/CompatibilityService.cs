@@ -169,7 +169,17 @@ public sealed class CompatibilityService
                 : "Serologic crossmatch recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
         await TryCloseRetrospectiveCrossmatchAsync(crossmatch, ct);
-        return EvaluationResult<Crossmatch>.Ok(crossmatch);
+        RuleEvaluation? evaluation = null;
+        if (request.Method != CrossmatchMethod.Electronic)
+        {
+            var xmOpen = await EvaluateSerologicOpenWorkupAsync(request.PatientId, ct);
+            if (xmOpen.Severity != RuleSeverity.Pass)
+            {
+                evaluation = new RuleEvaluation([xmOpen]);
+            }
+        }
+
+        return EvaluationResult<Crossmatch>.Ok(crossmatch, evaluation);
     }
 
     /// <summary>
@@ -327,6 +337,8 @@ public sealed class CompatibilityService
                 bloodAttrs.UnitAntigens));
         }
 
+        await AppendAllocateOpenWorkupAsync(results, request.PatientId, ct);
+
         var evaluation = new RuleEvaluation(results);
         if (evaluation.IsHardStopped)
         {
@@ -459,6 +471,33 @@ public sealed class CompatibilityService
 
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<Allocation>.Ok(allocation);
+    }
+
+    private async Task<RuleResult> EvaluateSerologicOpenWorkupAsync(long patientId, CancellationToken ct)
+    {
+        var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
+            w => w.PatientId == patientId
+                && (w.Status == AntibodyWorkupStatus.InProgress
+                    || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                    || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+            ct);
+        return AntibodyIdentificationHistoryPostRule.EvaluateCrossmatchOpenWorkup(hasOpenWorkup);
+    }
+
+    private async Task AppendAllocateOpenWorkupAsync(
+        List<RuleResult> results, long patientId, CancellationToken ct)
+    {
+        var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
+            w => w.PatientId == patientId
+                && (w.Status == AntibodyWorkupStatus.InProgress
+                    || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                    || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+            ct);
+        var allocateOpen = AntibodyIdentificationHistoryPostRule.EvaluateAllocateOpenWorkup(hasOpenWorkup);
+        if (allocateOpen.Severity != RuleSeverity.Pass)
+        {
+            results.Add(allocateOpen);
+        }
     }
 
     private async Task<EvaluationResult<T>?> RejectMergedPatientAsync<T>(long patientId, CancellationToken ct)

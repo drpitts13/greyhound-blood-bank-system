@@ -40,7 +40,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
             new EfRepository<PatientBloodTypeHistory>(c),
             BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
-            new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
 
     private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
     {
@@ -66,7 +67,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                 new InventoryRepository(c),
                 c, _factory.Clock, _factory.CurrentUser, audit),
             permissions ?? new FixedPermissionEvaluator(3),
-            c, _factory.Clock, _factory.CurrentUser, audit);
+            c, _factory.Clock, _factory.CurrentUser, audit,
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
     }
 
     private InventoryService Inventory(BloodBankDbContext c)
@@ -203,6 +205,83 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using var c = _factory.Create();
         var result = await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
         Assert.True(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task Allocate_OpenAntibodyIdWorkup_WarnsAndReserves()
+    {
+        var s = await SeedAsync("ABID-ALLOC-OPEN");
+        await using (var context = _factory.Create())
+        {
+            context.AntibodyIdentificationWorkups.Add(new AntibodyIdentificationWorkup
+            {
+                PatientId = s.PatientId,
+                PrimaryLotId = 1,
+                Status = AntibodyWorkupStatus.InProgress
+            });
+            await context.SaveChangesAsync();
+        }
+
+        await using var act = _factory.Create();
+        var result = await Compatibility(act).AllocateUnitAsync(
+            new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Contains(
+            result.Evaluation!.Warnings,
+            r => r.Code == AntibodyIdentificationHistoryPostRule.AllocateOpenCode);
+        Assert.Equal(AllocationStatus.Reserved, result.Value!.Status);
+    }
+
+    [Fact]
+    public async Task RecordCrossmatch_OpenAntibodyIdWorkup_WarnsAndRecords()
+    {
+        var s = await SeedAsync("ABID-XM-OPEN");
+        await using (var context = _factory.Create())
+        {
+            context.AntibodyIdentificationWorkups.Add(new AntibodyIdentificationWorkup
+            {
+                PatientId = s.PatientId,
+                PrimaryLotId = 1,
+                Status = AntibodyWorkupStatus.InProgress
+            });
+            await context.SaveChangesAsync();
+        }
+
+        await using var act = _factory.Create();
+        var result = await Compatibility(act).RecordCrossmatchAsync(
+            new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Contains(
+            result.Evaluation!.Warnings,
+            r => r.Code == AntibodyIdentificationHistoryPostRule.CrossmatchOpenCode);
+        Assert.Equal(CrossmatchResult.Compatible, result.Value!.Result);
+    }
+
+    [Fact]
+    public async Task Issue_OpenAntibodyIdWorkup_WarnsAndIssues()
+    {
+        var s = await SeedAsync("ABID-ISSUE-OPEN");
+        await using (var context = _factory.Create())
+        {
+            context.AntibodyIdentificationWorkups.Add(new AntibodyIdentificationWorkup
+            {
+                PatientId = s.PatientId,
+                PrimaryLotId = 1,
+                Status = AntibodyWorkupStatus.InProgress
+            });
+            await context.SaveChangesAsync();
+        }
+
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using var act = _factory.Create();
+        var issued = await Issuing(act).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Succeeded, issued.Error);
+        Assert.Contains(
+            issued.Evaluation!.Warnings,
+            r => r.Code == AntibodyIdentificationHistoryPostRule.IssueOpenCode);
+        Assert.Equal(IssueStatus.Issued, issued.Value!.Status);
     }
 
     [Fact]

@@ -11,6 +11,9 @@ namespace BloodBankLIS.Domain.Rules;
 public static class AntibodyIdentificationHistoryPostRule
 {
     public const string OpenWorkupCode = "ABID-WORKUP-OPEN";
+    public const string AllocateOpenCode = "ABID-ALLOC-OPEN";
+    public const string IssueOpenCode = "ABID-ISSUE-OPEN";
+    public const string CrossmatchOpenCode = "ABID-XM-OPEN";
     public const string AuthoritativeCode = "ABID-WORKUP-AUTHORITATIVE";
     public const string DisagreeCode = "ABID-WORKUP-DISAGREE";
 
@@ -88,6 +91,54 @@ public static class AntibodyIdentificationHistoryPostRule
         return RuleResult.HardStop(
             OpenWorkupCode,
             "An open antibody-identification workup is the identification of record. Complete or void it before deactivating antibody history from the patient chart.");
+    }
+
+    /// <summary>
+    /// Allocation may proceed (serologic XM / emergency still available). Warns that
+    /// antigen-negative needs may change when the identification of record completes.
+    /// </summary>
+    public static RuleResult EvaluateAllocateOpenWorkup(bool hasOpenWorkupOnPatient)
+    {
+        if (!hasOpenWorkupOnPatient)
+        {
+            return RuleResult.Pass(AllocateOpenCode);
+        }
+
+        return RuleResult.Warning(
+            AllocateOpenCode,
+            "An open antibody-identification workup is the identification of record. Antigen-negative needs may change when the workup completes. This warning does not identify antibodies.");
+    }
+
+    /// <summary>
+    /// Serologic XM may proceed (electronic XM is already HardStopped). Surfaces
+    /// that identification of record is unfinished; does not identify antibodies.
+    /// </summary>
+    public static RuleResult EvaluateCrossmatchOpenWorkup(bool hasOpenWorkupOnPatient)
+    {
+        if (!hasOpenWorkupOnPatient)
+        {
+            return RuleResult.Pass(CrossmatchOpenCode);
+        }
+
+        return RuleResult.Warning(
+            CrossmatchOpenCode,
+            "An open antibody-identification workup is the identification of record. Antigen-negative needs may change when the workup completes. This warning does not identify antibodies or block serologic crossmatch.");
+    }
+
+    /// <summary>
+    /// Issue may proceed (do not require override). Surfaces that identification
+    /// of record is unfinished. Emergency release is unchanged.
+    /// </summary>
+    public static RuleResult EvaluateIssueOpenWorkup(bool hasOpenWorkupOnPatient)
+    {
+        if (!hasOpenWorkupOnPatient)
+        {
+            return RuleResult.Pass(IssueOpenCode);
+        }
+
+        return RuleResult.Warning(
+            IssueOpenCode,
+            "An open antibody-identification workup is the identification of record. Antigen-negative needs may change when the workup completes. This warning does not identify antibodies or block issue.");
     }
 
     public static IReadOnlyList<RuleResult> EvaluateCompletedWorkup(
