@@ -602,10 +602,14 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(DonationRestriction.Allogeneic, result.Unit!.DonationRestriction);
         Assert.Null(result.Unit.ReservedPatientId);
         Assert.Equal("Intended recipient no longer needs the unit", result.Unit.DirectedConversionReason);
-        Assert.Equal("tech-test", result.Unit.DirectedConvertedBy);
-        Assert.NotNull(result.Unit.DirectedConvertedUtc);
-        Assert.NotEqual(patientId, result.Unit.ReservedPatientId);
-    }
+          Assert.Equal("tech-test", result.Unit.DirectedConvertedBy);
+          Assert.NotNull(result.Unit.DirectedConvertedUtc);
+          Assert.NotEqual(patientId, result.Unit.ReservedPatientId);
+          Assert.True(await act.AuditEvents.AnyAsync(a =>
+              a.EntityType == nameof(BloodUnit)
+              && a.EntityId == unitId
+              && a.EventType == AuditEventType.ProductStatus));
+      }
 
     [Fact]
     public async Task ConvertDirected_FromAllocated_IsHardStopped()

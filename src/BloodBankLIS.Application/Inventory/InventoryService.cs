@@ -1094,7 +1094,7 @@ public sealed class InventoryService
         });
 
         _audit.Record(
-            AuditEventType.Update,
+            AuditEventType.ProductStatus,
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { DonationRestriction = DonationRestriction.Directed, ReservedPatientId = priorPatientId },
