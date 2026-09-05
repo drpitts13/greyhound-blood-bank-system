@@ -1984,4 +1984,49 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(unitNumber));
     }
+
+    [Fact]
+    public async Task ExpectReceiveAndCancel_WriteProductStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var arriveNumber = $"U-EXP-ARR-{key}";
+        var cancelNumber = $"U-EXP-CXL-{key}";
+        await using var context = _factory.Create();
+        var svc = CreateService(context);
+
+        var expected = await svc.ExpectUnitAsync(
+            NewUnitRequest(arriveNumber, productTypeId) with { ShipmentId = $"ASN-{key}" });
+        Assert.True(expected.Succeeded, expected.Error);
+        var pendingCancel = await svc.ExpectUnitAsync(NewUnitRequest(cancelNumber, productTypeId));
+        Assert.True(pendingCancel.Succeeded, pendingCancel.Error);
+
+        var arrived = await svc.ReceiveExpectedUnitAsync(
+            expected.Unit!.Id,
+            new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m));
+        Assert.True(arrived.Succeeded, arrived.Error);
+
+        var cancelled = await svc.CancelExpectedUnitAsync(pendingCancel.Unit!.Id, "Supplier cancelled ASN");
+        Assert.True(cancelled.Succeeded, cancelled.Error);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityId == expected.Unit.Id
+            && e.Reason == "Expected inbound unit recorded."
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(arriveNumber));
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityId == expected.Unit.Id
+            && e.Reason == "Expected inbound unit received."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null);
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityId == pendingCancel.Unit.Id
+            && e.Reason == "Expected inbound unit cancelled."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null);
+    }
 }

@@ -433,6 +433,21 @@ public sealed class InventoryService
         });
 
         await _unitOfWork.SaveChangesAsync(ct);
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            newValue: new
+            {
+                unit.UnitNumber,
+                unit.Isbt128DonationId,
+                unit.Status,
+                unit.ShipmentId,
+                unit.ExpectedArrivalDueUtc,
+                Path = "Expected"
+            },
+            reason: "Expected inbound unit recorded.");
+        await _unitOfWork.SaveChangesAsync(ct);
         return InventoryActionResult.Ok(unit);
     }
 
@@ -511,7 +526,29 @@ public sealed class InventoryService
             unit.QuarantineReasonCode = UnitQuarantineReason.PendingRelease;
         }
 
-        return await ChangeStatusAsync(unit, destination, reason, ct);
+        var changed = await ChangeStatusAsync(unit, destination, reason, ct);
+        if (!changed.Succeeded)
+        {
+            return changed;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = UnitStatus.Expected },
+            newValue: new
+            {
+                unit.UnitNumber,
+                unit.Isbt128DonationId,
+                unit.Status,
+                unit.DonationRestriction,
+                Path = "ExpectedArrival",
+                LateArrival = overdue.Severity == RuleSeverity.Warning
+            },
+            reason: "Expected inbound unit received.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return changed;
     }
 
     public async Task<InventoryActionResult> CancelExpectedUnitAsync(
@@ -540,7 +577,27 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Only an expected inbound unit can be cancelled.");
         }
 
-        return await ChangeStatusAsync(unit, UnitStatus.CancelledAssignment, reason.Trim(), ct);
+        var changed = await ChangeStatusAsync(unit, UnitStatus.CancelledAssignment, reason.Trim(), ct);
+        if (!changed.Succeeded)
+        {
+            return changed;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = UnitStatus.Expected },
+            newValue: new
+            {
+                unit.UnitNumber,
+                unit.Status,
+                Path = "ExpectedCancel",
+                CancelReason = reason.Trim()
+            },
+            reason: "Expected inbound unit cancelled.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return changed;
     }
 
     /// <summary>
