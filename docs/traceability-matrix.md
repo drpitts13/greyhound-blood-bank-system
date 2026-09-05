@@ -82,7 +82,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-BL-04 | Charge review queue | printing-billing B.4 | Status flow + cancel audit | A | |
 | R-SE-01 | Roles/permissions | architecture 4.2; erd.md; validation-scripts S-12 | PermissionPolicy truth table; evaluator role→permission resolution; default-deny | D,I | |
 | R-SE-02 | Electronic signature | erd.md ElectronicSignatures; safety-rules 5; 21 CFR Part 11 | Re-auth + unused-signature binding | I | 21 CFR Part 11 |
-| R-AU-01 | Audit every clinical action | architecture 4.1; FRS-BB-078; FRS-BB-085; FRS-BB-087; FRS-BB-089; FRS-BB-093; FRS-BB-095; FRS-BB-104; FRS-BB-106; FRS-BB-109; FRS-BB-111; FRS-BB-114; FRS-BB-116; FRS-BB-119; FRS-BB-121; FRS-BB-126; FRS-BB-129; FRS-BB-131; FRS-BB-148; FRS-BB-150; FRS-BB-152; FRS-BB-153 | Named events plus searchable who/what/when/old/new on `/audit` | A,I | 21 CFR 606.160(a) |
+| R-AU-01 | Audit every clinical action | architecture 4.1; FRS-BB-078; FRS-BB-085; FRS-BB-087; FRS-BB-089; FRS-BB-093; FRS-BB-095; FRS-BB-104; FRS-BB-106; FRS-BB-109; FRS-BB-111; FRS-BB-114; FRS-BB-116; FRS-BB-119; FRS-BB-121; FRS-BB-126; FRS-BB-129; FRS-BB-131; FRS-BB-148; FRS-BB-150; FRS-BB-152; FRS-BB-153; FRS-BB-154 | Named events plus searchable who/what/when/old/new on `/audit` | A,I | 21 CFR 606.160(a) |
 | R-AU-02 | No silent data change | safety-rules 7 | Corrections versioned, originals kept; append-only interceptor | A,I | 21 CFR 606.160 |
 | R-AU-03 | Record retention | SystemSettings Record.RetentionYears | 10-year metadata; no purge of product/compatibility/transfusion/audit | I | 21 CFR 606.160(d) |
 | URS-BB-007 / FRS-BB-041 | One active reservation and one open issue per unit | `IX_Allocations_OneReservedPerUnit`; `IX_Issues_OneOpenIssuePerUnit`; `InventoryConcurrency` | `AllocationIssueConcurrencyTests` | I | RISK-BB-006 |
@@ -186,6 +186,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-116 / FRS-BB-150 | Test/service-billing create/update write Configure | `TestServiceBillingAdminService` | `TestServiceBillingAuthorizationTests.CreateAndUpdate_WriteConfigure` | A | RISK-BB-123 |
 | URS-BB-118 / FRS-BB-152 | Ordering-location create/update write Configure | `OrderingLocationAdminService` | `OrderingLocationAuthorizationTests.CreateAndUpdate_WriteConfigure` | A | RISK-BB-125 |
 | URS-BB-119 / FRS-BB-153 | Inventory-location create/update write Configure | `InventoryLocationAdminService` | `InventoryLocationAuthorizationTests.CreateAndUpdate_WriteConfigure` | A | RISK-BB-126 |
+| URS-BB-120 / FRS-BB-154 | Charge-code create/update write Configure | `ChargeCodeAdminService` | `ChargeCodeAuthorizationTests.CreateAndUpdate_WriteConfigure` | A | RISK-BB-127 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

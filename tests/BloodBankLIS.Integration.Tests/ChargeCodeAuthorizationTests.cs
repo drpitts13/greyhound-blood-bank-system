@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Common;
@@ -67,5 +68,30 @@ public class ChargeCodeAuthorizationTests : IClassFixture<SqliteContextFactory>
             .SetActiveAsync(created.Value.Id, false);
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.False(allowed.Value!.IsActive);
+    }
+
+    [Fact]
+    public async Task CreateAndUpdate_WriteConfigure()
+    {
+        await using var c = _factory.Create();
+        var code = $"C{Guid.NewGuid():N}"[..8].ToUpperInvariant();
+        var svc = Codes(c);
+
+        var created = await svc.CreateAsync(Request(code));
+        Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(ChargeCode)
+            && a.EntityId == created.Value!.Id
+            && a.EventType == AuditEventType.Configure));
+
+        var updated = await svc.UpdateAsync(
+            created.Value!.Id,
+            Request(code) with { DefaultAmount = 25m, Description = "Issue charge after verified result." });
+        Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(ChargeCode) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
     }
 }
