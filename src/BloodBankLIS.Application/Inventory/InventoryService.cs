@@ -1082,7 +1082,28 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Unit not found.");
 
         unit.MissingReason = reason.Trim();
-        return await ChangeStatusAsync(unit, UnitStatus.Missing, reason.Trim(), ct);
+        var fromStatus = unit.Status;
+        var missing = await ChangeStatusAsync(unit, UnitStatus.Missing, reason.Trim(), ct);
+        if (!missing.Succeeded)
+        {
+            return missing;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = fromStatus },
+            newValue: new
+            {
+                unit.UnitNumber,
+                Status = UnitStatus.Missing,
+                Path = "MarkMissing",
+                MissingReason = reason.Trim()
+            },
+            reason: "Unit marked missing.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return missing;
     }
 
     /// <summary>
@@ -1134,7 +1155,28 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Unit not found.");
 
         unit.DamagedReason = reason.Trim();
-        return await ChangeStatusAsync(unit, UnitStatus.Damaged, reason.Trim(), ct);
+        var fromStatus = unit.Status;
+        var damaged = await ChangeStatusAsync(unit, UnitStatus.Damaged, reason.Trim(), ct);
+        if (!damaged.Succeeded)
+        {
+            return damaged;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = fromStatus },
+            newValue: new
+            {
+                unit.UnitNumber,
+                Status = UnitStatus.Damaged,
+                Path = "MarkDamaged",
+                DamagedReason = reason.Trim()
+            },
+            reason: "Unit marked damaged.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return damaged;
     }
 
     /// <summary>

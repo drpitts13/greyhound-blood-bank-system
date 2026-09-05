@@ -2136,4 +2136,47 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(hNumber));
     }
+
+    [Fact]
+    public async Task MarkMissingAndDamaged_WriteProductStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var mNumber = $"U-MIS-AUD-{key}";
+        var dNumber = $"U-DMG-AUD-{key}";
+        await using var context = _factory.Create();
+        var svc = CreateService(context);
+
+        var forMissing = await svc.ReceiveUnitAsync(NewUnitRequest(mNumber, productTypeId));
+        Assert.True(forMissing.Succeeded, forMissing.Error);
+        Assert.True((await svc.ReleaseFromQuarantineAsync(forMissing.Unit!.Id, "tech2")).Succeeded);
+        var missing = await svc.MarkMissingAsync(forMissing.Unit.Id, "Not on shelf at physical inventory");
+        Assert.True(missing.Succeeded, missing.Error);
+        Assert.Equal(UnitStatus.Missing, missing.Unit!.Status);
+
+        var forDamaged = await svc.ReceiveUnitAsync(NewUnitRequest(dNumber, productTypeId));
+        Assert.True(forDamaged.Succeeded, forDamaged.Error);
+        Assert.True((await svc.ReleaseFromQuarantineAsync(forDamaged.Unit!.Id, "tech2")).Succeeded);
+        var damaged = await svc.MarkDamagedAsync(forDamaged.Unit.Id, "Bag leaking in refrigerator");
+        Assert.True(damaged.Succeeded, damaged.Error);
+        Assert.Equal(UnitStatus.Damaged, damaged.Unit!.Status);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == forMissing.Unit.Id
+            && e.Reason == "Unit marked missing."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(mNumber));
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == forDamaged.Unit.Id
+            && e.Reason == "Unit marked damaged."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(dNumber));
+    }
 }
