@@ -16,8 +16,8 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-007 | Two users cannot reserve or issue the same unit. | P0 | FRS-BB-041 |
 | URS-BB-008 | Autologous and directed units can be issued only to the designated recipient. | P0 | FRS-BB-032 |
 | URS-BB-009 | Electronic (computer) XM is available only when configured prerequisites hold. | P0 | FRS-BB-033, FRS-BB-169 |
-| URS-BB-010 | Inventory states and modifications remain historically traceable. | P3 | FRS-BB-050, FRS-BB-175, FRS-BB-176 |
-| URS-BB-011 | Clinical and configuration changes are auditable (who/what/when/where/old/new/why). | P4 | FRS-BB-060, FRS-BB-078, FRS-BB-085, FRS-BB-087, FRS-BB-089, FRS-BB-093, FRS-BB-095, FRS-BB-104, FRS-BB-106, FRS-BB-109, FRS-BB-111, FRS-BB-114, FRS-BB-116, FRS-BB-119, FRS-BB-121, FRS-BB-126, FRS-BB-129, FRS-BB-131, FRS-BB-148, FRS-BB-150, FRS-BB-152, FRS-BB-153, FRS-BB-154, FRS-BB-155, FRS-BB-156, FRS-BB-157, FRS-BB-158, FRS-BB-159, FRS-BB-160, FRS-BB-161, FRS-BB-162, FRS-BB-164, FRS-BB-165, FRS-BB-166, FRS-BB-168, FRS-BB-170, FRS-BB-172, FRS-BB-173, FRS-BB-174, FRS-BB-175, FRS-BB-176, FRS-BB-177 |
+| URS-BB-010 | Inventory states and modifications remain historically traceable. | P3 | FRS-BB-050, FRS-BB-175, FRS-BB-176, FRS-BB-178 |
+| URS-BB-011 | Clinical and configuration changes are auditable (who/what/when/where/old/new/why). | P4 | FRS-BB-060, FRS-BB-078, FRS-BB-085, FRS-BB-087, FRS-BB-089, FRS-BB-093, FRS-BB-095, FRS-BB-104, FRS-BB-106, FRS-BB-109, FRS-BB-111, FRS-BB-114, FRS-BB-116, FRS-BB-119, FRS-BB-121, FRS-BB-126, FRS-BB-129, FRS-BB-131, FRS-BB-148, FRS-BB-150, FRS-BB-152, FRS-BB-153, FRS-BB-154, FRS-BB-155, FRS-BB-156, FRS-BB-157, FRS-BB-158, FRS-BB-159, FRS-BB-160, FRS-BB-161, FRS-BB-162, FRS-BB-164, FRS-BB-165, FRS-BB-166, FRS-BB-168, FRS-BB-170, FRS-BB-172, FRS-BB-173, FRS-BB-174, FRS-BB-175, FRS-BB-176, FRS-BB-177, FRS-BB-178 |
 | URS-BB-012 | Administrators can configure tests, products, rules, and facility policies with versioning. | P5 | FRS-BB-070 |
 | URS-BB-013 | Interfaces preserve raw messages and do not silently discard errors. | P8 | FRS-BB-080 |
 | URS-BB-014 | The facility can operate and recover from downtime without losing traceability. | P5 | FRS-BB-090 |
@@ -29,9 +29,9 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-020 | The user who entered a patient ABO/Rh cannot verify it. Current type is established only after a second user verifies. | P0 | FRS-BB-022 |
 | URS-BB-021 | Changing special transfusion requirements (irradiated, CMV-neg, antigen-negative, …) is limited to authorized immuno staff. | P0 | FRS-BB-023 |
 | URS-BB-022 | A donor lookback recall must actually recall in-date components, including reserved or crossmatched units, or fail closed. | P0 | FRS-BB-024, FRS-BB-174 |
-| URS-BB-023 | Releasing a unit from quality quarantine to Available is limited to staff with inventory.release. | P0 | FRS-BB-052 |
+| URS-BB-023 | Releasing a unit from quality quarantine to Available is limited to staff with inventory.release. | P0 | FRS-BB-052, FRS-BB-178 |
 | URS-BB-024 | Converting an unused directed unit to allogeneic inventory is limited to staff with inventory.release. | P0 | FRS-BB-053, FRS-BB-159 |
-| URS-BB-025 | Releasing a unit from operational hold to Available is limited to staff with inventory.release. | P0 | FRS-BB-054 |
+| URS-BB-025 | Releasing a unit from operational hold to Available is limited to staff with inventory.release. | P0 | FRS-BB-054, FRS-BB-178 |
 | URS-BB-026 | Verifying a test result or a unit ABO/Rh retype is limited to staff with result.verify. | P0 | FRS-BB-055 |
 | URS-BB-027 | Allocating a unit to a patient is limited to staff with compatibility.allocate. Recording a crossmatch is limited to staff with compatibility.crossmatch. | P0 | FRS-BB-056 |
 | URS-BB-028 | Issuing a unit is limited to staff with issue.create. Emergency/MTP still also requires issue.emergency-release. | P0 | FRS-BB-057 |
@@ -141,3 +141,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-141 | Staff can find walk-in and ISBT (scan-complete or manual) unit receive as ProductStatus on the unit id, because that intake is the first status that later issue and lookback follow. Expected packing-list named events are `FRS-BB-176`. | P1 | FRS-BB-175 |
 | URS-BB-142 | Staff can find expected inbound packing-list create, arrival confirmation, and cancel as ProductStatus on the unit id with old/new status, because those rows later arrive as inventory that can issue. | P1 | FRS-BB-176 |
 | URS-BB-143 | Staff can see on `/audit` whether a submitted, verified, invalidated, or re-entered result was Manual, Instrument, Interface, or Calculated. Correct already stored source. Stored source is not changed by those actions. | P0 | FRS-BB-177 |
+| URS-BB-144 | Staff can find quarantine release and operational-hold release as ProductStatus on the unit id with old/new status, because those actions make a unit Available for later issue. Placing into quarantine or hold stays interceptor Update. | P0 | FRS-BB-178 |

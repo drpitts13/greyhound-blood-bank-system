@@ -2029,4 +2029,41 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             && e.OldValueJson is not null
             && e.NewValueJson is not null);
     }
+
+    [Fact]
+    public async Task ReleaseFromQuarantineAndHold_WriteProductStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var qNumber = $"U-REL-Q-{key}";
+        var hNumber = $"U-REL-H-{key}";
+        await using var context = _factory.Create();
+        var svc = CreateService(context);
+
+        var quarantined = await svc.ReceiveUnitAsync(NewUnitRequest(qNumber, productTypeId));
+        Assert.True(quarantined.Succeeded, quarantined.Error);
+        var fromQuarantine = await svc.ReleaseFromQuarantineAsync(quarantined.Unit!.Id, "tech2");
+        Assert.True(fromQuarantine.Succeeded, fromQuarantine.Error);
+
+        var forHold = await svc.ReceiveUnitAsync(NewUnitRequest(hNumber, productTypeId));
+        Assert.True(forHold.Succeeded, forHold.Error);
+        Assert.True((await svc.ReleaseFromQuarantineAsync(forHold.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await svc.HoldAsync(forHold.Unit.Id, "Pending paperwork")).Succeeded);
+        var fromHold = await svc.ReleaseFromHoldAsync(forHold.Unit.Id);
+        Assert.True(fromHold.Succeeded, fromHold.Error);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityId == quarantined.Unit.Id
+            && e.Reason == "Unit released from quarantine."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null);
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityId == forHold.Unit.Id
+            && e.Reason == "Unit released from hold."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null);
+    }
 }

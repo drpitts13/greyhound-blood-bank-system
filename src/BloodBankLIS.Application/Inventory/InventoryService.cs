@@ -825,7 +825,27 @@ public sealed class InventoryService
         var reason = string.IsNullOrWhiteSpace(secondVerifier)
             ? "Released from quarantine"
             : $"Released from quarantine; second verifier {secondVerifier.Trim()}";
-        return await ChangeStatusAsync(unit, UnitStatus.Available, reason, ct);
+        var changed = await ChangeStatusAsync(unit, UnitStatus.Available, reason, ct);
+        if (!changed.Succeeded)
+        {
+            return changed;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = UnitStatus.Quarantine },
+            newValue: new
+            {
+                unit.UnitNumber,
+                unit.Status,
+                Path = "QuarantineRelease",
+                SecondVerifier = string.IsNullOrWhiteSpace(secondVerifier) ? null : secondVerifier.Trim()
+            },
+            reason: "Unit released from quarantine.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return changed;
     }
 
     private async Task<RuleResult> EvaluateSecondVerifierDirectoryAsync(string? secondVerifier, CancellationToken ct)
@@ -955,7 +975,21 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Only a unit on operational hold can be released from hold.");
 
         unit.HoldReason = null;
-        return await ChangeStatusAsync(unit, UnitStatus.Available, "Released from operational hold", ct);
+        var changed = await ChangeStatusAsync(unit, UnitStatus.Available, "Released from operational hold", ct);
+        if (!changed.Succeeded)
+        {
+            return changed;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = UnitStatus.OnHold },
+            newValue: new { unit.UnitNumber, unit.Status, Path = "HoldRelease" },
+            reason: "Unit released from hold.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return changed;
     }
 
     /// <summary>
