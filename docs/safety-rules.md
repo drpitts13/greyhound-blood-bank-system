@@ -156,6 +156,10 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `CHG-UPD-PERM` | Caller has `admin.config.edit` when updating a charge code | HardStop when a permission evaluator is present and the privilege is missing |
 | `CHG-ACT-PERM` | Caller has `admin.config.activate` when activating a charge code | HardStop when a permission evaluator is present and the privilege is missing |
 | `CHG-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a charge code | HardStop when a permission evaluator is present and the privilege is missing |
+| `CHGRULE-CREATE-PERM` | Caller has `admin.config.edit` when creating a charge rule | HardStop when a permission evaluator is present and the privilege is missing |
+| `CHGRULE-UPD-PERM` | Caller has `admin.config.edit` when updating a charge rule | HardStop when a permission evaluator is present and the privilege is missing |
+| `CHGRULE-ACT-PERM` | Caller has `admin.config.activate` when activating a charge rule | HardStop when a permission evaluator is present and the privilege is missing |
+| `CHGRULE-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a charge rule | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-MOD-PERM` | Caller has `inventory.modify` when dividing, pooling, or applying a product modification | HardStop when a permission evaluator is present and the privilege is missing |

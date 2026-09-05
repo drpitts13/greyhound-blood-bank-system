@@ -104,3 +104,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-096 | Replacing HL7 value translations is limited to staff with admin.hl7.manage. | P3 | FRS-BB-130 |
 | URS-BB-097 | Staff can find modification-rule create/update as Configure, because those paths decide which source product, modification type, target product, and expiration offset are allowed. | P3 | FRS-BB-131 |
 | URS-BB-098 | Creating or updating a charge code is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P7 | FRS-BB-132 |
+| URS-BB-099 | Creating or updating a charge rule is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P7 | FRS-BB-133 |
