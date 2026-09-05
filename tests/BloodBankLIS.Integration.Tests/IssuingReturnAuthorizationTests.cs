@@ -9,6 +9,7 @@ using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
 
@@ -220,5 +221,9 @@ public class IssuingReturnAuthorizationTests : IClassFixture<SqliteContextFactor
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.NotNull(allowed.Value!.WardReceivedUtc);
         Assert.Equal("ward-nurse", allowed.Value.WardReceivedBy);
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(Issue)
+            && a.EntityId == issue.Id
+            && a.EventType == AuditEventType.Transfusion));
     }
 }

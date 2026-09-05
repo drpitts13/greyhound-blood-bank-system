@@ -616,7 +616,7 @@ public sealed class IssuingService
         _issues.Update(issue);
 
         _audit.Record(
-            AuditEventType.Update,
+            AuditEventType.Transfusion,
             nameof(Issue),
             issue.Id,
             newValue: new { issue.WardReceivedBy, issue.WardReceivedUtc, Late = overdue.Severity == RuleSeverity.Warning },
