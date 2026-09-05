@@ -287,7 +287,7 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         _users.Update(user);
 
         var dto = await GetUserAsync(id, ct);
-        RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, null, dto, reason ?? (locked ? "Locked" : "Unlocked"));
+        RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, null, dto, reason ?? (locked ? "Locked" : "Unlocked"));
         await UnitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<AdminUserDto>.Ok(dto!);
@@ -309,7 +309,7 @@ public sealed class UserAdminService : ConfigAdminServiceBase
             return OperationResult<AdminUserDto>.Fail("User not found.");
         }
 
-        Audit.Record(AuditEventType.Configure, UserEntity, user.Id, reason: reason ?? "Password reset requested (placeholder).");
+        Audit.Record(AuditEventType.UserRole, UserEntity, user.Id, reason: reason ?? "Password reset requested (placeholder).");
         await UnitOfWork.SaveChangesAsync(ct);
 
         var dto = await GetUserAsync(id, ct);

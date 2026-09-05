@@ -126,3 +126,4 @@
 | SRS-BB-128 | `ResultSourceEntryCopy.TypedHint` and `Entered` name Manual for typed specimen-card entry. | FRS-BB-167 |
 | SRS-BB-129 | `AntibodyIdentificationService` workup lifecycle writes `AuditEventType.Antibody`. Accept and complete stay Verify. History post stays Antibody. | FRS-BB-168 |
 | SRS-BB-130 | `ElectronicCrossmatchEligibilityRule` includes `XM-EC-ABID-OPEN`. Eligibility, electronic RecordCrossmatch, and issue eligibility query InProgress, PendingInterpretation, and PendingSupervisorReview workups. | FRS-BB-169 |
+| SRS-BB-131 | `UserAdminService.SetLockedAsync` and `RequestPasswordResetAsync` write `AuditEventType.UserRole`. | FRS-BB-170 |

@@ -189,4 +189,29 @@ public class UserAdminAuthorizationTests : IClassFixture<SqliteContextFactory>
             .ToListAsync();
         Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.UserRole));
     }
+
+    [Fact]
+    public async Task LockAndPasswordReset_WriteUserRole()
+    {
+        await using var c = _factory.Create();
+        await DatabaseSeeder.SeedAsync(c);
+        var tech = await c.Users.SingleAsync(u => u.UserName == "tech1");
+        var svc = Users(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminUsersManage));
+
+        var locked = await svc.SetLockedAsync(tech.Id, true, "Lockout.");
+        Assert.True(locked.Succeeded, locked.Error);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(User)
+            && a.EntityId == tech.Id
+            && a.EventType == AuditEventType.UserRole
+            && a.Reason == "Lockout."));
+
+        var reset = await svc.RequestPasswordResetAsync(tech.Id, "Forgot.");
+        Assert.True(reset.Succeeded, reset.Error);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(User)
+            && a.EntityId == tech.Id
+            && a.EventType == AuditEventType.UserRole
+            && a.Reason == "Forgot."));
+    }
 }
