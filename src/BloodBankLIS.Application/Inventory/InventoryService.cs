@@ -814,7 +814,29 @@ public sealed class InventoryService
         unit.QuarantineReasonCode = reasonCode;
         unit.QuarantineReason = note;
         var historyReason = note ?? reasonCode.ToString();
-        return await ChangeStatusAsync(unit, UnitStatus.Quarantine, historyReason, ct);
+        var fromStatus = unit.Status;
+        var quarantined = await ChangeStatusAsync(unit, UnitStatus.Quarantine, historyReason, ct);
+        if (!quarantined.Succeeded)
+        {
+            return quarantined;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = fromStatus },
+            newValue: new
+            {
+                unit.UnitNumber,
+                Status = UnitStatus.Quarantine,
+                Path = "PlaceQuarantine",
+                ReasonCode = reasonCode,
+                Notes = note
+            },
+            reason: "Unit placed in quarantine.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return quarantined;
     }
 
     public async Task<InventoryActionResult> ReleaseFromQuarantineAsync(
@@ -982,7 +1004,28 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Unit not found.");
 
         unit.HoldReason = reason.Trim();
-        return await ChangeStatusAsync(unit, UnitStatus.OnHold, reason.Trim(), ct);
+        var fromStatus = unit.Status;
+        var held = await ChangeStatusAsync(unit, UnitStatus.OnHold, reason.Trim(), ct);
+        if (!held.Succeeded)
+        {
+            return held;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = fromStatus },
+            newValue: new
+            {
+                unit.UnitNumber,
+                Status = UnitStatus.OnHold,
+                Path = "PlaceHold",
+                HoldReason = reason.Trim()
+            },
+            reason: "Unit placed on hold.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return held;
     }
 
     public async Task<InventoryActionResult> ReleaseFromHoldAsync(long unitId, CancellationToken ct = default)

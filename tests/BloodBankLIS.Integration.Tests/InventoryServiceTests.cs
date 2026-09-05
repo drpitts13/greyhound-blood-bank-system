@@ -2092,4 +2092,48 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(unitNumber));
     }
+
+    [Fact]
+    public async Task QuarantineAndHold_WriteProductStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var qNumber = $"U-PLC-Q-{key}";
+        var hNumber = $"U-PLC-H-{key}";
+        await using var context = _factory.Create();
+        var svc = CreateService(context);
+
+        var forQuarantine = await svc.ReceiveUnitAsync(NewUnitRequest(qNumber, productTypeId));
+        Assert.True(forQuarantine.Succeeded, forQuarantine.Error);
+        Assert.True((await svc.ReleaseFromQuarantineAsync(forQuarantine.Unit!.Id, "tech2")).Succeeded);
+        var quarantined = await svc.QuarantineAsync(
+            forQuarantine.Unit.Id, UnitQuarantineReason.LookbackRecall, "Donor notified");
+        Assert.True(quarantined.Succeeded, quarantined.Error);
+        Assert.Equal(UnitStatus.Quarantine, quarantined.Unit!.Status);
+
+        var forHold = await svc.ReceiveUnitAsync(NewUnitRequest(hNumber, productTypeId));
+        Assert.True(forHold.Succeeded, forHold.Error);
+        Assert.True((await svc.ReleaseFromQuarantineAsync(forHold.Unit!.Id, "tech2")).Succeeded);
+        var held = await svc.HoldAsync(forHold.Unit.Id, "Pending paperwork");
+        Assert.True(held.Succeeded, held.Error);
+        Assert.Equal(UnitStatus.OnHold, held.Unit!.Status);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == forQuarantine.Unit.Id
+            && e.Reason == "Unit placed in quarantine."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(qNumber));
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == forHold.Unit.Id
+            && e.Reason == "Unit placed on hold."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(hNumber));
+    }
 }
