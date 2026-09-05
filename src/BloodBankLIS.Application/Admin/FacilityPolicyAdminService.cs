@@ -11,6 +11,7 @@ public sealed class FacilityPolicyAdminService : ConfigAdminServiceBase
     private const string EntityType = nameof(SystemSetting);
 
     private readonly IRepository<SystemSetting> _settings;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public FacilityPolicyAdminService(
         IRepository<SystemSetting> settings,
@@ -18,10 +19,12 @@ public sealed class FacilityPolicyAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _settings = settings;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<FacilityPolicyDto>> ListAsync(CancellationToken ct = default)
@@ -70,6 +73,13 @@ public sealed class FacilityPolicyAdminService : ConfigAdminServiceBase
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, FacilityPolicyAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _settings.GetByIdAsync(id, ct);
         if (entity is null)
@@ -123,5 +133,23 @@ public sealed class FacilityPolicyAdminService : ConfigAdminServiceBase
         }
 
         return trimmed;
+    }
+
+    private async Task<EvaluationResult<FacilityPolicyDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<FacilityPolicyDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 }
