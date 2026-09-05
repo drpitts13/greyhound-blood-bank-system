@@ -12,6 +12,7 @@ public sealed class TestServiceBillingAdminService : ConfigAdminServiceBase
 
     private readonly IRepository<TestServiceBilling> _rows;
     private readonly IRepository<ChargeCode> _codes;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public TestServiceBillingAdminService(
         IRepository<TestServiceBilling> rows,
@@ -20,11 +21,13 @@ public sealed class TestServiceBillingAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _rows = rows;
         _codes = codes;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<TestServiceBillingDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -56,6 +59,13 @@ public sealed class TestServiceBillingAdminService : ConfigAdminServiceBase
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, TestServiceBillingAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = new TestServiceBilling { IsActive = true };
         Apply(entity, request);
 
@@ -79,6 +89,13 @@ public sealed class TestServiceBillingAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<TestServiceBillingDto>> UpdateAsync(long id, SaveTestServiceBillingRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, TestServiceBillingAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _rows.GetByIdAsync(id, ct);
         if (entity is null)
@@ -107,6 +124,15 @@ public sealed class TestServiceBillingAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<TestServiceBillingDto>> SetActiveAsync(long id, bool active, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate,
+            active ? TestServiceBillingAuthorizationRule.EvaluateActivate : TestServiceBillingAuthorizationRule.EvaluateDeactivate,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _rows.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -155,5 +181,23 @@ public sealed class TestServiceBillingAdminService : ConfigAdminServiceBase
         entity.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         entity.Trigger = request.Trigger;
         entity.TestCode = (request.TestCode ?? string.Empty).Trim().ToUpperInvariant();
+    }
+
+    private async Task<EvaluationResult<TestServiceBillingDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<TestServiceBillingDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 }

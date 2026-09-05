@@ -164,6 +164,10 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `PRODBILL-UPD-PERM` | Caller has `admin.config.edit` when updating a product billing row | HardStop when a permission evaluator is present and the privilege is missing |
 | `PRODBILL-ACT-PERM` | Caller has `admin.config.activate` when activating a product billing row | HardStop when a permission evaluator is present and the privilege is missing |
 | `PRODBILL-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a product billing row | HardStop when a permission evaluator is present and the privilege is missing |
+| `TSBILL-CREATE-PERM` | Caller has `admin.config.edit` when creating a test/service billing row | HardStop when a permission evaluator is present and the privilege is missing |
+| `TSBILL-UPD-PERM` | Caller has `admin.config.edit` when updating a test/service billing row | HardStop when a permission evaluator is present and the privilege is missing |
+| `TSBILL-ACT-PERM` | Caller has `admin.config.activate` when activating a test/service billing row | HardStop when a permission evaluator is present and the privilege is missing |
+| `TSBILL-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a test/service billing row | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-MOD-PERM` | Caller has `inventory.modify` when dividing, pooling, or applying a product modification | HardStop when a permission evaluator is present and the privilege is missing |
