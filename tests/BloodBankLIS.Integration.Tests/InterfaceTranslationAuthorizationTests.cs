@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
+using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
 using BloodBankLIS.Domain.Rules;
@@ -51,5 +52,23 @@ public class InterfaceTranslationAuthorizationTests : IClassFixture<SqliteContex
             .ReplaceAsync(InterfaceDataItemKeys.ResultValue, Request(external));
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Contains(allowed.Value!.Rows, r => r.ExternalValue == external);
+    }
+
+    [Fact]
+    public async Task Replace_WritesInterface()
+    {
+        await using var c = _factory.Create();
+        var external = $"POS-{Guid.NewGuid():N}"[..12].ToUpperInvariant();
+
+        var replaced = await Translations(c).ReplaceAsync(
+            InterfaceDataItemKeys.ResultValue, Request(external));
+        Assert.True(replaced.Succeeded, replaced.Error ?? replaced.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(InterfaceValueTranslation)
+                        && a.EventType == AuditEventType.Interface
+                        && a.Reason == "Catalog.")
+            .ToListAsync();
+        Assert.Contains(events, a => a.NewValueJson != null && a.NewValueJson.Contains(external));
     }
 }

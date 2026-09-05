@@ -89,7 +89,7 @@ public sealed class InterfaceTranslationAdminService : ConfigAdminServiceBase
             EntityIdFor(key),
             1,
             ConfigChangeAction.Update,
-            AuditEventType.Configure,
+            AuditEventType.Interface,
             before,
             Map(key, entities),
             req.ChangeReason);

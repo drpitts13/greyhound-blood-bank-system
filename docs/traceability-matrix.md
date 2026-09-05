@@ -82,7 +82,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-BL-04 | Charge review queue | printing-billing B.4 | Status flow + cancel audit | A | |
 | R-SE-01 | Roles/permissions | architecture 4.2; erd.md; validation-scripts S-12 | PermissionPolicy truth table; evaluator role→permission resolution; default-deny | D,I | |
 | R-SE-02 | Electronic signature | erd.md ElectronicSignatures; safety-rules 5; 21 CFR Part 11 | Re-auth + unused-signature binding | I | 21 CFR Part 11 |
-| R-AU-01 | Audit every clinical action | architecture 4.1; FRS-BB-078; FRS-BB-085; FRS-BB-087; FRS-BB-089; FRS-BB-093; FRS-BB-095; FRS-BB-104; FRS-BB-106; FRS-BB-109; FRS-BB-111; FRS-BB-114; FRS-BB-116; FRS-BB-119; FRS-BB-121; FRS-BB-126; FRS-BB-129; FRS-BB-131; FRS-BB-148; FRS-BB-150; FRS-BB-152; FRS-BB-153; FRS-BB-154; FRS-BB-155; FRS-BB-156; FRS-BB-157; FRS-BB-158; FRS-BB-159; FRS-BB-160; FRS-BB-161; FRS-BB-162 | Named events plus searchable who/what/when/old/new on `/audit` | A,I | 21 CFR 606.160(a) |
+| R-AU-01 | Audit every clinical action | architecture 4.1; FRS-BB-078; FRS-BB-085; FRS-BB-087; FRS-BB-089; FRS-BB-093; FRS-BB-095; FRS-BB-104; FRS-BB-106; FRS-BB-109; FRS-BB-111; FRS-BB-114; FRS-BB-116; FRS-BB-119; FRS-BB-121; FRS-BB-126; FRS-BB-129; FRS-BB-131; FRS-BB-148; FRS-BB-150; FRS-BB-152; FRS-BB-153; FRS-BB-154; FRS-BB-155; FRS-BB-156; FRS-BB-157; FRS-BB-158; FRS-BB-159; FRS-BB-160; FRS-BB-161; FRS-BB-162; FRS-BB-164 | Named events plus searchable who/what/when/old/new on `/audit` | A,I | 21 CFR 606.160(a) |
 | R-AU-02 | No silent data change | safety-rules 7 | Corrections versioned, originals kept; append-only interceptor | A,I | 21 CFR 606.160 |
 | R-AU-03 | Record retention | SystemSettings Record.RetentionYears | 10-year metadata; no purge of product/compatibility/transfusion/audit | I | 21 CFR 606.160(d) |
 | URS-BB-007 / FRS-BB-041 | One active reservation and one open issue per unit | `IX_Allocations_OneReservedPerUnit`; `IX_Issues_OneOpenIssuePerUnit`; `InventoryConcurrency` | `AllocationIssueConcurrencyTests` | I | RISK-BB-006 |
@@ -196,6 +196,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-127 / FRS-BB-161 | Patient demographic update writes PatientAccess | `PatientService.UpdateAsync` | `PatientServiceTests.Update_WritesPatientAccess` | A | RISK-BB-134 |
 | URS-BB-128 / FRS-BB-162 | Patient create writes PatientAccess | `PatientService.CreateAsync` | `PatientServiceTests.Create_WritesPatientAccess` | A | RISK-BB-135 |
 | URS-BB-129 / FRS-BB-163 | Panel entry forms label Calculated vs typed Manual | `ResultSourceEntryCopy`; `TestResultEntryPanel` | `ResultSourceEntryCopyTests` | A | RISK-BB-136 |
+| URS-BB-130 / FRS-BB-164 | HL7 value-translation replace writes Interface | `InterfaceTranslationAdminService` | `InterfaceTranslationAuthorizationTests.Replace_WritesInterface` | A | RISK-BB-137 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
