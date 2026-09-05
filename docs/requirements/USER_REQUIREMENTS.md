@@ -17,7 +17,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-008 | Autologous and directed units can be issued only to the designated recipient. | P0 | FRS-BB-032 |
 | URS-BB-009 | Electronic (computer) XM is available only when configured prerequisites hold. | P0 | FRS-BB-033 |
 | URS-BB-010 | Inventory states and modifications remain historically traceable. | P3 | FRS-BB-050 |
-| URS-BB-011 | Clinical and configuration changes are auditable (who/what/when/where/old/new/why). | P4 | FRS-BB-060, FRS-BB-078, FRS-BB-085, FRS-BB-087, FRS-BB-089, FRS-BB-093, FRS-BB-095, FRS-BB-104, FRS-BB-106, FRS-BB-109, FRS-BB-111, FRS-BB-114, FRS-BB-116, FRS-BB-119, FRS-BB-121, FRS-BB-126, FRS-BB-129, FRS-BB-131, FRS-BB-148, FRS-BB-150, FRS-BB-152, FRS-BB-153, FRS-BB-154, FRS-BB-155, FRS-BB-156, FRS-BB-157, FRS-BB-158, FRS-BB-159 |
+| URS-BB-011 | Clinical and configuration changes are auditable (who/what/when/where/old/new/why). | P4 | FRS-BB-060, FRS-BB-078, FRS-BB-085, FRS-BB-087, FRS-BB-089, FRS-BB-093, FRS-BB-095, FRS-BB-104, FRS-BB-106, FRS-BB-109, FRS-BB-111, FRS-BB-114, FRS-BB-116, FRS-BB-119, FRS-BB-121, FRS-BB-126, FRS-BB-129, FRS-BB-131, FRS-BB-148, FRS-BB-150, FRS-BB-152, FRS-BB-153, FRS-BB-154, FRS-BB-155, FRS-BB-156, FRS-BB-157, FRS-BB-158, FRS-BB-159, FRS-BB-160 |
 | URS-BB-012 | Administrators can configure tests, products, rules, and facility policies with versioning. | P5 | FRS-BB-070 |
 | URS-BB-013 | Interfaces preserve raw messages and do not silently discard errors. | P8 | FRS-BB-080 |
 | URS-BB-014 | The facility can operate and recover from downtime without losing traceability. | P5 | FRS-BB-090 |
@@ -109,7 +109,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-103 | Creating or updating a test/service billing row is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P7 | FRS-BB-137, FRS-BB-150 |
 | URS-BB-104 | Creating or updating an ordering provider is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P7 | FRS-BB-138, FRS-BB-156 |
 | URS-BB-106 | Creating or updating an ordering location is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P7 | FRS-BB-140, FRS-BB-152 |
-| URS-BB-108 | Reviewing a captured charge is limited to staff with billing.review. Cancelling is limited to staff with billing.cancel. Exporting is limited to staff with billing.export. | P7 | FRS-BB-142 |
+| URS-BB-108 | Reviewing a captured charge is limited to staff with billing.review. Cancelling is limited to staff with billing.cancel. Exporting is limited to staff with billing.export. | P7 | FRS-BB-142, FRS-BB-160 |
 | URS-BB-109 | Creating or updating an inventory location is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P7 | FRS-BB-143, FRS-BB-153 |
 | URS-BB-111 | Updating a facility policy is limited to staff with admin.config.edit. | P2 | FRS-BB-145 |
 | URS-BB-113 | Finding units by DIN or tracing a recipient on lookback is limited to staff with lookback.manage. | P1 | FRS-BB-147 |
@@ -123,3 +123,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-123 | Staff can find directory user create/update and role-catalog create as UserRole, because those accounts can be granted issue.create. | P3 | FRS-BB-157 |
 | URS-BB-124 | Staff can find ward receipt of an issued unit as Transfusion, because that acknowledgment unblocks transfusion documentation. | P1 | FRS-BB-158 |
 | URS-BB-125 | Staff can find directed-to-allogeneic conversion as ProductStatus, because that change clears the reserved patient so the unit can be issued to someone else. | P1 | FRS-BB-159 |
+| URS-BB-126 | Staff can find charge review and cancel as Billing, and export as Export, because those actions decide whether a verified result or issue is billed. | P3 | FRS-BB-160 |

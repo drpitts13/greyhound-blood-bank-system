@@ -214,10 +214,20 @@ public sealed class BillingService
             return OperationResult<BillingEvent>.Fail($"Only pending charges can be reviewed (current: {billingEvent.Status}).");
         }
 
+        var previousStatus = billingEvent.Status;
         billingEvent.Status = BillingEventStatus.Reviewed;
         billingEvent.ReviewedBy = _currentUser.UserName;
         billingEvent.ReviewedUtc = _clock.UtcNow;
         _events.Update(billingEvent);
+
+        _audit.Record(
+            AuditEventType.Billing,
+            nameof(BillingEvent),
+            billingEvent.Id,
+            oldValue: new { Status = previousStatus },
+            newValue: new { Status = BillingEventStatus.Reviewed, billingEvent.ReviewedBy },
+            reason: "Charge reviewed.");
+
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<BillingEvent>.Ok(billingEvent);
     }
@@ -253,7 +263,7 @@ public sealed class BillingService
         _events.Update(billingEvent);
 
         _audit.Record(
-            AuditEventType.Update,
+            AuditEventType.Billing,
             nameof(BillingEvent),
             billingEvent.Id,
             oldValue: new { Status = previousStatus },
@@ -284,9 +294,19 @@ public sealed class BillingService
             return OperationResult<BillingEvent>.Fail($"Only reviewed charges can be exported (current: {billingEvent.Status}).");
         }
 
+        var previousStatus = billingEvent.Status;
         billingEvent.Status = BillingEventStatus.Exported;
         billingEvent.ExportedUtc = _clock.UtcNow;
         _events.Update(billingEvent);
+
+        _audit.Record(
+            AuditEventType.Export,
+            nameof(BillingEvent),
+            billingEvent.Id,
+            oldValue: new { Status = previousStatus },
+            newValue: new { Status = BillingEventStatus.Exported },
+            reason: "Charge exported.");
+
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<BillingEvent>.Ok(billingEvent);
     }

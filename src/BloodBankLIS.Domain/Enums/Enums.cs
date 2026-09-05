@@ -569,7 +569,8 @@ public enum AuditEventType
     EmergencyRelease = 35,
     Interface = 36,
     UserRole = 37,
-    Invalidate = 38
+    Invalidate = 38,
+    Billing = 39
 }
 
 /// <summary>

@@ -116,3 +116,4 @@
 | SRS-BB-118 | `UserAdminService` user create/update and role create write `AuditEventType.UserRole`. | FRS-BB-157 |
 | SRS-BB-119 | `IssuingService.RecordWardReceiptAsync` writes `AuditEventType.Transfusion`. | FRS-BB-158 |
 | SRS-BB-120 | `InventoryService.ConvertDirectedToAllogeneicAsync` writes `AuditEventType.ProductStatus`. | FRS-BB-159 |
+| SRS-BB-121 | `BillingService` review/cancel write `AuditEventType.Billing`; export writes `AuditEventType.Export`. | FRS-BB-160 |

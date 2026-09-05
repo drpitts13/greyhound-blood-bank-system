@@ -89,6 +89,50 @@ public class BillingAuthorizationTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(BillingEventStatus.Cancelled, allowed.Value!.Status);
     }
 
+    [Fact]
+    public async Task ReviewAndCancel_WriteBilling()
+    {
+        await using var c = _factory.Create();
+        var reviewRow = await SeedPendingAsync(c);
+        var cancelRow = await SeedPendingAsync(c);
+        var svc = Billing(c, new FixedPermissionEvaluator(
+            1, PermissionCodes.BillingReview, PermissionCodes.BillingCancel));
+
+        var reviewed = await svc.ReviewAsync(reviewRow.Id);
+        Assert.True(reviewed.Succeeded, reviewed.Error);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(BillingEvent)
+            && a.EntityId == reviewRow.Id
+            && a.EventType == AuditEventType.Billing));
+
+        var cancelled = await svc.CancelAsync(cancelRow.Id, "Entered in error");
+        Assert.True(cancelled.Succeeded, cancelled.Error);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(BillingEvent)
+            && a.EntityId == cancelRow.Id
+            && a.EventType == AuditEventType.Billing
+            && a.Reason == "Entered in error"));
+    }
+
+    [Fact]
+    public async Task Export_WritesExport()
+    {
+        await using var c = _factory.Create();
+        var pending = await SeedPendingAsync(c);
+        var svc = Billing(c, new FixedPermissionEvaluator(
+            1, PermissionCodes.BillingReview, PermissionCodes.BillingExport));
+
+        var reviewed = await svc.ReviewAsync(pending.Id);
+        Assert.True(reviewed.Succeeded, reviewed.Error);
+        var exported = await svc.ExportAsync(pending.Id);
+        Assert.True(exported.Succeeded, exported.Error);
+
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(BillingEvent)
+            && a.EntityId == pending.Id
+            && a.EventType == AuditEventType.Export));
+    }
+
     private sealed class NoOpPublisher : IBillingInterfacePublisher
     {
         public Task<long?> PublishChargeAsync(BillingEvent billingEvent, CancellationToken ct = default) =>
