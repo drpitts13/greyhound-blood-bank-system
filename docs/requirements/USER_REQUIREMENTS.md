@@ -68,7 +68,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-060 | Placing a unit in quarantine or on hold, or marking it missing or damaged, is limited to staff with inventory.release. | P3 | FRS-BB-094, FRS-BB-180, FRS-BB-181 |
 | URS-BB-061 | Staff can find antigen-phenotype changes and result-triggered reflex order lines as named Antibody and OrderChange events, including the prior phenotype when a profile is updated. | P0 | FRS-BB-095 |
 | URS-BB-062 | Running the inventory expiration sweep is limited to staff with inventory.discard. | P3 | FRS-BB-096, FRS-BB-185 |
-| URS-BB-063 | Staff can record antibody-identification panel reactions, review assistance, interpret, and obtain supervisor review before identified antibodies post to history. Assistance must not silently replace technologist judgment. | P0 | FRS-BB-097, FRS-BB-168, FRS-BB-171, FRS-BB-188, FRS-BB-194 |
+| URS-BB-063 | Staff can record antibody-identification panel reactions, review assistance, interpret, and obtain supervisor review before identified antibodies post to history. Assistance must not silently replace technologist judgment. | P0 | FRS-BB-097, FRS-BB-168, FRS-BB-171, FRS-BB-188, FRS-BB-194, FRS-BB-195 |
 | URS-BB-064 | Merging a duplicate patient into a survivor from the workspace is limited to staff with patient.merge. | P1 | FRS-BB-098 |
 | URS-BB-065 | Staff can see retained prior result versions (original value, status, source, reason, who, when) on the patient result panel, and an invalidated correction is not shown as the current result. | P0 | FRS-BB-099 |
 | URS-BB-066 | Creating an order from the workspace is limited to staff with patient.write. | P1 | FRS-BB-100 |
@@ -158,3 +158,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-158 | Staff can see the crossmatch method and Compatible or Incompatible result after saving a worklist XM, not only Manual/Calculated source. | P3 | FRS-BB-192 |
 | URS-BB-159 | Staff are warned when allocating, recording a serologic crossmatch, or issuing while an antibody-identification workup is open. Those actions still succeed. Electronic XM stays HardStop. | P0 | FRS-BB-193 |
 | URS-BB-160 | Staff are warned when completing a reviewed antibody-identification workup while reserved or issued units remain. Completing still posts Identified findings and does not release those units. | P0 | FRS-BB-194 |
+| URS-BB-161 | Staff are warned when voiding an antibody-identification workup while reserved or issued units remain. Void still succeeds, posts nothing, and does not release those units. | P0 | FRS-BB-195 |

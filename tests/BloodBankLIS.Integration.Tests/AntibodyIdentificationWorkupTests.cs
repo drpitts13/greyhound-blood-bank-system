@@ -767,6 +767,36 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
+    public async Task Void_WithReservedUnit_WarnsAndVoids()
+    {
+        var (_, lotId) = await SeedPanelAsync();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patientId = await SeedPatientAsync($"MRN-ABID-VOID-PROD-{suffix}");
+        await SeedReservedUnitAsync(patientId, $"ABID-VOID-PROD-{suffix}");
+        long workupId;
+
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+        }
+
+        await using var check = _factory.Create();
+        var voided = await Svc(check).VoidAsync(
+            workupId, new VoidAntibodyIdWorkupRequest("Abandoned; reserved units remain."));
+        Assert.True(voided.Succeeded, voided.Error);
+        Assert.Contains(
+            voided.Evaluation!.Warnings,
+            w => w.Code == AntibodyIdentificationInterpretationRule.VoidProductsCode);
+        Assert.Equal(AntibodyWorkupStatus.Voided, voided.Value!.Status);
+        Assert.Empty(await check.AntibodyHistory.Where(a => a.PatientId == patientId).ToListAsync());
+        var allocation = Assert.Single(await check.Allocations.Where(a => a.PatientId == patientId).ToListAsync());
+        Assert.Equal(AllocationStatus.Reserved, allocation.Status);
+    }
+
+    [Fact]
     public async Task Complete_DoesNotDuplicateCatalogHistoryRow()
     {
         var (attrId, lotId) = await SeedPanelAsync();

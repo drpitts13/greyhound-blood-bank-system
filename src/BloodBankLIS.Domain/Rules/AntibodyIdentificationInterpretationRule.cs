@@ -30,6 +30,7 @@ public static class AntibodyIdentificationInterpretationRule
     public const string CompleteAckCode = "ABID-COMPLETE-ACK";
     public const string ReviewAckCode = "ABID-REVIEW-ACK";
     public const string ProductsOpenCode = "ABID-COMPLETE-PRODUCTS";
+    public const string VoidProductsCode = "ABID-VOID-PRODUCTS";
 
     public static RuleResult AssistIsAdvisory() =>
         RuleResult.Pass(
@@ -306,6 +307,13 @@ public static class AntibodyIdentificationInterpretationRule
                 ProductsOpenCode,
                 "This patient has reserved or issued units. Completing may post antibodies that were not applied at allocation or issue. Acknowledgment does not identify antibodies.")
             : RuleResult.Pass(ProductsOpenCode);
+
+    public static RuleResult EvaluateOpenProductsAtVoid(bool hasReservedOrIssuedUnits) =>
+        hasReservedOrIssuedUnits
+            ? RuleResult.Warning(
+                VoidProductsCode,
+                "This patient has reserved or issued units. Voiding abandons identification of record without posting antibodies that may change antigen-negative needs. The void reason does not identify antibodies.")
+            : RuleResult.Pass(VoidProductsCode);
 
     public static RuleResult EvaluateIdentifiedWillPost(int identifiedCount) =>
         identifiedCount == 0

@@ -1124,6 +1124,13 @@ public sealed class AntibodyIdentificationService
             return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(evaluation);
         }
 
+        var productsAtVoid = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtVoid(
+            await HasReservedOrIssuedUnitsAsync(workup.PatientId, ct));
+        if (productsAtVoid.Severity != RuleSeverity.Pass)
+        {
+            evaluation = new RuleEvaluation(evaluation.Results.Append(productsAtVoid));
+        }
+
         workup.Status = AntibodyWorkupStatus.Voided;
         workup.VoidReason = request.Reason.Trim();
         _workups.Update(workup);
