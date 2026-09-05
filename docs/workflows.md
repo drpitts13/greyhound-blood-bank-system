@@ -284,6 +284,7 @@ flowchart LR
 - Creating or updating an expiration modification code requires `admin.modification-rules.manage` in `ExpirationModificationCodeAdminService` (`EXPCODE-CREATE-PERM` / `EXPCODE-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`EXPCODE-ACT-PERM` / `EXPCODE-DEACT-PERM`).
 - Creating, updating, enabling, or disabling an HL7 endpoint requires `admin.hl7.manage` in `Hl7ConfigAdminService` (`HL7EP-CREATE-PERM` / `HL7EP-UPD-PERM` / `HL7EP-ENABLE-PERM` / `HL7EP-DISABLE-PERM`).
 - Replacing HL7 value translations requires `admin.hl7.manage` in `InterfaceTranslationAdminService` (`HL7XLAT-REPLACE-PERM`).
+- Creating or updating a charge code requires `admin.config.edit` in `ChargeCodeAdminService` (`CHG-CREATE-PERM` / `CHG-UPD-PERM`). Activate/deactivate requires `admin.config.activate` (`CHG-ACT-PERM` / `CHG-DEACT-PERM`).
 - Detailed mapping, ACK/NAK, retry, and replay are specified in `hl7-design.md`.
 
 ---

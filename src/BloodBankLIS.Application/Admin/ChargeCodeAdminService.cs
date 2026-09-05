@@ -12,6 +12,7 @@ public sealed class ChargeCodeAdminService : ConfigAdminServiceBase
     private const string EntityType = nameof(ChargeCode);
 
     private readonly IRepository<ChargeCode> _codes;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public ChargeCodeAdminService(
         IRepository<ChargeCode> codes,
@@ -19,10 +20,12 @@ public sealed class ChargeCodeAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _codes = codes;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<ChargeCodeDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -42,6 +45,13 @@ public sealed class ChargeCodeAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<ChargeCodeDto>> CreateAsync(SaveChargeCodeRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, ChargeCodeAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = new ChargeCode { IsActive = true };
         Apply(entity, request);
@@ -65,6 +75,13 @@ public sealed class ChargeCodeAdminService : ConfigAdminServiceBase
     public async Task<EvaluationResult<ChargeCodeDto>> UpdateAsync(long id, SaveChargeCodeRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, ChargeCodeAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
 
         var entity = await _codes.GetByIdAsync(id, ct);
         if (entity is null)
@@ -91,6 +108,15 @@ public sealed class ChargeCodeAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<ChargeCodeDto>> SetActiveAsync(long id, bool active, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate,
+            active ? ChargeCodeAuthorizationRule.EvaluateActivate : ChargeCodeAuthorizationRule.EvaluateDeactivate,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _codes.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -113,5 +139,23 @@ public sealed class ChargeCodeAdminService : ConfigAdminServiceBase
         entity.Description = request.Description?.Trim() ?? string.Empty;
         entity.DefaultAmount = request.DefaultAmount;
         entity.CptCode = string.IsNullOrWhiteSpace(request.CptCode) ? null : request.CptCode.Trim();
+    }
+
+    private async Task<EvaluationResult<ChargeCodeDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<ChargeCodeDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
     }
 }

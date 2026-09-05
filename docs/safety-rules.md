@@ -170,6 +170,10 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `HL7EP-ENABLE-PERM` | Caller has `admin.hl7.manage` when enabling an HL7 endpoint | HardStop when a permission evaluator is present and the privilege is missing |
 | `HL7EP-DISABLE-PERM` | Caller has `admin.hl7.manage` when disabling an HL7 endpoint | HardStop when a permission evaluator is present and the privilege is missing |
 | `HL7XLAT-REPLACE-PERM` | Caller has `admin.hl7.manage` when replacing HL7 value translations | HardStop when a permission evaluator is present and the privilege is missing |
+| `CHG-CREATE-PERM` | Caller has `admin.config.edit` when creating a charge code | HardStop when a permission evaluator is present and the privilege is missing |
+| `CHG-UPD-PERM` | Caller has `admin.config.edit` when updating a charge code | HardStop when a permission evaluator is present and the privilege is missing |
+| `CHG-ACT-PERM` | Caller has `admin.config.activate` when activating a charge code | HardStop when a permission evaluator is present and the privilege is missing |
+| `CHG-DEACT-PERM` | Caller has `admin.config.activate` when deactivating a charge code | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORD-UPD-PERM` | Caller has `patient.write` when updating an order | HardStop when a permission evaluator is present and the privilege is missing |

@@ -82,3 +82,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-093 | Creating or updating an expiration modification code is limited to staff with admin.modification-rules.manage. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-127 |
 | URS-BB-094 | Creating, updating, enabling, or disabling an HL7 endpoint is limited to staff with admin.hl7.manage. | P3 | FRS-BB-128 |
 | URS-BB-096 | Replacing HL7 value translations is limited to staff with admin.hl7.manage. | P3 | FRS-BB-130 |
+| URS-BB-098 | Creating or updating a charge code is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P7 | FRS-BB-132 |

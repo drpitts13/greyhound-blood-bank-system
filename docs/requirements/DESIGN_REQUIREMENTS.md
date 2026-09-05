@@ -75,3 +75,4 @@
 | SRS-BB-088 | Expiration-modification-code create/update are authorized inside `ExpirationModificationCodeAdminService` with `admin.modification-rules.manage` (`EXPCODE-CREATE-PERM` / `EXPCODE-UPD-PERM`). Activate/deactivate use `admin.config.activate` (`EXPCODE-ACT-PERM` / `EXPCODE-DEACT-PERM`). | FRS-BB-127 |
 | SRS-BB-089 | HL7 endpoint create/update/enable/disable are authorized inside `Hl7ConfigAdminService` with `admin.hl7.manage` (`HL7EP-CREATE-PERM` / `HL7EP-UPD-PERM` / `HL7EP-ENABLE-PERM` / `HL7EP-DISABLE-PERM`). | FRS-BB-128 |
 | SRS-BB-091 | HL7 value-translation replace is authorized inside `InterfaceTranslationAdminService` with `admin.hl7.manage` (`HL7XLAT-REPLACE-PERM`). | FRS-BB-130 |
+| SRS-BB-093 | Charge-code create/update are authorized inside `ChargeCodeAdminService` with `admin.config.edit` (`CHG-CREATE-PERM` / `CHG-UPD-PERM`). Activate/deactivate use `admin.config.activate` (`CHG-ACT-PERM` / `CHG-DEACT-PERM`). | FRS-BB-132 |
