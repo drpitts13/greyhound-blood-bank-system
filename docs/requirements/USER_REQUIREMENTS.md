@@ -77,7 +77,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-069 | Documenting a transfusion through the interface service (not inbound BPAM) is limited to staff with transfusion.document. | P0 | FRS-BB-103 |
 | URS-BB-070 | Staff can find create/update of subtest, blood-attribute, and reflex-rule catalogs as TestChange, because those definitions change calculated results, antibody/antigen history, and reflex-added tests. | P3 | FRS-BB-104 |
 | URS-BB-071 | Starting an ISBT scan session or adding a scan line is limited to staff with inventory.receive. | P3 | FRS-BB-105 |
-| URS-BB-072 | Staff can find unit ABO/Rh retype entry, verification, and the resulting Available/Quarantine change as named Result, Verify, and ProductStatus events. | P0 | FRS-BB-106, FRS-BB-186 |
+| URS-BB-072 | Staff can find unit ABO/Rh retype entry, verification, and the resulting Available/Quarantine change as named Result, Verify, and ProductStatus events. | P0 | FRS-BB-106, FRS-BB-186, FRS-BB-190 |
 | URS-BB-073 | Activating, deactivating, locking, unlocking, or requesting a password reset for a directory user is limited to staff with admin.users.manage. | P6 | FRS-BB-107, FRS-BB-170 |
 | URS-BB-074 | Creating, updating, activating, deactivating, or cloning a test definition is limited to staff with admin.tests.manage. | P2 | FRS-BB-108 |
 | URS-BB-075 | Staff can find exception-definition create/update as Configure (override eligibility at result verify) and phase-definition create/update as TestChange (result-entry phases). | P3 | FRS-BB-109 |
@@ -153,3 +153,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-153 | Staff can see on `/audit` the identity-correction row id on a unit DIN, product-code, or ABO/Rh identity Correct event, not only the field old/new. The event stays on the unit id. | P1 | FRS-BB-187 |
 | URS-BB-154 | Staff can see on `/audit` the antibody-history row id when a completed reviewed workup posts Identified antibodies, not the patient id as the AntibodyHistory entity id. Dual posting paths remain (OCD-023). | P0 | FRS-BB-188 |
 | URS-BB-155 | Staff can see on `/audit` the antibody-history row id when a verified ABID result posts Identified antibodies, not the patient id as the AntibodyHistory entity id. Dual posting paths remain (OCD-023). | P0 | FRS-BB-189 |
+| URS-BB-156 | Staff can see the interpreted ABO/Rh after saving or verifying a unit retype, not only a generic entered/verified message. | P3 | FRS-BB-190 |

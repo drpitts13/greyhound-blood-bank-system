@@ -146,3 +146,4 @@
 | SRS-BB-148 | `ComponentIdentityCorrectionService.CorrectAsync` writes `AuditEventType.Correct` after the correction id exists, with `CorrectionId` on old/new. The event entity remains `BloodUnit`. | FRS-BB-187 |
 | SRS-BB-149 | `AntibodyIdentificationService.PostHistoryAsync` saves the history row, then writes `Antibody` on that id with `PatientId`, `WorkupId`, and `HistoryId`. | FRS-BB-188 |
 | SRS-BB-150 | `ResultService.ApplyAntibodyIdentificationResultAsync` saves posted history rows, then writes `Antibody` on the first history id with `PatientId` and `HistoryIds`. | FRS-BB-189 |
+| SRS-BB-151 | `ProductRetypeEntryCopy.Saved`, `VerifiedAvailable`, and `VerifiedQuarantine` name the interpreted ABO/Rh on the retype panel. | FRS-BB-190 |

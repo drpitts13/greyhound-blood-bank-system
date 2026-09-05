@@ -164,7 +164,10 @@
         _busy = false;
         if (r.Succeeded && r.Value is not null)
         {
-            _fb = r.ToFeedback("Retype entered. A second user must verify before the unit is released.");
+            var latest = r.Value.Latest;
+            _fb = latest is null
+                ? r.ToFeedback("Retype saved. A second user must verify before the unit is released.")
+                : r.ToFeedback(ProductRetypeEntryCopy.Saved(latest.InterpretedAbo, latest.InterpretedRh));
             await OnSaved.InvokeAsync();
         }
         else
@@ -181,9 +184,11 @@
         _busy = false;
         if (r.Succeeded && r.Value is not null)
         {
-            var msg = r.Value.Latest?.MatchesLabel == true
-                ? "Retype verified. Unit is Available."
-                : (r.Value.Latest?.DiscrepancyDetail ?? "Retype verified. Unit moved to Quarantine.");
+            var latest = r.Value.Latest!;
+            var msg = latest.MatchesLabel
+                ? ProductRetypeEntryCopy.VerifiedAvailable(latest.InterpretedAbo, latest.InterpretedRh)
+                : ProductRetypeEntryCopy.VerifiedQuarantine(
+                    latest.InterpretedAbo, latest.InterpretedRh, latest.DiscrepancyDetail);
             _fb = r.ToFeedback(msg);
             await OnSaved.InvokeAsync();
         }

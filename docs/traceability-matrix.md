@@ -222,6 +222,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-153 / FRS-BB-187 | Identity Correct includes correction row id on old/new | `ComponentIdentityCorrectionService.CorrectAsync` | `ComponentIdentityCorrectionServiceTests.Correct_WritesCorrectWithCorrectionId` | A | RISK-BB-190 |
 | URS-BB-154 / FRS-BB-188 | Workup-complete Antibody includes history row id | `AntibodyIdentificationService.PostHistoryAsync` | `AntibodyIdentificationWorkupTests.Complete_WritesAntibodyWithHistoryId` | A | RISK-BB-191 |
 | URS-BB-155 / FRS-BB-189 | Verified-ABID Antibody includes history row ids | `ResultService.ApplyAntibodyIdentificationResultAsync` | `AntibodyIdentificationTests.VerifyAbid_WritesAntibodyWithHistoryIds` | A | RISK-BB-192 |
+| URS-BB-156 / FRS-BB-190 | Unit retype save/verify feedback names interpreted ABO/Rh | `ProductRetypeEntryCopy`; `ProductRetypeEntryPanel` | `ProductRetypeEntryCopyTests` | A | RISK-BB-193 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
