@@ -109,3 +109,4 @@
 | SRS-BB-109 | `ChargeRuleAdminService` create/update write `AuditEventType.Configure`. | FRS-BB-148 |
 | SRS-BB-111 | `TestServiceBillingAdminService` create/update write `AuditEventType.Configure`. | FRS-BB-150 |
 | SRS-BB-113 | `OrderingLocationAdminService` create/update write `AuditEventType.Configure`. | FRS-BB-152 |
+| SRS-BB-114 | `InventoryLocationAdminService` create/update write `AuditEventType.Configure`. | FRS-BB-153 |

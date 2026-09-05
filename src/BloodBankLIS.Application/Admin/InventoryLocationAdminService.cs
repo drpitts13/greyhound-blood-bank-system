@@ -68,7 +68,7 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         await UnitOfWork.SaveChangesAsync(ct);
 
         var dto = InventoryLocationAdminDto.From(entity);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Create, null, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<InventoryLocationAdminDto>.Ok(dto, validation);
     }
@@ -105,7 +105,7 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
 
         _locations.Update(entity);
         var dto = InventoryLocationAdminDto.From(entity);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Update, old, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<InventoryLocationAdminDto>.Ok(dto, validation);
     }

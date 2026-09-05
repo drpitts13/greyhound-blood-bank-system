@@ -70,4 +70,29 @@ public class InventoryLocationAuthorizationTests : IClassFixture<SqliteContextFa
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.False(allowed.Value!.IsActive);
     }
+
+    [Fact]
+    public async Task CreateAndUpdate_WriteConfigure()
+    {
+        await using var c = _factory.Create();
+        var code = $"F{Guid.NewGuid():N}"[..8].ToUpperInvariant();
+        var svc = Locations(c);
+
+        var created = await svc.CreateAsync(Request(code));
+        Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(InventoryLocation)
+            && a.EntityId == created.Value!.Id
+            && a.EventType == AuditEventType.Configure));
+
+        var updated = await svc.UpdateAsync(
+            created.Value!.Id,
+            Request(code) with { Name = "Issue fridge", AllowsIssue = true });
+        Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(InventoryLocation) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
+    }
 }
