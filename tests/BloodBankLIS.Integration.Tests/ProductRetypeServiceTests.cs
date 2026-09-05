@@ -327,4 +327,49 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Available, verified.Value!.Status);
         Assert.Equal(_factory.CurrentUser.UserName, verified.Value.Latest!.VerifiedBy);
     }
+
+    [Fact]
+    public async Task RecordUpdateAndVerify_WriteInterpretedType()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8];
+        var (_, unitId) = await SeedReceivedUnitAsync($"RT-AUD-{key}", AboGroup.O, RhType.Positive);
+        await using var context = _factory.Create();
+
+        var first = await Retype(context).RecordAsync(unitId, MatchOPos());
+        Assert.True(first.Succeeded, first.Error);
+        var retypeId = first.Value!.Latest!.Id;
+
+        var updated = await Retype(context).RecordAsync(unitId, MatchOPos());
+        Assert.True(updated.Succeeded, updated.Error);
+        Assert.Equal(retypeId, updated.Value!.Latest!.Id);
+
+        var verified = await Retype(context, Verifier).VerifyAsync(unitId, retypeId);
+        Assert.True(verified.Succeeded, verified.Error);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Result
+            && e.EntityType == nameof(ProductRetypeResult)
+            && e.EntityId == retypeId
+            && e.Reason == "Unit ABO/Rh retype entered."
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains("O"));
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Result
+            && e.EntityType == nameof(ProductRetypeResult)
+            && e.EntityId == retypeId
+            && e.Reason == "Unit ABO/Rh retype updated."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.OldValueJson.Contains("O")
+            && e.NewValueJson.Contains("O"));
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Verify
+            && e.EntityType == nameof(ProductRetypeResult)
+            && e.EntityId == retypeId
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.OldValueJson.Contains("O")
+            && e.NewValueJson.Contains("O"));
+    }
 }

@@ -181,6 +181,16 @@ public sealed class ProductRetypeService
 
         var pending = await LatestEnteredTrackedAsync(unit.Id, ct);
         var wasUpdate = pending is not null;
+        object? oldValue = pending is null
+            ? null
+            : new
+            {
+                pending.InterpretedAbo,
+                pending.InterpretedRh,
+                pending.Value,
+                pending.MatchesLabel,
+                pending.Status
+            };
         if (pending is not null)
         {
             pending.TestDefinitionId = test.Id;
@@ -221,13 +231,16 @@ public sealed class ProductRetypeService
             AuditEventType.Result,
             nameof(ProductRetypeResult),
             saved?.Id,
+            oldValue: oldValue,
             newValue: new
             {
                 unit.Id,
+                saved?.TestCode,
                 saved?.Value,
                 saved?.InterpretedAbo,
                 saved?.InterpretedRh,
-                saved?.MatchesLabel
+                saved?.MatchesLabel,
+                saved?.Status
             },
             reason: wasUpdate ? "Unit ABO/Rh retype updated." : "Unit ABO/Rh retype entered.");
         await _unitOfWork.SaveChangesAsync(ct);
@@ -302,8 +315,23 @@ public sealed class ProductRetypeService
             AuditEventType.Verify,
             nameof(ProductRetypeResult),
             result.Id,
-            oldValue: new { Status = ResultStatus.Entered },
-            newValue: new { result.Status, result.VerifiedBy, result.MatchesLabel },
+            oldValue: new
+            {
+                Status = ResultStatus.Entered,
+                result.InterpretedAbo,
+                result.InterpretedRh,
+                result.Value,
+                result.MatchesLabel
+            },
+            newValue: new
+            {
+                result.Status,
+                result.VerifiedBy,
+                result.InterpretedAbo,
+                result.InterpretedRh,
+                result.Value,
+                result.MatchesLabel
+            },
             reason: statusReason);
         _audit.Record(
             AuditEventType.ProductStatus,

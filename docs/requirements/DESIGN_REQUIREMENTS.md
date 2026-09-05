@@ -142,3 +142,4 @@
 | SRS-BB-144 | `InventoryService.ReturnToSupplierAsync` writes `AuditEventType.ProductStatus` with old/new status after the ReturnedToSupplier transition. | FRS-BB-183 |
 | SRS-BB-145 | `InventoryService.TransferAsync` writes `AuditEventType.ProductStatus` with from/to location after the location move. Status is unchanged. | FRS-BB-184 |
 | SRS-BB-146 | `InventoryService.ExpireDueUnitsAsync` writes `AuditEventType.ProductStatus` with old/new status for each unit that transitions to Expired. | FRS-BB-185 |
+| SRS-BB-147 | `ProductRetypeService.RecordAsync` writes `Result` with interpreted ABO/Rh; update includes old/new. `VerifyAsync` writes interpreted ABO/Rh on Verify old/new. | FRS-BB-186 |
