@@ -1131,7 +1131,29 @@ public sealed class InventoryService
         unit.QuarantineReason = string.IsNullOrWhiteSpace(prior)
             ? "Located after missing; pending inspection"
             : $"Located after missing ({prior}); pending inspection";
-        return await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
+        var fromStatus = unit.Status;
+        var located = await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
+        if (!located.Succeeded)
+        {
+            return located;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = fromStatus },
+            newValue: new
+            {
+                unit.UnitNumber,
+                Status = UnitStatus.Quarantine,
+                Path = "LocateMissing",
+                ReasonCode = UnitQuarantineReason.LocatedAfterMissing,
+                PriorReason = prior
+            },
+            reason: "Unit located after missing.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return located;
     }
 
     /// <summary>
@@ -1204,7 +1226,29 @@ public sealed class InventoryService
         unit.QuarantineReason = string.IsNullOrWhiteSpace(prior)
             ? "Inspected after damage; pending quality review"
             : $"Inspected after damage ({prior}); pending quality review";
-        return await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
+        var fromStatus = unit.Status;
+        var inspected = await ChangeStatusAsync(unit, UnitStatus.Quarantine, unit.QuarantineReason, ct);
+        if (!inspected.Succeeded)
+        {
+            return inspected;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            oldValue: new { Status = fromStatus },
+            newValue: new
+            {
+                unit.UnitNumber,
+                Status = UnitStatus.Quarantine,
+                Path = "InspectDamaged",
+                ReasonCode = UnitQuarantineReason.InspectedAfterDamage,
+                PriorReason = prior
+            },
+            reason: "Unit inspected after damage.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return inspected;
     }
 
     /// <summary>

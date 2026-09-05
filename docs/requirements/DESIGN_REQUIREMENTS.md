@@ -137,4 +137,5 @@
 | SRS-BB-139 | `InventoryService.ReleaseFromQuarantineAsync` and `ReleaseFromHoldAsync` write `AuditEventType.ProductStatus` with old/new status after the Available transition. | FRS-BB-178 |
 | SRS-BB-140 | `InventoryService.RecallAsync` writes `AuditEventType.ProductStatus` after the Recalled transition. `RecallForLookbackAsync` does not write this ProductStatus. | FRS-BB-179 |
 | SRS-BB-141 | `InventoryService.QuarantineAsync` and `HoldAsync` write `AuditEventType.ProductStatus` with old/new status after the Quarantine or OnHold transition. Mark-missing and mark-damaged are `SRS-BB-142`. Locate and inspect do not write this ProductStatus. | FRS-BB-180 |
-| SRS-BB-142 | `InventoryService.MarkMissingAsync` and `MarkDamagedAsync` write `AuditEventType.ProductStatus` with old/new status after the Missing or Damaged transition. Locate and inspect do not write this ProductStatus. | FRS-BB-181 |
+| SRS-BB-142 | `InventoryService.MarkMissingAsync` and `MarkDamagedAsync` write `AuditEventType.ProductStatus` with old/new status after the Missing or Damaged transition. Locate and inspect are `SRS-BB-143`. | FRS-BB-181 |
+| SRS-BB-143 | `InventoryService.LocateMissingAsync` and `InspectDamagedAsync` write `AuditEventType.ProductStatus` with old/new status after the Quarantine transition. Units still enter Quarantine, not Available. | FRS-BB-182 |

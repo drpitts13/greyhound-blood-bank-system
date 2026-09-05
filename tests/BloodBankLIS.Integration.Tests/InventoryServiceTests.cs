@@ -2179,4 +2179,49 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(dNumber));
     }
+
+    [Fact]
+    public async Task LocateAndInspect_WriteProductStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var mNumber = $"U-LOC-AUD-{key}";
+        var dNumber = $"U-INS-AUD-{key}";
+        await using var context = _factory.Create();
+        var svc = CreateService(context);
+
+        var forMissing = await svc.ReceiveUnitAsync(NewUnitRequest(mNumber, productTypeId));
+        Assert.True(forMissing.Succeeded, forMissing.Error);
+        Assert.True((await svc.ReleaseFromQuarantineAsync(forMissing.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await svc.MarkMissingAsync(forMissing.Unit.Id, "Not on shelf at physical inventory")).Succeeded);
+        var located = await svc.LocateMissingAsync(forMissing.Unit.Id);
+        Assert.True(located.Succeeded, located.Error);
+        Assert.Equal(UnitStatus.Quarantine, located.Unit!.Status);
+
+        var forDamaged = await svc.ReceiveUnitAsync(NewUnitRequest(dNumber, productTypeId));
+        Assert.True(forDamaged.Succeeded, forDamaged.Error);
+        Assert.True((await svc.ReleaseFromQuarantineAsync(forDamaged.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await svc.MarkDamagedAsync(forDamaged.Unit.Id, "Bag leaking in refrigerator")).Succeeded);
+        var inspected = await svc.InspectDamagedAsync(forDamaged.Unit.Id);
+        Assert.True(inspected.Succeeded, inspected.Error);
+        Assert.Equal(UnitStatus.Quarantine, inspected.Unit!.Status);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == forMissing.Unit.Id
+            && e.Reason == "Unit located after missing."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(mNumber));
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == forDamaged.Unit.Id
+            && e.Reason == "Unit inspected after damage."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(dNumber));
+    }
 }
