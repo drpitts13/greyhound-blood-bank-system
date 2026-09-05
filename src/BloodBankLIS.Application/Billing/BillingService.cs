@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Billing;
 
@@ -44,6 +45,7 @@ public sealed class BillingService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IBillingInterfacePublisher _publisher;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public BillingService(
         IRepository<BillingEvent> events,
@@ -59,7 +61,8 @@ public sealed class BillingService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IBillingInterfacePublisher publisher)
+        IBillingInterfacePublisher publisher,
+        IPermissionEvaluator? permissionEvaluator = null)
     {
         _events = events;
         _rules = rules;
@@ -75,6 +78,7 @@ public sealed class BillingService
         _currentUser = currentUser;
         _audit = audit;
         _publisher = publisher;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     /// <summary>Captures charges for a verified result. Safe to call repeatedly (idempotent).</summary>
@@ -192,6 +196,13 @@ public sealed class BillingService
 
     public async Task<OperationResult<BillingEvent>> ReviewAsync(long id, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.BillingReview, BillingAuthorizationRule.EvaluateReview, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var billingEvent = await _events.GetByIdAsync(id, ct);
         if (billingEvent is null)
         {
@@ -216,6 +227,13 @@ public sealed class BillingService
         if (string.IsNullOrWhiteSpace(reason))
         {
             return OperationResult<BillingEvent>.Fail("A reason is required to cancel a charge.");
+        }
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.BillingCancel, BillingAuthorizationRule.EvaluateCancel, ct);
+        if (denied is not null)
+        {
+            return denied;
         }
 
         var billingEvent = await _events.GetByIdAsync(id, ct);
@@ -248,6 +266,13 @@ public sealed class BillingService
 
     public async Task<OperationResult<BillingEvent>> ExportAsync(long id, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.BillingExport, BillingAuthorizationRule.EvaluateExport, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var billingEvent = await _events.GetByIdAsync(id, ct);
         if (billingEvent is null)
         {
@@ -409,4 +434,22 @@ public sealed class BillingService
 
     private static string? FirstNonEmpty(params string?[] values) =>
         values.Select(NormalizeKey).FirstOrDefault(v => v is not null);
+
+    private async Task<OperationResult<BillingEvent>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            _currentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? OperationResult<BillingEvent>.Fail(auth.Message)
+            : null;
+    }
 }
