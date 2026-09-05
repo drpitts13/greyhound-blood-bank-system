@@ -2448,7 +2448,9 @@ else
         var subtests = BuildAboRhSubtests();
         var r = await Api.EnterAboRhAsync(new EnterAboRhRequest(specimenId, _resAbo, _resRh, subtests));
         _busy = false;
-        _resultFb = r.ToFeedback("ABO/Rh panel entered.");
+        _resultFb = r.Succeeded && r.Value is not null
+            ? r.ToFeedback(ResultSourceEntryCopy.PanelEntered(r.Value.Source))
+            : r.ToFeedback();
         if (r.Succeeded) await ReloadResults(specimenId);
     }
 
@@ -2491,7 +2493,9 @@ else
         _busy = true;
         var r = await Api.EnterResultAsync(new EnterResultRequest(specimenId, _resultTestCode, _resValue));
         _busy = false;
-        _resultFb = r.ToFeedback("Result entered.");
+        _resultFb = r.Succeeded && r.Value is not null
+            ? r.ToFeedback(ResultSourceEntryCopy.Entered(r.Value.Source))
+            : r.ToFeedback();
         if (r.Succeeded) { _resValue = string.Empty; await ReloadResults(specimenId); }
     }
 
@@ -2785,6 +2789,7 @@ else
                     }
                     else
                     {
+                    <p class="muted">@ResultSourceEntryCopy.PanelHint</p>
                     <div class="form-row">
                         <div class="field"><label>Interpreted ABO</label><select @bind="_resAbo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select></div>
                         <div class="field"><label>Interpreted Rh(D)</label><select @bind="_resRh">@foreach (var rr in Enum.GetValues<RhType>()) { <option value="@rr">@rr</option> }</select></div>
@@ -2820,6 +2825,7 @@ else
                     <button class="btn btn-primary btn-sm" style="margin-top:.6rem;" disabled="@_busy" @onclick="() => EnterAboRhAsync(s.Id)">Enter @_panelTestCode panel</button>
                     }
                     <hr style="margin:.75rem 0;border:none;border-top:1px solid var(--bb-border);" />
+                    <p class="muted">@ResultSourceEntryCopy.TypedHint</p>
                     <div class="form-row">
                         <div class="field"><label>Test code</label><input @bind="_resultTestCode" /></div>
                         <div class="field"><label>Value</label><input @bind="_resValue" /></div>

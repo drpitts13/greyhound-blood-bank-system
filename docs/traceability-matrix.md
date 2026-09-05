@@ -199,6 +199,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-130 / FRS-BB-164 | HL7 value-translation replace writes Interface | `InterfaceTranslationAdminService` | `InterfaceTranslationAuthorizationTests.Replace_WritesInterface` | A | RISK-BB-137 |
 | URS-BB-131 / FRS-BB-165 | Workspace visit create/update write PatientAccess | `EncounterService` | `EncounterServiceAuthorizationTests.CreateAndUpdate_WritePatientAccess` | A | RISK-BB-138 |
 | URS-BB-132 / FRS-BB-166 | First label print writes Print | `PrintService.CreateJobAsync` | `Phase6PrintingTests.PrintSpecimenLabel_WritesPrint` | A | RISK-BB-139 |
+| URS-BB-133 / FRS-BB-167 | Typed specimen entry labels Manual source | `ResultSourceEntryCopy`; `PatientDetail` | `ResultSourceEntryCopyTests` | A | RISK-BB-140 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

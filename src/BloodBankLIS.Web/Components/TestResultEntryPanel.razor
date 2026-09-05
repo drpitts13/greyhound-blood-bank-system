@@ -33,6 +33,10 @@
         else if (_definition is not null)
         {
             <h4 style="margin:0;">@_definition.Name <span class="mono muted">(@_definition.Code)</span></h4>
+            @if (ResultSourceEntryCopy.ShowsPanelHint(ShowsPanelSubtests && _panelSubtests.Count > 0))
+            {
+                <p class="muted">@ResultSourceEntryCopy.PanelHint</p>
+            }
 
             @if (_definition.ResultValueType == ResultValueType.AboRh)
             {
@@ -787,9 +791,11 @@
             return;
         }
 
-        var savedMessage = IsAboRhEntry
-            ? "ABO/Rh saved. A different user must verify before it becomes the current type."
-            : markComplete ? "Result saved and verified." : "Result saved (incomplete).";
+        var savedMessage = r.Succeeded && r.Value is not null
+            ? ResultSourceEntryCopy.Saved(r.Value.Source)
+            : IsAboRhEntry
+                ? "ABO/Rh saved. A different user must verify before it becomes the current type."
+                : markComplete ? "Result saved and verified." : "Result saved (incomplete).";
         _fb = r.ToFeedback(savedMessage);
         if (r.Succeeded)
         {

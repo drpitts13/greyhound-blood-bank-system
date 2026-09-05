@@ -123,3 +123,4 @@
 | SRS-BB-125 | `InterfaceTranslationAdminService.ReplaceAsync` writes `AuditEventType.Interface`. | FRS-BB-164 |
 | SRS-BB-126 | `EncounterService` workspace create/update write `AuditEventType.PatientAccess`. `UpsertVisitFromHl7Async` and `EnsureEncounterForHl7OrderAsync` stay ungated. | FRS-BB-165 |
 | SRS-BB-127 | `PrintService.CreateJobAsync` writes `AuditEventType.Print` after the `PrintJob` id exists. `ReprintAsync` stays Reprint. | FRS-BB-166 |
+| SRS-BB-128 | `ResultSourceEntryCopy.TypedHint` and `Entered` name Manual for typed specimen-card entry. | FRS-BB-167 |
