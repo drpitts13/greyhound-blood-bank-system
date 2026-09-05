@@ -24,6 +24,7 @@ public sealed class ImmunohematologyService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
 
     public ImmunohematologyService(
         IRepository<PatientBloodTypeHistory> bloodTypes,
@@ -35,7 +36,8 @@ public sealed class ImmunohematologyService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<AntibodyIdentificationWorkup>? workups = null)
     {
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
@@ -47,6 +49,7 @@ public sealed class ImmunohematologyService
         _currentUser = currentUser;
         _audit = audit;
         _permissions = permissions;
+        _workups = workups;
     }
 
     public Task<PatientBloodTypeHistory?> GetCurrentBloodTypeAsync(long patientId, CancellationToken ct = default) =>
@@ -211,6 +214,13 @@ public sealed class ImmunohematologyService
             return patientGate;
         }
 
+        var hasOpenWorkup = await HasOpenWorkupAsync(patientId, ct);
+        var openWorkupGate = AntibodyIdentificationHistoryPostRule.EvaluateManualHistoryAdd(hasOpenWorkup);
+        if (openWorkupGate.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<AntibodyHistory>.Fail(openWorkupGate.Message);
+        }
+
         string resolvedSpecificity;
         long? definitionId = bloodAttributeDefinitionId;
 
@@ -295,6 +305,13 @@ public sealed class ImmunohematologyService
             return patientGate;
         }
 
+        var hasOpenWorkup = await HasOpenWorkupAsync(antibody.PatientId, ct);
+        var openWorkupGate = AntibodyIdentificationHistoryPostRule.EvaluateManualHistoryDeactivate(hasOpenWorkup);
+        if (openWorkupGate.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<AntibodyHistory>.Fail(openWorkupGate.Message);
+        }
+
         antibody.IsActive = false;
         antibody.DeactivationReason = reason;
         _antibodies.Update(antibody);
@@ -310,6 +327,16 @@ public sealed class ImmunohematologyService
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<AntibodyHistory>.Ok(antibody);
     }
+
+    private Task<bool> HasOpenWorkupAsync(long patientId, CancellationToken ct) =>
+        _workups is null
+            ? Task.FromResult(false)
+            : _workups.AnyAsync(
+                w => w.PatientId == patientId
+                    && (w.Status == AntibodyWorkupStatus.InProgress
+                        || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                        || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+                ct);
 
     private async Task<OperationResult<T>?> RejectMergedOrMissingPatientAsync<T>(long patientId, CancellationToken ct)
     {

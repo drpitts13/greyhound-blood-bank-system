@@ -57,6 +57,39 @@ public static class AntibodyIdentificationHistoryPostRule
             "An open antibody-identification workup is the identification of record. Complete or void it before verifying a free-text ABID result that would post antibody history.");
     }
 
+    /// <summary>
+    /// Patient-chart add has no specimen. Any open workup on that patient is the
+    /// identification of record for this path (OCD-023).
+    /// </summary>
+    public static RuleResult EvaluateManualHistoryAdd(bool hasOpenWorkupOnPatient)
+    {
+        if (!hasOpenWorkupOnPatient)
+        {
+            return RuleResult.Pass(OpenWorkupCode);
+        }
+
+        return RuleResult.HardStop(
+            OpenWorkupCode,
+            "An open antibody-identification workup is the identification of record. Complete or void it before adding antibody history from the patient chart.");
+    }
+
+    /// <summary>
+    /// Patient-chart deactivate has no specimen. Any open workup on that patient
+    /// is the identification of record for this path (OCD-023). Deactivate after
+    /// complete or void remains the authorized immuno path (OCD-017).
+    /// </summary>
+    public static RuleResult EvaluateManualHistoryDeactivate(bool hasOpenWorkupOnPatient)
+    {
+        if (!hasOpenWorkupOnPatient)
+        {
+            return RuleResult.Pass(OpenWorkupCode);
+        }
+
+        return RuleResult.HardStop(
+            OpenWorkupCode,
+            "An open antibody-identification workup is the identification of record. Complete or void it before deactivating antibody history from the patient chart.");
+    }
+
     public static IReadOnlyList<RuleResult> EvaluateCompletedWorkup(
         bool hasCompletedWorkupInScope,
         IReadOnlyList<string> freeTextSpecificities,

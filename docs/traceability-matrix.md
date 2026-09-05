@@ -203,6 +203,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-134 / FRS-BB-168 | ABID workup lifecycle writes Antibody | `AntibodyIdentificationService` | `AntibodyIdentificationWorkupTests.CreateWorkup_WritesAntibody` | A | RISK-BB-141 |
 | URS-BB-135 / FRS-BB-169 | Electronic XM HardStops while an antibody-identification workup is open | `ElectronicCrossmatchEligibilityRule` `XM-EC-ABID-OPEN` | `CrossmatchRuleTests.ElectronicEligibility_OpenAntibodyIdWorkup_IsHardStop`; `ElectronicCrossmatchEligibilityTests.Assess_OpenAntibodyIdWorkup_BlocksEligibility` | D,A,I | RISK-BB-142 |
 | URS-BB-136 / FRS-BB-170 | Directory user lock and password-reset write UserRole | `UserAdminService.SetLockedAsync`; `UserAdminService.RequestPasswordResetAsync` | `UserAdminAuthorizationTests.LockAndPasswordReset_WriteUserRole` | A | RISK-BB-143 |
+| URS-BB-137 / FRS-BB-171 | Chart antibody add/deactivate HardStops while an antibody-identification workup is open | `AntibodyIdentificationHistoryPostRule` `ABID-WORKUP-OPEN` | `AntibodyIdentificationHistoryPostRuleTests`; `AntibodyIdentificationWorkupTests.AddAntibody_OpenWorkup_IsBlockedUntilVoided`; `DeactivateAntibody_OpenWorkup_IsBlockedUntilVoided` | D,A,I | RISK-BB-144; OCD-023 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

@@ -1491,6 +1491,99 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
     private static ReviewAntibodyIdWorkupRequest AcceptReview(string comment = "Agree.") =>
         new(true, comment, ReviewedWarnings().WarningAcknowledgment);
 
+    [Fact]
+    public async Task AddAntibody_OpenWorkup_IsBlockedUntilVoided()
+    {
+        var (_, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-ADD-OPEN");
+        long workupId;
+
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+
+            var blocked = await Immuno(context).AddAntibodyAsync(
+                patientId, null, "anti-K", AntibodyStatus.Identified, "Chart add while open");
+            Assert.False(blocked.Succeeded);
+            Assert.Contains("identification of record", blocked.Error);
+            Assert.Empty(await Immuno(context).GetAntibodyHistoryAsync(patientId));
+        }
+
+        await using (var voidCtx = _factory.Create())
+        {
+            var voided = await Svc(voidCtx).VoidAsync(
+                workupId, new VoidAntibodyIdWorkupRequest("Abandoned so history can be added from the chart."));
+            Assert.True(voided.Succeeded, voided.Error);
+        }
+
+        await using var after = _factory.Create();
+        var added = await Immuno(after).AddAntibodyAsync(
+            patientId, null, "anti-K", AntibodyStatus.Identified, "Chart add after void");
+        Assert.True(added.Succeeded, added.Error);
+        Assert.Equal("anti-K", added.Value!.AntibodySpecificity);
+    }
+
+    [Fact]
+    public async Task DeactivateAntibody_OpenWorkup_IsBlockedUntilVoided()
+    {
+        var (_, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-DEACT-OPEN");
+        long antibodyId;
+        long workupId;
+
+        await using (var seed = _factory.Create())
+        {
+            var added = await Immuno(seed).AddAntibodyAsync(
+                patientId, null, "anti-K", AntibodyStatus.Identified, "Historical anti-K before workup");
+            Assert.True(added.Succeeded, added.Error);
+            antibodyId = added.Value!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+
+            var blocked = await Immuno(context).DeactivateAntibodyAsync(
+                antibodyId, "Trying to clear history while identification is open");
+            Assert.False(blocked.Succeeded);
+            Assert.Contains("identification of record", blocked.Error);
+            var stillActive = Assert.Single(await Immuno(context).GetActiveAntibodiesAsync(patientId));
+            Assert.Equal("anti-K", stillActive.AntibodySpecificity);
+        }
+
+        await using (var voidCtx = _factory.Create())
+        {
+            var voided = await Svc(voidCtx).VoidAsync(
+                workupId, new VoidAntibodyIdWorkupRequest("Abandoned so history can be deactivated."));
+            Assert.True(voided.Succeeded, voided.Error);
+        }
+
+        await using var after = _factory.Create();
+        var deactivated = await Immuno(after).DeactivateAntibodyAsync(
+            antibodyId, "Currently undetectable after void");
+        Assert.True(deactivated.Succeeded, deactivated.Error);
+        Assert.False(deactivated.Value!.IsActive);
+    }
+
+    private ImmunohematologyService Immuno(BloodBankDbContext c) =>
+        new(
+            new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<AntibodyHistory>(c),
+            new EfRepository<AntigenProfile>(c),
+            new EfRepository<BloodAttributeDefinition>(c),
+            new EfRepository<Patient>(c),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
+
     private async Task<long> SeedPatientAsync(string mrn)
     {
         await using var context = _factory.Create();

@@ -90,4 +90,38 @@ public class AntibodyIdentificationHistoryPostRuleTests
         Assert.True(AntibodyIdentificationHistoryPostRule.SameSpecificities(["anti-K"], ["anti-K"]));
         Assert.False(AntibodyIdentificationHistoryPostRule.SameSpecificities(["anti-K"], ["anti-k"]));
     }
+
+    [Fact]
+    public void ManualHistoryAdd_OpenWorkup_IsHardStop()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateManualHistoryAdd(hasOpenWorkupOnPatient: true);
+
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(AntibodyIdentificationHistoryPostRule.OpenWorkupCode, result.Code);
+    }
+
+    [Fact]
+    public void ManualHistoryAdd_NoOpenWorkup_Passes()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateManualHistoryAdd(hasOpenWorkupOnPatient: false);
+
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void ManualHistoryDeactivate_OpenWorkup_IsHardStop()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateManualHistoryDeactivate(hasOpenWorkupOnPatient: true);
+
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(AntibodyIdentificationHistoryPostRule.OpenWorkupCode, result.Code);
+    }
+
+    [Fact]
+    public void ManualHistoryDeactivate_NoOpenWorkup_Passes()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateManualHistoryDeactivate(hasOpenWorkupOnPatient: false);
+
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

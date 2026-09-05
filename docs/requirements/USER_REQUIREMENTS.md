@@ -6,7 +6,7 @@ that this software is AABB-accredited or FDA-cleared.
 | ID | Need | Priority | Related FRS |
 |---|---|---|---|
 | URS-BB-001 | Staff can identify a patient by enterprise identifiers (MRN and a second identifier), not by display name alone. | P1 | FRS-BB-001 |
-| URS-BB-002 | Staff can see current ABO/Rh, historical types, antibodies (including currently undetectable), and special requirements on the patient record. | P0 | FRS-BB-002 |
+| URS-BB-002 | Staff can see current ABO/Rh, historical types, antibodies (including currently undetectable), and special requirements on the patient record. | P0 | FRS-BB-002, FRS-BB-171 |
 | URS-BB-003 | Staff can accession a specimen with collection metadata and computed validity. | P1 | FRS-BB-010 |
 | URS-BB-004 | Staff can enter, verify, and amend immunohematology results without destroying prior released values. | P0 | FRS-BB-020, FRS-BB-099, FRS-BB-101 |
 | URS-BB-047 | Staff can distinguish manual, instrument, interface, and calculated result sources, and instrument/interface values wait for verification. | P3 | FRS-BB-079, FRS-BB-089, FRS-BB-124, FRS-BB-163, FRS-BB-167 |
@@ -68,7 +68,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-060 | Placing a unit in quarantine or on hold, or marking it missing or damaged, is limited to staff with inventory.release. | P3 | FRS-BB-094 |
 | URS-BB-061 | Staff can find antigen-phenotype changes and result-triggered reflex order lines as named Antibody and OrderChange events, including the prior phenotype when a profile is updated. | P0 | FRS-BB-095 |
 | URS-BB-062 | Running the inventory expiration sweep is limited to staff with inventory.discard. | P3 | FRS-BB-096 |
-| URS-BB-063 | Staff can record antibody-identification panel reactions, review assistance, interpret, and obtain supervisor review before identified antibodies post to history. Assistance must not silently replace technologist judgment. | P0 | FRS-BB-097, FRS-BB-168 |
+| URS-BB-063 | Staff can record antibody-identification panel reactions, review assistance, interpret, and obtain supervisor review before identified antibodies post to history. Assistance must not silently replace technologist judgment. | P0 | FRS-BB-097, FRS-BB-168, FRS-BB-171 |
 | URS-BB-064 | Merging a duplicate patient into a survivor from the workspace is limited to staff with patient.merge. | P1 | FRS-BB-098 |
 | URS-BB-065 | Staff can see retained prior result versions (original value, status, source, reason, who, when) on the patient result panel, and an invalidated correction is not shown as the current result. | P0 | FRS-BB-099 |
 | URS-BB-066 | Creating an order from the workspace is limited to staff with patient.write. | P1 | FRS-BB-100 |
@@ -134,3 +134,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-134 | Staff can find antibody-identification workup open, link, lot-attach, assist, interpret, void, and stale-panel as Antibody, not mixed with test Result entry. Supervisor accept and complete stay Verify. Posted Identified findings stay Antibody on history. | P0 | FRS-BB-168 |
 | URS-BB-135 | Staff cannot complete an electronic (computer) XM while an antibody-identification workup is open. Serologic XM remains available. | P0 | FRS-BB-169 |
 | URS-BB-136 | Staff can find directory user lock, unlock, and password-reset request as UserRole, because those actions decide who can enter, verify, or issue. Create/update stay UserRole. Activate/deactivate stay Activate/Deactivate. | P3 | FRS-BB-170 |
+| URS-BB-137 | Staff cannot add or deactivate antibody history from the patient chart while an antibody-identification workup is open. Complete or void the workup first. Deactivate after complete or void remains the authorized immuno path. | P0 | FRS-BB-171 |
