@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Common;
@@ -68,5 +69,28 @@ public class OrderingLocationAuthorizationTests : IClassFixture<SqliteContextFac
             .SetActiveAsync(created.Value.Id, false);
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.False(allowed.Value!.IsActive);
+    }
+
+    [Fact]
+    public async Task CreateAndUpdate_WriteConfigure()
+    {
+        await using var c = _factory.Create();
+        var code = $"L{Guid.NewGuid():N}"[..8].ToUpperInvariant();
+        var svc = Locations(c);
+
+        var created = await svc.CreateAsync(Request(code));
+        Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(OrderingLocation)
+            && a.EntityId == created.Value!.Id
+            && a.EventType == AuditEventType.Configure));
+
+        var updated = await svc.UpdateAsync(created.Value!.Id, Request(code) with { Name = "ICU" });
+        Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(OrderingLocation) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
     }
 }
