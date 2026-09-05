@@ -13,8 +13,8 @@ namespace BloodBankLIS.Printing;
 /// Orchestrates label/tag printing. It assembles the data model from audited domain
 /// records, renders via the selected <see cref="ILabelRenderer"/>, and records a
 /// <see cref="PrintJob"/> with the payload and rendered output. Reprints are a
-/// dangerous action: they require a reason and write a Reprint audit event
-/// (see docs/printing-billing.md A.3 and docs/safety-rules.md).
+/// dangerous action: they require a reason and write a Reprint audit event.
+/// First prints write Print after the job has an id (interceptor Create still writes).
 /// </summary>
 public sealed class PrintService
 {
@@ -282,6 +282,14 @@ public sealed class PrintService
         };
 
         await _printJobs.AddAsync(job, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        _audit.Record(
+            AuditEventType.Print,
+            nameof(PrintJob),
+            job.Id,
+            oldValue: null,
+            newValue: new { job.JobType, job.ContextType, job.ContextId, job.TemplateCode },
+            reason: $"{job.JobType} printed.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<PrintJob>.Ok(job);
     }

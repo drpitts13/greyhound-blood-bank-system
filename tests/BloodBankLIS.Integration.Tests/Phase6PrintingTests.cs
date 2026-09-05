@@ -74,6 +74,20 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task PrintSpecimenLabel_WritesPrint()
+    {
+        var jobId = await PrintASpecimenLabelAsync("PRT-PRINT-EVT", "ACC-PRT-PRINT-EVT");
+
+        await using var verify = _factory.Create();
+        var events = await verify.AuditEvents.ToListAsync();
+        Assert.Contains(events, e =>
+            e.EntityType == nameof(PrintJob)
+            && e.EventType == AuditEventType.Print
+            && e.EntityId == jobId
+            && e.Reason == "SpecimenLabel printed.");
+    }
+
+    [Fact]
     public async Task PrintSpecimenLabel_PreviewFormat_RendersHumanReadableProof()
     {
         long specimenId;

@@ -122,3 +122,4 @@
 | SRS-BB-124 | `ResultSourceEntryCopy` supplies panel-hint and saved-source wording. `TestResultEntryPanel` and the specimen ABO panel show it when subtests are present. | FRS-BB-163 |
 | SRS-BB-125 | `InterfaceTranslationAdminService.ReplaceAsync` writes `AuditEventType.Interface`. | FRS-BB-164 |
 | SRS-BB-126 | `EncounterService` workspace create/update write `AuditEventType.PatientAccess`. `UpsertVisitFromHl7Async` and `EnsureEncounterForHl7OrderAsync` stay ungated. | FRS-BB-165 |
+| SRS-BB-127 | `PrintService.CreateJobAsync` writes `AuditEventType.Print` after the `PrintJob` id exists. `ReprintAsync` stays Reprint. | FRS-BB-166 |

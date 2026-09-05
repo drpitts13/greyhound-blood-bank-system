@@ -570,7 +570,8 @@ public enum AuditEventType
     Interface = 36,
     UserRole = 37,
     Invalidate = 38,
-    Billing = 39
+    Billing = 39,
+    Print = 40
 }
 
 /// <summary>
