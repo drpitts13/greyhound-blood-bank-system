@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Domain.Entities.Identity;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Common;
@@ -160,5 +161,32 @@ public class UserAdminAuthorizationTests : IClassFixture<SqliteContextFactory>
         var allowed = await Users(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminUsersManage))
             .RequestPasswordResetAsync(tech.Id, "Forgot.");
         Assert.True(allowed.Succeeded, allowed.Error);
+    }
+
+    [Fact]
+    public async Task CreateAndUpdate_WriteUserRole()
+    {
+        await using var c = _factory.Create();
+        await DatabaseSeeder.SeedAsync(c);
+        var svc = Users(c);
+        var name = $"tech-{Guid.NewGuid():N}"[..16];
+
+        var created = await svc.CreateUserAsync(new SaveUserRequest(
+            name, "Temp Tech", null, false, ["Technologist"], "New hire."));
+        Assert.True(created.Succeeded, created.Error);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(User)
+            && a.EntityId == created.Value!.Id
+            && a.EventType == AuditEventType.UserRole));
+
+        var updated = await svc.UpdateUserAsync(
+            created.Value!.Id,
+            new SaveUserRequest(name, "Evening Tech", null, false, null, "Display name for the evening bench."));
+        Assert.True(updated.Succeeded, updated.Error);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(User) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.UserRole));
     }
 }

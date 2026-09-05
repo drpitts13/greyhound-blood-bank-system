@@ -152,7 +152,7 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         await UnitOfWork.SaveChangesAsync(ct);
 
         var dto = await GetUserAsync(user.Id, ct);
-        RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Create, AuditEventType.Create, null, dto, req.ChangeReason);
+        RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Create, AuditEventType.UserRole, null, dto, req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<AdminUserDto>.Ok(dto!);
@@ -191,7 +191,7 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         }
 
         var after = await GetUserAsync(id, ct);
-        RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.Update, before, after, req.ChangeReason);
+        RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, before, after, req.ChangeReason);
         if (req.Roles is not null)
         {
             RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, before, after, req.ChangeReason);
@@ -354,7 +354,7 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         await UnitOfWork.SaveChangesAsync(ct);
 
         var dto = await GetRoleAsync(role.Id, ct);
-        RecordChange(RoleEntity, role.Id, 1, ConfigChangeAction.Create, AuditEventType.Create, null, dto, req.ChangeReason);
+        RecordChange(RoleEntity, role.Id, 1, ConfigChangeAction.Create, AuditEventType.UserRole, null, dto, req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<AdminRoleDto>.Ok(dto!);
