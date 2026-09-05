@@ -17,7 +17,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-008 | Autologous and directed units can be issued only to the designated recipient. | P0 | FRS-BB-032 |
 | URS-BB-009 | Electronic (computer) XM is available only when configured prerequisites hold. | P0 | FRS-BB-033 |
 | URS-BB-010 | Inventory states and modifications remain historically traceable. | P3 | FRS-BB-050 |
-| URS-BB-011 | Clinical and configuration changes are auditable (who/what/when/where/old/new/why). | P4 | FRS-BB-060, FRS-BB-078, FRS-BB-085, FRS-BB-087, FRS-BB-089, FRS-BB-093, FRS-BB-095, FRS-BB-104, FRS-BB-106, FRS-BB-109, FRS-BB-111, FRS-BB-114, FRS-BB-116, FRS-BB-119, FRS-BB-121, FRS-BB-126, FRS-BB-129, FRS-BB-131, FRS-BB-148, FRS-BB-150, FRS-BB-152, FRS-BB-153, FRS-BB-154, FRS-BB-155, FRS-BB-156, FRS-BB-157, FRS-BB-158, FRS-BB-159, FRS-BB-160 |
+| URS-BB-011 | Clinical and configuration changes are auditable (who/what/when/where/old/new/why). | P4 | FRS-BB-060, FRS-BB-078, FRS-BB-085, FRS-BB-087, FRS-BB-089, FRS-BB-093, FRS-BB-095, FRS-BB-104, FRS-BB-106, FRS-BB-109, FRS-BB-111, FRS-BB-114, FRS-BB-116, FRS-BB-119, FRS-BB-121, FRS-BB-126, FRS-BB-129, FRS-BB-131, FRS-BB-148, FRS-BB-150, FRS-BB-152, FRS-BB-153, FRS-BB-154, FRS-BB-155, FRS-BB-156, FRS-BB-157, FRS-BB-158, FRS-BB-159, FRS-BB-160, FRS-BB-161 |
 | URS-BB-012 | Administrators can configure tests, products, rules, and facility policies with versioning. | P5 | FRS-BB-070 |
 | URS-BB-013 | Interfaces preserve raw messages and do not silently discard errors. | P8 | FRS-BB-080 |
 | URS-BB-014 | The facility can operate and recover from downtime without losing traceability. | P5 | FRS-BB-090 |
@@ -37,7 +37,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-028 | Issuing a unit is limited to staff with issue.create. Emergency/MTP still also requires issue.emergency-release. | P0 | FRS-BB-057 |
 | URS-BB-029 | Entering a result or unit ABO/Rh retype is limited to staff with result.enter. Correcting a verified result is limited to staff with result.correct. | P0 | FRS-BB-058 |
 | URS-BB-030 | Accessioning a specimen is limited to staff with specimen.accession. Editing collection metadata requires specimen.edit. Rejecting a specimen requires specimen.reject. | P1 | FRS-BB-059 |
-| URS-BB-031 | Updating patient name, date of birth, sex, status, or pregnancy history is limited to staff with patient.write. | P1 | FRS-BB-061 |
+| URS-BB-031 | Updating patient name, date of birth, sex, status, or pregnancy history is limited to staff with patient.write. | P1 | FRS-BB-061, FRS-BB-161 |
 | URS-BB-032 | Dividing, pooling, or applying a product modification is limited to staff with inventory.modify. | P0 | FRS-BB-062 |
 | URS-BB-033 | Correcting a unit DIN, product code, ABO/Rh code, or related ISBT identity field is limited to staff with inventory.correct-identity. | P1 | FRS-BB-063 |
 | URS-BB-034 | Releasing a reserved unit back to Available is limited to staff with compatibility.allocate. | P0 | FRS-BB-064 |
@@ -124,3 +124,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-124 | Staff can find ward receipt of an issued unit as Transfusion, because that acknowledgment unblocks transfusion documentation. | P1 | FRS-BB-158 |
 | URS-BB-125 | Staff can find directed-to-allogeneic conversion as ProductStatus, because that change clears the reserved patient so the unit can be issued to someone else. | P1 | FRS-BB-159 |
 | URS-BB-126 | Staff can find charge review and cancel as Billing, and export as Export, because those actions decide whether a verified result or issue is billed. | P3 | FRS-BB-160 |
+| URS-BB-127 | Staff can find patient demographic update as PatientAccess, because name, date of birth, sex, status, and pregnancy change who results attach to and which specimen window applies. Chart-open stays PatientAccess with a different reason. | P1 | FRS-BB-161 |

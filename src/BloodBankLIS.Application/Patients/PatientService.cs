@@ -207,7 +207,7 @@ public sealed class PatientService
 
         _patients.Update(patient);
         _audit?.Record(
-            AuditEventType.Update,
+            AuditEventType.PatientAccess,
             nameof(Patient),
             patient.Id,
             oldValue: previous,

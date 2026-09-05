@@ -5,6 +5,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,8 +20,9 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
     private static SpecimenService Specimens(BloodBankDbContext c, SqliteContextFactory factory) =>
         new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c), c, factory.Clock);
 
-    private PatientService Patients(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
+    private PatientService Patients(BloodBankDbContext c, IPermissionEvaluator? permissions = null, bool withAudit = false) =>
         new(new EfRepository<Patient>(c), c, _factory.Clock, Specimens(c, _factory),
+            audit: withAudit ? new AuditWriter(c, _factory.Clock, _factory.CurrentUser) : null,
             currentUser: _factory.CurrentUser, permissions: permissions);
 
     private async Task<long> EnsurePatientAsync(string mrn)
@@ -157,5 +159,23 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
 
         Assert.False(result.Succeeded);
         Assert.Contains("not found", result.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Update_WritesPatientAccess()
+    {
+        var mrn = $"MRN-ACC-{Guid.NewGuid():N}"[..20];
+        var id = await EnsurePatientAsync(mrn);
+
+        await using var context = _factory.Create();
+        var result = await Patients(context, withAudit: true).UpdateAsync(id, new UpdatePatientRequest(
+            "Access", "Pat", null, new DateOnly(1981, 2, 2), Sex.Male, PatientStatus.Active));
+        Assert.True(result.Succeeded, result.Error);
+
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(Patient)
+            && a.EntityId == id
+            && a.EventType == AuditEventType.PatientAccess
+            && a.Reason == "Patient demographics updated."));
     }
 }
