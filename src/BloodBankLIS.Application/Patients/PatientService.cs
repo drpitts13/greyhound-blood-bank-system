@@ -124,6 +124,23 @@ public sealed class PatientService
         };
         await _patients.AddAsync(patient, ct);
         await _unitOfWork.SaveChangesAsync(ct);
+
+        _audit?.Record(
+            AuditEventType.PatientAccess,
+            nameof(Patient),
+            patient.Id,
+            newValue: new
+            {
+                patient.MedicalRecordNumber,
+                patient.LastName,
+                patient.FirstName,
+                patient.MiddleName,
+                patient.DateOfBirth,
+                patient.Sex
+            },
+            reason: "Patient created.");
+        await _unitOfWork.SaveChangesAsync(ct);
+
         return OperationResult<Patient>.Ok(patient);
     }
 

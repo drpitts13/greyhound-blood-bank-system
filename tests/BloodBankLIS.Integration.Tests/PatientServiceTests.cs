@@ -178,4 +178,20 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
             && a.EventType == AuditEventType.PatientAccess
             && a.Reason == "Patient demographics updated."));
     }
+
+    [Fact]
+    public async Task Create_WritesPatientAccess()
+    {
+        var mrn = $"MRN-NEW-{Guid.NewGuid():N}"[..20];
+        await using var context = _factory.Create();
+        var result = await Patients(context, withAudit: true).CreateAsync(
+            new CreatePatientRequest(mrn, "Created", "Pat", null, new DateOnly(1982, 3, 3), Sex.Unknown));
+        Assert.True(result.Succeeded, result.Error);
+
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(Patient)
+            && a.EntityId == result.Value!.Id
+            && a.EventType == AuditEventType.PatientAccess
+            && a.Reason == "Patient created."));
+    }
 }

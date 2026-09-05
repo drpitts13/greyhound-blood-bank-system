@@ -118,3 +118,5 @@
 | SRS-BB-120 | `InventoryService.ConvertDirectedToAllogeneicAsync` writes `AuditEventType.ProductStatus`. | FRS-BB-159 |
 | SRS-BB-121 | `BillingService` review/cancel write `AuditEventType.Billing`; export writes `AuditEventType.Export`. | FRS-BB-160 |
 | SRS-BB-122 | `PatientService.UpdateAsync` writes `AuditEventType.PatientAccess`. | FRS-BB-161 |
+| SRS-BB-123 | `PatientService.CreateAsync` writes `AuditEventType.PatientAccess`. | FRS-BB-162 |
+| SRS-BB-124 | `ResultSourceEntryCopy` supplies panel-hint and saved-source wording. `TestResultEntryPanel` and the specimen ABO panel show it when subtests are present. | FRS-BB-163 |
