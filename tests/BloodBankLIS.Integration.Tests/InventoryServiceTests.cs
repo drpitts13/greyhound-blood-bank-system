@@ -2285,4 +2285,38 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             && e.NewValueJson is not null
             && e.NewValueJson.Contains(unitNumber));
     }
+
+    [Fact]
+    public async Task ExpireDueUnits_WritesProductStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var unitNumber = $"U-EXP-AUD-{key}";
+        await using var context = _factory.Create();
+        var pastDue = new BloodUnit
+        {
+            UnitNumber = unitNumber,
+            ProductTypeId = productTypeId,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1),
+            Status = UnitStatus.Available
+        };
+        context.BloodUnits.Add(pastDue);
+        await context.SaveChangesAsync();
+
+        var expired = await CreateService(context).ExpireDueUnitsAsync();
+        Assert.True(expired.Succeeded, expired.Error);
+        Assert.Equal(UnitStatus.Expired, (await context.BloodUnits.FindAsync(pastDue.Id))!.Status);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == pastDue.Id
+            && e.Reason == "Unit expired."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(unitNumber));
+    }
 }

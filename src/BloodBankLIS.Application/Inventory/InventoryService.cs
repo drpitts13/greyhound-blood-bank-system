@@ -1567,6 +1567,20 @@ public sealed class InventoryService
                 ChangedBy = _currentUser.UserName,
                 ChangedUtc = now
             });
+
+            _audit.Record(
+                AuditEventType.ProductStatus,
+                nameof(BloodUnit),
+                unit.Id,
+                oldValue: new { Status = fromStatus },
+                newValue: new
+                {
+                    unit.UnitNumber,
+                    Status = UnitStatus.Expired,
+                    Path = "ExpireSweep",
+                    unit.ExpiresUtc
+                },
+                reason: "Unit expired.");
             expired++;
         }
 
