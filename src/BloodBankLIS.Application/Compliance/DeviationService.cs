@@ -84,7 +84,13 @@ public sealed class DeviationService
             ReportedUtc = _clock.UtcNow
         };
         await _deviations.AddAsync(row, ct);
-        _audit.Record(AuditEventType.Deviation, nameof(Deviation), null, newValue: new { request.Title, request.Severity });
+        await _unitOfWork.SaveChangesAsync(ct);
+        _audit.Record(
+            AuditEventType.Deviation,
+            nameof(Deviation),
+            row.Id,
+            newValue: new { row.Title, row.Severity, row.Status, row.ContextType, row.ContextId },
+            reason: "Deviation created.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Deviation>.Ok(row);
     }
@@ -104,6 +110,8 @@ public sealed class DeviationService
             return OperationResult<Deviation>.Fail("Deviation not found.");
         }
 
+        var oldStatus = row.Status;
+        var oldAction = row.CorrectiveAction;
         row.Status = status;
         if (correctiveAction is not null)
         {
@@ -116,6 +124,13 @@ public sealed class DeviationService
             row.ClosedUtc = _clock.UtcNow;
         }
 
+        _audit.Record(
+            AuditEventType.Deviation,
+            nameof(Deviation),
+            row.Id,
+            oldValue: new { Status = oldStatus, CorrectiveAction = oldAction },
+            newValue: new { row.Status, row.CorrectiveAction },
+            reason: "Deviation status updated.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Deviation>.Ok(row);
     }

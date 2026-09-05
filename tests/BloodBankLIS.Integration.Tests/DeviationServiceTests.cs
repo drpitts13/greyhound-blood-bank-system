@@ -60,4 +60,30 @@ public class DeviationServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(DeviationStatus.Closed, allowed.Value!.Status);
     }
+
+    [Fact]
+    public async Task CreateAndUpdateStatus_WriteDeviation()
+    {
+        await using var context = _factory.Create();
+        var title = $"QC miss {Guid.NewGuid():N}";
+        var created = await CreateService(context).CreateAsync(
+            new CreateDeviationRequest(title, "Daily QC not documented", DeviationSeverity.Major, "TestResult", 1));
+        Assert.True(created.Succeeded, created.Error);
+
+        var updated = await CreateService(context).UpdateStatusAsync(
+            created.Value!.Id, DeviationStatus.Closed, "Retrained staff");
+        Assert.True(updated.Succeeded, updated.Error);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EntityType == nameof(Deviation)
+            && e.EventType == AuditEventType.Deviation
+            && e.EntityId == created.Value.Id
+            && e.Reason == "Deviation created.");
+        Assert.Contains(events, e =>
+            e.EntityType == nameof(Deviation)
+            && e.EventType == AuditEventType.Deviation
+            && e.EntityId == created.Value.Id
+            && e.Reason == "Deviation status updated.");
+    }
 }

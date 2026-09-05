@@ -128,3 +128,4 @@
 | SRS-BB-130 | `ElectronicCrossmatchEligibilityRule` includes `XM-EC-ABID-OPEN`. Eligibility, electronic RecordCrossmatch, and issue eligibility query InProgress, PendingInterpretation, and PendingSupervisorReview workups. | FRS-BB-169 |
 | SRS-BB-131 | `UserAdminService.SetLockedAsync` and `RequestPasswordResetAsync` write `AuditEventType.UserRole`. | FRS-BB-170 |
 | SRS-BB-132 | `ImmunohematologyService` chart add/deactivate call `EvaluateManualHistoryAdd` / `EvaluateManualHistoryDeactivate` against InProgress, PendingInterpretation, and PendingSupervisorReview workups. | FRS-BB-171 |
+| SRS-BB-133 | `DeviationService.CreateAsync` writes `AuditEventType.Deviation` after the row has an id. `UpdateStatusAsync` writes Deviation with status old/new. | FRS-BB-172 |
