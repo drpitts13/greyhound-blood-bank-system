@@ -3,6 +3,7 @@ using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +15,7 @@ public class EncounterServiceAuthorizationTests : IClassFixture<SqliteContextFac
 
     public EncounterServiceAuthorizationTests(SqliteContextFactory factory) => _factory = factory;
 
-    private EncounterService Encounters(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
+    private EncounterService Encounters(BloodBankDbContext c, IPermissionEvaluator? permissions = null, bool withAudit = false)
     {
         var providers = new OrderingProviderService(new EfRepository<OrderingProvider>(c), c);
         return new EncounterService(
@@ -25,7 +26,8 @@ public class EncounterServiceAuthorizationTests : IClassFixture<SqliteContextFac
             c,
             new FixedClock(DateTime.UtcNow),
             permissions,
-            _factory.CurrentUser);
+            _factory.CurrentUser,
+            audit: withAudit ? new AuditWriter(c, _factory.Clock, _factory.CurrentUser) : null);
     }
 
     private async Task<Patient> SeedPatientAsync(BloodBankDbContext c)
@@ -94,5 +96,38 @@ public class EncounterServiceAuthorizationTests : IClassFixture<SqliteContextFac
                 DateTime.UtcNow, null, null, null, "ICU", "ICU", null, null));
         Assert.True(allowed.Succeeded);
         Assert.Equal("ICU", allowed.Value!.CurrentLocation);
+    }
+
+    [Fact]
+    public async Task CreateAndUpdate_WritePatientAccess()
+    {
+        await using var c = _factory.Create();
+        var patient = await SeedPatientAsync(c);
+        var visit = $"VIS-{Guid.NewGuid():N}"[..16];
+        var svc = Encounters(c, withAudit: true);
+
+        var created = await svc.CreateAsync(patient.Id, new CreateEncounterRequest(
+            visit,
+            EncounterType.Inpatient,
+            EncounterStatus.Active,
+            DateTime.UtcNow, null, null, null, "4W", "4W", null, null, null, null));
+        Assert.True(created.Succeeded, created.Error);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(Encounter)
+            && a.EntityId == created.Value!.Id
+            && a.EventType == AuditEventType.PatientAccess
+            && a.Reason == "Visit created."));
+
+        var updated = await svc.UpdateAsync(patient.Id, created.Value!.Id, new UpdateEncounterRequest(
+            EncounterType.Inpatient,
+            EncounterStatus.Active,
+            DateTime.UtcNow, null, null, null, "ICU", "ICU", null, null));
+        Assert.True(updated.Succeeded, updated.Error);
+
+        var events = await c.AuditEvents
+            .Where(a => a.EntityType == nameof(Encounter) && a.EntityId == created.Value.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.PatientAccess));
+        Assert.Contains(events, a => a.Reason == "Visit updated.");
     }
 }

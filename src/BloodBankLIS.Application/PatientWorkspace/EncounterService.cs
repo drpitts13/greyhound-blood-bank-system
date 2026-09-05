@@ -17,6 +17,7 @@ public sealed class EncounterService
     private readonly IClock _clock;
     private readonly IPermissionEvaluator? _permissions;
     private readonly ICurrentUser? _currentUser;
+    private readonly IAuditWriter? _audit;
 
     public EncounterService(
         IRepository<Encounter> encounters,
@@ -26,7 +27,8 @@ public sealed class EncounterService
         IUnitOfWork unitOfWork,
         IClock clock,
         IPermissionEvaluator? permissions = null,
-        ICurrentUser? currentUser = null)
+        ICurrentUser? currentUser = null,
+        IAuditWriter? audit = null)
     {
         _encounters = encounters;
         _patients = patients;
@@ -36,6 +38,7 @@ public sealed class EncounterService
         _clock = clock;
         _permissions = permissions;
         _currentUser = currentUser;
+        _audit = audit;
     }
 
     public Task<IReadOnlyList<Encounter>> ListByPatientAsync(long patientId, CancellationToken ct = default) =>
@@ -97,6 +100,18 @@ public sealed class EncounterService
 
         await _encounters.AddAsync(encounter, ct);
         await _unitOfWork.SaveChangesAsync(ct);
+
+        _audit?.Record(
+            AuditEventType.PatientAccess,
+            nameof(Encounter),
+            encounter.Id,
+            newValue: Snapshot(encounter),
+            reason: "Visit created.");
+        if (_audit is not null)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
         return OperationResult<Encounter>.Ok(encounter);
     }
 
@@ -121,6 +136,7 @@ public sealed class EncounterService
         }
 
         var (providerId, providerName) = await ResolveAttendingProviderAsync(request.AttendingProviderId, ct);
+        var old = Snapshot(encounter);
 
         encounter.EncounterType = request.EncounterType;
         encounter.Status = request.Status;
@@ -141,6 +157,13 @@ public sealed class EncounterService
         }
 
         _encounters.Update(encounter);
+        _audit?.Record(
+            AuditEventType.PatientAccess,
+            nameof(Encounter),
+            encounter.Id,
+            oldValue: old,
+            newValue: Snapshot(encounter),
+            reason: "Visit updated.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Encounter>.Ok(encounter);
     }
@@ -338,6 +361,17 @@ public sealed class EncounterService
 
         return (provider.Id, provider.Name);
     }
+
+    private static object Snapshot(Encounter encounter) => new
+    {
+        encounter.VisitNumber,
+        encounter.EncounterType,
+        encounter.Status,
+        encounter.CurrentLocation,
+        encounter.AttendingProvider,
+        encounter.AdmitUtc,
+        encounter.DischargeUtc
+    };
 
     private async Task<string?> RejectMergedPatientMessageAsync(long patientId, CancellationToken ct)
     {

@@ -121,3 +121,4 @@
 | SRS-BB-123 | `PatientService.CreateAsync` writes `AuditEventType.PatientAccess`. | FRS-BB-162 |
 | SRS-BB-124 | `ResultSourceEntryCopy` supplies panel-hint and saved-source wording. `TestResultEntryPanel` and the specimen ABO panel show it when subtests are present. | FRS-BB-163 |
 | SRS-BB-125 | `InterfaceTranslationAdminService.ReplaceAsync` writes `AuditEventType.Interface`. | FRS-BB-164 |
+| SRS-BB-126 | `EncounterService` workspace create/update write `AuditEventType.PatientAccess`. `UpsertVisitFromHl7Async` and `EnsureEncounterForHl7OrderAsync` stay ungated. | FRS-BB-165 |
