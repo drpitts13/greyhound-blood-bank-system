@@ -1151,7 +1151,7 @@ public sealed class AntibodyIdentificationService
             return;
         }
 
-        await _antibodies.AddAsync(new AntibodyHistory
+        var row = new AntibodyHistory
         {
             PatientId = workup.PatientId,
             BloodAttributeDefinitionId = finding.BloodAttributeDefinitionId,
@@ -1160,17 +1160,21 @@ public sealed class AntibodyIdentificationService
             SourceResultId = workup.SourceResultId,
             Comment = "Posted from supervisor-accepted antibody-identification workup.",
             IsActive = true
-        }, ct);
+        };
+        await _antibodies.AddAsync(row, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
 
         _audit.Record(
             AuditEventType.Antibody,
             nameof(AntibodyHistory),
-            workup.PatientId,
+            row.Id,
             newValue: new
             {
-                finding.Specificity,
+                row.PatientId,
                 WorkupId = workup.Id,
-                finding.BloodAttributeDefinitionId
+                row.AntibodySpecificity,
+                row.BloodAttributeDefinitionId,
+                HistoryId = row.Id
             },
             reason: "Identified on reviewed antibody-identification workup.");
     }

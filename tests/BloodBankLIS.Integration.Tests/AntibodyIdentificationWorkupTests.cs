@@ -667,7 +667,55 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
         Assert.Equal("anti-K", history.AntibodySpecificity);
         Assert.Equal(attrId, history.BloodAttributeDefinitionId);
         Assert.True(await check.AuditEvents.AnyAsync(e =>
-            e.EntityType == nameof(AntibodyHistory) && e.EventType == AuditEventType.Antibody && e.EntityId == patientId));
+            e.EntityType == nameof(AntibodyHistory) && e.EventType == AuditEventType.Antibody && e.EntityId == history.Id));
+    }
+
+    [Fact]
+    public async Task Complete_WritesAntibodyWithHistoryId()
+    {
+        var (attrId, lotId) = await SeedPanelAsync();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patientId = await SeedPatientAsync($"MRN-ABID-AUD-{suffix}");
+        long workupId;
+
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+            workupId = created.Value!.Id;
+            await RecordPanelAhgAsync(context, workupId, created.Value);
+
+            var interpreted = await Svc(context).RecordInterpretationAsync(workupId, new RecordAntibodyIdInterpretationRequest(
+                "anti-K identified by pattern and selected-cell confirmation.",
+                [new AntibodyIdInterpretationItem(attrId, "anti-K", AntibodyIdClassification.Identified, "Technologist identification")]));
+            Assert.True(interpreted.Succeeded, interpreted.Error);
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var reviewed = await Svc(context, new TestCurrentUser("supervisor-abid", "WS-2"))
+                .ReviewAsync(workupId, AcceptReview("Agree with anti-K."));
+            Assert.True(reviewed.Succeeded, reviewed.Error);
+        }
+
+        await using var check = _factory.Create();
+        var completed = await Svc(check).CompleteAsync(workupId, ReviewedWarnings());
+        Assert.True(completed.Succeeded, completed.Error);
+
+        var history = Assert.Single(await check.AntibodyHistory
+            .Where(a => a.PatientId == patientId && a.IsActive)
+            .ToListAsync());
+        var events = check.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Antibody
+            && e.EntityType == nameof(AntibodyHistory)
+            && e.EntityId == history.Id
+            && e.Reason == "Identified on reviewed antibody-identification workup."
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains($"\"PatientId\":{patientId}")
+            && e.NewValueJson.Contains($"\"WorkupId\":{workupId}")
+            && e.NewValueJson.Contains($"\"HistoryId\":{history.Id}"));
     }
 
     [Fact]
@@ -1578,11 +1626,11 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
             new EfRepository<AntigenProfile>(c),
             new EfRepository<BloodAttributeDefinition>(c),
             new EfRepository<Patient>(c),
-            c,
-            _factory.Clock,
-            _factory.CurrentUser,
-            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            unitOfWork: c,
+            clock: _factory.Clock,
+            currentUser: _factory.CurrentUser,
+            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
 
     private async Task<long> SeedPatientAsync(string mrn)
     {
