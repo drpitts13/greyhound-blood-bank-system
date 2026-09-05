@@ -16,8 +16,8 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-007 | Two users cannot reserve or issue the same unit. | P0 | FRS-BB-041 |
 | URS-BB-008 | Autologous and directed units can be issued only to the designated recipient. | P0 | FRS-BB-032 |
 | URS-BB-009 | Electronic (computer) XM is available only when configured prerequisites hold. | P0 | FRS-BB-033, FRS-BB-169 |
-| URS-BB-010 | Inventory states and modifications remain historically traceable. | P3 | FRS-BB-050, FRS-BB-175, FRS-BB-176, FRS-BB-178 |
-| URS-BB-011 | Clinical and configuration changes are auditable (who/what/when/where/old/new/why). | P4 | FRS-BB-060, FRS-BB-078, FRS-BB-085, FRS-BB-087, FRS-BB-089, FRS-BB-093, FRS-BB-095, FRS-BB-104, FRS-BB-106, FRS-BB-109, FRS-BB-111, FRS-BB-114, FRS-BB-116, FRS-BB-119, FRS-BB-121, FRS-BB-126, FRS-BB-129, FRS-BB-131, FRS-BB-148, FRS-BB-150, FRS-BB-152, FRS-BB-153, FRS-BB-154, FRS-BB-155, FRS-BB-156, FRS-BB-157, FRS-BB-158, FRS-BB-159, FRS-BB-160, FRS-BB-161, FRS-BB-162, FRS-BB-164, FRS-BB-165, FRS-BB-166, FRS-BB-168, FRS-BB-170, FRS-BB-172, FRS-BB-173, FRS-BB-174, FRS-BB-175, FRS-BB-176, FRS-BB-177, FRS-BB-178 |
+| URS-BB-010 | Inventory states and modifications remain historically traceable. | P3 | FRS-BB-050, FRS-BB-175, FRS-BB-176, FRS-BB-178, FRS-BB-179 |
+| URS-BB-011 | Clinical and configuration changes are auditable (who/what/when/where/old/new/why). | P4 | FRS-BB-060, FRS-BB-078, FRS-BB-085, FRS-BB-087, FRS-BB-089, FRS-BB-093, FRS-BB-095, FRS-BB-104, FRS-BB-106, FRS-BB-109, FRS-BB-111, FRS-BB-114, FRS-BB-116, FRS-BB-119, FRS-BB-121, FRS-BB-126, FRS-BB-129, FRS-BB-131, FRS-BB-148, FRS-BB-150, FRS-BB-152, FRS-BB-153, FRS-BB-154, FRS-BB-155, FRS-BB-156, FRS-BB-157, FRS-BB-158, FRS-BB-159, FRS-BB-160, FRS-BB-161, FRS-BB-162, FRS-BB-164, FRS-BB-165, FRS-BB-166, FRS-BB-168, FRS-BB-170, FRS-BB-172, FRS-BB-173, FRS-BB-174, FRS-BB-175, FRS-BB-176, FRS-BB-177, FRS-BB-178, FRS-BB-179 |
 | URS-BB-012 | Administrators can configure tests, products, rules, and facility policies with versioning. | P5 | FRS-BB-070 |
 | URS-BB-013 | Interfaces preserve raw messages and do not silently discard errors. | P8 | FRS-BB-080 |
 | URS-BB-014 | The facility can operate and recover from downtime without losing traceability. | P5 | FRS-BB-090 |
@@ -49,7 +49,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-040 | Recording ward receipt of an issued unit is limited to staff with transfusion.document. | P0 | FRS-BB-071, FRS-BB-158 |
 | URS-BB-041 | Discarding a unit is limited to staff with inventory.discard. | P0 | FRS-BB-072 |
 | URS-BB-042 | Transferring a unit between storage locations is limited to staff with inventory.transfer. | P1 | FRS-BB-073 |
-| URS-BB-043 | Recalling a unit from inventory (not via lookback DIN recall) is limited to staff with inventory.recall. | P0 | FRS-BB-074 |
+| URS-BB-043 | Recalling a unit from inventory (not via lookback DIN recall) is limited to staff with inventory.recall. | P0 | FRS-BB-074, FRS-BB-179 |
 | URS-BB-044 | Creating or closing a quality-system deviation is limited to staff with deviation.manage. | P4 | FRS-BB-075, FRS-BB-172 |
 | URS-BB-045 | Creating a patient record is limited to staff with patient.write. | P1 | FRS-BB-076, FRS-BB-162 |
 | URS-BB-046 | Saving a unit antigen or antibody attribute used at compatibility is limited to staff with inventory.receive. | P2 | FRS-BB-077 |
@@ -142,3 +142,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-142 | Staff can find expected inbound packing-list create, arrival confirmation, and cancel as ProductStatus on the unit id with old/new status, because those rows later arrive as inventory that can issue. | P1 | FRS-BB-176 |
 | URS-BB-143 | Staff can see on `/audit` whether a submitted, verified, invalidated, or re-entered result was Manual, Instrument, Interface, or Calculated. Correct already stored source. Stored source is not changed by those actions. | P0 | FRS-BB-177 |
 | URS-BB-144 | Staff can find quarantine release and operational-hold release as ProductStatus on the unit id with old/new status, because those actions make a unit Available for later issue. Placing into quarantine or hold stays interceptor Update. | P0 | FRS-BB-178 |
+| URS-BB-145 | Staff can find a direct inventory recall as ProductStatus on the unit id with old/new status, because that unit must not later issue. Lookback DIN recall stays Lookback. | P0 | FRS-BB-179 |

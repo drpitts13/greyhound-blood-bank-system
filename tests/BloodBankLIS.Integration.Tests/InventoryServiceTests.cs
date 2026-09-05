@@ -2066,4 +2066,30 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             && e.OldValueJson is not null
             && e.NewValueJson is not null);
     }
+
+    [Fact]
+    public async Task Recall_WritesProductStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var unitNumber = $"U-RCL-AUD-{key}";
+        await using var context = _factory.Create();
+        var svc = CreateService(context);
+        var received = await svc.ReceiveUnitAsync(NewUnitRequest(unitNumber, productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var recalled = await svc.RecallAsync(received.Unit!.Id, "Donor subsequently reactive");
+        Assert.True(recalled.Succeeded, recalled.Error);
+        Assert.Equal(UnitStatus.Recalled, recalled.Unit!.Status);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == received.Unit.Id
+            && e.Reason == "Unit recalled."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(unitNumber));
+    }
 }

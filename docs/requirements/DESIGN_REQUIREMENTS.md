@@ -135,3 +135,4 @@
 | SRS-BB-137 | `InventoryService.ExpectUnitAsync` writes `AuditEventType.ProductStatus` after the unit id exists. `ReceiveExpectedUnitAsync` and `CancelExpectedUnitAsync` write ProductStatus with Expected old/new. | FRS-BB-176 |
 | SRS-BB-138 | `ResultService` submit, verify, invalidate (new-version, restore-prior, in-place), and re-entry-after-invalidate audits include stored `ResultSource` on old/new. | FRS-BB-177 |
 | SRS-BB-139 | `InventoryService.ReleaseFromQuarantineAsync` and `ReleaseFromHoldAsync` write `AuditEventType.ProductStatus` with old/new status after the Available transition. | FRS-BB-178 |
+| SRS-BB-140 | `InventoryService.RecallAsync` writes `AuditEventType.ProductStatus` after the Recalled transition. `RecallForLookbackAsync` does not write this ProductStatus. | FRS-BB-179 |

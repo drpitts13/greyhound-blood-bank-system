@@ -736,7 +736,34 @@ public sealed class InventoryService
             return denied;
         }
 
-        return await ApplyRecallAsync(unitId, reason, ct);
+        var existing = await _repository.GetUnitAsync(unitId, ct);
+        if (existing is null)
+        {
+            return InventoryActionResult.Fail("Unit not found.");
+        }
+
+        var fromStatus = existing.Status;
+        var recalled = await ApplyRecallAsync(unitId, reason, ct);
+        if (!recalled.Succeeded)
+        {
+            return recalled;
+        }
+
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unitId,
+            oldValue: new { Status = fromStatus },
+            newValue: new
+            {
+                existing.UnitNumber,
+                Status = UnitStatus.Recalled,
+                Path = "DirectRecall",
+                RecallReason = reason.Trim()
+            },
+            reason: "Unit recalled.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return recalled;
     }
 
     /// <summary>
