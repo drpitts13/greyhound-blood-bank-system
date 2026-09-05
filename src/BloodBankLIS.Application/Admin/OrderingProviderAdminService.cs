@@ -76,7 +76,7 @@ public sealed class OrderingProviderAdminService : ConfigAdminServiceBase
         await _providers.AddAsync(entity, ct);
         await UnitOfWork.SaveChangesAsync(ct);
         var dto = OrderingProviderDto.From(entity);
-        RecordChange("OrderingProvider", entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Create, null, dto, null);
+        RecordChange("OrderingProvider", entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<OrderingProviderDto>.Ok(dto, validation);
     }
@@ -114,7 +114,7 @@ public sealed class OrderingProviderAdminService : ConfigAdminServiceBase
         }
 
         _providers.Update(entity);
-        RecordChange("OrderingProvider", entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Update, old, OrderingProviderDto.From(entity), null);
+        RecordChange("OrderingProvider", entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, OrderingProviderDto.From(entity), null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<OrderingProviderDto>.Ok(OrderingProviderDto.From(entity), validation);
     }
