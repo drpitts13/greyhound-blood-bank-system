@@ -221,7 +221,7 @@ public sealed class AntibodyIdentificationService
         }
 
         _audit.Record(
-            AuditEventType.Result,
+            AuditEventType.Antibody,
             nameof(AntibodyIdentificationWorkup),
             workup.Id,
             newValue: new { workup.PatientId, workup.PrimaryLotId, workup.SpecimenId },
@@ -310,7 +310,7 @@ public sealed class AntibodyIdentificationService
         }
 
         _audit.Record(
-            AuditEventType.Result,
+            AuditEventType.Antibody,
             nameof(AntibodyIdentificationWorkup),
             workup.Id,
             newValue: new { workup.SpecimenId, workup.SourceResultId },
@@ -402,7 +402,7 @@ public sealed class AntibodyIdentificationService
         await InvalidateJudgmentAfterPanelChangeAsync(workup, ct);
 
         _audit.Record(
-            AuditEventType.Result,
+            AuditEventType.Antibody,
             nameof(AntibodyIdentificationWorkup),
             workupId,
             newValue: new { AttachedLotIds = toAdd },
@@ -588,7 +588,7 @@ public sealed class AntibodyIdentificationService
         var assist = await RefreshAssistFindingsAsync(workup, ct);
 
         _audit.Record(
-            AuditEventType.Result,
+            AuditEventType.Antibody,
             nameof(AntibodyIdentificationWorkup),
             workupId,
             newValue: new
@@ -749,7 +749,7 @@ public sealed class AntibodyIdentificationService
         _workups.Update(workup);
 
         _audit.Record(
-            AuditEventType.Result,
+            AuditEventType.Antibody,
             nameof(AntibodyIdentificationWorkup),
             workupId,
             newValue: new
@@ -1117,7 +1117,7 @@ public sealed class AntibodyIdentificationService
         _workups.Update(workup);
 
         _audit.Record(
-            AuditEventType.Result,
+            AuditEventType.Antibody,
             nameof(AntibodyIdentificationWorkup),
             workupId,
             newValue: new { workup.Status, workup.VoidReason },
@@ -1359,7 +1359,7 @@ public sealed class AntibodyIdentificationService
 
         _workups.Update(workup);
         _audit.Record(
-            AuditEventType.Result,
+            AuditEventType.Antibody,
             nameof(AntibodyIdentificationWorkup),
             workup.Id,
             newValue: new { PanelChangedAfterJudgment = true, workup.Status },

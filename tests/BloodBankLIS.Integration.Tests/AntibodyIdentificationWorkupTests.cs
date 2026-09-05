@@ -916,6 +916,25 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
+    public async Task CreateWorkup_WritesAntibody()
+    {
+        var (_, lotId) = await SeedPanelAsync();
+        var patientId = await SeedPatientAsync("MRN-ABID-AUD");
+
+        await using var context = _factory.Create();
+        var created = await Svc(context).CreateWorkupAsync(
+            patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+        Assert.True(created.Succeeded, created.Error);
+
+        var events = await context.AuditEvents.ToListAsync();
+        Assert.Contains(events, e =>
+            e.EntityType == nameof(AntibodyIdentificationWorkup)
+            && e.EventType == AuditEventType.Antibody
+            && e.EntityId == created.Value!.Id
+            && e.Reason == "Antibody-identification workup opened.");
+    }
+
+    [Fact]
     public async Task Completed_CannotBeVoided()
     {
         var (attrId, lotId) = await SeedPanelAsync();
