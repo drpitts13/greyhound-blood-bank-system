@@ -172,6 +172,10 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `ORDPROV-UPD-PERM` | Caller has `admin.config.edit` when updating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORDPROV-ACT-PERM` | Caller has `admin.config.activate` when activating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing |
 | `ORDPROV-DEACT-PERM` | Caller has `admin.config.activate` when deactivating an ordering provider | HardStop when a permission evaluator is present and the privilege is missing |
+| `ORDLOC-CREATE-PERM` | Caller has `admin.config.edit` when creating an ordering location | HardStop when a permission evaluator is present and the privilege is missing |
+| `ORDLOC-UPD-PERM` | Caller has `admin.config.edit` when updating an ordering location | HardStop when a permission evaluator is present and the privilege is missing |
+| `ORDLOC-ACT-PERM` | Caller has `admin.config.activate` when activating an ordering location | HardStop when a permission evaluator is present and the privilege is missing |
+| `ORDLOC-DEACT-PERM` | Caller has `admin.config.activate` when deactivating an ordering location | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-CREATE-PERM` | Caller has `admin.roles.manage` when creating a role | HardStop when a permission evaluator is present and the privilege is missing |
 | `ROLE-UPD-PERM` | Caller has `admin.roles.manage` when updating a role's permissions | HardStop when a permission evaluator is present and the privilege is missing |
 | `INV-MOD-PERM` | Caller has `inventory.modify` when dividing, pooling, or applying a product modification | HardStop when a permission evaluator is present and the privilege is missing |

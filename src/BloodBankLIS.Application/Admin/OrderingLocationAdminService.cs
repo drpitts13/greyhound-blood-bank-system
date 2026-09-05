@@ -9,6 +9,7 @@ namespace BloodBankLIS.Application.Admin;
 public sealed class OrderingLocationAdminService : ConfigAdminServiceBase
 {
     private readonly IRepository<OrderingLocation> _locations;
+    private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public OrderingLocationAdminService(
         IRepository<OrderingLocation> locations,
@@ -16,10 +17,12 @@ public sealed class OrderingLocationAdminService : ConfigAdminServiceBase
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IConfigurationHistoryWriter history)
+        IConfigurationHistoryWriter history,
+        IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _locations = locations;
+        _permissionEvaluator = permissionEvaluator;
     }
 
     public async Task<IReadOnlyList<OrderingLocationDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -38,6 +41,15 @@ public sealed class OrderingLocationAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<OrderingLocationDto>> CreateAsync(SaveOrderingLocationRequest request, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, OrderingLocationAuthorizationRule.EvaluateCreate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var code = NormalizeCode(request.Code);
         if (await _locations.AnyAsync(l => l.Code == code, ct))
         {
@@ -63,6 +75,15 @@ public sealed class OrderingLocationAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<OrderingLocationDto>> UpdateAsync(long id, SaveOrderingLocationRequest request, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigEdit, OrderingLocationAuthorizationRule.EvaluateUpdate, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _locations.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -90,6 +111,15 @@ public sealed class OrderingLocationAdminService : ConfigAdminServiceBase
 
     public async Task<EvaluationResult<OrderingLocationDto>> SetActiveAsync(long id, bool active, CancellationToken ct = default)
     {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.AdminConfigActivate,
+            active ? OrderingLocationAuthorizationRule.EvaluateActivate : OrderingLocationAuthorizationRule.EvaluateDeactivate,
+            ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
         var entity = await _locations.GetByIdAsync(id, ct);
         if (entity is null)
         {
@@ -127,4 +157,22 @@ public sealed class OrderingLocationAdminService : ConfigAdminServiceBase
 
     private static string? NullIfEmpty(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private async Task<EvaluationResult<OrderingLocationDto>?> RejectUnauthorizedAsync(
+        string permissionCode,
+        Func<bool, RuleResult> evaluate,
+        CancellationToken ct)
+    {
+        if (_permissionEvaluator is null)
+        {
+            return null;
+        }
+
+        var allowed = await _permissionEvaluator.HasPermissionAsync(
+            CurrentUser.UserName, permissionCode, ct);
+        var auth = evaluate(allowed);
+        return auth.Severity == RuleSeverity.HardStop
+            ? EvaluationResult<OrderingLocationDto>.Blocked(new RuleEvaluation([auth]))
+            : null;
+    }
 }
