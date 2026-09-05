@@ -336,6 +336,8 @@ public sealed class InventoryService
         });
 
         await _unitOfWork.SaveChangesAsync(ct);
+        RecordReceiveAudit(unit, path: "WalkIn");
+        await _unitOfWork.SaveChangesAsync(ct);
         return InventoryActionResult.Ok(unit);
     }
 
@@ -660,6 +662,8 @@ public sealed class InventoryService
             ChangedUtc = _clock.UtcNow
         });
 
+        await _unitOfWork.SaveChangesAsync(ct);
+        RecordReceiveAudit(unit, path: "IsbtNormalized");
         await _unitOfWork.SaveChangesAsync(ct);
         return InventoryActionResult.Ok(unit);
     }
@@ -1314,6 +1318,21 @@ public sealed class InventoryService
         await _unitOfWork.SaveChangesAsync(ct);
         return InventoryActionResult.Ok(unit);
     }
+
+    private void RecordReceiveAudit(BloodUnit unit, string path) =>
+        _audit.Record(
+            AuditEventType.ProductStatus,
+            nameof(BloodUnit),
+            unit.Id,
+            newValue: new
+            {
+                unit.UnitNumber,
+                unit.Isbt128DonationId,
+                unit.Status,
+                unit.DonationRestriction,
+                Path = path
+            },
+            reason: "Unit received.");
 
     private async Task<InventoryActionResult?> RejectUnauthorizedAsync(
         Func<bool, RuleResult> evaluate, CancellationToken ct)

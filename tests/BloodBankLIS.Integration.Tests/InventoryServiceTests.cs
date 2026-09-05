@@ -1965,4 +1965,23 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Received, initial.ToStatus);
         Assert.Contains("retype", initial.Reason, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task ReceiveUnit_WritesProductStatus()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var unitNumber = $"U-RCV-AUD-{key}";
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ReceiveUnitAsync(NewUnitRequest(unitNumber, productTypeId));
+        Assert.True(result.Succeeded, result.Error);
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.ProductStatus
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == result.Unit!.Id
+            && e.Reason == "Unit received."
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains(unitNumber));
+    }
 }

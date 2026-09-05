@@ -131,3 +131,4 @@
 | SRS-BB-133 | `DeviationService.CreateAsync` writes `AuditEventType.Deviation` after the row has an id. `UpdateStatusAsync` writes Deviation with status old/new. | FRS-BB-172 |
 | SRS-BB-134 | `ReactionInvestigationService.OpenForTransfusionAsync` writes `AuditEventType.ReactionInvestigation` after the row has an id. `UpdateAsync`, `RecordCberNotificationAsync`, and `RecordWrittenReportAsync` write ReactionInvestigation with old/new. | FRS-BB-173 |
 | SRS-BB-135 | `LookbackService.RecallByDinAsync` writes `AuditEventType.Lookback` on a collected unit id. `RecordAttemptAsync` writes Lookback on `LookbackNotification` with old/new. | FRS-BB-174 |
+| SRS-BB-136 | `InventoryService.ReceiveUnitAsync` and `ReceiveNormalizedComponentAsync` write `AuditEventType.ProductStatus` after the unit id exists. | FRS-BB-175 |
