@@ -125,7 +125,21 @@ public sealed class ReactionInvestigationService
         await TryQuarantineRemainderAsync(row, ct);
 
         await _investigations.AddAsync(row, ct);
-        _audit.Record(AuditEventType.ReactionInvestigation, nameof(ReactionInvestigation), null, newValue: new { transfusion.Id }, reason: "Reaction suspected");
+        await _unitOfWork.SaveChangesAsync(ct);
+        _audit.Record(
+            AuditEventType.ReactionInvestigation,
+            nameof(ReactionInvestigation),
+            row.Id,
+            newValue: new
+            {
+                TransfusionEventId = transfusion.Id,
+                row.PatientId,
+                row.BloodProductId,
+                row.Status,
+                row.RemainderQuarantined
+            },
+            reason: "Reaction suspected");
+        await _unitOfWork.SaveChangesAsync(ct);
         return row;
     }
 
@@ -145,6 +159,8 @@ public sealed class ReactionInvestigationService
         {
             return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
         }
+
+        var oldValue = Snapshot(row);
 
         if (request.ReactionType is not null) row.ReactionType = request.ReactionType;
         if (request.Severity is not null) row.Severity = request.Severity.Value;
@@ -204,7 +220,13 @@ public sealed class ReactionInvestigationService
             row.Status = request.Status.Value;
         }
 
-        _audit.Record(AuditEventType.ReactionInvestigation, nameof(ReactionInvestigation), id, reason: "Investigation updated");
+        _audit.Record(
+            AuditEventType.ReactionInvestigation,
+            nameof(ReactionInvestigation),
+            row.Id,
+            oldValue: oldValue,
+            newValue: Snapshot(row),
+            reason: "Investigation updated.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ReactionInvestigation>.Ok(row);
     }
@@ -223,8 +245,17 @@ public sealed class ReactionInvestigationService
             return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
         }
 
+        var oldStatus = row.FatalityNotificationStatus;
+        var oldNotified = row.CberNotifiedUtc;
         row.CberNotifiedUtc = _clock.UtcNow;
         row.FatalityNotificationStatus = FatalityNotificationStatus.CberNotified;
+        _audit.Record(
+            AuditEventType.ReactionInvestigation,
+            nameof(ReactionInvestigation),
+            row.Id,
+            oldValue: new { FatalityNotificationStatus = oldStatus, CberNotifiedUtc = oldNotified },
+            newValue: new { row.FatalityNotificationStatus, row.CberNotifiedUtc },
+            reason: "CBER notification recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ReactionInvestigation>.Ok(row);
     }
@@ -243,11 +274,36 @@ public sealed class ReactionInvestigationService
             return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
         }
 
+        var oldStatus = row.FatalityNotificationStatus;
+        var oldSubmitted = row.WrittenReportSubmittedUtc;
         row.WrittenReportSubmittedUtc = _clock.UtcNow;
         row.FatalityNotificationStatus = FatalityNotificationStatus.WrittenReportSubmitted;
+        _audit.Record(
+            AuditEventType.ReactionInvestigation,
+            nameof(ReactionInvestigation),
+            row.Id,
+            oldValue: new { FatalityNotificationStatus = oldStatus, WrittenReportSubmittedUtc = oldSubmitted },
+            newValue: new { row.FatalityNotificationStatus, row.WrittenReportSubmittedUtc },
+            reason: "Written fatality report recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<ReactionInvestigation>.Ok(row);
     }
+
+    private static object Snapshot(ReactionInvestigation row) => new
+    {
+        row.Status,
+        row.ReactionType,
+        row.Severity,
+        row.RepeatPatientAboRh,
+        row.RepeatUnitAboRh,
+        row.DatResult,
+        row.ElutionResult,
+        row.ClericalCheckCompleted,
+        row.VisualInspectionCompleted,
+        row.RemainderQuarantined,
+        row.IsFatality,
+        row.ProductAtFault
+    };
 
     private async Task TryQuarantineRemainderAsync(ReactionInvestigation row, CancellationToken ct)
     {

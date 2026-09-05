@@ -110,4 +110,89 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.False(cberDenied.Succeeded);
         Assert.Equal(ReactionAuthorizationRule.EvaluateInvestigate(false).Message, cberDenied.Error);
     }
+
+    [Fact]
+    public async Task OpenAndUpdate_WriteReactionInvestigation()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        Assert.True(opened.Id > 0);
+
+        var updated = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                "FNHTR", ReactionSeverity.Mild, null, null, null, null, null, null, null,
+                RepeatPatientAboRh: "A Positive",
+                RepeatUnitAboRh: "O Positive",
+                DatResult: DatWorkupResult.Negative));
+        Assert.True(updated.Succeeded, updated.Error);
+
+        var events = context.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EntityType == nameof(ReactionInvestigation)
+            && e.EventType == AuditEventType.ReactionInvestigation
+            && e.EntityId == opened.Id
+            && e.Reason == "Reaction suspected");
+        Assert.Contains(events, e =>
+            e.EntityType == nameof(ReactionInvestigation)
+            && e.EventType == AuditEventType.ReactionInvestigation
+            && e.EntityId == opened.Id
+            && e.Reason == "Investigation updated."
+            && e.OldValueJson is not null
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains("FNHTR"));
+    }
+
+    private async Task<TransfusionEvent> SeedTransfusionAsync(BloodBankDbContext context, string key)
+    {
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-RXN-{key}",
+            LastName = "React",
+            FirstName = "Pat",
+            DateOfBirth = new DateOnly(1970, 1, 1)
+        };
+        var product = new ProductType { ProductCode = $"RBC-{key}", Name = "RBC" };
+        context.Patients.Add(patient);
+        context.ProductTypes.Add(product);
+        await context.SaveChangesAsync();
+
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-RXN-{key}",
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Status = UnitStatus.Issued,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10)
+        };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync();
+
+        var issue = new Issue
+        {
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            IssuedUtc = _factory.Clock.UtcNow,
+            IssuedBy = "tech-test",
+            Status = IssueStatus.Issued
+        };
+        context.Issues.Add(issue);
+        await context.SaveChangesAsync();
+
+        var transfusion = new TransfusionEvent
+        {
+            IssueId = issue.Id,
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            ReactionSuspected = true,
+            FinalDisposition = TransfusionDisposition.Stopped,
+            DocumentedBy = "tech-test"
+        };
+        context.TransfusionEvents.Add(transfusion);
+        await context.SaveChangesAsync();
+        return transfusion;
+    }
 }

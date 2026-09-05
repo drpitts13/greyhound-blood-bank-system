@@ -129,3 +129,4 @@
 | SRS-BB-131 | `UserAdminService.SetLockedAsync` and `RequestPasswordResetAsync` write `AuditEventType.UserRole`. | FRS-BB-170 |
 | SRS-BB-132 | `ImmunohematologyService` chart add/deactivate call `EvaluateManualHistoryAdd` / `EvaluateManualHistoryDeactivate` against InProgress, PendingInterpretation, and PendingSupervisorReview workups. | FRS-BB-171 |
 | SRS-BB-133 | `DeviationService.CreateAsync` writes `AuditEventType.Deviation` after the row has an id. `UpdateStatusAsync` writes Deviation with status old/new. | FRS-BB-172 |
+| SRS-BB-134 | `ReactionInvestigationService.OpenForTransfusionAsync` writes `AuditEventType.ReactionInvestigation` after the row has an id. `UpdateAsync`, `RecordCberNotificationAsync`, and `RecordWrittenReportAsync` write ReactionInvestigation with old/new. | FRS-BB-173 |
