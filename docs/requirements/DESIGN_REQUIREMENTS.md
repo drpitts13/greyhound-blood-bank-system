@@ -147,3 +147,5 @@
 | SRS-BB-149 | `AntibodyIdentificationService.PostHistoryAsync` saves the history row, then writes `Antibody` on that id with `PatientId`, `WorkupId`, and `HistoryId`. | FRS-BB-188 |
 | SRS-BB-150 | `ResultService.ApplyAntibodyIdentificationResultAsync` saves posted history rows, then writes `Antibody` on the first history id with `PatientId` and `HistoryIds`. | FRS-BB-189 |
 | SRS-BB-151 | `ProductRetypeEntryCopy.Saved`, `VerifiedAvailable`, and `VerifiedQuarantine` name the interpreted ABO/Rh on the retype panel. | FRS-BB-190 |
+| SRS-BB-152 | `CrossmatchEntryCopy.Recorded` names method, Compatible/Incompatible, and id on the compatibility page. | FRS-BB-191 |
+| SRS-BB-153 | `CrossmatchEntryCopy.WorklistSaved` names source, method, and Compatible/Incompatible on worklist XM save. | FRS-BB-192 |

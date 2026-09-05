@@ -84,7 +84,9 @@
             string.IsNullOrWhiteSpace(_xm.Comment) ? null : _xm.Comment);
         var r = await Api.RecordCrossmatchAsync(req);
         _busy = false;
-        _xmFb = r.ToFeedback($"Crossmatch recorded (#{r.Value?.Id}).");
+        _xmFb = r.Succeeded && r.Value is not null
+            ? r.ToFeedback(CrossmatchEntryCopy.Recorded(r.Value.Method, r.Value.Result, r.Value.Id))
+            : r.ToFeedback();
     }
 
     private async Task AllocateAsync()

@@ -792,7 +792,9 @@
         }
 
         var savedMessage = r.Succeeded && r.Value is not null
-            ? ResultSourceEntryCopy.Saved(r.Value.Source)
+            ? IsCrossmatchType
+                ? CrossmatchEntryCopy.WorklistSaved(r.Value.Source, _xmMethod, _xmResult, markComplete)
+                : ResultSourceEntryCopy.Saved(r.Value.Source)
             : IsAboRhEntry
                 ? "ABO/Rh saved. A different user must verify before it becomes the current type."
                 : markComplete ? "Result saved and verified." : "Result saved (incomplete).";

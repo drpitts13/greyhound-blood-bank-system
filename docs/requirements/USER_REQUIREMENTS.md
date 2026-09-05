@@ -9,7 +9,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-002 | Staff can see current ABO/Rh, historical types, antibodies (including currently undetectable), and special requirements on the patient record. | P0 | FRS-BB-002, FRS-BB-171 |
 | URS-BB-003 | Staff can accession a specimen with collection metadata and computed validity. | P1 | FRS-BB-010 |
 | URS-BB-004 | Staff can enter, verify, and amend immunohematology results without destroying prior released values. | P0 | FRS-BB-020, FRS-BB-099, FRS-BB-101 |
-| URS-BB-047 | Staff can distinguish manual, instrument, interface, and calculated result sources, and instrument/interface values wait for verification. | P3 | FRS-BB-079, FRS-BB-089, FRS-BB-124, FRS-BB-163, FRS-BB-167, FRS-BB-177, FRS-BB-189 |
+| URS-BB-047 | Staff can distinguish manual, instrument, interface, and calculated result sources, and instrument/interface values wait for verification. | P3 | FRS-BB-079, FRS-BB-089, FRS-BB-124, FRS-BB-163, FRS-BB-167, FRS-BB-177, FRS-BB-189, FRS-BB-192 |
 | URS-BB-046 | Staff can invalidate a result with a reason without destroying the original row. | P0 | FRS-BB-077, FRS-BB-177 |
 | URS-BB-005 | Staff can evaluate compatibility with an explainable rule outcome (rule ID + reason). | P0 | FRS-BB-030 |
 | URS-BB-006 | Staff can reserve, crossmatch, and issue a unit only when safety checks pass, or via a controlled emergency-release path. | P0 | FRS-BB-031, FRS-BB-040 |
@@ -95,7 +95,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-087 | Staff can find special-requirement add as Antibody (with entity id, old/new, reason) and deactivate as Deactivate. | P1 | FRS-BB-121 |
 | URS-BB-088 | Creating or updating a specimen-type definition is limited to staff with admin.config.edit. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-122 |
 | URS-BB-089 | Creating or updating a product definition is limited to staff with admin.products.manage. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-123 |
-| URS-BB-090 | Staff can see the current result source on the test worklist and the patient Tests tab, including instrument values waiting for verification. | P3 | FRS-BB-124, FRS-BB-163, FRS-BB-167 |
+| URS-BB-090 | Staff can see the current result source on the test worklist and the patient Tests tab, including instrument values waiting for verification. | P3 | FRS-BB-124, FRS-BB-163, FRS-BB-167, FRS-BB-192 |
 | URS-BB-091 | Creating or updating a modification rule is limited to staff with admin.modification-rules.manage. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-125, FRS-BB-131 |
 | URS-BB-092 | Staff can find product-definition create/update as Configure, because those flags decide whether a unit needs ABO/Rh retype or crossmatch before results release it. | P3 | FRS-BB-126 |
 | URS-BB-093 | Creating or updating an expiration modification code is limited to staff with admin.modification-rules.manage. Activating or deactivating one is limited to staff with admin.config.activate. | P2 | FRS-BB-127, FRS-BB-129 |
@@ -154,3 +154,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-154 | Staff can see on `/audit` the antibody-history row id when a completed reviewed workup posts Identified antibodies, not the patient id as the AntibodyHistory entity id. Dual posting paths remain (OCD-023). | P0 | FRS-BB-188 |
 | URS-BB-155 | Staff can see on `/audit` the antibody-history row id when a verified ABID result posts Identified antibodies, not the patient id as the AntibodyHistory entity id. Dual posting paths remain (OCD-023). | P0 | FRS-BB-189 |
 | URS-BB-156 | Staff can see the interpreted ABO/Rh after saving or verifying a unit retype, not only a generic entered/verified message. | P3 | FRS-BB-190 |
+| URS-BB-157 | Staff can see the crossmatch method and Compatible or Incompatible result after recording a crossmatch, not only the row id. | P3 | FRS-BB-191 |
+| URS-BB-158 | Staff can see the crossmatch method and Compatible or Incompatible result after saving a worklist XM, not only Manual/Calculated source. | P3 | FRS-BB-192 |

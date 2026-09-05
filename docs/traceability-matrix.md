@@ -223,6 +223,8 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-154 / FRS-BB-188 | Workup-complete Antibody includes history row id | `AntibodyIdentificationService.PostHistoryAsync` | `AntibodyIdentificationWorkupTests.Complete_WritesAntibodyWithHistoryId` | A | RISK-BB-191 |
 | URS-BB-155 / FRS-BB-189 | Verified-ABID Antibody includes history row ids | `ResultService.ApplyAntibodyIdentificationResultAsync` | `AntibodyIdentificationTests.VerifyAbid_WritesAntibodyWithHistoryIds` | A | RISK-BB-192 |
 | URS-BB-156 / FRS-BB-190 | Unit retype save/verify feedback names interpreted ABO/Rh | `ProductRetypeEntryCopy`; `ProductRetypeEntryPanel` | `ProductRetypeEntryCopyTests` | A | RISK-BB-193 |
+| URS-BB-157 / FRS-BB-191 | Compatibility XM save feedback names method and result | `CrossmatchEntryCopy`; `Compatibility` | `CrossmatchEntryCopyTests` | A | RISK-BB-194 |
+| URS-BB-158 / FRS-BB-192 | Worklist XM save feedback names source, method, and result | `CrossmatchEntryCopy`; `TestResultEntryPanel` | `CrossmatchEntryCopyTests` | A | RISK-BB-195 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
