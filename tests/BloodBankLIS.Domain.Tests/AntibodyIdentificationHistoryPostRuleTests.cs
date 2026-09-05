@@ -175,4 +175,21 @@ public class AntibodyIdentificationHistoryPostRuleTests
 
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void SpecialRequirementOpenWorkup_IsWarning()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateSpecialRequirementOpenWorkup(hasOpenWorkupOnPatient: true);
+
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(AntibodyIdentificationHistoryPostRule.SpecialRequirementOpenCode, result.Code);
+    }
+
+    [Fact]
+    public void SpecialRequirementNoOpenWorkup_Passes()
+    {
+        var result = AntibodyIdentificationHistoryPostRule.EvaluateSpecialRequirementOpenWorkup(hasOpenWorkupOnPatient: false);
+
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

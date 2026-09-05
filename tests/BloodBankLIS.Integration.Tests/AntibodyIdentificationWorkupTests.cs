@@ -797,6 +797,64 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
+    public async Task AddSpecialRequirement_OpenWorkup_WarnsAndAdds()
+    {
+        var (_, lotId) = await SeedPanelAsync();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patientId = await SeedPatientAsync($"MRN-ABID-SR-ADD-{suffix}");
+
+        await using (var context = _factory.Create())
+        {
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+        }
+
+        await using var check = _factory.Create();
+        var added = await SpecialRequirements(check).AddAsync(
+            patientId,
+            new AddSpecialRequirementRequest(
+                SpecialTransfusionRequirementType.AntigenNegative,
+                "History of anti-K",
+                AntigenCode: "K"));
+        Assert.True(added.Succeeded, added.Error);
+        Assert.True(added.Value!.IsActive);
+        Assert.Contains(
+            added.Warnings,
+            w => w.Code == AntibodyIdentificationHistoryPostRule.SpecialRequirementOpenCode);
+    }
+
+    [Fact]
+    public async Task DeactivateSpecialRequirement_OpenWorkup_WarnsAndDeactivates()
+    {
+        var (_, lotId) = await SeedPanelAsync();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var patientId = await SeedPatientAsync($"MRN-ABID-SR-DEACT-{suffix}");
+        long requirementId;
+
+        await using (var context = _factory.Create())
+        {
+            var added = await SpecialRequirements(context).AddAsync(
+                patientId,
+                new AddSpecialRequirementRequest(SpecialTransfusionRequirementType.Irradiated, "Needed"));
+            Assert.True(added.Succeeded, added.Error);
+            requirementId = added.Value!.Id;
+
+            var created = await Svc(context).CreateWorkupAsync(
+                patientId, new CreateAntibodyIdWorkupRequest(null, lotId));
+            Assert.True(created.Succeeded, created.Error);
+        }
+
+        await using var check = _factory.Create();
+        var deactivated = await SpecialRequirements(check).DeactivateAsync(requirementId, "No longer indicated");
+        Assert.True(deactivated.Succeeded, deactivated.Error);
+        Assert.False(deactivated.Value!.IsActive);
+        Assert.Contains(
+            deactivated.Warnings,
+            w => w.Code == AntibodyIdentificationHistoryPostRule.SpecialRequirementOpenCode);
+    }
+
+    [Fact]
     public async Task Complete_DoesNotDuplicateCatalogHistoryRow()
     {
         var (attrId, lotId) = await SeedPanelAsync();
@@ -1698,6 +1756,16 @@ public class AntibodyIdentificationWorkupTests : IClassFixture<SqliteContextFact
         Assert.True(deactivated.Succeeded, deactivated.Error);
         Assert.False(deactivated.Value!.IsActive);
     }
+
+    private SpecialRequirementService SpecialRequirements(BloodBankDbContext c) =>
+        new(
+            new EfRepository<SpecialTransfusionRequirement>(c),
+            new EfRepository<Patient>(c),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
 
     private ImmunohematologyService Immuno(BloodBankDbContext c) =>
         new(

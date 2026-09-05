@@ -14,6 +14,7 @@ public static class AntibodyIdentificationHistoryPostRule
     public const string AllocateOpenCode = "ABID-ALLOC-OPEN";
     public const string IssueOpenCode = "ABID-ISSUE-OPEN";
     public const string CrossmatchOpenCode = "ABID-XM-OPEN";
+    public const string SpecialRequirementOpenCode = "ABID-SR-OPEN";
     public const string AuthoritativeCode = "ABID-WORKUP-AUTHORITATIVE";
     public const string DisagreeCode = "ABID-WORKUP-DISAGREE";
 
@@ -139,6 +140,22 @@ public static class AntibodyIdentificationHistoryPostRule
         return RuleResult.Warning(
             IssueOpenCode,
             "An open antibody-identification workup is the identification of record. Antigen-negative needs may change when the workup completes. This warning does not identify antibodies or block issue.");
+    }
+
+    /// <summary>
+    /// Special requirements may be documented during identification. Warns that
+    /// antigen-negative needs may change when the workup completes.
+    /// </summary>
+    public static RuleResult EvaluateSpecialRequirementOpenWorkup(bool hasOpenWorkupOnPatient)
+    {
+        if (!hasOpenWorkupOnPatient)
+        {
+            return RuleResult.Pass(SpecialRequirementOpenCode);
+        }
+
+        return RuleResult.Warning(
+            SpecialRequirementOpenCode,
+            "An open antibody-identification workup is the identification of record. Antigen-negative needs may change when the workup completes. This warning does not identify antibodies or block documenting special requirements.");
     }
 
     public static IReadOnlyList<RuleResult> EvaluateCompletedWorkup(

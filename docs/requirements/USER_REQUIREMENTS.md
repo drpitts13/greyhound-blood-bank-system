@@ -27,7 +27,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-018 | A unit that requires ABO/Rh retype is not Available until a verified matching retype exists. | P0 | FRS-BB-051, FRS-BB-106, FRS-BB-126 |
 | URS-BB-019 | Manually setting the current ABO/Rh (not from a verified result) is limited to authorized staff. | P0 | FRS-BB-021 |
 | URS-BB-020 | The user who entered a patient ABO/Rh cannot verify it. Current type is established only after a second user verifies. | P0 | FRS-BB-022 |
-| URS-BB-021 | Changing special transfusion requirements (irradiated, CMV-neg, antigen-negative, …) is limited to authorized immuno staff. | P0 | FRS-BB-023 |
+| URS-BB-021 | Changing special transfusion requirements (irradiated, CMV-neg, antigen-negative, …) is limited to authorized immuno staff. | P0 | FRS-BB-023, FRS-BB-196 |
 | URS-BB-022 | A donor lookback recall must actually recall in-date components, including reserved or crossmatched units, or fail closed. | P0 | FRS-BB-024, FRS-BB-174 |
 | URS-BB-023 | Releasing a unit from quality quarantine to Available is limited to staff with inventory.release. | P0 | FRS-BB-052, FRS-BB-178 |
 | URS-BB-024 | Converting an unused directed unit to allogeneic inventory is limited to staff with inventory.release. | P0 | FRS-BB-053, FRS-BB-159 |
@@ -159,3 +159,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-159 | Staff are warned when allocating, recording a serologic crossmatch, or issuing while an antibody-identification workup is open. Those actions still succeed. Electronic XM stays HardStop. | P0 | FRS-BB-193 |
 | URS-BB-160 | Staff are warned when completing a reviewed antibody-identification workup while reserved or issued units remain. Completing still posts Identified findings and does not release those units. | P0 | FRS-BB-194 |
 | URS-BB-161 | Staff are warned when voiding an antibody-identification workup while reserved or issued units remain. Void still succeeds, posts nothing, and does not release those units. | P0 | FRS-BB-195 |
+| URS-BB-162 | Staff are warned when adding or deactivating a special transfusion requirement while an antibody-identification workup is open. Those actions still succeed. | P0 | FRS-BB-196 |

@@ -37,6 +37,7 @@ public sealed class SpecialRequirementService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
 
     public SpecialRequirementService(
         IRepository<SpecialTransfusionRequirement> requirements,
@@ -45,7 +46,8 @@ public sealed class SpecialRequirementService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<AntibodyIdentificationWorkup>? workups = null)
     {
         _requirements = requirements;
         _patients = patients;
@@ -54,6 +56,7 @@ public sealed class SpecialRequirementService
         _currentUser = currentUser;
         _audit = audit;
         _permissions = permissions;
+        _workups = workups;
     }
 
     public async Task<IReadOnlyList<SpecialTransfusionRequirement>> ListActiveAsync(long patientId, CancellationToken ct = default)
@@ -120,7 +123,7 @@ public sealed class SpecialRequirementService
             newValue: new { row.PatientId, row.RequirementType, row.AntigenCode, row.IsActive },
             reason: request.Reason);
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<SpecialTransfusionRequirement>.Ok(row);
+        return OperationResult<SpecialTransfusionRequirement>.Ok(row, await EvaluateOpenWorkupWarningsAsync(patientId, ct));
     }
 
     public async Task<OperationResult<SpecialTransfusionRequirement>> DeactivateAsync(long id, string reason, CancellationToken ct = default)
@@ -164,7 +167,19 @@ public sealed class SpecialRequirementService
             newValue: new { row.PatientId, row.RequirementType, row.AntigenCode, row.IsActive, row.DeactivationReason },
             reason: reason);
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<SpecialTransfusionRequirement>.Ok(row);
+        return OperationResult<SpecialTransfusionRequirement>.Ok(row, await EvaluateOpenWorkupWarningsAsync(row.PatientId, ct));
+    }
+
+    private async Task<IReadOnlyList<RuleResult>?> EvaluateOpenWorkupWarningsAsync(long patientId, CancellationToken ct)
+    {
+        var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
+            w => w.PatientId == patientId
+                && (w.Status == AntibodyWorkupStatus.InProgress
+                    || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                    || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+            ct);
+        var open = AntibodyIdentificationHistoryPostRule.EvaluateSpecialRequirementOpenWorkup(hasOpenWorkup);
+        return open.Severity == RuleSeverity.Warning ? [open] : null;
     }
 
     private async Task<OperationResult<SpecialTransfusionRequirement>?> RejectUnauthorizedAsync(
