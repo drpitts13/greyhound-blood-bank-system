@@ -77,6 +77,60 @@ public class PatientMergeServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Merge_ReassignsAntibodyIdWorkup_AndWarnsWhenOpen()
+    {
+        await using var c = _factory.Create();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var (survivor, duplicate) = await SeedPairAsync(c, $"MAN-ABID-{suffix}");
+        c.AntibodyIdentificationWorkups.Add(new AntibodyIdentificationWorkup
+        {
+            PatientId = duplicate.Id,
+            PrimaryLotId = 1,
+            Status = AntibodyWorkupStatus.InProgress
+        });
+        await c.SaveChangesAsync();
+
+        var result = await Merge(c).MergeAsync(survivor.Id, duplicate.Id, "Same person; open identification follows.");
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Contains(
+            result.Warnings,
+            w => w.Code == AntibodyIdentificationWorkupScopeRule.MergeWorkupCode);
+        Assert.True(c.AntibodyIdentificationWorkups.Any(w =>
+            w.PatientId == survivor.Id && w.Status == AntibodyWorkupStatus.InProgress));
+        Assert.False(c.AntibodyIdentificationWorkups.Any(w =>
+            w.PatientId == duplicate.Id));
+    }
+
+    [Fact]
+    public async Task Merge_BothOpenAntibodyIdWorkups_IsHardStopped()
+    {
+        await using var c = _factory.Create();
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var (survivor, duplicate) = await SeedPairAsync(c, $"MAN-ABID2-{suffix}");
+        c.AntibodyIdentificationWorkups.AddRange(
+            new AntibodyIdentificationWorkup
+            {
+                PatientId = survivor.Id,
+                PrimaryLotId = 1,
+                Status = AntibodyWorkupStatus.PendingInterpretation
+            },
+            new AntibodyIdentificationWorkup
+            {
+                PatientId = duplicate.Id,
+                PrimaryLotId = 1,
+                Status = AntibodyWorkupStatus.InProgress
+            });
+        await c.SaveChangesAsync();
+
+        var result = await Merge(c).MergeAsync(survivor.Id, duplicate.Id, "Attempted merge with two open IDs.");
+        Assert.False(result.Succeeded);
+        Assert.Contains("identification of record", result.Error);
+        Assert.Equal(PatientStatus.Active, (await c.Patients.FindAsync(duplicate.Id))!.Status);
+        Assert.Equal(1, c.AntibodyIdentificationWorkups.Count(w => w.PatientId == survivor.Id));
+        Assert.Equal(1, c.AntibodyIdentificationWorkups.Count(w => w.PatientId == duplicate.Id));
+    }
+
+    [Fact]
     public async Task Merge_Self_IsHardStopped()
     {
         await using var c = _factory.Create();
@@ -152,7 +206,8 @@ public class PatientMergeServiceTests : IClassFixture<SqliteContextFactory>
             new EfRepository<TestResult>(c),
             c,
             currentUser: _factory.CurrentUser,
-            permissions: permissions);
+            permissions: permissions,
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
 
     private static async Task<(Patient Survivor, Patient Duplicate)> SeedPairAsync(BloodBankDbContext c, string key)
     {

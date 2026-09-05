@@ -34,6 +34,7 @@ public sealed class PatientMergeService
     private readonly IAuditWriter? _audit;
     private readonly ICurrentUser? _currentUser;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
 
     public PatientMergeService(
         IRepository<Patient> patients,
@@ -56,7 +57,8 @@ public sealed class PatientMergeService
         IUnitOfWork unitOfWork,
         IAuditWriter? audit = null,
         ICurrentUser? currentUser = null,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<AntibodyIdentificationWorkup>? workups = null)
     {
         _patients = patients;
         _identifiers = identifiers;
@@ -79,6 +81,7 @@ public sealed class PatientMergeService
         _audit = audit;
         _currentUser = currentUser;
         _permissions = permissions;
+        _workups = workups;
     }
 
     public async Task<Patient?> FindByMrnAsync(string mrn, bool followMerge = true, CancellationToken ct = default)
@@ -181,6 +184,17 @@ public sealed class PatientMergeService
             return OperationResult<Patient>.Fail(evaluation.HardStops[0].Message);
         }
 
+        var workupMerge = await EvaluateMergeWorkupsAsync(survivor.Id, duplicate.Id, ct);
+        if (workupMerge.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Patient>.Fail(workupMerge.Message);
+        }
+
+        if (workupMerge.Severity == RuleSeverity.Warning)
+        {
+            evaluation = new RuleEvaluation(evaluation.Results.Append(workupMerge));
+        }
+
         if (duplicate.Status == PatientStatus.Merged && duplicate.MergedIntoPatientId == survivor.Id)
         {
             return OperationResult<Patient>.Ok(survivor, evaluation.Warnings);
@@ -221,6 +235,10 @@ public sealed class PatientMergeService
         await ReassignAsync(_billing, b => b.PatientId == duplicate.Id, b => b.PatientId = survivor.Id, ct);
         await ReassignAsync(_results, r => r.PatientId == duplicate.Id, r => r.PatientId = survivor.Id, ct);
         await ReassignAsync(_units, u => u.ReservedPatientId == duplicate.Id, u => u.ReservedPatientId = survivor.Id, ct);
+        if (_workups is not null)
+        {
+            await ReassignAsync(_workups, w => w.PatientId == duplicate.Id, w => w.PatientId = survivor.Id, ct);
+        }
 
         _audit?.Record(
             AuditEventType.Merge,
@@ -391,6 +409,26 @@ public sealed class PatientMergeService
             }
         }
     }
+
+    private async Task<RuleResult> EvaluateMergeWorkupsAsync(long survivorId, long duplicateId, CancellationToken ct)
+    {
+        if (_workups is null)
+        {
+            return AntibodyIdentificationWorkupScopeRule.EvaluateMergeOpenWorkups(false, false);
+        }
+
+        var survivorHasOpen = await HasOpenWorkupAsync(survivorId, ct);
+        var duplicateHasOpen = await HasOpenWorkupAsync(duplicateId, ct);
+        return AntibodyIdentificationWorkupScopeRule.EvaluateMergeOpenWorkups(survivorHasOpen, duplicateHasOpen);
+    }
+
+    private Task<bool> HasOpenWorkupAsync(long patientId, CancellationToken ct) =>
+        _workups!.AnyAsync(
+            w => w.PatientId == patientId
+                && (w.Status == AntibodyWorkupStatus.InProgress
+                    || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                    || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+            ct);
 
     private async Task<OperationResult<Patient>?> RejectUnauthorizedAsync(CancellationToken ct)
     {

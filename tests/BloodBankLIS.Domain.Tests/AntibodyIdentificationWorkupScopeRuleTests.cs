@@ -174,4 +174,30 @@ public class AntibodyIdentificationWorkupScopeRuleTests
         var result = AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenReadiness(SpecimenStatus.Accepted, completing: false);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void Merge_BothOpen_IsHardStop()
+    {
+        var result = AntibodyIdentificationWorkupScopeRule.EvaluateMergeOpenWorkups(
+            survivorHasOpen: true, duplicateHasOpen: true);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(AntibodyIdentificationWorkupScopeRule.MergeDuplicateOpenCode, result.Code);
+    }
+
+    [Fact]
+    public void Merge_OneOpen_IsWarning()
+    {
+        var result = AntibodyIdentificationWorkupScopeRule.EvaluateMergeOpenWorkups(
+            survivorHasOpen: false, duplicateHasOpen: true);
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(AntibodyIdentificationWorkupScopeRule.MergeWorkupCode, result.Code);
+    }
+
+    [Fact]
+    public void Merge_NoOpen_IsPass()
+    {
+        var result = AntibodyIdentificationWorkupScopeRule.EvaluateMergeOpenWorkups(
+            survivorHasOpen: false, duplicateHasOpen: false);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
 }

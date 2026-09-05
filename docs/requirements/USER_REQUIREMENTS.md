@@ -22,7 +22,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-013 | Interfaces preserve raw messages and do not silently discard errors. | P8 | FRS-BB-080 |
 | URS-BB-014 | The facility can operate and recover from downtime without losing traceability. | P5 | FRS-BB-090 |
 | URS-BB-015 | A merged (losing) patient record cannot be used for testing, allocation, or issue. Work continues on the surviving record. | P1 | FRS-BB-003 |
-| URS-BB-017 | Authorized staff can merge a duplicate patient into the surviving record without deleting history. | P1 | FRS-BB-003 |
+| URS-BB-017 | Authorized staff can merge a duplicate patient into the surviving record without deleting history. | P1 | FRS-BB-003, FRS-BB-197 |
 | URS-BB-016 | A result cannot be verified from an expired or rejected specimen. | P0 | FRS-BB-010 |
 | URS-BB-018 | A unit that requires ABO/Rh retype is not Available until a verified matching retype exists. | P0 | FRS-BB-051, FRS-BB-106, FRS-BB-126 |
 | URS-BB-019 | Manually setting the current ABO/Rh (not from a verified result) is limited to authorized staff. | P0 | FRS-BB-021 |
@@ -160,3 +160,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-160 | Staff are warned when completing a reviewed antibody-identification workup while reserved or issued units remain. Completing still posts Identified findings and does not release those units. | P0 | FRS-BB-194 |
 | URS-BB-161 | Staff are warned when voiding an antibody-identification workup while reserved or issued units remain. Void still succeeds, posts nothing, and does not release those units. | P0 | FRS-BB-195 |
 | URS-BB-162 | Staff are warned when adding or deactivating a special transfusion requirement while an antibody-identification workup is open. Those actions still succeed. | P0 | FRS-BB-196 |
+| URS-BB-163 | Staff cannot merge two records that each have an open antibody-identification workup. A single open workup follows the survivor with a warning. | P0 | FRS-BB-197 |

@@ -16,6 +16,8 @@ public static class AntibodyIdentificationWorkupScopeRule
     public const string SpecimenExpiredCode = "ABID-WORKUP-SPEC-EXPIRED";
     public const string SpecimenNotReadyCode = "ABID-WORKUP-SPEC-NOT-READY";
     public const string SpecimenUnacceptedCode = "ABID-WORKUP-SPEC-UNACCEPTED";
+    public const string MergeDuplicateOpenCode = "ABID-MERGE-DUP-OPEN";
+    public const string MergeWorkupCode = "ABID-MERGE-WORKUP";
 
     public static RuleResult EvaluateSpecimenScope(bool hasSpecimen) =>
         hasSpecimen
@@ -52,6 +54,29 @@ public static class AntibodyIdentificationWorkupScopeRule
         }
 
         return RuleResult.Pass(OverlappingOpenCode);
+    }
+
+    /// <summary>
+    /// Merge must not leave two open identifications of record on the survivor,
+    /// and must not leave a workup on a merged-away record.
+    /// </summary>
+    public static RuleResult EvaluateMergeOpenWorkups(bool survivorHasOpen, bool duplicateHasOpen)
+    {
+        if (survivorHasOpen && duplicateHasOpen)
+        {
+            return RuleResult.HardStop(
+                MergeDuplicateOpenCode,
+                "Both records have an open antibody-identification workup. Complete or void one before merging so the survivor has a single identification of record.");
+        }
+
+        if (survivorHasOpen || duplicateHasOpen)
+        {
+            return RuleResult.Warning(
+                MergeWorkupCode,
+                "An open antibody-identification workup will remain the identification of record on the surviving patient. Merge does not identify antibodies.");
+        }
+
+        return RuleResult.Pass(MergeWorkupCode);
     }
 
     public static RuleResult EvaluateCanLinkSpecimen(AntibodyWorkupStatus status) =>
