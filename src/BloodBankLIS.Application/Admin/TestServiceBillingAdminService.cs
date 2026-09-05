@@ -81,7 +81,7 @@ public sealed class TestServiceBillingAdminService : ConfigAdminServiceBase
         await UnitOfWork.SaveChangesAsync(ct);
 
         var dto = TestServiceBillingDto.From(entity, code);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Create, null, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<TestServiceBillingDto>.Ok(dto, validation);
     }
@@ -117,7 +117,7 @@ public sealed class TestServiceBillingAdminService : ConfigAdminServiceBase
 
         _rows.Update(entity);
         var dto = TestServiceBillingDto.From(entity, code);
-        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Update, old, dto, null);
+        RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Update, AuditEventType.Configure, old, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<TestServiceBillingDto>.Ok(dto, validation);
     }
