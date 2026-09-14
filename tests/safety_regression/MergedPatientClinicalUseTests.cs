@@ -408,6 +408,7 @@ public class MergedPatientClinicalUseTests : IClassFixture<SqliteContextFactory>
             new EfRepository<AntigenProfile>(c),
             new EfRepository<BloodAttributeDefinition>(c),
             new EfRepository<Patient>(c),
+            new EfRepository<AntibodyIdentificationWorkup>(c),
             c,
             _factory.Clock,
             _factory.CurrentUser,

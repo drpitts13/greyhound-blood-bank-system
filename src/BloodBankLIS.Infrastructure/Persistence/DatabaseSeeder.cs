@@ -1493,18 +1493,18 @@ public static partial class DatabaseSeeder
 
         PhaseDefinition Phase(string code, string name, int sort, bool includeInInterpretation = true,
             bool isCheckCell = false, string? validates = null) => new()
-        {
-            Code = code,
-            Name = name,
-            SortOrder = sort,
-            IncludeInInterpretation = includeInInterpretation,
-            IsCheckCell = isCheckCell,
-            ValidatesPhaseCode = validates,
-            IsActive = true,
-            IsDraft = false,
-            EffectiveUtc = now,
-            Version = 1
-        };
+            {
+                Code = code,
+                Name = name,
+                SortOrder = sort,
+                IncludeInInterpretation = includeInInterpretation,
+                IsCheckCell = isCheckCell,
+                ValidatesPhaseCode = validates,
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = now,
+                Version = 1
+            };
     }
 
     private static async Task EnsureCrossmatchSubtestsAsync(BloodBankDbContext context, CancellationToken ct)

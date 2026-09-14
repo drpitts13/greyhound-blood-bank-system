@@ -98,7 +98,8 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             new EfRepository<AntigenProfile>(c),
             new EfRepository<BillingEvent>(c),
             new EfRepository<TestResult>(c),
-            c);
+            c,
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
 
     private Hl7OutboundService Outbound(BloodBankDbContext c) =>
         new(

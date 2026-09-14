@@ -41,14 +41,15 @@ public sealed class AuditWriter : IAuditWriter
         object? oldValue = null,
         object? newValue = null,
         string? reason = null,
-        long? signatureId = null)
+        long? signatureId = null,
+        string? actingUserName = null)
     {
         _context.AuditEvents.Add(new AuditEvent
         {
             EventType = eventType,
             EntityType = entityType,
             EntityId = entityId,
-            UserName = _currentUser.UserName,
+            UserName = string.IsNullOrWhiteSpace(actingUserName) ? _currentUser.UserName : actingUserName.Trim(),
             Workstation = _currentUser.Workstation,
             OccurredUtc = _clock.UtcNow,
             OldValueJson = oldValue is null ? null : JsonSerializer.Serialize(oldValue, JsonOptions),

@@ -26,11 +26,14 @@ public static class AntibodyIdentificationInterpretationRule
     public const string ReviewStaleCode = "ABID-REVIEW-STALE";
     public const string UnexcludedCode = "ABID-UNEXCLUDED";
     public const string IdentifiedExcludedCode = "ABID-INTERP-EXCLUDED";
+    public const string IdentifiedExcludedRationaleCode = "ABID-INTERP-EXCL-REASON";
     public const string HistoryRemainsCode = "ABID-HIST-REMAINS";
     public const string CompleteAckCode = "ABID-COMPLETE-ACK";
     public const string ReviewAckCode = "ABID-REVIEW-ACK";
     public const string ProductsOpenCode = "ABID-COMPLETE-PRODUCTS";
     public const string VoidProductsCode = "ABID-VOID-PRODUCTS";
+    public const string JudgmentWithdrawnAdvisory =
+        "Interpretation and review were withdrawn after a later panel, specimen, ABO/Rh, or antigen-type change. Re-record interpretation and obtain supervisor review before completing. Prior Identified findings were withdrawn and will not post. This does not identify antibodies.";
 
     public static RuleResult AssistIsAdvisory() =>
         RuleResult.Pass(
@@ -199,6 +202,47 @@ public static class AntibodyIdentificationInterpretationRule
                 + " on the reactions entered. Confirm the identification. Assistance is not an identification and does not block the technologist.");
     }
 
+    /// <summary>
+    /// Identifying a specificity that assistance would exclude requires a
+    /// written rationale. This does not identify antibodies.
+    /// </summary>
+    public static RuleResult EvaluateIdentifiedExclusionRationale(
+        IEnumerable<AntibodyIdentificationRecordedFinding> identified,
+        IEnumerable<AntibodyIdentificationAssistFinding> assistFindings)
+    {
+        var excluded = (assistFindings ?? [])
+            .Where(f => f.Classification == AntibodyIdClassification.Excluded)
+            .ToList();
+        var missing = (identified ?? [])
+            .Where(i => i.Classification == AntibodyIdClassification.Identified)
+            .Where(i => excluded.Any(e =>
+                (!string.IsNullOrWhiteSpace(i.AttributeCode)
+                 && string.Equals(i.AttributeCode, e.AttributeCode, StringComparison.Ordinal))
+                || string.Equals(i.Specificity, e.Specificity, StringComparison.Ordinal)))
+            .Where(i => !HasDocumentedRationale(i.Rationale))
+            .Select(i => i.Specificity)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        return missing.Count == 0
+            ? RuleResult.Pass(IdentifiedExcludedRationaleCode)
+            : RuleResult.HardStop(
+                IdentifiedExcludedRationaleCode,
+                "Identifying "
+                + string.Join(", ", missing)
+                + " when assistance would exclude it requires a rationale. Assistance does not identify antibodies.");
+    }
+
+    public static bool HasDocumentedRationale(string? rationale)
+    {
+        if (string.IsNullOrWhiteSpace(rationale))
+        {
+            return false;
+        }
+
+        return !string.Equals(rationale.Trim(), "Technologist classification", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static RuleResult EvaluateUnexcludedAtCompletion(
         IEnumerable<string> cannotExcludeSpecificities,
         IEnumerable<string> identifiedSpecificities)
@@ -299,6 +343,7 @@ public static class AntibodyIdentificationInterpretationRule
             or AntibodyIdentificationAssistEvaluator.SelectedCellNeededCode
             or AntibodyIdentificationWorkupScopeRule.SpecimenExpiredCode
             or AntibodyIdentificationWorkupScopeRule.SpecimenUnacceptedCode
+            or AntibodyPanelLotValidityRule.ExpiredCode
             or ProductsOpenCode;
 
     public static RuleResult EvaluateOpenProductsAtCompletion(bool hasReservedOrIssuedUnits) =>
@@ -363,6 +408,25 @@ public static class AntibodyIdentificationInterpretationRule
         return RuleResult.Warning(
             code,
             $"Identifying {antibodyName} when the patient {source} is {antigenCode}-positive is unexpected for an alloantibody. Confirm autoantibody, recent transfusion, or a typing error. This does not replace technologist judgment.");
+    }
+
+    /// <summary>
+    /// Surfaces withdrawn judgment after panel, specimen, ABO/Rh, or antigen-type
+    /// change. Does not identify antibodies.
+    /// </summary>
+    public static string? EvaluateJudgmentWithdrawnReason(
+        AntibodyWorkupStatus status,
+        string? technologistInterpretation,
+        DateTime? interpretedUtc)
+    {
+        if (interpretedUtc is not null
+            || string.IsNullOrWhiteSpace(technologistInterpretation)
+            || status is AntibodyWorkupStatus.Completed or AntibodyWorkupStatus.Voided)
+        {
+            return null;
+        }
+
+        return JudgmentWithdrawnAdvisory;
     }
 
     public static RuleEvaluation EvaluateCompletion(

@@ -246,6 +246,25 @@ public class AntibodyIdentificationInterpretationRuleTests
     }
 
     [Fact]
+    public void IdentifiedWhenAssistExcluded_WithoutRationale_HardStops()
+    {
+        var result = AntibodyIdentificationInterpretationRule.EvaluateIdentifiedExclusionRationale(
+            [new AntibodyIdentificationRecordedFinding("anti-K", "K", AntibodyIdClassification.Identified, AntibodyIdSource.Technologist)],
+            [new AntibodyIdentificationAssistFinding("anti-K", "K", AntibodyIdClassification.Excluded, "ruled out", 1, 0, 0, 0)]);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(AntibodyIdentificationInterpretationRule.IdentifiedExcludedRationaleCode, result.Code);
+    }
+
+    [Fact]
+    public void IdentifiedWhenAssistExcluded_WithRationale_Passes()
+    {
+        var result = AntibodyIdentificationInterpretationRule.EvaluateIdentifiedExclusionRationale(
+            [new AntibodyIdentificationRecordedFinding("anti-K", "K", AntibodyIdClassification.Identified, AntibodyIdSource.Technologist, "Selected-cell confirmation.")],
+            [new AntibodyIdentificationAssistFinding("anti-K", "K", AntibodyIdClassification.Excluded, "ruled out", 1, 0, 0, 0)]);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
     public void IdentifiedWhenAssistPossible_IsPass()
     {
         var result = AntibodyIdentificationInterpretationRule.EvaluateIdentifiedVersusAssistExclusion(
@@ -359,6 +378,58 @@ public class AntibodyIdentificationInterpretationRuleTests
     }
 
     [Fact]
+    public void OpenProductsAtCompletion_ReservedOrIssued_Warns()
+    {
+        var result = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtCompletion(true);
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(AntibodyIdentificationInterpretationRule.ProductsOpenCode, result.Code);
+    }
+
+    [Fact]
+    public void OpenProductsAtCompletion_None_Passes()
+    {
+        var result = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtCompletion(false);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void OpenProductsAtVoid_ReservedOrIssued_Warns()
+    {
+        var result = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtVoid(true);
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(AntibodyIdentificationInterpretationRule.VoidProductsCode, result.Code);
+    }
+
+    [Fact]
+    public void OpenProductsAtVoid_None_Passes()
+    {
+        var result = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtVoid(false);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void VoidProductsWarning_DoesNotRequireCompleteAcknowledgment()
+    {
+        Assert.False(AntibodyIdentificationInterpretationRule.RequiresCompleteAcknowledgment(
+            AntibodyIdentificationInterpretationRule.VoidProductsCode));
+    }
+
+    [Fact]
+    public void CompleteWarnings_OpenProducts_RequiresAcknowledgment()
+    {
+        var result = AntibodyIdentificationInterpretationRule.EvaluateCompleteAcknowledgment(
+        [
+            RuleResult.Warning(
+                AntibodyIdentificationInterpretationRule.ProductsOpenCode,
+                "Reserved or issued units.")
+        ],
+        acknowledgment: null);
+
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(AntibodyIdentificationInterpretationRule.CompleteAckCode, result.Code);
+    }
+
+    [Fact]
     public void CompleteWithoutClinicalWarnings_DoesNotRequireAcknowledgment()
     {
         var result = AntibodyIdentificationInterpretationRule.EvaluateCompleteAcknowledgment(
@@ -396,36 +467,44 @@ public class AntibodyIdentificationInterpretationRuleTests
     }
 
     [Fact]
-    public void OpenProductsAtCompletion_ReservedOrIssued_Warns()
+    public void OpenWorkup_ExpiredLot_IsWarning()
     {
-        var result = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtCompletion(true);
+        var result = AntibodyPanelLotValidityRule.EvaluateOpenWorkup(
+            true, new DateOnly(2026, 5, 1), new DateOnly(2026, 5, 30), "GHP-ABID-2026A");
         Assert.Equal(RuleSeverity.Warning, result.Severity);
-        Assert.Equal(AntibodyIdentificationInterpretationRule.ProductsOpenCode, result.Code);
-        Assert.True(AntibodyIdentificationInterpretationRule.RequiresCompleteAcknowledgment(
-            AntibodyIdentificationInterpretationRule.ProductsOpenCode));
+        Assert.Equal(AntibodyPanelLotValidityRule.ExpiredCode, result.Code);
     }
 
     [Fact]
-    public void OpenProductsAtCompletion_None_Passes()
+    public void OpenWorkup_InactiveLot_IsHardStop()
     {
-        var result = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtCompletion(false);
-        Assert.Equal(RuleSeverity.Pass, result.Severity);
+        var result = AntibodyPanelLotValidityRule.EvaluateOpenWorkup(
+            false, new DateOnly(2026, 12, 31), new DateOnly(2026, 5, 30), "GHP-ABID-2026A");
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(AntibodyPanelLotValidityRule.InactiveCode, result.Code);
     }
 
     [Fact]
-    public void OpenProductsAtVoid_ReservedOrIssued_Warns()
+    public void JudgmentWithdrawn_WhenInterpretationTextRemainsWithoutUtc()
     {
-        var result = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtVoid(true);
-        Assert.Equal(RuleSeverity.Warning, result.Severity);
-        Assert.Equal(AntibodyIdentificationInterpretationRule.VoidProductsCode, result.Code);
-        Assert.False(AntibodyIdentificationInterpretationRule.RequiresCompleteAcknowledgment(
-            AntibodyIdentificationInterpretationRule.VoidProductsCode));
+        var reason = AntibodyIdentificationInterpretationRule.EvaluateJudgmentWithdrawnReason(
+            AntibodyWorkupStatus.PendingInterpretation,
+            "anti-K identified.",
+            interpretedUtc: null);
+
+        Assert.Equal(AntibodyIdentificationInterpretationRule.JudgmentWithdrawnAdvisory, reason);
     }
 
     [Fact]
-    public void OpenProductsAtVoid_None_Passes()
+    public void JudgmentWithdrawn_WhenCurrentOrClosed_IsNull()
     {
-        var result = AntibodyIdentificationInterpretationRule.EvaluateOpenProductsAtVoid(false);
-        Assert.Equal(RuleSeverity.Pass, result.Severity);
+        Assert.Null(AntibodyIdentificationInterpretationRule.EvaluateJudgmentWithdrawnReason(
+            AntibodyWorkupStatus.PendingInterpretation, "anti-K identified.", interpretedUtc: DateTime.UtcNow));
+        Assert.Null(AntibodyIdentificationInterpretationRule.EvaluateJudgmentWithdrawnReason(
+            AntibodyWorkupStatus.PendingInterpretation, null, interpretedUtc: null));
+        Assert.Null(AntibodyIdentificationInterpretationRule.EvaluateJudgmentWithdrawnReason(
+            AntibodyWorkupStatus.Completed, "anti-K identified.", interpretedUtc: null));
+        Assert.Null(AntibodyIdentificationInterpretationRule.EvaluateJudgmentWithdrawnReason(
+            AntibodyWorkupStatus.Voided, "anti-K identified.", interpretedUtc: null));
     }
 }

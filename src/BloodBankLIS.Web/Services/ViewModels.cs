@@ -67,6 +67,13 @@ public sealed record AuditPageVm(int Total, int Skip, int Take, List<AuditEventV
 
 public sealed record MeVm(string UserName, string DisplayName, int SecurityLevel, string[] Permissions);
 
+public sealed record LoginResultVm(
+    string SessionToken,
+    string UserName,
+    string DisplayName,
+    int SecurityLevel,
+    string[] Permissions);
+
 public sealed record LoginRequestVm(string UserName, string? Password = null, string? Workstation = null);
 
 public sealed record ExpireDueVm(int Expired);

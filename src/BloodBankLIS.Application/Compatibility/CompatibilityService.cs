@@ -109,32 +109,10 @@ public sealed class CompatibilityService
 
         if (request.Method == CrossmatchMethod.Electronic)
         {
-            if (_policy is not null && !await _policy.GetAllowElectronicCrossmatchAsync(ct))
+            var blocked = await EvaluateElectronicEligibilityAsync(request.PatientId, request.AntibodyScreenNegative, ct);
+            if (blocked is not null)
             {
-                return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([
-                    RuleResult.HardStop(
-                        "XM-EC-DISABLED",
-                        "Electronic crossmatch is disabled in facility policy until AABB 5.16 validation is complete.")]));
-            }
-
-            var currentAboRhConfirmed = await _bloodTypes.AnyAsync(
-                h => h.PatientId == request.PatientId && h.IsCurrent && h.Abo != AboGroup.Unknown && h.RhD != RhType.Unknown, ct);
-            var history = await _bloodTypes.ListAsync(h => h.PatientId == request.PatientId, ct);
-            var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
-                history.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
-            var requiresComplexXm = await _antibodyScreenCompat.RequiresComplexCrossmatchAsync(request.PatientId, ct);
-            var screenNegative = request.AntibodyScreenNegative && !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(request.PatientId, ct);
-            var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
-                w => w.PatientId == request.PatientId
-                    && (w.Status == AntibodyWorkupStatus.InProgress
-                        || w.Status == AntibodyWorkupStatus.PendingInterpretation
-                        || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
-                ct);
-            var eligibility = ElectronicCrossmatchEligibilityRule.Evaluate(
-                currentAboRhConfirmed, screenNegative, requiresComplexXm, secondAbo, hasOpenWorkup);
-            if (eligibility.Severity == RuleSeverity.HardStop)
-            {
-                return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation(new[] { eligibility }));
+                return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([blocked]));
             }
 
             result = CrossmatchResult.Compatible;
@@ -157,6 +135,15 @@ public sealed class CompatibilityService
             Comment = request.Comment
         };
 
+        if (request.Method == CrossmatchMethod.Electronic)
+        {
+            var raced = await EvaluateElectronicEligibilityAsync(request.PatientId, request.AntibodyScreenNegative, ct);
+            if (raced is not null)
+            {
+                return EvaluationResult<Crossmatch>.Blocked(new RuleEvaluation([raced]));
+            }
+        }
+
         await _crossmatches.AddAsync(crossmatch, ct);
         await _unitOfWork.SaveChangesAsync(ct);
         _audit?.Record(
@@ -169,6 +156,7 @@ public sealed class CompatibilityService
                 : "Serologic crossmatch recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
         await TryCloseRetrospectiveCrossmatchAsync(crossmatch, ct);
+
         RuleEvaluation? evaluation = null;
         if (request.Method != CrossmatchMethod.Electronic)
         {
@@ -274,6 +262,8 @@ public sealed class CompatibilityService
                 bloodAttrs.UnitSignificantAntibodies,
                 bloodAttrs.UnitAntigens));
         }
+
+        await AppendAllocateOpenWorkupAsync(results, request.PatientId, ct);
 
         var evaluation = new RuleEvaluation(results);
         return EvaluationResult<RuleEvaluation>.Ok(evaluation, evaluation);
@@ -394,8 +384,16 @@ public sealed class CompatibilityService
             AuditEventType.Assignment,
             nameof(Allocation),
             allocation.Id,
-            oldValue: new { Status = fromStatus },
-            newValue: new { unit.Status, allocation.PatientId, allocation.AssignmentType },
+            oldValue: new { Status = fromStatus, unit.UnitNumber, unit.Din, BloodProductId = unit.Id },
+            newValue: new
+            {
+                unit.Status,
+                allocation.PatientId,
+                allocation.AssignmentType,
+                unit.UnitNumber,
+                unit.Din,
+                BloodProductId = unit.Id
+            },
             reason: "Unit assigned to patient.");
         await _unitOfWork.SaveChangesAsync(ct);
 
@@ -465,12 +463,62 @@ public sealed class CompatibilityService
             AuditEventType.Assignment,
             nameof(Allocation),
             allocation.Id,
-            oldValue: new { AllocationStatus = AllocationStatus.Reserved, UnitStatus = fromStatus },
-            newValue: new { AllocationStatus = allocation.Status, UnitStatus = unit.Status },
+            oldValue: new
+            {
+                AllocationStatus = AllocationStatus.Reserved,
+                UnitStatus = fromStatus,
+                unit.UnitNumber,
+                unit.Din,
+                BloodProductId = unit.Id
+            },
+            newValue: new
+            {
+                AllocationStatus = allocation.Status,
+                UnitStatus = unit.Status,
+                unit.UnitNumber,
+                unit.Din,
+                BloodProductId = unit.Id
+            },
             reason: reason.Trim());
 
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<Allocation>.Ok(allocation);
+    }
+
+    /// <summary>
+    /// Re-reads antibody history, screen, ABO, and open workups at record time.
+    /// A second call immediately before save closes the window where another
+    /// operator posts history after the UI showed electronic XM as eligible.
+    /// </summary>
+    private async Task<RuleResult?> EvaluateElectronicEligibilityAsync(
+        long patientId,
+        bool requestAntibodyScreenNegative,
+        CancellationToken ct)
+    {
+        if (_policy is not null && !await _policy.GetAllowElectronicCrossmatchAsync(ct))
+        {
+            return RuleResult.HardStop(
+                "XM-EC-DISABLED",
+                "Electronic crossmatch is disabled in facility policy until AABB 5.16 validation is complete.");
+        }
+
+        var currentAboRhConfirmed = await _bloodTypes.AnyAsync(
+            h => h.PatientId == patientId && h.IsCurrent && h.Abo != AboGroup.Unknown && h.RhD != RhType.Unknown, ct);
+        var history = await _bloodTypes.ListAsync(h => h.PatientId == patientId, ct);
+        var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
+            history.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
+        var hasAntibodyHistory = await _antibodyScreenCompat.HasAntibodyHistoryAsync(patientId, ct);
+        var screenNegative = requestAntibodyScreenNegative
+            && !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(patientId, ct);
+        var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
+            w => w.PatientId == patientId
+                && (w.Status == AntibodyWorkupStatus.InProgress
+                    || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                    || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+            ct);
+        var eligibility = ElectronicCrossmatchEligibilityRule.Evaluate(
+            currentAboRhConfirmed, screenNegative, hasAntibodyHistory, secondAbo, hasOpenWorkup);
+        return eligibility.Severity == RuleSeverity.HardStop ? eligibility : null;
     }
 
     private async Task<RuleResult> EvaluateSerologicOpenWorkupAsync(long patientId, CancellationToken ct)

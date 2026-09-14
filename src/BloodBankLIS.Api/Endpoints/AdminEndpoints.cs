@@ -1,5 +1,6 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Admin;
+using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -16,6 +17,7 @@ public static class AdminEndpoints
     {
         MapTests(app);
         MapBloodAttributes(app);
+        MapAntibodyPanelLots(app);
         MapSpecimenTypes(app);
         MapSubtests(app);
         MapPhases(app);
@@ -104,6 +106,55 @@ public static class AdminEndpoints
 
         group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, BloodAttributeAdminService svc, CancellationToken ct) =>
             EndpointResults.From(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapAntibodyPanelLots(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/antibody-panel-lots").WithTags("Admin: Antibody Panel Lots").RequireAuthenticatedUser();
+
+        group.MapGet("", async (AntibodyPanelLotAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+        {
+            var lot = await svc.GetAsync(id, ct);
+            return lot is null ? Results.NotFound() : Results.Ok(lot);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/manufacturers", async (AntibodyPanelLotAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListManufacturersAsync(includeInactive ?? false, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/manufacturers/{id:long}", async (long id, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+        {
+            var manufacturer = await svc.GetManufacturerAsync(id, ct);
+            return manufacturer is null ? Results.NotFound() : Results.Ok(manufacturer);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("/manufacturers", async (CreateAntibodyPanelManufacturerRequest request, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateManufacturerAsync(request, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/manufacturers/{id:long}/activate", async (long id, ReasonOnlyRequest? req, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ActivateManufacturerAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/manufacturers/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.DeactivateManufacturerAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("", async (CreateAntibodyPanelLotRequest request, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(request, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ActivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, AntibodyPanelLotAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
 

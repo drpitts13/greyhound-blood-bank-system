@@ -39,4 +39,17 @@ public class AuditEvent
 
     /// <summary>True when the action was performed while dev-mode (no-login) was active.</summary>
     public bool IsDevMode { get; set; }
+
+    /// <summary>
+    /// SHA-256 hex of the previous row's <see cref="RecordHash"/>, or
+    /// <c>GENESIS</c> for the first hashed row. Null on rows written before
+    /// the chain existed. Not a retention or purge field.
+    /// </summary>
+    public string? PreviousHash { get; set; }
+
+    /// <summary>
+    /// SHA-256 hex of this row's canonical payload plus <see cref="PreviousHash"/>.
+    /// Null on pre-chain rows. Application saves never update or delete this value.
+    /// </summary>
+    public string? RecordHash { get; set; }
 }

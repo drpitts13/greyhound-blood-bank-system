@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -122,6 +123,27 @@ public sealed class AntibodyIdentificationService
         return await MapWorkupListAsync(workups, ct);
     }
 
+    public async Task<AntibodyIdOpenWorklistSummaryDto> SummarizeOpenWorkupsAsync(CancellationToken ct = default)
+    {
+        var items = await ListOpenWorkupsAsync(ct);
+        return new AntibodyIdOpenWorklistSummaryDto(
+            items.Count,
+            items.Count(w => w.NextAction == AntibodyIdWorklistNextAction.RecordReactions),
+            items.Count(w => w.NextAction == AntibodyIdWorklistNextAction.Interpret),
+            items.Count(w => w.NextAction == AntibodyIdWorklistNextAction.Review),
+            items.Count(w => w.HasInactiveLot),
+            items.Count(w => w.HasExpiredLot),
+            DistinctLotNumbers(items.SelectMany(w => w.InactiveLotNumbers ?? [])),
+            DistinctLotNumbers(items.SelectMany(w => w.ExpiredLotNumbers ?? [])),
+            items.Count(w => w.HasUnusableSpecimen),
+            items.Count(w => w.HasExpiredSpecimen),
+            items.Count(w => w.HasUnacceptedSpecimen),
+            items.Count(w => w.HasNotReadySpecimen),
+            items.Count(w => w.HasWithdrawnJudgment),
+            items.Count(w => w.HasPendingTypeCorrection),
+            items.Count(w => w.HasReservedOrIssuedUnits));
+    }
+
     public async Task<AntibodyIdWorkupDetailDto?> GetWorkupAsync(long workupId, CancellationToken ct = default)
     {
         var workup = await _workups.GetByIdAsync(workupId, ct);
@@ -197,7 +219,8 @@ public sealed class AntibodyIdentificationService
             creatingUnscoped: request.SpecimenId is null,
             hasOpenUnscoped: open.Any(w => w.SpecimenId is null),
             hasOpenOnSameSpecimen: request.SpecimenId is long sid && open.Any(w => w.SpecimenId == sid),
-            hasAnyOpen: open.Count > 0);
+            hasAnyOpen: open.Count > 0,
+            hasOpenOnUnusableSpecimen: await HasOpenOnUnusableSpecimenAsync(open, ct));
         if (overlap.Severity == RuleSeverity.HardStop)
         {
             return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation([overlap]));
@@ -298,7 +321,8 @@ public sealed class AntibodyIdentificationService
             creatingUnscoped: false,
             hasOpenUnscoped: false,
             hasOpenOnSameSpecimen: open.Any(w => w.SpecimenId == request.SpecimenId),
-            hasAnyOpen: open.Count > 0);
+            hasAnyOpen: open.Count > 0,
+            hasOpenOnUnusableSpecimen: await HasOpenOnUnusableSpecimenAsync(open, ct));
         if (overlap.Severity == RuleSeverity.HardStop)
         {
             return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation([overlap]));
@@ -673,16 +697,26 @@ public sealed class AntibodyIdentificationService
         var policy = await _policies.GetAntibodyIdentificationPolicyAsync(ct);
         var assistInput = await BuildAssistInputAsync(workup, policy, ct);
         var assist = AntibodyIdentificationAssistEvaluator.Evaluate(assistInput);
-        var versusExcluded = AntibodyIdentificationInterpretationRule.EvaluateIdentifiedVersusAssistExclusion(
-            resolvedFindings.Select(f => new AntibodyIdentificationRecordedFinding(
+        var recordedForAssist = resolvedFindings
+            .Select(f => new AntibodyIdentificationRecordedFinding(
                 f.Resolution.Specificity,
                 f.Resolution.DefinitionId is long id && attributeCodes.TryGetValue(id, out var code) ? code : null,
                 f.Item.Classification,
-                AntibodyIdSource.Technologist)),
-            assist.Findings);
+                AntibodyIdSource.Technologist,
+                f.Item.Rationale))
+            .ToList();
+        var versusExcluded = AntibodyIdentificationInterpretationRule.EvaluateIdentifiedVersusAssistExclusion(
+            recordedForAssist, assist.Findings);
         if (versusExcluded.Severity == RuleSeverity.Warning)
         {
             catalogWarnings.Add(versusExcluded);
+        }
+
+        var exclusionRationale = AntibodyIdentificationInterpretationRule.EvaluateIdentifiedExclusionRationale(
+            recordedForAssist, assist.Findings);
+        if (exclusionRationale.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(new RuleEvaluation([exclusionRationale]));
         }
 
         var identifiedNames = resolvedFindings
@@ -941,6 +975,13 @@ public sealed class AntibodyIdentificationService
                 new RuleEvaluation(evaluation.Results.Append(incompleteAtComplete)));
         }
 
+        var pendingType = await EvaluatePendingTypeCorrectionAsync(workup, ct);
+        if (pendingType.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(
+                new RuleEvaluation(evaluation.Results.Append(pendingType)));
+        }
+
         if (!evaluation.IsAllowed)
         {
             return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(evaluation);
@@ -1028,6 +1069,15 @@ public sealed class AntibodyIdentificationService
                 completionResults.AddRange(atComplete.Where(r => r.Severity != RuleSeverity.Pass));
             }
         }
+        var lotsAtComplete = await EvaluateLotsForOpenWorkupAsync(workup, ct);
+        if (lotsAtComplete.Any(r => r.Severity == RuleSeverity.HardStop))
+        {
+            return EvaluationResult<AntibodyIdWorkupDetailDto>.Blocked(
+                new RuleEvaluation(completionResults.Concat(lotsAtComplete)));
+        }
+
+        completionResults.AddRange(lotsAtComplete.Where(r => r.Severity != RuleSeverity.Pass));
+        completionResults.Add(await EvaluateOpenProductsAsync(workup.PatientId, ct));
         completionResults.Add(AntibodyIdentificationInterpretationRule.EvaluateIdentifiedWillPost(identifiedToPost));
 
         var autocontrolPositive = await AutocontrolIsPositiveAsync(workup, ct);
@@ -1036,12 +1086,6 @@ public sealed class AntibodyIdentificationService
         if (datAtComplete.Severity == RuleSeverity.Warning)
         {
             completionResults.Add(datAtComplete);
-        }
-
-        var productsOpen = await EvaluateOpenProductsAsync(workup.PatientId, ct);
-        if (productsOpen.Severity != RuleSeverity.Pass)
-        {
-            completionResults.Add(productsOpen);
         }
 
         evaluation = new RuleEvaluation(completionResults);
@@ -1342,7 +1386,10 @@ public sealed class AntibodyIdentificationService
             cellDtos,
             findingDtos,
             DefaultInterpretivePhases,
-            AssistIsAdvisory: true);
+            AssistIsAdvisory: true,
+            HasReservedOrIssuedUnits: await HasReservedOrIssuedUnitsAsync(workup.PatientId, ct),
+            JudgmentWithdrawnReason: AntibodyIdentificationInterpretationRule.EvaluateJudgmentWithdrawnReason(
+                workup.Status, workup.TechnologistInterpretation, workup.InterpretedUtc));
     }
 
     private async Task InvalidateJudgmentAfterPanelChangeAsync(
@@ -1531,6 +1578,8 @@ public sealed class AntibodyIdentificationService
         results.AddRange(assist.Evaluation.Warnings.Where(w =>
             w.Code is AntibodyIdentificationAssistEvaluator.HistoricalUndetectedCode
                 or AntibodyIdentificationAssistEvaluator.SelectedCellNeededCode));
+        results.AddRange(await EvaluateLotsForOpenWorkupAsync(workup, ct));
+        results.Add(await EvaluateOpenProductsAsync(workup.PatientId, ct));
         results.Add(AntibodyIdentificationInterpretationRule.EvaluateIdentifiedWillPost(identifiedToPost));
 
         var autocontrolPositive = await AutocontrolIsPositiveAsync(workup, ct);
@@ -1541,7 +1590,53 @@ public sealed class AntibodyIdentificationService
             results.Add(dat);
         }
 
+        results.Add(await EvaluatePendingTypeCorrectionAsync(workup, ct));
         return results;
+    }
+
+    private async Task<RuleResult> EvaluatePendingTypeCorrectionAsync(
+        AntibodyIdentificationWorkup workup, CancellationToken ct)
+    {
+        if (_results is null || _testDefinitions is null)
+        {
+            return AntibodyIdentificationHistoryPostRule.EvaluatePendingTypeCorrection(false);
+        }
+
+        var typeCodes = await LoadTypeCorrectionCodesAsync(ct);
+        var pending = (await _results.ListAsync(
+                r => r.PatientId == workup.PatientId
+                    && r.Status == ResultStatus.Corrected
+                    && r.SupersededByResultId == null,
+                ct))
+            .Where(r => typeCodes.Contains(r.TestCode)
+                && AntibodyIdentificationHistoryPostRule.PendingTypeCorrectionApplies(
+                    workup.SpecimenId, r.SpecimenId));
+
+        return AntibodyIdentificationHistoryPostRule.EvaluatePendingTypeCorrection(pending.Any());
+    }
+
+    private async Task<HashSet<string>> LoadTypeCorrectionCodesAsync(CancellationToken ct)
+    {
+        var typeCodes = new HashSet<string>(StringComparer.Ordinal) { ResultService.AboRhTestCode };
+        if (_testDefinitions is null)
+        {
+            return typeCodes;
+        }
+
+        var defs = await _testDefinitions.ListAsync(d => d.IsActive, ct);
+        foreach (var code in defs
+            .Where(d =>
+                d.Code == ResultService.AboRhTestCode
+                || d.ContributesToAboRhHistory
+                || (d.ResultValueType == ResultValueType.BloodAttribute
+                    && d.BloodAttributeScopeKind == BloodAttributeKind.Antigen
+                    && !d.ContributesToUnitBloodAttributes))
+            .Select(d => d.Code))
+        {
+            typeCodes.Add(code);
+        }
+
+        return typeCodes;
     }
 
     private async Task<AntibodyIdentificationAssistResult> RefreshAssistFindingsAsync(
@@ -1593,6 +1688,51 @@ public sealed class AntibodyIdentificationService
         return assist;
     }
 
+    private async Task<IReadOnlyList<RuleResult>> EvaluateLotsForOpenWorkupAsync(
+        AntibodyIdentificationWorkup workup,
+        CancellationToken ct)
+    {
+        var links = await _workupLots.ListAsync(l => l.WorkupId == workup.Id, ct);
+        var today = Today();
+        var results = new List<RuleResult>();
+        foreach (var link in links)
+        {
+            var lot = await _lots.GetByIdAsync(link.LotId, ct);
+            if (lot is null)
+            {
+                continue;
+            }
+
+            results.Add(AntibodyPanelLotValidityRule.EvaluateOpenWorkup(
+                lot.IsActive, lot.ExpiresOn, today, lot.LotNumber));
+        }
+
+        return results;
+    }
+
+    private async Task<bool> HasOpenOnUnusableSpecimenAsync(
+        IReadOnlyList<AntibodyIdentificationWorkup> open, CancellationToken ct)
+    {
+        var ids = open
+            .Where(w => w.SpecimenId is long)
+            .Select(w => w.SpecimenId!.Value)
+            .Distinct()
+            .ToList();
+        if (ids.Count == 0)
+        {
+            return false;
+        }
+
+        var now = _clock.UtcNow;
+        var specimens = await _specimens.ListAsync(s => ids.Contains(s.Id), ct);
+        var unusable = specimens
+            .Where(s => AntibodyIdentificationWorkupScopeRule.IsPatientWideIdentificationScope(
+                s.Status, s.ExpiresUtc, now))
+            .Select(s => s.Id)
+            .ToHashSet();
+        return open.Any(w => w.SpecimenId is long id && unusable.Contains(id));
+    }
+
     private IReadOnlyList<RuleResult> EvaluateSpecimenForScope(Specimen specimen, bool completing) =>
     [
         AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenUsable(specimen.Status, completing),
@@ -1631,6 +1771,13 @@ public sealed class AntibodyIdentificationService
         CancellationToken ct)
     {
         var lots = (await _lots.ListAsync(ct)).ToDictionary(l => l.Id);
+        var workupIds = workups.Select(w => w.Id).ToList();
+        var links = workupIds.Count == 0
+            ? []
+            : await _workupLots.ListAsync(l => workupIds.Contains(l.WorkupId), ct);
+        var linksByWorkup = links
+            .GroupBy(l => l.WorkupId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.LotId).ToList());
         var specimenIds = workups.Select(w => w.SpecimenId).OfType<long>().Distinct().ToList();
         var specimens = specimenIds.Count == 0
             ? new Dictionary<long, Specimen>()
@@ -1639,24 +1786,148 @@ public sealed class AntibodyIdentificationService
         var patients = patientIds.Count == 0
             ? new Dictionary<long, Patient>()
             : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var today = Today();
+        var manufacturers = (await _manufacturers.ListAsync(ct)).ToDictionary(m => m.Id);
+        var typeCodes = new HashSet<string>(StringComparer.Ordinal);
+        var pendingTypeByPatient = new List<TestResult>();
+        if (_results is not null && patientIds.Count > 0)
+        {
+            typeCodes = await LoadTypeCorrectionCodesAsync(ct);
+            pendingTypeByPatient = (await _results.ListAsync(
+                    r => patientIds.Contains(r.PatientId)
+                        && r.Status == ResultStatus.Corrected
+                        && r.SupersededByResultId == null,
+                    ct))
+                .Where(r => typeCodes.Contains(r.TestCode))
+                .ToList();
+        }
+
+        var productPatients = new HashSet<long>();
+        if (patientIds.Count > 0)
+        {
+            if (_allocations is not null)
+            {
+                foreach (var id in (await _allocations.ListAsync(
+                        a => patientIds.Contains(a.PatientId) && a.Status == AllocationStatus.Reserved, ct))
+                    .Select(a => a.PatientId))
+                {
+                    productPatients.Add(id);
+                }
+            }
+
+            if (_issues is not null)
+            {
+                foreach (var id in (await _issues.ListAsync(
+                        i => patientIds.Contains(i.PatientId) && i.Status == IssueStatus.Issued, ct))
+                    .Select(i => i.PatientId))
+                {
+                    productPatients.Add(id);
+                }
+            }
+        }
+
         return workups
-            .OrderByDescending(w => w.CreatedUtc)
             .Select(w =>
             {
                 lots.TryGetValue(w.PrimaryLotId, out var lot);
                 patients.TryGetValue(w.PatientId, out var patient);
-                var accession = w.SpecimenId is long sid && specimens.TryGetValue(sid, out var specimen)
-                    ? specimen.AccessionNumber
+                var linkedSpecimen = w.SpecimenId is long sid && specimens.TryGetValue(sid, out var specimen)
+                    ? specimen
                     : null;
+                var accession = linkedSpecimen?.AccessionNumber;
+                var hasUnusable = linkedSpecimen is not null
+                    && AntibodyIdentificationWorkupScopeRule.IsRejectedOrCancelled(linkedSpecimen.Status);
+                var hasUnaccepted = linkedSpecimen is not null
+                    && AntibodyIdentificationWorkupScopeRule.IsReceivedNotAccepted(linkedSpecimen.Status);
+                var hasNotReady = linkedSpecimen is not null
+                    && AntibodyIdentificationWorkupScopeRule.IsCollectedNotReceived(linkedSpecimen.Status);
+                var hasExpiredSpecimen = linkedSpecimen is not null
+                    && !hasUnusable
+                    && !hasUnaccepted
+                    && !hasNotReady
+                    && AntibodyIdentificationWorkupScopeRule.IsPatientWideIdentificationScope(
+                        linkedSpecimen.Status, linkedSpecimen.ExpiresUtc, _clock.UtcNow);
                 var name = patient is null ? null : $"{patient.LastName}, {patient.FirstName}";
+                var attachedIds = linksByWorkup.GetValueOrDefault(w.Id);
+                if (attachedIds is null || attachedIds.Count == 0)
+                {
+                    attachedIds = [w.PrimaryLotId];
+                }
+
+                var attached = attachedIds
+                    .Select(id => lots.GetValueOrDefault(id))
+                    .OfType<AntibodyPanelLot>()
+                    .ToList();
+                var hasInactive = attached.Any(l => !l.IsActive);
+                var hasExpired = attached.Any(l => l.ExpiresOn < today);
+                var attachedNumbers = attached
+                    .Select(l => l.LotNumber)
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+                var inactiveNumbers = attached
+                    .Where(l => !l.IsActive && !string.IsNullOrWhiteSpace(l.LotNumber))
+                    .Select(l => l.LotNumber)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+                var expiredNumbers = attached
+                    .Where(l => l.IsActive && l.ExpiresOn < today && !string.IsNullOrWhiteSpace(l.LotNumber))
+                    .Select(l => l.LotNumber)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+                var primaryManufacturer = lot is not null
+                    ? manufacturers.GetValueOrDefault(lot.ManufacturerId)
+                    : null;
+                var attachedManufacturers = attached
+                    .Select(l => manufacturers.GetValueOrDefault(l.ManufacturerId))
+                    .OfType<AntibodyPanelManufacturer>()
+                    .SelectMany(m => new[] { m.Name, m.Code })
+                    .Where(n => !string.IsNullOrWhiteSpace(n))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
                 return new AntibodyIdWorkupListItemDto(
                     w.Id, w.PatientId, w.SpecimenId, accession, w.PrimaryLotId,
                     lot?.LotNumber ?? "", lot?.PanelName ?? "",
                     w.Status, w.CreatedUtc, w.CreatedBy,
-                    patient?.MedicalRecordNumber, name);
+                    patient?.MedicalRecordNumber, name,
+                    hasInactive, hasExpired,
+                    AntibodyIdentificationWorklistRule.NextAction(w.Status),
+                    attachedNumbers,
+                    inactiveNumbers,
+                    expiredNumbers,
+                    primaryManufacturer?.Name,
+                    attachedManufacturers,
+                    hasUnusable,
+                    hasExpiredSpecimen,
+                    hasUnaccepted,
+                    hasNotReady,
+                    AntibodyIdentificationInterpretationRule.EvaluateJudgmentWithdrawnReason(
+                        w.Status, w.TechnologistInterpretation, w.InterpretedUtc) is not null,
+                    pendingTypeByPatient.Any(r =>
+                        r.PatientId == w.PatientId
+                        && AntibodyIdentificationHistoryPostRule.PendingTypeCorrectionApplies(
+                            w.SpecimenId, r.SpecimenId)),
+                    productPatients.Contains(w.PatientId));
             })
+            .OrderByDescending(w => w.HasUnusableSpecimen)
+            .ThenByDescending(w => w.HasNotReadySpecimen)
+            .ThenByDescending(w => w.HasUnacceptedSpecimen)
+            .ThenByDescending(w => w.HasExpiredSpecimen)
+            .ThenByDescending(w => w.HasPendingTypeCorrection)
+            .ThenByDescending(w => w.HasReservedOrIssuedUnits)
+            .ThenByDescending(w => w.HasWithdrawnJudgment)
+            .ThenByDescending(w => w.HasInactiveLot)
+            .ThenByDescending(w => w.HasExpiredLot)
+            .ThenByDescending(w => w.CreatedUtc)
             .ToList();
     }
+
+    private static IReadOnlyList<string> DistinctLotNumbers(IEnumerable<string> numbers) =>
+        numbers
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
 
     private static AntibodyPanelLotListItemDto ToLotDto(AntibodyPanelLot lot, string manufacturer, DateOnly today) =>
         new(lot.Id, lot.ManufacturerId, manufacturer, lot.LotNumber, lot.ExpiresOn, lot.PanelName,

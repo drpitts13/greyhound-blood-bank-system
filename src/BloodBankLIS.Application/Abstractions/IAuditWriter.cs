@@ -19,5 +19,6 @@ public interface IAuditWriter
         object? oldValue = null,
         object? newValue = null,
         string? reason = null,
-        long? signatureId = null);
+        long? signatureId = null,
+        string? actingUserName = null);
 }

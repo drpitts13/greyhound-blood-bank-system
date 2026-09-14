@@ -48,6 +48,7 @@
 
 @code {
     private string _pageTitle = "Transfusion Service";
+    private DateTime _lastProfileRefreshUtc;
 
     protected override void OnInitialized()
     {
@@ -66,6 +67,12 @@
         if (Session.IsSignedIn)
         {
             Session.Touch();
+            if (!Dev.Enabled && DateTime.UtcNow - _lastProfileRefreshUtc > TimeSpan.FromSeconds(15))
+            {
+                _lastProfileRefreshUtc = DateTime.UtcNow;
+                await RefreshLiveProfileAsync();
+            }
+
             return;
         }
 
@@ -87,9 +94,29 @@
 
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);
 
-    private void SignOut()
+    private async Task RefreshLiveProfileAsync()
     {
-        _ = Api.LogoutAsync();
+        var me = await Api.GetMeAsync();
+        if (me.StatusCode is 401 or 404)
+        {
+            Session.SignOut();
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        if (me.Succeeded && me.Value is not null)
+        {
+            Session.TryApplyLiveProfile(
+                me.Value.UserName,
+                me.Value.DisplayName,
+                me.Value.Permissions,
+                me.Value.SecurityLevel);
+        }
+    }
+
+    private async Task SignOut()
+    {
+        await Api.LogoutAsync();
         Session.SignOut();
         Nav.NavigateTo("/login");
     }

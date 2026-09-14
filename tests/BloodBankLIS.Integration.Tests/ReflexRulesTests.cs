@@ -181,13 +181,16 @@ public class ReflexRulesTests : IClassFixture<SqliteContextFactory>
         var pending = await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending);
         Assert.Contains(pending, i => i.TestCode == "ABID" && i.SpecimenId == specimen.Id);
 
+        var abidLine = lines.Single(l => l.TestCode == "ABID");
         var reflexAudit = await c.AuditEvents.SingleAsync(a =>
             a.EventType == AuditEventType.OrderChange
             && a.EntityType == nameof(OrderLine)
-            && a.EntityId == order.Id
+            && a.EntityId == abidLine.Id
             && a.Reason != null
             && a.Reason.StartsWith("Reflex from verified"));
         Assert.Contains("ABID", reflexAudit.NewValueJson);
+        Assert.Contains($"\"OrderId\":{order.Id}", reflexAudit.NewValueJson);
+        Assert.Contains($"\"LineId\":{abidLine.Id}", reflexAudit.NewValueJson);
     }
 
     [Fact]

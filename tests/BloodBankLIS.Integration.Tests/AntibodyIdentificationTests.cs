@@ -192,8 +192,11 @@ public class AntibodyIdentificationTests : IClassFixture<SqliteContextFactory>
             Assert.True(entered.Succeeded, entered.Error);
             var verified = await Results(context, withWorkups: true).VerifyResultAsync(entered.Value!.Id);
             Assert.True(verified.Succeeded, verified.Error);
+            Assert.Contains(
+                verified.Evaluation!.Warnings,
+                w => w.Code == AntibodyIdentificationHistoryPostRule.AuthoritativeCode);
             Assert.DoesNotContain(
-                verified.Evaluation?.Warnings ?? [],
+                verified.Evaluation.Warnings,
                 w => w.Code == AntibodyIdentificationHistoryPostRule.DisagreeCode);
         }
 

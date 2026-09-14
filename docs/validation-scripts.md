@@ -5,15 +5,17 @@ Status: Implemented in Phase 8.
 These are executable, step-by-step validation scripts for each primary workflow in
 [`workflows.md`](workflows.md). Each script states a precondition, numbered operator
 steps (as API calls), the expected system response, and an explicit pass/fail criterion.
-They are written for the demo seed data (`DatabaseSeeder`) and the request-scoped,
-header-based identity used by the API.
+They are written for the demo seed data (`DatabaseSeeder`) and the request-scoped
+session identity used by the API.
 
 ## Conventions
 
-- The API enforces authorization at the boundary: every request carries an identity
-  header `X-User: <username>` (and optionally `X-Workstation`). A request with no
-  identity is **401**; an authenticated user lacking the required permission is **403**
-  (see `architecture.md` 4.2, `PermissionCodes`).
+- The API enforces authorization at the boundary: sign in with
+  `POST /api/auth/login` (`username` + `password`, demo seed password `demo`) and
+  send `Authorization: Bearer <sessionToken>` on subsequent requests. A request
+  with no valid session is **401**; an authenticated user lacking the required
+  permission is **403** (see `architecture.md` 4.2, `PermissionCodes`, FRS-BB-181).
+  Do not send `X-User` as identity.
 - Seeded demo accounts and roles:
   | User | Role | Notable permissions |
   |---|---|---|
@@ -222,10 +224,11 @@ Negative: reprint as `tech1` → **403** (`print.reprint`).
 
 ## S-12 — Authorization (default-deny)
 
-1. Any write with **no** `X-User` header → **401**.
-2. `POST /api/results/{id}/correct` as `tech1` → **403** (lacks `result.correct`).
-3. The same call as `supervisor` → permitted (subject to the workflow rules).
-4. `GET /api/audit-events` as `viewer` → **200**; as an unknown user → **401**.
+1. Any write with **no** `Authorization` Bearer session → **401**. A spoofed
+   `X-User: supervisor` header without a session is also **401**.
+2. `POST /api/results/{id}/correct` as `tech1` (valid session) → **403** (lacks `result.correct`).
+3. The same call as `supervisor` (valid session) → permitted (subject to the workflow rules).
+4. `GET /api/audit-events` as `viewer` → **200**; as an unknown or expired session → **401**.
 
 Pass/fail: PASS if unauthenticated requests are 401, under-privileged requests are 403,
 and privileged requests proceed.

@@ -29,16 +29,18 @@ public class DeviationServiceTests : IClassFixture<SqliteContextFactory>
     public async Task Create_WithoutDeviationManage_IsHardStopped()
     {
         await using var context = _factory.Create();
+        var deniedTitle = $"QC miss deny {Guid.NewGuid():N}";
         var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.LookbackManage))
-            .CreateAsync(new CreateDeviationRequest("QC miss", "Daily QC not documented", DeviationSeverity.Major));
+            .CreateAsync(new CreateDeviationRequest(deniedTitle, "Daily QC not documented", DeviationSeverity.Major));
         Assert.False(denied.Succeeded);
         Assert.Equal(DeviationAuthorizationRule.EvaluateManage(false).Message, denied.Error);
-        Assert.Empty(context.Deviations);
+        Assert.DoesNotContain(context.Deviations.ToList(), d => d.Title == deniedTitle);
 
+        var allowedTitle = $"QC miss allow {Guid.NewGuid():N}";
         var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.DeviationManage))
-            .CreateAsync(new CreateDeviationRequest("QC miss", "Daily QC not documented", DeviationSeverity.Major));
+            .CreateAsync(new CreateDeviationRequest(allowedTitle, "Daily QC not documented", DeviationSeverity.Major));
         Assert.True(allowed.Succeeded, allowed.Error);
-        Assert.Equal("QC miss", allowed.Value!.Title);
+        Assert.Equal(allowedTitle, allowed.Value!.Title);
     }
 
     [Fact]

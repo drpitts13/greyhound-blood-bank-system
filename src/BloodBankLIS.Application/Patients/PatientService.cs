@@ -139,7 +139,10 @@ public sealed class PatientService
                 patient.Sex
             },
             reason: "Patient created.");
-        await _unitOfWork.SaveChangesAsync(ct);
+        if (_audit is not null)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
 
         return OperationResult<Patient>.Ok(patient);
     }

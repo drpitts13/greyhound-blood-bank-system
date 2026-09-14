@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Rules;
@@ -21,8 +22,9 @@ namespace BloodBankLIS.Application.Results;
 /// Instrument and interface values start PendingVerification. Verifying an ABO/Rh
 /// result appends to the patient's blood-type history and runs a delta check.
 /// Verifying a free-text/coded test marked <c>ContributesToAntibodyHistory</c>
-/// (ABID) posts identified specificities to <see cref="AntibodyHistory"/>
-/// unless an antibody-identification workup is the identification of record
+/// (ABID) or a blood-attribute antibody result posts identified specificities
+/// to <see cref="AntibodyHistory"/> unless an antibody-identification workup
+/// is the identification of record
 /// (<c>ABID-WORKUP-OPEN</c> / <c>ABID-WORKUP-AUTHORITATIVE</c>).
 /// </summary>
 public sealed class ResultService
@@ -220,6 +222,11 @@ public sealed class ResultService
             if (!xm.Succeeded)
             {
                 return EvaluationResult<TestResult>.Fail(xm.Error!);
+            }
+
+            if (xm.Warnings is { Count: > 0 })
+            {
+                allWarnings.AddRange(xm.Warnings);
             }
         }
 
@@ -726,7 +733,34 @@ public sealed class ResultService
             else
             {
                 // Replace (or first type / matching type): append and flip current.
+                var typeChanged = current is null || current.Abo != aboRh.Abo || current.RhD != aboRh.Rh;
                 await AppendBloodTypeFromResultAsync(result, aboRh, ct, flipCurrent: true);
+                if (typeChanged)
+                {
+                    var bloodTypeOpen = AntibodyIdentificationHistoryPostRule.EvaluateBloodTypeOpenWorkup(
+                        await HasOpenAntibodyWorkupAsync(result.PatientId, ct));
+                    if (bloodTypeOpen.Severity == RuleSeverity.Warning && _antibodyWorkups is not null)
+                    {
+                        await AntibodyIdentificationJudgmentWithdrawal.WithdrawAfterPatientTypeChangeAsync(
+                            _antibodyWorkups,
+                            _antibodyFindings,
+                            _audit,
+                            _unitOfWork,
+                            result.PatientId,
+                            "Patient ABO/Rh changed while an antibody-identification workup was open. Interpretation and supervisor review must be repeated. This does not identify antibodies.",
+                            ct);
+                        warnings.Add(bloodTypeOpen);
+                    }
+                    else
+                    {
+                        var bloodTypeDone = AntibodyIdentificationHistoryPostRule.EvaluateBloodTypeCompletedWorkup(
+                            await HasCompletedAntibodyWorkupInScopeAsync(result, ct));
+                        if (bloodTypeDone.Severity == RuleSeverity.Warning)
+                        {
+                            warnings.Add(bloodTypeDone);
+                        }
+                    }
+                }
             }
         }
         else
@@ -740,7 +774,35 @@ public sealed class ResultService
             result.Status = ResultStatus.Verified;
             result.VerifiedBy = _currentUser.UserName;
             result.VerifiedUtc = now;
-            await ApplyBloodAttributeResultAsync(result, ct);
+            var antigenChanged = await ApplyBloodAttributeResultAsync(result, ct, workupGate.SkipPost);
+            if (antigenChanged)
+            {
+                var antigenOpen = AntibodyIdentificationHistoryPostRule.EvaluateAntigenOpenWorkup(
+                    await HasOpenAntibodyWorkupAsync(result.PatientId, ct));
+                if (antigenOpen.Severity == RuleSeverity.Warning && _antibodyWorkups is not null)
+                {
+                    await AntibodyIdentificationJudgmentWithdrawal.WithdrawAfterPatientTypeChangeAsync(
+                        _antibodyWorkups,
+                        _antibodyFindings,
+                        _audit,
+                        _unitOfWork,
+                        result.PatientId,
+                        "Patient antigen type changed while an antibody-identification workup was open. Interpretation and supervisor review must be repeated. This does not identify antibodies.",
+                        ct);
+                    warnings.Add(antigenOpen);
+                }
+                else
+                {
+                    var antigenDone = AntibodyIdentificationHistoryPostRule.EvaluateAntigenCompletedWorkup(
+                        await HasCompletedAntibodyWorkupInScopeAsync(result, ct),
+                        await PostedIdentifiedConflictsWithVerifiedAntigensAsync(result, ct));
+                    if (antigenDone.Severity == RuleSeverity.Warning)
+                    {
+                        warnings.Add(antigenDone);
+                    }
+                }
+            }
+
             warnings.AddRange(workupGate.Warnings);
             warnings.AddRange(await ApplyAntibodyIdentificationResultAsync(result, workupGate.SkipPost, ct));
         }
@@ -822,7 +884,7 @@ public sealed class ResultService
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var nextLineNumber = existingLines.Count == 0 ? 1 : existingLines.Max(l => l.LineNumber) + 1;
-        var addedLines = new List<OrderLine>();
+        var addedLines = new List<(OrderLine Line, string RuleCode)>();
 
         foreach (var rule in matches)
         {
@@ -845,21 +907,7 @@ public sealed class ResultService
                 IsActive = true
             };
             await _orderLines.AddAsync(line, ct);
-            addedLines.Add(line);
-
-            _audit.Record(
-                AuditEventType.OrderChange,
-                nameof(OrderLine),
-                orderId,
-                newValue: new
-                {
-                    TriggerResultId = result.Id,
-                    TriggerTestCode = triggerCode,
-                    TriggerResultValue = resultValue,
-                    ReflexTestCode = reflexCode,
-                    ReflexRuleCode = rule.Code
-                },
-                reason: $"Reflex from verified {triggerCode}={resultValue}");
+            addedLines.Add((line, rule.Code));
         }
 
         if (addedLines.Count > 0 && _orders is not null)
@@ -867,7 +915,7 @@ public sealed class ResultService
             var order = await _orders.GetByIdAsync(orderId, ct);
             if (order is not null)
             {
-                var allLines = existingLines.Concat(addedLines).ToList();
+                var allLines = existingLines.Concat(addedLines.Select(a => a.Line)).ToList();
                 OrderLineBuilder.ApplyHeaderFromLines(order, allLines);
                 if (order.ResultStatus == ResultStatus.Verified)
                 {
@@ -876,6 +924,31 @@ public sealed class ResultService
 
                 _orders.Update(order);
             }
+        }
+
+        if (addedLines.Count == 0)
+        {
+            return;
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+        foreach (var (line, ruleCode) in addedLines)
+        {
+            _audit.Record(
+                AuditEventType.OrderChange,
+                nameof(OrderLine),
+                line.Id,
+                newValue: new
+                {
+                    OrderId = orderId,
+                    LineId = line.Id,
+                    TriggerResultId = result.Id,
+                    TriggerTestCode = triggerCode,
+                    TriggerResultValue = resultValue,
+                    ReflexTestCode = line.TestCode,
+                    ReflexRuleCode = ruleCode
+                },
+                reason: $"Reflex from verified {triggerCode}={resultValue}");
         }
     }
 
@@ -947,6 +1020,79 @@ public sealed class ResultService
             SourceResultId = result.Id,
             IsCurrent = true
         }, ct);
+    }
+
+    private Task<bool> HasOpenAntibodyWorkupAsync(long patientId, CancellationToken ct) =>
+        _antibodyWorkups is null
+            ? Task.FromResult(false)
+            : _antibodyWorkups.AnyAsync(
+                w => w.PatientId == patientId
+                    && (w.Status == AntibodyWorkupStatus.InProgress
+                        || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                        || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+                ct);
+
+    private async Task<bool> HasCompletedAntibodyWorkupInScopeAsync(TestResult result, CancellationToken ct)
+    {
+        if (_antibodyWorkups is null)
+        {
+            return false;
+        }
+
+        var completed = await _antibodyWorkups.ListAsync(
+            w => w.PatientId == result.PatientId && w.Status == AntibodyWorkupStatus.Completed, ct);
+        return completed.Any(w =>
+            AntibodyIdentificationHistoryPostRule.AppliesToCompletedWorkup(
+                w.SpecimenId, w.SourceResultId, result.SpecimenId, result.Id));
+    }
+
+    private async Task<bool> PostedIdentifiedConflictsWithVerifiedAntigensAsync(
+        TestResult result, CancellationToken ct)
+    {
+        if (_antibodyWorkups is null || _antibodyFindings is null || _bloodAttributes is null)
+        {
+            return false;
+        }
+
+        if (!BloodAttributeResultValue.TryParse(result.Value, out var rows))
+        {
+            return false;
+        }
+
+        var completed = await _antibodyWorkups.ListAsync(
+            w => w.PatientId == result.PatientId && w.Status == AntibodyWorkupStatus.Completed, ct);
+        if (completed.Count == 0)
+        {
+            return false;
+        }
+
+        var workupIds = completed.Select(w => w.Id).ToHashSet();
+        var posted = (await _antibodyFindings.ListAsync(f => f.PostedToHistory, ct))
+            .Where(f => workupIds.Contains(f.WorkupId))
+            .Select(f => (f.BloodAttributeDefinitionId, f.Specificity))
+            .ToList();
+        if (posted.Count == 0)
+        {
+            return false;
+        }
+
+        var catalog = (await _bloodAttributes.ListAsync(d => d.IsActive, ct))
+            .ToDictionary(d => d.Code, StringComparer.Ordinal);
+        foreach (var row in rows.Where(r => r.Result == AntigenResult.Positive))
+        {
+            if (!catalog.TryGetValue(row.Code, out var attr))
+            {
+                continue;
+            }
+
+            if (AntibodyIdentificationHistoryPostRule.MatchesPostedWorkupFinding(
+                    attr.Id, attr.AntibodyName ?? attr.Code, posted))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -1021,7 +1167,8 @@ public sealed class ResultService
             reason: reason);
 
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<TestResult>.Ok(correction);
+        var warnings = await EvaluateTypeCorrectionOpenWorkupWarningsAsync(original, ct);
+        return OperationResult<TestResult>.Ok(correction, warnings);
     }
 
     public async Task<OperationResult<TestResult>> SubmitForVerificationAsync(long resultId, CancellationToken ct = default)
@@ -1138,7 +1285,7 @@ public sealed class ResultService
                 newValue: new { retraction.Status, NewVersion = retraction.Version, retraction.InvalidatedBy, retraction.Source },
                 reason: trimmedReason);
             await _unitOfWork.SaveChangesAsync(ct);
-            return OperationResult<TestResult>.Ok(retraction);
+            return await FinishInvalidateAsync(current, retraction, ct);
         }
 
         if (ResultLifecycleRule.RestoresPriorVerifiedOnInvalidate(current.Status))
@@ -1172,7 +1319,7 @@ public sealed class ResultService
                 },
                 reason: trimmedReason);
             await _unitOfWork.SaveChangesAsync(ct);
-            return OperationResult<TestResult>.Ok(current);
+            return await FinishInvalidateAsync(current, current, ct);
         }
 
         var previousStatus = current.Status;
@@ -1189,7 +1336,98 @@ public sealed class ResultService
             newValue: new { current.Status, current.InvalidatedBy, current.Source },
             reason: trimmedReason);
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<TestResult>.Ok(current);
+        return await FinishInvalidateAsync(current, current, ct);
+    }
+
+    private async Task<OperationResult<TestResult>> FinishInvalidateAsync(
+        TestResult original, TestResult value, CancellationToken ct)
+    {
+        var warnings = await EvaluateInvalidateOpenWorkupWarningsAsync(original, ct);
+        return OperationResult<TestResult>.Ok(value, warnings);
+    }
+
+    private async Task<IReadOnlyList<RuleResult>> EvaluateTypeCorrectionOpenWorkupWarningsAsync(
+        TestResult result, CancellationToken ct)
+    {
+        if (!await IsPatientTypeResultAsync(result, ct))
+        {
+            return [];
+        }
+
+        var hasOpen = await HasOpenAntibodyWorkupAsync(result.PatientId, ct);
+        var open = AntibodyIdentificationHistoryPostRule.EvaluateTypeCorrectionOpenWorkup(hasOpen);
+        return open.Severity == RuleSeverity.Warning ? [open] : [];
+    }
+
+    private async Task<bool> IsPatientTypeResultAsync(TestResult result, CancellationToken ct)
+    {
+        if (result.TestCode == AboRhTestCode)
+        {
+            return true;
+        }
+
+        if (_testDefinitions is null)
+        {
+            return false;
+        }
+
+        var def = await _testDefinitions.FirstOrDefaultAsync(
+            d => d.IsActive && d.Code == result.TestCode, ct);
+        if (def is null)
+        {
+            return false;
+        }
+
+        if (def.ContributesToAboRhHistory)
+        {
+            return true;
+        }
+
+        return def.ResultValueType == ResultValueType.BloodAttribute
+            && def.BloodAttributeScopeKind == BloodAttributeKind.Antigen
+            && !def.ContributesToUnitBloodAttributes;
+    }
+
+    private async Task<IReadOnlyList<RuleResult>> EvaluateInvalidateOpenWorkupWarningsAsync(
+        TestResult result, CancellationToken ct)
+    {
+        if (_antibodyWorkups is null || _testDefinitions is null)
+        {
+            return [];
+        }
+
+        var def = await _testDefinitions.FirstOrDefaultAsync(
+            d => d.IsActive && d.Code == result.TestCode, ct);
+        var isAbo = result.TestCode == AboRhTestCode
+            || (def?.ContributesToAboRhHistory ?? false);
+        var isAntigen = def is { ResultValueType: ResultValueType.BloodAttribute }
+            && def.BloodAttributeScopeKind == BloodAttributeKind.Antigen
+            && !def.ContributesToUnitBloodAttributes;
+        if (!isAbo && !isAntigen)
+        {
+            return [];
+        }
+
+        var hasOpen = await HasOpenAntibodyWorkupAsync(result.PatientId, ct);
+        var open = isAbo
+            ? AntibodyIdentificationHistoryPostRule.EvaluateBloodTypeInvalidateOpenWorkup(hasOpen)
+            : AntibodyIdentificationHistoryPostRule.EvaluateAntigenInvalidateOpenWorkup(hasOpen);
+        if (open.Severity != RuleSeverity.Warning)
+        {
+            return [];
+        }
+
+        await AntibodyIdentificationJudgmentWithdrawal.WithdrawAfterPatientTypeChangeAsync(
+            _antibodyWorkups,
+            _antibodyFindings,
+            _audit,
+            _unitOfWork,
+            result.PatientId,
+            isAbo
+                ? "A verified ABO/Rh result was invalidated while an antibody-identification workup was open. Interpretation and supervisor review must be repeated. Posted blood-type history is not auto-reverted. This does not identify antibodies."
+                : "A verified antigen result was invalidated while an antibody-identification workup was open. Interpretation and supervisor review must be repeated. Stored phenotype is not auto-reverted. This does not identify antibodies.",
+            ct);
+        return [open];
     }
 
     private async Task<OperationResult<TestResult>> EnterReplacementAfterInvalidateAsync(
@@ -1641,7 +1879,7 @@ public sealed class ResultService
             return OperationResult<TestResult>.Fail(xm.Error ?? "Crossmatch could not be recorded.");
         }
 
-        return OperationResult<TestResult>.Ok(result);
+        return OperationResult<TestResult>.Ok(result, xm.Evaluation?.Warnings);
     }
 
     /// <summary>
@@ -1705,9 +1943,12 @@ public sealed class ResultService
             }
 
             var freeText = await ApplyFreeTextAntibodyResultAsync(result.PatientId, hit.Token, result.Id, ct);
-            postedRows.Add(freeText);
-            posted.Add(hit.Token);
-            unmatched.Add(hit.Token);
+            if (freeText is not null)
+            {
+                postedRows.Add(freeText);
+                posted.Add(hit.Token);
+                unmatched.Add(hit.Token);
+            }
         }
 
         if (postedRows.Count == 0)
@@ -1755,9 +1996,16 @@ public sealed class ResultService
 
         var def = await _testDefinitions.FirstOrDefaultAsync(
             d => d.IsActive && d.Code == result.TestCode, ct);
-        if (def is null
-            || !def.ContributesToAntibodyHistory
-            || def.ResultValueType is not (ResultValueType.FreeText or ResultValueType.Coded))
+        if (def is null)
+        {
+            return new AntibodyWorkupHistoryGate(null, false, []);
+        }
+
+        var isFreeTextAbid = def.ContributesToAntibodyHistory
+            && def.ResultValueType is ResultValueType.FreeText or ResultValueType.Coded;
+        var isBloodAttributeAntibody = def.ResultValueType == ResultValueType.BloodAttribute
+            && def.BloodAttributeScopeKind == BloodAttributeKind.Antibody;
+        if (!isFreeTextAbid && !isBloodAttributeAntibody)
         {
             return new AntibodyWorkupHistoryGate(null, false, []);
         }
@@ -1765,10 +2013,16 @@ public sealed class ResultService
         var workups = await _antibodyWorkups.ListAsync(
             w => w.PatientId == result.PatientId && w.Status != AntibodyWorkupStatus.Voided, ct);
 
+        var unusableSpecimenIds = await LoadUnusableWorkupSpecimenIdsAsync(workups, ct);
         var openInScope = workups.Any(w =>
             AntibodyIdentificationHistoryPostRule.IsOpen(w.Status)
             && AntibodyIdentificationHistoryPostRule.AppliesToOpenWorkup(
-                w.SpecimenId, w.SourceResultId, result.SpecimenId, result.Id));
+                w.SpecimenId,
+                w.SourceResultId,
+                result.SpecimenId,
+                result.Id,
+                workupSpecimenUnusable: w.SpecimenId is long specimenId
+                    && unusableSpecimenIds.Contains(specimenId)));
         var completedInScope = workups
             .Where(w =>
                 w.Status == AntibodyWorkupStatus.Completed
@@ -1779,20 +2033,34 @@ public sealed class ResultService
         var catalogEntities = _bloodAttributes is null
             ? []
             : await _bloodAttributes.ListAsync(d => d.IsActive, ct);
-        var catalog = catalogEntities
-            .Select(d => new AntibodyCatalogItem(d.Id, d.Code, d.Name, d.AntibodyName))
-            .ToList();
-        var hits = catalog.Count == 0
-            ? Array.Empty<AntibodyIdentificationHit>()
-            : AntibodyIdentificationParser.Resolve(result.Value, catalog);
-        var freeTextNames = AntibodyIdentificationParser.PostedLabels(hits);
-        if (freeTextNames.Count == 0 && catalog.Count == 0)
+        IReadOnlyList<string> postedLabels;
+        var wouldChangeHistory = false;
+        if (isBloodAttributeAntibody)
         {
-            freeTextNames = AntibodyIdentificationParser.AntibodyLikeTokens(result.Value);
+            var impact = await ResolveBloodAttributeAntibodyHistoryImpactAsync(
+                result, catalogEntities, ct);
+            postedLabels = impact.PositiveNames;
+            wouldChangeHistory = impact.PositiveNames.Count > 0 || impact.WouldDeactivate;
+        }
+        else
+        {
+            var catalog = catalogEntities
+                .Select(d => new AntibodyCatalogItem(d.Id, d.Code, d.Name, d.AntibodyName))
+                .ToList();
+            var hits = catalog.Count == 0
+                ? Array.Empty<AntibodyIdentificationHit>()
+                : AntibodyIdentificationParser.Resolve(result.Value, catalog);
+            postedLabels = AntibodyIdentificationParser.PostedLabels(hits);
+            if (postedLabels.Count == 0 && catalog.Count == 0)
+            {
+                postedLabels = AntibodyIdentificationParser.AntibodyLikeTokens(result.Value);
+            }
+
+            wouldChangeHistory = postedLabels.Count > 0;
         }
 
         var open = AntibodyIdentificationHistoryPostRule.EvaluateOpenWorkup(
-            openInScope, freeTextNames.Count > 0);
+            openInScope, wouldChangeHistory);
         if (open.Severity == RuleSeverity.HardStop)
         {
             return new AntibodyWorkupHistoryGate(open, false, []);
@@ -1801,11 +2069,78 @@ public sealed class ResultService
         var identified = await LoadWorkupIdentifiedSpecificitiesAsync(
             completedInScope.Select(w => w.Id).ToList(), ct);
         var completed = AntibodyIdentificationHistoryPostRule.EvaluateCompletedWorkup(
-            completedInScope.Count > 0, freeTextNames, identified);
+            completedInScope.Count > 0, postedLabels, identified);
         return new AntibodyWorkupHistoryGate(
             null,
             AntibodyIdentificationHistoryPostRule.ShouldSkipFreeTextPost(completedInScope.Count > 0),
             completed.Where(r => r.Severity == RuleSeverity.Warning).ToList());
+    }
+
+    private async Task<HashSet<long>> LoadUnusableWorkupSpecimenIdsAsync(
+        IReadOnlyList<AntibodyIdentificationWorkup> workups, CancellationToken ct)
+    {
+        var ids = workups
+            .Where(w => w.SpecimenId is long)
+            .Select(w => w.SpecimenId!.Value)
+            .Distinct()
+            .ToList();
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        var now = _clock.UtcNow;
+        var specimens = await _specimens.ListAsync(s => ids.Contains(s.Id), ct);
+        return specimens
+            .Where(s => AntibodyIdentificationWorkupScopeRule.IsPatientWideIdentificationScope(
+                s.Status, s.ExpiresUtc, now))
+            .Select(s => s.Id)
+            .ToHashSet();
+    }
+
+    private sealed record BloodAttributeAntibodyHistoryImpact(
+        IReadOnlyList<string> PositiveNames,
+        bool WouldDeactivate);
+
+    private async Task<BloodAttributeAntibodyHistoryImpact> ResolveBloodAttributeAntibodyHistoryImpactAsync(
+        TestResult result,
+        IReadOnlyList<BloodAttributeDefinition> catalog,
+        CancellationToken ct)
+    {
+        if (!BloodAttributeResultValue.TryParse(result.Value, out var rows))
+        {
+            return new BloodAttributeAntibodyHistoryImpact([], false);
+        }
+
+        var byCode = catalog.ToDictionary(d => d.Code, StringComparer.Ordinal);
+        var names = new List<string>();
+        var wouldDeactivate = false;
+        foreach (var row in rows)
+        {
+            if (!byCode.TryGetValue(row.Code, out var attrDef))
+            {
+                continue;
+            }
+
+            if (row.Result == AntigenResult.Positive)
+            {
+                names.Add(attrDef.AntibodyName);
+                continue;
+            }
+
+            if (row.Result == AntigenResult.Negative
+                && _antibodies is not null
+                && await _antibodies.AnyAsync(
+                    a => a.PatientId == result.PatientId
+                        && a.BloodAttributeDefinitionId == attrDef.Id
+                        && a.IsActive,
+                    ct))
+            {
+                wouldDeactivate = true;
+            }
+        }
+
+        return new BloodAttributeAntibodyHistoryImpact(names, wouldDeactivate);
     }
 
     private async Task<IReadOnlyList<string>> LoadWorkupIdentifiedSpecificitiesAsync(
@@ -1856,23 +2191,24 @@ public sealed class ResultService
         return row;
     }
 
-    private async Task ApplyBloodAttributeResultAsync(TestResult result, CancellationToken ct)
+    private async Task<bool> ApplyBloodAttributeResultAsync(
+        TestResult result, CancellationToken ct, bool skipAntibodyHistory = false)
     {
         if (_testDefinitions is null || _bloodAttributes is null)
         {
-            return;
+            return false;
         }
 
         var def = await _testDefinitions.FirstOrDefaultAsync(
             d => d.IsActive && d.Code == result.TestCode, ct);
         if (def is null || def.ResultValueType != ResultValueType.BloodAttribute)
         {
-            return;
+            return false;
         }
 
         if (!BloodAttributeResultValue.TryParse(result.Value, out var rows))
         {
-            return;
+            return false;
         }
 
         var kind = def.BloodAttributeScopeKind ?? BloodAttributeKind.Antigen;
@@ -1892,6 +2228,7 @@ public sealed class ResultService
             }
         }
 
+        var phenotypeChanged = false;
         foreach (var row in rows)
         {
             if (!byCode.TryGetValue(row.Code, out var attrDef))
@@ -1911,13 +2248,15 @@ public sealed class ResultService
 
             if (kind == BloodAttributeKind.Antigen && _antigenProfiles is not null)
             {
-                await UpsertAntigenProfileAsync(result.PatientId, attrDef.Id, row.Result, result.Id, ct);
+                phenotypeChanged |= await UpsertAntigenProfileAsync(result.PatientId, attrDef.Id, row.Result, result.Id, ct);
             }
-            else if (kind == BloodAttributeKind.Antibody && _antibodies is not null)
+            else if (kind == BloodAttributeKind.Antibody && _antibodies is not null && !skipAntibodyHistory)
             {
                 await ApplyPatientAntibodyResultAsync(result.PatientId, attrDef, row.Result, result.Id, ct);
             }
         }
+
+        return phenotypeChanged;
     }
 
     private static string? ParseUnitNumberFromInterpretation(string? interpretation)
@@ -1933,7 +2272,7 @@ public sealed class ResultService
             : null;
     }
 
-    private async Task UpsertAntigenProfileAsync(
+    private async Task<bool> UpsertAntigenProfileAsync(
         long patientId, long attributeDefinitionId, AntigenResult resultValue, long sourceResultId, CancellationToken ct)
     {
         var existing = await _antigenProfiles!.FirstOrDefaultAsync(
@@ -1949,15 +2288,16 @@ public sealed class ResultService
                 TestedBy = _currentUser.UserName,
                 SourceResultId = sourceResultId
             }, ct);
+            return true;
         }
-        else
-        {
-            existing.Result = resultValue;
-            existing.TestedUtc = _clock.UtcNow;
-            existing.TestedBy = _currentUser.UserName;
-            existing.SourceResultId = sourceResultId;
-            _antigenProfiles.Update(existing);
-        }
+
+        var changed = existing.Result != resultValue;
+        existing.Result = resultValue;
+        existing.TestedUtc = _clock.UtcNow;
+        existing.TestedBy = _currentUser.UserName;
+        existing.SourceResultId = sourceResultId;
+        _antigenProfiles.Update(existing);
+        return changed;
     }
 
     private async Task<AntibodyHistory?> ApplyPatientAntibodyResultAsync(
@@ -2003,6 +2343,7 @@ public sealed class ResultService
                 active.DeactivationReason = "Negative on verified blood attribute test result.";
                 active.SourceResultId = sourceResultId;
                 _antibodies.Update(active);
+                return active;
             }
         }
 

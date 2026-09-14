@@ -30,6 +30,9 @@ public static class AntibodyIdentificationEndpoints
         workups.MapGet("", async (AntibodyIdentificationService service, CancellationToken ct) =>
             Results.Ok(await service.ListOpenWorkupsAsync(ct)));
 
+        workups.MapGet("/summary", async (AntibodyIdentificationService service, CancellationToken ct) =>
+            Results.Ok(await service.SummarizeOpenWorkupsAsync(ct)));
+
         workups.MapGet("/{id:long}", async (long id, AntibodyIdentificationService service, CancellationToken ct) =>
         {
             var workup = await service.GetWorkupAsync(id, ct);

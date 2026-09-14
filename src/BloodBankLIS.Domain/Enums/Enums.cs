@@ -884,6 +884,18 @@ public enum AntibodyWorkupStatus
 }
 
 /// <summary>
+/// Advisory next bench step for an open antibody-identification workup.
+/// Does not identify antibodies.
+/// </summary>
+public enum AntibodyIdWorklistNextAction
+{
+    RecordReactions = 0,
+    Interpret = 1,
+    Review = 2,
+    None = 3
+}
+
+/// <summary>
 /// How a specificity is classified on a workup. Assist may emit Excluded,
 /// Possible, CannotExclude, Inconclusive, or Historical — never Identified.
 /// </summary>

@@ -26,7 +26,7 @@ public static class PermissionFilterExtensions
                 ? await next(context)
                 : Results.Problem(
                     title: "Authentication required",
-                    detail: $"Supply an identity via the '{HttpCurrentUser.UserHeader}' header.",
+                    detail: "Sign in and supply a session token via the Authorization Bearer header.",
                     statusCode: StatusCodes.Status401Unauthorized);
         });
 
@@ -55,7 +55,7 @@ public static class PermissionFilterExtensions
             {
                 AccessDecision.Unauthenticated => Results.Problem(
                     title: "Authentication required",
-                    detail: $"Supply an identity via the '{HttpCurrentUser.UserHeader}' header.",
+                    detail: "Sign in and supply a session token via the Authorization Bearer header.",
                     statusCode: StatusCodes.Status401Unauthorized),
                 AccessDecision.Forbidden => Results.Problem(
                     title: "Forbidden",

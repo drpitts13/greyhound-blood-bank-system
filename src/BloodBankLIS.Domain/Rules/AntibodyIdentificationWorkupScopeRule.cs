@@ -30,13 +30,21 @@ public static class AntibodyIdentificationWorkupScopeRule
         bool creatingUnscoped,
         bool hasOpenUnscoped,
         bool hasOpenOnSameSpecimen,
-        bool hasAnyOpen)
+        bool hasAnyOpen,
+        bool hasOpenOnUnusableSpecimen = false)
     {
         if (hasOpenUnscoped)
         {
             return RuleResult.HardStop(
                 OverlappingOpenCode,
                 "An unscoped open antibody-identification workup already exists for this patient. Complete or void it before opening another.");
+        }
+
+        if (hasOpenOnUnusableSpecimen)
+        {
+            return RuleResult.HardStop(
+                OverlappingOpenCode,
+                "An open antibody-identification workup is linked to a rejected, cancelled, expired, not-yet-received, or not-yet-accepted specimen and remains the identification of record for this patient. Void it, complete it when still allowed, or link a usable specimen before opening another.");
         }
 
         if (creatingUnscoped && hasAnyOpen)
@@ -149,4 +157,36 @@ public static class AntibodyIdentificationWorkupScopeRule
 
         return RuleResult.Pass(SpecimenUnacceptedCode);
     }
+
+    /// <summary>
+    /// Rejected, cancelled, expired-status, clock-expired, Received
+    /// (not yet accepted), or Collected (not yet received) linked
+    /// specimens cannot keep exclusive specimen scope. The open workup
+    /// is the identification of record for the patient until void,
+    /// complete (when still allowed), or re-link. This does not identify
+    /// antibodies.
+    /// </summary>
+    public static bool IsPatientWideIdentificationScope(
+        SpecimenStatus status,
+        DateTime? expiresUtc,
+        DateTime nowUtc)
+    {
+        if (status is SpecimenStatus.Rejected or SpecimenStatus.Cancelled
+            or SpecimenStatus.Expired or SpecimenStatus.Received
+            or SpecimenStatus.Collected)
+        {
+            return true;
+        }
+
+        return expiresUtc is DateTime expired && nowUtc >= expired;
+    }
+
+    public static bool IsReceivedNotAccepted(SpecimenStatus status) =>
+        status == SpecimenStatus.Received;
+
+    public static bool IsCollectedNotReceived(SpecimenStatus status) =>
+        status == SpecimenStatus.Collected;
+
+    public static bool IsRejectedOrCancelled(SpecimenStatus status) =>
+        status is SpecimenStatus.Rejected or SpecimenStatus.Cancelled;
 }

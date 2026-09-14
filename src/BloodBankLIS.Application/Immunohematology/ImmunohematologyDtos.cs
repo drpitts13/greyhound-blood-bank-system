@@ -44,11 +44,12 @@ public sealed record AntibodyDto(
     string? Comment,
     string? DeactivationReason,
     DateTime RecordedUtc,
-    string RecordedBy)
+    string RecordedBy,
+    bool PostedByCompletedWorkup = false)
 {
-    public static AntibodyDto From(AntibodyHistory a) => new(
+    public static AntibodyDto From(AntibodyHistory a, bool postedByCompletedWorkup = false) => new(
         a.Id, a.PatientId, a.BloodAttributeDefinitionId, a.AntibodySpecificity, a.Status, a.IsActive, a.Comment,
-        a.DeactivationReason, a.CreatedUtc, a.CreatedBy);
+        a.DeactivationReason, a.CreatedUtc, a.CreatedBy, postedByCompletedWorkup);
 }
 
 public sealed record AntigenProfileDto(

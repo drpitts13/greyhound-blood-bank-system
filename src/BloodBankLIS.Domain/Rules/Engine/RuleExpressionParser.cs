@@ -169,12 +169,12 @@ public static class RuleExpressionParser
         switch (token.Kind)
         {
             case RuleTokenKind.OpenParen:
-            {
-                state.Advance();
-                var inner = ParseOr(state);
-                Expect(state, t => t.Kind == RuleTokenKind.CloseParen, ")");
-                return inner;
-            }
+                {
+                    state.Advance();
+                    var inner = ParseOr(state);
+                    Expect(state, t => t.Kind == RuleTokenKind.CloseParen, ")");
+                    return inner;
+                }
 
             case RuleTokenKind.Text:
                 state.Advance();
@@ -202,16 +202,16 @@ public static class RuleExpressionParser
                 return new RuleUnaryNode(RuleUnaryOperator.Not, ParsePrimary(state));
 
             case RuleTokenKind.Identifier:
-            {
-                state.Advance();
-                if (state.Current.Kind != RuleTokenKind.OpenParen)
                 {
-                    return new RuleAttributeNode(token.Text, token.Position);
-                }
+                    state.Advance();
+                    if (state.Current.Kind != RuleTokenKind.OpenParen)
+                    {
+                        return new RuleAttributeNode(token.Text, token.Position);
+                    }
 
-                var arguments = ParseList(state) as RuleListNode;
-                return new RuleFunctionNode(token.Text, arguments!.Items, token.Position);
-            }
+                    var arguments = ParseList(state) as RuleListNode;
+                    return new RuleFunctionNode(token.Text, arguments!.Items, token.Position);
+                }
 
             case RuleTokenKind.Operator when token.IsOperator("<") || token.IsOperator(">"):
                 throw new RuleSyntaxException($"Missing value before '{token.Text}'.", token.Position);

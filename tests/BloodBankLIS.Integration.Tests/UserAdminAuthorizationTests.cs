@@ -86,6 +86,10 @@ public class UserAdminAuthorizationTests : IClassFixture<SqliteContextFactory>
             .CreateUserAsync(request);
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(request.UserName, allowed.Value!.UserName);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(User)
+            && a.EntityId == allowed.Value.Id
+            && a.EventType == AuditEventType.UserRole));
     }
 
     [Fact]
@@ -106,6 +110,10 @@ public class UserAdminAuthorizationTests : IClassFixture<SqliteContextFactory>
             .CreateRoleAsync(request);
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Contains(PermissionCodes.IssueCreate, allowed.Value!.Permissions);
+        Assert.True(await c.AuditEvents.AnyAsync(a =>
+            a.EntityType == nameof(Role)
+            && a.EntityId == allowed.Value.Id
+            && a.EventType == AuditEventType.UserRole));
     }
 
     [Fact]
@@ -133,6 +141,8 @@ public class UserAdminAuthorizationTests : IClassFixture<SqliteContextFactory>
         await using var c = _factory.Create();
         await DatabaseSeeder.SeedAsync(c);
         var tech = await c.Users.SingleAsync(u => u.UserName == "tech1");
+        tech.IsLocked = false;
+        await c.SaveChangesAsync();
 
         var denied = await Users(c, new FixedPermissionEvaluator(1, PermissionCodes.AdminConfigView))
             .SetLockedAsync(tech.Id, true, "Lockout.");

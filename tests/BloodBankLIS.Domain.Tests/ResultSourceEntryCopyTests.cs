@@ -40,6 +40,47 @@ public class ResultSourceEntryCopyTests
         Assert.Equal(expected, ResultSourceEntryCopy.Entered(source));
     }
 
+    [Theory]
+    [InlineData(ResultSource.Manual, "Result verified as Manual.")]
+    [InlineData(ResultSource.Calculated, "Result verified as Calculated (catalog interpretation).")]
+    [InlineData(ResultSource.Instrument, "Result verified as Instrument.")]
+    public void Verified_NamesStoredSource(ResultSource source, string expected)
+    {
+        Assert.Equal(expected, ResultSourceEntryCopy.Verified(source));
+    }
+
+    [Fact]
+    public void VerifiedWithOverride_NamesStoredSource()
+    {
+        Assert.Equal(
+            "Result verified with ABO/Rh override as Manual.",
+            ResultSourceEntryCopy.VerifiedWithOverride(ResultSource.Manual));
+    }
+
+    [Theory]
+    [InlineData(ResultSource.Manual, "Result corrected as Manual.")]
+    [InlineData(ResultSource.Interface, "Result corrected as Interface.")]
+    public void Corrected_NamesStoredSource(ResultSource source, string expected)
+    {
+        Assert.Equal(expected, ResultSourceEntryCopy.Corrected(source));
+    }
+
+    [Theory]
+    [InlineData(ResultSource.Manual, "Submitted for verification as Manual.")]
+    [InlineData(ResultSource.Instrument, "Submitted for verification as Instrument.")]
+    public void Submitted_NamesStoredSource(ResultSource source, string expected)
+    {
+        Assert.Equal(expected, ResultSourceEntryCopy.Submitted(source));
+    }
+
+    [Theory]
+    [InlineData(ResultSource.Manual, "Result invalidated as Manual.")]
+    [InlineData(ResultSource.Calculated, "Result invalidated as Calculated (catalog interpretation).")]
+    public void Invalidated_NamesStoredSource(ResultSource source, string expected)
+    {
+        Assert.Equal(expected, ResultSourceEntryCopy.Invalidated(source));
+    }
+
     [Fact]
     public void PanelHint_StatesCalculatedVersusTypedAbo()
     {

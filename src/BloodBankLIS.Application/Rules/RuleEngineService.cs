@@ -169,7 +169,24 @@ public sealed class RuleEngineService
         {
             log.OrderId = orderId;
             await _logs.AddAsync(log, ct);
+            RecordOrderMatch(log, orderId);
         }
+    }
+
+    private void RecordOrderMatch(RuleExecutionLog log, long orderId)
+    {
+        _audit.Record(
+            AuditEventType.OrderChange,
+            nameof(Order),
+            orderId,
+            newValue: new
+            {
+                log.RuleCode,
+                log.Level,
+                ActionsJson = log.ActionsJson,
+                log.Notes
+            },
+            reason: $"Rule '{log.RuleCode}' matched.");
     }
 
     /// <summary>
@@ -230,83 +247,83 @@ public sealed class RuleEngineService
                 switch (action.Kind)
                 {
                     case RuleActionKind.AddTest:
-                    {
-                        var added = false;
-                        foreach (var code in Expand(action.TestCode, grouperMembers))
                         {
-                            if (lines.Any(l => l.LineCategory == OrderCategory.Test
-                                               && l.IsActive
-                                               && string.Equals(l.TestCode, code, StringComparison.OrdinalIgnoreCase)))
+                            var added = false;
+                            foreach (var code in Expand(action.TestCode, grouperMembers))
                             {
-                                notes.Add($"Test '{code}' is already on the order.");
-                                continue;
+                                if (lines.Any(l => l.LineCategory == OrderCategory.Test
+                                                   && l.IsActive
+                                                   && string.Equals(l.TestCode, code, StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    notes.Add($"Test '{code}' is already on the order.");
+                                    continue;
+                                }
+
+                                if (!testCatalog.TryGetValue(code, out var name))
+                                {
+                                    notes.Add($"Test '{code}' is not in the active catalog.");
+                                    continue;
+                                }
+
+                                var line = new OrderLine
+                                {
+                                    OrderId = orderId,
+                                    LineNumber = nextLineNumber++,
+                                    LineCategory = OrderCategory.Test,
+                                    LineName = name,
+                                    TestCode = code,
+                                    OrderType = OrderLineBuilder.MapTestOrderType(code),
+                                    ResultStatus = ResultStatus.Pending,
+                                    IsActive = true
+                                };
+
+                                await _orderLines.AddAsync(line, ct);
+                                lines.Add(line);
+                                addedCodes.Add(code);
+                                added = true;
                             }
 
-                            if (!testCatalog.TryGetValue(code, out var name))
+                            if (added)
                             {
-                                notes.Add($"Test '{code}' is not in the active catalog.");
-                                continue;
+                                applied.Add(action);
                             }
 
-                            var line = new OrderLine
-                            {
-                                OrderId = orderId,
-                                LineNumber = nextLineNumber++,
-                                LineCategory = OrderCategory.Test,
-                                LineName = name,
-                                TestCode = code,
-                                OrderType = OrderLineBuilder.MapTestOrderType(code),
-                                ResultStatus = ResultStatus.Pending,
-                                IsActive = true
-                            };
-
-                            await _orderLines.AddAsync(line, ct);
-                            lines.Add(line);
-                            addedCodes.Add(code);
-                            added = true;
+                            break;
                         }
-
-                        if (added)
-                        {
-                            applied.Add(action);
-                        }
-
-                        break;
-                    }
 
                     case RuleActionKind.CancelTest:
-                    {
-                        var cancelled = false;
-                        foreach (var code in Expand(action.TestCode, grouperMembers))
                         {
-                            var target = lines.FirstOrDefault(l => l.LineCategory == OrderCategory.Test
-                                                                   && l.IsActive
-                                                                   && string.Equals(l.TestCode, code, StringComparison.OrdinalIgnoreCase));
-                            if (target is null)
+                            var cancelled = false;
+                            foreach (var code in Expand(action.TestCode, grouperMembers))
                             {
-                                notes.Add($"Test '{code}' is not on the order.");
-                                continue;
+                                var target = lines.FirstOrDefault(l => l.LineCategory == OrderCategory.Test
+                                                                       && l.IsActive
+                                                                       && string.Equals(l.TestCode, code, StringComparison.OrdinalIgnoreCase));
+                                if (target is null)
+                                {
+                                    notes.Add($"Test '{code}' is not on the order.");
+                                    continue;
+                                }
+
+                                if (target.ResultStatus is ResultStatus.Verified or ResultStatus.Corrected)
+                                {
+                                    notes.Add($"Test '{code}' is already resulted and was not cancelled.");
+                                    continue;
+                                }
+
+                                target.IsActive = false;
+                                target.FulfillmentStatus = FulfillmentStatus.Cancelled;
+                                _orderLines.Update(target);
+                                cancelled = true;
                             }
 
-                            if (target.ResultStatus is ResultStatus.Verified or ResultStatus.Corrected)
+                            if (cancelled)
                             {
-                                notes.Add($"Test '{code}' is already resulted and was not cancelled.");
-                                continue;
+                                applied.Add(action);
                             }
 
-                            target.IsActive = false;
-                            target.FulfillmentStatus = FulfillmentStatus.Cancelled;
-                            _orderLines.Update(target);
-                            cancelled = true;
+                            break;
                         }
-
-                        if (cancelled)
-                        {
-                            applied.Add(action);
-                        }
-
-                        break;
-                    }
 
                     case RuleActionKind.Warn:
                         warnings.Add(RuleResult.Warning($"RULE.{rule.Code}", action.Argument));
@@ -322,7 +339,7 @@ public sealed class RuleEngineService
 
             var log = BuildLog(rule, result.PatientId, orderId, result.Id, applied, notes, now);
             await _logs.AddAsync(log, ct);
-            RecordAudit(rule, orderId, applied, notes);
+            RecordAudit(rule, orderId, result.Id, applied, notes);
 
             if (rule.StopOnMatch)
             {
@@ -372,86 +389,86 @@ public sealed class RuleEngineService
             switch (action.Kind)
             {
                 case RuleActionKind.AddTest:
-                {
-                    var added = false;
-                    foreach (var code in Expand(action.TestCode, grouperMembers))
                     {
-                        if (lines.Any(l => l.IsActive
-                                           && l.LineCategory == OrderCategory.Test
-                                           && string.Equals(l.TestCode, code, StringComparison.OrdinalIgnoreCase)))
+                        var added = false;
+                        foreach (var code in Expand(action.TestCode, grouperMembers))
                         {
-                            localNotes.Add($"Test '{code}' is already on the order.");
-                            continue;
+                            if (lines.Any(l => l.IsActive
+                                               && l.LineCategory == OrderCategory.Test
+                                               && string.Equals(l.TestCode, code, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                localNotes.Add($"Test '{code}' is already on the order.");
+                                continue;
+                            }
+
+                            if (!testCatalog.TryGetValue(code, out var name))
+                            {
+                                localNotes.Add($"Test '{code}' is not in the active catalog.");
+                                continue;
+                            }
+
+                            lines.Add(new OrderLine
+                            {
+                                LineNumber = lines.Count == 0 ? 1 : lines.Max(l => l.LineNumber) + 1,
+                                LineCategory = OrderCategory.Test,
+                                LineName = name,
+                                TestCode = code,
+                                OrderType = OrderLineBuilder.MapTestOrderType(code),
+                                ResultStatus = ResultStatus.Pending,
+                                IsActive = true
+                            });
+                            added = true;
                         }
 
-                        if (!testCatalog.TryGetValue(code, out var name))
+                        if (added)
                         {
-                            localNotes.Add($"Test '{code}' is not in the active catalog.");
-                            continue;
+                            applied.Add(action);
                         }
 
-                        lines.Add(new OrderLine
-                        {
-                            LineNumber = lines.Count == 0 ? 1 : lines.Max(l => l.LineNumber) + 1,
-                            LineCategory = OrderCategory.Test,
-                            LineName = name,
-                            TestCode = code,
-                            OrderType = OrderLineBuilder.MapTestOrderType(code),
-                            ResultStatus = ResultStatus.Pending,
-                            IsActive = true
-                        });
-                        added = true;
+                        break;
                     }
-
-                    if (added)
-                    {
-                        applied.Add(action);
-                    }
-
-                    break;
-                }
 
                 case RuleActionKind.CancelTest:
-                {
-                    var cancelled = false;
-                    foreach (var code in Expand(action.TestCode, grouperMembers))
                     {
-                        var target = lines.FirstOrDefault(l => l.IsActive
-                                                               && l.LineCategory == OrderCategory.Test
-                                                               && string.Equals(l.TestCode, code, StringComparison.OrdinalIgnoreCase));
-                        if (target is null)
+                        var cancelled = false;
+                        foreach (var code in Expand(action.TestCode, grouperMembers))
                         {
-                            localNotes.Add($"Test '{code}' is not on the order.");
-                            continue;
+                            var target = lines.FirstOrDefault(l => l.IsActive
+                                                                   && l.LineCategory == OrderCategory.Test
+                                                                   && string.Equals(l.TestCode, code, StringComparison.OrdinalIgnoreCase));
+                            if (target is null)
+                            {
+                                localNotes.Add($"Test '{code}' is not on the order.");
+                                continue;
+                            }
+
+                            if (target.ResultStatus is ResultStatus.Verified or ResultStatus.Corrected)
+                            {
+                                localNotes.Add($"Test '{code}' is already resulted and was not cancelled.");
+                                continue;
+                            }
+
+                            // Lines that were never persisted simply disappear from the pending set.
+                            if (target.Id == 0)
+                            {
+                                lines.Remove(target);
+                            }
+                            else
+                            {
+                                target.IsActive = false;
+                                target.FulfillmentStatus = FulfillmentStatus.Cancelled;
+                            }
+
+                            cancelled = true;
                         }
 
-                        if (target.ResultStatus is ResultStatus.Verified or ResultStatus.Corrected)
+                        if (cancelled)
                         {
-                            localNotes.Add($"Test '{code}' is already resulted and was not cancelled.");
-                            continue;
+                            applied.Add(action);
                         }
 
-                        // Lines that were never persisted simply disappear from the pending set.
-                        if (target.Id == 0)
-                        {
-                            lines.Remove(target);
-                        }
-                        else
-                        {
-                            target.IsActive = false;
-                            target.FulfillmentStatus = FulfillmentStatus.Cancelled;
-                        }
-
-                        cancelled = true;
+                        break;
                     }
-
-                    if (cancelled)
-                    {
-                        applied.Add(action);
-                    }
-
-                    break;
-                }
 
                 case RuleActionKind.Warn:
                     warnings.Add(RuleResult.Warning($"RULE.{rule.Code}", action.Argument));
@@ -519,6 +536,7 @@ public sealed class RuleEngineService
     private void RecordAudit(
         RuleDefinition rule,
         long orderId,
+        long testResultId,
         IReadOnlyList<RuleActionInstruction> applied,
         IReadOnlyList<string> notes)
     {
@@ -528,13 +546,14 @@ public sealed class RuleEngineService
         }
 
         _audit.Record(
-            AuditEventType.Configure,
+            AuditEventType.OrderChange,
             nameof(Order),
             orderId,
             newValue: new
             {
                 RuleCode = rule.Code,
                 rule.Level,
+                TestResultId = testResultId,
                 Actions = applied.Select(a => a.ToString()).ToList(),
                 Notes = notes
             },

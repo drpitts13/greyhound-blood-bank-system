@@ -26,6 +26,7 @@ The printing layer is fully isolated from business logic. Services pass a **data
 ## A.3 Controls and audit
 
 - All print activity is recorded in `PrintJobs` (job type, template, target printer, context, payload JSON, rendered ZPL, status, timestamps).
+- First specimen, compatibility, and component prints write a `Print` audit event after the job has an id (interceptor Create still writes).
 - **Reprint requires a reason** and produces a `Reprint` audit event; `PrintJobs.IsReprint` + `ReprintReason` are set. Reprinting a compatibility tag is a dangerous action (see `safety-rules.md`).
 - Printer configuration (device names, endpoints, default templates) lives in `SystemConfiguration`; no printer specifics are hard-coded.
 
@@ -71,7 +72,7 @@ flowchart LR
 ## B.4 Review queue and export
 
 - `BillingEvents.Status`: `Pending -> Reviewed -> Exported` (or `Cancelled`).
-- A **charge review queue** lets billing staff review/approve/cancel pending charges; create and cancel both write audit events (`Create`/`Update` with reason).
+- A **charge review queue** lets billing staff review/approve/cancel pending charges. Capture writes interceptor `Create`. Review and cancel write `Billing` (cancel includes the reason). Export writes `Export`.
 - When a trigger is met, capture also queues a standard outbound **DFT^P03** into `HL7Messages` (price omitted from FT1). The review-queue Export action remains a status flip; it does not build a second message. Transport send of queued DFT rows is a later phase.
 
 ## B.5 Audit

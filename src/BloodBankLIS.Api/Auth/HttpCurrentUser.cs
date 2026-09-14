@@ -3,18 +3,16 @@ using BloodBankLIS.Application.Abstractions;
 namespace BloodBankLIS.Api.Auth;
 
 /// <summary>
-/// Request-scoped current-user resolver. Reads the authenticated identity from the
-/// <c>X-User</c> / <c>X-Workstation</c> headers supplied by the API gateway. This is a
-/// deliberately thin shim: a production deployment terminates real authentication
-/// (OIDC / Windows / smartcard) at the gateway and forwards the verified identity, so
-/// the LIS never trusts a self-asserted header from an untrusted client.
+/// Request-scoped current-user resolver. Identity comes from a validated session
+/// (or Development DevMode) staged by <see cref="AuthSessionMiddleware"/>.
+/// A self-asserted <c>X-User</c> header is not trusted.
 /// When there is no HTTP context (startup migration/seed, background jobs) it falls
 /// back to the system account so audit metadata is still populated.
 /// </summary>
 public sealed class HttpCurrentUser : ICurrentUser
 {
-    public const string UserHeader = "X-User";
-    public const string WorkstationHeader = "X-Workstation";
+    public const string UserHeader = AuthSessionMiddleware.UserHeader;
+    public const string WorkstationHeader = AuthSessionMiddleware.WorkstationHeader;
 
     private readonly IHttpContextAccessor _accessor;
     private readonly DevModeOptions _devMode;
@@ -29,14 +27,12 @@ public sealed class HttpCurrentUser : ICurrentUser
     {
         get
         {
-            var header = _accessor.HttpContext?.Request.Headers[UserHeader].ToString();
-            if (!string.IsNullOrWhiteSpace(header))
+            var http = _accessor.HttpContext;
+            if (http is not null)
             {
-                return header.Trim();
+                return AuthHttpContext.GetIdentity(http).UserName;
             }
 
-            // No-login dev mode: resolve unauthenticated callers as the dev admin so audit
-            // and authorization both see a real, fully-permissioned account.
             return _devMode.Enabled ? _devMode.UserName : "system";
         }
     }
@@ -45,21 +41,28 @@ public sealed class HttpCurrentUser : ICurrentUser
     {
         get
         {
-            var header = _accessor.HttpContext?.Request.Headers[WorkstationHeader].ToString();
-            return string.IsNullOrWhiteSpace(header) ? Environment.MachineName : header.Trim();
+            var http = _accessor.HttpContext;
+            if (http is not null)
+            {
+                var workstation = AuthHttpContext.GetIdentity(http).Workstation;
+                return string.IsNullOrWhiteSpace(workstation) ? Environment.MachineName : workstation;
+            }
+
+            return Environment.MachineName;
         }
     }
 
-    /// <summary>
-    /// True when an identity header was supplied, or when dev mode is active (which resolves
-    /// unauthenticated callers to the dev admin account).
-    /// </summary>
     public bool IsAuthenticated
     {
         get
         {
-            var header = _accessor.HttpContext?.Request.Headers[UserHeader].ToString();
-            return !string.IsNullOrWhiteSpace(header) || _devMode.Enabled;
+            var http = _accessor.HttpContext;
+            if (http is not null)
+            {
+                return AuthHttpContext.GetIdentity(http).IsAuthenticated;
+            }
+
+            return _devMode.Enabled;
         }
     }
 }

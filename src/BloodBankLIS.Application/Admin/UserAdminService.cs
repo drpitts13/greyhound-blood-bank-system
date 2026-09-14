@@ -24,6 +24,7 @@ public sealed class UserAdminService : ConfigAdminServiceBase
     private readonly IRepository<RolePermission> _rolePermissions;
     private readonly IIdentityAdminStore _identity;
     private readonly IPermissionEvaluator? _permissionEvaluator;
+    private readonly IAuthSessionService? _sessions;
 
     public UserAdminService(
         IRepository<User> users,
@@ -37,7 +38,8 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         ICurrentUser currentUser,
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+        IAuthSessionService? sessions = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _users = users;
@@ -47,6 +49,7 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         _rolePermissions = rolePermissions;
         _identity = identity;
         _permissionEvaluator = permissionEvaluator;
+        _sessions = sessions;
     }
 
     // ---- Reads ----
@@ -192,11 +195,11 @@ public sealed class UserAdminService : ConfigAdminServiceBase
 
         var after = await GetUserAsync(id, ct);
         RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, before, after, req.ChangeReason);
+        await UnitOfWork.SaveChangesAsync(ct);
         if (req.Roles is not null)
         {
-            RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, before, after, req.ChangeReason);
+            await RevokeUserSessionsAsync(user.Id, req.ChangeReason ?? "Roles changed", ct);
         }
-        await UnitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<AdminUserDto>.Ok(after!);
     }
@@ -228,6 +231,7 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         var after = await GetUserAsync(id, ct);
         RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, before, after, req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
+        await RevokeUserSessionsAsync(user.Id, req.ChangeReason ?? "Roles changed", ct);
 
         return OperationResult<AdminUserDto>.Ok(after!);
     }
@@ -259,6 +263,10 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         var dto = await GetUserAsync(id, ct);
         RecordChange(UserEntity, user.Id, 1, action, ToAuditType(action), null, dto, reason);
         await UnitOfWork.SaveChangesAsync(ct);
+        if (!active && _sessions is not null)
+        {
+            await _sessions.RevokeUserSessionsAsync(user.Id, reason ?? "Account deactivated", ct);
+        }
 
         return OperationResult<AdminUserDto>.Ok(dto!);
     }
@@ -289,6 +297,10 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         var dto = await GetUserAsync(id, ct);
         RecordChange(UserEntity, user.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, null, dto, reason ?? (locked ? "Locked" : "Unlocked"));
         await UnitOfWork.SaveChangesAsync(ct);
+        if (locked && _sessions is not null)
+        {
+            await _sessions.RevokeUserSessionsAsync(user.Id, reason ?? "Account locked", ct);
+        }
 
         return OperationResult<AdminUserDto>.Ok(dto!);
     }
@@ -392,8 +404,35 @@ public sealed class UserAdminService : ConfigAdminServiceBase
         var after = await GetRoleAsync(id, ct);
         RecordChange(RoleEntity, role.Id, 1, ConfigChangeAction.Update, AuditEventType.UserRole, before, after, req.ChangeReason);
         await UnitOfWork.SaveChangesAsync(ct);
+        await RevokeSessionsForRoleAsync(role.Id, req.ChangeReason ?? "Role permissions changed", ct);
 
         return OperationResult<AdminRoleDto>.Ok(after!);
+    }
+
+    private async Task RevokeUserSessionsAsync(long userId, string reason, CancellationToken ct)
+    {
+        if (_sessions is null)
+        {
+            return;
+        }
+
+        await _sessions.RevokeUserSessionsAsync(userId, reason, ct);
+    }
+
+    private async Task RevokeSessionsForRoleAsync(long roleId, string reason, CancellationToken ct)
+    {
+        if (_sessions is null)
+        {
+            return;
+        }
+
+        var userIds = (await _userRoles.ListAsync(ur => ur.RoleId == roleId, ct))
+            .Select(ur => ur.UserId)
+            .Distinct();
+        foreach (var userId in userIds)
+        {
+            await _sessions.RevokeUserSessionsAsync(userId, reason, ct);
+        }
     }
 
     // ---- Helpers ----

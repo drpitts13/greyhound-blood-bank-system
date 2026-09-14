@@ -27,7 +27,7 @@ public class EncounterServiceAuthorizationTests : IClassFixture<SqliteContextFac
             new FixedClock(DateTime.UtcNow),
             permissions,
             _factory.CurrentUser,
-            audit: withAudit ? new AuditWriter(c, _factory.Clock, _factory.CurrentUser) : null);
+            withAudit ? new AuditWriter(c, _factory.Clock, _factory.CurrentUser) : null);
     }
 
     private async Task<Patient> SeedPatientAsync(BloodBankDbContext c)

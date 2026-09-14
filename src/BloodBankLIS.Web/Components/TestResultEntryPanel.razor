@@ -13,6 +13,7 @@
             Current result:
             <span class="@Ui.Badge(WorkItem.CurrentResultStatus ?? ResultStatus.Pending)">@(WorkItem.CurrentResultStatus?.ToString() ?? "—")</span>
             · @DisplayValue(WorkItem.TestCode, WorkItem.CurrentResultValue)
+            · Source @(WorkItem.CurrentResultSource?.ToString() ?? "—")
             @if (!string.IsNullOrWhiteSpace(WorkItem.CurrentResultInterpretation))
             {
                 <span> · @WorkItem.CurrentResultInterpretation</span>
@@ -792,9 +793,13 @@
         }
 
         var savedMessage = r.Succeeded && r.Value is not null
-            ? IsCrossmatchType
-                ? CrossmatchEntryCopy.WorklistSaved(r.Value.Source, _xmMethod, _xmResult, markComplete)
-                : ResultSourceEntryCopy.Saved(r.Value.Source)
+            ? IsAboRhEntry
+                ? $"{ResultSourceEntryCopy.PanelEntered(r.Value.Source)} A different user must verify before it becomes the current type."
+                : IsCrossmatchType
+                    ? CrossmatchEntryCopy.WorklistSaved(r.Value.Source, _xmMethod, _xmResult, markComplete)
+                    : markComplete
+                        ? $"{ResultSourceEntryCopy.Saved(r.Value.Source)} Verified."
+                        : $"{ResultSourceEntryCopy.Saved(r.Value.Source)} Incomplete."
             : IsAboRhEntry
                 ? "ABO/Rh saved. A different user must verify before it becomes the current type."
                 : markComplete ? "Result saved and verified." : "Result saved (incomplete).";

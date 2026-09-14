@@ -48,7 +48,7 @@ public class RulesEngineTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Encounter>(c), new EfRepository<OrderingLocation>(c), new EfRepository<Patient>(c),
             new EfRepository<Specimen>(c), new EfRepository<OrderingProvider>(c), new EfRepository<ProductType>(c),
             new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c), _factory.Clock, c,
-            Engine(c));
+            Engine(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
 
     private static ICurrentUser Verifier => new TestCurrentUser("tech-verify", "WORKSTATION-2");
 
@@ -324,6 +324,30 @@ public class RulesEngineTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task NeonatalRule_WritesOrderChangeOnMatch()
+    {
+        await using var c = _factory.Create();
+        await PrepareAsync(c);
+        var rule = await SeedRuleAsync(c, RuleLevel.Order, NeonatalCondition, NeonatalAction);
+        var (patient, encounter, location, specimen) = await SeedPatientAsync(c, ageInDays: 0);
+
+        var order = await CreateOrderAsync(c, patient, encounter, location, specimen,
+            new OrderLineInputDto(OrderCategory.Test, "TNS", null));
+
+        Assert.Single(await c.RuleExecutionLogs.Where(l => l.OrderId == order.Id).ToListAsync());
+        var events = c.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.OrderChange
+            && e.EntityType == nameof(Order)
+            && e.EntityId == order.Id
+            && e.Reason == $"Rule '{rule.Code}' matched."
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains($"\"RuleCode\":\"{rule.Code}\"")
+            && e.NewValueJson.Contains("TNS")
+            && e.NewValueJson.Contains("TSNEO"));
+    }
+
+    [Fact]
     public async Task OrderRule_CanBlockAnOrder()
     {
         await using var c = _factory.Create();
@@ -446,6 +470,28 @@ public class RulesEngineTests : IClassFixture<SqliteContextFactory>
         var lines = await ActiveLinesAsync(c, order.Id);
         Assert.Contains(lines, l => l.TestCode == "WEAKD");
         Assert.Equal(ResultStatus.Pending, lines.Single(l => l.TestCode == "WEAKD").ResultStatus);
+    }
+
+    [Fact]
+    public async Task WeakDRule_WritesOrderChangeOnMatch()
+    {
+        await using var c = _factory.Create();
+        await PrepareAsync(c);
+        var rule = await SeedRuleAsync(c, RuleLevel.Test, WeakDCondition, WeakDAction);
+        var (patient, encounter, location, specimen) = await SeedPatientAsync(c, ageInDays: 30);
+        var (order, line, _) = await SeedAboRhOrderAsync(c, patient, encounter, location, specimen);
+
+        var probe = await VerifyAboRhAsync(c, order, line, specimen, AboGroup.O, RhType.Negative);
+
+        var events = c.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.OrderChange
+            && e.EntityType == nameof(Order)
+            && e.EntityId == order.Id
+            && e.Reason == $"Rule '{rule.Code}' matched."
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains($"\"TestResultId\":{probe.Result.Id}")
+            && e.NewValueJson.Contains($"\"RuleCode\":\"{rule.Code}\""));
     }
 
     [Theory]

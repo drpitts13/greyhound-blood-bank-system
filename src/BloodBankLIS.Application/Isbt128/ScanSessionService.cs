@@ -283,48 +283,48 @@ public sealed class ScanSessionService
         switch (segment.Kind)
         {
             case IsbtDataStructureKind.DonationIdentificationNumber:
-            {
-                var parsed = DinParser.Parse(segment.Value, _dinCheck);
-                if (!parsed.Success)
-                    return (false, parsed.Errors.Select(e => $"{e.Code}: {e.Message}").ToList());
-                if (draft.Din is not null && draft.Din.Din != parsed.Value!.Din)
-                    return (false, new[] { $"{IsbtErrorCodes.MixedUnitSession}: Conflicting DIN in session." });
-                if (draft.Din is not null && draft.Din.Din == parsed.Value!.Din && draft.Din.Flags != parsed.Value.Flags)
-                    return (false, new[] { $"{IsbtErrorCodes.ConflictingScan}: Conflicting DIN flags." });
-                draft.Din = parsed.Value;
-                break;
-            }
+                {
+                    var parsed = DinParser.Parse(segment.Value, _dinCheck);
+                    if (!parsed.Success)
+                        return (false, parsed.Errors.Select(e => $"{e.Code}: {e.Message}").ToList());
+                    if (draft.Din is not null && draft.Din.Din != parsed.Value!.Din)
+                        return (false, new[] { $"{IsbtErrorCodes.MixedUnitSession}: Conflicting DIN in session." });
+                    if (draft.Din is not null && draft.Din.Din == parsed.Value!.Din && draft.Din.Flags != parsed.Value.Flags)
+                        return (false, new[] { $"{IsbtErrorCodes.ConflictingScan}: Conflicting DIN flags." });
+                    draft.Din = parsed.Value;
+                    break;
+                }
             case IsbtDataStructureKind.AboRhd:
-            {
-                var parsed = AboRhdParser.ParseScanner(segment.Value, aboLookup);
-                if (!parsed.Success)
-                    return (false, parsed.Errors.Select(e => $"{e.Code}: {e.Message}").ToList());
-                if (draft.AboRhd is not null && draft.AboRhd.AboRhdCode != parsed.Value!.AboRhdCode)
-                    return (false, new[] { $"{IsbtErrorCodes.ConflictingScan}: Conflicting ABO/RhD." });
-                draft.AboRhd = parsed.Value;
-                break;
-            }
+                {
+                    var parsed = AboRhdParser.ParseScanner(segment.Value, aboLookup);
+                    if (!parsed.Success)
+                        return (false, parsed.Errors.Select(e => $"{e.Code}: {e.Message}").ToList());
+                    if (draft.AboRhd is not null && draft.AboRhd.AboRhdCode != parsed.Value!.AboRhdCode)
+                        return (false, new[] { $"{IsbtErrorCodes.ConflictingScan}: Conflicting ABO/RhD." });
+                    draft.AboRhd = parsed.Value;
+                    break;
+                }
             case IsbtDataStructureKind.ProductCode:
-            {
-                var parsed = ProductParser.ParseScanner(segment.Value, productLookup, isNewManufactureOrRelabel: true);
-                if (!parsed.Success)
-                    return (false, parsed.Errors.Select(e => $"{e.Code}: {e.Message}").ToList());
-                if (draft.Product is not null && draft.Product.ProductCodeData != parsed.Value!.ProductCodeData)
-                    return (false, new[] { $"{IsbtErrorCodes.ConflictingScan}: Conflicting product data." });
-                draft.Product = parsed.Value;
-                break;
-            }
+                {
+                    var parsed = ProductParser.ParseScanner(segment.Value, productLookup, isNewManufactureOrRelabel: true);
+                    if (!parsed.Success)
+                        return (false, parsed.Errors.Select(e => $"{e.Code}: {e.Message}").ToList());
+                    if (draft.Product is not null && draft.Product.ProductCodeData != parsed.Value!.ProductCodeData)
+                        return (false, new[] { $"{IsbtErrorCodes.ConflictingScan}: Conflicting product data." });
+                    draft.Product = parsed.Value;
+                    break;
+                }
             case IsbtDataStructureKind.ExpirationDate:
             case IsbtDataStructureKind.ExpirationDateTime:
-            {
-                var parsed = ExpirationParser.Parse(segment.Value);
-                if (!parsed.Success)
-                    return (false, parsed.Errors.Select(e => $"{e.Code}: {e.Message}").ToList());
-                if (draft.Expiration is not null && draft.Expiration.ExpirationEncoded != parsed.Value!.ExpirationEncoded)
-                    return (false, new[] { $"{IsbtErrorCodes.ConflictingScan}: Conflicting expiration." });
-                draft.Expiration = parsed.Value;
-                break;
-            }
+                {
+                    var parsed = ExpirationParser.Parse(segment.Value);
+                    if (!parsed.Success)
+                        return (false, parsed.Errors.Select(e => $"{e.Code}: {e.Message}").ToList());
+                    if (draft.Expiration is not null && draft.Expiration.ExpirationEncoded != parsed.Value!.ExpirationEncoded)
+                        return (false, new[] { $"{IsbtErrorCodes.ConflictingScan}: Conflicting expiration." });
+                    draft.Expiration = parsed.Value;
+                    break;
+                }
             default:
                 errors.Add($"{IsbtErrorCodes.UnsupportedDataStructure}: {segment.Kind}");
                 return (false, errors);

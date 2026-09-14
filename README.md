@@ -87,7 +87,7 @@ Endpoints:
 
 ### Authorization
 
-Authorization is permission-based and default-deny, enforced at the API boundary. Every request must carry an identity header `X-User: <username>` (and optionally `X-Workstation`); requests with no identity get `401`, and an authenticated user lacking the required permission gets `403`. In a real deployment the gateway terminates authentication (OIDC/Windows/smartcard) and forwards the verified identity — the LIS does not trust a self-asserted header from an untrusted client. The permission catalog lives in `PermissionCodes`; seeded demo accounts are `admin` (Administrator), `supervisor`, `tech1` (Technologist), and `viewer` (ReadOnly).
+Authorization is permission-based and default-deny, enforced at the API boundary. Interactive callers sign in with `POST /api/auth/login` and send `Authorization: Bearer <session-token>` on subsequent requests. A self-asserted `X-User` header is not trusted unless `Auth:AllowLegacyIdentityHeader` is explicitly enabled for a test host (forced off in Production). Requests with no valid session get `401`; an authenticated user lacking the required permission gets `403`. A future facility IdP (OIDC/Windows/smartcard) can still sit in front; this LIS does not invent that integration. The permission catalog lives in `PermissionCodes`; seeded demo accounts are `admin` (Administrator), `supervisor`, `tech1` (Technologist), and `viewer` (ReadOnly).
 
 Issue overrides additionally require an electronic signature: record one via `POST /api/signatures` with `action: "IssueOverride"`, then re-issue with the returned id in the `X-Esignature-Id` header. An override without a reason and a valid, owner-bound signature is rejected.
 

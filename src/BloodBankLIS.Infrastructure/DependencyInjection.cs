@@ -14,6 +14,7 @@ using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Application.Admin;
+using BloodBankLIS.Application.Identity;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Common;
@@ -104,6 +105,7 @@ public static class DependencyInjection
         // Admin configuration services.
         services.AddScoped<TestDefinitionAdminService>();
         services.AddScoped<BloodAttributeAdminService>();
+        services.AddScoped<AntibodyPanelLotAdminService>();
         services.AddScoped<SpecimenTypeAdminService>();
         services.AddScoped<SubtestDefinitionAdminService>();
         services.AddScoped<PhaseDefinitionAdminService>();
@@ -127,6 +129,8 @@ public static class DependencyInjection
         services.AddScoped<Hl7ConfigAdminService>();
         services.AddScoped<InterfaceTranslationAdminService>();
         services.AddScoped<UserAdminService>();
+        services.TryAddSingleton(new AuthSessionOptions());
+        services.AddScoped<IAuthSessionService, AuthSessionService>();
         services.AddScoped<IConfigurationHistoryReader, ConfigurationHistoryReader>();
 
         services.AddSingleton<IClock, SystemClock>();

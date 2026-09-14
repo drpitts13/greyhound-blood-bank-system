@@ -85,7 +85,8 @@ public sealed record AntibodyIdentificationRecordedFinding(
     string Specificity,
     string? AttributeCode,
     AntibodyIdClassification Classification,
-    AntibodyIdSource Source);
+    AntibodyIdSource Source,
+    string? Rationale = null);
 
 public static class ReactionGradeInfo
 {

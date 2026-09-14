@@ -80,8 +80,7 @@ public class PatientMergeServiceTests : IClassFixture<SqliteContextFactory>
     public async Task Merge_ReassignsAntibodyIdWorkup_AndWarnsWhenOpen()
     {
         await using var c = _factory.Create();
-        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
-        var (survivor, duplicate) = await SeedPairAsync(c, $"MAN-ABID-{suffix}");
+        var (survivor, duplicate) = await SeedPairAsync(c, "MAN-ABID");
         c.AntibodyIdentificationWorkups.Add(new AntibodyIdentificationWorkup
         {
             PatientId = duplicate.Id,
@@ -105,8 +104,7 @@ public class PatientMergeServiceTests : IClassFixture<SqliteContextFactory>
     public async Task Merge_BothOpenAntibodyIdWorkups_IsHardStopped()
     {
         await using var c = _factory.Create();
-        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
-        var (survivor, duplicate) = await SeedPairAsync(c, $"MAN-ABID2-{suffix}");
+        var (survivor, duplicate) = await SeedPairAsync(c, "MAN-ABID2");
         c.AntibodyIdentificationWorkups.AddRange(
             new AntibodyIdentificationWorkup
             {

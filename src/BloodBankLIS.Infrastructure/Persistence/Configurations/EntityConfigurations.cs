@@ -511,11 +511,15 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         b.Property(a => a.Workstation).HasMaxLength(100);
         b.Property(a => a.Reason).HasMaxLength(1000);
         b.Property(a => a.Environment).HasMaxLength(50);
+        b.Property(a => a.PreviousHash).HasMaxLength(64);
+        b.Property(a => a.RecordHash).HasMaxLength(64);
 
         b.HasIndex(a => new { a.EntityType, a.EntityId });
         b.HasIndex(a => a.UserName);
         b.HasIndex(a => a.OccurredUtc);
         b.HasIndex(a => a.EventType);
+        b.HasIndex(a => a.PreviousHash).IsUnique().HasFilter("[PreviousHash] IS NOT NULL");
+        b.HasIndex(a => a.RecordHash).IsUnique().HasFilter("[RecordHash] IS NOT NULL");
     }
 }
 
@@ -874,6 +878,24 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 
         b.HasIndex(u => u.UserName).IsUnique();
         b.HasMany(u => u.UserRoles).WithOne(ur => ur.User!).HasForeignKey(ur => ur.UserId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class AuthSessionConfiguration : IEntityTypeConfiguration<AuthSession>
+{
+    public void Configure(EntityTypeBuilder<AuthSession> b)
+    {
+        b.ToTable("AuthSessions");
+        b.HasKey(s => s.Id);
+        b.Property(s => s.TokenHash).HasMaxLength(128).IsRequired();
+        b.Property(s => s.Workstation).HasMaxLength(100);
+        b.Property(s => s.RevokedReason).HasMaxLength(300);
+        b.Property(s => s.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(s => s.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(s => s.TokenHash).IsUnique();
+        b.HasIndex(s => new { s.UserId, s.RevokedUtc });
+        b.HasOne(s => s.User).WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

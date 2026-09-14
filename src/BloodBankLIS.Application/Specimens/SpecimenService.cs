@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -28,6 +29,8 @@ public sealed class SpecimenService
     private readonly IAuditWriter? _audit;
     private readonly ICurrentUser? _currentUser;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<AntibodyIdentificationWorkup>? _antibodyWorkups;
+    private readonly IRepository<AntibodyIdentificationFinding>? _antibodyFindings;
 
     public SpecimenService(
         IRepository<Specimen> specimens,
@@ -39,7 +42,9 @@ public sealed class SpecimenService
         FacilityPolicyService? policy = null,
         IAuditWriter? audit = null,
         ICurrentUser? currentUser = null,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null,
+        IRepository<AntibodyIdentificationFinding>? antibodyFindings = null)
     {
         _specimens = specimens;
         _patients = patients;
@@ -51,6 +56,8 @@ public sealed class SpecimenService
         _audit = audit;
         _currentUser = currentUser;
         _permissions = permissions;
+        _antibodyWorkups = antibodyWorkups;
+        _antibodyFindings = antibodyFindings;
     }
 
     public async Task<SpecimenDto?> GetAsync(long id, CancellationToken ct = default)
@@ -214,11 +221,15 @@ public sealed class SpecimenService
             specimen.ExpiresUtc
         };
 
+        var nextExpires = request.CollectedUtc.AddHours(hours);
+        var validityChanged = specimen.CollectedUtc != request.CollectedUtc
+            || specimen.ExpiresUtc != nextExpires;
+
         specimen.CollectedUtc = request.CollectedUtc;
         specimen.Barcode = string.IsNullOrWhiteSpace(request.Barcode) ? null : request.Barcode.Trim();
         specimen.DrawLocation = string.IsNullOrWhiteSpace(request.DrawLocation) ? null : request.DrawLocation.Trim();
         specimen.Collector = string.IsNullOrWhiteSpace(request.Collector) ? null : request.Collector.Trim();
-        specimen.ExpiresUtc = request.CollectedUtc.AddHours(hours);
+        specimen.ExpiresUtc = nextExpires;
 
         _specimens.Update(specimen);
         _audit?.Record(
@@ -236,7 +247,18 @@ public sealed class SpecimenService
             },
             reason: "Specimen metadata updated.");
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<Specimen>.Ok(specimen);
+
+        var warnings = new List<RuleResult>();
+        if (validityChanged)
+        {
+            warnings.AddRange(await WarnAndWithdrawOpenWorkupAsync(
+                specimen.Id,
+                AntibodyIdentificationHistoryPostRule.EvaluateSpecimenEditedOpenWorkup,
+                "Linked specimen collection or expiration changed while an antibody-identification workup was open. Interpretation and supervisor review must be repeated against the current specimen validity. This does not identify antibodies.",
+                ct));
+        }
+
+        return OperationResult<Specimen>.Ok(specimen, warnings);
     }
 
     public async Task<OperationResult<Specimen>> RejectAsync(long specimenId, string reason, CancellationToken ct = default)
@@ -276,7 +298,13 @@ public sealed class SpecimenService
             newValue: new { specimen.Status, specimen.RejectionReason },
             reason: reason.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<Specimen>.Ok(specimen);
+
+        var warnings = await WarnAndWithdrawOpenWorkupAsync(
+            specimen.Id,
+            AntibodyIdentificationHistoryPostRule.EvaluateSpecimenRejectedOpenWorkup,
+            "Linked specimen was rejected while an antibody-identification workup was open. Interpretation and supervisor review must be repeated, or the workup voided, before completing. This does not identify antibodies.",
+            ct);
+        return OperationResult<Specimen>.Ok(specimen, warnings);
     }
 
     /// <summary>
@@ -294,6 +322,7 @@ public sealed class SpecimenService
         var hours = await ResolveValidityHoursForPatientAsync(patient, ct);
         var specimens = await _specimens.ListAsync(
             s => s.PatientId == patientId && s.Status == SpecimenStatus.Accepted, ct);
+        var changedIds = new List<long>();
         foreach (var specimen in specimens)
         {
             var next = specimen.CollectedUtc.AddHours(hours);
@@ -304,6 +333,7 @@ public sealed class SpecimenService
 
             var previous = specimen.ExpiresUtc;
             specimen.ExpiresUtc = next;
+            changedIds.Add(specimen.Id);
             _audit?.Record(
                 AuditEventType.Specimen,
                 nameof(Specimen),
@@ -314,6 +344,50 @@ public sealed class SpecimenService
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
+        foreach (var specimenId in changedIds)
+        {
+            await WarnAndWithdrawOpenWorkupAsync(
+                specimenId,
+                AntibodyIdentificationHistoryPostRule.EvaluateSpecimenEditedOpenWorkup,
+                "Linked specimen expiration was recomputed while an antibody-identification workup was open. Interpretation and supervisor review must be repeated against the current specimen validity. This does not identify antibodies.",
+                ct);
+        }
+    }
+
+    private async Task<List<RuleResult>> WarnAndWithdrawOpenWorkupAsync(
+        long specimenId,
+        Func<bool, RuleResult> evaluate,
+        string withdrawReason,
+        CancellationToken ct)
+    {
+        var warnings = new List<RuleResult>();
+        if (_antibodyWorkups is null)
+        {
+            return warnings;
+        }
+
+        var hasOpen = await _antibodyWorkups.AnyAsync(
+            w => w.SpecimenId == specimenId
+                && (w.Status == AntibodyWorkupStatus.InProgress
+                    || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                    || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+            ct);
+        var open = evaluate(hasOpen);
+        if (open.Severity != RuleSeverity.Warning)
+        {
+            return warnings;
+        }
+
+        await AntibodyIdentificationJudgmentWithdrawal.WithdrawAfterLinkedSpecimenUnusableAsync(
+            _antibodyWorkups,
+            _antibodyFindings,
+            _audit,
+            _unitOfWork,
+            specimenId,
+            withdrawReason,
+            ct);
+        warnings.Add(open);
+        return warnings;
     }
 
     private async Task<int> ResolveValidityHoursForSpecimenAsync(Specimen specimen, CancellationToken ct)

@@ -112,7 +112,7 @@ else
     {
         <div class="bb-card" style="margin-bottom:1rem;">
             <div class="bb-card-title"><h3>Merge a duplicate into this patient</h3></div>
-            <p class="muted">The duplicate is marked Merged and is no longer used for testing, allocation, or issue. History is reassigned to this record and is not deleted.</p>
+            <p class="muted">The duplicate is marked Merged and is no longer used for testing, allocation, or issue. History and antibody-identification workups are reassigned to this record and are not deleted. Merge HardStops if both records have an open workup.</p>
             <Outcome Value="_mergeFb" />
             <div class="form-row">
                 <div class="field"><label>Duplicate MRN</label><input @bind="_mergeMrn" placeholder="MRN of the losing record" /></div>
@@ -170,6 +170,13 @@ else
                     {
                         <span class="muted"> @_exm.BlockingReason</span>
                     }
+                    @if (OpenAbidWorkups.Count > 0)
+                    {
+                        <div class="alert alert-warning" style="margin-top:.75rem;">
+                            Open antibody-identification workup(s) block electronic XM. Serologic crossmatch remains available and warns (`ABID-XM-OPEN`). Use serologic crossmatch, or
+                            <a href="@($"/patients/{Id}/antibody-id")">open antibody identification</a>.
+                        </div>
+                    }
                 </p>
                 <table class="bb">
                     <thead><tr><th>Criterion</th><th>Status</th></tr></thead>
@@ -220,6 +227,22 @@ else
             {
                 <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
                 <h4>Record manual ABO/Rh <span class="badge badge-red">dangerous</span></h4>
+                @if (OpenAbidWorkups.Count > 0)
+                {
+                    <div class="alert alert-warning">
+                        Open antibody-identification workup(s). Changing ABO/Rh withdraws interpretation and review so they can be repeated against the current type.
+                        This does not identify antibodies.
+                        <a href="@($"/patients/{Id}/antibody-id")">Open antibody identification</a>.
+                    </div>
+                }
+                else if (HasCompletedUnscopedAbid)
+                {
+                    <div class="alert alert-warning">
+                        A completed unscoped antibody-identification workup is the identification of record. Changing ABO/Rh does not reopen it or retract posted history.
+                        This does not identify antibodies.
+                        <a href="@($"/patients/{Id}/antibody-id")">Open antibody identification</a>.
+                    </div>
+                }
                 <Outcome Value="_typeFb" />
                 <div class="form-row">
                     <div class="field"><label>ABO</label>
@@ -238,6 +261,14 @@ else
         <div class="bb-card">
             <div class="bb-card-title"><h3>Special transfusion requirements</h3></div>
             <p class="muted">Computer-evaluated at issue. Operators cannot checkbox these away.</p>
+            @if (OpenAbidWorkups.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Open antibody-identification workup(s). Antigen-negative needs may change when the workup completes.
+                    Adding or deactivating a special requirement still records. This does not identify antibodies.
+                    <a href="@($"/patients/{Id}/antibody-id")">Open antibody identification</a>.
+                </div>
+            }
             <Outcome Value="_srFb" />
             @if (_specialRequirements.Count == 0)
             {
@@ -306,6 +337,71 @@ else
                     <a class="btn btn-secondary btn-sm" href="@($"/patients/{Id}/antibody-id")">Antibody identification</a>
                 }
             </div>
+            <Outcome Value="_antibodyFb" />
+            @if (OpenAbidWorkups.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    <p>
+                        @OpenAbidWorkups.Count open antibody-identification workup(s).
+                        Assistance does not identify antibodies.
+                        An unscoped open workup is the identification of record for this patient.
+                    </p>
+                    <ul>
+                        @foreach (var w in OpenAbidWorkups)
+                        {
+                            <li>
+                                @AbidNextLabel(w)
+                                ·
+                                @if (string.IsNullOrWhiteSpace(w.SpecimenAccession))
+                                {
+                                    <span>Unscoped</span>
+                                }
+                                else
+                                {
+                                    <span class="mono">@w.SpecimenAccession</span>
+                                }
+                                @if (w.HasUnusableSpecimen)
+                                {
+                                    <span class="badge badge-red">Rejected/cancelled</span>
+                                }
+                                else if (w.HasNotReadySpecimen)
+                                {
+                                    <span class="badge badge-red">Not received</span>
+                                }
+                                else if (w.HasUnacceptedSpecimen)
+                                {
+                                    <span class="badge badge-blue">Not accepted</span>
+                                }
+                                else if (w.HasExpiredSpecimen)
+                                {
+                                    <span class="badge badge-amber">Expired specimen</span>
+                                }
+                                @foreach (var lot in w.InactiveLotNumbers ?? [])
+                                {
+                                    <span class="badge badge-red">Inactive @lot</span>
+                                }
+                                @foreach (var lot in w.ExpiredLotNumbers ?? [])
+                                {
+                                    <span class="badge badge-amber">Expired @lot</span>
+                                }
+                                @if (w.HasWithdrawnJudgment)
+                                {
+                                    <span class="badge badge-amber">Judgment withdrawn</span>
+                                }
+                                @if (w.HasPendingTypeCorrection)
+                                {
+                                    <span class="badge badge-red">Pending type correction</span>
+                                }
+                                @if (w.HasReservedOrIssuedUnits)
+                                {
+                                    <span class="badge badge-amber">Reserved/issued units</span>
+                                }
+                                <a class="btn btn-ghost btn-sm" href="@($"/patients/{Id}/antibody-id/{w.Id}")">Open</a>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
             @if (_antibodyHistory.Count == 0)
             {
                 <div class="empty">No antibodies on record.</div>
@@ -322,7 +418,7 @@ else
                                 <td>@a.Status</td>
                                 <td>@(a.IsActive ? "Yes" : "No")</td>
                                 <td class="right">
-                                    @if (a.IsActive && Session.Has(PermissionCodes.ImmunoOverride))
+                                    @if (a.IsActive && Session.Has(PermissionCodes.ImmunoOverride) && OpenAbidWorkups.Count == 0)
                                     {
                                         <button class="btn btn-ghost btn-sm" @onclick="() => BeginDeactivate(a)">Deactivate</button>
                                     }
@@ -333,12 +429,16 @@ else
                 </table>
             }
 
-            @if (_deactivateId is not null)
+            @if (_deactivateId is not null && OpenAbidWorkups.Count == 0)
             {
                 <div class="alert alert-warning">
+                    @if (_deactivatePostedByWorkup)
+                    {
+                        <p>This antibody was posted by a completed antibody-identification workup. Deactivating drops antigen-negative selection. Deactivate remains authorized and does not identify antibodies.</p>
+                    }
                     <div class="field"><label>Reason to deactivate</label><input @bind="_deactivateReason" /></div>
                     <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="DeactivateAsync">Confirm</button>
-                    <button class="btn btn-secondary btn-sm" @onclick="() => _deactivateId = null">Cancel</button>
+                    <button class="btn btn-secondary btn-sm" @onclick="CancelDeactivate">Cancel</button>
                 </div>
             }
 
@@ -346,7 +446,6 @@ else
             {
                 <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
                 <h4>Add antibody</h4>
-                <Outcome Value="_antibodyFb" />
                 <div class="form-row">
                     <div class="field"><label>Catalog antibody</label>
                         <FilterableComboBox TItem="BloodAttributeListItemDto" TValue="long?"
@@ -360,7 +459,11 @@ else
                     </div>
                 </div>
                 <div class="field"><label>Comment</label><input @bind="_abComment" /></div>
-                <button class="btn btn-primary" disabled="@(_busy || _abCatalogId is null)" @onclick="AddAntibodyAsync">Add antibody</button>
+                @if (OpenAbidWorkups.Count > 0)
+                {
+                    <p>Complete or void the open workup before adding antibody history from this card.</p>
+                }
+                <button class="btn btn-primary" disabled="@(_busy || _abCatalogId is null || OpenAbidWorkups.Count > 0)" @onclick="AddAntibodyAsync">Add antibody</button>
             }
         </div>
 
@@ -392,6 +495,22 @@ else
             {
                 <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
                 <h4>Record antigen result</h4>
+                @if (OpenAbidWorkups.Count > 0)
+                {
+                    <div class="alert alert-warning">
+                        Open antibody-identification workup(s). Changing antigen type withdraws interpretation and review so they can be repeated against the current type.
+                        This does not identify antibodies.
+                        <a href="@($"/patients/{Id}/antibody-id")">Open antibody identification</a>.
+                    </div>
+                }
+                else if (HasCompletedUnscopedAbid || HasCompletedPostedAbid)
+                {
+                    <div class="alert alert-warning">
+                        A completed antibody-identification workup is the identification of record. An antigen-positive type that conflicts with posted history warns and does not reopen or retract that history.
+                        This does not identify antibodies.
+                        <a href="@($"/patients/{Id}/antibody-id")">Open antibody identification</a>.
+                    </div>
+                }
                 <Outcome Value="_antigenFb" />
                 <div class="form-row">
                     <div class="field"><label>Antigen</label>
@@ -779,6 +898,15 @@ else
                 <button class="btn btn-primary btn-sm" @onclick="() => _showAccession = !_showAccession">@(_showAccession ? "Cancel" : "Accession specimen")</button>
             }
         </div>
+        <Outcome Value="_accessionFb" />
+        @if (OpenAbidWorkups.Any(w => w.SpecimenId is not null))
+        {
+            <div class="alert alert-warning">
+                Open antibody-identification workup(s) are linked to a specimen. Rejecting that specimen withdraws interpretation and review; the workup remains the identification of record for the patient until it is voided or linked to a usable specimen.
+                This does not identify antibodies or block reject.
+                <a href="@($"/patients/{Id}/antibody-id")">Open antibody identification</a>.
+            </div>
+        }
 
         @if (_showAccession)
         {
@@ -844,6 +972,12 @@ else
                             <tr><td colspan="6">
                                 <div class="alert alert-info" style="margin:0;">
                                     <Outcome Value="_editFb" />
+                                    @if (OpenAbidWorkups.Any(w => w.SpecimenId == s.Id))
+                                    {
+                                        <div class="alert alert-warning">
+                                            This specimen has an open antibody-identification workup. Changing collection or expiration withdraws interpretation and review. Edit still succeeds.
+                                        </div>
+                                    }
                                     <div class="form-row">
                                         <div class="field"><label>Accession #</label><input value="@s.AccessionNumber" disabled /></div>
                                         <div class="field"><label>Specimen type</label><input value="@(s.SpecimenTypeDescription ?? s.SpecimenType)" disabled /></div>
@@ -863,7 +997,13 @@ else
                         @if (_rejectId == s.Id)
                         {
                             <tr><td colspan="6">
-                                <div class="flex gap">
+                                <div class="flex gap" style="flex-wrap:wrap;">
+                                    @if (OpenAbidWorkups.Any(w => w.SpecimenId == s.Id))
+                                    {
+                                        <div class="alert alert-warning" style="flex:1 1 100%;margin:0;">
+                                            This specimen has an open antibody-identification workup. Reject still succeeds. Interpretation is withdrawn; void the workup or link a usable specimen before a new identification can post.
+                                        </div>
+                                    }
                                     <input @bind="_rejectReason" placeholder="Rejection reason" style="flex:1;" />
                                     <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => RejectAsync(s.Id)">Confirm reject</button>
                                     <button class="btn btn-secondary btn-sm" @onclick="() => _rejectId = null">Cancel</button>
@@ -1073,6 +1213,14 @@ else
             {
                 <div class="bb-card" style="margin-top:1rem;">
                     <div class="bb-card-title"><h3>Issue unit <span class="mono">@_issuingAllocation.UnitNumber</span></h3></div>
+                    @if (OpenAbidWorkups.Count > 0)
+                    {
+                        <div class="alert alert-warning">
+                            Open antibody-identification workup(s). Issue may proceed; antigen-negative needs may change when the workup completes.
+                            This does not identify antibodies.
+                            <a href="@($"/patients/{Id}/antibody-id")">Open antibody identification</a>.
+                        </div>
+                    }
                     <Outcome Value="_issueFb" RequiresSignature="true" />
                     <div class="form-row">
                         <div class="field"><label>Date/time of issue</label>
@@ -1158,6 +1306,14 @@ else
             <div class="bb-card" style="margin-top:1rem;">
                 <div class="bb-card-title"><h3>Allocate unit</h3></div>
                 <p class="muted">Select an ABO/Rh-compatible Available unit. Crossmatch-required products will order the selected XM/CXM test.</p>
+                @if (OpenAbidWorkups.Count > 0)
+                {
+                    <div class="alert alert-warning">
+                        Open antibody-identification workup(s). Allocation may proceed for serologic crossmatch; antigen-negative needs may change when the workup completes.
+                        Serologic XM warns (`ABID-XM-OPEN`) and still records. Electronic XM is blocked.
+                        <a href="@($"/patients/{Id}/antibody-id")">Open antibody identification</a>.
+                    </div>
+                }
                 <div class="form-row">
                     <div class="field"><label>Visit</label>
                         <select @bind="_allocEncounterId">
@@ -1292,6 +1448,24 @@ else
     private ElectronicCrossmatchEligibilityDto? _exm;
     private List<BloodTypeDto> _typeHistory = new();
     private List<AntibodyDto> _antibodyHistory = new();
+    private List<AntibodyIdWorkupListItemDto> _abidWorkups = new();
+
+    private IReadOnlyList<AntibodyIdWorkupListItemDto> OpenAbidWorkups =>
+        _abidWorkups
+            .Where(w => w.Status is AntibodyWorkupStatus.InProgress
+                or AntibodyWorkupStatus.PendingInterpretation
+                or AntibodyWorkupStatus.PendingSupervisorReview)
+            .ToList();
+
+    private bool HasCompletedUnscopedAbid =>
+        _abidWorkups.Any(w => w.Status == AntibodyWorkupStatus.Completed && w.SpecimenId is null);
+
+    private bool HasCompletedPostedAbid =>
+        _abidWorkups.Any(w => w.Status == AntibodyWorkupStatus.Completed)
+        && _antibodyHistory.Any(a => a.IsActive);
+
+    private bool HasCompletedAbidOnSpecimen(long specimenId) =>
+        _abidWorkups.Any(w => w.Status == AntibodyWorkupStatus.Completed && w.SpecimenId == specimenId);
     private List<SpecialRequirementDto> _specialRequirements = new();
     private Feedback? _srFb;
     private SpecialTransfusionRequirementType _srType = SpecialTransfusionRequirementType.Irradiated;
@@ -1371,6 +1545,7 @@ else
     private AntigenResult _agResult = AntigenResult.Negative;
     private Feedback? _antigenFb;
     private long? _deactivateId;
+    private bool _deactivatePostedByWorkup;
     private string _deactivateReason = string.Empty;
 
     // accession / reject / edit
@@ -1491,6 +1666,10 @@ else
         _exm = (await Api.GetPatientElectronicCrossmatchEligibilityAsync(Id)).Value;
         _typeHistory = (await Api.GetBloodTypeHistoryAsync(Id)).Value ?? new();
         _antibodyHistory = (await Api.GetAntibodyHistoryAsync(Id)).Value ?? new();
+        if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
+        {
+            _abidWorkups = (await Api.GetAntibodyIdWorkupsAsync(Id)).Value ?? new();
+        }
         _antigenProfiles = (await Api.GetAntigenProfilesAsync(Id)).Value ?? new();
         _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
         _specimens = (await Api.GetPatientSpecimensAsync(Id)).Value ?? new();
@@ -2154,9 +2333,17 @@ else
         if (r.Succeeded) { _typeReason = string.Empty; await LoadAsync(); }
     }
 
+    private static string AbidNextLabel(AntibodyIdWorkupListItemDto workup) =>
+        workup.NextAction switch
+        {
+            AntibodyIdWorklistNextAction.Interpret => "Interpret",
+            AntibodyIdWorklistNextAction.Review => "Supervisor review",
+            _ => "Record reactions"
+        };
+
     private async Task AddAntibodyAsync()
     {
-        if (_abCatalogId is null) return;
+        if (_abCatalogId is null || OpenAbidWorkups.Count > 0) return;
         _busy = true;
         var r = await Api.AddAntibodyAsync(Id, new AddAntibodyRequest(_abCatalogId, null, _abStatus, string.IsNullOrWhiteSpace(_abComment) ? null : _abComment));
         _busy = false;
@@ -2174,16 +2361,28 @@ else
         if (r.Succeeded) await LoadAsync();
     }
 
-    private void BeginDeactivate(AntibodyDto a) { _deactivateId = a.Id; _deactivateReason = string.Empty; }
+    private void BeginDeactivate(AntibodyDto a)
+    {
+        if (OpenAbidWorkups.Count > 0) return;
+        _deactivateId = a.Id;
+        _deactivatePostedByWorkup = a.PostedByCompletedWorkup;
+        _deactivateReason = string.Empty;
+    }
+
+    private void CancelDeactivate()
+    {
+        _deactivateId = null;
+        _deactivatePostedByWorkup = false;
+    }
 
     private async Task DeactivateAsync()
     {
-        if (_deactivateId is null) return;
+        if (_deactivateId is null || OpenAbidWorkups.Count > 0) return;
         _busy = true;
         var r = await Api.DeactivateAntibodyAsync(_deactivateId.Value, _deactivateReason);
         _busy = false;
         _antibodyFb = r.ToFeedback("Antibody deactivated.");
-        if (r.Succeeded) { _deactivateId = null; await LoadAsync(); }
+        if (r.Succeeded) { _deactivateId = null; _deactivatePostedByWorkup = false; await LoadAsync(); }
     }
 
     private async Task AddSpecialRequirementAsync()
@@ -2370,6 +2569,7 @@ else
         _editFb = r.ToFeedback("Specimen updated.");
         if (r.Succeeded)
         {
+            _accessionFb = r.ToFeedback("Specimen updated.");
             _editId = null;
             await LoadAsync();
         }
@@ -2380,8 +2580,8 @@ else
         _busy = true;
         var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason);
         _busy = false;
+        _accessionFb = r.ToFeedback("Specimen rejected.");
         if (r.Succeeded) { _rejectId = null; await LoadAsync(); }
-        else _accessionFb = r.ToFeedback();
     }
 
     private async Task SelectSpecimen(SpecimenDto s)
@@ -2538,7 +2738,9 @@ else
             return;
         }
 
-        _resultFb = r.ToFeedback("Result verified.");
+        _resultFb = r.Succeeded && r.Value is not null
+            ? r.ToFeedback(ResultSourceEntryCopy.Verified(r.Value.Source))
+            : r.ToFeedback();
         if (r.Succeeded)
         {
             _deltaOverrideResultId = null;
@@ -2576,7 +2778,9 @@ else
             sig.Value.Id);
         var r = await Api.VerifyResultAsync(_deltaOverrideResultId.Value, req, sig.Value.Id);
         _busy = false;
-        _resultFb = r.ToFeedback("Result verified with ABO/Rh override.");
+        _resultFb = r.Succeeded && r.Value is not null
+            ? r.ToFeedback(ResultSourceEntryCopy.VerifiedWithOverride(r.Value.Source))
+            : r.ToFeedback();
         if (r.Succeeded)
         {
             var specimenId = _deltaOverrideSpecimenId.Value;
@@ -2603,7 +2807,9 @@ else
         _busy = true;
         var r = await Api.CorrectResultAsync(_correctId.Value, new CorrectResultRequest(_correctValue, _correctReason));
         _busy = false;
-        _resultFb = r.ToFeedback("Result corrected.");
+        _resultFb = r.Succeeded && r.Value is not null
+            ? r.ToFeedback(ResultSourceEntryCopy.Corrected(r.Value.Source))
+            : r.ToFeedback();
         if (r.Succeeded) { _correctId = null; await ReloadResults(specimenId); }
     }
 
@@ -2618,7 +2824,9 @@ else
         _busy = true;
         var r = await Api.SubmitResultForVerificationAsync(resultId);
         _busy = false;
-        _resultFb = r.ToFeedback("Submitted for verification.");
+        _resultFb = r.Succeeded && r.Value is not null
+            ? r.ToFeedback(ResultSourceEntryCopy.Submitted(r.Value.Source))
+            : r.ToFeedback();
         if (r.Succeeded)
         {
             await ReloadResults(specimenId);
@@ -2635,7 +2843,9 @@ else
         _busy = true;
         var r = await Api.InvalidateResultAsync(_invalidateId.Value, new InvalidateResultRequest(_invalidateReason));
         _busy = false;
-        _resultFb = r.ToFeedback("Result invalidated.");
+        _resultFb = r.Succeeded && r.Value is not null
+            ? r.ToFeedback(ResultSourceEntryCopy.Invalidated(r.Value.Source))
+            : r.ToFeedback();
         if (r.Succeeded)
         {
             _invalidateId = null;
@@ -2657,6 +2867,12 @@ else
     {
         <div class="stack">
             <Outcome Value="_resultFb" />
+            @if (OpenAbidWorkups.Count == 0 && HasCompletedAbidOnSpecimen(s.Id))
+            {
+                <div class="alert alert-warning">
+                    A completed antibody-identification workup on this specimen is the identification of record. Verifying a type-changing ABO/Rh or antigen result does not reopen it or retract posted history.
+                </div>
+            }
             @if (_deltaOverrideResultId is not null)
             {
                 <div class="bb-card" style="background:#fff8f0;margin:.5rem 0;border:1px solid #e8c48a;">
@@ -2731,6 +2947,12 @@ else
                             @if (_correctId == r.Id)
                             {
                                 <tr><td colspan="7">
+                                    @if (OpenAbidWorkups.Count > 0 && (r.TestCode == "ABORH" || r.TestCode == "AGTYPE"))
+                                    {
+                                        <div class="alert alert-warning">
+                                            Open antibody-identification workup(s). This ABO/Rh or antigen correction is not yet verified. Complete and supervisor Accept HardStop until it is verified or invalidated. Stored type does not change yet. Correct still succeeds.
+                                        </div>
+                                    }
                                     <div class="form-row">
                                         <div class="field"><label>New value</label><input @bind="_correctValue" /></div>
                                         <div class="field"><label>Reason</label><input @bind="_correctReason" /></div>
@@ -2742,6 +2964,12 @@ else
                             @if (_invalidateId == r.Id)
                             {
                                 <tr><td colspan="7">
+                                    @if (OpenAbidWorkups.Count > 0 && (r.TestCode == "ABORH" || r.TestCode == "AGTYPE"))
+                                    {
+                                        <div class="alert alert-warning">
+                                            Open antibody-identification workup(s). Invalidating this ABO/Rh or antigen result withdraws interpretation and review. Stored type is not auto-reverted. Invalidate still succeeds.
+                                        </div>
+                                    }
                                     <div class="field"><label>Invalidation reason</label><input @bind="_invalidateReason" /></div>
                                     <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => InvalidateAsync(s.Id)">Invalidate result</button>
                                     <button class="btn btn-secondary btn-sm" @onclick="() => _invalidateId = null">Cancel</button>

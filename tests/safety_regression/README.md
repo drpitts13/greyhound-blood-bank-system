@@ -10,5 +10,6 @@ cases may also live in `BloodBankLIS.Domain.Tests`).
 |---|---|
 | `IssueGateSafetyRegressionTests` | ABO-incompatible, expired, quarantined/recalled, invalid specimen, unauthorized emergency, autologous mismatch |
 | `AllocationIssueConcurrencyTests` | Double reservation / concurrent issue |
-| `ElectronicXmHistoryRegressionTests` | Historical / currently undetectable antibody restores electronic XM |
+| `ElectronicXmHistoryRegressionTests` | Historical / currently undetectable antibody restores electronic XM; antibody posted after an eligible assess still blocks record |
 | `MergedPatientClinicalUseTests` | Testing, allocation, or issue against a merged (losing) patient record |
+| `IdentitySpoofingRegressionTests` | Self-asserted `X-User` / supervisor header without a session |

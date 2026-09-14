@@ -1,0 +1,928 @@
+@page "/admin/antibody-panel-lots"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+@inject NavigationManager Nav
+
+<PageTitle>Antibody Panel Lots &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Antibody panel lots</h1>
+    <div class="flex gap">
+        @if (CanEdit)
+        {
+            <button class="btn btn-secondary" type="button" @onclick="BeginCreateManufacturer">New manufacturer</button>
+            <button class="btn btn-primary" type="button" @onclick="BeginCreate">New lot</button>
+        }
+    </div>
+</div>
+<p class="muted">
+    Create, withdraw, or restore reagent manufacturers and lots used for antibody identification.
+    A new lot requires an active manufacturer, cells, and typed antigens. Creating or deactivating a manufacturer or lot does not identify antibodies and does not void an open workup; Accept and complete HardStop on a deactivated attached lot until it is restored or the workup is voided.
+</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card-title"><h3>Manufacturers</h3></div>
+    @if (_allManufacturers.Count == 0)
+    {
+        <div class="empty">No manufacturers. Create one before opening a new lot.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Workups</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var m in _allManufacturers)
+                {
+                    <tr>
+                        <td class="mono">@m.Code</td>
+                        <td>@m.Name</td>
+                        <td>
+                            @if (m.OpenWorkupCount > 0)
+                            {
+                                <span class="badge badge-amber">@m.OpenWorkupCount open</span>
+                            }
+                            @if (m.PostedHistoryWorkupCount > 0)
+                            {
+                                <span class="badge badge-amber">@m.PostedHistoryWorkupCount posted history</span>
+                            }
+                            @if (m.CompletedWorkupCount > 0)
+                            {
+                                <span class="badge badge-gray">@m.CompletedWorkupCount completed</span>
+                            }
+                        </td>
+                        <td>
+                            @if (m.IsActive)
+                            {
+                                <span class="badge badge-green">Active</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-gray">Inactive</span>
+                            }
+                        </td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ViewManufacturerAsync(m.Id)">View workups</button>
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenManufacturerWorklist(m)">Worklist</button>
+                            @if (CanActivate)
+                            {
+                                @if (m.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginDeactivateManufacturer(m)">Deactivate</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ActivateManufacturerAsync(m)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_mfgDetail is not null && _deactivatingManufacturer is null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title">
+            <h3>@_mfgDetail.Manufacturer.Name (@_mfgDetail.Manufacturer.Code)</h3>
+            <button class="btn btn-ghost btn-sm" type="button" @onclick="CloseManufacturerDetail">Close</button>
+        </div>
+        <p class="muted">Open and completed workups that used a lot from this manufacturer. Voided workups are omitted. This list does not identify antibodies.</p>
+        @if (_mfgDetail.OpenWorkups.Count == 0 && _mfgDetail.CompletedWorkups.Count == 0)
+        {
+            <div class="empty">No open or completed workups use this manufacturer.</div>
+        }
+        else
+        {
+            @if (_mfgDetail.OpenWorkups.Count > 0)
+            {
+                <h4>Open workups</h4>
+                <table class="bb">
+                    <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Next</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var w in _mfgDetail.OpenWorkups)
+                        {
+                            <tr>
+                                <td>@(w.PatientName ?? "—")</td>
+                                <td class="mono">@(w.PatientMrn ?? "—")</td>
+                                <td class="mono">@(w.LotNumber ?? "—")</td>
+                                <td>@OpenWorkupNextLabel(w.NextAction)</td>
+                                <td class="right">
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (_mfgDetail.CompletedWorkups.Count > 0)
+            {
+                <h4 style="margin-top:1rem;">Completed identifications of record</h4>
+                <p class="muted">These workups already posted or completed using this manufacturer's lots. History count is posted Identified findings only and does not identify antibodies.</p>
+                <table class="bb">
+                    <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Status</th><th>History</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var w in _mfgDetail.CompletedWorkups)
+                        {
+                            <tr>
+                                <td>@(w.PatientName ?? "—")</td>
+                                <td class="mono">@(w.PatientMrn ?? "—")</td>
+                                <td class="mono">@(w.LotNumber ?? "—")</td>
+                                <td>Completed</td>
+                                <td>@PostedHistoryLabel(w)</td>
+                                <td class="right">
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+    </div>
+}
+
+@if (_creatingManufacturer && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>New manufacturer</h2>
+        <p class="muted">In-house or commercial panel source. This does not identify antibodies.</p>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_mfgCode" /></div>
+            <div class="field"><label>Name</label><input @bind="_mfgName" /></div>
+        </div>
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_mfgCode) || string.IsNullOrWhiteSpace(_mfgName))" @onclick="CreateManufacturerAsync">Create manufacturer</button>
+            <button class="btn btn-ghost" type="button" @onclick="CancelCreateManufacturer">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_deactivatingManufacturer is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>Deactivate @_deactivatingManufacturer.Code</h2>
+        <p class="muted">
+            Existing lots stay on file. New lots cannot use this manufacturer until it is restored. This does not identify antibodies or void a workup.
+            @if (_deactivatingManufacturer.OpenWorkupCount > 0)
+            {
+                <span> @_deactivatingManufacturer.OpenWorkupCount open workup(s) currently use a lot from this manufacturer.</span>
+            }
+            @if (_deactivatingManufacturer.CompletedWorkupCount > 0)
+            {
+                <span> @_deactivatingManufacturer.CompletedWorkupCount completed identification(s) of record used a lot from this manufacturer.</span>
+            }
+        </p>
+        @if (_mfgDetail is not null && _mfgDetail.Manufacturer.Id == _deactivatingManufacturer.Id &&
+             (_mfgDetail.OpenWorkups.Count > 0 || _mfgDetail.CompletedWorkups.Count > 0))
+        {
+            @if (_mfgDetail.OpenWorkups.Count > 0)
+            {
+                <table class="bb">
+                    <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Next</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var w in _mfgDetail.OpenWorkups)
+                        {
+                            <tr>
+                                <td>@(w.PatientName ?? "—")</td>
+                                <td class="mono">@(w.PatientMrn ?? "—")</td>
+                                <td class="mono">@(w.LotNumber ?? "—")</td>
+                                <td>@OpenWorkupNextLabel(w.NextAction)</td>
+                                <td class="right">
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (_mfgDetail.CompletedWorkups.Count > 0)
+            {
+                <h4 style="margin-top:1rem;">Completed identifications of record</h4>
+                <table class="bb">
+                    <thead><tr><th>Patient</th><th>MRN</th><th>Lot</th><th>Status</th><th>History</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var w in _mfgDetail.CompletedWorkups)
+                        {
+                            <tr>
+                                <td>@(w.PatientName ?? "—")</td>
+                                <td class="mono">@(w.PatientMrn ?? "—")</td>
+                                <td class="mono">@(w.LotNumber ?? "—")</td>
+                                <td>Completed</td>
+                                <td>@PostedHistoryLabel(w)</td>
+                                <td class="right">
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+        <div class="field"><label>Reason (required)</label>
+            <input @bind="_mfgReason" placeholder="Vendor withdrawn, replaced, or other reason." />
+        </div>
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-danger" disabled="@(_busy || string.IsNullOrWhiteSpace(_mfgReason))" @onclick="ConfirmDeactivateManufacturerAsync">Deactivate</button>
+            <button class="btn btn-ghost" type="button" @onclick="CancelDeactivateManufacturer">Cancel</button>
+        </div>
+    </div>
+}
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by lot, panel, or manufacturer" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (Filtered.Count == 0)
+    {
+        <div class="empty">No antibody panel lots.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead>
+                <tr>
+                    <th>Manufacturer</th>
+                    <th>Lot</th>
+                    <th>Panel</th>
+                    <th>Expires</th>
+                    <th>Type</th>
+                    <th>Workups</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var lot in Filtered)
+                {
+                    <tr>
+                        <td>@lot.ManufacturerName</td>
+                        <td class="mono">@lot.LotNumber</td>
+                        <td>@lot.PanelName</td>
+                        <td class="nowrap">@lot.ExpiresOn.ToString("yyyy-MM-dd")</td>
+                        <td>@(lot.IsSelectedCellLot ? "Selected cells" : "Panel")</td>
+                        <td>
+                            @if (lot.OpenWorkupCount > 0)
+                            {
+                                <span class="badge badge-amber">@lot.OpenWorkupCount open</span>
+                            }
+                            @if (lot.PostedHistoryWorkupCount > 0)
+                            {
+                                <span class="badge badge-amber">@lot.PostedHistoryWorkupCount posted history</span>
+                            }
+                            @if (lot.CompletedWorkupCount > 0)
+                            {
+                                <span class="badge badge-gray">@lot.CompletedWorkupCount completed</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!lot.IsActive)
+                            {
+                                <span class="badge badge-gray">Inactive</span>
+                            }
+                            else if (lot.IsExpired)
+                            {
+                                <span class="badge badge-amber">Expired</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-green">Active</span>
+                            }
+                        </td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ViewLotAsync(lot.Id)">View cells</button>
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenLotWorklist(lot.LotNumber)">Worklist</button>
+                            @if (CanActivate)
+                            {
+                                @if (lot.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => BeginDeactivate(lot)">Deactivate</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ActivateAsync(lot)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_detail is not null && _deactivating is null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title">
+            <h3>@_detail.Lot.PanelName — lot @_detail.Lot.LotNumber</h3>
+            <button class="btn btn-ghost btn-sm" type="button" @onclick="CloseDetail">Close</button>
+        </div>
+        <p class="muted">
+            Reagent cell map only. Viewing a lot does not identify antibodies.
+            @_detail.Lot.ManufacturerName
+            · exp @_detail.Lot.ExpiresOn.ToString("yyyy-MM-dd")
+            · @(_detail.Lot.IsSelectedCellLot ? "Selected cells" : "Panel")
+        </p>
+        @if (_detail.Cells.Count == 0)
+        {
+            <div class="empty">This lot has no cells.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Cell</th>
+                        <th>Role</th>
+                        <th>Antigens</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var cell in _detail.Cells)
+                    {
+                        <tr>
+                            <td class="mono">@cell.CellNumber</td>
+                            <td>@cell.Role</td>
+                            <td>
+                                @if (cell.Role == PanelCellRole.Autocontrol)
+                                {
+                                    <span class="muted">No panel typings</span>
+                                }
+                                else if (cell.Antigens.Count == 0)
+                                {
+                                    <span class="muted">No typed antigens</span>
+                                }
+                                else
+                                {
+                                    @string.Join(" · ", cell.Antigens.Select(ExpressionLabel))
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        @if (_detail.OpenWorkups.Count > 0)
+        {
+            <h4 style="margin-top:1rem;">Open workups using this lot</h4>
+            <p class="muted">Deactivating the lot HardStops Accept and complete on these workups. This list does not identify antibodies.</p>
+            <table class="bb">
+                <thead><tr><th>Patient</th><th>MRN</th><th>Next</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var w in _detail.OpenWorkups)
+                    {
+                        <tr>
+                            <td>@(w.PatientName ?? "—")</td>
+                            <td class="mono">@(w.PatientMrn ?? "—")</td>
+                            <td>@OpenWorkupNextLabel(w.NextAction)</td>
+                            <td class="right">
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        @if (_detail.CompletedWorkups.Count > 0)
+        {
+            <h4 style="margin-top:1rem;">Completed identifications of record</h4>
+            <p class="muted">These workups already completed using this lot. History count is posted Identified findings only and does not identify antibodies or void history.</p>
+            <table class="bb">
+                <thead><tr><th>Patient</th><th>MRN</th><th>Status</th><th>History</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var w in _detail.CompletedWorkups)
+                    {
+                        <tr>
+                            <td>@(w.PatientName ?? "—")</td>
+                            <td class="mono">@(w.PatientMrn ?? "—")</td>
+                            <td>Completed</td>
+                            <td>@PostedHistoryLabel(w)</td>
+                            <td class="right">
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@if (_creating && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>New antibody panel lot</h2>
+        <p class="muted">Teaching or reagent panels only. This does not identify antibodies.</p>
+        <div class="form-row">
+            <div class="field"><label>Manufacturer</label>
+                <select @bind="_createManufacturerId">
+                    <option value="">Select manufacturer</option>
+                    @foreach (var m in _manufacturers)
+                    {
+                        <option value="@m.Id">@m.Name (@m.Code)</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Lot number</label><input class="mono" @bind="_createLotNumber" /></div>
+            <div class="field"><label>Panel name</label><input @bind="_createPanelName" /></div>
+            <div class="field"><label>Expires</label><input type="date" @bind="_createExpires" /></div>
+        </div>
+        <label class="flex" style="gap:.35rem;margin:.6rem 0;">
+            <input type="checkbox" @bind="_createSelected" @bind:after="OnSelectedLotChanged" /> Selected-cell lot
+        </label>
+        <h3>Cells</h3>
+        @foreach (var cell in _createCells)
+        {
+            <div class="bb-card" style="margin:.5rem 0;">
+                <div class="form-row">
+                    <div class="field"><label>Cell</label><input class="mono" @bind="cell.CellNumber" /></div>
+                    <div class="field"><label>Role</label>
+                        <select @bind="cell.Role">
+                            @if (_createSelected)
+                            {
+                                <option value="@PanelCellRole.Selected">Selected</option>
+                            }
+                            else
+                            {
+                                <option value="@PanelCellRole.Panel">Panel</option>
+                            }
+                            <option value="@PanelCellRole.Autocontrol">Autocontrol</option>
+                        </select>
+                    </div>
+                    <div class="field"><label>Sort</label><input type="number" @bind="cell.SortOrder" /></div>
+                </div>
+                @if (cell.Role != PanelCellRole.Autocontrol)
+                {
+                    <table class="bb">
+                        <thead><tr><th>Antigen</th><th>Expression</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var ag in cell.Antigens)
+                            {
+                                <tr>
+                                    <td>
+                                        <select @bind="ag.BloodAttributeDefinitionId">
+                                            @foreach (var attr in _attributes)
+                                            {
+                                                <option value="@attr.Id">@attr.Code — @attr.AntibodyName</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <select @bind="ag.Expression">
+                                            <option value="@AntigenExpression.Absent">Absent</option>
+                                            <option value="@AntigenExpression.Present">Present</option>
+                                            <option value="@AntigenExpression.Heterozygous">Heterozygous</option>
+                                            <option value="@AntigenExpression.Homozygous">Homozygous</option>
+                                        </select>
+                                    </td>
+                                    <td class="right">
+                                        <button class="btn btn-ghost btn-sm" type="button" @onclick="() => RemoveAntigen(cell, ag)">Remove</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => AddAntigen(cell)">Add antigen</button>
+                }
+                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => RemoveCell(cell)">Remove cell</button>
+            </div>
+        }
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-secondary btn-sm" type="button" @onclick="AddCell">Add cell</button>
+            <button class="btn btn-primary" disabled="@(_busy || _createManufacturerId is null)" @onclick="CreateAsync">Create lot</button>
+            <button class="btn btn-ghost" type="button" @onclick="CancelCreate">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_deactivating is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>Deactivate @_deactivating.LotNumber</h2>
+        <p class="muted">
+            Open workups that use this lot cannot be accepted or completed until it is restored or the workup is voided.
+            @if (_deactivating.OpenWorkupCount > 0)
+            {
+                <span> @_deactivating.OpenWorkupCount open workup(s) currently use this lot.</span>
+            }
+            @if (_deactivating.CompletedWorkupCount > 0)
+            {
+                <span> @_deactivating.CompletedWorkupCount completed identification(s) of record used this lot.</span>
+            }
+        </p>
+        @if (_detail is not null && _detail.Lot.Id == _deactivating.Id
+             && (_detail.OpenWorkups.Count > 0 || _detail.CompletedWorkups.Count > 0))
+        {
+            @if (_detail.OpenWorkups.Count > 0)
+            {
+                <table class="bb">
+                    <thead><tr><th>Patient</th><th>MRN</th><th>Next</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var w in _detail.OpenWorkups)
+                        {
+                            <tr>
+                                <td>@(w.PatientName ?? "—")</td>
+                                <td class="mono">@(w.PatientMrn ?? "—")</td>
+                                <td>@OpenWorkupNextLabel(w.NextAction)</td>
+                                <td class="right">
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (_detail.CompletedWorkups.Count > 0)
+            {
+                <h4 style="margin-top:1rem;">Completed identifications of record</h4>
+                <table class="bb">
+                    <thead><tr><th>Patient</th><th>MRN</th><th>Status</th><th>History</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var w in _detail.CompletedWorkups)
+                        {
+                            <tr>
+                                <td>@(w.PatientName ?? "—")</td>
+                                <td class="mono">@(w.PatientMrn ?? "—")</td>
+                                <td>Completed</td>
+                                <td>@PostedHistoryLabel(w)</td>
+                                <td class="right">
+                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        }
+        <div class="field"><label>Reason (required)</label>
+            <input @bind="_reason" placeholder="QC failure, recall, or other withdrawal reason." />
+        </div>
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-danger" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason))" @onclick="ConfirmDeactivateAsync">Deactivate</button>
+            <button class="btn btn-ghost" type="button" @onclick="CancelDeactivate">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private Feedback? _feedback;
+    private bool _loading = true;
+    private bool _busy;
+    private bool _includeInactive = true;
+    private string _filter = "";
+    private string? _reason;
+    private List<AntibodyPanelLotListItemDto> _lots = new();
+    private AntibodyPanelLotListItemDto? _deactivating;
+
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+
+    private bool _creating;
+    private long? _createManufacturerId;
+    private string _createLotNumber = "";
+    private string _createPanelName = "";
+    private DateTime _createExpires = DateTime.UtcNow.Date.AddYears(1);
+    private bool _createSelected;
+    private readonly List<LotCellDraft> _createCells = new();
+    private List<AntibodyPanelManufacturerListItemDto> _manufacturers = new();
+    private List<AntibodyPanelManufacturerListItemDto> _allManufacturers = new();
+    private List<BloodAttributeDefinitionDto> _attributes = new();
+    private AntibodyPanelLotDetailDto? _detail;
+    private AntibodyPanelManufacturerDetailDto? _mfgDetail;
+    private bool _creatingManufacturer;
+    private string _mfgCode = "";
+    private string _mfgName = "";
+    private string? _mfgReason;
+    private AntibodyPanelManufacturerListItemDto? _deactivatingManufacturer;
+
+    private IReadOnlyList<AntibodyPanelLotListItemDto> Filtered =>
+        _lots
+            .Where(l =>
+                string.IsNullOrWhiteSpace(_filter)
+                || l.LotNumber.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || l.PanelName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || l.ManufacturerName.Contains(_filter, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminAntibodyPanelLotsAsync(_includeInactive);
+        _lots = r.Value ?? new();
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+        }
+
+        var mfg = await Api.GetAdminAntibodyPanelManufacturersAsync(true);
+        _allManufacturers = mfg.Value ?? new();
+        _manufacturers = _allManufacturers.Where(m => m.IsActive).ToList();
+        if (!mfg.Succeeded)
+        {
+            _feedback = mfg.ToFeedback();
+        }
+        _loading = false;
+    }
+
+    private async Task BeginDeactivate(AntibodyPanelLotListItemDto lot)
+    {
+        _deactivating = lot;
+        _reason = null;
+        await ViewLotAsync(lot.Id);
+    }
+
+    private void CancelDeactivate()
+    {
+        _deactivating = null;
+        _reason = null;
+    }
+
+    private async Task ConfirmDeactivateAsync()
+    {
+        if (_deactivating is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.DeactivateAntibodyPanelLotAsync(_deactivating.Id, _reason);
+        _feedback = r.ToFeedback("Lot deactivated. Open workups using it cannot be completed until restored or voided.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            CancelDeactivate();
+            await LoadAsync();
+        }
+    }
+
+    private void BeginCreateManufacturer()
+    {
+        _creatingManufacturer = true;
+        _mfgCode = "";
+        _mfgName = "";
+    }
+
+    private void CancelCreateManufacturer()
+    {
+        _creatingManufacturer = false;
+        _mfgCode = "";
+        _mfgName = "";
+    }
+
+    private async Task CreateManufacturerAsync()
+    {
+        _busy = true;
+        var r = await Api.CreateAntibodyPanelManufacturerAsync(
+            new CreateAntibodyPanelManufacturerRequest(_mfgCode, _mfgName));
+        _feedback = r.ToFeedback("Manufacturer created. It does not identify antibodies.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            CancelCreateManufacturer();
+            await LoadAsync();
+        }
+    }
+
+    private async Task ViewManufacturerAsync(long manufacturerId)
+    {
+        var r = await Api.GetAdminAntibodyPanelManufacturerAsync(manufacturerId);
+        if (r.Succeeded && r.Value is not null)
+        {
+            _mfgDetail = r.Value;
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+            _mfgDetail = null;
+        }
+    }
+
+    private void CloseManufacturerDetail() => _mfgDetail = null;
+
+    private async Task BeginDeactivateManufacturer(AntibodyPanelManufacturerListItemDto manufacturer)
+    {
+        _deactivatingManufacturer = manufacturer;
+        _mfgReason = null;
+        await ViewManufacturerAsync(manufacturer.Id);
+    }
+
+    private void CancelDeactivateManufacturer()
+    {
+        _deactivatingManufacturer = null;
+        _mfgReason = null;
+    }
+
+    private async Task ConfirmDeactivateManufacturerAsync()
+    {
+        if (_deactivatingManufacturer is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.DeactivateAntibodyPanelManufacturerAsync(_deactivatingManufacturer.Id, _mfgReason);
+        _feedback = r.ToFeedback("Manufacturer deactivated. New lots cannot use it until restored.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            CancelDeactivateManufacturer();
+            await LoadAsync();
+        }
+    }
+
+    private async Task ActivateManufacturerAsync(AntibodyPanelManufacturerListItemDto manufacturer)
+    {
+        _busy = true;
+        var r = await Api.ActivateAntibodyPanelManufacturerAsync(manufacturer.Id, "Restore antibody panel manufacturer.");
+        _feedback = r.ToFeedback("Manufacturer activated.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task BeginCreate()
+    {
+        _creating = true;
+        _createManufacturerId = null;
+        _createLotNumber = "";
+        _createPanelName = "";
+        _createExpires = DateTime.UtcNow.Date.AddYears(1);
+        _createSelected = false;
+        _createCells.Clear();
+        AddCell();
+        _manufacturers = _allManufacturers.Where(m => m.IsActive).ToList();
+
+        if (_attributes.Count == 0)
+        {
+            var attrs = await Api.GetAdminBloodAttributesAsync(false);
+            _attributes = (attrs.Value ?? new()).Where(a => a.IsActive).OrderBy(a => a.SortOrder).ToList();
+            if (!attrs.Succeeded)
+            {
+                _feedback = attrs.ToFeedback();
+            }
+        }
+    }
+
+    private void CancelCreate()
+    {
+        _creating = false;
+        _createCells.Clear();
+    }
+
+    private void OnSelectedLotChanged()
+    {
+        var role = _createSelected ? PanelCellRole.Selected : PanelCellRole.Panel;
+        foreach (var cell in _createCells.Where(c => c.Role != PanelCellRole.Autocontrol))
+        {
+            cell.Role = role;
+        }
+    }
+
+    private void AddCell()
+    {
+        _createCells.Add(new LotCellDraft
+        {
+            CellNumber = (_createCells.Count + 1).ToString(),
+            Role = _createSelected ? PanelCellRole.Selected : PanelCellRole.Panel,
+            SortOrder = _createCells.Count + 1
+        });
+        AddAntigen(_createCells[^1]);
+    }
+
+    private void RemoveCell(LotCellDraft cell) => _createCells.Remove(cell);
+
+    private void AddAntigen(LotCellDraft cell)
+    {
+        var first = _attributes.FirstOrDefault();
+        cell.Antigens.Add(new LotAntigenDraft
+        {
+            BloodAttributeDefinitionId = first?.Id ?? 0,
+            Expression = AntigenExpression.Present
+        });
+    }
+
+    private static void RemoveAntigen(LotCellDraft cell, LotAntigenDraft antigen) =>
+        cell.Antigens.Remove(antigen);
+
+    private async Task CreateAsync()
+    {
+        if (_createManufacturerId is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var cells = _createCells
+            .Select(c => new CreateAntibodyPanelLotCellRequest(
+                c.CellNumber,
+                c.Role,
+                c.SortOrder,
+                c.Role == PanelCellRole.Autocontrol
+                    ? []
+                    : c.Antigens
+                        .Select(a => new CreateAntibodyPanelLotAntigenRequest(a.BloodAttributeDefinitionId, a.Expression))
+                        .ToList()))
+            .ToList();
+        var r = await Api.CreateAntibodyPanelLotAsync(new CreateAntibodyPanelLotRequest(
+            _createManufacturerId.Value,
+            _createLotNumber,
+            _createPanelName,
+            DateOnly.FromDateTime(_createExpires),
+            _createSelected,
+            cells));
+        _feedback = r.ToFeedback("Lot created. It does not identify antibodies.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            CancelCreate();
+            await LoadAsync();
+            if (r.Value is not null)
+            {
+                await ViewLotAsync(r.Value.Id);
+            }
+        }
+    }
+
+    private sealed class LotCellDraft
+    {
+        public string CellNumber { get; set; } = "1";
+        public PanelCellRole Role { get; set; } = PanelCellRole.Panel;
+        public int SortOrder { get; set; } = 1;
+        public List<LotAntigenDraft> Antigens { get; } = new();
+    }
+
+    private sealed class LotAntigenDraft
+    {
+        public long BloodAttributeDefinitionId { get; set; }
+        public AntigenExpression Expression { get; set; } = AntigenExpression.Present;
+    }
+
+    private async Task ViewLotAsync(long lotId)
+    {
+        var r = await Api.GetAdminAntibodyPanelLotAsync(lotId);
+        if (r.Succeeded && r.Value is not null)
+        {
+            _detail = r.Value;
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+            _detail = null;
+        }
+    }
+
+    private void CloseDetail() => _detail = null;
+
+    private static string ExpressionLabel(AntibodyPanelLotAntigenDetailDto antigen) =>
+        $"{antigen.AntigenCode} {antigen.Expression}";
+
+    private static string OpenWorkupNextLabel(AntibodyIdWorklistNextAction action) =>
+        action switch
+        {
+            AntibodyIdWorklistNextAction.Interpret => "Interpret",
+            AntibodyIdWorklistNextAction.Review => "Supervisor review",
+            AntibodyIdWorklistNextAction.None => "—",
+            _ => "Record reactions"
+        };
+
+    private static string PostedHistoryLabel(AntibodyPanelLotOpenWorkupDto workup) =>
+        workup.PostedHistoryCount > 0
+            ? $"{workup.PostedHistoryCount} posted"
+            : "None posted";
+
+    private void OpenLotWorklist(string lotNumber) =>
+        Nav.NavigateTo($"/antibody-id?lot={Uri.EscapeDataString(lotNumber)}");
+
+    private void OpenManufacturerWorklist(AntibodyPanelManufacturerListItemDto manufacturer) =>
+        Nav.NavigateTo($"/antibody-id?manufacturer={Uri.EscapeDataString(manufacturer.Code)}");
+
+    private void OpenPatientWorkup(AntibodyPanelLotOpenWorkupDto workup) =>
+        Nav.NavigateTo($"/patients/{workup.PatientId}/antibody-id/{workup.WorkupId}");
+
+    private async Task ActivateAsync(AntibodyPanelLotListItemDto lot)
+    {
+        _busy = true;
+        var r = await Api.ActivateAntibodyPanelLotAsync(lot.Id, "Restore antibody panel lot.");
+        _feedback = r.ToFeedback("Lot activated.");
+        _busy = false;
+        if (r.Succeeded)
+        {
+            await LoadAsync();
+        }
+    }
+}

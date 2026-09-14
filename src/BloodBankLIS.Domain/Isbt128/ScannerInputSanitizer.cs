@@ -28,7 +28,7 @@ public static class ScannerInputSanitizer
 
         var sanitized = new string(chars.ToArray());
 
-        if (options.StripAimIdentifiers && sanitized.Length >= 3 && sanitized[0] == ']' )
+        if (options.StripAimIdentifiers && sanitized.Length >= 3 && sanitized[0] == ']')
         {
             // AIM symbology identifier form: ]cm where c is symbology, m is modifier.
             sanitized = sanitized[3..];

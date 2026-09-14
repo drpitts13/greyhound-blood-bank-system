@@ -11,6 +11,10 @@
 <div class="admin-grid" style="margin-top:1rem;">
     @if (Session.Has(PermissionCodes.AdminConfigView))
     {
+        <a class="admin-card" href="admin/antibody-panel-lots">
+            <h3>Antibody Panel Lots</h3>
+            <p>Withdraw or restore antibody-identification panel lots. Deactivation HardStops Accept and complete on open workups. Does not identify antibodies.</p>
+        </a>
         <a class="admin-card" href="admin/blood-attributes">
             <h3>Blood Attributes</h3>
             <p>Antigen and antibody catalog for patient/unit typing and clinically significant compatibility.</p>

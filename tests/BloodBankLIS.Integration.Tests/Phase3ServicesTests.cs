@@ -75,11 +75,13 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
             new EfRepository<AntigenProfile>(c),
             new EfRepository<BloodAttributeDefinition>(c),
             new EfRepository<Patient>(c),
+            new EfRepository<AntibodyIdentificationWorkup>(c),
             c,
             _factory.Clock,
             _factory.CurrentUser,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            permissions);
+            permissions,
+            findings: new EfRepository<AntibodyIdentificationFinding>(c));
 
     private async Task<long> EnsurePatientAsync(string mrn)
     {

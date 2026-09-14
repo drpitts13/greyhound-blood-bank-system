@@ -393,23 +393,6 @@ public sealed class PatientMergeService
         }
     }
 
-    private static async Task ReassignAsync<T>(
-        IRepository<T> repository,
-        System.Linq.Expressions.Expression<Func<T, bool>> predicate,
-        Action<T> assign,
-        CancellationToken ct) where T : BaseEntity
-    {
-        var rows = await repository.ListAsync(predicate, ct);
-        foreach (var row in rows)
-        {
-            var tracked = await repository.GetByIdAsync(row.Id, ct);
-            if (tracked is not null)
-            {
-                assign(tracked);
-            }
-        }
-    }
-
     private async Task<RuleResult> EvaluateMergeWorkupsAsync(long survivorId, long duplicateId, CancellationToken ct)
     {
         if (_workups is null)
@@ -429,6 +412,23 @@ public sealed class PatientMergeService
                     || w.Status == AntibodyWorkupStatus.PendingInterpretation
                     || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
             ct);
+
+    private static async Task ReassignAsync<T>(
+        IRepository<T> repository,
+        System.Linq.Expressions.Expression<Func<T, bool>> predicate,
+        Action<T> assign,
+        CancellationToken ct) where T : BaseEntity
+    {
+        var rows = await repository.ListAsync(predicate, ct);
+        foreach (var row in rows)
+        {
+            var tracked = await repository.GetByIdAsync(row.Id, ct);
+            if (tracked is not null)
+            {
+                assign(tracked);
+            }
+        }
+    }
 
     private async Task<OperationResult<Patient>?> RejectUnauthorizedAsync(CancellationToken ct)
     {

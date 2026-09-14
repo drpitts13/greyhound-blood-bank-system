@@ -359,7 +359,7 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         var links = await verify.UnitModificationUnits.Where(l => l.UnitModificationId == result.Modification!.Id).ToListAsync();
         Assert.Equal(3, links.Count); // 2 sources + 1 result
         Assert.Equal(2, links.Count(l => l.Role == ModificationUnitRole.Source));
-        Assert.Single(links.Where(l => l.Role == ModificationUnitRole.Result));
+        Assert.Single(links, l => l.Role == ModificationUnitRole.Result);
     }
 
     [Fact]

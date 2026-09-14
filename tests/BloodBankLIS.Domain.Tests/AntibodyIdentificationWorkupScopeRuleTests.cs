@@ -66,6 +66,19 @@ public class AntibodyIdentificationWorkupScopeRuleTests
     }
 
     [Fact]
+    public void OpenOnUnusableSpecimen_BlocksAnotherWorkup()
+    {
+        var result = AntibodyIdentificationWorkupScopeRule.EvaluateOverlappingOpen(
+            creatingUnscoped: false,
+            hasOpenUnscoped: false,
+            hasOpenOnSameSpecimen: false,
+            hasAnyOpen: true,
+            hasOpenOnUnusableSpecimen: true);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(AntibodyIdentificationWorkupScopeRule.OverlappingOpenCode, result.Code);
+    }
+
+    [Fact]
     public void OpenWorkup_CanLinkSpecimen()
     {
         var result = AntibodyIdentificationWorkupScopeRule.EvaluateCanLinkSpecimen(AntibodyWorkupStatus.InProgress);
@@ -169,13 +182,6 @@ public class AntibodyIdentificationWorkupScopeRuleTests
     }
 
     [Fact]
-    public void AcceptedSpecimen_ReadinessIsPass()
-    {
-        var result = AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenReadiness(SpecimenStatus.Accepted, completing: false);
-        Assert.Equal(RuleSeverity.Pass, result.Severity);
-    }
-
-    [Fact]
     public void Merge_BothOpen_IsHardStop()
     {
         var result = AntibodyIdentificationWorkupScopeRule.EvaluateMergeOpenWorkups(
@@ -198,6 +204,50 @@ public class AntibodyIdentificationWorkupScopeRuleTests
     {
         var result = AntibodyIdentificationWorkupScopeRule.EvaluateMergeOpenWorkups(
             survivorHasOpen: false, duplicateHasOpen: false);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void ClockExpired_IsPatientWideIdentificationScope()
+    {
+        var now = new DateTime(2026, 9, 5, 16, 0, 0, DateTimeKind.Utc);
+        Assert.True(AntibodyIdentificationWorkupScopeRule.IsPatientWideIdentificationScope(
+            SpecimenStatus.Accepted, now.AddMinutes(-1), now));
+        Assert.False(AntibodyIdentificationWorkupScopeRule.IsPatientWideIdentificationScope(
+            SpecimenStatus.Accepted, now.AddHours(1), now));
+        Assert.True(AntibodyIdentificationWorkupScopeRule.IsPatientWideIdentificationScope(
+            SpecimenStatus.Expired, now.AddHours(1), now));
+        Assert.True(AntibodyIdentificationWorkupScopeRule.IsRejectedOrCancelled(SpecimenStatus.Rejected));
+        Assert.False(AntibodyIdentificationWorkupScopeRule.IsRejectedOrCancelled(SpecimenStatus.Expired));
+    }
+
+    [Fact]
+    public void Received_IsPatientWideIdentificationScope()
+    {
+        var now = new DateTime(2026, 9, 5, 16, 0, 0, DateTimeKind.Utc);
+        Assert.True(AntibodyIdentificationWorkupScopeRule.IsPatientWideIdentificationScope(
+            SpecimenStatus.Received, now.AddHours(1), now));
+        Assert.True(AntibodyIdentificationWorkupScopeRule.IsReceivedNotAccepted(SpecimenStatus.Received));
+        Assert.False(AntibodyIdentificationWorkupScopeRule.IsReceivedNotAccepted(SpecimenStatus.Accepted));
+        Assert.False(AntibodyIdentificationWorkupScopeRule.IsPatientWideIdentificationScope(
+            SpecimenStatus.Accepted, now.AddHours(1), now));
+    }
+
+    [Fact]
+    public void Collected_IsPatientWideIdentificationScope()
+    {
+        var now = new DateTime(2026, 9, 5, 16, 0, 0, DateTimeKind.Utc);
+        Assert.True(AntibodyIdentificationWorkupScopeRule.IsPatientWideIdentificationScope(
+            SpecimenStatus.Collected, now.AddHours(1), now));
+        Assert.True(AntibodyIdentificationWorkupScopeRule.IsCollectedNotReceived(SpecimenStatus.Collected));
+        Assert.False(AntibodyIdentificationWorkupScopeRule.IsCollectedNotReceived(SpecimenStatus.Accepted));
+        Assert.False(AntibodyIdentificationWorkupScopeRule.IsCollectedNotReceived(SpecimenStatus.Received));
+    }
+
+    [Fact]
+    public void AcceptedSpecimen_ReadinessIsPass()
+    {
+        var result = AntibodyIdentificationWorkupScopeRule.EvaluateSpecimenReadiness(SpecimenStatus.Accepted, completing: false);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
 }

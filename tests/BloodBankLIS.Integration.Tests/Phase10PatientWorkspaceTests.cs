@@ -184,7 +184,7 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         c.ProductTypes.Add(rbc);
         await c.SaveChangesAsync();
 
-        var unit = new BloodUnit
+        var unit1 = new BloodUnit
         {
             UnitNumber = $"U-{Guid.NewGuid():N}",
             ProductTypeId = rbc.Id,
@@ -193,12 +193,21 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
             ExpiresUtc = DateTime.UtcNow.AddDays(10),
             Status = UnitStatus.Issued
         };
-        c.BloodUnits.Add(unit);
+        var unit2 = new BloodUnit
+        {
+            UnitNumber = $"U-{Guid.NewGuid():N}",
+            ProductTypeId = rbc.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = DateTime.UtcNow.AddDays(10),
+            Status = UnitStatus.Issued
+        };
+        c.BloodUnits.AddRange(unit1, unit2);
         await c.SaveChangesAsync();
 
         c.Issues.Add(new Issue
         {
-            BloodProductId = unit.Id,
+            BloodProductId = unit1.Id,
             PatientId = p1.Id,
             IssuedUtc = DateTime.UtcNow,
             IssuedBy = "tech",
@@ -206,7 +215,7 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         });
         c.Issues.Add(new Issue
         {
-            BloodProductId = unit.Id,
+            BloodProductId = unit2.Id,
             PatientId = p2.Id,
             IssuedUtc = DateTime.UtcNow,
             IssuedBy = "tech",

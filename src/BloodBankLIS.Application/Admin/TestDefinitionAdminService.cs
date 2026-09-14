@@ -704,9 +704,9 @@ public sealed class TestDefinitionAdminService : ConfigAdminServiceBase
 
             .ToList();
 
-private async Task<EvaluationResult<TestDefinitionDto>?> RejectUnauthorizedEvalAsync(
-        Func<bool, RuleResult> evaluate,
-        CancellationToken ct)
+    private async Task<EvaluationResult<TestDefinitionDto>?> RejectUnauthorizedEvalAsync(
+            Func<bool, RuleResult> evaluate,
+            CancellationToken ct)
     {
         if (_permissionEvaluator is null)
         {

@@ -92,7 +92,13 @@
             return;
         }
 
-        Session.SignIn(login.Value.UserName, login.Value.DisplayName, _workstation, login.Value.Permissions, login.Value.SecurityLevel);
+        Session.SignIn(
+            login.Value.UserName,
+            login.Value.DisplayName,
+            _workstation,
+            login.Value.Permissions,
+            login.Value.SecurityLevel,
+            login.Value.SessionToken);
         Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
     }
 }

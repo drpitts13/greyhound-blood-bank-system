@@ -21,6 +21,7 @@ public sealed class SqliteToSqlServerMigrator
         "Permissions",
         "Roles",
         "Users",
+        "AuthSessions",
         "RolePermissions",
         "UserRoles",
         "ProductTypes",

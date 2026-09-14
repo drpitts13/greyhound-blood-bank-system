@@ -37,6 +37,14 @@ public static class SecretHasher
         return CryptographicOperations.FixedTimeEquals(actual, expected);
     }
 
+    /// <summary>SHA-256 hex of a high-entropy session token. Not a password hash.</summary>
+    public static string HashOpaqueToken(string token)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(token);
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(token));
+        return Convert.ToHexString(hash);
+    }
+
     public static string ComputeSignatureHash(string action, string meaning, string userName, string? contextType, long? contextId, DateTime signedUtc)
     {
         var payload = $"{action}|{meaning}|{userName}|{contextType}|{contextId}|{signedUtc:O}";

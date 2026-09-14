@@ -71,6 +71,13 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
         Assert.StartsWith("^XA", job.RenderedZpl);
         Assert.Contains("ACC-PRT-1", job.RenderedZpl);
         Assert.Contains("ACC-PRT-1", job.PayloadJson);
+
+        var printEvent = await context.AuditEvents.ToListAsync();
+        Assert.Contains(printEvent, e =>
+            e.EntityType == nameof(PrintJob)
+            && e.EventType == AuditEventType.Print
+            && e.EntityId == job.Id
+            && e.Reason == "SpecimenLabel printed.");
     }
 
     [Fact]
@@ -83,8 +90,7 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(events, e =>
             e.EntityType == nameof(PrintJob)
             && e.EventType == AuditEventType.Print
-            && e.EntityId == jobId
-            && e.Reason == "SpecimenLabel printed.");
+            && e.EntityId == jobId);
     }
 
     [Fact]

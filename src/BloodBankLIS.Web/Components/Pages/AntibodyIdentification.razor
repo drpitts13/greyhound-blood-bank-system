@@ -31,7 +31,7 @@ else if (_workup is null)
         else
         {
             <table class="bb">
-                <thead><tr><th>Opened</th><th>Specimen</th><th>Panel</th><th>Lot</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>Opened</th><th>Specimen</th><th>Panel</th><th>Manufacturer</th><th>Lot</th><th>Next</th><th></th></tr></thead>
                 <tbody>
                     @foreach (var w in _workups)
                     {
@@ -46,10 +46,51 @@ else if (_workup is null)
                                 {
                                     <span class="mono">@w.SpecimenAccession</span>
                                 }
+                                @if (w.HasUnusableSpecimen)
+                                {
+                                    <span class="badge badge-red">Rejected/cancelled</span>
+                                }
+                                else if (w.HasNotReadySpecimen)
+                                {
+                                    <span class="badge badge-red">Not received</span>
+                                }
+                                else if (w.HasUnacceptedSpecimen)
+                                {
+                                    <span class="badge badge-blue">Not accepted</span>
+                                }
+                                else if (w.HasExpiredSpecimen)
+                                {
+                                    <span class="badge badge-amber">Expired specimen</span>
+                                }
                             </td>
                             <td>@w.PanelName</td>
-                            <td class="mono">@w.LotNumber</td>
-                            <td>@w.Status</td>
+                            <td>@(string.IsNullOrWhiteSpace(w.ManufacturerName) ? "—" : w.ManufacturerName)</td>
+                            <td class="mono">
+                                @LotNumbersLabel(w)
+                                @foreach (var lot in w.InactiveLotNumbers ?? [])
+                                {
+                                    <span class="badge badge-red">Inactive @lot</span>
+                                }
+                                @foreach (var lot in w.ExpiredLotNumbers ?? [])
+                                {
+                                    <span class="badge badge-amber">Expired @lot</span>
+                                }
+                            </td>
+                            <td>
+                                @WorklistNextLabel(w)
+                                @if (w.HasWithdrawnJudgment)
+                                {
+                                    <span class="badge badge-amber">Judgment withdrawn</span>
+                                }
+                                @if (w.HasPendingTypeCorrection)
+                                {
+                                    <span class="badge badge-red">Pending type correction</span>
+                                }
+                                @if (w.HasReservedOrIssuedUnits)
+                                {
+                                    <span class="badge badge-amber">Reserved/issued units</span>
+                                }
+                            </td>
                             <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => Open(w.Id)">Open</button></td>
                         </tr>
                     }
@@ -76,7 +117,7 @@ else if (_workup is null)
                         <option value="">Select an in-date lot</option>
                         @foreach (var lot in _lots.Where(l => !l.IsExpired && l.IsActive && !l.IsSelectedCellLot))
                         {
-                            <option value="@lot.Id">@lot.PanelName — @lot.ManufacturerName lot @lot.LotNumber (exp @lot.ExpiresOn)</option>
+                            <option value="@lot.Id">@LotOptionLabel(lot)</option>
                         }
                     </select>
                 </div>
@@ -85,7 +126,7 @@ else if (_workup is null)
                         <option value="">None</option>
                         @foreach (var lot in _lots.Where(l => !l.IsExpired && l.IsActive && l.IsSelectedCellLot))
                         {
-                            <option value="@lot.Id">@lot.PanelName — lot @lot.LotNumber</option>
+                            <option value="@lot.Id">@LotOptionLabel(lot)</option>
                         }
                     </select>
                 </div>
@@ -118,15 +159,15 @@ else
             }
             @if (LinkedSpecimenUnusable)
             {
-                <div class="alert alert-danger">The linked specimen is rejected or cancelled. It cannot remain the identification of record. Void this workup or link a usable specimen.</div>
+                <div class="alert alert-danger">The linked specimen is rejected or cancelled. This open workup remains the identification of record for the patient until it is voided or linked to a usable specimen. Free-text ABID and blood-attribute antibody verify that would change history are blocked. This does not identify antibodies.</div>
             }
             else if (LinkedSpecimenNotReady)
             {
-                <div class="alert alert-danger">The linked specimen is collected and has not been received. It cannot remain the identification of record. Receive it, void this workup, or link a received specimen.</div>
+                <div class="alert alert-danger">The linked specimen is collected and has not been received. This open workup remains the identification of record for the patient until the specimen is received, this workup is voided, or it is re-linked. Complete and Accept HardStop. This does not identify antibodies.</div>
             }
             else if (LinkedSpecimenUnaccepted)
             {
-                <div class="alert alert-warning">The linked specimen is received but not accepted. Completing requires acknowledgment and still posts only technologist-Identified antibodies.</div>
+                <div class="alert alert-warning">The linked specimen is received but not accepted. This open workup remains the identification of record for the patient until the specimen is accepted, this workup is voided, completed with acknowledgment, or re-linked. Completing still posts only technologist-Identified antibodies.</div>
             }
             else if (LinkedSpecimenExpired)
             {
@@ -138,8 +179,22 @@ else
             }
         </div>
         <div class="muted">
-            Lots: @string.Join("; ", _workup.Lots.Select(l => $"{l.PanelName} {l.LotNumber} exp {l.ExpiresOn}"))
+            Lots: @string.Join("; ", _workup.Lots.Select(LotLineLabel))
         </div>
+        @if (AttachedLotInactive)
+        {
+            <div class="alert alert-danger">
+                Inactive lot @(string.Join(", ", _workup.Lots.Where(l => !l.IsActive).Select(l => l.LotNumber))).
+                It cannot remain the reagent of record. Void this workup or attach an in-date active lot. Completing does not identify antibodies from an inactive lot.
+            </div>
+        }
+        else if (AttachedLotExpired)
+        {
+            <div class="alert alert-warning">
+                Expired lot @(string.Join(", ", _workup.Lots.Where(l => l.IsExpired).Select(l => l.LotNumber))).
+                Completing requires acknowledgment and still posts only technologist-Identified antibodies.
+            </div>
+        }
         @if (CanEdit)
         {
             <div class="form-row" style="margin-top:.75rem;">
@@ -159,8 +214,7 @@ else
         @if (JudgmentStale)
         {
             <div class="alert alert-warning">
-                Panel reactions, selected cells, DAT, or specimen scope changed after the last interpretation.
-                Re-record interpretation and obtain supervisor review before completing. Prior Identified findings were withdrawn and will not post.
+                @_workup.JudgmentWithdrawnReason
             </div>
         }
         @if (_workup.Status == AntibodyWorkupStatus.Voided)
@@ -322,7 +376,7 @@ else
                         <option value="">Select an in-date selected-cell lot</option>
                         @foreach (var lot in AttachableLots)
                         {
-                            <option value="@lot.Id">@lot.PanelName — lot @lot.LotNumber (exp @lot.ExpiresOn)</option>
+                            <option value="@lot.Id">@LotOptionLabel(lot)</option>
                         }
                     </select>
                 </div>
@@ -383,11 +437,14 @@ else
                     Recording Identified does not identify those leftover specificities.
                 </div>
             }
-            @if (IdentifiedDespiteExclusion.Count > 0)
+            @if (IdentifiedDespiteExclusion.Count > 0 || QueuedIdentifiedDespiteExclusion.Count > 0)
             {
                 <div class="alert alert-warning">
-                    Assistance would exclude @string.Join(", ", IdentifiedDespiteExclusion.Select(f => f.Specificity))
-                    on the reactions entered. Confirm the identification.
+                    Assistance would exclude @string.Join(", ",
+                        IdentifiedDespiteExclusion.Select(f => f.Specificity)
+                            .Concat(QueuedIdentifiedDespiteExclusion.Select(f => f.Specificity))
+                            .Distinct())
+                    on the reactions entered. Confirm the identification and record a rationale.
                 </div>
             }
             @if (ActiveAntibodyHistory.Count > 0)
@@ -406,6 +463,9 @@ else
             }
             <div class="field"><label>Interpretation</label>
                 <textarea @bind="_interpretation" rows="3"></textarea>
+            </div>
+            <div class="field"><label>Rationale @(QueuedIdentifiedDespiteExclusion.Count > 0 || IdentifiedDespiteExclusion.Count > 0 ? "(required when identifying a specificity assistance would exclude)" : "(optional)")</label>
+                <input @bind="_interpRationale" placeholder="Why this identification differs from assistance, if it does." />
             </div>
             <div class="form-row">
                 <div class="field"><label>Catalog antibody</label>
@@ -431,11 +491,11 @@ else
                 <ul>
                     @foreach (var item in _interpItems)
                     {
-                        <li>@item.Specificity — @item.Classification @(item.BloodAttributeDefinitionId is null ? "(free-text; will not drive antigen-negative unless resolved)" : "(catalog)")</li>
+                        <li>@item.Specificity — @item.Classification @(item.BloodAttributeDefinitionId is null ? "(free-text; will not drive antigen-negative unless resolved)" : "(catalog)")@(string.IsNullOrWhiteSpace(item.Rationale) ? "" : $" — {item.Rationale}")</li>
                     }
                 </ul>
             }
-            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveInterpretationAsync">Record interpretation</button>
+            <button class="btn btn-primary" disabled="@(_busy || ExclusionRationaleMissing)" @onclick="SaveInterpretationAsync">Record interpretation</button>
         </div>
     }
 
@@ -459,6 +519,10 @@ else
             {
                 <div class="alert alert-warning">Existing antibody history remains: @string.Join(", ", ActiveAntibodyHistory.Select(a => a.AntibodySpecificity)).</div>
             }
+            @if (_workup.HasReservedOrIssuedUnits)
+            {
+                <div class="alert alert-warning">This patient has reserved or issued units. Completing may post antibodies that were not applied at allocation or issue. Acknowledgment does not identify antibodies.</div>
+            }
             @if (NeedsCompleteAck)
             {
                 <div class="field">
@@ -469,7 +533,7 @@ else
             }
             <div class="field"><label>Review comment</label><input @bind="_reviewComment" /></div>
             <div class="flex gap">
-                <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady || ReviewAckBlocksAccept)" @onclick="() => ReviewAsync(true)">Accept</button>
+                <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady || AttachedLotInactive || ReviewAckBlocksAccept)" @onclick="() => ReviewAsync(true)">Accept</button>
                 <button class="btn btn-danger" disabled="@_busy" @onclick="() => ReviewAsync(false)">Reject</button>
             </div>
         </div>
@@ -512,6 +576,10 @@ else
                     Completing does not remove it.
                 </div>
             }
+            @if (_workup.HasReservedOrIssuedUnits)
+            {
+                <div class="alert alert-warning">This patient has reserved or issued units. Completing may post antibodies that were not applied at allocation or issue. Acknowledgment does not identify antibodies.</div>
+            }
             @if (IdentifiedToPost.Count == 0)
             {
                 <div class="alert alert-warning">No technologist-Identified antibodies will post to history. Complete only if none were identified.</div>
@@ -534,12 +602,16 @@ else
                 </div>
                 <p class="muted">Required when completion warnings are present. Acknowledgment does not identify antibodies.</p>
             }
-            <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || AckBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady)" @onclick="CompleteAsync">Complete workup</button>
+            <button class="btn btn-primary" disabled="@(_busy || IncompleteBlocksComplete || AckBlocksComplete || LinkedSpecimenUnusable || LinkedSpecimenNotReady || AttachedLotInactive)" @onclick="CompleteAsync">Complete workup</button>
             <p class="muted">Posts only the technologist-Identified specificities listed above, after supervisor acceptance. Assistance is never posted.</p>
         </div>
         <div class="bb-card">
             <div class="bb-card-title"><h3>Void workup</h3></div>
             <p class="muted">Voiding abandons this workup without posting history and releases the free-text ABID path for this specimen or patient.</p>
+            @if (_workup.HasReservedOrIssuedUnits)
+            {
+                <div class="alert alert-warning">This patient has reserved or issued units. Voiding abandons identification of record without posting antibodies that may change antigen-negative needs. The void reason does not identify antibodies.</div>
+            }
             <div class="field"><label>Void reason</label><input @bind="_voidReason" /></div>
             <button class="btn btn-danger" disabled="@(_busy || string.IsNullOrWhiteSpace(_voidReason))" @onclick="VoidAsync">Void workup</button>
         </div>
@@ -575,15 +647,14 @@ else
     private List<AntigenProfileDto> _antigenProfiles = new();
     private List<AntibodyDto> _antibodyHistory = new();
     private AntibodyIdClassification _interpClass = AntibodyIdClassification.Identified;
+    private string? _interpRationale;
     private readonly List<AntibodyIdInterpretationItem> _interpItems = new();
     private string? _reviewComment;
     private readonly Dictionary<(long CellId, string Phase), ReactionGrade> _grades = new();
 
     private bool JudgmentStale =>
         _workup is not null
-        && !string.IsNullOrWhiteSpace(_workup.TechnologistInterpretation)
-        && _workup.InterpretedUtc is null
-        && _workup.Status is not AntibodyWorkupStatus.Completed and not AntibodyWorkupStatus.Voided;
+        && !string.IsNullOrWhiteSpace(_workup.JudgmentWithdrawnReason);
 
     private bool CanEdit =>
         _workup is not null
@@ -635,6 +706,20 @@ else
             .ThenBy(f => f.Specificity, StringComparer.Ordinal)
             .ToList();
 
+    private IReadOnlyList<AntibodyIdInterpretationItem> QueuedIdentifiedDespiteExclusion =>
+        _interpItems
+            .Where(i => i.Classification == AntibodyIdClassification.Identified
+                        && (_workup?.Findings ?? []).Any(f =>
+                            f.Source == AntibodyIdSource.Assist
+                            && f.Classification == AntibodyIdClassification.Excluded
+                            && (string.Equals(f.Specificity, i.Specificity, StringComparison.Ordinal)
+                                || (i.BloodAttributeDefinitionId is long id && f.BloodAttributeDefinitionId == id))))
+            .ToList();
+
+    private bool ExclusionRationaleMissing =>
+        QueuedIdentifiedDespiteExclusion.Any(i =>
+            !AntibodyIdentificationInterpretationRule.HasDocumentedRationale(i.Rationale));
+
     private IReadOnlyList<AntibodyIdFindingDto> IdentifiedDespiteExclusion =>
         IdentifiedToPost
             .Where(i => (_workup?.Findings ?? []).Any(f =>
@@ -676,7 +761,45 @@ else
         || (IncompletePanelCells.Count > 0 && IdentifiedToPost.Count == 0)
         || (_dat == AntibodyIdDatResult.NotPerformed && AutocontrolLooksPositive)
         || LinkedSpecimenExpired
-        || LinkedSpecimenUnaccepted;
+        || LinkedSpecimenUnaccepted
+        || AttachedLotExpired
+        || (_workup?.HasReservedOrIssuedUnits ?? false);
+
+    private bool AttachedLotInactive =>
+        (_workup?.Lots ?? []).Any(l => !l.IsActive);
+
+    private bool AttachedLotExpired =>
+        (_workup?.Lots ?? []).Any(l => l.IsExpired);
+
+    private static string LotOptionLabel(AntibodyPanelLotListItemDto lot) =>
+        $"{lot.PanelName} — {lot.ManufacturerName} lot {lot.LotNumber} (exp {lot.ExpiresOn:yyyy-MM-dd})";
+
+    private static string LotLineLabel(AntibodyPanelLotListItemDto lot) =>
+        $"{lot.ManufacturerName} {lot.PanelName} {lot.LotNumber} exp {lot.ExpiresOn:yyyy-MM-dd}";
+
+    private static string LotNumbersLabel(AntibodyIdWorkupListItemDto workup)
+    {
+        var extras = (workup.AttachedLotNumbers ?? [])
+            .Where(n => !string.Equals(n, workup.LotNumber, StringComparison.Ordinal))
+            .ToList();
+        return extras.Count == 0
+            ? workup.LotNumber
+            : $"{workup.LotNumber} · {string.Join(", ", extras)}";
+    }
+
+    private static string WorklistNextLabel(AntibodyIdWorkupListItemDto workup) =>
+        workup.Status switch
+        {
+            AntibodyWorkupStatus.Completed => "Completed",
+            AntibodyWorkupStatus.Voided => "Voided",
+            _ => workup.NextAction switch
+            {
+                AntibodyIdWorklistNextAction.Interpret => "Interpret",
+                AntibodyIdWorklistNextAction.Review => "Supervisor review",
+                AntibodyIdWorklistNextAction.None => "—",
+                _ => "Record reactions"
+            }
+        };
 
     private bool AckBlocksComplete => NeedsCompleteAck && string.IsNullOrWhiteSpace(_completeAck);
 
@@ -838,15 +961,20 @@ else
         {
             var attr = _bloodAttributeCatalog.FirstOrDefault(a => a.Id == catalogId);
             if (attr is null) return;
-            _interpItems.Add(new AntibodyIdInterpretationItem(attr.Id, attr.AntibodyName, _interpClass, "Technologist classification"));
+            _interpItems.Add(new AntibodyIdInterpretationItem(attr.Id, attr.AntibodyName, _interpClass, InterpRationaleOrDefault()));
             _interpCatalogId = null;
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_interpSpec)) return;
-        _interpItems.Add(new AntibodyIdInterpretationItem(null, _interpSpec.Trim(), _interpClass, "Technologist classification"));
+        _interpItems.Add(new AntibodyIdInterpretationItem(null, _interpSpec.Trim(), _interpClass, InterpRationaleOrDefault()));
         _interpSpec = "";
     }
+
+    private string? InterpRationaleOrDefault() =>
+        AntibodyIdentificationInterpretationRule.HasDocumentedRationale(_interpRationale)
+            ? _interpRationale!.Trim()
+            : "Technologist classification";
 
     private async Task SaveInterpretationAsync()
     {

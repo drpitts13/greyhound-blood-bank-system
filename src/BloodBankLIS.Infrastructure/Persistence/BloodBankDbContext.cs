@@ -7,8 +7,11 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
+using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace BloodBankLIS.Infrastructure.Persistence;
 
@@ -85,6 +88,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<TestServiceBilling> TestServiceBillings => Set<TestServiceBilling>();
     public DbSet<ProductBilling> ProductBillings => Set<ProductBilling>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
@@ -164,15 +168,15 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
 
         if (captures.Count == 0)
         {
-            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            return await PersistWithAuditHashAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
 
         // If a transaction is already in progress (e.g. a multi-step workflow), reuse it.
         if (Database.CurrentTransaction is not null)
         {
-            var inner = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            var inner = await PersistWithAuditHashAsync(acceptAllChangesOnSuccess, cancellationToken);
             AppendAuditEvents(captures);
-            await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            await PersistWithAuditHashAsync(acceptAllChangesOnSuccess, cancellationToken);
             return inner;
         }
 
@@ -180,9 +184,9 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
         return await strategy.ExecuteAsync(async () =>
         {
             await using var transaction = await Database.BeginTransactionAsync(cancellationToken);
-            var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            var result = await PersistWithAuditHashAsync(acceptAllChangesOnSuccess, cancellationToken);
             AppendAuditEvents(captures);
-            await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            await PersistWithAuditHashAsync(acceptAllChangesOnSuccess, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return result;
         });
@@ -254,7 +258,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
                 _ => null
             };
 
-            if (eventType is null)
+            if (eventType is null || entry.Entity is AuthSession)
             {
                 continue;
             }
@@ -267,6 +271,117 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
         }
 
         return captures;
+    }
+
+    private async Task<int> PersistWithAuditHashAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+    {
+        const int maxAttempts = 5;
+        for (var attempt = 1; ; attempt++)
+        {
+            StampAuditHashChain();
+            try
+            {
+                return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            }
+            catch (DbUpdateException ex) when (attempt < maxAttempts && IsAuditHashConflict(ex))
+            {
+                foreach (var entry in ChangeTracker.Entries<AuditEvent>())
+                {
+                    if (entry.State == EntityState.Added)
+                    {
+                        entry.Entity.PreviousHash = null;
+                        entry.Entity.RecordHash = null;
+                    }
+                }
+            }
+        }
+    }
+
+    private void StampAuditHashChain()
+    {
+        var pending = ChangeTracker.Entries<AuditEvent>()
+            .Where(e => e.State == EntityState.Added && string.IsNullOrWhiteSpace(e.Entity.RecordHash))
+            .Select(e => e.Entity)
+            .ToList();
+        if (pending.Count == 0)
+        {
+            return;
+        }
+
+        var previous = LoadPersistedChainTip();
+
+        foreach (var evt in pending)
+        {
+            evt.PreviousHash = previous;
+            evt.RecordHash = AuditHashChainRule.ComputeRecordHash(evt);
+            previous = evt.RecordHash;
+        }
+    }
+
+    /// <summary>
+    /// Reads the committed (or same-transaction) tip via SQL so Added tracker
+    /// rows with Id 0 cannot hide the real last hash.
+    /// </summary>
+    private string LoadPersistedChainTip()
+    {
+        var sqlite = string.Equals(
+            Database.ProviderName,
+            "Microsoft.EntityFrameworkCore.Sqlite",
+            StringComparison.Ordinal);
+        var sql = sqlite
+            ? """
+              SELECT a.RecordHash
+              FROM AuditEvents a
+              WHERE a.RecordHash IS NOT NULL AND a.RecordHash <> ''
+                AND NOT EXISTS (
+                    SELECT 1 FROM AuditEvents c WHERE c.PreviousHash = a.RecordHash)
+              LIMIT 1
+              """
+            : """
+              SELECT TOP 1 a.RecordHash
+              FROM AuditEvents a
+              WHERE a.RecordHash IS NOT NULL AND a.RecordHash <> ''
+                AND NOT EXISTS (
+                    SELECT 1 FROM AuditEvents c WHERE c.PreviousHash = a.RecordHash)
+              """;
+
+        var connection = Database.GetDbConnection();
+        var openedHere = connection.State != ConnectionState.Open;
+        if (openedHere)
+        {
+            connection.Open();
+        }
+
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = Database.CurrentTransaction?.GetDbTransaction();
+            command.CommandText = sql;
+            var result = command.ExecuteScalar();
+            var tip = result as string ?? result?.ToString();
+            return string.IsNullOrWhiteSpace(tip) ? AuditHashChainRule.GenesisPreviousHash : tip;
+        }
+        finally
+        {
+            if (openedHere)
+            {
+                connection.Close();
+            }
+        }
+    }
+
+    private static bool IsAuditHashConflict(DbUpdateException exception)
+    {
+        if (exception.Entries.Any(e => e.Entity is AuditEvent))
+        {
+            return true;
+        }
+
+        var text = exception.InnerException?.Message ?? exception.Message;
+        return text.Contains("PreviousHash", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("RecordHash", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("IX_AuditEvents_PreviousHash", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("IX_AuditEvents_RecordHash", StringComparison.OrdinalIgnoreCase);
     }
 
     private void AppendAuditEvents(IEnumerable<AuditCapture> captures)
@@ -320,7 +435,8 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
         || type == typeof(AntibodyHistory)
         || type == typeof(LookbackNotification)
         || type == typeof(ReactionInvestigation)
-        || type == typeof(SpecialTransfusionRequirement);
+        || type == typeof(SpecialTransfusionRequirement)
+        || type == typeof(AuthSession);
 
     private sealed record AuditCapture(
         Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry Entry,

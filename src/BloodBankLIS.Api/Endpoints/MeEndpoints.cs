@@ -1,16 +1,15 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Abstractions;
-using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Identity;
 using BloodBankLIS.Domain.Entities.Identity;
-using BloodBankLIS.Domain.Enums;
-using BloodBankLIS.Infrastructure.Persistence;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Api.Endpoints;
 
 /// <summary>
-/// Identity introspection for the calling user: the resolved display name and the
-/// effective permission set. Lets a client render role-aware UI; the API remains the
-/// authority and re-checks permissions on every protected route.
+/// Interactive sign-in issues a server-side session. Subsequent requests must
+/// present the token as Authorization Bearer. Identity introspection is for UI
+/// gating only; the API re-checks permissions on every protected route.
 /// </summary>
 public static class MeEndpoints
 {
@@ -18,69 +17,27 @@ public static class MeEndpoints
     {
         app.MapPost("/api/auth/login", async (
             LoginRequest request,
-            IRepository<User> users,
-            IPermissionEvaluator permissions,
-            IAuditWriter audit,
-            BloodBankDbContext context,
+            IAuthSessionService sessions,
             CancellationToken ct) =>
         {
-            var user = await users.FirstOrDefaultAsync(u => u.UserName == request.UserName, ct);
-            if (user is null || !user.IsActive)
+            var result = await sessions.LoginAsync(request.UserName, request.Password, request.Workstation, ct);
+            if (!result.Succeeded || result.Value is null)
             {
                 return Results.Unauthorized();
             }
 
-            if (user.IsLocked)
-            {
-                audit.Record(AuditEventType.Lockout, nameof(User), user.Id, reason: "Locked account sign-in attempt");
-                await context.SaveChangesAsync(ct);
-                return Results.Unauthorized();
-            }
-
-            if (!string.IsNullOrEmpty(user.PasswordHash)
-                && !SecretHasher.Verify(request.Password ?? string.Empty, user.PasswordHash))
-            {
-                user.FailedSignInCount++;
-                if (user.FailedSignInCount >= 5)
-                {
-                    user.IsLocked = true;
-                    audit.Record(AuditEventType.Lockout, nameof(User), user.Id, reason: "Failed sign-in lockout");
-                }
-                else
-                {
-                    audit.Record(AuditEventType.SignatureFailed, nameof(User), user.Id, reason: "Failed sign-in");
-                }
-
-                await context.SaveChangesAsync(ct);
-                return Results.Unauthorized();
-            }
-
-            user.LastLoginUtc = DateTime.UtcNow;
-            user.FailedSignInCount = 0;
-            audit.Record(AuditEventType.Login, nameof(User), user.Id);
-            await context.SaveChangesAsync(ct);
-
-            var codes = await permissions.GetPermissionsAsync(user.UserName, ct);
-            var securityLevel = await permissions.GetMaxSecurityLevelAsync(user.UserName, ct);
-            return Results.Ok(new
-            {
-                userName = user.UserName,
-                displayName = user.DisplayName,
-                securityLevel,
-                permissions = codes.OrderBy(c => c).ToArray()
-            });
+            return Results.Ok(ToLoginResponse(result.Value));
         }).WithTags("Identity");
 
         app.MapPost("/api/auth/logout", async (
-            ICurrentUser currentUser,
-            IRepository<User> users,
-            IAuditWriter audit,
-            BloodBankDbContext context,
+            HttpContext http,
+            IAuthSessionService sessions,
             CancellationToken ct) =>
         {
-            var user = await users.FirstOrDefaultAsync(u => u.UserName == currentUser.UserName, ct);
-            audit.Record(AuditEventType.Logout, nameof(User), user?.Id);
-            await context.SaveChangesAsync(ct);
+            var token = http.Items.TryGetValue(AuthHttpContext.BearerTokenKey, out var stored) && stored is string s
+                ? s
+                : RequestIdentityResolver.ReadBearerToken(http.Request.Headers.Authorization);
+            await sessions.LogoutAsync(token, ct);
             return Results.Ok();
         })
         .RequireAuthenticatedUser()
@@ -111,6 +68,15 @@ public static class MeEndpoints
         .RequireAuthenticatedUser()
         .WithTags("Identity");
     }
+
+    private static object ToLoginResponse(AuthLoginResult login) => new
+    {
+        sessionToken = login.SessionToken,
+        userName = login.UserName,
+        displayName = login.DisplayName,
+        securityLevel = login.SecurityLevel,
+        permissions = login.Permissions
+    };
 }
 
 public sealed record LoginRequest(string UserName, string? Password = null, string? Workstation = null);

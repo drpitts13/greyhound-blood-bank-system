@@ -1,4 +1,5 @@
 using BloodBankLIS.Api.Auth;
+using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Rules;
 
@@ -39,7 +40,11 @@ public static class SpecimenEndpoints
             }
 
             var dto = await service.GetAsync(result.Value!.Id, ct);
-            return dto is null ? Results.NotFound() : Results.Ok(dto);
+            return dto is null
+                ? Results.NotFound()
+                : EndpointResults.From(
+                    OperationResult<SpecimenDto>.Ok(dto, result.Warnings),
+                    payload => payload!);
         }).RequirePermission(PermissionCodes.SpecimenEdit);
 
         group.MapPost("/{id:long}/reject", async (long id, RejectSpecimenRequest request, SpecimenService service, CancellationToken ct) =>
@@ -51,7 +56,11 @@ public static class SpecimenEndpoints
             }
 
             var dto = await service.GetAsync(result.Value!.Id, ct);
-            return dto is null ? Results.NotFound() : Results.Ok(dto);
+            return dto is null
+                ? Results.NotFound()
+                : EndpointResults.From(
+                    OperationResult<SpecimenDto>.Ok(dto, result.Warnings),
+                    payload => payload!);
         }).RequirePermission(PermissionCodes.SpecimenReject);
 
         app.MapGet("/api/patients/{patientId:long}/specimens", async (long patientId, SpecimenService service, CancellationToken ct) =>

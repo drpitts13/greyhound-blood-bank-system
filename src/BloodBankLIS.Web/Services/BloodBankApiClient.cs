@@ -41,8 +41,8 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<MeVm>> GetMeAsync(CancellationToken ct = default) =>
         SendAsync<MeVm>(HttpMethod.Get, "api/me", ct: ct);
 
-    public Task<ApiResult<MeVm>> LoginAsync(LoginRequestVm req, CancellationToken ct = default) =>
-        SendAsync<MeVm>(HttpMethod.Post, "api/auth/login", req, ct);
+    public Task<ApiResult<LoginResultVm>> LoginAsync(LoginRequestVm req, CancellationToken ct = default) =>
+        SendAsync<LoginResultVm>(HttpMethod.Post, "api/auth/login", req, ct);
 
     public Task<ApiResult<object>> LogoutAsync(CancellationToken ct = default) =>
         SendAsync<object>(HttpMethod.Post, "api/auth/logout", ct: ct);
@@ -236,6 +236,9 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<List<AntibodyIdWorkupListItemDto>>> GetOpenAntibodyIdWorkupsAsync(CancellationToken ct = default) =>
         SendAsync<List<AntibodyIdWorkupListItemDto>>(HttpMethod.Get, "api/antibody-id", ct: ct);
+
+    public Task<ApiResult<AntibodyIdOpenWorklistSummaryDto>> GetOpenAntibodyIdSummaryAsync(CancellationToken ct = default) =>
+        SendAsync<AntibodyIdOpenWorklistSummaryDto>(HttpMethod.Get, "api/antibody-id/summary", ct: ct);
 
     public Task<ApiResult<List<AntibodyIdWorkupListItemDto>>> GetAntibodyIdWorkupsAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<AntibodyIdWorkupListItemDto>>(HttpMethod.Get, $"api/patients/{patientId}/antibody-id", ct: ct);
@@ -644,6 +647,36 @@ public sealed class BloodBankApiClient
         SendAsync<TestDefinitionDto>(HttpMethod.Post, $"api/admin/tests/{id}/clone", new CloneRequest(newCode), ct);
 
     // ---- Admin: Blood attributes ----
+    public Task<ApiResult<List<AntibodyPanelLotListItemDto>>> GetAdminAntibodyPanelLotsAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<AntibodyPanelLotListItemDto>>(HttpMethod.Get, $"api/admin/antibody-panel-lots?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<AntibodyPanelLotDetailDto>> GetAdminAntibodyPanelLotAsync(long id, CancellationToken ct = default) =>
+        SendAsync<AntibodyPanelLotDetailDto>(HttpMethod.Get, $"api/admin/antibody-panel-lots/{id}", ct: ct);
+
+    public Task<ApiResult<List<AntibodyPanelManufacturerListItemDto>>> GetAdminAntibodyPanelManufacturersAsync(bool includeInactive = false, CancellationToken ct = default) =>
+        SendAsync<List<AntibodyPanelManufacturerListItemDto>>(HttpMethod.Get, $"api/admin/antibody-panel-lots/manufacturers?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<AntibodyPanelManufacturerDetailDto>> GetAdminAntibodyPanelManufacturerAsync(long id, CancellationToken ct = default) =>
+        SendAsync<AntibodyPanelManufacturerDetailDto>(HttpMethod.Get, $"api/admin/antibody-panel-lots/manufacturers/{id}", ct: ct);
+
+    public Task<ApiResult<AntibodyPanelManufacturerListItemDto>> CreateAntibodyPanelManufacturerAsync(CreateAntibodyPanelManufacturerRequest req, CancellationToken ct = default) =>
+        SendAsync<AntibodyPanelManufacturerListItemDto>(HttpMethod.Post, "api/admin/antibody-panel-lots/manufacturers", req, ct);
+
+    public Task<ApiResult<AntibodyPanelManufacturerListItemDto>> ActivateAntibodyPanelManufacturerAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<AntibodyPanelManufacturerListItemDto>(HttpMethod.Post, $"api/admin/antibody-panel-lots/manufacturers/{id}/activate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<AntibodyPanelManufacturerListItemDto>> DeactivateAntibodyPanelManufacturerAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<AntibodyPanelManufacturerListItemDto>(HttpMethod.Post, $"api/admin/antibody-panel-lots/manufacturers/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<AntibodyPanelLotListItemDto>> CreateAntibodyPanelLotAsync(CreateAntibodyPanelLotRequest req, CancellationToken ct = default) =>
+        SendAsync<AntibodyPanelLotListItemDto>(HttpMethod.Post, "api/admin/antibody-panel-lots", req, ct);
+
+    public Task<ApiResult<AntibodyPanelLotListItemDto>> ActivateAntibodyPanelLotAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<AntibodyPanelLotListItemDto>(HttpMethod.Post, $"api/admin/antibody-panel-lots/{id}/activate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<AntibodyPanelLotListItemDto>> DeactivateAntibodyPanelLotAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<AntibodyPanelLotListItemDto>(HttpMethod.Post, $"api/admin/antibody-panel-lots/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
+
     public Task<ApiResult<List<BloodAttributeDefinitionDto>>> GetAdminBloodAttributesAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<BloodAttributeDefinitionDto>>(HttpMethod.Get, $"api/admin/blood-attributes?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
 

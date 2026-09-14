@@ -1,4 +1,4 @@
-@inject UserSession Session
+﻿@inject UserSession Session
 
 <nav class="bb-nav">
     <NavLink href="" Match="NavLinkMatch.All" ActiveClass="active">Dashboard</NavLink>
@@ -64,6 +64,7 @@
         <NavLink href="admin" Match="NavLinkMatch.All" ActiveClass="active">Admin Home</NavLink>
         @if (Session.Has(PermissionCodes.AdminConfigView))
         {
+            <NavLink href="admin/antibody-panel-lots" ActiveClass="active">Antibody Panel Lots</NavLink>
             <NavLink href="admin/blood-attributes" ActiveClass="active">Blood Attributes</NavLink>
             <NavLink href="admin/charge-codes" ActiveClass="active">Charge Codes</NavLink>
             <NavLink href="admin/charge-rules" ActiveClass="active">Charge Rules</NavLink>

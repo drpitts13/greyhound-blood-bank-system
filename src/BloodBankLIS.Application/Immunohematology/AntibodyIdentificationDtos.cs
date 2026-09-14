@@ -43,7 +43,73 @@ public sealed record AntibodyPanelLotListItemDto(
     string PanelName,
     bool IsSelectedCellLot,
     bool IsActive,
-    bool IsExpired);
+    bool IsExpired,
+    int OpenWorkupCount = 0,
+    int CompletedWorkupCount = 0,
+    int PostedHistoryWorkupCount = 0);
+
+public sealed record AntibodyPanelManufacturerListItemDto(
+    long Id,
+    string Code,
+    string Name,
+    bool IsActive,
+    int OpenWorkupCount = 0,
+    int CompletedWorkupCount = 0,
+    int PostedHistoryWorkupCount = 0);
+
+public sealed record CreateAntibodyPanelManufacturerRequest(string Code, string Name);
+
+public sealed record CreateAntibodyPanelLotAntigenRequest(
+    long BloodAttributeDefinitionId,
+    AntigenExpression Expression);
+
+public sealed record CreateAntibodyPanelLotCellRequest(
+    string CellNumber,
+    PanelCellRole Role,
+    int SortOrder,
+    IReadOnlyList<CreateAntibodyPanelLotAntigenRequest> Antigens);
+
+public sealed record CreateAntibodyPanelLotRequest(
+    long ManufacturerId,
+    string LotNumber,
+    string PanelName,
+    DateOnly ExpiresOn,
+    bool IsSelectedCellLot,
+    IReadOnlyList<CreateAntibodyPanelLotCellRequest> Cells);
+
+public sealed record AntibodyPanelLotAntigenDetailDto(
+    long BloodAttributeDefinitionId,
+    string AntigenCode,
+    string AntibodyName,
+    AntigenExpression Expression);
+
+public sealed record AntibodyPanelLotCellDetailDto(
+    long CellId,
+    string CellNumber,
+    PanelCellRole Role,
+    int SortOrder,
+    IReadOnlyList<AntibodyPanelLotAntigenDetailDto> Antigens);
+
+public sealed record AntibodyPanelLotOpenWorkupDto(
+    long WorkupId,
+    long PatientId,
+    string? PatientMrn,
+    string? PatientName,
+    AntibodyWorkupStatus Status,
+    AntibodyIdWorklistNextAction NextAction,
+    string? LotNumber = null,
+    int PostedHistoryCount = 0);
+
+public sealed record AntibodyPanelManufacturerDetailDto(
+    AntibodyPanelManufacturerListItemDto Manufacturer,
+    IReadOnlyList<AntibodyPanelLotOpenWorkupDto> OpenWorkups,
+    IReadOnlyList<AntibodyPanelLotOpenWorkupDto> CompletedWorkups);
+
+public sealed record AntibodyPanelLotDetailDto(
+    AntibodyPanelLotListItemDto Lot,
+    IReadOnlyList<AntibodyPanelLotCellDetailDto> Cells,
+    IReadOnlyList<AntibodyPanelLotOpenWorkupDto> OpenWorkups,
+    IReadOnlyList<AntibodyPanelLotOpenWorkupDto> CompletedWorkups);
 
 public sealed record AntibodyIdWorkupListItemDto(
     long Id,
@@ -57,7 +123,39 @@ public sealed record AntibodyIdWorkupListItemDto(
     DateTime CreatedUtc,
     string CreatedBy,
     string? PatientMrn = null,
-    string? PatientName = null);
+    string? PatientName = null,
+    bool HasInactiveLot = false,
+    bool HasExpiredLot = false,
+    AntibodyIdWorklistNextAction NextAction = AntibodyIdWorklistNextAction.RecordReactions,
+    IReadOnlyList<string>? AttachedLotNumbers = null,
+    IReadOnlyList<string>? InactiveLotNumbers = null,
+    IReadOnlyList<string>? ExpiredLotNumbers = null,
+    string? ManufacturerName = null,
+    IReadOnlyList<string>? AttachedManufacturers = null,
+    bool HasUnusableSpecimen = false,
+    bool HasExpiredSpecimen = false,
+    bool HasUnacceptedSpecimen = false,
+    bool HasNotReadySpecimen = false,
+    bool HasWithdrawnJudgment = false,
+    bool HasPendingTypeCorrection = false,
+    bool HasReservedOrIssuedUnits = false);
+
+public sealed record AntibodyIdOpenWorklistSummaryDto(
+    int OpenCount,
+    int RecordReactionsCount,
+    int InterpretCount,
+    int ReviewCount,
+    int InactiveLotCount,
+    int ExpiredLotCount,
+    IReadOnlyList<string>? InactiveLotNumbers = null,
+    IReadOnlyList<string>? ExpiredLotNumbers = null,
+    int UnusableSpecimenCount = 0,
+    int ExpiredSpecimenCount = 0,
+    int UnacceptedSpecimenCount = 0,
+    int NotReadySpecimenCount = 0,
+    int WithdrawnJudgmentCount = 0,
+    int PendingTypeCorrectionCount = 0,
+    int ReservedOrIssuedUnitCount = 0);
 
 public sealed record AntibodyIdCellDto(
     long CellId,
@@ -108,7 +206,9 @@ public sealed record AntibodyIdWorkupDetailDto(
     IReadOnlyList<AntibodyIdCellDto> Cells,
     IReadOnlyList<AntibodyIdFindingDto> Findings,
     IReadOnlyList<string> InterpretivePhases,
-    bool AssistIsAdvisory);
+    bool AssistIsAdvisory,
+    bool HasReservedOrIssuedUnits = false,
+    string? JudgmentWithdrawnReason = null);
 
 public sealed record AntibodyIdAssistDto(
     IReadOnlyList<AntibodyIdFindingDto> Findings,

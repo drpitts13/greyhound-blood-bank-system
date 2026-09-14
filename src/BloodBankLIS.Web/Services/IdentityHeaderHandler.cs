@@ -1,8 +1,8 @@
 namespace BloodBankLIS.Web.Services;
 
 /// <summary>
-/// Attaches the current operator's identity headers to every outbound API request.
-/// Scoped to the circuit so it reads the same <see cref="UserSession"/> the UI shows.
+/// Attaches the circuit session token to every outbound API request.
+/// Does not send a self-asserted user-name header.
 /// </summary>
 public sealed class IdentityHeaderHandler : DelegatingHandler
 {
@@ -15,10 +15,14 @@ public sealed class IdentityHeaderHandler : DelegatingHandler
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (_session.IsSignedIn)
+        if (!string.IsNullOrWhiteSpace(_session.SessionToken))
         {
-            request.Headers.Remove("X-User");
-            request.Headers.Add("X-User", _session.UserName);
+            request.Headers.Remove("Authorization");
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {_session.SessionToken}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_session.Workstation))
+        {
             request.Headers.Remove("X-Workstation");
             request.Headers.Add("X-Workstation", _session.Workstation);
         }

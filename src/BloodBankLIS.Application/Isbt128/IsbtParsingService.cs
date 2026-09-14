@@ -40,48 +40,48 @@ public sealed class IsbtParsingService
         switch (kind)
         {
             case IsbtDataStructureKind.DonationIdentificationNumber:
-            {
-                var result = DinParser.Parse(sanitized.Sanitized, _dinCheck);
-                if (result.Success) parsed = result.Value;
-                else Collect(result, errorCodes, errorMessages);
-                break;
-            }
+                {
+                    var result = DinParser.Parse(sanitized.Sanitized, _dinCheck);
+                    if (result.Success) parsed = result.Value;
+                    else Collect(result, errorCodes, errorMessages);
+                    break;
+                }
             case IsbtDataStructureKind.AboRhd:
-            {
-                var lookup = await _lookups.GetAboLookupAsync(ct);
-                var result = AboRhdParser.ParseScanner(sanitized.Sanitized, lookup);
-                if (result.Success) parsed = result.Value;
-                else Collect(result, errorCodes, errorMessages);
-                break;
-            }
+                {
+                    var lookup = await _lookups.GetAboLookupAsync(ct);
+                    var result = AboRhdParser.ParseScanner(sanitized.Sanitized, lookup);
+                    if (result.Success) parsed = result.Value;
+                    else Collect(result, errorCodes, errorMessages);
+                    break;
+                }
             case IsbtDataStructureKind.ProductCode:
-            {
-                var lookup = await _lookups.GetProductLookupAsync(ct);
-                var result = ProductParser.ParseScanner(sanitized.Sanitized, lookup);
-                if (result.Success) parsed = result.Value;
-                else Collect(result, errorCodes, errorMessages);
-                break;
-            }
+                {
+                    var lookup = await _lookups.GetProductLookupAsync(ct);
+                    var result = ProductParser.ParseScanner(sanitized.Sanitized, lookup);
+                    if (result.Success) parsed = result.Value;
+                    else Collect(result, errorCodes, errorMessages);
+                    break;
+                }
             case IsbtDataStructureKind.ExpirationDate:
             case IsbtDataStructureKind.ExpirationDateTime:
-            {
-                var result = ExpirationParser.Parse(sanitized.Sanitized);
-                if (result.Success) parsed = result.Value;
-                else Collect(result, errorCodes, errorMessages);
-                break;
-            }
-            case IsbtDataStructureKind.Unknown when mode == IsbtInputMode.HumanReadable:
-            {
-                // Attempt human-readable DIN.
-                var result = DinParser.Parse(sanitized.Sanitized, _dinCheck, requireKeyboardCheck: false);
-                if (result.Success)
                 {
-                    kind = IsbtDataStructureKind.DonationIdentificationNumber;
-                    parsed = result.Value;
+                    var result = ExpirationParser.Parse(sanitized.Sanitized);
+                    if (result.Success) parsed = result.Value;
+                    else Collect(result, errorCodes, errorMessages);
+                    break;
                 }
-                else Collect(result, errorCodes, errorMessages);
-                break;
-            }
+            case IsbtDataStructureKind.Unknown when mode == IsbtInputMode.HumanReadable:
+                {
+                    // Attempt human-readable DIN.
+                    var result = DinParser.Parse(sanitized.Sanitized, _dinCheck, requireKeyboardCheck: false);
+                    if (result.Success)
+                    {
+                        kind = IsbtDataStructureKind.DonationIdentificationNumber;
+                        parsed = result.Value;
+                    }
+                    else Collect(result, errorCodes, errorMessages);
+                    break;
+                }
         }
 
         return new ParseIsbtInputResponse(

@@ -33,14 +33,14 @@ public static class ImmunohematologyEndpoints
 
         patients.MapGet("/{patientId:long}/antibodies", async (long patientId, ImmunohematologyService service, CancellationToken ct) =>
         {
-            var antibodies = await service.GetActiveAntibodiesAsync(patientId, ct);
-            return Results.Ok(antibodies.Select(AntibodyDto.From));
+            var antibodies = await service.ListAntibodyDtosAsync(patientId, activeOnly: true, ct);
+            return Results.Ok(antibodies);
         });
 
         patients.MapGet("/{patientId:long}/antibodies/history", async (long patientId, ImmunohematologyService service, CancellationToken ct) =>
         {
-            var antibodies = await service.GetAntibodyHistoryAsync(patientId, ct);
-            return Results.Ok(antibodies.Select(AntibodyDto.From));
+            var antibodies = await service.ListAntibodyDtosAsync(patientId, activeOnly: false, ct);
+            return Results.Ok(antibodies);
         });
 
         patients.MapGet("/{patientId:long}/antigen-profiles", async (long patientId, ImmunohematologyService service, BloodBankDbContext context, CancellationToken ct) =>

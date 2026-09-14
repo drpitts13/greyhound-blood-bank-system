@@ -44,24 +44,35 @@ public class Phase7BillingTests : IDisposable
     {
         var patient = new Patient
         {
-            MedicalRecordNumber = mrn, LastName = "Bill", FirstName = "Test",
-            DateOfBirth = new DateOnly(1981, 2, 3), Sex = Sex.Male
+            MedicalRecordNumber = mrn,
+            LastName = "Bill",
+            FirstName = "Test",
+            DateOfBirth = new DateOnly(1981, 2, 3),
+            Sex = Sex.Male
         };
         c.Patients.Add(patient);
         await c.SaveChangesAsync();
 
         var specimen = new Specimen
         {
-            AccessionNumber = $"ACC-{mrn}", PatientId = patient.Id, SpecimenType = "EDTA",
-            CollectedUtc = _factory.Clock.UtcNow.AddHours(-1), Status = SpecimenStatus.Accepted
+            AccessionNumber = $"ACC-{mrn}",
+            PatientId = patient.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-1),
+            Status = SpecimenStatus.Accepted
         };
         c.Specimens.Add(specimen);
         await c.SaveChangesAsync();
 
         var result = new TestResult
         {
-            SpecimenId = specimen.Id, PatientId = patient.Id, TestCode = testCode, Value = "O POS",
-            Status = ResultStatus.Verified, VerifiedBy = "tech", VerifiedUtc = _factory.Clock.UtcNow
+            SpecimenId = specimen.Id,
+            PatientId = patient.Id,
+            TestCode = testCode,
+            Value = "O POS",
+            Status = ResultStatus.Verified,
+            VerifiedBy = "tech",
+            VerifiedUtc = _factory.Clock.UtcNow
         };
         c.TestResults.Add(result);
         await c.SaveChangesAsync();
@@ -72,8 +83,11 @@ public class Phase7BillingTests : IDisposable
     {
         var patient = new Patient
         {
-            MedicalRecordNumber = mrn, LastName = "Bill", FirstName = "Issue",
-            DateOfBirth = new DateOnly(1979, 6, 8), Sex = Sex.Female
+            MedicalRecordNumber = mrn,
+            LastName = "Bill",
+            FirstName = "Issue",
+            DateOfBirth = new DateOnly(1979, 6, 8),
+            Sex = Sex.Female
         };
         c.Patients.Add(patient);
         await c.SaveChangesAsync();
@@ -486,7 +500,10 @@ public class Phase7BillingTests : IDisposable
 
         await using var verify = _factory.Create();
         var auditEvent = await verify.AuditEvents.FirstOrDefaultAsync(
-            e => e.EntityType == nameof(BillingEvent) && e.EntityId == chargeId && e.Reason != null);
+            e => e.EntityType == nameof(BillingEvent)
+                 && e.EntityId == chargeId
+                 && e.EventType == AuditEventType.Billing
+                 && e.Reason != null);
         Assert.NotNull(auditEvent);
         Assert.Contains("Duplicate", auditEvent!.Reason!);
     }

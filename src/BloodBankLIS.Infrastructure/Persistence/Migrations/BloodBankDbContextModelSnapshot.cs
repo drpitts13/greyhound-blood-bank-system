@@ -57,9 +57,17 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<string>("OldValueJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("PreviousHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("Reason")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("RecordHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<long?>("SignatureId")
                         .HasColumnType("bigint");
@@ -78,6 +86,14 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.HasIndex("EventType");
 
                     b.HasIndex("OccurredUtc");
+
+                    b.HasIndex("PreviousHash")
+                        .IsUnique()
+                        .HasFilter("[PreviousHash] IS NOT NULL");
+
+                    b.HasIndex("RecordHash")
+                        .IsUnique()
+                        .HasFilter("[RecordHash] IS NOT NULL");
 
                     b.HasIndex("UserName");
 
@@ -2917,6 +2933,75 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("RolePermissions", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.Identity.AuthSession", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("AbsoluteExpiresUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("IdleExpiresUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("IssuedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastActivityUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime?>("RevokedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Workstation")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "RevokedUtc");
+
+                    b.ToTable("AuthSessions", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Identity.User", b =>
                 {
                     b.Property<long>("Id")
@@ -5680,6 +5765,17 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Endpoint");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.Identity.AuthSession", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.Identity.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.InventoryStatusHistory", b =>
