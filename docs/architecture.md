@@ -1,9 +1,12 @@
 # Blood Bank LIS — Architecture
 
-Status: Phase 0 (design only, no application code yet)
-Platform: C# / .NET 8 (LTS), SQL Server, EF Core (code-first migrations)
-UI direction: API-first (ASP.NET Core Web API as the boundary; Blazor web UI added in a later phase)
-HL7: original in-house v2.x parser/generator
+Status: Living architecture. Application code exists (layered .NET 10 solution
+with API + Blazor Web). Some sections below still use historical Phase 0 /
+.NET 8 wording; treat those as draft narrative, not the running stack.
+See `docs/architecture/README.md`.
+Platform: C# / .NET 10, SQL Server or Development SQLite, EF Core
+UI: ASP.NET Core Web API + Blazor Server
+HL7: in-house v2.x parser/generator plus MLLP and file-drop adapters
 
 This document defines the layered architecture, dependency rules, bounded contexts, and cross-cutting concerns for the system. It is the parent reference for the other `docs/` files (`erd.md`, `workflows.md`, `safety-rules.md`, `hl7-design.md`, `printing-billing.md`, `validation-plan.md`, `traceability-matrix.md`, `risk-register.md`).
 
@@ -97,8 +100,9 @@ Contexts communicate through the Application layer and domain events; they do no
 - Audit is **read-only** after write — no update/delete path is exposed.
 
 ### 4.2 Authorization
+- Interactive HTTP callers authenticate with a server-issued session (`Authorization: Bearer`). A self-asserted `X-User` header is ignored unless `Auth:AllowLegacyIdentityHeader` is explicitly enabled for a test host. Production forces that flag off.
 - Permission-based, not role-string comparisons. Roles aggregate permissions; checks evaluate the required permission for a use case.
-- Enforced in the Application layer via a guard at the start of each command/query, so API and HL7 entry points are equally protected.
+- Enforced in the Application layer via a guard at the start of each command/query, so API and HL7 entry points are equally protected. HL7 inbound processors remain a separate interface-trust path (see gap analysis).
 
 ### 4.3 Rule-outcome model
 - Rule evaluation returns a structured `RuleEvaluation` with one of three severities:

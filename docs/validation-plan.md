@@ -1,6 +1,6 @@
 # Blood Bank LIS — Validation and Testing Strategy
 
-Status: Phase 0 (design). This plan defines how the system is validated. As a safety-critical healthcare application, the highest-priority tests cover the pure safety rules, which run with no infrastructure and can be exhaustively enumerated.
+Status: Living validation plan (not a Phase 0 draft). Highest-priority tests cover the pure safety rules, which run with no infrastructure. Formal evidence IDs live in `docs/validation/TEST_CATALOG.md`. This software is compliance-supporting and validation-ready; it is not automatically FDA, AABB, CAP, or CLIA certified.
 
 ## 1. Test layers
 

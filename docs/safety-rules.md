@@ -1,6 +1,6 @@
 # Blood Bank LIS — Safety-Critical Business Rules
 
-Status: Phase 0 (design). These rules are implemented as **pure functions** in `BloodBankLIS.Domain`, each returning a `RuleResult` with a stable `Code`, a `Severity`, and a human-readable message. The Application layer aggregates them into a single `RuleEvaluation`.
+Status: Implemented Domain rules (not a Phase 0 draft). Each rule is a **pure function** in `BloodBankLIS.Domain` returning a `RuleResult` with a stable `Code`, a `Severity`, and a human-readable message. The Application layer aggregates them into a single `RuleEvaluation`.
 
 ## Severity model
 

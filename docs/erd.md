@@ -1,6 +1,6 @@
 # Blood Bank LIS — Data Model (ERD)
 
-Status: Phase 0 (design). Column lists are the target schema; exact CLR/SQL types are finalized when EF Core configurations and migrations are written in Phase 1+.
+Status: Living ERD (not a Phase 0 draft). Column lists should match the EF Core model; confirm against `BloodBankDbContext` when they disagree.
 
 ## Conventions
 

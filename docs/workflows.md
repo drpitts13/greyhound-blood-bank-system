@@ -1,6 +1,6 @@
 # Blood Bank LIS — Key Workflows
 
-Status: Phase 0 (design). Each workflow names the use case(s), the safety checks invoked (see `safety-rules.md`), the state changes, and the audit events produced. Every clinical state change writes to its append-only history table and an `AuditEvent` in the same transaction.
+Status: Living workflow notes (not a Phase 0 draft). Each workflow names the use case(s), the safety checks invoked (see `safety-rules.md`), the state changes, and the audit events produced. Every clinical state change writes to its append-only history table and an `AuditEvent` in the same transaction.
 
 Status legend for blood units: `Expected -> Received (retype required) or Quarantine -> Available -> Allocated -> Issued -> Transfused`, with side states `OnHold` (operational), `Missing` (inventory discrepancy), `Damaged` (container integrity), `Returned` (ward), `ReturnedToSupplier` (consignee/vendor), `Discarded`, `Expired`.
 

@@ -343,3 +343,35 @@ OCD-001/006 eXM; OCD-022 phenotype versioning; OCD-008 dual-ID.
 OCD-004 remains open until a licensed extract is loaded. Leading
 non-SME: gap 19 `TEST-BB-*` packaging, gap 16 downtime reconciliation.
 Blazor CSP inline/eval remains an accepted residual of gap 18.
+
+## Iteration 10 — TEST-BB catalog and no-purge (2026-09-14)
+
+SME answer for OCD-007: do not purge clinical or audit rows. Retention
+years stay metadata. Highest remaining non-SME residual is gap 19
+(validation packaging).
+
+### Implemented
+
+- Closed OCD-007 / gap 10. No purge job was added.
+- `docs/validation/TEST_CATALOG.md` assigns TEST-BB-001–017.
+- `TestCatalogPackagingTests` asserts those table IDs are unique.
+- Living headers on architecture, safety-rules, workflows, ERD, and
+  validation-plan no longer say unimplemented Phase 0.
+
+### Requirements / risk
+
+- URS-BB-155, FRS-BB-189, SRS-BB-150, RISK-BB-262. FRS-BB-184 notes
+  OCD-007.
+
+### Tests
+
+- TEST-BB-017 `TestCatalogPackagingTests.FormalIds_AreUnique`
+- Full suite green: Domain 1195, Application 20, HL7 48, Printing 11,
+  Integration 708 (1982). Remaining tests stay class-name cited.
+
+### Next ranked residual
+
+Ask in conversation: gap 12 neonatal defaults; OCD-001/006 eXM;
+OCD-022 phenotype versioning; OCD-008 dual-ID. OCD-004 remains open
+until a licensed extract is loaded. Leading non-SME: gap 16 downtime
+reconciliation. Remaining tests stay class-name cited until assigned.

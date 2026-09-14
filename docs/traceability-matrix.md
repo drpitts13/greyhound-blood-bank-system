@@ -1,6 +1,9 @@
 # Blood Bank LIS — Requirements Traceability Matrix
 
-Status: Phase 0 (design). This matrix links each major requirement to its design location and the planned test(s). Test IDs are placeholders until the test projects exist (Phase 1+); the `Test (planned)` column names the intended test and its layer. Update this file whenever a rule, use case, or test is added (see `validation-plan.md` Definition of Done).
+Status: Living matrix. Historical `R-*` rows below predate the `URS-BB-*` /
+`FRS-BB-*` IDs. Formal `TEST-BB-*` IDs for Cycles 1–9 are in
+[`docs/validation/TEST_CATALOG.md`](validation/TEST_CATALOG.md). Update this
+file whenever a rule, use case, or test is added (see `validation-plan.md`).
 
 Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.Tests.
 
@@ -221,14 +224,15 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-144 / FRS-BB-178 | Assignment allocate/release includes unit number and DIN | `CompatibilityService` | `Phase4IssuingTests.AllocateAndRelease_WriteAssignmentWithUnitIdentity` | A | RISK-BB-251 |
 | URS-BB-145 / FRS-BB-179 | Ward-receipt Transfusion includes unit number and DIN | `IssuingService.RecordWardReceiptAsync` | `Phase4IssuingTests.WardReceipt_WritesTransfusionWithUnitIdentity` | A | RISK-BB-252 |
 | URS-BB-146 / FRS-BB-180 | Issue and blocked-issue include unit number and DIN | `IssuingService.IssueUnitAsync` | `Phase4IssuingTests.Issue_WritesIssueWithUnitIdentity` | A | RISK-BB-253 |
-| URS-BB-147 / FRS-BB-181 | Interactive API identity is a server-issued session, not `X-User` | `AuthSessionService`; `RequestIdentityResolver`; `AuthSessionMiddleware` | `IdentitySpoofingRegressionTests`; `AuthSessionServiceTests`; `AuthSessionValidityRuleTests` | A,I | RISK-BB-254 |
-| URS-BB-148 / FRS-BB-182 | Role or role-permission change revokes sessions and refreshes circuit profile | `UserAdminService`; `UserSession.TryApplyLiveProfile` | `AuthSessionServiceTests.AssignRoles_RevokesOutstandingSessions`; `AuthSessionServiceTests.UpdateRolePermissions_RevokesSessionsForRoleMembers` | A | RISK-BB-255 |
-| URS-BB-149 / FRS-BB-183 | Electronic XM re-reads antibody history immediately before save | `CompatibilityService.EvaluateElectronicEligibilityAsync` | `ElectronicXmHistoryRegressionTests.AntibodyAddedAfterEligibleAssess_BlocksElectronicXmRecord` | A,I | RISK-BB-256 |
-| URS-BB-150 / FRS-BB-184 | New audit rows carry a SHA-256 hash chain; verify detects edit or gap | `AuditHashChainRule`; `BloodBankDbContext.StampAuditHashChain` | `AuditHashChainRuleTests`; `AuditHashChainTests` | A,I | RISK-BB-257 |
-| URS-BB-151 / FRS-BB-185 | Transfusion documentation matches two patient identity tokens; PPID checkbox removed | `IssuingService.DocumentTransfusionAsync`; `PatientIdentityMatchRule` | `Phase4IssuingTests.Transfusion_MissingPatientIdentifiers_IsHardStopped`; `Phase4IssuingTests.Transfusion_MismatchedPatientIdentifiers_IsHardStopped`; `Phase4IssuingTests.Transfusion_IsbtUnit_RequiresIdentityAndMatchingScan`; `Phase4IssuingTests.Transfusion_RequireSecondVerifier_WithoutElectronicId_NeedsDirectoryUser` | A,I | RISK-BB-258 |
-| URS-BB-152 / FRS-BB-186 | Licensed ISBT catalog import replaces placeholders; no invented ICCBBA codes | `IsbtLicensedCatalogImportRule`; `IsbtProductCodeAdminService.ImportLicensedAsync` | `IsbtLicensedCatalogImportRuleTests`; `IsbtLicensedCatalogImportTests` | A,I | RISK-BB-014; RISK-BB-259 |
-| URS-BB-153 / FRS-BB-187 | HTTP HL7 inbound is session + `hl7.manage`; MLLP and file-drop stay transport-trust | `Hl7Endpoints`; `MllpListenerService`; `Hl7FileDropService` | `Hl7EndpointAuthorizationTests` | A,I | RISK-BB-260 |
-| URS-BB-154 / FRS-BB-188 | Security headers on API and Web; no Production wildcard CORS | `HttpSecurityHeaderPolicy`; `SecurityHeadersMiddleware` | `HttpSecurityHeaderPolicyTests` | A,I | RISK-BB-261 |
+| URS-BB-147 / FRS-BB-181 | Interactive API identity is a server-issued session, not `X-User` | `AuthSessionService`; `RequestIdentityResolver`; `AuthSessionMiddleware` | TEST-BB-001; TEST-BB-002; TEST-BB-003 | A,I | RISK-BB-254 |
+| URS-BB-148 / FRS-BB-182 | Role or role-permission change revokes sessions and refreshes circuit profile | `UserAdminService`; `UserSession.TryApplyLiveProfile` | TEST-BB-004; TEST-BB-005 | A | RISK-BB-255 |
+| URS-BB-149 / FRS-BB-183 | Electronic XM re-reads antibody history immediately before save | `CompatibilityService.EvaluateElectronicEligibilityAsync` | TEST-BB-006 | A,I | RISK-BB-256 |
+| URS-BB-150 / FRS-BB-184 | New audit rows carry a SHA-256 hash chain; verify detects edit or gap | `AuditHashChainRule`; `BloodBankDbContext.StampAuditHashChain` | TEST-BB-007; TEST-BB-008 | A,I | RISK-BB-257 |
+| URS-BB-151 / FRS-BB-185 | Transfusion documentation matches two patient identity tokens; PPID checkbox removed | `IssuingService.DocumentTransfusionAsync`; `PatientIdentityMatchRule` | TEST-BB-009; TEST-BB-010; TEST-BB-011; TEST-BB-012 | A,I | RISK-BB-258 |
+| URS-BB-152 / FRS-BB-186 | Licensed ISBT catalog import replaces placeholders; no invented ICCBBA codes | `IsbtLicensedCatalogImportRule`; `IsbtProductCodeAdminService.ImportLicensedAsync` | TEST-BB-013; TEST-BB-014 | A,I | RISK-BB-014; RISK-BB-259 |
+| URS-BB-153 / FRS-BB-187 | HTTP HL7 inbound is session + `hl7.manage`; MLLP and file-drop stay transport-trust | `Hl7Endpoints`; `MllpListenerService`; `Hl7FileDropService` | TEST-BB-015 | A,I | RISK-BB-260 |
+| URS-BB-154 / FRS-BB-188 | Security headers on API and Web; no Production wildcard CORS | `HttpSecurityHeaderPolicy`; `SecurityHeadersMiddleware` | TEST-BB-016 | A,I | RISK-BB-261 |
+| URS-BB-155 / FRS-BB-189 | Formal TEST-BB-* catalog; living docs not Phase 0 drafts; no clinical/audit purge | `docs/validation/TEST_CATALOG.md` | TEST-BB-017 | I | RISK-BB-262 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

@@ -71,10 +71,10 @@ callers as a configured admin and hard-fails outside Development.
 
 ## Tests
 
-Approximately 1,966 automated tests across Domain, Application, HL7, Printing,
+Approximately 1,982 automated tests across Domain, Application, HL7, Printing,
 and Integration (SQLite). Permanent suite: `tests/safety_regression/`
 (includes `IdentitySpoofingRegressionTests`). Formal `TEST-BB-*` evidence IDs
-are not yet assigned; tests are referenced by class name. There is no
+for Cycles 1–10 are in `docs/validation/TEST_CATALOG.md`. There is no
 Blazor/UI E2E suite.
 
 ## Documentation that already exists
