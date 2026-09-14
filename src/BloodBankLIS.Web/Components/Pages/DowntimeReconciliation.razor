@@ -1,0 +1,107 @@
+@page "/downtime"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Downtime Snapshot &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Downtime reconciliation snapshot</h1>
+<p class="muted">
+    Read-only counts from existing queues after an outage. This is not a paper-form
+    importer, failover topology, or facility SOP. Clinical and audit rows are not purged.
+</p>
+
+@if (!Session.Has(PermissionCodes.AuditRead))
+{
+    <div class="muted">No permission to view the downtime snapshot.</div>
+}
+else if (_loading)
+{
+    <div class="loading">Loading snapshot...</div>
+}
+else if (_fb is not null && !string.IsNullOrEmpty(_fb.Error))
+{
+    <Outcome Value="_fb" />
+}
+else if (_snap is null)
+{
+    <div class="empty">Snapshot unavailable.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="flex gap" style="margin-bottom:.75rem;">
+            <span class="muted">Generated @_snap.GeneratedUtc.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+        </div>
+        <table class="bb">
+            <thead><tr><th>Queue</th><th>Count</th><th>Where to work it</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td>Unresolved interface errors</td>
+                    <td class="mono">@_snap.UnresolvedInterfaceErrors</td>
+                    <td><a href="hl7">HL7 Interface</a></td>
+                </tr>
+                <tr>
+                    <td>Pending outbound HL7 (received, errored, or nacked)</td>
+                    <td class="mono">@_snap.PendingOutboundHl7</td>
+                    <td><a href="hl7">HL7 Interface</a></td>
+                </tr>
+                <tr>
+                    <td>Open issues (still Issued)</td>
+                    <td class="mono">@_snap.OpenIssues</td>
+                    <td><a href="issuing">Issue &amp; Transfuse</a></td>
+                </tr>
+                <tr>
+                    <td>Pending retrospective crossmatches</td>
+                    <td class="mono">@_snap.PendingRetrospectiveCrossmatches</td>
+                    <td><a href="issuing">Issue &amp; Transfuse</a></td>
+                </tr>
+                <tr>
+                    <td>Hashed audit rows</td>
+                    <td class="mono">@_snap.HashedAuditRows</td>
+                    <td><a href="audit">Audit Trail</a></td>
+                </tr>
+                <tr>
+                    <td>Unhashed (pre-chain) audit rows</td>
+                    <td class="mono">@_snap.UnhashedAuditRows</td>
+                    <td><a href="audit">Audit Trail</a></td>
+                </tr>
+            </tbody>
+        </table>
+        <p class="muted" style="margin-top:.75rem;">
+            Audit chain <span class="mono">@_snap.AuditChainCode</span>: @_snap.AuditChainMessage
+        </p>
+        <p class="muted">
+            Paper downtime records still require manual entry per the facility SOP.
+            Do not invent OCR, multi-site failover, or a purge job.
+        </p>
+    </div>
+}
+
+@code {
+    private DowntimeReconciliationSnapshot? _snap;
+    private bool _loading = true;
+    private bool _busy;
+    private Feedback? _fb;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _busy = true;
+        var r = await Api.GetDowntimeReconciliationAsync();
+        _loading = false;
+        _busy = false;
+        _fb = null;
+        if (r.Succeeded && r.Value is not null)
+        {
+            _snap = r.Value;
+        }
+        else
+        {
+            _snap = null;
+            _fb = r.ToFeedback();
+        }
+    }
+}

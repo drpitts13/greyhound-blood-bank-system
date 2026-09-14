@@ -11,7 +11,12 @@ Traceability path (from [`VALIDATION_PLAN.md`](VALIDATION_PLAN.md)):
 URS-BB-*  →  FRS-BB-*  →  RISK-BB-*  →  SRS-BB-*  →  CODE  →  TEST (class or TEST-BB-*)  →  EVIDENCE
 ```
 
-Latest Cycle 10 row: URS-BB-155 / FRS-BB-189 / SRS-BB-150 / RISK-BB-262 →
+Latest Cycle 11 row: URS-BB-156 / FRS-BB-190 / SRS-BB-151 / RISK-BB-263 →
+TEST-BB-018 (`DowntimeReconciliationAuthorizationRuleTests`),
+TEST-BB-019 (`DowntimeReconciliationTests`). OCD-035 closed (keep order-rule
+hooks). Gap 16 snapshot is read-only.
+
+Cycle 10: URS-BB-155 / FRS-BB-189 / SRS-BB-150 / RISK-BB-262 →
 TEST-BB-017 (`TestCatalogPackagingTests`). Formal IDs: `docs/validation/TEST_CATALOG.md`.
 OCD-007 closed (no purge).
 
@@ -44,7 +49,7 @@ Cycle 1: URS-BB-147 / FRS-BB-181 / SRS-BB-142 / RISK-BB-254 →
 `IdentitySpoofingRegressionTests`, `AuthSessionServiceTests`,
 `AuthSessionValidityRuleTests`.
 
-Formal `TEST-BB-*` identifiers for Cycles 1–10 are assigned in
+Formal `TEST-BB-*` identifiers for Cycles 1–11 are assigned in
 [`TEST_CATALOG.md`](TEST_CATALOG.md). Other tests remain citable by class
 name. That remaining gap is packaging, not a missing clinical control.
 

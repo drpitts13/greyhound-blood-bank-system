@@ -567,6 +567,11 @@ public sealed class BloodBankApiClient
         return SendAsync<AuditPageVm>(HttpMethod.Get, $"api/audit-events?{string.Join("&", q)}", ct: ct);
     }
 
+    public Task<ApiResult<DowntimeReconciliationSnapshot>> GetDowntimeReconciliationAsync(
+        CancellationToken ct = default) =>
+        SendAsync<DowntimeReconciliationSnapshot>(
+            HttpMethod.Get, "api/compliance/downtime-reconciliation", ct: ct);
+
     public Task<ApiResult<List<SpecialRequirementDto>>> GetSpecialRequirementsAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<SpecialRequirementDto>>(HttpMethod.Get, $"api/patients/{patientId}/special-requirements", ct: ct);
 

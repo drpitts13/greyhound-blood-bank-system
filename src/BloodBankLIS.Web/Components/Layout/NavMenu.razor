@@ -1,4 +1,4 @@
-﻿@inject UserSession Session
+@inject UserSession Session
 
 <nav class="bb-nav">
     <NavLink href="" Match="NavLinkMatch.All" ActiveClass="active">Dashboard</NavLink>
@@ -55,6 +55,7 @@
     @if (Session.Has(PermissionCodes.AuditRead))
     {
         <NavLink href="audit" ActiveClass="active">Audit Trail</NavLink>
+        <NavLink href="downtime" ActiveClass="active">Downtime Snapshot</NavLink>
     }
 
     @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminUsersManage, PermissionCodes.AdminRolesManage))

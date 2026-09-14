@@ -13,6 +13,7 @@ public static class ComplianceEndpoints
         MapLookback(app);
         MapReactions(app);
         MapDeviations(app);
+        MapDowntimeReconciliation(app);
     }
 
     private static void MapSpecialRequirements(WebApplication app)
@@ -93,6 +94,16 @@ public static class ComplianceEndpoints
 
         group.MapPost("/{id:long}/status", async (long id, DeviationStatusBody request, DeviationService service, CancellationToken ct) =>
             EndpointResults.From(await service.UpdateStatusAsync(id, request.Status, request.CorrectiveAction, ct), DeviationDto.From));
+    }
+
+    private static void MapDowntimeReconciliation(WebApplication app)
+    {
+        app.MapGet("/api/compliance/downtime-reconciliation", async (
+                DowntimeReconciliationService service, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await service.GetSnapshotAsync(ct), s => s))
+            .WithTags("Compliance")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.AuditRead);
     }
 }
 

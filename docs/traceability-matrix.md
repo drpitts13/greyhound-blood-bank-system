@@ -233,6 +233,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-153 / FRS-BB-187 | HTTP HL7 inbound is session + `hl7.manage`; MLLP and file-drop stay transport-trust | `Hl7Endpoints`; `MllpListenerService`; `Hl7FileDropService` | TEST-BB-015 | A,I | RISK-BB-260 |
 | URS-BB-154 / FRS-BB-188 | Security headers on API and Web; no Production wildcard CORS | `HttpSecurityHeaderPolicy`; `SecurityHeadersMiddleware` | TEST-BB-016 | A,I | RISK-BB-261 |
 | URS-BB-155 / FRS-BB-189 | Formal TEST-BB-* catalog; living docs not Phase 0 drafts; no clinical/audit purge | `docs/validation/TEST_CATALOG.md` | TEST-BB-017 | I | RISK-BB-262 |
+| URS-BB-156 / FRS-BB-190 | Read-only downtime reconciliation snapshot; no paper OCR or failover | `DowntimeReconciliationService`; `DowntimeReconciliationAuthorizationRule` | TEST-BB-018; TEST-BB-019 | D,A,I | RISK-BB-263 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

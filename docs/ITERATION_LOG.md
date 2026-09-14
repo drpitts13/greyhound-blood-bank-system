@@ -375,3 +375,49 @@ Ask in conversation: gap 12 neonatal defaults; OCD-001/006 eXM;
 OCD-022 phenotype versioning; OCD-008 dual-ID. OCD-004 remains open
 until a licensed extract is loaded. Leading non-SME: gap 16 downtime
 reconciliation. Remaining tests stay class-name cited until assigned.
+
+## Iteration 11 — Downtime snapshot + neonatal hooks kept (2026-09-14)
+
+SME answer for gap 12: keep current order-rule hooks. Do not invent
+neonatal irradiation or CMV product-selection defaults or age cutoffs.
+Highest remaining non-SME residual is gap 16 (downtime reconciliation).
+
+### Implemented
+
+- Closed OCD-035 / gap 12. No neonatal product-default catalog was added.
+- `DowntimeReconciliationAuthorizationRule` HardStops without `audit.read`
+  (`DT-RECON-PERM`).
+- `DowntimeReconciliationService` returns a read-only snapshot: unresolved
+  interface errors, pending outbound HL7, open issues, pending
+  retrospective XM, hashed/unhashed audit rows, and
+  `AuditHashChainRule.Verify`.
+- `GET /api/compliance/downtime-reconciliation` and `/downtime`.
+- `docs/DOWNTIME_PLAN.md` points at the snapshot. No paper OCR, failover,
+  or purge job was added.
+
+### Requirements / risk
+
+- URS-BB-156, FRS-BB-190, SRS-BB-151, RISK-BB-263. FRS-BB-090 notes the
+  snapshot. OCD-035 / URS-BB-014.
+
+### Tests
+
+- TEST-BB-018 `DowntimeReconciliationAuthorizationRuleTests`
+- TEST-BB-019 `DowntimeReconciliationTests`
+- Full suite green: Domain 1197, Application 20, HL7 48, Printing 11,
+  Integration 710 (1986).
+
+### Red-team (this slice)
+
+- `patient.write` only: `DT-RECON-PERM`.
+- Resolved interface errors and acked outbound HL7 are not counted.
+- Snapshot does not write or purge rows.
+- No invented ICCBBA, eXM, phenotype, or dual-ID defaults.
+
+### Next ranked residual
+
+Ask in conversation: OCD-001/006 eXM policy defaults; OCD-022 antigen
+phenotype versioning; OCD-008 dual-ID policy defaults. OCD-004 remains
+open until a licensed extract is loaded. Leading non-SME: leftover
+TEST-BB class-name citations, quality metrics (gap 13), FHIR (gap 14).
+RhIG (gap 11) stays SME-blocked.

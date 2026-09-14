@@ -447,3 +447,17 @@ and Permissions-Policy camera/microphone/geolocation disabled. API also sends
 `Cache-Control: no-store`. Interactive identity remains Bearer in circuit memory
 (not a cookie). Blazor Server CSP still allows `'unsafe-inline'` and `'unsafe-eval'`
 for the circuit.
+
+---
+
+## 12. Downtime reconciliation snapshot (Cycle 11)
+
+| Code | Rule | Severity if violated |
+|---|---|---|
+| `DT-RECON-PERM` | Caller has `audit.read` when viewing the downtime reconciliation snapshot | HardStop when a permission evaluator is present and the privilege is missing |
+
+The snapshot counts existing unresolved interface errors, pending outbound HL7,
+open issues, and pending retrospective crossmatches, and reports
+`AuditHashChainRule.Verify`. It does not import paper records, invent a
+facility SOP, or purge rows (OCD-007). Neonatal irradiation/CMV product
+defaults remain order-rule hooks only (OCD-035).

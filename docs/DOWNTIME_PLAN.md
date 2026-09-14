@@ -63,7 +63,12 @@ Recommended paper capture (minimum):
 
 ## 6. Post-downtime verification checklist
 
-- [ ] Database restore verified; no audit gaps vs backup.
+Use `GET /api/compliance/downtime-reconciliation` or `/downtime` (`audit.read`)
+for a read-only count of unresolved interface errors, pending outbound HL7,
+open issues, pending retrospective crossmatches, and the audit hash-chain
+status. That snapshot does not import paper records or replace this SOP.
+
+- [ ] Database restore verified; no audit gaps vs backup (snapshot chain code).
 - [ ] Interface inbound/outbound queues drained or parked in manual review.
 - [ ] Downtime paper issues entered and units not double-issued.
 - [ ] Historical antibodies and special requirements still present.
@@ -78,3 +83,4 @@ Recommended paper capture (minimum):
 - Automated paper-form OCR import.
 
 Those are future enhancements and must be validated before clinical use.
+Do not invent them in the continuous-improvement loop.

@@ -56,6 +56,7 @@ public static class DependencyInjection
         services.AddScoped<IInterfaceValueTranslationRepository, InterfaceValueTranslationRepository>();
         services.AddScoped(typeof(EntityCrudService<>));
         services.AddScoped<IAuditWriter, AuditWriter>();
+        services.AddScoped<IAuditQuery, AuditQuery>();
         services.AddScoped<IConfigurationHistoryWriter, ConfigurationHistoryWriter>();
         services.AddScoped<IIdentityAdminStore, IdentityAdminStore>();
 
@@ -69,6 +70,7 @@ public static class DependencyInjection
         services.AddScoped<LookbackService>();
         services.AddScoped<ReactionInvestigationService>();
         services.AddScoped<DeviationService>();
+        services.AddScoped<DowntimeReconciliationService>();
         services.AddScoped<IsbtLookupCatalog>();
         services.AddScoped<IsbtParsingService>();
         services.AddScoped<ScanSessionService>();

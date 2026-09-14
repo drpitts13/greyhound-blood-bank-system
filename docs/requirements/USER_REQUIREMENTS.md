@@ -20,7 +20,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-011 | Clinical and configuration changes are auditable (who/what/when/where/old/new/why). | P4 | FRS-BB-060, FRS-BB-078, FRS-BB-085, FRS-BB-087, FRS-BB-089, FRS-BB-093, FRS-BB-095, FRS-BB-104, FRS-BB-106, FRS-BB-109, FRS-BB-111, FRS-BB-114, FRS-BB-116, FRS-BB-119, FRS-BB-121, FRS-BB-126, FRS-BB-129, FRS-BB-131, FRS-BB-134, FRS-BB-136, FRS-BB-139, FRS-BB-141, FRS-BB-144, FRS-BB-146, FRS-BB-148, FRS-BB-149, FRS-BB-150, FRS-BB-151, FRS-BB-152, FRS-BB-153, FRS-BB-154, FRS-BB-155, FRS-BB-156, FRS-BB-157, FRS-BB-160, FRS-BB-161, FRS-BB-162, FRS-BB-163, FRS-BB-165, FRS-BB-166, FRS-BB-167, FRS-BB-168, FRS-BB-172, FRS-BB-173, FRS-BB-174, FRS-BB-175, FRS-BB-176, FRS-BB-177, FRS-BB-178, FRS-BB-179, FRS-BB-180, FRS-BB-181, FRS-BB-182 |
 | URS-BB-012 | Administrators can configure tests, products, rules, and facility policies with versioning. | P5 | FRS-BB-070 |
 | URS-BB-013 | Interfaces preserve raw messages and do not silently discard errors. | P8 | FRS-BB-080 |
-| URS-BB-014 | The facility can operate and recover from downtime without losing traceability. | P5 | FRS-BB-090 |
+| URS-BB-014 | The facility can operate and recover from downtime without losing traceability. | P5 | FRS-BB-090, FRS-BB-190 |
 | URS-BB-015 | A merged (losing) patient record cannot be used for testing, allocation, or issue. Work continues on the surviving record. | P1 | FRS-BB-003 |
 | URS-BB-017 | Authorized staff can merge a duplicate patient into the surviving record without deleting history. | P1 | FRS-BB-003 |
 | URS-BB-016 | A result cannot be verified from an expired or rejected specimen. | P0 | FRS-BB-010 |
@@ -161,3 +161,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-153 | Interactive HTTP HL7 inbound is limited to signed-in staff with hl7.manage. MLLP and file-drop inbound trust the network or drop-folder ACLs; the system does not invent an interface secret. | P6 | FRS-BB-187 |
 | URS-BB-154 | Browser clients cannot frame the application, sniff MIME types, or use a Production wildcard CORS policy. Session tokens stay off cookies. | P6 | FRS-BB-188 |
 | URS-BB-155 | Validation evidence for recent safety slices can be cited by a stable TEST-BB-* identifier. Living design docs are not labeled as an unimplemented Phase 0 draft. | P5 | FRS-BB-189 |
+| URS-BB-156 | After downtime, authorized staff can see a read-only snapshot of unresolved interface errors, pending outbound HL7, open issues, pending retrospective crossmatches, and audit-chain status. The system does not invent paper OCR or multi-site failover. | P5 | FRS-BB-190 |
