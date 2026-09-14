@@ -421,3 +421,36 @@ phenotype versioning; OCD-008 dual-ID policy defaults. OCD-004 remains
 open until a licensed extract is loaded. Leading non-SME: leftover
 TEST-BB class-name citations, quality metrics (gap 13), FHIR (gap 14).
 RhIG (gap 11) stays SME-blocked.
+
+## Iteration 12 — Core safety TEST-BB IDs (2026-09-14)
+
+No SME answer yet on OCD-001/006 eXM defaults. Highest remaining
+non-SME residual is leftover TEST-BB class-name citations for
+high-safety controls.
+
+### Implemented
+
+- Assigned TEST-BB-020–024 to issue-gate, merged-patient, open-workup
+  electronic XM, and lookback tests already in the matrix.
+- `TestCatalogPackagingTests.CitedClasses_HaveSourceFiles` fails if a
+  catalog class is missing under `tests/`.
+- No clinical default, ICCBBA table, phenotype versioning, or dual-ID
+  policy was changed.
+
+### Requirements / risk
+
+- URS-BB-157, FRS-BB-191, SRS-BB-152, RISK-BB-264.
+
+### Tests
+
+- TEST-BB-017 and TEST-BB-025 packaging.
+- Full suite green: Domain 1197, Application 20, HL7 48, Printing 11,
+  Integration 711 (1987).
+
+### Next ranked residual
+
+Ask in conversation: OCD-001/006 eXM policy defaults; OCD-022 antigen
+phenotype versioning; OCD-008 dual-ID policy defaults. OCD-004 remains
+open until a licensed extract is loaded. Leading non-SME: quality
+metrics (gap 13), FHIR (gap 14), remaining class-name citations.
+RhIG (gap 11) stays SME-blocked.

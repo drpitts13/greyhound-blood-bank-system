@@ -162,3 +162,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-154 | Browser clients cannot frame the application, sniff MIME types, or use a Production wildcard CORS policy. Session tokens stay off cookies. | P6 | FRS-BB-188 |
 | URS-BB-155 | Validation evidence for recent safety slices can be cited by a stable TEST-BB-* identifier. Living design docs are not labeled as an unimplemented Phase 0 draft. | P5 | FRS-BB-189 |
 | URS-BB-156 | After downtime, authorized staff can see a read-only snapshot of unresolved interface errors, pending outbound HL7, open issues, pending retrospective crossmatches, and audit-chain status. The system does not invent paper OCR or multi-site failover. | P5 | FRS-BB-190 |
+| URS-BB-157 | Core issue-gate, merged-patient, electronic-XM, and lookback evidence can be cited by a stable TEST-BB-* identifier, and those catalog rows still point at source files. | P5 | FRS-BB-191 |

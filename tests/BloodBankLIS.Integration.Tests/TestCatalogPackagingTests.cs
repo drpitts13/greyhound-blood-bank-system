@@ -19,6 +19,27 @@ public class TestCatalogPackagingTests
         Assert.Equal(ids.Count, ids.Distinct(StringComparer.Ordinal).Count());
     }
 
+    [Fact]
+    public void CitedClasses_HaveSourceFiles()
+    {
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "docs", "validation", "TEST_CATALOG.md");
+        var sources = Directory.GetFiles(Path.Combine(root, "tests"), "*.cs", SearchOption.AllDirectories);
+        var missing = new List<string>();
+        foreach (var line in File.ReadAllLines(path).Where(static l => l.StartsWith("| TEST-BB-", StringComparison.Ordinal)))
+        {
+            var cols = line.Split('|', StringSplitOptions.TrimEntries);
+            var cited = cols[3].Trim('`');
+            var className = cited.Split('.', 2)[0];
+            if (!sources.Any(f => File.ReadAllText(f).Contains($"class {className}", StringComparison.Ordinal)))
+            {
+                missing.Add(cited);
+            }
+        }
+
+        Assert.True(missing.Count == 0, "Catalog cites missing test classes: " + string.Join(", ", missing));
+    }
+
     private static string FindRepoRoot()
     {
         for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
