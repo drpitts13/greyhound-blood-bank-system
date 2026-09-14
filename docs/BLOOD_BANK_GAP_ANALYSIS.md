@@ -38,7 +38,7 @@ them silently and do not invent ICCBBA tables.
 | 16 | P5 | Downtime reconciliation tooling thin | Low (snapshot; no paper OCR / failover) | **Implemented Cycle 11** |
 | 17 | P2 | Electronic XM policy defaults (OCD-001, OCD-006) | Low (policy off) | SME verification |
 | 18 | P6 | Broader CSRF / XSS / secrets review | Low (headers + no wildcard CORS; Blazor CSP still allows inline/eval) | **Implemented Cycle 9** |
-| 19 | P5 | Validation packaging: no `TEST-BB-*` IDs; stale “Phase 0” headers; missing iteration log | Low (core safety IDs through TEST-BB-025) | **Implemented Cycle 10**; Cycle 12 assigned leftover high-safety class-name citations |
+| 19 | P5 | Validation packaging: no `TEST-BB-*` IDs; stale “Phase 0” headers; missing iteration log | Low (core safety IDs through TEST-BB-030) | **Implemented Cycle 10**; Cycles 12–13 assigned leftover high-safety class-name citations |
 | 20 | P6 | DevMode auto-admin | Low | Keep Development-only |
 
 Later (not ranked into Cycle 1): no Blazor E2E suite; open antibody-identification

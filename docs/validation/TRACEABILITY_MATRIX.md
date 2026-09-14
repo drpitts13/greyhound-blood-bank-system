@@ -11,7 +11,11 @@ Traceability path (from [`VALIDATION_PLAN.md`](VALIDATION_PLAN.md)):
 URS-BB-*  →  FRS-BB-*  →  RISK-BB-*  →  SRS-BB-*  →  CODE  →  TEST (class or TEST-BB-*)  →  EVIDENCE
 ```
 
-Latest Cycle 12 row: URS-BB-157 / FRS-BB-191 / SRS-BB-152 / RISK-BB-264 →
+Latest Cycle 13 row: URS-BB-158 / FRS-BB-192 / SRS-BB-153 / RISK-BB-265 →
+TEST-BB-026–030 (uniqueness, merge, retype, emergency-issue, immuno
+privilege). Remaining tests may stay class-name cited.
+
+Cycle 12: URS-BB-157 / FRS-BB-191 / SRS-BB-152 / RISK-BB-264 →
 TEST-BB-020–025 (issue-gate, merged patient, open-workup eXM, lookback,
 catalog source-file check). Remaining tests may stay class-name cited.
 
@@ -53,7 +57,7 @@ Cycle 1: URS-BB-147 / FRS-BB-181 / SRS-BB-142 / RISK-BB-254 →
 `IdentitySpoofingRegressionTests`, `AuthSessionServiceTests`,
 `AuthSessionValidityRuleTests`.
 
-Formal `TEST-BB-*` identifiers for Cycles 1–12 are assigned in
+Formal `TEST-BB-*` identifiers for Cycles 1–13 are assigned in
 [`TEST_CATALOG.md`](TEST_CATALOG.md). Other tests remain citable by class
 name. That remaining gap is packaging, not a missing clinical control.
 

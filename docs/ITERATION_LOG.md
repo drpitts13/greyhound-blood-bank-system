@@ -454,3 +454,36 @@ phenotype versioning; OCD-008 dual-ID policy defaults. OCD-004 remains
 open until a licensed extract is loaded. Leading non-SME: quality
 metrics (gap 13), FHIR (gap 14), remaining class-name citations.
 RhIG (gap 11) stays SME-blocked.
+
+## Iteration 13 — More P0/P1 TEST-BB IDs (2026-09-14)
+
+No SME answer yet on OCD-001/006 eXM defaults. Did not invent quality
+metrics (gap 13) or FHIR (gap 14). Next leftover non-SME is more
+class-name citations for P0/P1 uniqueness, merge, retype, and privilege
+gates.
+
+### Implemented
+
+- Assigned TEST-BB-026–030 to allocation/issue uniqueness, patient
+  merge, unit retype, emergency-issue privilege, and immuno privilege.
+- No clinical default, QI definition, ICCBBA table, or FHIR profile
+  was added.
+
+### Requirements / risk
+
+- URS-BB-158, FRS-BB-192, SRS-BB-153, RISK-BB-265.
+
+### Tests
+
+- TEST-BB-025 packaging still covers the new catalog rows.
+- Full suite green: Domain 1197, Application 20, HL7 48, Printing 11,
+  Integration 711 (1987).
+
+### Next ranked residual
+
+Ask in conversation: OCD-001/006 eXM policy defaults; OCD-022 antigen
+phenotype versioning; OCD-008 dual-ID policy defaults. OCD-004 remains
+open until a licensed extract is loaded. Leading non-SME: quality
+metrics only as existing-queue counts (do not invent AABB QI), FHIR
+(gap 14), remaining class-name citations. RhIG (gap 11) stays
+SME-blocked.

@@ -5,7 +5,7 @@ software is AABB-accredited or FDA-cleared. Remaining automated tests stay
 citable by class or method name until an ID is assigned.
 
 Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
-**TEST-BB-026**.
+**TEST-BB-031**.
 
 | ID | Layer | Test | Traces to |
 |---|---|---|---|
@@ -34,5 +34,10 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-023 | D | `LookbackAuthorizationRuleTests` | URS-BB-113 / FRS-BB-147 / RISK-BB-120 |
 | TEST-BB-024 | I | `LookbackSearchAuthorizationTests` | URS-BB-113 / FRS-BB-147 / RISK-BB-120 |
 | TEST-BB-025 | I | `TestCatalogPackagingTests.CitedClasses_HaveSourceFiles` | URS-BB-157 / FRS-BB-191 / RISK-BB-264 |
+| TEST-BB-026 | I | `AllocationIssueConcurrencyTests` | URS-BB-007 / FRS-BB-041 / RISK-BB-006 |
+| TEST-BB-027 | I | `PatientMergeServiceTests` | URS-BB-017 / FRS-BB-003 / RISK-BB-017 |
+| TEST-BB-028 | I | `ProductRetypeServiceTests` | URS-BB-018 / FRS-BB-051 / RISK-BB-018 |
+| TEST-BB-029 | D | `IssueAuthorizationRuleTests` | URS-BB-006 / FRS-BB-040 / RISK-BB-019 |
+| TEST-BB-030 | D | `ImmunoAuthorizationRuleTests` | URS-BB-002 / FRS-BB-002 / RISK-BB-021 |
 
 Layers: D = Domain.Tests, I = Integration.Tests (including `tests/safety_regression`).
