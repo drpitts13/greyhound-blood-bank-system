@@ -226,6 +226,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-149 / FRS-BB-183 | Electronic XM re-reads antibody history immediately before save | `CompatibilityService.EvaluateElectronicEligibilityAsync` | `ElectronicXmHistoryRegressionTests.AntibodyAddedAfterEligibleAssess_BlocksElectronicXmRecord` | A,I | RISK-BB-256 |
 | URS-BB-150 / FRS-BB-184 | New audit rows carry a SHA-256 hash chain; verify detects edit or gap | `AuditHashChainRule`; `BloodBankDbContext.StampAuditHashChain` | `AuditHashChainRuleTests`; `AuditHashChainTests` | A,I | RISK-BB-257 |
 | URS-BB-151 / FRS-BB-185 | Transfusion documentation matches two patient identity tokens; PPID checkbox removed | `IssuingService.DocumentTransfusionAsync`; `PatientIdentityMatchRule` | `Phase4IssuingTests.Transfusion_MissingPatientIdentifiers_IsHardStopped`; `Phase4IssuingTests.Transfusion_MismatchedPatientIdentifiers_IsHardStopped`; `Phase4IssuingTests.Transfusion_IsbtUnit_RequiresIdentityAndMatchingScan`; `Phase4IssuingTests.Transfusion_RequireSecondVerifier_WithoutElectronicId_NeedsDirectoryUser` | A,I | RISK-BB-258 |
+| URS-BB-152 / FRS-BB-186 | Licensed ISBT catalog import replaces placeholders; no invented ICCBBA codes | `IsbtLicensedCatalogImportRule`; `IsbtProductCodeAdminService.ImportLicensedAsync` | `IsbtLicensedCatalogImportRuleTests`; `IsbtLicensedCatalogImportTests` | A,I | RISK-BB-014; RISK-BB-259 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

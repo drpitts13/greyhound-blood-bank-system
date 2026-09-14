@@ -10,10 +10,33 @@
 </div>
 <p class="muted">
     Supplier product codes permitted for inventory intake. Units must match one of these codes.
-    Seeded as a US public subset pending facility ICCBBA validation.
+    Seeded rows are a US public subset pending ICCBBA validation. Official tables must be
+    imported from a licensed extract — this software does not invent product or ABO/RhD codes (OCD-004).
 </p>
 
 <Outcome Value="_feedback" />
+
+@if (CanImport)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title"><h3>Import licensed ICCBBA catalog</h3></div>
+        <p class="muted">Paste licensee-supplied JSON. Placeholder or pending-ICCBBA versions are rejected.</p>
+        <div class="form-row">
+            <div class="field"><label>Standard version</label><input class="mono" @bind="_importVersion" placeholder="ICCBBA-licensed version id" /></div>
+            <div class="field"><label>Reason</label><input @bind="_importReason" placeholder="Facility validation of licensed extract" /></div>
+        </div>
+        <label class="flex" style="gap:.35rem;margin:.5rem 0;">
+            <input type="checkbox" @bind="_importAck" />
+            I confirm this payload is from a current ICCBBA license held by the facility.
+        </label>
+        <div class="field">
+            <label>Licensed rows (JSON)</label>
+            <textarea rows="8" class="mono" style="width:100%;" @bind="_importJson"
+                placeholder='{"productCodes":[{"productDescriptionCode":"T0001","description":"Licensee-supplied example","componentClass":"Other"}],"aboRhdCodes":[{"code":"T1","abo":"O","rhD":"Positive"}]}'></textarea>
+        </div>
+        <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@_busy" @onclick="ImportAsync">Import licensed catalog</button>
+    </div>
+}
 
 <div class="bb-card" style="margin-top:1rem;">
     <div class="flex gap" style="margin-bottom:.6rem;">
@@ -81,6 +104,13 @@
     private string _filter = string.Empty;
     private bool _hideRetired = true;
     private Feedback? _feedback;
+    private bool _busy;
+    private bool _importAck;
+    private string _importVersion = string.Empty;
+    private string _importReason = string.Empty;
+    private string _importJson = """{"productCodes":[],"aboRhdCodes":[]}""";
+
+    private bool CanImport => Session.Has(PermissionCodes.AdminConfigEdit);
 
     private IEnumerable<IsbtProductCodeDto> Filtered
     {
@@ -110,11 +140,53 @@
             return;
         }
 
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
         var r = await Api.GetAdminIsbtProductCodesAsync();
         _loading = false;
         if (r.Succeeded)
             _items = r.Value ?? new();
         else
             _feedback = r.ToFeedback();
+    }
+
+    private async Task ImportAsync()
+    {
+        LicensedRowsJson? rows;
+        try
+        {
+            rows = System.Text.Json.JsonSerializer.Deserialize<LicensedRowsJson>(
+                _importJson,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            _feedback = Feedback.Fail("Licensed rows JSON could not be parsed.");
+            return;
+        }
+
+        _busy = true;
+        var req = new LicensedIsbtCatalogImportRequest(
+            _importVersion,
+            _importAck,
+            string.IsNullOrWhiteSpace(_importReason) ? null : _importReason,
+            rows?.ProductCodes,
+            rows?.AboRhdCodes);
+        var r = await Api.ImportLicensedIsbtCatalogAsync(req);
+        _busy = false;
+        _feedback = r.ToFeedback(r.Succeeded
+            ? $"Imported {r.Value?.ProductCodesImported ?? 0} product and {r.Value?.AboRhdCodesImported ?? 0} ABO/RhD row(s)."
+            : null);
+        if (r.Succeeded)
+            await LoadAsync();
+    }
+
+    private sealed class LicensedRowsJson
+    {
+        public List<LicensedIsbtProductCodeRow>? ProductCodes { get; set; }
+        public List<LicensedIsbtAboRhdRow>? AboRhdCodes { get; set; }
     }
 }

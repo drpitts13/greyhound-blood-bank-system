@@ -409,6 +409,10 @@ public static class AdminEndpoints
         group.MapGet("", async (IsbtProductCodeAdminService svc, CancellationToken ct) =>
             Results.Ok(await svc.ListAsync(ct)))
             .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("/import-licensed", async (LicensedIsbtCatalogImportRequest req, IsbtProductCodeAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ImportLicensedAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
     }
 
     private static void MapProviders(WebApplication app)

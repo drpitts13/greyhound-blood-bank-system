@@ -11,7 +11,10 @@ Traceability path (from [`VALIDATION_PLAN.md`](VALIDATION_PLAN.md)):
 URS-BB-*  →  FRS-BB-*  →  RISK-BB-*  →  SRS-BB-*  →  CODE  →  TEST (class or TEST-BB-*)  →  EVIDENCE
 ```
 
-Latest Cycle 6 row: URS-BB-151 / FRS-BB-185 / SRS-BB-146 / RISK-BB-258 →
+Latest Cycle 7 row: URS-BB-152 / FRS-BB-186 / SRS-BB-147 / RISK-BB-259 →
+`IsbtLicensedCatalogImportRuleTests`, `IsbtLicensedCatalogImportTests`.
+
+Cycle 6: URS-BB-151 / FRS-BB-185 / SRS-BB-146 / RISK-BB-258 →
 `Phase4IssuingTests.Transfusion_MissingPatientIdentifiers_IsHardStopped`,
 `Phase4IssuingTests.Transfusion_MismatchedPatientIdentifiers_IsHardStopped`,
 `Phase4IssuingTests.Transfusion_IsbtUnit_RequiresIdentityAndMatchingScan`,

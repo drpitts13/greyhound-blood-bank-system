@@ -1029,6 +1029,10 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<IsbtProductCodeDto>>> GetAdminIsbtProductCodesAsync(CancellationToken ct = default) =>
         SendAsync<List<IsbtProductCodeDto>>(HttpMethod.Get, "api/admin/isbt-product-codes", ct: ct);
 
+    public Task<ApiResult<LicensedIsbtCatalogImportResult>> ImportLicensedIsbtCatalogAsync(
+        LicensedIsbtCatalogImportRequest req, CancellationToken ct = default) =>
+        SendAsync<LicensedIsbtCatalogImportResult>(HttpMethod.Post, "api/admin/isbt-product-codes/import-licensed", req, ct);
+
     // ---- Admin: HL7 endpoints / interface setup ----
     public Task<ApiResult<List<Hl7EndpointDto>>> GetAdminHl7EndpointsAsync(CancellationToken ct = default) =>
         SendAsync<List<Hl7EndpointDto>>(HttpMethod.Get, "api/admin/hl7/endpoints", ct: ct);

@@ -409,3 +409,18 @@ The raw token is never stored; only `SecretHasher.HashOpaqueToken` is persisted.
 hosts only; Production forces the flag off). Assigning roles or updating a role's
 permissions revokes outstanding sessions for the affected user(s). Development
 `DevMode` remains a Development-only bypass.
+
+---
+
+## 9. Licensed ISBT catalog import (Cycle 7)
+
+The engine does not invent ICCBBA product or ABO/RhD codes (OCD-004). A facility
+that holds a license may replace placeholder rows through
+`IsbtLicensedCatalogImportRule`.
+
+| Code | Rule | Severity if violated |
+|---|---|---|
+| `ISBT-IMPORT-PERM` | Caller has `admin.config.edit` when importing a licensed catalog | HardStop when a permission evaluator is present and the privilege is missing |
+| `ISBT-IMPORT-LICENSE` | Caller acknowledges the payload is from a current ICCBBA license | HardStop |
+| `ISBT-IMPORT-VERSION` | `StandardVersion` is present and is not a placeholder or pending-ICCBBA token | HardStop |
+| `ISBT-IMPORT-EMPTY` | Payload includes at least one licensee-supplied product or ABO/RhD row | HardStop |

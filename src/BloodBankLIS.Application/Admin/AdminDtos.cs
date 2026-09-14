@@ -384,6 +384,33 @@ public sealed record IsbtProductCodeDto(
     bool IsPlaceholder,
     bool IsRetired);
 
+public sealed record LicensedIsbtCatalogImportRequest(
+    string StandardVersion,
+    bool LicenseAcknowledgment,
+    string? Reason,
+    IReadOnlyList<LicensedIsbtProductCodeRow>? ProductCodes = null,
+    IReadOnlyList<LicensedIsbtAboRhdRow>? AboRhdCodes = null);
+
+public sealed record LicensedIsbtProductCodeRow(
+    string ProductDescriptionCode,
+    string Description,
+    string ComponentClass = "Other",
+    string? Modifier = null,
+    string? StorageRequirements = null,
+    bool RequiresExtendedDivision = false);
+
+public sealed record LicensedIsbtAboRhdRow(
+    string Code,
+    string Abo,
+    string RhD,
+    string? CollectionType = null);
+
+public sealed record LicensedIsbtCatalogImportResult(
+    string StandardVersion,
+    int ProductCodesImported,
+    int AboRhdCodesImported,
+    int PlaceholdersReplaced);
+
 // ---- HL7 endpoints / interface setup ----
 
 public sealed record InterfaceFieldMappingDto(

@@ -221,11 +221,60 @@ unit scan as electronic dual-ID.
 - When `RequireSecondVerifier` is on and electronic ID is incomplete (legacy
   unit, no verified scan), a directory second user is required.
 
-### Next ranked non-SME residual
+### Next ranked residual
 
-Re-score at the start of Iteration 7. Leading candidates: CSRF/XSS/secrets
-review (gap 18), `TEST-BB-*` validation packaging (gap 19), or downtime
-reconciliation tooling (gap 16). Do not invent ICCBBA tables, MLLP
-credentials, merge second authorizer, catalog as-of dates, or a retention
-purge. Administration-device protocol and required vitals stay out of
-scope (gap 15 residual).
+SME / license items stay in the loop. Ask the decision in conversation
+before implementing. Leading SME questions: ICCBBA tables (OCD-004),
+merge second authorizer (OCD-010), MLLP credentials (gap 5). Leading
+non-SME candidates if no answer yet: CSRF/XSS/secrets (gap 18),
+`TEST-BB-*` packaging (gap 19), downtime reconciliation (gap 16). Do not
+invent tables, credentials, or dating/retention policy. Administration-
+device protocol and required vitals stay out of scope (gap 15 residual).
+
+## Iteration 7 — Licensed ISBT catalog import (2026-09-14)
+
+Re-score after SME answers: OCD-010 stays closed (no second merge
+authorizer). OCD-004: the facility will obtain an ICCBBA license and
+supply official tables. Highest remaining implementable residual is the
+import path itself — do not invent product or ABO/RhD codes.
+
+### Implemented
+
+- `IsbtLicensedCatalogImportRule` HardStops missing `admin.config.edit`,
+  missing license acknowledgment, placeholder / pending-ICCBBA versions,
+  and an empty payload.
+- `IsbtProductCodeAdminService.ImportLicensedAsync` upserts licensee
+  rows, replaces matching placeholders, marks them not-placeholder, and
+  writes `AuditEventType.Import`.
+- `POST /api/admin/isbt-product-codes/import-licensed` (`admin.config.edit`).
+- `/admin/isbt-product-codes` accepts version, acknowledgment, and
+  licensee JSON. No ICCBBA tables are shipped in source.
+- OCD-004 remains open until a licensed extract is loaded and validated.
+
+### Requirements / risk
+
+- URS-BB-152, FRS-BB-186, SRS-BB-147, RISK-BB-259 (RISK-BB-014 residual).
+
+### Tests
+
+- `IsbtLicensedCatalogImportRuleTests`
+- `IsbtLicensedCatalogImportTests`
+- Full suite green: Domain 1190, Application 20, HL7 48, Printing 11,
+  Integration 707 (1976). Formal `TEST-BB-*` IDs still not assigned.
+
+### Red-team (this slice)
+
+- No acknowledgment: no rows written.
+- `admin.config.view` only: `ISBT-IMPORT-PERM`.
+- `PLACEHOLDER` / `PENDING-ICCBBA` versions rejected.
+- Empty JSON rejected.
+- Test fixtures use clearly fake `T0001` / `T1` codes, not ICCBBA tables.
+
+### Next ranked residual
+
+Ask in conversation: gap 5 MLLP/file-drop credentials; OCD-033 catalog
+as-of; OCD-007 purge; gap 12 neonatal defaults; OCD-001/006 eXM;
+OCD-022 phenotype versioning; OCD-008 dual-ID policy. Do not claim a
+licensed extract is loaded. Leading non-SME if no answer: gap 18
+CSRF/XSS/secrets, gap 19 `TEST-BB-*` packaging, gap 16 downtime
+reconciliation.

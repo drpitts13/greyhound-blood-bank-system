@@ -10,4 +10,24 @@ PRIORITY ORDER: P0 patient safety / incorrect transfusion risk, then P1 identifi
 
 Never invent a regulatory requirement. Label uncertain items REQUIRES REGULATORY / SME VERIFICATION. Do not claim FDA/AABB/CAP compliance. Record clinical/regulatory blockers in docs/OPEN_CLINICAL_DECISIONS.md.
 
+SME review items stay in the improvement queue. Do not skip them silently.
+
+When the next ranked residual needs a clinical, regulatory, license, or facility-policy decision:
+
+1. Ask the question in this conversation (use a structured choice when possible).
+2. Wait for the human answer. Do not guess.
+3. After an answer, record it on the OCD row (decision, date, configuration) and implement the architecture that matches that decision.
+4. If the human cannot decide yet, leave the OCD open, implement only a configurable hook if one already exists, and continue with the next non-blocked item.
+
+Ranked SME / license items currently in the loop (see `docs/OPEN_CLINICAL_DECISIONS.md` and `docs/BLOOD_BANK_GAP_ANALYSIS.md`):
+
+- OCD-004 / gap 2 — Licensed ICCBBA / ISBT tables (import path exists; do not invent codes; ask before claiming a licensed extract is loaded)
+- Gap 5 — HL7 MLLP / file-drop interface credentials
+- OCD-033 / gap 9 — Catalog as-of dating
+- OCD-007 / gap 10 — Record retention / purge
+- Gap 12 — Neonatal irradiation / CMV product-selection defaults
+- OCD-001 / OCD-006 / gap 17 — Electronic XM policy defaults
+- OCD-022 / gap 3 — Antigen phenotype versioning
+- OCD-008 — Dual-ID policy defaults (flags already exist)
+
 Do not stop after one feature. Continue until the cycle's coherent set is complete, or a genuine blocker requires human input.

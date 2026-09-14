@@ -157,3 +157,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-149 | An electronic crossmatch cannot be recorded after another operator posts antibody history, even if the eligibility board was still green when the first operator opened the form. | P0 | FRS-BB-183 |
 | URS-BB-150 | An investigator can detect that an audit row was altered or removed after it was written. The system does not purge audit or clinical records. | P4 | FRS-BB-184 |
 | URS-BB-151 | Documenting a transfusion requires the same two independent patient identifiers as issue. A checkbox or self-asserted "positive patient identification" is not accepted. | P1 | FRS-BB-185 |
+| URS-BB-152 | An administrator can replace placeholder ISBT product and ABO/RhD lookup rows with a facility-supplied licensed extract. The system does not invent ICCBBA codes. | P1 | FRS-BB-186 |
