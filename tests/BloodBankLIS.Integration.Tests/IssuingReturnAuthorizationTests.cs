@@ -158,14 +158,20 @@ public class IssuingReturnAuthorizationTests : IClassFixture<SqliteContextFactor
         await context.SaveChangesAsync();
 
         var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate))
-            .DocumentTransfusionAsync(issue.Id, new DocumentTransfusionRequest(TransfusionDisposition.Completed));
+            .DocumentTransfusionAsync(issue.Id, new DocumentTransfusionRequest(
+                TransfusionDisposition.Completed,
+                PatientIdentifier1Value: patient.MedicalRecordNumber,
+                PatientIdentifier2Value: patient.DateOfBirth.ToString("yyyy-MM-dd")));
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == IssueAuthorizationRule.DocumentTransfusionCode);
         Assert.Equal(UnitStatus.Issued, (await context.BloodUnits.FindAsync(unit.Id))!.Status);
         Assert.Equal(IssueStatus.Issued, (await context.Issues.FindAsync(issue.Id))!.Status);
 
         var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.TransfusionDocument))
-            .DocumentTransfusionAsync(issue.Id, new DocumentTransfusionRequest(TransfusionDisposition.Completed));
+            .DocumentTransfusionAsync(issue.Id, new DocumentTransfusionRequest(
+                TransfusionDisposition.Completed,
+                PatientIdentifier1Value: patient.MedicalRecordNumber,
+                PatientIdentifier2Value: patient.DateOfBirth.ToString("yyyy-MM-dd")));
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(UnitStatus.Transfused, (await context.BloodUnits.FindAsync(unit.Id))!.Status);
         Assert.Equal(IssueStatus.Transfused, (await context.Issues.FindAsync(issue.Id))!.Status);
@@ -175,21 +181,22 @@ public class IssuingReturnAuthorizationTests : IClassFixture<SqliteContextFactor
     public async Task WardReceipt_WithoutTransfusionDocument_IsHardStopped()
     {
         await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
         var patient = new Patient
         {
-            MedicalRecordNumber = "MRN-WARD-PERM",
+            MedicalRecordNumber = $"MRN-W{key}",
             LastName = "Ward",
             FirstName = "Pat",
             DateOfBirth = new DateOnly(1970, 1, 1)
         };
-        var product = new ProductType { ProductCode = "RBC-WARD-PERM", Name = "RBC" };
+        var product = new ProductType { ProductCode = $"RBC-W{key}", Name = "RBC" };
         context.Patients.Add(patient);
         context.ProductTypes.Add(product);
         await context.SaveChangesAsync();
 
         var unit = new BloodUnit
         {
-            UnitNumber = "U-WARD-PERM",
+            UnitNumber = $"U-W{key}",
             ProductTypeId = product.Id,
             Abo = AboGroup.O,
             RhD = RhType.Positive,

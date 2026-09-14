@@ -105,6 +105,19 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             OverrideReason: overrideReason,
             AuthorizedBy: authorizedBy);
 
+    private static DocumentTransfusionRequest TxReq(
+        Scenario s,
+        TransfusionDisposition disposition = TransfusionDisposition.Completed,
+        bool reactionSuspected = false,
+        ComponentScanVerificationRequest? bedsideScan = null,
+        string? secondVerifier = null) =>
+        new(disposition,
+            ReactionSuspected: reactionSuspected,
+            BedsideScan: bedsideScan,
+            SecondVerifier: secondVerifier,
+            PatientIdentifier1Value: s.Mrn,
+            PatientIdentifier2Value: s.DateOfBirth);
+
     /// <summary>
     /// Seeds a patient with a known current ABO/Rh, an accepted specimen, a product
     /// type, and an Available unit. Caller controls compatibility via the ABO/Rh args.
@@ -233,6 +246,116 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task AllocateAndRelease_WriteAssignmentWithUnitIdentity()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var s = await SeedAsync($"ALAUD-{suffix}");
+        await RecordCompatibleCrossmatchAsync(s);
+
+        await using var c = _factory.Create();
+        var unit = await c.BloodUnits.FindAsync(s.UnitId);
+        Assert.NotNull(unit);
+        unit!.Din = $"W0000{suffix}";
+        await c.SaveChangesAsync();
+
+        var reserved = await Compatibility(c).AllocateUnitAsync(
+            new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
+        Assert.True(reserved.Succeeded, reserved.Error);
+
+        var released = await Compatibility(c).ReleaseAllocationAsync(reserved.Value!.Id, "Not needed");
+        Assert.True(released.Succeeded, released.Error);
+
+        var events = c.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Assignment
+            && e.EntityType == nameof(Allocation)
+            && e.EntityId == reserved.Value.Id
+            && e.Reason == "Unit assigned to patient."
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains($"\"UnitNumber\":\"{unit.UnitNumber}\"")
+            && e.NewValueJson.Contains($"\"Din\":\"{unit.Din}\"")
+            && e.NewValueJson.Contains($"\"BloodProductId\":{unit.Id}"));
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Assignment
+            && e.EntityType == nameof(Allocation)
+            && e.EntityId == reserved.Value.Id
+            && e.Reason == "Not needed"
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains($"\"UnitNumber\":\"{unit.UnitNumber}\"")
+            && e.NewValueJson.Contains($"\"Din\":\"{unit.Din}\"")
+            && e.NewValueJson.Contains($"\"BloodProductId\":{unit.Id}"));
+    }
+
+    [Fact]
+    public async Task WardReceipt_WritesTransfusionWithUnitIdentity()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var s = await SeedAsync($"WRAUD-{suffix}");
+        await RecordCompatibleCrossmatchAsync(s);
+
+        await using var c = _factory.Create();
+        var unit = await c.BloodUnits.FindAsync(s.UnitId);
+        Assert.NotNull(unit);
+        unit!.Din = $"W0000{suffix}";
+        await c.SaveChangesAsync();
+
+        var reserved = await Compatibility(c).AllocateUnitAsync(
+            new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
+        Assert.True(reserved.Succeeded, reserved.Error);
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Succeeded, issued.Error);
+
+        var receipt = await Issuing(c).RecordWardReceiptAsync(
+            issued.Value!.Id, new WardReceiptRequest("ward-nurse"));
+        Assert.True(receipt.Succeeded, receipt.Error);
+
+        var events = c.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Transfusion
+            && e.EntityType == nameof(Issue)
+            && e.EntityId == issued.Value.Id
+            && e.Reason == "Ward receipt of issued unit."
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains($"\"UnitNumber\":\"{unit.UnitNumber}\"")
+            && e.NewValueJson.Contains($"\"Din\":\"{unit.Din}\"")
+            && e.NewValueJson.Contains($"\"BloodProductId\":{unit.Id}")
+            && e.NewValueJson.Contains($"\"IssueId\":{issued.Value.Id}"));
+    }
+
+    [Fact]
+    public async Task Issue_WritesIssueWithUnitIdentity()
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var s = await SeedAsync($"ISAUD-{suffix}");
+        await RecordCompatibleCrossmatchAsync(s);
+
+        await using var c = _factory.Create();
+        var unit = await c.BloodUnits.FindAsync(s.UnitId);
+        Assert.NotNull(unit);
+        unit!.Din = $"W0000{suffix}";
+        await c.SaveChangesAsync();
+
+        var reserved = await Compatibility(c).AllocateUnitAsync(
+            new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
+        Assert.True(reserved.Succeeded, reserved.Error);
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Succeeded, issued.Error);
+
+        var events = c.AuditEvents.ToList();
+        Assert.Contains(events, e =>
+            e.EventType == AuditEventType.Issue
+            && e.EntityType == nameof(BloodUnit)
+            && e.EntityId == unit.Id
+            && e.NewValueJson is not null
+            && e.NewValueJson.Contains($"\"UnitNumber\":\"{unit.UnitNumber}\"")
+            && e.NewValueJson.Contains($"\"Din\":\"{unit.Din}\"")
+            && e.NewValueJson.Contains($"\"BloodProductId\":{unit.Id}")
+            && e.NewValueJson.Contains("\"IssueType\""));
+    }
+
+    [Fact]
     public async Task RecordCrossmatch_OpenAntibodyIdWorkup_WarnsAndRecords()
     {
         var s = await SeedAsync("ABID-XM-OPEN");
@@ -261,6 +384,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     public async Task Issue_OpenAntibodyIdWorkup_WarnsAndIssues()
     {
         var s = await SeedAsync("ABID-ISSUE-OPEN");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
         await using (var context = _factory.Create())
         {
             context.AntibodyIdentificationWorkups.Add(new AntibodyIdentificationWorkup
@@ -271,9 +396,6 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             });
             await context.SaveChangesAsync();
         }
-
-        await RecordCompatibleCrossmatchAsync(s);
-        await AllocateAsync(s);
 
         await using var act = _factory.Create();
         var issued = await Issuing(act).IssueUnitAsync(IssueReq(s));
@@ -313,7 +435,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.True(receipt.Succeeded);
             Assert.Equal("ward-nurse", receipt.Value!.WardReceivedBy);
 
-            var transfused = await Issuing(c).DocumentTransfusionAsync(issueId, new DocumentTransfusionRequest(TransfusionDisposition.Completed));
+            var transfused = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s));
             Assert.True(transfused.Succeeded);
         }
 
@@ -805,7 +927,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         {
             Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
             var tx = await Issuing(c).DocumentTransfusionAsync(
-                issueId, new DocumentTransfusionRequest(TransfusionDisposition.Completed, ReactionSuspected: true));
+                issueId, TxReq(s, reactionSuspected: true));
             Assert.True(tx.Succeeded);
         }
 
@@ -832,7 +954,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         {
             Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
             var tx = await Issuing(c).DocumentTransfusionAsync(
-                issueId, new DocumentTransfusionRequest(TransfusionDisposition.Stopped, ReactionSuspected: true));
+                issueId, TxReq(s, TransfusionDisposition.Stopped, reactionSuspected: true));
             Assert.True(tx.Succeeded);
         }
 
@@ -860,7 +982,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         {
             Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
             await Issuing(c).DocumentTransfusionAsync(
-                issueId, new DocumentTransfusionRequest(TransfusionDisposition.Completed, ReactionSuspected: true));
+                issueId, TxReq(s, reactionSuspected: true));
         }
 
         await using var ctx = _factory.Create();
@@ -1008,8 +1130,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        var tx = await Issuing(ctx).DocumentTransfusionAsync(
-            issueId, new DocumentTransfusionRequest(TransfusionDisposition.Completed));
+        var tx = await Issuing(ctx).DocumentTransfusionAsync(issueId, TxReq(s));
         Assert.False(tx.Succeeded);
         Assert.Contains(tx.Evaluation!.HardStops, r => r.Code == WardReceiptRule.Code);
     }
@@ -1147,6 +1268,130 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
             var transit = await Issuing(c).ListInTransitAsync();
             Assert.DoesNotContain(transit, t => t.IssueId == issueId);
+        }
+    }
+
+    [Fact]
+    public async Task Transfusion_MissingPatientIdentifiers_IsHardStopped()
+    {
+        var s = await SeedAsync("TXIDMISS");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+        }
+
+        await using var ctx = _factory.Create();
+        var missing = await Issuing(ctx).DocumentTransfusionAsync(
+            issueId, new DocumentTransfusionRequest(TransfusionDisposition.Completed));
+        Assert.False(missing.Succeeded);
+        Assert.Contains(missing.Evaluation!.HardStops, r => r.Code == PatientIdentityMatchRule.Code);
+        Assert.Equal(UnitStatus.Issued, (await ctx.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
+    public async Task Transfusion_MismatchedPatientIdentifiers_IsHardStopped()
+    {
+        var s = await SeedAsync("TXIDBAD");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+        }
+
+        await using var ctx = _factory.Create();
+        var mismatch = await Issuing(ctx).DocumentTransfusionAsync(
+            issueId, TxReq(s) with { PatientIdentifier1Value = "WRONG-MRN" });
+        Assert.False(mismatch.Succeeded);
+        Assert.Contains(mismatch.Evaluation!.HardStops, r => r.Code == PatientIdentityMatchRule.Code);
+        Assert.Equal(UnitStatus.Issued, (await ctx.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
+    public async Task Transfusion_IsbtUnit_RequiresIdentityAndMatchingScan()
+    {
+        var s = await SeedAsync("TXSCAN");
+        await AttachIsbtIdentityAsync(s.UnitId);
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        var scan = MatchingScan(s.UnitId);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with { VerifiedScan = scan });
+            Assert.True(issued.Succeeded, issued.Error);
+            issueId = issued.Value!.Id;
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(
+                issueId, new WardReceiptRequest("ward-nurse", VerifiedScan: scan))).Succeeded);
+        }
+
+        await using var ctx = _factory.Create();
+        var issuing = Issuing(ctx);
+
+        var noScan = await issuing.DocumentTransfusionAsync(issueId, TxReq(s));
+        Assert.False(noScan.Succeeded);
+        Assert.Contains(IsbtErrorCodes.UnitScanMismatch, noScan.Error);
+
+        var ok = await issuing.DocumentTransfusionAsync(issueId, TxReq(s, bedsideScan: scan));
+        Assert.True(ok.Succeeded, ok.Error);
+        Assert.Equal(UnitStatus.Transfused, (await ctx.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
+    public async Task Transfusion_RequireSecondVerifier_WithoutElectronicId_NeedsDirectoryUser()
+    {
+        var s = await SeedAsync("TXDUAL");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.True(issued.Succeeded, issued.Error);
+            issueId = issued.Value!.Id;
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+        }
+
+        await using var ctx = _factory.Create();
+        ctx.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RequireSecondVerifier,
+            Value = "true",
+            Category = "Transfusion"
+        });
+        ctx.Users.Add(new User { UserName = "ward-nurse", DisplayName = "Ward Nurse", IsActive = true });
+        await ctx.SaveChangesAsync();
+
+        try
+        {
+            var withoutVerifier = await Issuing(ctx).DocumentTransfusionAsync(issueId, TxReq(s));
+            Assert.False(withoutVerifier.Succeeded);
+            Assert.Contains(withoutVerifier.Evaluation!.HardStops, r => r.Code == DualIdentificationRule.Code);
+            Assert.Equal(UnitStatus.Issued, (await ctx.BloodUnits.FindAsync(s.UnitId))!.Status);
+
+            var withVerifier = await Issuing(ctx).DocumentTransfusionAsync(
+                issueId, TxReq(s, secondVerifier: "ward-nurse"));
+            Assert.True(withVerifier.Succeeded, withVerifier.Error);
+            Assert.Equal(UnitStatus.Transfused, (await ctx.BloodUnits.FindAsync(s.UnitId))!.Status);
+        }
+        finally
+        {
+            var flag = await ctx.SystemSettings.SingleOrDefaultAsync(x => x.Key == FacilityPolicyKeys.RequireSecondVerifier);
+            if (flag is not null)
+            {
+                ctx.SystemSettings.Remove(flag);
+                await ctx.SaveChangesAsync();
+            }
         }
     }
 

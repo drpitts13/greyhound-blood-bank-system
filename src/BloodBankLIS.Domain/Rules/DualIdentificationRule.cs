@@ -1,8 +1,8 @@
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
-/// Dual identification at issue/transfusion: a second distinct operator, or a
-/// validated electronic bedside scan with positive patient identification.
+/// Dual identification at issue/transfusion: a second distinct operator, or
+/// verified patient identity tokens plus a validated electronic bedside unit scan.
 /// </summary>
 public static class DualIdentificationRule
 {

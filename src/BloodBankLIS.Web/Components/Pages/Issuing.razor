@@ -294,10 +294,13 @@
                         Placeholder="Different active user" />
                 </div>
             </div>
-            <p class="muted">The receiving location must acknowledge the unit (ward receipt) before this can succeed.</p>
-            <label class="flex"><input type="checkbox" @bind="_txPpid" /> &nbsp;Positive patient identification completed</label>
+            <p class="muted">The receiving location must acknowledge the unit (ward receipt) before this can succeed. Patient identifiers must match the issued patient — a checkbox is not positive identification.</p>
+            <div class="form-row">
+                <div class="field"><label>Patient ID 1 (MRN)</label><input @bind="_txPatientIdentifier1" /></div>
+                <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label><input @bind="_txPatientIdentifier2" /></div>
+            </div>
             <label class="flex"><input type="checkbox" @bind="_txReaction" /> &nbsp;Reaction suspected</label>
-            <UnitScanVerificationPanel Scan="_txScan" Title="Bedside unit scan" Help="Scan the unit at the bedside. Required for ISBT-labeled units together with positive patient identification." />
+            <UnitScanVerificationPanel Scan="_txScan" Title="Bedside unit scan" Help="Scan the unit at the bedside. Required for ISBT-labeled units together with matching patient identifiers." />
             <div style="margin-top:.75rem;">
                 <button class="btn btn-secondary" disabled="@_busy" @onclick="DocumentTransfusionAsync">Document</button>
             </div>
@@ -339,7 +342,8 @@
     private string? _txTransfusionist;
     private string? _txSecondVerifier;
     private bool _txReaction;
-    private bool _txPpid;
+    private string? _txPatientIdentifier1;
+    private string? _txPatientIdentifier2;
     private Feedback? _txFb;
     private readonly UnitScanModel _issueScan = new();
     private readonly UnitScanModel _txScan = new();
@@ -482,7 +486,8 @@
             ReactionSuspected: _txReaction,
             BedsideScan: _txScan.ToRequest(),
             SecondVerifier: _txSecondVerifier,
-            PositivePatientIdentification: _txPpid));
+            PatientIdentifier1Value: _txPatientIdentifier1,
+            PatientIdentifier2Value: _txPatientIdentifier2));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
     }

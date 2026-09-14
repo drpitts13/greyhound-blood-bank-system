@@ -63,7 +63,10 @@ public sealed record DocumentTransfusionRequest(
     string? Location = null,
     string? PatientIdentificationMethod = null,
     string? UnitIdentificationMethod = null,
-    bool PositivePatientIdentification = false);
+    IdentityTokenType PatientIdentifier1Type = IdentityTokenType.MedicalRecordNumber,
+    string? PatientIdentifier1Value = null,
+    IdentityTokenType PatientIdentifier2Type = IdentityTokenType.DateOfBirth,
+    string? PatientIdentifier2Value = null);
 
 public sealed record IssueDto(
     long Id,

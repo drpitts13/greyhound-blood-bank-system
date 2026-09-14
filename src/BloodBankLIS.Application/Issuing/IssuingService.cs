@@ -284,7 +284,15 @@ public sealed class IssuingService
                 IssueAuditType(issueType),
                 nameof(BloodUnit),
                 unit.Id,
-                newValue: new { Blocked = true, IssueType = issueType, HardStops = evaluation.HardStops.Select(r => r.Code) },
+                newValue: new
+                {
+                    Blocked = true,
+                    IssueType = issueType,
+                    HardStops = evaluation.HardStops.Select(r => r.Code),
+                    unit.UnitNumber,
+                    unit.Din,
+                    BloodProductId = unit.Id
+                },
                 reason: "Issue blocked by safety gate.");
             await _unitOfWork.SaveChangesAsync(ct);
             return EvaluationResult<Issue>.Blocked(evaluation);
@@ -423,8 +431,16 @@ public sealed class IssuingService
             IssueAuditType(issueType),
             nameof(BloodUnit),
             unit.Id,
-            oldValue: new { Status = fromStatus },
-            newValue: new { Status = UnitStatus.Issued, IssueType = issueType, request.PatientId },
+            oldValue: new { Status = fromStatus, unit.UnitNumber, unit.Din, BloodProductId = unit.Id },
+            newValue: new
+            {
+                Status = UnitStatus.Issued,
+                IssueType = issueType,
+                request.PatientId,
+                unit.UnitNumber,
+                unit.Din,
+                BloodProductId = unit.Id
+            },
             reason: authorizedOverride?.Reason);
 
         if (authorizedOverride is not null)
@@ -634,7 +650,17 @@ public sealed class IssuingService
             AuditEventType.Transfusion,
             nameof(Issue),
             issue.Id,
-            newValue: new { issue.WardReceivedBy, issue.WardReceivedUtc, Late = overdue.Severity == RuleSeverity.Warning },
+            oldValue: new { WardReceivedUtc = (DateTime?)null, unit.UnitNumber, unit.Din, BloodProductId = unit.Id },
+            newValue: new
+            {
+                issue.WardReceivedBy,
+                issue.WardReceivedUtc,
+                Late = overdue.Severity == RuleSeverity.Warning,
+                unit.UnitNumber,
+                unit.Din,
+                BloodProductId = unit.Id,
+                IssueId = issue.Id
+            },
             reason: overdue.Severity == RuleSeverity.Warning
                 ? "Ward receipt of issued unit (late — past in-transit due time)."
                 : "Ward receipt of issued unit.");
@@ -783,16 +809,33 @@ public sealed class IssuingService
                 $"{IsbtErrorCodes.InvalidStatusTransition}: Unit status {unit.Status} cannot enter transfusion documentation.");
         }
 
-        // ISBT-normalized components require positive patient ID + fresh bedside scan.
-        // Legacy units without ComponentIdentity keep the prior documentation path.
+        var patient = await _patients.GetByIdAsync(issue.PatientId, ct);
+        if (patient is null)
+        {
+            return EvaluationResult<TransfusionEvent>.Fail("Patient not found.");
+        }
+
+        var identity = PatientIdentityMatchRule.Evaluate(
+            patient.MedicalRecordNumber,
+            patient.DateOfBirth,
+            patient.LastName,
+            patient.FirstName,
+            string.IsNullOrWhiteSpace(request.PatientIdentifier1Value)
+                ? null
+                : new PatientIdentityMatchRule.IdentityToken(request.PatientIdentifier1Type, request.PatientIdentifier1Value),
+            string.IsNullOrWhiteSpace(request.PatientIdentifier2Value)
+                ? null
+                : new PatientIdentityMatchRule.IdentityToken(request.PatientIdentifier2Type, request.PatientIdentifier2Value));
+        if (identity.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([identity]));
+        }
+
+        // ISBT-normalized components require a fresh bedside unit scan.
+        // Legacy units without ComponentIdentity keep the prior scan policy.
+        var bedsideScanVerified = false;
         if (!string.IsNullOrEmpty(unit.ComponentIdentity))
         {
-            if (!request.PositivePatientIdentification)
-            {
-                return EvaluationResult<TransfusionEvent>.Fail(
-                    $"{IsbtErrorCodes.PatientMismatch}: Positive patient identification is required at transfusion start.");
-            }
-
             if (request.BedsideScan is null)
             {
                 return EvaluationResult<TransfusionEvent>.Fail(
@@ -808,6 +851,8 @@ public sealed class IssuingService
                 request.BedsideScan.ExpirationEncoded);
             if (bedside.IsHardStopped)
                 return EvaluationResult<TransfusionEvent>.Blocked(bedside);
+
+            bedsideScanVerified = true;
         }
 
         if (unit.ExpiresUtc <= _clock.UtcNow)
@@ -823,7 +868,7 @@ public sealed class IssuingService
         }
 
         var requireSecond = await _policy.GetRequireSecondVerifierAsync(ct);
-        var electronicId = request.PositivePatientIdentification && request.BedsideScan is not null;
+        var electronicId = identity.Severity == RuleSeverity.Pass && bedsideScanVerified;
         var dual = DualIdentificationRule.Evaluate(_currentUser.UserName, request.SecondVerifier, electronicId, requireSecond);
         if (dual.Severity == RuleSeverity.HardStop)
         {
@@ -852,8 +897,10 @@ public sealed class IssuingService
             DocumentedBy = _currentUser.UserName,
             SecondVerifier = request.SecondVerifier,
             Location = request.Location,
-            PatientIdentificationMethod = request.PatientIdentificationMethod,
-            UnitIdentificationMethod = request.UnitIdentificationMethod,
+            PatientIdentificationMethod = request.PatientIdentificationMethod
+                ?? $"{request.PatientIdentifier1Type}+{request.PatientIdentifier2Type}",
+            UnitIdentificationMethod = request.UnitIdentificationMethod
+                ?? (request.BedsideScan is null ? null : "BedsideScan"),
             WorkstationId = _currentUser.Workstation,
             BedsideScanVerificationJson = request.BedsideScan is null ? null : JsonSerializer.Serialize(request.BedsideScan)
         };
