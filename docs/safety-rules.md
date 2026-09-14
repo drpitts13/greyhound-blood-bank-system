@@ -424,3 +424,12 @@ that holds a license may replace placeholder rows through
 | `ISBT-IMPORT-LICENSE` | Caller acknowledges the payload is from a current ICCBBA license | HardStop |
 | `ISBT-IMPORT-VERSION` | `StandardVersion` is present and is not a placeholder or pending-ICCBBA token | HardStop |
 | `ISBT-IMPORT-EMPTY` | Payload includes at least one licensee-supplied product or ABO/RhD row | HardStop |
+
+---
+
+## 10. HL7 inbound authentication (Cycle 8 / OCD-034)
+
+HTTP `/api/hl7/*` requires an interactive session and `hl7.manage`. MLLP and
+file-drop inbound do not evaluate a permission or shared secret. Enabling an
+endpoint still requires `admin.hl7.manage` (`HL7EP-ENABLE-PERM`). The accepted
+residual is a peer that can reach the bound port or write the drop folder.

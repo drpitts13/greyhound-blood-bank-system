@@ -227,6 +227,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-150 / FRS-BB-184 | New audit rows carry a SHA-256 hash chain; verify detects edit or gap | `AuditHashChainRule`; `BloodBankDbContext.StampAuditHashChain` | `AuditHashChainRuleTests`; `AuditHashChainTests` | A,I | RISK-BB-257 |
 | URS-BB-151 / FRS-BB-185 | Transfusion documentation matches two patient identity tokens; PPID checkbox removed | `IssuingService.DocumentTransfusionAsync`; `PatientIdentityMatchRule` | `Phase4IssuingTests.Transfusion_MissingPatientIdentifiers_IsHardStopped`; `Phase4IssuingTests.Transfusion_MismatchedPatientIdentifiers_IsHardStopped`; `Phase4IssuingTests.Transfusion_IsbtUnit_RequiresIdentityAndMatchingScan`; `Phase4IssuingTests.Transfusion_RequireSecondVerifier_WithoutElectronicId_NeedsDirectoryUser` | A,I | RISK-BB-258 |
 | URS-BB-152 / FRS-BB-186 | Licensed ISBT catalog import replaces placeholders; no invented ICCBBA codes | `IsbtLicensedCatalogImportRule`; `IsbtProductCodeAdminService.ImportLicensedAsync` | `IsbtLicensedCatalogImportRuleTests`; `IsbtLicensedCatalogImportTests` | A,I | RISK-BB-014; RISK-BB-259 |
+| URS-BB-153 / FRS-BB-187 | HTTP HL7 inbound is session + `hl7.manage`; MLLP and file-drop stay transport-trust | `Hl7Endpoints`; `MllpListenerService`; `Hl7FileDropService` | `Hl7EndpointAuthorizationTests` | A,I | RISK-BB-260 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

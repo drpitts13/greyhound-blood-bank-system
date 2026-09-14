@@ -22,7 +22,6 @@ When the next ranked residual needs a clinical, regulatory, license, or facility
 Ranked SME / license items currently in the loop (see `docs/OPEN_CLINICAL_DECISIONS.md` and `docs/BLOOD_BANK_GAP_ANALYSIS.md`):
 
 - OCD-004 / gap 2 — Licensed ICCBBA / ISBT tables (import path exists; do not invent codes; ask before claiming a licensed extract is loaded)
-- Gap 5 — HL7 MLLP / file-drop interface credentials
 - OCD-033 / gap 9 — Catalog as-of dating
 - OCD-007 / gap 10 — Record retention / purge
 - Gap 12 — Neonatal irradiation / CMV product-selection defaults

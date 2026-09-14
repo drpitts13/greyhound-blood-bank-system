@@ -6,6 +6,12 @@ namespace BloodBankLIS.Api.Hosting;
 /// Polls inbound file-drop folders. Interval is <c>Hl7:FileDrop:IntervalSeconds</c>
 /// (default 15; set 0 to disable).
 /// </summary>
+/// <remarks>
+/// OCD-034: files in the configured drop folder are processed without an
+/// application credential. Folder ACLs / share permissions are the control.
+/// Do not invent a shared interface secret here. HTTP inbound remains session
+/// + <c>hl7.manage</c>.
+/// </remarks>
 public sealed class Hl7FileDropService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;

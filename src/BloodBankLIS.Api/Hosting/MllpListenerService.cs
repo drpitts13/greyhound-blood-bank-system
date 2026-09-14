@@ -15,6 +15,11 @@ namespace BloodBankLIS.Api.Hosting;
 /// Each complete frame is handed to <see cref="Hl7InboundProcessor"/> and the ACK
 /// is written back on the same connection.
 /// </summary>
+/// <remarks>
+/// OCD-034: this listener does not authenticate the peer. Reachability of the
+/// bound port (network, VPN, host firewall) is the control. Do not invent a
+/// shared interface secret here. HTTP inbound remains session + <c>hl7.manage</c>.
+/// </remarks>
 public sealed class MllpListenerService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;

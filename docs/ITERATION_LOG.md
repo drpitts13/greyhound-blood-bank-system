@@ -278,3 +278,33 @@ OCD-022 phenotype versioning; OCD-008 dual-ID policy. Do not claim a
 licensed extract is loaded. Leading non-SME if no answer: gap 18
 CSRF/XSS/secrets, gap 19 `TEST-BB-*` packaging, gap 16 downtime
 reconciliation.
+
+## Iteration 8 — HL7 transport-trust recorded (2026-09-14)
+
+SME answer for gap 5: keep MLLP and file-drop as transport-trust. Do not
+invent a shared interface credential. HTTP inbound stays session +
+`hl7.manage`.
+
+### Implemented
+
+- Documented the split in `docs/hl7-design.md` and listener remarks
+  (`MllpListenerService`, `Hl7FileDropService`, `Hl7Endpoints`).
+- Closed OCD-034 and gap 5. No secret or mTLS stack was added.
+
+### Requirements / risk
+
+- URS-BB-153, FRS-BB-187, SRS-BB-148, RISK-BB-260 (accepted residual).
+
+### Tests
+
+- Existing `Hl7EndpointAuthorizationTests` still cover endpoint admin
+  privilege. No new credential path to test. Full suite was already green
+  at Cycle 7 (1976); this slice is documentation of the decided residual.
+
+### Next ranked residual
+
+Ask in conversation: OCD-033 catalog as-of; OCD-007 purge; gap 12
+neonatal defaults; OCD-001/006 eXM; OCD-022 phenotype versioning;
+OCD-008 dual-ID policy. OCD-004 remains open until a licensed extract is
+loaded. Leading non-SME: gap 18 CSRF/XSS/secrets, gap 19 `TEST-BB-*`
+packaging, gap 16 downtime reconciliation.

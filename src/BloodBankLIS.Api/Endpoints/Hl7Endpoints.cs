@@ -42,9 +42,9 @@ public static class Hl7Endpoints
 {
     public static void MapHl7Endpoints(this WebApplication app)
     {
-        // The HTTP-facing HL7 surface is an operational/management interface; a real
-        // interface engine authenticates at the gateway/MLLP transport. All routes here
-        // require the hl7.manage permission.
+        // HTTP inbound is an operational/management surface: session + hl7.manage.
+        // MLLP and file-drop inbound trust the transport (OCD-034 / gap 5). Do not
+        // invent a shared interface secret on those adapters.
         var group = app.MapGroup("/api/hl7").WithTags("HL7 Interface")
             .RequireAuthenticatedUser()
             .RequirePermission(PermissionCodes.Hl7Manage);

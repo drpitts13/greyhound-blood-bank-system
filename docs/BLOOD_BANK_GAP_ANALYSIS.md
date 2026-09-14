@@ -5,7 +5,8 @@ patient-safety impact among items that are still open. Cycle 1 implemented
 **gap 1**. Cycle 2 implemented **gap 6**. Cycle 3 implemented **gap 7**.
 Cycle 4 implemented **gap 8**. Cycle 6 implemented the bedside identity-token
 slice of **gap 15**. Cycle 7 added the licensed ISBT catalog **import path**
-for **gap 2** (extract not yet loaded).
+for **gap 2** (extract not yet loaded). Cycle 8 recorded **gap 5** as
+accepted transport-trust (OCD-034).
 
 SME-blocked items must not be “fixed” by inventing a clinical rule. Record
 them in [`docs/OPEN_CLINICAL_DECISIONS.md`](OPEN_CLINICAL_DECISIONS.md).
@@ -19,7 +20,7 @@ them silently and do not invent ICCBBA tables.
 | 2 | P1 | Unlicensed ISBT / ICCBBA catalogs (RISK-BB-014, OCD-004) | Medium (import path added Cycle 7; licensed extract not yet loaded) | **Import path Cycle 7**; do not invent tables |
 | 3 | P3 | Antigen phenotype updated in place (OCD-022) | Medium | Do not change default |
 | 4 | P1 | Patient merge has no second authorizer (OCD-010) | Low | **Closed 2026-09-14** — keep `patient.merge` + reason only |
-| 5 | P6 / P8 | HL7 MLLP/file-drop inbound is transport-trust; HTTP inbound is session + `hl7.manage` | Medium | SME for interface credential; do not invent MLLP auth |
+| 5 | P6 / P8 | HL7 MLLP/file-drop inbound is transport-trust; HTTP inbound is session + `hl7.manage` | Low (accepted residual) | **Closed 2026-09-14** — keep transport-trust; do not invent a credential (OCD-034) |
 | 6 | P6 | Blazor circuit permissions stale after role change | Low (sessions revoked; `/api/me` refresh) | **Implemented Cycle 2** |
 | 7 | P3 | Concurrent antibody-history edit vs electronic XM | Low (re-read before save; RISK-BB-256) | **Implemented Cycle 3** |
 | 8 | P4 | Audit is append-only but has no hash chain | Low (hashed tip; RISK-BB-257) | **Implemented Cycle 4** |
