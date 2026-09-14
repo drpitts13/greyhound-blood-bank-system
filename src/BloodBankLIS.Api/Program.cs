@@ -2,6 +2,8 @@ using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Api.Endpoints;
 using BloodBankLIS.Api.Hosting;
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Identity;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.HL7;
 using BloodBankLIS.Infrastructure;
 using BloodBankLIS.Infrastructure.Common;
@@ -30,6 +32,14 @@ var effectiveDevMode = devMode.Enabled && builder.Environment.IsDevelopment();
 devMode.Enabled = effectiveDevMode;
 builder.Services.AddSingleton(devMode);
 
+var authOptions = builder.Configuration.GetSection(AuthSessionOptions.SectionName).Get<AuthSessionOptions>()
+    ?? new AuthSessionOptions();
+if (!builder.Environment.IsDevelopment())
+{
+    authOptions.AllowLegacyIdentityHeader = false;
+}
+
+builder.Services.AddSingleton(authOptions);
 builder.Services.AddInfrastructure(connectionString, dbProvider);
 
 builder.Services.AddHl7Interfaces();
@@ -48,6 +58,25 @@ builder.Services.AddSingleton<IEnvironmentInfo>(
 // so this registration wins). Falls back to the system account outside an HTTP request.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
+
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var allowAnyCors = builder.Configuration.GetValue("Cors:AllowAnyOrigin", false);
+var corsGate = HttpSecurityHeaderPolicy.EvaluateCorsAllowAny(allowAnyCors, builder.Environment.IsDevelopment());
+if (corsGate.Severity == RuleSeverity.HardStop)
+{
+    throw new InvalidOperationException(corsGate.Message);
+}
+
+if (allowAnyCors)
+{
+    builder.Services.AddCors(o => o.AddPolicy("BloodBank", p =>
+        p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+}
+else if (corsOrigins.Length > 0)
+{
+    builder.Services.AddCors(o => o.AddPolicy("BloodBank", p =>
+        p.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod()));
+}
 
 var app = builder.Build();
 
@@ -108,6 +137,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+if (allowAnyCors || corsOrigins.Length > 0)
+    app.UseCors("BloodBank");
+app.UseMiddleware<AuthSessionMiddleware>();
 
 app.MapPatientEndpoints();
 app.MapPatientWorkspaceEndpoints();

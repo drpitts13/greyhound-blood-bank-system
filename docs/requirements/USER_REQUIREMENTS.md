@@ -159,3 +159,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-151 | Documenting a transfusion requires the same two independent patient identifiers as issue. A checkbox or self-asserted "positive patient identification" is not accepted. | P1 | FRS-BB-185 |
 | URS-BB-152 | An administrator can replace placeholder ISBT product and ABO/RhD lookup rows with a facility-supplied licensed extract. The system does not invent ICCBBA codes. | P1 | FRS-BB-186 |
 | URS-BB-153 | Interactive HTTP HL7 inbound is limited to signed-in staff with hl7.manage. MLLP and file-drop inbound trust the network or drop-folder ACLs; the system does not invent an interface secret. | P6 | FRS-BB-187 |
+| URS-BB-154 | Browser clients cannot frame the application, sniff MIME types, or use a Production wildcard CORS policy. Session tokens stay off cookies. | P6 | FRS-BB-188 |

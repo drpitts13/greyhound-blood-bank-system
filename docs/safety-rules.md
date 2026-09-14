@@ -433,3 +433,17 @@ HTTP `/api/hl7/*` requires an interactive session and `hl7.manage`. MLLP and
 file-drop inbound do not evaluate a permission or shared secret. Enabling an
 endpoint still requires `admin.hl7.manage` (`HL7EP-ENABLE-PERM`). The accepted
 residual is a peer that can reach the bound port or write the drop folder.
+
+---
+
+## 11. Browser security headers (Cycle 9)
+
+| Code | Rule | Severity if violated |
+|---|---|---|
+| `SEC-CORS-ANY` | `Cors:AllowAnyOrigin` is false outside Development | HardStop at API startup |
+
+API and Web responses receive nosniff, `X-Frame-Options: DENY`, `frame-ancestors 'none'`,
+and Permissions-Policy camera/microphone/geolocation disabled. API also sends
+`Cache-Control: no-store`. Interactive identity remains Bearer in circuit memory
+(not a cookie). Blazor Server CSP still allows `'unsafe-inline'` and `'unsafe-eval'`
+for the circuit.

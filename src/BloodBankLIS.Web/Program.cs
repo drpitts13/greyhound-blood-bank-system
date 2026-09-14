@@ -1,4 +1,5 @@
 using BloodBankLIS.Web.Components;
+using BloodBankLIS.Web.Security;
 using BloodBankLIS.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -48,6 +49,7 @@ if (!app.Environment.IsDevelopment())
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseAntiforgery();
 

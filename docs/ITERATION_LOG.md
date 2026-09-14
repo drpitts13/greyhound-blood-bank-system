@@ -308,3 +308,38 @@ neonatal defaults; OCD-001/006 eXM; OCD-022 phenotype versioning;
 OCD-008 dual-ID policy. OCD-004 remains open until a licensed extract is
 loaded. Leading non-SME: gap 18 CSRF/XSS/secrets, gap 19 `TEST-BB-*`
 packaging, gap 16 downtime reconciliation.
+
+## Iteration 9 — Catalog live-row + security headers (2026-09-14)
+
+SME answer for OCD-033: keep the single live catalog row. Do not invent
+as-of dating. Highest remaining non-SME residual is gap 18 (browser
+headers / CORS). Identity is already Bearer in circuit memory.
+
+### Implemented
+
+- Closed OCD-033 / gap 9. `VersionedConfigEntity` stays the single live
+  row. No as-of selector, scheduled activation, or overlapping versions.
+- `HttpSecurityHeaderPolicy` plus API/Web `SecurityHeadersMiddleware`
+  (nosniff, DENY framing, CSP, Permissions-Policy; API `Cache-Control:
+  no-store`).
+- `Cors:AllowAnyOrigin` HardStops outside Development (`SEC-CORS-ANY`).
+  Development lists localhost Web origins. No cookie session was added.
+
+### Requirements / risk
+
+- URS-BB-154, FRS-BB-188, SRS-BB-149, RISK-BB-261. FRS-BB-070 notes
+  OCD-033.
+
+### Tests
+
+- `HttpSecurityHeaderPolicyTests`
+- Full suite green: Domain 1195, Application 20, HL7 48, Printing 11,
+  Integration 707 (1981). Formal `TEST-BB-*` IDs still not assigned.
+
+### Next ranked residual
+
+Ask in conversation: OCD-007 purge; gap 12 neonatal defaults;
+OCD-001/006 eXM; OCD-022 phenotype versioning; OCD-008 dual-ID.
+OCD-004 remains open until a licensed extract is loaded. Leading
+non-SME: gap 19 `TEST-BB-*` packaging, gap 16 downtime reconciliation.
+Blazor CSP inline/eval remains an accepted residual of gap 18.

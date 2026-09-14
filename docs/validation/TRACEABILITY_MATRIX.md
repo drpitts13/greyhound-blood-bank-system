@@ -11,7 +11,10 @@ Traceability path (from [`VALIDATION_PLAN.md`](VALIDATION_PLAN.md)):
 URS-BB-*  →  FRS-BB-*  →  RISK-BB-*  →  SRS-BB-*  →  CODE  →  TEST (class or TEST-BB-*)  →  EVIDENCE
 ```
 
-Latest Cycle 8 row: URS-BB-153 / FRS-BB-187 / SRS-BB-148 / RISK-BB-260 →
+Latest Cycle 9 row: URS-BB-154 / FRS-BB-188 / SRS-BB-149 / RISK-BB-261 →
+`HttpSecurityHeaderPolicyTests`. OCD-033 closed (single live catalog row).
+
+Cycle 8: URS-BB-153 / FRS-BB-187 / SRS-BB-148 / RISK-BB-260 →
 `Hl7EndpointAuthorizationTests`; `docs/hl7-design.md` transport authentication.
 
 Cycle 7: URS-BB-152 / FRS-BB-186 / SRS-BB-147 / RISK-BB-259 →
