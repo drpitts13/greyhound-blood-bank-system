@@ -34,4 +34,10 @@ public sealed record TestWorkItemDto(
     string? CurrentResultInterpretation,
     ResultSource? CurrentResultSource,
     bool CanEnterResults,
-    string? BlockReason);
+    string? BlockReason,
+    bool ElectronicXmEligible = false,
+    bool FacilityAllowsElectronicCrossmatch = false,
+    string? ElectronicXmBlockReason = null,
+    string? ElectronicXmClinicalBlockReason = null,
+    bool HasOpenAntibodyIdWorkup = false,
+    long? OpenAntibodyIdWorkupId = null);

@@ -14,6 +14,11 @@
         {
             <span> · Specimen expires <span class="@(WorkItem.SpecimenExpired ? "badge badge-red" : "mono")">@expires.ToString("yyyy-MM-dd HH:mm")</span></span>
         }
+        · eXM @(WorkItem.ElectronicXmEligible ? "eligible" : (WorkItem.ElectronicXmClinicalBlockReason ?? WorkItem.ElectronicXmBlockReason ?? "not eligible"))
+        @if (WorkItem.HasOpenAntibodyIdWorkup)
+        {
+            <span> · Open antibody-identification workup</span>
+        }
     </div>
 
     @if (WorkItem.CurrentResultId is not null)

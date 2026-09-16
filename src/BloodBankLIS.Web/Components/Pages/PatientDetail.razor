@@ -1121,7 +1121,7 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Expires</th><th>Status</th><th>Source</th><th>Priority</th><th>Ordered</th><th></th></tr></thead>
+                    <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Expires</th><th>eXM</th><th>Status</th><th>Source</th><th>Priority</th><th>Ordered</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var item in _testWorklist)
                         {
@@ -1140,6 +1140,16 @@ else
                                     }
                                 </td>
                                 <td>
+                                    @if (item.ElectronicXmEligible)
+                                    {
+                                        <span class="badge badge-green">Eligible</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-amber" title="@(item.ElectronicXmClinicalBlockReason ?? item.ElectronicXmBlockReason ?? "Not eligible")">Not eligible</span>
+                                    }
+                                </td>
+                                <td>
                                     @if (item.CurrentResultStatus is not null)
                                     {
                                         <span class="@Ui.Badge(item.CurrentResultStatus.Value)">@item.CurrentResultStatus</span>
@@ -1153,6 +1163,10 @@ else
                                 <td>@item.Priority</td>
                                 <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                                 <td class="right">
+                                    @if (item.HasOpenAntibodyIdWorkup && item.OpenAntibodyIdWorkupId is long workupId)
+                                    {
+                                        <button class="btn btn-ghost btn-sm" @onclick='() => Nav.NavigateTo($"/patients/{item.PatientId}/antibody-id/{workupId}")'>ABID</button>
+                                    }
                                     <button class="btn btn-ghost btn-sm" @onclick="() => ToggleTestEntry(item.OrderLineId)">
                                         @(_expandedTestLineId == item.OrderLineId ? "Hide" : "Enter")
                                     </button>
@@ -1160,7 +1174,7 @@ else
                             </tr>
                             @if (_expandedTestLineId == item.OrderLineId)
                             {
-                                <tr><td colspan="9">
+                                <tr><td colspan="10">
                                     <TestResultEntryPanel WorkItem="item" OnSaved="OnTestResultSaved" />
                                 </td></tr>
                             }

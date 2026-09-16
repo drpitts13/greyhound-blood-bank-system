@@ -22,7 +22,20 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Specimen>(c), new EfRepository<Patient>(c),
             new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<AntibodyHistory>(c),
             new EfRepository<TestResult>(c),
-            new EfRepository<TestDefinition>(c), new EfRepository<SpecimenTypeDefinition>(c), _factory.Clock);
+            new EfRepository<TestDefinition>(c), new EfRepository<SpecimenTypeDefinition>(c), _factory.Clock,
+            eligibility: Eligibility(c),
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
+
+    private ElectronicCrossmatchEligibilityService Eligibility(BloodBankDbContext c) =>
+        new(new EfRepository<Patient>(c),
+            new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<AntibodyHistory>(c),
+            new EfRepository<AntibodyIdentificationWorkup>(c),
+            new AntibodyScreenCompatLoader(
+                new EfRepository<TestResult>(c),
+                new EfRepository<TestDefinition>(c),
+                new EfRepository<AntibodyHistory>(c)),
+            new BloodBankLIS.Application.Compliance.FacilityPolicyService(new EfRepository<SystemSetting>(c)));
 
     private ResultService Results(BloodBankDbContext c) =>
         new(new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
@@ -298,6 +311,45 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.True(item.SpecimenExpired);
         Assert.False(item.CanEnterResults);
         Assert.Contains("expired", item.BlockReason!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task PendingWorklist_SurfacesElectronicXmHoldAndOpenAntibodyId()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        c.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory
+            {
+                PatientId = seed.patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Source = BloodTypeSource.HistoricalImport,
+                IsCurrent = false
+            },
+            new PatientBloodTypeHistory
+            {
+                PatientId = seed.patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Source = BloodTypeSource.TestResult,
+                IsCurrent = true
+            });
+        var workup = new AntibodyIdentificationWorkup
+        {
+            PatientId = seed.patient.Id,
+            SpecimenId = seed.specimen!.Id,
+            PrimaryLotId = 1,
+            Status = AntibodyWorkupStatus.InProgress
+        };
+        c.AntibodyIdentificationWorkups.Add(workup);
+        await c.SaveChangesAsync();
+
+        var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.True(item.HasOpenAntibodyIdWorkup);
+        Assert.Equal(workup.Id, item.OpenAntibodyIdWorkupId);
+        Assert.False(item.ElectronicXmEligible);
+        Assert.Contains("antibody-identification workup", item.ElectronicXmClinicalBlockReason, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

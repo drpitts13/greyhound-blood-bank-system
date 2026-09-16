@@ -726,3 +726,29 @@ and the queue showed raw patient and trigger ids.
 
 Next workflow family: patient testing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 22 — Worklist eXM hold and open ABID (2026-09-16)
+
+Workflow-audit loop tick 8 (patient testing). The pending worklist already
+showed type, antibodies, and specimen expiry, but electronic-XM holds and
+an open antibody-identification workup still required opening the chart.
+
+### Implemented
+
+- `TestWorkItemDto` carries existing AABB 5.16 eligibility, the first
+  clinical hold, and the open ABID workup id. `/test-worklist` and the
+  patient Tests tab show Eligible/Not eligible and an ABID link.
+  Facility allow-EXM (OCD-006) is unchanged.
+
+### Requirements / risk
+
+- URS-BB-168, FRS-BB-202, SRS-BB-163, RISK-BB-274.
+
+### Tests
+
+- TEST-BB-054 (`TestWorklistTests.PendingWorklist_SurfacesElectronicXmHoldAndOpenAntibodyId`).
+
+### Next ranked residual
+
+Next workflow family: unit preparation. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

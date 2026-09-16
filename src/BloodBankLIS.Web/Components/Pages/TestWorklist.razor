@@ -6,7 +6,7 @@
 <PageTitle>Test Worklist &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Test Worklist</h1>
-<p class="muted">Pending patient tests and product ABO/Rh retypes. Each row shows current ABO/Rh, antibody history, and specimen expiry so the bench does not open the chart just to check dating and history. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it.</p>
+<p class="muted">Pending patient tests and product ABO/Rh retypes. Each row shows current ABO/Rh, antibody history, specimen expiry, electronic-XM eligibility, and an open antibody-identification workup so the bench does not open the chart just to check dating, history, or eXM holds. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it.</p>
 
 <Outcome Value="_fb" />
 
@@ -44,6 +44,7 @@
                     <th>Order #</th>
                     <th>Accession</th>
                     <th>Expires</th>
+                    <th>eXM</th>
                     <th>Status</th>
                     <th>Source</th>
                     <th>Priority</th>
@@ -82,6 +83,18 @@
                             }
                         </td>
                         <td>
+                            @if (item.ElectronicXmEligible)
+                            {
+                                <span class="badge badge-green">Eligible</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-amber" title="@(item.ElectronicXmClinicalBlockReason ?? item.ElectronicXmBlockReason ?? "Not eligible")">
+                                    @(item.FacilityAllowsElectronicCrossmatch || !string.IsNullOrWhiteSpace(item.ElectronicXmClinicalBlockReason) ? "Not eligible" : "Policy off")
+                                </span>
+                            }
+                        </td>
+                        <td>
                             @if (item.CurrentResultStatus is not null)
                             {
                                 <span class="@Ui.Badge(item.CurrentResultStatus.Value)">@item.CurrentResultStatus</span>
@@ -96,6 +109,10 @@
                         <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick='() => Nav.NavigateTo($"/patients/{item.PatientId}?tab=tests")'>Patient</button>
+                            @if (item.HasOpenAntibodyIdWorkup && item.OpenAntibodyIdWorkupId is long workupId)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick='() => Nav.NavigateTo($"/patients/{item.PatientId}/antibody-id/{workupId}")'>ABID</button>
+                            }
                             <button class="btn btn-ghost btn-sm" @onclick="() => ToggleEntry(item.OrderLineId)">
                                 @(_expandedLineId == item.OrderLineId ? "Hide" : WorklistActionLabel(item))
                             </button>
@@ -103,7 +120,7 @@
                     </tr>
                     @if (_expandedLineId == item.OrderLineId)
                     {
-                        <tr><td colspan="13">
+                        <tr><td colspan="14">
                             <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
                         </td></tr>
                     }

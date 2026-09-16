@@ -74,6 +74,10 @@ Cycle 21: seeded Patricia Demo verify/issue/transfusion charges appear
 on the review queue with MRN, unit/test, and queued DFT control id
 (RISK-BB-273). Capture stays automatic; review-before-export is unchanged.
 
+Cycle 22: the pending test worklist shows electronic-XM eligibility and
+an open antibody-identification workup (RISK-BB-274). AABB 5.16 criteria
+and OCD-006 remain the existing eligibility service.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

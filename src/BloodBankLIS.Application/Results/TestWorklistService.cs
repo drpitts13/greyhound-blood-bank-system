@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -23,6 +24,8 @@ public sealed class TestWorklistService
     private readonly IRepository<TestDefinition> _testDefinitions;
     private readonly IRepository<SpecimenTypeDefinition> _specimenTypes;
     private readonly IClock _clock;
+    private readonly ElectronicCrossmatchEligibilityService? _eligibility;
+    private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
 
     public TestWorklistService(
         IRepository<Order> orders,
@@ -35,7 +38,9 @@ public sealed class TestWorklistService
         IRepository<TestResult> results,
         IRepository<TestDefinition> testDefinitions,
         IRepository<SpecimenTypeDefinition> specimenTypes,
-        IClock clock)
+        IClock clock,
+        ElectronicCrossmatchEligibilityService? eligibility = null,
+        IRepository<AntibodyIdentificationWorkup>? workups = null)
     {
         _orders = orders;
         _orderLines = orderLines;
@@ -48,6 +53,8 @@ public sealed class TestWorklistService
         _testDefinitions = testDefinitions;
         _specimenTypes = specimenTypes;
         _clock = clock;
+        _eligibility = eligibility;
+        _workups = workups;
     }
 
     public Task<IReadOnlyList<TestWorkItemDto>> ListForPatientAsync(
@@ -135,6 +142,28 @@ public sealed class TestWorklistService
         var antibodyRows = (await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct))
             .GroupBy(a => a.PatientId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.IsActive).ThenBy(a => a.AntibodySpecificity).ToList());
+        var openWorkupIds = _workups is null
+            ? new Dictionary<long, long>()
+            : (await _workups.ListAsync(
+                    w => patientIds.Contains(w.PatientId)
+                         && (w.Status == AntibodyWorkupStatus.InProgress
+                             || w.Status == AntibodyWorkupStatus.PendingInterpretation
+                             || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
+                    ct))
+                .GroupBy(w => w.PatientId)
+                .ToDictionary(g => g.Key, g => g.OrderBy(w => w.Id).First().Id);
+        var eligibility = new Dictionary<long, ElectronicCrossmatchEligibilityDto>();
+        if (_eligibility is not null)
+        {
+            foreach (var id in patientIds)
+            {
+                var assessed = await _eligibility.AssessAsync(id, ct);
+                if (assessed is not null)
+                {
+                    eligibility[id] = assessed;
+                }
+            }
+        }
 
         var primarySpecimenByOrder = links
             .GroupBy(l => l.OrderId)
@@ -219,6 +248,8 @@ public sealed class TestWorklistService
                 specimenTypeDefs);
             currentTypes.TryGetValue(order.PatientId, out var currentType);
             antibodyRows.TryGetValue(order.PatientId, out var history);
+            eligibility.TryGetValue(order.PatientId, out var exm);
+            openWorkupIds.TryGetValue(order.PatientId, out var openWorkupId);
             items.Add(new TestWorkItemDto(
                 line.Id,
                 order.Id,
@@ -244,7 +275,14 @@ public sealed class TestWorklistService
                 current?.Interpretation,
                 current?.Source,
                 canEnter,
-                blockReason));
+                blockReason,
+                exm?.Eligible ?? false,
+                exm?.FacilityAllowsElectronicCrossmatch ?? false,
+                exm?.BlockingReason,
+                exm?.Criteria.FirstOrDefault(c =>
+                    !c.Satisfied && c.Code != ElectronicCrossmatchEligibilityRule.FacilityCode)?.Detail,
+                openWorkupId > 0,
+                openWorkupId > 0 ? openWorkupId : null));
         }
 
         return items;
