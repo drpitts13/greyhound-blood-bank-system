@@ -1,0 +1,156 @@
+@page "/admin/crossmatch-settings"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Application.PatientWorkspace
+@using BloodBankLIS.Domain.Enums
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Crossmatch Settings &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Crossmatch Settings</h1>
+</div>
+<p class="muted">Default serologic crossmatch tests by antibody history, plus electronic XM candidate minimums. Settings are versioned and audited. The facility allow-electronic-XM switch remains on <a href="admin/facility-policies">Facility Policy</a>.</p>
+
+<Outcome Value="_feedback" />
+
+@if (_loading)
+{
+    <div class="loading">Loading...</div>
+}
+else if (_settings is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title"><h3>Serologic defaults</h3></div>
+        <div class="form-row">
+            <div class="field">
+                <label>Default test — negative antibody history</label>
+                <select @bind="_negCode" disabled="@(!CanEdit)">
+                    @foreach (var t in SerologicTests)
+                    {
+                        <option value="@t.Code">@t.Name (@t.Code) — @t.ResultValueType</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Default test — positive antibody history</label>
+                <select @bind="_posCode" disabled="@(!CanEdit)">
+                    @foreach (var t in SerologicTests)
+                    {
+                        <option value="@t.Code">@t.Name (@t.Code) — @t.ResultValueType</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <p class="muted">Attached to product orders after the current antibody screen is verified. Electronic-XM eligible patients skip these tests.</p>
+    </div>
+
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title"><h3>Electronic crossmatch</h3></div>
+        <div class="form-row">
+            <div class="field">
+                <label>Electronic XM test</label>
+                <select @bind="_exmCode" disabled="@(!CanEdit)">
+                    @foreach (var t in ElectronicTests)
+                    {
+                        <option value="@t.Code">@t.Name (@t.Code)</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Minimum visits (negative screens)</label>
+                <input type="number" min="1" @bind="_minVisits" disabled="@(!CanEdit)" />
+            </div>
+            <div class="field">
+                <label>Minimum specimens (negative screens)</label>
+                <input type="number" min="1" @bind="_minSpecimens" disabled="@(!CanEdit)" />
+            </div>
+            <div class="field">
+                <label>Minimum tests (negative screens)</label>
+                <input type="number" min="1" @bind="_minTests" disabled="@(!CanEdit)" />
+            </div>
+        </div>
+        <p class="muted">
+            Minimums count only completed antibody screens with no positive reaction.
+            Facility policy allow electronic XM:
+            <strong>@(_settings.AllowElectronicCrossmatch ? "enabled" : "disabled")</strong>.
+        </p>
+    </div>
+
+    @if (CanEdit)
+    {
+        <div class="bb-card" style="margin-top:1rem;">
+            <div class="field">
+                <label>Change reason</label>
+                <input @bind="_reason" placeholder="Why this change is required" />
+            </div>
+            <div class="flex gap" style="margin-top:1rem;">
+                <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private CrossmatchSettingsDto? _settings;
+    private Feedback? _feedback;
+    private string _negCode = "XM";
+    private string _posCode = "CXM";
+    private string _exmCode = "EXM";
+    private int _minVisits = 2;
+    private int _minSpecimens = 2;
+    private int _minTests = 2;
+    private string _reason = string.Empty;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+
+    private IEnumerable<CrossmatchTestOptionDto> SerologicTests =>
+        _settings?.CrossmatchTests ?? Enumerable.Empty<CrossmatchTestOptionDto>();
+
+    private IEnumerable<CrossmatchTestOptionDto> ElectronicTests =>
+        SerologicTests.Where(t => t.ResultValueType == ResultValueType.Crossmatch);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminCrossmatchSettingsAsync();
+        if (r.Succeeded && r.Value is not null)
+        {
+            _settings = r.Value;
+            _negCode = r.Value.NegativeAntibodyHistoryTestCode;
+            _posCode = r.Value.PositiveAntibodyHistoryTestCode;
+            _exmCode = r.Value.ElectronicCrossmatchTestCode;
+            _minVisits = r.Value.ElectronicXmMinimumVisits;
+            _minSpecimens = r.Value.ElectronicXmMinimumSpecimens;
+            _minTests = r.Value.ElectronicXmMinimumTests;
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        var r = await Api.UpdateAdminCrossmatchSettingsAsync(new SaveCrossmatchSettingsRequest(
+            _negCode, _posCode, _exmCode, _minVisits, _minSpecimens, _minTests, _reason));
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _feedback = r.ToFeedback("Crossmatch settings saved.");
+            _reason = string.Empty;
+            await LoadAsync();
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+    }
+}

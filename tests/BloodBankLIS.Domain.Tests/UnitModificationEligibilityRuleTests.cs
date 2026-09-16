@@ -115,11 +115,12 @@ public class UnitModificationEligibilityRuleTests
     }
 
     [Fact]
-    public void EvaluateDivide_TwoChildrenNoVolumes_Passes()
+    public void EvaluateDivide_TwoChildrenNoVolumes_HardStops()
     {
         var eval = UnitModificationEligibilityRule.EvaluateDivide(childCount: 2, sourceVolume: null, childVolumes: []);
 
-        Assert.False(eval.IsHardStopped);
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeRequiredCode);
     }
 
     [Fact]
@@ -149,10 +150,11 @@ public class UnitModificationEligibilityRuleTests
     }
 
     [Fact]
-    public void EvaluateDivide_PartialVolumes_SkipsVolumeCheck()
+    public void EvaluateDivide_PartialVolumes_HardStops()
     {
         var eval = UnitModificationEligibilityRule.EvaluateDivide(childCount: 2, sourceVolume: 100m, childVolumes: [150m, null]);
 
-        Assert.False(eval.IsHardStopped);
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeRequiredCode);
     }
 }

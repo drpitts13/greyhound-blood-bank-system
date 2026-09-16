@@ -5,7 +5,8 @@ patient-safety impact among items that are still open. Cycle 1 implemented
 **gap 1**. Cycle 2 implemented **gap 6**. Cycle 3 implemented **gap 7**.
 Cycle 4 implemented **gap 8**. Cycle 6 implemented the bedside identity-token
 slice of **gap 15**. Cycle 7 added the licensed ISBT catalog **import path**
-for **gap 2** (extract not yet loaded). Cycle 8 recorded **gap 5** as
+for **gap 2**; Cycle 14 added CSV/TSV/JSON extract import if files are
+available (extract not yet loaded). Cycle 8 recorded **gap 5** as
 accepted transport-trust (OCD-034). Cycle 9 closed **gap 9** (OCD-033
 live row) and added security headers for **gap 18**. Cycle 10 closed
 **gap 10** (OCD-007 no purge) and packaged **gap 19** (`TEST-BB-*`).
@@ -21,7 +22,7 @@ them silently and do not invent ICCBBA tables.
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|
 | 1 | P0 via P6 | API identity spoofing: `X-User` trusted after login; empty password hash signs in | Low (Bearer session; RISK-BB-254) | **Implemented Cycle 1** |
-| 2 | P1 | Unlicensed ISBT / ICCBBA catalogs (RISK-BB-014, OCD-004) | Medium (import path added Cycle 7; licensed extract not yet loaded) | **Import path Cycle 7**; do not invent tables |
+| 2 | P1 | Unlicensed ISBT / ICCBBA catalogs (RISK-BB-014, OCD-004) | Medium (JSON + extract-file import; licensed extract not yet loaded) | **Import path Cycle 7/14**; do not invent tables |
 | 3 | P3 | Antigen phenotype updated in place (OCD-022) | Medium | Do not change default |
 | 4 | P1 | Patient merge has no second authorizer (OCD-010) | Low | **Closed 2026-09-14** — keep `patient.merge` + reason only |
 | 5 | P6 / P8 | HL7 MLLP/file-drop inbound is transport-trust; HTTP inbound is session + `hl7.manage` | Low (accepted residual) | **Closed 2026-09-14** — keep transport-trust; do not invent a credential (OCD-034) |

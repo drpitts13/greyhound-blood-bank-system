@@ -15,6 +15,13 @@ public interface IInventoryRepository
 
     Task<bool> ComponentIdentityKeyExistsAsync(string componentIdentityKey, CancellationToken cancellationToken = default);
 
+    /// <summary>Division codes already assigned to the same DIN + PDC + collection type.</summary>
+    Task<IReadOnlyList<string>> ListUsedDivisionCodesAsync(
+        string din,
+        string productDescriptionCode,
+        string collectionType,
+        CancellationToken cancellationToken = default);
+
     Task<BloodUnit?> GetByComponentIdentityAsync(string componentIdentity, CancellationToken cancellationToken = default);
 
     Task AddUnitAsync(BloodUnit unit, CancellationToken cancellationToken = default);

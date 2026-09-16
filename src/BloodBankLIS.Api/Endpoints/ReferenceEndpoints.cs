@@ -64,6 +64,17 @@ public static class ReferenceEndpoints
             return Results.Ok(users);
         });
 
+        group.MapGet("/special-requirements", async (BloodBankDbContext context, CancellationToken ct) =>
+        {
+            var items = await context.SpecialRequirementDefinitions.AsNoTracking()
+                .Where(d => d.IsActive && !d.IsDraft)
+                .OrderBy(d => d.Level)
+                .ThenBy(d => d.SortOrder)
+                .ThenBy(d => d.Code)
+                .ToListAsync(ct);
+            return Results.Ok(items.Select(SpecialRequirementDefinitionDtoMapping.From));
+        });
+
         group.MapGet("/blood-attributes", async (BloodBankDbContext context, CancellationToken ct) =>
         {
             var attrs = await context.BloodAttributeDefinitions.AsNoTracking()

@@ -35,6 +35,7 @@ public sealed class CompatibilityService
     private readonly FacilityPolicyService? _policy;
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
+    private readonly CrossmatchSettingsReader? _crossmatchSettings;
 
     public CompatibilityService(
         IInventoryRepository inventory,
@@ -53,7 +54,8 @@ public sealed class CompatibilityService
         IAuditWriter? audit = null,
         FacilityPolicyService? policy = null,
         IPermissionEvaluator? permissions = null,
-        IRepository<AntibodyIdentificationWorkup>? workups = null)
+        IRepository<AntibodyIdentificationWorkup>? workups = null,
+        CrossmatchSettingsReader? crossmatchSettings = null)
     {
         _inventory = inventory;
         _crossmatches = crossmatches;
@@ -72,19 +74,44 @@ public sealed class CompatibilityService
         _policy = policy;
         _permissions = permissions;
         _workups = workups;
+        _crossmatchSettings = crossmatchSettings;
     }
 
-    public async Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(RecordCrossmatchRequest request, CancellationToken ct = default)
+    public Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(
+        RecordCrossmatchRequest request,
+        CancellationToken ct = default) =>
+        RecordCrossmatchCoreAsync(request, skipPermission: false, orderId: null, encounterId: null, ct);
+
+    /// <summary>
+    /// System electronic XM after an authorized allocation. Eligibility is still
+    /// re-checked immediately before insert.
+    /// </summary>
+    public Task<EvaluationResult<Crossmatch>> RecordElectronicCrossmatchSystemAsync(
+        RecordCrossmatchRequest request,
+        long? orderId,
+        long? encounterId,
+        CancellationToken ct = default) =>
+        RecordCrossmatchCoreAsync(request, skipPermission: true, orderId, encounterId, ct);
+
+    private async Task<EvaluationResult<Crossmatch>> RecordCrossmatchCoreAsync(
+        RecordCrossmatchRequest request,
+        bool skipPermission,
+        long? orderId,
+        long? encounterId,
+        CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var denied = await RejectUnauthorizedAsync<Crossmatch>(
-            PermissionCodes.CompatibilityCrossmatch,
-            CompatibilityAuthorizationRule.EvaluateCrossmatch,
-            ct);
-        if (denied is not null)
+        if (!skipPermission)
         {
-            return denied;
+            var denied = await RejectUnauthorizedAsync<Crossmatch>(
+                PermissionCodes.CompatibilityCrossmatch,
+                CompatibilityAuthorizationRule.EvaluateCrossmatch,
+                ct);
+            if (denied is not null)
+            {
+                return denied;
+            }
         }
 
         var unit = await _inventory.GetUnitAsync(request.BloodUnitId, ct);
@@ -132,7 +159,9 @@ public sealed class CompatibilityService
             PerformedUtc = _clock.UtcNow,
             PerformedBy = _currentUser.UserName,
             ExpiresUtc = specimen.ExpiresUtc ?? _clock.UtcNow.AddHours(DefaultCrossmatchValidityHours),
-            Comment = request.Comment
+            Comment = request.Comment,
+            OrderId = orderId,
+            EncounterId = encounterId
         };
 
         if (request.Method == CrossmatchMethod.Electronic)
@@ -516,8 +545,24 @@ public sealed class CompatibilityService
                     || w.Status == AntibodyWorkupStatus.PendingInterpretation
                     || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
             ct);
+        var requiresExtendedXm = await _antibodyScreenCompat.HasActiveExtendedCrossmatchRequirementAsync(patientId, ct);
+        var counts = await _antibodyScreenCompat.CountNegativeAntibodyScreensAsync(patientId, ct);
+        var settings = _crossmatchSettings is null
+            ? null
+            : await _crossmatchSettings.GetActiveAsync(ct);
         var eligibility = ElectronicCrossmatchEligibilityRule.Evaluate(
-            currentAboRhConfirmed, screenNegative, hasAntibodyHistory, secondAbo, hasOpenWorkup);
+            currentAboRhConfirmed,
+            screenNegative,
+            hasAntibodyHistory,
+            secondAbo,
+            hasOpenWorkup,
+            requiresExtendedXm,
+            counts.Visits,
+            counts.Specimens,
+            counts.Tests,
+            settings?.ElectronicXmMinimumVisits ?? 0,
+            settings?.ElectronicXmMinimumSpecimens ?? 0,
+            settings?.ElectronicXmMinimumTests ?? 0);
         return eligibility.Severity == RuleSeverity.HardStop ? eligibility : null;
     }
 

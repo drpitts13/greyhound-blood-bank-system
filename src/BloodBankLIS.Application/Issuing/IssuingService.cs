@@ -35,6 +35,7 @@ public sealed class IssuingService
     private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
     private readonly IRepository<ExceptionDefinition> _exceptionDefinitions;
     private readonly IRepository<SpecialTransfusionRequirement> _specialRequirements;
+    private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
     private readonly IRepository<ProductAttribute> _productAttributes;
     private readonly IRepository<ProductAttributeAssignment> _productAttributeAssignments;
     private readonly IRepository<Order> _orders;
@@ -50,6 +51,7 @@ public sealed class IssuingService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
+    private readonly CrossmatchSettingsReader? _crossmatchSettings;
 
     public IssuingService(
         IInventoryRepository inventory,
@@ -79,7 +81,9 @@ public sealed class IssuingService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IRepository<AntibodyIdentificationWorkup>? workups = null)
+        IRepository<AntibodyIdentificationWorkup>? workups = null,
+        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
+        CrossmatchSettingsReader? crossmatchSettings = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -109,6 +113,8 @@ public sealed class IssuingService
         _currentUser = currentUser;
         _audit = audit;
         _workups = workups;
+        _requirementDefinitions = requirementDefinitions;
+        _crossmatchSettings = crossmatchSettings;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -187,7 +193,8 @@ public sealed class IssuingService
                 ? null
                 : new PatientIdentityMatchRule.IdentityToken(request.PatientIdentifier2Type, request.PatientIdentifier2Value));
 
-        var specialMet = await SpecialRequirementsSatisfiedAsync(request.PatientId, unit, bloodAttrs.UnitAntigens, now, ct);
+        var specialMet = await SpecialRequirementsSatisfiedAsync(
+            request.PatientId, unit, bloodAttrs.UnitAntigens, now, request.AcknowledgedSpecialRequirementCodes, bloodType, ct);
         var productMatches = await ProductMatchesOrderAsync(allocation, request.OrderId, unit.ProductTypeId, ct);
         var linkedOrderId = request.OrderId ?? allocation?.OrderId;
         var linkedOrder = linkedOrderId is long oid ? await _orders.GetByIdAsync(oid, ct) : null;
@@ -399,7 +406,8 @@ public sealed class IssuingService
             IssueAppearance = request.Appearance,
             SecondVerifier = request.SecondVerifier,
             PatientIdentifier1 = request.PatientIdentifier1Value,
-            PatientIdentifier2 = request.PatientIdentifier2Value
+            PatientIdentifier2 = request.PatientIdentifier2Value,
+            AcknowledgedSpecialRequirementCodes = JoinAcknowledgedCodes(request.AcknowledgedSpecialRequirementCodes)
         };
         await _issues.AddAsync(issue, ct);
 
@@ -946,20 +954,66 @@ public sealed class IssuingService
         BloodUnit unit,
         IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> unitAntigens,
         DateTime nowUtc,
+        IReadOnlyList<string>? acknowledgedCodes,
+        PatientBloodTypeHistory? bloodType,
         CancellationToken ct)
     {
         var rows = await _specialRequirements.ListAsync(r => r.PatientId == patientId && r.IsActive, ct);
-        var refs = rows.Select(r => new SpecialTransfusionRequirementRule.RequirementRef(
-            r.RequirementType, r.AntigenCode, r.EffectiveUtc, r.ExpiresUtc, r.IsActive)).ToList();
+        var definitions = _requirementDefinitions is null
+            ? []
+            : await _requirementDefinitions.ListAsync(ct);
+        var byId = definitions.ToDictionary(d => d.Id);
+        var refs = rows.Select(r => ToRequirementRef(r, byId)).ToList();
 
         var assignments = await _productAttributeAssignments.ListAsync(
             a => a.ProductTypeId == unit.ProductTypeId && a.IsActive, ct);
         var attrIds = assignments.Select(a => a.ProductAttributeId).ToHashSet();
         var attributes = await _productAttributes.ListAsync(a => attrIds.Contains(a.Id) && a.IsActive, ct);
         var codes = attributes.Select(a => a.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var acks = (acknowledgedCodes ?? [])
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim())
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var results = SpecialTransfusionRequirementRule.Evaluate(refs, codes, unitAntigens, nowUtc);
+        var results = SpecialTransfusionRequirementRule.Evaluate(
+            refs,
+            codes,
+            unitAntigens,
+            nowUtc,
+            acks,
+            bloodType?.Abo ?? AboGroup.Unknown,
+            bloodType?.AboSubgroup ?? AboSubgroup.Unknown);
         return SpecialTransfusionRequirementRule.AllMet(results);
+    }
+
+    private static SpecialTransfusionRequirementRule.RequirementRef ToRequirementRef(
+        SpecialTransfusionRequirement row,
+        IReadOnlyDictionary<long, SpecialRequirementDefinition> definitions)
+    {
+        if (row.RequirementDefinitionId is long id && definitions.TryGetValue(id, out var definition))
+        {
+            return new SpecialTransfusionRequirementRule.RequirementRef(
+                definition.Code,
+                definition.EnforcementKind,
+                definition.ProductAttributeCode,
+                row.AntigenCode,
+                row.EffectiveUtc,
+                row.ExpiresUtc,
+                row.IsActive);
+        }
+
+        return SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
+            row.RequirementType, row.AntigenCode, row.EffectiveUtc, row.ExpiresUtc, row.IsActive);
+    }
+
+    private static string? JoinAcknowledgedCodes(IReadOnlyList<string>? codes)
+    {
+        var values = (codes ?? [])
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Select(c => c.Trim().ToUpperInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        return values.Count == 0 ? null : string.Join(",", values);
     }
 
     private async Task<bool> ProductMatchesOrderAsync(Allocation? allocation, long? requestOrderId, long unitProductTypeId, CancellationToken ct)
@@ -993,8 +1047,24 @@ public sealed class IssuingService
                     || w.Status == AntibodyWorkupStatus.PendingInterpretation
                     || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
             ct);
+        var requiresExtendedXm = await _antibodyScreenCompat.HasActiveExtendedCrossmatchRequirementAsync(patientId, ct);
+        var counts = await _antibodyScreenCompat.CountNegativeAntibodyScreensAsync(patientId, ct);
+        var settings = _crossmatchSettings is null
+            ? null
+            : await _crossmatchSettings.GetActiveAsync(ct);
         return ElectronicCrossmatchEligibilityRule.Evaluate(
-            currentConfirmed, screenNegative, hasAntibodyHistory, secondAbo, hasOpenWorkup).Severity
+            currentConfirmed,
+            screenNegative,
+            hasAntibodyHistory,
+            secondAbo,
+            hasOpenWorkup,
+            requiresExtendedXm,
+            counts.Visits,
+            counts.Specimens,
+            counts.Tests,
+            settings?.ElectronicXmMinimumVisits ?? 0,
+            settings?.ElectronicXmMinimumSpecimens ?? 0,
+            settings?.ElectronicXmMinimumTests ?? 0).Severity
             == RuleSeverity.Pass;
     }
 

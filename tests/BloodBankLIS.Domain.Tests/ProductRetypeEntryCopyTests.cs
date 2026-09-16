@@ -22,26 +22,18 @@ public class ProductRetypeEntryCopyTests
     public void Saved_NamesInterpretedType()
     {
         Assert.Equal(
-            "Retype saved as O+. A second user must verify before the unit is released.",
+            "Retype recorded as O+. Unit is Available.",
             ProductRetypeEntryCopy.Saved(AboGroup.O, RhType.Positive));
     }
 
     [Fact]
-    public void VerifiedAvailable_NamesInterpretedType()
+    public void SavedQuarantine_IncludesDiscrepancyWhenPresent()
     {
         Assert.Equal(
-            "Retype verified as O+. Unit is Available.",
-            ProductRetypeEntryCopy.VerifiedAvailable(AboGroup.O, RhType.Positive));
-    }
-
-    [Fact]
-    public void VerifiedQuarantine_IncludesDiscrepancyWhenPresent()
-    {
+            "Retype recorded as A+. Anti-A does not match labeled O.",
+            ProductRetypeEntryCopy.SavedQuarantine(AboGroup.A, RhType.Positive, "Anti-A does not match labeled O."));
         Assert.Equal(
-            "Retype verified as A+. Anti-A does not match labeled O.",
-            ProductRetypeEntryCopy.VerifiedQuarantine(AboGroup.A, RhType.Positive, "Anti-A does not match labeled O."));
-        Assert.Equal(
-            "Retype verified as A+. Unit moved to Quarantine.",
-            ProductRetypeEntryCopy.VerifiedQuarantine(AboGroup.A, RhType.Positive, null));
+            "Retype recorded as A+. Unit moved to Quarantine.",
+            ProductRetypeEntryCopy.SavedQuarantine(AboGroup.A, RhType.Positive, null));
     }
 }

@@ -5,10 +5,14 @@
     <div class="flex gap" style="flex-wrap:wrap;">
         <div><span class="muted">Labeled type</span> <strong>@Ui.BloodType(Detail.LabeledAbo, Detail.LabeledRh)</strong></div>
         <div><span class="muted">Product</span> <strong>@Detail.ProductCode</strong> @Detail.ProductName</div>
-        <div><span class="@Ui.Badge(Detail.Status)">@Detail.Status</span></div>
+        @if (!string.IsNullOrWhiteSpace(Detail.TestCode))
+        {
+            <div><span class="muted">Retype test</span> <strong>@(Detail.TestName ?? Detail.TestCode)</strong> <span class="mono">@Detail.TestCode</span></div>
+        }
+        <div><span class="@Ui.Badge(Detail.Status)">@Ui.StatusLabel(Detail.Status)</span></div>
     </div>
 
-    @if (Detail.Latest is not null)
+    @if (Detail.Latest is not null && Detail.Latest.Status != ResultStatus.Pending)
     {
         <div class="bb-card" style="background:#fafbfe;">
             <h4>Last retype</h4>
@@ -36,10 +40,10 @@
 
     @if (Detail.CanVerify)
     {
-        <div class="alert alert-warning">@(Detail.BlockReason ?? "An entered retype is awaiting verification.")</div>
-        @if (Session.Has(PermissionCodes.ResultVerify))
+        <div class="alert alert-warning">@(Detail.BlockReason ?? "An entered retype has not been confirmed.")</div>
+        @if (Session.Has(PermissionCodes.ResultVerify) || Session.Has(PermissionCodes.ResultEnter))
         {
-            <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="VerifyAsync">Verify retype</button>
+            <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="VerifyAsync">Confirm retype</button>
         }
     }
     else if (!string.IsNullOrWhiteSpace(Detail.BlockReason) && !Detail.CanRecord)
@@ -166,8 +170,11 @@
         {
             var latest = r.Value.Latest;
             _fb = latest is null
-                ? r.ToFeedback("Retype saved. A second user must verify before the unit is released.")
-                : r.ToFeedback(ProductRetypeEntryCopy.Saved(latest.InterpretedAbo, latest.InterpretedRh));
+                ? r.ToFeedback("Retype recorded.")
+                : r.ToFeedback(latest.MatchesLabel
+                    ? ProductRetypeEntryCopy.Saved(latest.InterpretedAbo, latest.InterpretedRh)
+                    : ProductRetypeEntryCopy.SavedQuarantine(
+                        latest.InterpretedAbo, latest.InterpretedRh, latest.DiscrepancyDetail));
             await OnSaved.InvokeAsync();
         }
         else

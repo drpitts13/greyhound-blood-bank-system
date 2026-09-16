@@ -13,9 +13,15 @@ public sealed record ProductRetypeWorkItemDto(
     RhType RhD,
     string BloodType,
     DateTime ReceivedUtc,
-    UnitStatus Status)
+    UnitStatus Status,
+    string? TestCode = null,
+    string? TestName = null,
+    ResultStatus? ResultStatus = null)
 {
-    public static ProductRetypeWorkItemDto From(BloodUnit unit) => new(
+    public static ProductRetypeWorkItemDto From(
+        BloodUnit unit,
+        ProductRetypeResult? latest = null,
+        string? testName = null) => new(
         unit.Id,
         unit.UnitNumber,
         unit.ProductType?.ProductCode ?? string.Empty,
@@ -24,7 +30,10 @@ public sealed record ProductRetypeWorkItemDto(
         unit.RhD,
         unit.BloodType.ToString(),
         unit.CreatedUtc,
-        unit.Status);
+        unit.Status,
+        latest?.TestCode,
+        testName,
+        latest?.Status);
 }
 
 public sealed record ProductRetypeSubtestDto(string Code, string Label, bool Required);
@@ -65,7 +74,9 @@ public sealed record ProductRetypeDetailDto(
     bool AntiDRequired,
     IReadOnlyList<ProductRetypeSubtestDto> Subtests,
     IReadOnlyList<string> GradeChoices,
-    ProductRetypeResultDto? Latest);
+    ProductRetypeResultDto? Latest,
+    string? TestCode = null,
+    string? TestName = null);
 
 public sealed record RecordProductRetypeRequest(
     AboGroup InterpretedAbo,

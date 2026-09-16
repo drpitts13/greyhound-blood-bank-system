@@ -17,6 +17,7 @@ public static class AdminEndpoints
     {
         MapTests(app);
         MapBloodAttributes(app);
+        MapSpecialRequirements(app);
         MapAntibodyPanelLots(app);
         MapSpecimenTypes(app);
         MapSubtests(app);
@@ -32,6 +33,7 @@ public static class AdminEndpoints
         MapLocations(app);
         MapInventoryLocations(app);
         MapFacilityPolicies(app);
+        MapCrossmatchSettings(app);
         MapChargeCodes(app);
         MapChargeRules(app);
         MapTestServiceBillings(app);
@@ -105,6 +107,37 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
         group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, BloodAttributeAdminService svc, CancellationToken ct) =>
+            EndpointResults.From(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapSpecialRequirements(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/special-requirements").WithTags("Admin: Special Requirements").RequireAuthenticatedUser();
+
+        group.MapGet("", async (SpecialRequirementAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, SpecialRequirementAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Special requirement definition not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveSpecialRequirementDefinitionRequest req, SpecialRequirementAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveSpecialRequirementDefinitionRequest req, SpecialRequirementAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, ReasonOnlyRequest? req, SpecialRequirementAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ActivateAsync(id, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, ReasonOnlyRequest? req, SpecialRequirementAdminService svc, CancellationToken ct) =>
             EndpointResults.From(await svc.DeactivateAsync(id, req?.Reason, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
@@ -461,9 +494,42 @@ public static class AdminEndpoints
             Results.Ok(await svc.ListAsync(ct)))
             .RequirePermission(PermissionCodes.AdminConfigView);
 
+        group.MapGet("/extracts", (IsbtProductCodeAdminService svc) =>
+            Results.Ok(svc.ListExtracts()))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
         group.MapPost("/import-licensed", async (LicensedIsbtCatalogImportRequest req, IsbtProductCodeAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.ImportLicensedAsync(req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/import-extract", async (LicensedIsbtExtractImportRequest req, IsbtProductCodeAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.ImportExtractFilesAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/import-extract-upload", async (HttpRequest http, IsbtProductCodeAdminService svc, CancellationToken ct) =>
+        {
+            if (!http.HasFormContentType)
+                return Results.BadRequest(new { error = "Expected multipart form data." });
+
+            var form = await http.ReadFormAsync(ct);
+            var version = form["standardVersion"].ToString();
+            var ack = bool.TryParse(form["licenseAcknowledgment"], out var acknowledged) && acknowledged;
+            var reason = form["reason"].ToString();
+            var files = new List<IccbbaExtractUploadFile>();
+            foreach (var file in form.Files)
+            {
+                using var reader = new StreamReader(file.OpenReadStream());
+                files.Add(new IccbbaExtractUploadFile(
+                    file.FileName,
+                    await reader.ReadToEndAsync(ct)));
+            }
+
+            return EndpointResults.FromEvaluation(
+                await svc.ImportUploadedExtractsAsync(version, ack, string.IsNullOrWhiteSpace(reason) ? null : reason, files, ct),
+                d => d);
+        })
+            .RequirePermission(PermissionCodes.AdminConfigEdit)
+            .DisableAntiforgery();
     }
 
     private static void MapProviders(WebApplication app)
@@ -666,6 +732,19 @@ public static class AdminEndpoints
 
         group.MapPut("/{id:long}", async (long id, SaveFacilityPolicyRequest req, FacilityPolicyAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+    }
+
+    private static void MapCrossmatchSettings(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/crossmatch-settings").WithTags("Admin: Crossmatch Settings").RequireAuthenticatedUser();
+
+        group.MapGet("", async (CrossmatchSettingsAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPut("", async (SaveCrossmatchSettingsRequest req, CrossmatchSettingsAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigEdit);
     }
 

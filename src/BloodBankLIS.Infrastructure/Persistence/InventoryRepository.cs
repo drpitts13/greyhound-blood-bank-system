@@ -30,6 +30,23 @@ public sealed class InventoryRepository : IInventoryRepository
     public Task<bool> ComponentIdentityKeyExistsAsync(string componentIdentityKey, CancellationToken cancellationToken = default) =>
         _context.BloodUnits.AnyAsync(u => u.ComponentIdentityKey == componentIdentityKey, cancellationToken);
 
+    public async Task<IReadOnlyList<string>> ListUsedDivisionCodesAsync(
+        string din,
+        string productDescriptionCode,
+        string collectionType,
+        CancellationToken cancellationToken = default)
+    {
+        var prefix = productDescriptionCode + collectionType;
+        return await _context.BloodUnits.AsNoTracking()
+            .Where(u => u.Din == din
+                && u.DivisionCode != null
+                && u.DivisionCode != ""
+                && (u.ProductDescriptionCode == productDescriptionCode && u.CollectionTypeCode == collectionType
+                    || u.ProductCodeData != null && u.ProductCodeData.StartsWith(prefix)))
+            .Select(u => u.DivisionCode!)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<BloodUnit?> GetByComponentIdentityAsync(string componentIdentity, CancellationToken cancellationToken = default) =>
         _context.BloodUnits.FirstOrDefaultAsync(
             u => u.ComponentIdentity == componentIdentity || u.UnitNumber == componentIdentity,
@@ -44,12 +61,24 @@ public sealed class InventoryRepository : IInventoryRepository
 
         if (!string.IsNullOrWhiteSpace(criteria.UnitNumber))
         {
-            query = query.Where(u => u.UnitNumber == criteria.UnitNumber);
+            var term = criteria.UnitNumber.Trim().ToLower();
+            query = query.Where(u => u.UnitNumber.ToLower().Contains(term));
         }
 
-        if (criteria.Status is not null)
+        if (criteria.Status is not null || criteria.Statuses is { Count: > 0 })
         {
-            query = query.Where(u => u.Status == criteria.Status);
+            var statuses = new List<UnitStatus>();
+            if (criteria.Status is not null)
+            {
+                statuses.Add(criteria.Status.Value);
+            }
+
+            if (criteria.Statuses is { Count: > 0 })
+            {
+                statuses.AddRange(criteria.Statuses);
+            }
+
+            query = query.Where(u => statuses.Contains(u.Status));
         }
 
         if (criteria.Abo is not null)

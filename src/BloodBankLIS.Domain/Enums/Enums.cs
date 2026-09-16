@@ -17,6 +17,31 @@ public enum AboGroup
     AB = 4
 }
 
+/// <summary>ABO subgroup used for A2 typing special requirements.</summary>
+public enum AboSubgroup
+{
+    Unknown = 0,
+    A1 = 1,
+    A2 = 2,
+    NotApplicable = 3
+}
+
+public enum SpecialRequirementLevel
+{
+    Unit = 0,
+    Issuing = 1,
+    Patient = 2
+}
+
+public enum SpecialRequirementEnforcementKind
+{
+    RequireProductAttribute = 0,
+    RequireAntigenNegative = 1,
+    RequireIssueAcknowledgment = 2,
+    RequireComplexCrossmatch = 3,
+    RequireAboSubgroup = 4
+}
+
 public enum RhType
 {
     Unknown = 0,

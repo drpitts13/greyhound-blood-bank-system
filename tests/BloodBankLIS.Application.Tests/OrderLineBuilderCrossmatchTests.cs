@@ -46,7 +46,7 @@ public class OrderLineBuilderCrossmatchTests
     }
 
     [Fact]
-    public void WithCrossmatchLineIfNeeded_AddsXm_WhenMissing()
+    public void WithCrossmatchLineIfNeeded_DoesNotAddXm_WhenMissing()
     {
         var products = new Dictionary<long, ProductType>
         {
@@ -59,11 +59,15 @@ public class OrderLineBuilderCrossmatchTests
 
         var result = OrderLineBuilder.WithCrossmatchLineIfNeeded(lines, products);
 
-        Assert.Equal(2, result.Count);
-        Assert.Contains(result, l => string.Equals(l.TestCode, "XM", StringComparison.OrdinalIgnoreCase));
+        Assert.Single(result);
+        Assert.DoesNotContain(result, l => OrderLineBuilder.IsCrossmatchTestCode(l.TestCode));
     }
 
     [Fact]
     public void MapTestOrderType_MapsCxmToCrossmatch() =>
         Assert.Equal(OrderType.Crossmatch, OrderLineBuilder.MapTestOrderType("CXM"));
+
+    [Fact]
+    public void MapTestOrderType_MapsExmToCrossmatch() =>
+        Assert.Equal(OrderType.Crossmatch, OrderLineBuilder.MapTestOrderType("EXM"));
 }

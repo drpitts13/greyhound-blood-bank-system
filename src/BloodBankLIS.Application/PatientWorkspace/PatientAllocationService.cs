@@ -26,12 +26,15 @@ public sealed class PatientAllocationService
     private readonly IRepository<Specimen> _specimens;
     private readonly IRepository<ExceptionDefinition> _exceptionDefinitions;
     private readonly IRepository<Override> _overrides;
+    private readonly IRepository<OrderLine>? _orderLines;
     private readonly BloodAttributeCompatLoader _bloodAttributeCompat;
     private readonly AntibodyScreenCompatLoader _antibodyScreenCompat;
     private readonly IPermissionEvaluator _permissions;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly CrossmatchAttachmentService? _crossmatchAttachment;
+    private readonly ElectronicCrossmatchEligibilityService? _exmEligibility;
 
     public PatientAllocationService(
         CompatibilityService compatibility,
@@ -53,7 +56,10 @@ public sealed class PatientAllocationService
         IPermissionEvaluator permissions,
         IClock clock,
         ICurrentUser currentUser,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        CrossmatchAttachmentService? crossmatchAttachment = null,
+        ElectronicCrossmatchEligibilityService? exmEligibility = null,
+        IRepository<OrderLine>? orderLines = null)
     {
         _compatibility = compatibility;
         _orders = orders;
@@ -69,12 +75,15 @@ public sealed class PatientAllocationService
         _specimens = specimens;
         _exceptionDefinitions = exceptionDefinitions;
         _overrides = overrides;
+        _orderLines = orderLines;
         _bloodAttributeCompat = bloodAttributeCompat;
         _antibodyScreenCompat = antibodyScreenCompat;
         _permissions = permissions;
         _clock = clock;
         _currentUser = currentUser;
         _unitOfWork = unitOfWork;
+        _crossmatchAttachment = crossmatchAttachment;
+        _exmEligibility = exmEligibility;
     }
 
     public async Task<IReadOnlyList<PatientAllocationRowDto>> ListActiveAsync(long patientId, CancellationToken ct = default)
@@ -244,8 +253,18 @@ public sealed class PatientAllocationService
             return EvaluationResult<AllocatePatientUnitResultDto>.Fail("Product type not found.");
         }
 
-        TestDefinition? xmTest = null;
-        if (product.RequiresCrossmatch)
+        Order? productOrder = null;
+        TestDefinition? requestedXmTest = null;
+        if (product.RequiresCrossmatch && _crossmatchAttachment is not null)
+        {
+            productOrder = await _crossmatchAttachment.ResolveProductOrderAsync(patientId, product.Id, null, ct);
+            if (productOrder is null)
+            {
+                return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
+                    "An open product order is required before selecting a unit that requires crossmatch.");
+            }
+        }
+        else if (product.RequiresCrossmatch)
         {
             if (string.IsNullOrWhiteSpace(request.CrossmatchTestCode))
             {
@@ -254,27 +273,22 @@ public sealed class PatientAllocationService
             }
 
             var xmCode = request.CrossmatchTestCode.Trim().ToUpperInvariant();
-            xmTest = await _testDefinitions.FirstOrDefaultAsync(
-                t => t.IsActive && !t.IsDraft && t.Code == xmCode,
-                ct);
-
-            if (xmTest is null || !TestDefinitionValidator.IsCrossmatchResultType(xmTest.ResultValueType))
+            requestedXmTest = await _testDefinitions.FirstOrDefaultAsync(
+                t => t.IsActive && !t.IsDraft && t.Code == xmCode, ct);
+            if (requestedXmTest is null || !TestDefinitionValidator.IsCrossmatchResultType(requestedXmTest.ResultValueType))
             {
                 return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
                     $"Test '{request.CrossmatchTestCode}' is not an active crossmatch or complex crossmatch test.");
             }
 
             var requiresComplexXm = await _antibodyScreenCompat.RequiresComplexCrossmatchAsync(patientId, ct);
-
-            if (requiresComplexXm && xmTest.ResultValueType == ResultValueType.Crossmatch)
+            if (requiresComplexXm && requestedXmTest.ResultValueType == ResultValueType.Crossmatch)
             {
-                var abRule = AntibodyHistoryCrossmatchRule.Evaluate(true, xmTest.ResultValueType, overrideAuthorized: false);
-                var evaluation = new RuleEvaluation([abRule]);
-
+                var abRule = AntibodyHistoryCrossmatchRule.Evaluate(true, requestedXmTest.ResultValueType, overrideAuthorized: false);
                 if (string.IsNullOrWhiteSpace(request.OverrideReason)
                     || string.IsNullOrWhiteSpace(request.AuthorizedBy))
                 {
-                    return EvaluationResult<AllocatePatientUnitResultDto>.Blocked(evaluation);
+                    return EvaluationResult<AllocatePatientUnitResultDto>.Blocked(new RuleEvaluation([abRule]));
                 }
 
                 var definition = await _exceptionDefinitions.FirstOrDefaultAsync(
@@ -286,15 +300,6 @@ public sealed class PatientAllocationService
                 {
                     return EvaluationResult<AllocatePatientUnitResultDto>.Blocked(
                         new RuleEvaluation([access, abRule]));
-                }
-            }
-            else
-            {
-                var abCheck = AntibodyHistoryCrossmatchRule.Evaluate(
-                    requiresComplexXm, xmTest.ResultValueType, overrideAuthorized: false);
-                if (abCheck.Severity == RuleSeverity.HardStop)
-                {
-                    return EvaluationResult<AllocatePatientUnitResultDto>.Blocked(new RuleEvaluation([abCheck]));
                 }
             }
         }
@@ -325,30 +330,6 @@ public sealed class PatientAllocationService
             {
                 return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
                     "Specimen not found for this patient.");
-            }
-        }
-
-        long? locationId = request.OrderingLocationId;
-        if (product.RequiresCrossmatch)
-        {
-            if (encounterId is null)
-            {
-                return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
-                    "An active visit is required to order a crossmatch when allocating this product.");
-            }
-
-            if (locationId is null)
-            {
-                var loc = (await _orderingLocations.ListAsync(l => l.IsActive, ct))
-                    .OrderBy(l => l.Code)
-                    .FirstOrDefault();
-                locationId = loc?.Id;
-            }
-
-            if (locationId is null)
-            {
-                return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
-                    "No active ordering location is configured; cannot order the crossmatch.");
             }
         }
 
@@ -406,17 +387,68 @@ public sealed class PatientAllocationService
         var allocation = allocResult.Value;
         allocation.EncounterId = encounterId;
 
-        long? orderId = null;
+        long? orderId = productOrder?.Id;
+        string? xmTestCode = null;
         var overrideApplied = false;
 
-        if (product.RequiresCrossmatch && xmTest is not null)
+        if (product.RequiresCrossmatch && productOrder is not null)
         {
+            allocation.OrderId = productOrder.Id;
+            orderId = productOrder.Id;
+
+            var exmEligible = _exmEligibility is not null
+                && (await _exmEligibility.AssessAsync(patientId, ct))?.Eligible == true;
+            if (exmEligible && _crossmatchAttachment is not null)
+            {
+                var exm = await _crossmatchAttachment.ApplyElectronicForUnitAsync(
+                    patientId, allocation, unit, productOrder, request.SpecimenId, ct);
+                if (!exm.Succeeded)
+                {
+                    return exm.Evaluation is not null
+                        ? EvaluationResult<AllocatePatientUnitResultDto>.Blocked(exm.Evaluation)
+                        : EvaluationResult<AllocatePatientUnitResultDto>.Fail(
+                            exm.Error ?? "Electronic crossmatch could not be recorded.");
+                }
+
+                xmTestCode = exm.Value;
+            }
+            else if (_crossmatchAttachment is not null)
+            {
+                await _crossmatchAttachment.AttachSerologicIfNeededAsync(patientId, ct);
+                if (_orderLines is not null)
+                {
+                    var lines = await _orderLines.ListAsync(l => l.OrderId == productOrder.Id && l.IsActive, ct);
+                    xmTestCode = lines
+                        .Where(l => l.LineCategory == OrderCategory.Test && OrderLineBuilder.IsCrossmatchTestCode(l.TestCode))
+                        .Select(l => l.TestCode)
+                        .FirstOrDefault();
+                }
+            }
+        }
+        else if (product.RequiresCrossmatch && requestedXmTest is not null)
+        {
+            if (encounterId is null)
+            {
+                return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
+                    "An active visit is required to order a crossmatch when allocating this product.");
+            }
+
+            var locationId = request.OrderingLocationId
+                ?? (await _orderingLocations.ListAsync(l => l.IsActive, ct))
+                    .OrderBy(l => l.Code)
+                    .FirstOrDefault()?.Id;
+            if (locationId is null)
+            {
+                return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
+                    "No active ordering location is configured; cannot order the crossmatch.");
+            }
+
             var orderNumber = $"XM-{Guid.NewGuid():N}"[..16].ToUpperInvariant();
             var orderResult = await _orders.CreateForAllocationAsync(patientId, new CreateOrderRequest(
-                encounterId!.Value,
-                locationId!.Value,
+                encounterId.Value,
+                locationId.Value,
                 orderNumber,
-                [new OrderLineInputDto(OrderCategory.Test, xmTest.Code, null)],
+                [new OrderLineInputDto(OrderCategory.Test, requestedXmTest.Code, null)],
                 OrderPriority.Stat,
                 _clock.UtcNow,
                 null,
@@ -437,9 +469,10 @@ public sealed class PatientAllocationService
 
             orderId = orderResult.Value.Id;
             allocation.OrderId = orderId;
+            xmTestCode = requestedXmTest.Code;
 
             if (await _antibodyScreenCompat.RequiresComplexCrossmatchAsync(patientId, ct)
-                && xmTest.ResultValueType == ResultValueType.Crossmatch
+                && requestedXmTest.ResultValueType == ResultValueType.Crossmatch
                 && !string.IsNullOrWhiteSpace(request.OverrideReason)
                 && !string.IsNullOrWhiteSpace(request.AuthorizedBy))
             {
@@ -492,7 +525,7 @@ public sealed class PatientAllocationService
             ProductAllocationDisplayStatusRule.Evaluate(product.RequiresCrossmatch, latestXm?.Result, hasException),
             allocation.Status,
             latestXm?.Result,
-            xmTest?.Code,
+            xmTestCode,
             allocation.OrderId,
             allocation.EncounterId,
             allocation.SpecimenId,
@@ -501,7 +534,7 @@ public sealed class PatientAllocationService
             allocation.ExpiresUtc);
 
         return EvaluationResult<AllocatePatientUnitResultDto>.Ok(
-            new AllocatePatientUnitResultDto(row, orderId, xmTest?.Code, overrideApplied),
+            new AllocatePatientUnitResultDto(row, orderId, xmTestCode, overrideApplied),
             allocResult.Evaluation);
     }
 

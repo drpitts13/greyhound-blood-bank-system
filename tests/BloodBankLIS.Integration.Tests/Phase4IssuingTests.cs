@@ -33,7 +33,10 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         new(
             new EfRepository<TestResult>(c),
             new EfRepository<TestDefinition>(c),
-            new EfRepository<AntibodyHistory>(c));
+            new EfRepository<AntibodyHistory>(c),
+            new EfRepository<SpecialTransfusionRequirement>(c),
+            new EfRepository<SpecialRequirementDefinition>(c),
+            _factory.Clock);
 
     private CompatibilityService Compatibility(BloodBankDbContext c) =>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
@@ -68,7 +71,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                 c, _factory.Clock, _factory.CurrentUser, audit),
             permissions ?? new FixedPermissionEvaluator(3),
             c, _factory.Clock, _factory.CurrentUser, audit,
-            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c));
     }
 
     private InventoryService Inventory(BloodBankDbContext c)
@@ -906,6 +910,171 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
         Assert.True(issued.Evaluation!.IsHardStopped);
         Assert.Contains(issued.Evaluation.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+    }
+
+    [Fact]
+    public async Task Issue_ExpiredSpecialRequirement_IsNotEnforced()
+    {
+        var s = await SeedAsync("SREXP");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+            {
+                PatientId = s.PatientId,
+                RequirementType = SpecialTransfusionRequirementType.Irradiated,
+                Reason = "Ended",
+                EffectiveUtc = _factory.Clock.UtcNow.AddDays(-10),
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(-1),
+                IsActive = true,
+                EnteredBy = "tech-test"
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Succeeded, issued.Error);
+    }
+
+    [Fact]
+    public async Task Issue_WarmerWithoutAck_IsHardStopped()
+    {
+        var s = await SeedAsync("WARMNO");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+            {
+                PatientId = s.PatientId,
+                RequirementType = SpecialTransfusionRequirementType.Other,
+                Reason = "Use warmer",
+                EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+                IsActive = true,
+                EnteredBy = "tech-test"
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Evaluation!.IsHardStopped);
+        Assert.Contains(issued.Evaluation.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+    }
+
+    [Fact]
+    public async Task Issue_WarmerWithAck_Succeeds()
+    {
+        var s = await SeedAsync("WARMOK");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+            {
+                PatientId = s.PatientId,
+                RequirementType = SpecialTransfusionRequirementType.Other,
+                Reason = "Use warmer",
+                EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+                IsActive = true,
+                EnteredBy = "tech-test"
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(
+            IssueReq(s) with { AcknowledgedSpecialRequirementCodes = [SpecialRequirementCatalog.Other] });
+        Assert.True(issued.Succeeded, issued.Error);
+        Assert.Equal(SpecialRequirementCatalog.Other, issued.Value!.AcknowledgedSpecialRequirementCodes);
+    }
+
+    [Fact]
+    public async Task Issue_TypeA2WithoutSubgroup_IsHardStopped()
+    {
+        var s = await SeedAsync("A2MISS", patientAbo: AboGroup.A, unitAbo: AboGroup.A);
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+            {
+                PatientId = s.PatientId,
+                RequirementDefinitionId = null,
+                RequirementType = SpecialTransfusionRequirementType.Other,
+                Reason = "Type for A2",
+                EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+                IsActive = true,
+                EnteredBy = "tech-test"
+            });
+            var def = new SpecialRequirementDefinition
+            {
+                Code = SpecialRequirementCatalog.TypeForA2,
+                Name = "Type for A2",
+                Level = SpecialRequirementLevel.Patient,
+                EnforcementKind = SpecialRequirementEnforcementKind.RequireAboSubgroup,
+                IsActive = true,
+                IsDraft = false,
+                Version = 1
+            };
+            c.SpecialRequirementDefinitions.Add(def);
+            await c.SaveChangesAsync();
+            var row = await c.SpecialTransfusionRequirements.SingleAsync(r => r.PatientId == s.PatientId);
+            row.RequirementDefinitionId = def.Id;
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Evaluation!.IsHardStopped);
+        Assert.Contains(issued.Evaluation.HardStops, r => r.Code == IssueGate.SpecialReqCode);
+    }
+
+    [Fact]
+    public async Task Issue_TypeA2WithSubgroup_Succeeds()
+    {
+        var s = await SeedAsync("A2OK", patientAbo: AboGroup.A, unitAbo: AboGroup.A);
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            var current = await c.PatientBloodTypeHistory.SingleAsync(h => h.PatientId == s.PatientId && h.IsCurrent);
+            current.AboSubgroup = AboSubgroup.A2;
+            var def = new SpecialRequirementDefinition
+            {
+                Code = SpecialRequirementCatalog.TypeForA2,
+                Name = "Type for A2",
+                Level = SpecialRequirementLevel.Patient,
+                EnforcementKind = SpecialRequirementEnforcementKind.RequireAboSubgroup,
+                IsActive = true,
+                IsDraft = false,
+                Version = 1
+            };
+            c.SpecialRequirementDefinitions.Add(def);
+            await c.SaveChangesAsync();
+            c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+            {
+                PatientId = s.PatientId,
+                RequirementDefinitionId = def.Id,
+                RequirementType = SpecialTransfusionRequirementType.Other,
+                Reason = "Type for A2",
+                EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+                IsActive = true,
+                EnteredBy = "tech-test"
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Succeeded, issued.Error);
     }
 
     [Fact]

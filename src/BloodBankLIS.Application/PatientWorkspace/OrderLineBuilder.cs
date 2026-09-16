@@ -8,7 +8,7 @@ public static class OrderLineBuilder
     public static OrderType MapTestOrderType(string? code) => code?.ToUpperInvariant() switch
     {
         "TNS" or "TS" => OrderType.TypeAndScreen,
-        "XM" or "CXM" => OrderType.Crossmatch,
+        "XM" or "CXM" or "EXM" => OrderType.Crossmatch,
         "ABORH" => OrderType.AboRh,
         "ABID" => OrderType.AntibodyIdentification,
         _ => OrderType.Other
@@ -17,7 +17,8 @@ public static class OrderLineBuilder
     public static bool IsCrossmatchTestCode(string? code) =>
         code is not null
         && (string.Equals(code, "XM", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(code, "CXM", StringComparison.OrdinalIgnoreCase));
+            || string.Equals(code, "CXM", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(code, "EXM", StringComparison.OrdinalIgnoreCase));
 
     public static void ApplyHeaderFromLines(Order order, IReadOnlyList<OrderLine> activeLines)
     {
@@ -60,15 +61,15 @@ public static class OrderLineBuilder
             && pt.RequiresCrossmatch);
     }
 
+    /// <summary>
+    /// Product orders no longer receive a hardcoded XM line at create time.
+    /// Crossmatch tests attach after the current antibody screen is verified.
+    /// </summary>
     public static IReadOnlyList<OrderLineInputDto> WithCrossmatchLineIfNeeded(
         IReadOnlyList<OrderLineInputDto> lines,
         IReadOnlyDictionary<long, ProductType> productTypes)
     {
-        if (!RequiresCrossmatchLine(lines, productTypes))
-        {
-            return lines;
-        }
-
-        return lines.Concat([new OrderLineInputDto(OrderCategory.Test, "XM", null)]).ToList();
+        _ = productTypes;
+        return lines;
     }
 }

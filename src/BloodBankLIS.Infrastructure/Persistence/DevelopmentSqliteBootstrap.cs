@@ -115,6 +115,8 @@ public static class DevelopmentSqliteBootstrap
         ("ModificationRules", "ExpirationModificationCodeId", """ALTER TABLE "ModificationRules" ADD COLUMN "ExpirationModificationCodeId" INTEGER NOT NULL DEFAULT 0"""),
         ("ModificationRules", "ModificationCode", """ALTER TABLE "ModificationRules" ADD COLUMN "ModificationCode" TEXT NOT NULL DEFAULT ''"""),
         ("ProductTypes", "RequiresRetype", """ALTER TABLE "ProductTypes" ADD COLUMN "RequiresRetype" INTEGER NOT NULL DEFAULT 0"""),
+        ("ProductTypes", "RhPositiveRetypeTestId", """ALTER TABLE "ProductTypes" ADD COLUMN "RhPositiveRetypeTestId" INTEGER NULL"""),
+        ("ProductTypes", "RhNegativeRetypeTestId", """ALTER TABLE "ProductTypes" ADD COLUMN "RhNegativeRetypeTestId" INTEGER NULL"""),
         ("InventoryLocations", "Department", """ALTER TABLE "InventoryLocations" ADD COLUMN "Department" TEXT NULL"""),
         ("InventoryLocations", "AllowsIssue", """ALTER TABLE "InventoryLocations" ADD COLUMN "AllowsIssue" INTEGER NOT NULL DEFAULT 1"""),
         ("InventoryLocations", "AllowsRemoteIssue", """ALTER TABLE "InventoryLocations" ADD COLUMN "AllowsRemoteIssue" INTEGER NOT NULL DEFAULT 0"""),
@@ -141,7 +143,10 @@ public static class DevelopmentSqliteBootstrap
         ("TestResults", "SourceReference", """ALTER TABLE "TestResults" ADD COLUMN "SourceReference" TEXT NULL"""),
         ("TestResults", "InvalidatedBy", """ALTER TABLE "TestResults" ADD COLUMN "InvalidatedBy" TEXT NULL"""),
         ("TestResults", "InvalidatedUtc", """ALTER TABLE "TestResults" ADD COLUMN "InvalidatedUtc" TEXT NULL"""),
-        ("TestResults", "InvalidationReason", """ALTER TABLE "TestResults" ADD COLUMN "InvalidationReason" TEXT NULL""")
+        ("TestResults", "InvalidationReason", """ALTER TABLE "TestResults" ADD COLUMN "InvalidationReason" TEXT NULL"""),
+        ("SpecialTransfusionRequirements", "RequirementDefinitionId", """ALTER TABLE "SpecialTransfusionRequirements" ADD COLUMN "RequirementDefinitionId" INTEGER NULL"""),
+        ("PatientBloodTypeHistory", "AboSubgroup", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "AboSubgroup" INTEGER NOT NULL DEFAULT 0"""),
+        ("Issues", "AcknowledgedSpecialRequirementCodes", """ALTER TABLE "Issues" ADD COLUMN "AcknowledgedSpecialRequirementCodes" TEXT NULL""")
     ];
 
     public static async Task InitializeAsync(
@@ -199,6 +204,7 @@ public static class DevelopmentSqliteBootstrap
         }
 
         await BackfillModificationCodesAsync(context, ct);
+        await ReplaceModificationRuleCodeIndexAsync(context, logger, ct);
         await BackfillInventoryLocationPolicyAsync(context, ct);
         await ApplyAdditiveIndexesAsync(context, logger, ct);
     }
@@ -210,6 +216,39 @@ public static class DevelopmentSqliteBootstrap
         ("IX_Issues_OneOpenIssuePerUnit",
             """CREATE UNIQUE INDEX IF NOT EXISTS "IX_Issues_OneOpenIssuePerUnit" ON "Issues" ("BloodProductId") WHERE "Status" = 0""")
     ];
+
+    private static async Task ReplaceModificationRuleCodeIndexAsync(
+        BloodBankDbContext context,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        if (!await TableExistsAsync(context, "ModificationRules", ct))
+        {
+            return;
+        }
+
+        const string oldIndex = "IX_ModificationRules_ModificationCode";
+        const string newIndex = "IX_ModificationRules_ModificationCode_SourceProductTypeId_TargetProductTypeId";
+
+        if (await IndexExistsAsync(context, oldIndex, ct))
+        {
+            logger.LogWarning(
+                "Replacing unique index {OldIndex} so modification codes can be reused across product paths.",
+                oldIndex);
+            await context.Database.ExecuteSqlRawAsync($"""DROP INDEX IF EXISTS "{oldIndex}" """, ct);
+        }
+
+        if (!await IndexExistsAsync(context, newIndex, ct))
+        {
+            logger.LogWarning("SQLite development database is missing index {Index}. Creating it.", newIndex);
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_ModificationRules_ModificationCode_SourceProductTypeId_TargetProductTypeId"
+                ON "ModificationRules" ("ModificationCode", "SourceProductTypeId", "TargetProductTypeId")
+                """,
+                ct);
+        }
+    }
 
     private static async Task ApplyAdditiveIndexesAsync(
         BloodBankDbContext context,

@@ -23,7 +23,7 @@ public static class ComplianceEndpoints
             .RequireAuthenticatedUser();
 
         group.MapGet("/", async (long patientId, SpecialRequirementService service, CancellationToken ct) =>
-            Results.Ok((await service.ListAsync(patientId, ct)).Select(SpecialRequirementDto.From)));
+            Results.Ok(await service.ListDtosAsync(patientId, ct)));
 
         group.MapPost("/", async (long patientId, AddSpecialRequirementRequest request, SpecialRequirementService service, CancellationToken ct) =>
             EndpointResults.Created(await service.AddAsync(patientId, request, ct),
@@ -31,7 +31,7 @@ public static class ComplianceEndpoints
             .RequirePermission(PermissionCodes.ImmunoRecord);
 
         app.MapPost("/api/special-requirements/{id:long}/deactivate", async (long id, ReasonBody request, SpecialRequirementService service, CancellationToken ct) =>
-            EndpointResults.From(await service.DeactivateAsync(id, request.Reason, ct), SpecialRequirementDto.From))
+            EndpointResults.From(await service.DeactivateAsync(id, request.Reason, ct), r => SpecialRequirementDto.From(r)))
             .RequirePermission(PermissionCodes.ImmunoOverride)
             .WithTags("SpecialRequirements");
     }

@@ -53,7 +53,10 @@ public sealed record BloodUnitDto(
     DateTime? DirectedConvertedUtc = null,
     string? DirectedConvertedBy = null,
     DateTime? ExpectedArrivalDueUtc = null,
-    UnitQuarantineReason QuarantineReasonCode = UnitQuarantineReason.Unspecified)
+    UnitQuarantineReason QuarantineReasonCode = UnitQuarantineReason.Unspecified,
+    decimal? Volume = null,
+    string? DivisionCode = null,
+    string? CollectionTypeCode = null)
 {
     public static BloodUnitDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
@@ -65,7 +68,8 @@ public sealed record BloodUnitDto(
         u.ShipmentId, u.ReceiveAppearance, u.ReceiveTemperatureCelsius, u.SupplierReturnReason,
         u.DonationRestriction, u.ReservedPatientId,
         u.DirectedConversionReason, u.DirectedConvertedUtc, u.DirectedConvertedBy,
-        u.ExpectedArrivalDueUtc, u.QuarantineReasonCode);
+        u.ExpectedArrivalDueUtc, u.QuarantineReasonCode,
+        u.Volume, u.DivisionCode, u.CollectionTypeCode);
 }
 
 public sealed record ExpectedInboundWorkItemDto(

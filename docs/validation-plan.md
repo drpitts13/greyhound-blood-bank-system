@@ -55,6 +55,7 @@ Provided by `BloodBankLIS.Infrastructure` seeding for demo and workflow validati
 - Demo patients including one with an antibody (anti-K) and special requirements.
 - Inventory units across ABO/Rh and product types, including near-expiry and quarantined examples.
 - Sample orders, specimens, and verified results.
+- FDA/AABB validation scenarios: 72-hour alloimmunization specimen (MRN0007), autologous and directed reserved units (MRN0008), DIN lookback notification plus sibling component, missing/damaged discrepancy units, and a verified negative antibody screen so Patricia Demo (MRN0001) can assess electronic XM when the facility allow-EXM policy is on.
 
 ## 4. Validation scripts (Phase 8) — Implemented
 

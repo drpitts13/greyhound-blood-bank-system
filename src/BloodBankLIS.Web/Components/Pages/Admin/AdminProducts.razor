@@ -35,7 +35,19 @@
                         <td>@p.Name</td>
                         <td>@p.ComponentClass</td>
                         <td>@(p.RequiresCrossmatch ? "Yes" : "No")</td>
-                        <td>@(p.RequiresRetype ? "Y" : "N")</td>
+                        <td>
+                            @if (p.RequiresRetype)
+                            {
+                                <span>Y</span>
+                                <span class="muted mono">
+                                    @(p.RhPositiveRetypeTestCode ?? "?")/@(p.RhNegativeRetypeTestCode ?? "?")
+                                </span>
+                            }
+                            else
+                            {
+                                <span>N</span>
+                            }
+                        </td>
                         <td>@string.Join(", ", p.Attributes.Select(a => a.Code + (a.IsRequired ? "*" : "")))</td>
                         <td>@p.Version</td>
                         <td>
@@ -79,6 +91,32 @@
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresRhMatch" /> Requires Rh match</label>
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresRetype" /> Retype (Y/N)</label>
         </div>
+
+        @if (_editing.RequiresRetype)
+        {
+            <div class="form-row">
+                <div class="field">
+                    <label>Rh+ Retype Test</label>
+                    <select @bind="_editing.RhPositiveRetypeTestId">
+                        <option value="">Select test</option>
+                        @foreach (var t in RetypeTests)
+                        {
+                            <option value="@t.Id.ToString()">@t.Code — @t.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Rh− Retype Test</label>
+                    <select @bind="_editing.RhNegativeRetypeTestId">
+                        <option value="">Select test</option>
+                        @foreach (var t in RetypeTests)
+                        {
+                            <option value="@t.Id.ToString()">@t.Code — @t.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        }
 
         <div class="field">
             <label>Attributes</label>
@@ -129,6 +167,7 @@
 @code {
     private List<ProductDefinitionDto> _items = new();
     private List<ProductAttributeDto> _attributes = new();
+    private List<TestDefinitionDto> _tests = new();
     private bool _loading = true;
     private Feedback? _feedback;
     private bool _busy;
@@ -143,11 +182,16 @@
 
     private bool CanManage => Session.Has(PermissionCodes.AdminProductsManage);
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+    private IEnumerable<TestDefinitionDto> RetypeTests =>
+        _tests.Where(t => t.IsActive && (t.Category is TestCategory.AboRhRetype or TestCategory.AboRh))
+            .OrderBy(t => t.Code);
 
     protected override async Task OnInitializedAsync()
     {
         var attrs = await Api.GetProductAttributesAsync();
         _attributes = attrs.Value ?? new();
+        var tests = await Api.GetAdminTestsAsync(includeInactive: false);
+        _tests = tests.Value ?? new();
         await LoadAsync();
     }
 
@@ -240,6 +284,8 @@
         public bool RequiresAboMatch { get; set; } = true;
         public bool RequiresRhMatch { get; set; } = true;
         public bool RequiresRetype { get; set; }
+        public string RhPositiveRetypeTestId { get; set; } = string.Empty;
+        public string RhNegativeRetypeTestId { get; set; } = string.Empty;
         public string? Isbt128ProductCode { get; set; }
         public string? DefaultChargeCode { get; set; }
         public string? StorageRequirements { get; set; }
@@ -252,7 +298,10 @@
         {
             ProductCode = p.ProductCode, Name = p.Name, ComponentClass = p.ComponentClass, Category = p.Category,
             DefaultShelfLifeHours = p.DefaultShelfLifeHours, RequiresCrossmatch = p.RequiresCrossmatch,
-            RequiresAboMatch = p.RequiresAboMatch, RequiresRhMatch = p.RequiresRhMatch, RequiresRetype = p.RequiresRetype, Isbt128ProductCode = p.Isbt128ProductCode,
+            RequiresAboMatch = p.RequiresAboMatch, RequiresRhMatch = p.RequiresRhMatch, RequiresRetype = p.RequiresRetype,
+            RhPositiveRetypeTestId = p.RhPositiveRetypeTestId?.ToString() ?? string.Empty,
+            RhNegativeRetypeTestId = p.RhNegativeRetypeTestId?.ToString() ?? string.Empty,
+            Isbt128ProductCode = p.Isbt128ProductCode,
             DefaultChargeCode = p.DefaultChargeCode, StorageRequirements = p.StorageRequirements, IssueRules = p.IssueRules,
             ReturnRules = p.ReturnRules, ModificationRules = p.ModificationRules,
             Attributes = p.Attributes.Select(a => new ProductAttributeSelection(a.AttributeId, a.IsRequired)).ToList()
@@ -261,6 +310,10 @@
         public SaveProductDefinitionRequest ToRequest(string? reason) => new(
             ProductCode, Name, ComponentClass, Category, DefaultShelfLifeHours, RequiresCrossmatch, RequiresAboMatch,
             RequiresRhMatch, RequiresRetype, Isbt128ProductCode, DefaultChargeCode, StorageRequirements, IssueRules, ReturnRules,
-            ModificationRules, Attributes, reason);
+            ModificationRules, Attributes, reason,
+            ParseId(RhPositiveRetypeTestId), ParseId(RhNegativeRetypeTestId));
+
+        private static long? ParseId(string? value) =>
+            long.TryParse(value, out var id) && id > 0 ? id : null;
     }
 }

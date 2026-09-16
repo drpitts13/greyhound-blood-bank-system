@@ -11,7 +11,17 @@ Traceability path (from [`VALIDATION_PLAN.md`](VALIDATION_PLAN.md)):
 URS-BB-*  →  FRS-BB-*  →  RISK-BB-*  →  SRS-BB-*  →  CODE  →  TEST (class or TEST-BB-*)  →  EVIDENCE
 ```
 
-Latest Cycle 13 row: URS-BB-158 / FRS-BB-192 / SRS-BB-153 / RISK-BB-265 →
+Latest Cycle 15 row: seed-backed FDA/AABB scenario suite → TEST-BB-036–046
+(`FdaAabbScenarioTests`). Maps URS-BB-003 / 005 / 006 / 008 / 009 / 011 /
+020 / 024 / 036 / 113 onto seeded patients MRN0001 and MRN0004–0008.
+Citations are validation evidence, not certification.
+
+Cycle 14: URS-BB-159 / FRS-BB-193 / SRS-BB-154 / RISK-BB-266 →
+TEST-BB-031–033 (ICCBBA extract parser, drop-folder/upload import, seeder
+does not revert licensed rows). Extract not loaded (OCD-004). Remaining
+tests may stay class-name cited.
+
+Cycle 13: URS-BB-158 / FRS-BB-192 / SRS-BB-153 / RISK-BB-265 →
 TEST-BB-026–030 (uniqueness, merge, retype, emergency-issue, immuno
 privilege). Remaining tests may stay class-name cited.
 
@@ -57,7 +67,7 @@ Cycle 1: URS-BB-147 / FRS-BB-181 / SRS-BB-142 / RISK-BB-254 →
 `IdentitySpoofingRegressionTests`, `AuthSessionServiceTests`,
 `AuthSessionValidityRuleTests`.
 
-Formal `TEST-BB-*` identifiers for Cycles 1–13 are assigned in
+Formal `TEST-BB-*` identifiers for Cycles 1–15 are assigned in
 [`TEST_CATALOG.md`](TEST_CATALOG.md). Other tests remain citable by class
 name. That remaining gap is packaging, not a missing clinical control.
 

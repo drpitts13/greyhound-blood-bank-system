@@ -1501,6 +1501,92 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("BloodAttributeDefinitions", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.CrossmatchSettings", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ApprovedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ApprovedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ChangeReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EffectiveUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ElectronicCrossmatchTestCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("ElectronicXmMinimumSpecimens")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ElectronicXmMinimumTests")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ElectronicXmMinimumVisits")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDraft")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPendingApproval")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NegativeAntibodyHistoryTestCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("PositiveAntibodyHistoryTestCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("RetiredUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CrossmatchSettings", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.Configuration.ExceptionDefinition", b =>
                 {
                     b.Property<long>("Id")
@@ -1683,7 +1769,7 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IsActive");
 
-                    b.HasIndex("ModificationCode")
+                    b.HasIndex("ModificationCode", "SourceProductTypeId", "TargetProductTypeId")
                         .IsUnique();
 
                     b.HasIndex("TargetProductTypeId");
@@ -4671,6 +4757,12 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<long?>("RhNegativeRetypeTestId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("RhPositiveRetypeTestId")
+                        .HasColumnType("bigint");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()
@@ -4687,6 +4779,10 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProductCode")
                         .IsUnique();
+
+                    b.HasIndex("RhNegativeRetypeTestId");
+
+                    b.HasIndex("RhPositiveRetypeTestId");
 
                     b.ToTable("ProductTypes", (string)null);
                 });
@@ -6040,6 +6136,20 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductType", b =>
                 {
+                    b.HasOne("BloodBankLIS.Domain.Entities.Configuration.TestDefinition", "RhNegativeRetypeTest")
+                        .WithMany()
+                        .HasForeignKey("RhNegativeRetypeTestId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("BloodBankLIS.Domain.Entities.Configuration.TestDefinition", "RhPositiveRetypeTest")
+                        .WithMany()
+                        .HasForeignKey("RhPositiveRetypeTestId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("RhNegativeRetypeTest");
+
+                    b.Navigation("RhPositiveRetypeTest");
+
                     b.Navigation("AttributeAssignments");
 
                     b.Navigation("Units");

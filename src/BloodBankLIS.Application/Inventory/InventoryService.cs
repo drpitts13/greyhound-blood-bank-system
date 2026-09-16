@@ -49,6 +49,7 @@ public sealed class InventoryService
     private readonly IRepository<InventoryLocation>? _locations;
     private readonly IRepository<ProductType>? _productTypes;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly ProductRetypeService? _retype;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -64,7 +65,8 @@ public sealed class InventoryService
         IRepository<Patient>? patients = null,
         IRepository<InventoryLocation>? locations = null,
         IRepository<ProductType>? productTypes = null,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        ProductRetypeService? retype = null)
     {
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -80,6 +82,7 @@ public sealed class InventoryService
         _locations = locations;
         _productTypes = productTypes;
         _permissions = permissions;
+        _retype = retype;
     }
 
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
@@ -279,6 +282,12 @@ public sealed class InventoryService
 
         var resolved = productValidation.Value!;
         var productType = await _repository.GetProductTypeAsync(request.ProductTypeId, ct);
+        var retypeGate = RejectIncompleteRetypeAssignment(productType, request.RhD);
+        if (retypeGate is not null)
+        {
+            return retypeGate;
+        }
+
         var initialStatus = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
         var intakeReason = AppendVerifier(
             productType?.RequiresRetype == true
@@ -338,7 +347,8 @@ public sealed class InventoryService
         await _unitOfWork.SaveChangesAsync(ct);
         RecordReceiveAudit(unit, path: "WalkIn");
         await _unitOfWork.SaveChangesAsync(ct);
-        return InventoryActionResult.Ok(unit);
+        var attached = await AttachPendingRetypeAsync(unit, productType, ct);
+        return attached ?? InventoryActionResult.Ok(unit);
     }
 
     /// <summary>
@@ -497,6 +507,12 @@ public sealed class InventoryService
         }
 
         var productType = await _repository.GetProductTypeAsync(unit.ProductTypeId, ct);
+        var retypeGate = RejectIncompleteRetypeAssignment(productType, unit.RhD);
+        if (retypeGate is not null)
+        {
+            return retypeGate;
+        }
+
         var destination = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
         unit.ReceiveVisualAcceptable = request.VisualInspectionAcceptable
             && ReceiveAppearanceRule.IsAcceptable(request.Appearance);
@@ -548,6 +564,15 @@ public sealed class InventoryService
             },
             reason: "Expected inbound unit received.");
         await _unitOfWork.SaveChangesAsync(ct);
+        if (destination == UnitStatus.Received)
+        {
+            var attached = await AttachPendingRetypeAsync(unit, productType, ct);
+            if (attached is not null)
+            {
+                return attached;
+            }
+        }
+
         return changed;
     }
 
@@ -669,6 +694,13 @@ public sealed class InventoryService
             return InventoryActionResult.Fail(string.Join("; ", validation.Errors.Select(e => $"{e.Code}: {e.Message}")));
 
         var productType = await _repository.GetProductTypeAsync(productTypeId, ct);
+        var labeledRh = draft.AboRhd?.RhD ?? RhType.Unknown;
+        var retypeGate = RejectIncompleteRetypeAssignment(productType, labeledRh);
+        if (retypeGate is not null)
+        {
+            return retypeGate;
+        }
+
         UnitStatus initialStatus;
         string intakeReason;
         if (productType?.RequiresRetype == true)
@@ -722,7 +754,8 @@ public sealed class InventoryService
         await _unitOfWork.SaveChangesAsync(ct);
         RecordReceiveAudit(unit, path: "IsbtNormalized");
         await _unitOfWork.SaveChangesAsync(ct);
-        return InventoryActionResult.Ok(unit);
+        var attachedIsbt = await AttachPendingRetypeAsync(unit, productType, ct);
+        return attachedIsbt ?? InventoryActionResult.Ok(unit);
     }
 
     public async Task<InventoryActionResult> RecallAsync(long unitId, string reason, CancellationToken ct = default)
@@ -1738,5 +1771,39 @@ public sealed class InventoryService
         return auth.Severity == RuleSeverity.HardStop
             ? InventoryActionResult.Blocked(new RuleEvaluation([auth]))
             : null;
+    }
+
+    private static InventoryActionResult? RejectIncompleteRetypeAssignment(ProductType? product, RhType labeledRh)
+    {
+        if (product?.RequiresRetype != true)
+        {
+            return null;
+        }
+
+        var gate = ProductRetypeAssignment.Evaluate(product, labeledRh);
+        return gate is { Severity: RuleSeverity.HardStop }
+            ? InventoryActionResult.Blocked(new RuleEvaluation([gate]))
+            : null;
+    }
+
+    private async Task<InventoryActionResult?> AttachPendingRetypeAsync(
+        BloodUnit unit,
+        ProductType? product,
+        CancellationToken ct)
+    {
+        if (product?.RequiresRetype != true || _retype is null)
+        {
+            return null;
+        }
+
+        var attached = await _retype.EnsurePendingOnIntakeAsync(unit, product, ct);
+        if (attached.Succeeded)
+        {
+            return null;
+        }
+
+        return attached.Evaluation is not null
+            ? InventoryActionResult.Blocked(attached.Evaluation)
+            : InventoryActionResult.Fail(attached.Error ?? "The applicable retype test could not be added.");
     }
 }

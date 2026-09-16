@@ -17,6 +17,9 @@ public static class Ui
         _ => "badge badge-gray"
     };
 
+    public static string StatusLabel(UnitStatus status) =>
+        status == UnitStatus.Received ? "Pending Retype" : status.ToString();
+
     public static string Badge(SpecimenStatus status) => status switch
     {
         SpecimenStatus.Accepted => "badge badge-green",

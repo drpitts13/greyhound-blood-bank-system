@@ -133,11 +133,11 @@ else
         </div>
     }
 
-    @if (_specialRequirements.Any(r => r.IsActive))
+    @if (ActiveSpecialRequirements.Any())
     {
         <div class="alert alert-warning">
             <strong>Special transfusion requirements:</strong>
-            @string.Join(", ", _specialRequirements.Where(r => r.IsActive).Select(r => r.AntigenCode is null ? r.RequirementType.ToString() : $"{r.RequirementType} {r.AntigenCode}"))
+            @string.Join(", ", ActiveSpecialRequirements.Select(r => r.AntigenCode is null ? (r.Name ?? r.Code ?? r.RequirementType.ToString()) : $"{r.Name ?? r.Code} {r.AntigenCode}"))
         </div>
     }
 
@@ -208,12 +208,13 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Type</th><th>Source</th><th>Current</th><th>Recorded</th></tr></thead>
+                    <thead><tr><th>Type</th><th>Subgroup</th><th>Source</th><th>Current</th><th>Recorded</th></tr></thead>
                     <tbody>
                         @foreach (var t in _typeHistory)
                         {
                             <tr>
                                 <td><strong>@Ui.BloodType(t.Abo, t.RhD)</strong></td>
+                                <td>@t.AboSubgroup</td>
                                 <td>@t.Source</td>
                                 <td>@(t.IsCurrent ? "Yes" : "")</td>
                                 <td class="nowrap">@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</td>
@@ -251,6 +252,16 @@ else
                     <div class="field"><label>Rh(D)</label>
                         <select @bind="_typeRh">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select>
                     </div>
+                    @if (_typeAbo is AboGroup.A or AboGroup.AB)
+                    {
+                        <div class="field"><label>A1/A2 subgroup</label>
+                            <select @bind="_typeSubgroup">
+                                <option value="@AboSubgroup.Unknown">Unknown</option>
+                                <option value="@AboSubgroup.A1">A1</option>
+                                <option value="@AboSubgroup.A2">A2</option>
+                            </select>
+                        </div>
+                    }
                 </div>
                 <div class="field"><label>Reason (required)</label><input @bind="_typeReason" /></div>
                 <button class="btn btn-danger" disabled="@_busy" @onclick="RecordTypeAsync">Record blood type</button>
@@ -277,19 +288,22 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Type</th><th>Antigen</th><th>Reason</th><th>Active</th><th></th></tr></thead>
+                    <thead><tr><th>Requirement</th><th>Level</th><th>Antigen</th><th>Reason</th><th>Effective</th><th>End date</th><th>Active</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var r in _specialRequirements)
                         {
                             <tr>
-                                <td>@r.RequirementType</td>
+                                <td>@(r.Name ?? r.Code ?? r.RequirementType.ToString())</td>
+                                <td>@r.Level</td>
                                 <td class="mono">@r.AntigenCode</td>
                                 <td>@r.Reason</td>
-                                <td>@(r.IsActive ? "Yes" : "No")</td>
+                                <td class="nowrap">@r.EffectiveUtc.ToString("yyyy-MM-dd")</td>
+                                <td class="nowrap">@(r.ExpiresUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                                <td>@(r.IsClinicallyActive ? "Yes" : "No")</td>
                                 <td class="right">
-                                    @if (r.IsActive && Session.Has(PermissionCodes.ImmunoOverride))
+                                    @if (r.IsClinicallyActive && Session.Has(PermissionCodes.ImmunoOverride))
                                     {
-                                        <button class="btn btn-ghost btn-sm" @onclick="() => BeginDeactivateSr(r)">Deactivate</button>
+                                        <button class="btn btn-ghost btn-sm" @onclick="() => BeginDeactivateSr(r)">End date</button>
                                     }
                                 </td>
                             </tr>
@@ -310,10 +324,19 @@ else
                 <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
                 <h4>Add requirement</h4>
                 <div class="form-row">
-                    <div class="field"><label>Type</label>
-                        <select @bind="_srType">@foreach (var t in Enum.GetValues<SpecialTransfusionRequirementType>()) { <option value="@t">@t</option> }</select>
+                    <div class="field"><label>Requirement</label>
+                        <select @bind="_srDefinitionId">
+                            @foreach (var d in _srCatalog)
+                            {
+                                <option value="@d.Id">@d.Name (@d.Level)</option>
+                            }
+                        </select>
                     </div>
-                    <div class="field"><label>Antigen code</label><input @bind="_srAntigen" placeholder="Required for AntigenNegative" /></div>
+                    @if (SelectedSrDefinition?.EnforcementKind == SpecialRequirementEnforcementKind.RequireAntigenNegative)
+                    {
+                        <div class="field"><label>Antigen code</label><input @bind="_srAntigen" placeholder="Required for antigen-negative" /></div>
+                    }
+                    <div class="field"><label>End date (optional)</label><input type="date" @bind="_srEndDate" /></div>
                     <div class="field" style="grid-column:1/-1;"><label>Reason</label><input @bind="_srReason" /></div>
                 </div>
                 <button class="btn btn-primary" disabled="@_busy" @onclick="AddSpecialRequirementAsync">Add</button>
@@ -875,6 +898,24 @@ else
                                                     </div>
                                                 </div>
                                             </div>
+                                            @if (NeedsOrderXmOverride)
+                                            {
+                                                <div class="bb-card" style="background:#fff8f0;margin-top:.75rem;border:1px solid #e8c48a;">
+                                                    <strong>Exception: antibody history</strong>
+                                                    <p class="muted">Changing from a complex crossmatch to a simple crossmatch requires an authorized override. The exception is recorded and cannot be removed.</p>
+                                                    @if (Session.SecurityLevel < _allocXmMinLevel)
+                                                    {
+                                                        <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum (@_allocXmMinLevel) required to override.</div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="form-row">
+                                                            <div class="field"><label>Authorized by</label><input @bind="_editAuthorizedBy" placeholder="@Session.UserName" /></div>
+                                                            <div class="field" style="grid-column:1/-1;"><label>Override comment</label><input @bind="_editOverrideReason" /></div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
                                             <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveOrderAsync">Save changes</button>
                                         </div>
                                     </td>
@@ -1261,6 +1302,19 @@ else
                         </select>
                     </div>
                     <UnitScanVerificationPanel Scan="_issueScan" />
+                    @if (AcknowledgmentSpecialRequirements.Any())
+                    {
+                        <div class="alert alert-warning" style="margin-top:.75rem;">
+                            <strong>Acknowledge special requirements</strong>
+                            @foreach (var req in AcknowledgmentSpecialRequirements)
+                            {
+                                <label class="flex" style="gap:.35rem;margin-top:.35rem;">
+                                    <input type="checkbox" checked="@_issueAcks.Contains(req.Code ?? "")" @onchange="e => ToggleIssueAck(req.Code, (bool)(e.Value ?? false))" />
+                                    @(req.Name ?? req.Code) @(string.IsNullOrWhiteSpace(req.Instruction) ? "" : $"— {req.Instruction}")
+                                </label>
+                            }
+                        </div>
+                    }
 
                     @if (_showIssueOverride)
                     {
@@ -1340,54 +1394,41 @@ else
                 else if (_compatibleUnits.Count == 0) { <div class="empty">No ABO/Rh-compatible Available units.</div> }
                 else
                 {
-                    <table class="bb" style="margin-top:.75rem;">
-                        <thead><tr><th></th><th>Unit</th><th>Product</th><th>ABO/Rh</th><th>Expires</th><th>XM?</th></tr></thead>
-                        <tbody>
-                            @foreach (var u in _compatibleUnits)
-                            {
-                                <tr class="@(_selectedUnitId == u.BloodUnitId ? "selected" : null)">
-                                    <td><input type="radio" name="alloc-unit" checked="@(_selectedUnitId == u.BloodUnitId)" @onchange="() => SelectAllocUnit(u)" /></td>
-                                    <td class="mono">@u.UnitNumber</td>
-                                    <td class="mono">@u.ProductCode</td>
-                                    <td>@u.BloodType</td>
-                                    <td class="nowrap">@u.ExpiresUtc.ToString("yyyy-MM-dd")</td>
-                                    <td>@(u.RequiresCrossmatch ? "Yes" : "No")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                    <div class="field" style="margin-top:.75rem;">
+                        <label>Unit number</label>
+                        <FilterableComboBox TItem="CompatibleUnitDto" TValue="long?"
+                            Items="_compatibleUnits"
+                            Value="_selectedUnitId"
+                            ValueChanged="OnAllocUnitChanged"
+                            DisplayText="@(u => $"{u.UnitNumber} · {u.BloodType} · {u.ProductCode} · expires {u.ExpiresUtc:yyyy-MM-dd}")"
+                            ItemValue="@(u => u.BloodUnitId)"
+                            SearchText="@(u => $"{u.UnitNumber} {u.ProductCode} {u.BloodType} {u.BloodUnitId}")"
+                            Clearable="true"
+                            Placeholder="Type unit number" />
+                    </div>
+                    @if (_selectedUnit is not null)
+                    {
+                        <div class="form-row" style="margin-top:.5rem;">
+                            <div class="field"><label>Product</label><div class="mono">@_selectedUnit.ProductCode — @_selectedUnit.ProductName</div></div>
+                            <div class="field"><label>ABO/Rh</label><div>@_selectedUnit.BloodType</div></div>
+                            <div class="field"><label>Expires</label><div class="nowrap">@_selectedUnit.ExpiresUtc.ToString("yyyy-MM-dd")</div></div>
+                            <div class="field"><label>Crossmatch required</label><div>@(_selectedUnit.RequiresCrossmatch ? "Yes" : "No")</div></div>
+                        </div>
+                    }
                 }
 
                 @if (_selectedUnit is not null && _selectedUnit.RequiresCrossmatch)
                 {
-                    <div class="form-row" style="margin-top:.75rem;">
-                        <div class="field"><label>Crossmatch test</label>
-                            <select @bind="_allocXmTestCode">
-                                @foreach (var t in _crossmatchTests)
-                                {
-                                    <option value="@t.Code">@t.Name (@t.Code) — @t.ResultValueType</option>
-                                }
-                            </select>
-                        </div>
-                    </div>
-                    @if (NeedsAbHistoryOverride)
-                    {
-                        <div class="bb-card" style="background:#fff8f0;margin-top:.75rem;border:1px solid #e8c48a;">
-                            <strong>Exception: antibody history</strong>
-                            <p class="muted">This patient has antibody history. Simple crossmatch requires an authorized override and comment. Prefer complex crossmatch.</p>
-                            @if (Session.SecurityLevel < _allocXmMinLevel)
-                            {
-                                <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum (@_allocXmMinLevel) required to override.</div>
-                            }
-                            else
-                            {
-                                <div class="form-row">
-                                    <div class="field"><label>Authorized by</label><input @bind="_allocAuthorizedBy" placeholder="@Session.UserName" /></div>
-                                    <div class="field" style="grid-column:1/-1;"><label>Override comment</label><input @bind="_allocOverrideReason" /></div>
-                                </div>
-                            }
-                        </div>
-                    }
+                    <p class="muted" style="margin-top:.75rem;">
+                        @if (_exm?.Eligible == true)
+                        {
+                            <text>This patient is eligible for electronic crossmatch. Selecting a unit will add and result EXM on the open product order.</text>
+                        }
+                        else
+                        {
+                            <text>Crossmatch tests attach to the open product order after the current antibody screen is completed. Change XM vs CXM on the order; downgrading to simple XM requires an exception.</text>
+                        }
+                    </p>
                 }
 
                 <div class="flex gap" style="margin-top:1rem;">
@@ -1467,10 +1508,22 @@ else
     private bool HasCompletedAbidOnSpecimen(long specimenId) =>
         _abidWorkups.Any(w => w.Status == AntibodyWorkupStatus.Completed && w.SpecimenId == specimenId);
     private List<SpecialRequirementDto> _specialRequirements = new();
+    private List<SpecialRequirementDefinitionDto> _srCatalog = new();
     private Feedback? _srFb;
-    private SpecialTransfusionRequirementType _srType = SpecialTransfusionRequirementType.Irradiated;
+    private long _srDefinitionId;
+    private DateTime? _srEndDate;
     private string? _srAntigen;
     private string _srReason = string.Empty;
+    private HashSet<string> _issueAcks = new(StringComparer.OrdinalIgnoreCase);
+
+    private IEnumerable<SpecialRequirementDto> ActiveSpecialRequirements =>
+        _specialRequirements.Where(r => r.IsClinicallyActive);
+
+    private IEnumerable<SpecialRequirementDto> AcknowledgmentSpecialRequirements =>
+        ActiveSpecialRequirements.Where(r => r.EnforcementKind == SpecialRequirementEnforcementKind.RequireIssueAcknowledgment);
+
+    private SpecialRequirementDefinitionDto? SelectedSrDefinition =>
+        _srCatalog.FirstOrDefault(d => d.Id == _srDefinitionId);
     private long? _srDeactivateId;
     private string _srDeactivateReason = string.Empty;
     private List<SpecimenDto> _specimens = new();
@@ -1531,6 +1584,7 @@ else
     // manual blood type
     private AboGroup _typeAbo = AboGroup.O;
     private RhType _typeRh = RhType.Positive;
+    private AboSubgroup _typeSubgroup = AboSubgroup.Unknown;
     private string _typeReason = string.Empty;
     private Feedback? _typeFb;
 
@@ -1643,10 +1697,17 @@ else
     private IEnumerable<DirectoryUserDto> SecondVerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
 
-    private bool NeedsAbHistoryOverride =>
+    private string _editOverrideReason = string.Empty;
+    private string _editAuthorizedBy = string.Empty;
+
+    private bool NeedsOrderXmOverride =>
         _antibodyHistory.Count > 0
-        && _selectedUnit?.RequiresCrossmatch == true
-        && SelectedXmResultType == ResultValueType.Crossmatch;
+        && _editOrderTestCodes.Any(c => _crossmatchTests.Any(t =>
+            string.Equals(t.Code, c, StringComparison.OrdinalIgnoreCase)
+            && t.ResultValueType == ResultValueType.Crossmatch))
+        && !_editOrderTestCodes.Any(c => _crossmatchTests.Any(t =>
+            string.Equals(t.Code, c, StringComparison.OrdinalIgnoreCase)
+            && t.ResultValueType == ResultValueType.ComplexCrossmatch));
 
     private ResultValueType SelectedXmResultType =>
         _crossmatchTests.FirstOrDefault(t => string.Equals(t.Code, _allocXmTestCode, StringComparison.OrdinalIgnoreCase))
@@ -1675,6 +1736,11 @@ else
         _specimens = (await Api.GetPatientSpecimensAsync(Id)).Value ?? new();
         _specimenTypes = (await Api.GetReferenceSpecimenTypesAsync()).Value ?? new();
         _specialRequirements = (await Api.GetSpecialRequirementsAsync(Id)).Value ?? new();
+        _srCatalog = (await Api.GetReferenceSpecialRequirementsAsync()).Value ?? new();
+        if (_srDefinitionId == 0 && _srCatalog.Count > 0)
+        {
+            _srDefinitionId = _srCatalog[0].Id;
+        }
         await LoadPanelDefinitionAsync(_panelTestCode);
         _loading = false;
     }
@@ -1756,10 +1822,10 @@ else
         _compatUnitsLoading = false;
     }
 
-    private void SelectAllocUnit(CompatibleUnitDto u)
+    private void OnAllocUnitChanged(long? id)
     {
-        _selectedUnitId = u.BloodUnitId;
-        _selectedUnit = u;
+        _selectedUnitId = id;
+        _selectedUnit = id is null ? null : _compatibleUnits.FirstOrDefault(u => u.BloodUnitId == id);
     }
 
     private void BeginReleaseAllocation(PatientAllocationRowDto a)
@@ -1790,6 +1856,24 @@ else
         _issueSecondVerifier = string.Empty;
         _issueAppearance = UnitAppearance.Acceptable;
         _issueScan.Clear();
+        _issueAcks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private void ToggleIssueAck(string? code, bool on)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return;
+        }
+
+        if (on)
+        {
+            _issueAcks.Add(code);
+        }
+        else
+        {
+            _issueAcks.Remove(code);
+        }
     }
 
     private void CancelIssueAllocation()
@@ -1819,7 +1903,8 @@ else
             IssuedUtc: issuedUtc,
             Comment: string.IsNullOrWhiteSpace(_issueComment) ? null : _issueComment.Trim(),
             VerifiedScan: _issueScan.ToRequest(),
-            Appearance: _issueAppearance);
+            Appearance: _issueAppearance,
+            AcknowledgedSpecialRequirementCodes: _issueAcks.ToList());
     }
 
     private bool ValidateIssueForm()
@@ -1943,52 +2028,19 @@ else
             return;
         }
 
-        if (_selectedUnit?.RequiresCrossmatch == true && string.IsNullOrWhiteSpace(_allocXmTestCode))
-        {
-            _allocFb = Feedback.Fail("Select a crossmatch test.");
-            return;
-        }
-
-        if (NeedsAbHistoryOverride)
-        {
-            if (Session.SecurityLevel < _allocXmMinLevel)
-            {
-                _allocFb = Feedback.Fail("Security level is insufficient to override antibody-history crossmatch exception.");
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(_allocOverrideReason))
-            {
-                _allocFb = Feedback.Fail("An override comment is required when selecting simple crossmatch for a patient with antibody history.");
-                return;
-            }
-        }
-
         _busy = true;
         var req = new AllocatePatientUnitRequest(
             _selectedUnitId.Value,
             _allocEncounterId > 0 ? _allocEncounterId : null,
             _allocSpecimenId > 0 ? _allocSpecimenId : null,
-            _newOrderLocationId > 0 ? _newOrderLocationId : null,
-            null,
-            _selectedUnit?.RequiresCrossmatch == true ? _allocXmTestCode : null,
-            NeedsAbHistoryOverride ? _allocOverrideReason.Trim() : null,
-            NeedsAbHistoryOverride
-                ? (string.IsNullOrWhiteSpace(_allocAuthorizedBy) ? Session.UserName : _allocAuthorizedBy.Trim())
-                : null);
+            _newOrderLocationId > 0 ? _newOrderLocationId : null);
 
         var r = await Api.AllocatePatientUnitAsync(Id, req);
         _busy = false;
 
-        if (r.Blocked && r.Overridable && NeedsAbHistoryOverride)
-        {
-            _allocFb = r.ToFeedback();
-            return;
-        }
-
         _allocFb = r.ToFeedback(
-            r.Value?.CrossmatchOrderId is not null
-                ? $"Unit allocated; crossmatch order {r.Value.CrossmatchTestCode} created."
+            r.Value?.CrossmatchTestCode is not null
+                ? $"Unit allocated; {r.Value.CrossmatchTestCode} attached to the product order."
                 : "Unit allocated.");
 
         if (r.Succeeded)
@@ -2207,6 +2259,13 @@ else
 
         await EnsureWorkspaceRefsAsync();
         if (!_visitsLoaded) await LoadVisitsAsync();
+        if (_crossmatchTests.Count == 0)
+        {
+            _crossmatchTests = (await Api.GetPatientCrossmatchTestsAsync(Id)).Value ?? new();
+        }
+
+        var exc = await Api.GetAdminExceptionByCodeAsync(AntibodyHistoryCrossmatchRule.RuleCode);
+        if (exc.Succeeded && exc.Value is not null) _allocXmMinLevel = exc.Value.MinSecurityLevel;
 
         _editingOrderId = order.Id;
         _showAddOrder = false;
@@ -2236,15 +2295,40 @@ else
         var order = _orders.FirstOrDefault(o => o.Id == _editingOrderId);
         if (order is null) { _orderFb = Feedback.Fail("Order not found."); return; }
 
+        if (NeedsOrderXmOverride)
+        {
+            if (Session.SecurityLevel < _allocXmMinLevel)
+            {
+                _orderFb = Feedback.Fail("Security level is insufficient to override antibody-history crossmatch exception.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_editOverrideReason))
+            {
+                _orderFb = Feedback.Fail("An override comment is required when changing to a simple crossmatch for a patient with antibody history.");
+                return;
+            }
+        }
+
         _busy = true;
+
         var req = new UpdateOrderRequest(
             _editOrderEncounterId,
             _editOrderLocationId,
             lines,
             _editOrderPriority,
-            _editOrderProviderId is > 0 ? _editOrderProviderId : null);
+            _editOrderProviderId is > 0 ? _editOrderProviderId : null,
+            NeedsOrderXmOverride ? _editOverrideReason.Trim() : null,
+            NeedsOrderXmOverride
+                ? (string.IsNullOrWhiteSpace(_editAuthorizedBy) ? Session.UserName : _editAuthorizedBy.Trim())
+                : null);
         var r = await Api.UpdatePatientOrderAsync(Id, _editingOrderId.Value, req);
         _busy = false;
+        if (r.Blocked && r.Overridable)
+        {
+            _orderFb = r.ToFeedback();
+            return;
+        }
         if (!r.Succeeded) { _orderFb = r.ToFeedback(); return; }
         _orderFb = r.ToFeedback($"Order {order.OrderNumber} updated.");
         _editingOrderId = null;
@@ -2327,7 +2411,7 @@ else
     private async Task RecordTypeAsync()
     {
         _busy = true;
-        var r = await Api.RecordBloodTypeAsync(Id, new RecordBloodTypeRequest(_typeAbo, _typeRh, _typeReason));
+        var r = await Api.RecordBloodTypeAsync(Id, new RecordBloodTypeRequest(_typeAbo, _typeRh, _typeReason, _typeSubgroup));
         _busy = false;
         _typeFb = r.ToFeedback("Blood type recorded.");
         if (r.Succeeded) { _typeReason = string.Empty; await LoadAsync(); }
@@ -2388,11 +2472,22 @@ else
     private async Task AddSpecialRequirementAsync()
     {
         _busy = true;
+        var selected = SelectedSrDefinition;
+        var type = selected is null
+            ? SpecialTransfusionRequirementType.Other
+            : SpecialRequirementCatalog.TypeFor(selected.Code) ?? SpecialTransfusionRequirementType.Other;
+        DateTime? expires = _srEndDate is { } end
+            ? DateTime.SpecifyKind(end.Date, DateTimeKind.Utc)
+            : null;
         var r = await Api.AddSpecialRequirementAsync(Id, new AddSpecialRequirementRequest(
-            _srType, _srReason, string.IsNullOrWhiteSpace(_srAntigen) ? null : _srAntigen));
+            type,
+            _srReason,
+            string.IsNullOrWhiteSpace(_srAntigen) ? null : _srAntigen,
+            ExpiresUtc: expires,
+            RequirementDefinitionId: _srDefinitionId == 0 ? null : _srDefinitionId));
         _busy = false;
         _srFb = r.ToFeedback("Special requirement added.");
-        if (r.Succeeded) { _srReason = string.Empty; _srAntigen = null; await LoadAsync(); }
+        if (r.Succeeded) { _srReason = string.Empty; _srAntigen = null; _srEndDate = null; await LoadAsync(); }
     }
 
     private void BeginDeactivateSr(SpecialRequirementDto r)

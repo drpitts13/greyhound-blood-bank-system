@@ -18,7 +18,9 @@
         {
             <Outcome Value="_xmFb" RequiresSignature="false" />
             <div class="form-row">
-                <div class="field"><label>Blood unit id</label><input type="number" @bind="_xm.BloodUnitId" /></div>
+                <div class="field"><label>Unit number</label>
+                    <UnitPickerComboBox Scope="UnitPickerScope.OnHand" @bind-Value="_xm.BloodUnitId" />
+                </div>
                 <div class="field"><label>Patient id</label><input type="number" @bind="_xm.PatientId" /></div>
                 <div class="field"><label>Specimen id</label><input type="number" @bind="_xm.SpecimenId" /></div>
                 <div class="field"><label>Method</label>
@@ -32,7 +34,7 @@
                 </div>
             </div>
             <div class="field"><label>Comment</label><input @bind="_xm.Comment" /></div>
-            <button class="btn btn-primary" disabled="@_busy" @onclick="RecordCrossmatchAsync">Record crossmatch</button>
+            <button class="btn btn-primary" disabled="@(_busy || _xm.BloodUnitId is null)" @onclick="RecordCrossmatchAsync">Record crossmatch</button>
         }
     </div>
 
@@ -46,11 +48,13 @@
         {
             <Outcome Value="_allocFb" />
             <div class="form-row">
-                <div class="field"><label>Blood unit id</label><input type="number" @bind="_alloc.BloodUnitId" /></div>
+                <div class="field"><label>Unit number</label>
+                    <UnitPickerComboBox Scope="UnitPickerScope.Available" @bind-Value="_alloc.BloodUnitId" />
+                </div>
                 <div class="field"><label>Patient id</label><input type="number" @bind="_alloc.PatientId" /></div>
                 <div class="field"><label>Specimen id (optional)</label><input type="number" @bind="_alloc.SpecimenId" /></div>
             </div>
-            <button class="btn btn-primary" disabled="@_busy" @onclick="AllocateAsync">Reserve unit</button>
+            <button class="btn btn-primary" disabled="@(_busy || _alloc.BloodUnitId is null)" @onclick="AllocateAsync">Reserve unit</button>
 
             @if (_lastAllocation is not null)
             {
@@ -80,7 +84,7 @@
     private async Task RecordCrossmatchAsync()
     {
         _busy = true;
-        var req = new RecordCrossmatchRequest(_xm.BloodUnitId, _xm.PatientId, _xm.SpecimenId, _xm.Method, _xm.Result, _xm.ScreenNegative,
+        var req = new RecordCrossmatchRequest(_xm.BloodUnitId!.Value, _xm.PatientId, _xm.SpecimenId, _xm.Method, _xm.Result, _xm.ScreenNegative,
             string.IsNullOrWhiteSpace(_xm.Comment) ? null : _xm.Comment);
         var r = await Api.RecordCrossmatchAsync(req);
         _busy = false;
@@ -92,7 +96,7 @@
     private async Task AllocateAsync()
     {
         _busy = true;
-        var req = new AllocateUnitRequest(_alloc.BloodUnitId, _alloc.PatientId, _alloc.SpecimenId == 0 ? null : _alloc.SpecimenId);
+        var req = new AllocateUnitRequest(_alloc.BloodUnitId!.Value, _alloc.PatientId, _alloc.SpecimenId == 0 ? null : _alloc.SpecimenId);
         var r = await Api.AllocateUnitAsync(req);
         _busy = false;
         _allocFb = r.ToFeedback("Unit reserved.");
@@ -110,7 +114,7 @@
 
     private sealed class XmModel
     {
-        public long BloodUnitId { get; set; }
+        public long? BloodUnitId { get; set; }
         public long PatientId { get; set; }
         public long SpecimenId { get; set; }
         public CrossmatchMethod Method { get; set; } = CrossmatchMethod.Serologic;
@@ -121,7 +125,7 @@
 
     private sealed class AllocModel
     {
-        public long BloodUnitId { get; set; }
+        public long? BloodUnitId { get; set; }
         public long PatientId { get; set; }
         public long SpecimenId { get; set; }
     }

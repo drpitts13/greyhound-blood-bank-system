@@ -91,3 +91,5 @@ external standard not present in this repository are labeled
 **REQUIRES REGULATORY / SME VERIFICATION** in
 [`docs/OPEN_CLINICAL_DECISIONS.md`](OPEN_CLINICAL_DECISIONS.md).
 ISBT lookup tables are placeholders pending an ICCBBA license (OCD-004).
+A facility that holds a license can import CSV/TSV/JSON extracts if they
+are available; official codes are not shipped.

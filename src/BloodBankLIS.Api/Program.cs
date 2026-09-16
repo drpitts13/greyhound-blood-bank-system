@@ -7,6 +7,7 @@ using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.HL7;
 using BloodBankLIS.Infrastructure;
 using BloodBankLIS.Infrastructure.Common;
+using BloodBankLIS.Infrastructure.Isbt128;
 using BloodBankLIS.Infrastructure.Persistence;
 using BloodBankLIS.Printing;
 using BloodBankLIS.Security;
@@ -41,6 +42,8 @@ if (!builder.Environment.IsDevelopment())
 
 builder.Services.AddSingleton(authOptions);
 builder.Services.AddInfrastructure(connectionString, dbProvider);
+builder.Services.AddSingleton<IIccbbaExtractDirectory>(
+    IccbbaExtractDirectory.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath));
 
 builder.Services.AddHl7Interfaces();
 builder.Services.AddPrinting();

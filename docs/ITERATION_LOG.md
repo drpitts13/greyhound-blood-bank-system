@@ -487,3 +487,40 @@ open until a licensed extract is loaded. Leading non-SME: quality
 metrics only as existing-queue counts (do not invent AABB QI), FHIR
 (gap 14), remaining class-name citations. RhIG (gap 11) stays
 SME-blocked.
+
+## Iteration 14 — ICCBBA extract import if available (2026-09-14)
+
+OCD-004 remains open: do not invent ICCBBA tables and do not claim a
+licensed extract is loaded. The implementable residual was native
+extract files when a facility has exported them.
+
+### Implemented
+
+- `IccbbaExtractParser` reads JSON/CSV/TSV with documented header aliases
+  and rejects Access/Excel.
+- Drop folder `Iccbba:ExtractDirectory` (default `testdata/isbt128/extracts`)
+  lists available files; empty folder is a no-op. Admin upload is
+  multipart. Both reuse `IsbtLicensedCatalogImportRule`.
+- `/admin/isbt-product-codes` lists detected extracts, uploads files,
+  and keeps JSON paste.
+- Seeder no longer reverts licensed non-placeholder product rows.
+  `IsbtLookupCatalog` prefers licensed then non-retired rows.
+
+### Requirements / risk
+
+- URS-BB-159, FRS-BB-193, SRS-BB-154, RISK-BB-266 (RISK-BB-014 / 259 residual).
+
+### Tests
+
+- TEST-BB-031 (`IccbbaExtractParserTests`), TEST-BB-032 (`IccbbaExtractImportTests`),
+  TEST-BB-033 (`SeederTests.Seed_DoesNotRevertLicensedProductCode`).
+- Application 34 (was 20). Integration extract/seeder/import/packaging tests green.
+  Domain `CrossmatchRuleTests.ElectronicEligibility_Criteria_ReportEachCheck` and
+  two special-requirement integration tests failed in this run; they are outside
+  this slice.
+
+### Next ranked residual
+
+Ask in conversation: OCD-001/006 eXM policy defaults; OCD-022 antigen
+phenotype versioning; OCD-008 dual-ID policy defaults. OCD-004 remains
+open until a licensed extract is loaded.

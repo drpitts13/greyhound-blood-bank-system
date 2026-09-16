@@ -15,6 +15,7 @@ public static class UnitModificationEligibilityRule
     public const string PoolMinSourcesCode = "MOD-POOL-MIN-SOURCES";
     public const string PoolAboMismatchCode = "MOD-POOL-ABO-MISMATCH";
     public const string DivideMinTargetsCode = "MOD-DIVIDE-MIN-TARGETS";
+    public const string VolumeRequiredCode = "MOD-DIVIDE-VOLUME-REQUIRED";
     public const string VolumeExceedsSourceCode = "MOD-VOLUME-EXCEEDS-SOURCE";
 
     public readonly record struct SourceUnitSnapshot(
@@ -79,7 +80,7 @@ public static class UnitModificationEligibilityRule
         return new RuleEvaluation(results);
     }
 
-    /// <summary>Checks for a Divide: at least two result children, and (if volumes given) they must not exceed the source's volume.</summary>
+    /// <summary>Checks for a Divide: at least two result children, every child has a volume, and the volumes do not exceed the source.</summary>
     public static RuleEvaluation EvaluateDivide(int childCount, decimal? sourceVolume, IReadOnlyList<decimal?> childVolumes)
     {
         var results = new List<RuleResult>();
@@ -89,9 +90,15 @@ public static class UnitModificationEligibilityRule
             results.Add(RuleResult.HardStop(DivideMinTargetsCode, "Dividing a unit requires at least two result units."));
         }
 
-        if (sourceVolume is not null && childVolumes.Count > 0 && childVolumes.All(v => v is not null))
+        var volumes = childVolumes ?? Array.Empty<decimal?>();
+        if (volumes.Count != childCount || volumes.Any(v => v is null or <= 0m))
         {
-            var sum = childVolumes.Sum(v => v ?? 0m);
+            results.Add(RuleResult.HardStop(VolumeRequiredCode,
+                "Each result unit of a divide must have a volume greater than zero."));
+        }
+        else if (sourceVolume is not null)
+        {
+            var sum = volumes.Sum(v => v ?? 0m);
             if (sum > sourceVolume)
             {
                 results.Add(RuleResult.HardStop(VolumeExceedsSourceCode,

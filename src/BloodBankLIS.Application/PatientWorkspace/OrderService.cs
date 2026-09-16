@@ -1,10 +1,12 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Application.Rules;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.Rules.Config;
 using BloodBankLIS.Domain.Rules.PatientWorkspace;
 using BloodBankLIS.Domain.ValueObjects;
 
@@ -29,6 +31,10 @@ public sealed class OrderService
     private readonly IAuditWriter? _audit;
     private readonly IPermissionEvaluator? _permissions;
     private readonly ICurrentUser? _currentUser;
+    private readonly CrossmatchAttachmentService? _crossmatchAttachment;
+    private readonly AntibodyScreenCompatLoader? _antibodyScreen;
+    private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
+    private readonly IRepository<Override>? _overrides;
 
     public OrderService(
         IRepository<Order> orders,
@@ -47,12 +53,20 @@ public sealed class OrderService
         RuleEngineService? ruleEngine = null,
         IAuditWriter? audit = null,
         IPermissionEvaluator? permissions = null,
-        ICurrentUser? currentUser = null)
+        ICurrentUser? currentUser = null,
+        CrossmatchAttachmentService? crossmatchAttachment = null,
+        AntibodyScreenCompatLoader? antibodyScreen = null,
+        IRepository<ExceptionDefinition>? exceptionDefinitions = null,
+        IRepository<Override>? overrides = null)
     {
         _ruleEngine = ruleEngine;
         _audit = audit;
         _permissions = permissions;
         _currentUser = currentUser;
+        _crossmatchAttachment = crossmatchAttachment;
+        _antibodyScreen = antibodyScreen;
+        _exceptionDefinitions = exceptionDefinitions;
+        _overrides = overrides;
         _orders = orders;
         _orderLines = orderLines;
         _orderSpecimens = orderSpecimens;
@@ -308,38 +322,43 @@ public sealed class OrderService
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
+        if (_crossmatchAttachment is not null)
+        {
+            await _crossmatchAttachment.AttachSerologicIfNeededAsync(patientId, ct);
+        }
+
         return OperationResult<Order>.Ok(order, ruleOutcome.Warnings);
     }
 
-    public async Task<OperationResult<Order>> UpdateAsync(long patientId, long orderId, UpdateOrderRequest request, CancellationToken ct = default)
+    public async Task<EvaluationResult<Order>> UpdateAsync(long patientId, long orderId, UpdateOrderRequest request, CancellationToken ct = default)
     {
         if (request.Lines.Count == 0)
         {
-            return OperationResult<Order>.Fail("At least one test or product is required.");
+            return EvaluationResult<Order>.Fail("At least one test or product is required.");
         }
 
         var unauthorized = await RejectUnauthorizedAsync<Order>(OrderAuthorizationRule.EvaluateUpdate, ct);
         if (unauthorized is not null)
         {
-            return unauthorized;
+            return EvaluationResult<Order>.Fail(unauthorized.Error ?? "Not authorized.");
         }
 
         var order = await _orders.FirstOrDefaultAsync(o => o.Id == orderId && o.PatientId == patientId, ct);
         if (order is null)
         {
-            return OperationResult<Order>.Fail("Order not found.");
+            return EvaluationResult<Order>.Fail("Order not found.");
         }
 
         var merged = await RejectMergedPatientMessageAsync(patientId, ct);
         if (merged is not null)
         {
-            return OperationResult<Order>.Fail(merged);
+            return EvaluationResult<Order>.Fail(merged);
         }
 
         var editRule = OrderValidator.ValidateEditable(order);
         if (editRule is not null)
         {
-            return OperationResult<Order>.Fail(editRule.Message);
+            return EvaluationResult<Order>.Fail(editRule.Message);
         }
 
         var encounter = await _encounters.GetByIdAsync(request.EncounterId, ct);
@@ -349,6 +368,12 @@ public sealed class OrderService
         var lineInputs = OrderLineBuilder.WithCrossmatchLineIfNeeded(request.Lines, productTypeMap);
         lineInputs = await ExpandGrouperLinesAsync(lineInputs, ct);
         var builtLines = await BuildLinesAsync(lineInputs, productTypeMap, ct);
+
+        var xmDowngrade = await EvaluateCrossmatchDowngradeAsync(patientId, builtLines, request, ct);
+        if (xmDowngrade is not null)
+        {
+            return xmDowngrade;
+        }
 
         order.EncounterId = request.EncounterId;
         order.OrderingLocationId = request.OrderingLocationId;
@@ -360,7 +385,7 @@ public sealed class OrderService
         var ruleOutcome = await ApplyOrderRulesAsync(patientId, order, builtLines, specimenType, ct);
         if (ruleOutcome.IsBlocked)
         {
-            return OperationResult<Order>.Fail(ruleOutcome.BlockMessage!);
+            return EvaluationResult<Order>.Fail(ruleOutcome.BlockMessage!);
         }
 
         builtLines = ruleOutcome.Lines;
@@ -377,7 +402,7 @@ public sealed class OrderService
 
         if (validation.IsHardStopped)
         {
-            return OperationResult<Order>.Fail(validation.HardStops.First().Message);
+            return EvaluationResult<Order>.Fail(validation.HardStops.First().Message);
         }
 
         var existingLines = await _orderLines.ListAsync(l => l.OrderId == orderId && l.IsActive, ct);
@@ -405,6 +430,23 @@ public sealed class OrderService
             await _ruleEngine.PersistOrderLogsAsync(ruleOutcome, order.Id, ct);
         }
 
+        if (await ShouldRecordCrossmatchDowngradeAsync(patientId, builtLines, request, ct)
+            && _overrides is not null
+            && !string.IsNullOrWhiteSpace(request.OverrideReason)
+            && !string.IsNullOrWhiteSpace(request.AuthorizedBy))
+        {
+            await _overrides.AddAsync(new Override
+            {
+                Action = OverrideAction.WarningOverride,
+                ContextType = nameof(Order),
+                ContextId = order.Id,
+                RuleCode = AntibodyHistoryCrossmatchRule.RuleCode,
+                Reason = request.OverrideReason.Trim(),
+                AuthorizedBy = request.AuthorizedBy.Trim(),
+                OverriddenUtc = _clock.UtcNow
+            }, ct);
+        }
+
         await _unitOfWork.SaveChangesAsync(ct);
         _audit?.Record(
             AuditEventType.OrderChange,
@@ -414,7 +456,12 @@ public sealed class OrderService
             reason: "Order updated.");
         await _unitOfWork.SaveChangesAsync(ct);
 
-        return OperationResult<Order>.Ok(order, ruleOutcome.Warnings);
+        if (_crossmatchAttachment is not null)
+        {
+            await _crossmatchAttachment.AttachSerologicIfNeededAsync(patientId, ct);
+        }
+
+        return EvaluationResult<Order>.Ok(order);
     }
 
     public async Task<OperationResult<Order>> CancelAsync(long patientId, long orderId, CancelOrderRequest request, CancellationToken ct = default)
@@ -783,5 +830,103 @@ public sealed class OrderService
         return auth.Severity == RuleSeverity.HardStop
             ? OperationResult<T>.Fail(auth.Message)
             : null;
+    }
+
+    private async Task<EvaluationResult<Order>?> EvaluateCrossmatchDowngradeAsync(
+        long patientId,
+        IReadOnlyList<OrderLine> builtLines,
+        UpdateOrderRequest request,
+        CancellationToken ct)
+    {
+        if (_antibodyScreen is null)
+        {
+            return null;
+        }
+
+        var requiresComplex = await _antibodyScreen.RequiresComplexCrossmatchAsync(patientId, ct);
+        var selectedType = await ResolveSelectedCrossmatchTypeAsync(builtLines, ct);
+        if (selectedType is null)
+        {
+            return null;
+        }
+
+        var overrideAttempted = !string.IsNullOrWhiteSpace(request.OverrideReason)
+            && !string.IsNullOrWhiteSpace(request.AuthorizedBy);
+        var rule = AntibodyHistoryCrossmatchRule.Evaluate(
+            requiresComplex, selectedType.Value, overrideAuthorized: false);
+        if (rule.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Order>.Blocked(new RuleEvaluation([rule]));
+        }
+
+        if (rule.Severity != RuleSeverity.Warning)
+        {
+            return null;
+        }
+
+        if (!overrideAttempted)
+        {
+            return EvaluationResult<Order>.Blocked(new RuleEvaluation([rule]));
+        }
+
+        if (_exceptionDefinitions is null || _permissions is null || _currentUser is null)
+        {
+            return EvaluationResult<Order>.Blocked(new RuleEvaluation([rule]));
+        }
+
+        var definition = await _exceptionDefinitions.FirstOrDefaultAsync(
+            e => e.RuleCode == AntibodyHistoryCrossmatchRule.RuleCode && e.IsActive, ct);
+        var userLevel = await _permissions.GetMaxSecurityLevelAsync(_currentUser.UserName, ct);
+        var access = ExceptionOverridePolicy.EvaluateAccess(
+            userLevel, definition, AntibodyHistoryCrossmatchRule.RuleCode);
+        if (access.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Order>.Blocked(new RuleEvaluation([access, rule]));
+        }
+
+        return null;
+    }
+
+    private async Task<bool> ShouldRecordCrossmatchDowngradeAsync(
+        long patientId,
+        IReadOnlyList<OrderLine> builtLines,
+        UpdateOrderRequest request,
+        CancellationToken ct)
+    {
+        if (_antibodyScreen is null
+            || string.IsNullOrWhiteSpace(request.OverrideReason)
+            || string.IsNullOrWhiteSpace(request.AuthorizedBy))
+        {
+            return false;
+        }
+
+        var requiresComplex = await _antibodyScreen.RequiresComplexCrossmatchAsync(patientId, ct);
+        var selectedType = await ResolveSelectedCrossmatchTypeAsync(builtLines, ct);
+        return requiresComplex && selectedType == ResultValueType.Crossmatch;
+    }
+
+    private async Task<ResultValueType?> ResolveSelectedCrossmatchTypeAsync(
+        IReadOnlyList<OrderLine> lines,
+        CancellationToken ct)
+    {
+        ResultValueType? selected = null;
+        foreach (var line in lines.Where(l => l.LineCategory == OrderCategory.Test && !string.IsNullOrWhiteSpace(l.TestCode)))
+        {
+            var code = line.TestCode!.Trim().ToUpperInvariant();
+            var test = await _testDefinitions.FirstOrDefaultAsync(t => t.IsActive && !t.IsDraft && t.Code == code, ct);
+            if (test is null || !TestDefinitionValidator.IsCrossmatchResultType(test.ResultValueType))
+            {
+                continue;
+            }
+
+            if (test.ResultValueType == ResultValueType.Crossmatch)
+            {
+                return ResultValueType.Crossmatch;
+            }
+
+            selected = test.ResultValueType;
+        }
+
+        return selected;
     }
 }

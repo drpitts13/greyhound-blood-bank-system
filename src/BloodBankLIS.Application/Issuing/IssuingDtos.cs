@@ -29,7 +29,8 @@ public sealed record IssueUnitRequest(
     ComponentScanVerificationRequest? VerifiedScan = null,
     string? ReceivedBy = null,
     string? CoolerId = null,
-    UnitAppearance Appearance = UnitAppearance.Acceptable);
+    UnitAppearance Appearance = UnitAppearance.Acceptable,
+    IReadOnlyList<string>? AcknowledgedSpecialRequirementCodes = null);
 
 public sealed record ComponentScanVerificationRequest(
     string Din,
@@ -89,14 +90,16 @@ public sealed record IssueDto(
     string? CoolerId = null,
     DateTime? InTransitDueUtc = null,
     UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
-    UnitAppearance WardAppearance = UnitAppearance.Acceptable)
+    UnitAppearance WardAppearance = UnitAppearance.Acceptable,
+    string? AcknowledgedSpecialRequirementCodes = null)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
         i.IssuedUtc, i.IssuedBy, i.Comment, i.IssueType, i.OverrideId, i.Status, i.TestsIncompleteAtIssue,
         i.WardReceivedUtc, i.WardReceivedBy,
         i.RetrospectiveCrossmatchDueUtc, i.RetrospectiveCrossmatchCompletedUtc,
-        i.CoolerId, i.InTransitDueUtc, i.IssueAppearance, i.WardAppearance);
+        i.CoolerId, i.InTransitDueUtc, i.IssueAppearance, i.WardAppearance,
+        i.AcknowledgedSpecialRequirementCodes);
 }
 
 public sealed record InTransitWorkItemDto(

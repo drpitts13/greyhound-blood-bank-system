@@ -16,14 +16,25 @@ public static class ElectronicCrossmatchEligibilityRule
     public const string ScreenCode = "XM-EC-SCREEN";
     public const string HistoryCode = "XM-EC-HISTORY";
     public const string WorkupOpenCode = "XM-EC-ABID-OPEN";
+    public const string ExtendedXmCode = "XM-EC-EXTXM";
     public const string FacilityCode = "XM-EC-POLICY";
+    public const string VisitsCode = "XM-EC-VISITS";
+    public const string SpecimensCode = "XM-EC-SPECIMENS";
+    public const string TestsCode = "XM-EC-TESTS";
 
     public static IReadOnlyList<RuleResult> EvaluateCriteria(
         bool currentAboRhConfirmed,
         bool antibodyScreenNegative,
         bool hasAntibodyHistory,
         bool hasSecondConcordantAboRh,
-        bool hasOpenAntibodyIdWorkup = false)
+        bool hasOpenAntibodyIdWorkup = false,
+        bool requiresExtendedCrossmatch = false,
+        int negativeScreenVisitCount = 0,
+        int negativeScreenSpecimenCount = 0,
+        int negativeScreenTestCount = 0,
+        int minimumVisits = 0,
+        int minimumSpecimens = 0,
+        int minimumTests = 0)
     {
         return
         [
@@ -43,7 +54,15 @@ public static class ElectronicCrossmatchEligibilityRule
                 ? RuleResult.HardStop(
                     WorkupOpenCode,
                     "Electronic crossmatch is not permitted while an antibody-identification workup is open. Complete or void it, or record a serologic crossmatch.")
-                : RuleResult.Pass(WorkupOpenCode, "No open antibody-identification workup.")
+                : RuleResult.Pass(WorkupOpenCode, "No open antibody-identification workup."),
+            requiresExtendedCrossmatch
+                ? RuleResult.HardStop(
+                    ExtendedXmCode,
+                    "Electronic crossmatch is not permitted while an extended-crossmatch special requirement is active.")
+                : RuleResult.Pass(ExtendedXmCode, "No active extended-crossmatch special requirement."),
+            CountCriterion(VisitsCode, "visits", negativeScreenVisitCount, minimumVisits),
+            CountCriterion(SpecimensCode, "specimens", negativeScreenSpecimenCount, minimumSpecimens),
+            CountCriterion(TestsCode, "antibody screens", negativeScreenTestCount, minimumTests)
         ];
     }
 
@@ -52,15 +71,43 @@ public static class ElectronicCrossmatchEligibilityRule
         bool antibodyScreenNegative,
         bool hasAntibodyHistory,
         bool hasSecondConcordantAboRh,
-        bool hasOpenAntibodyIdWorkup = false)
+        bool hasOpenAntibodyIdWorkup = false,
+        bool requiresExtendedCrossmatch = false,
+        int negativeScreenVisitCount = 0,
+        int negativeScreenSpecimenCount = 0,
+        int negativeScreenTestCount = 0,
+        int minimumVisits = 0,
+        int minimumSpecimens = 0,
+        int minimumTests = 0)
     {
         var firstStop = EvaluateCriteria(
                 currentAboRhConfirmed,
                 antibodyScreenNegative,
                 hasAntibodyHistory,
                 hasSecondConcordantAboRh,
-                hasOpenAntibodyIdWorkup)
+                hasOpenAntibodyIdWorkup,
+                requiresExtendedCrossmatch,
+                negativeScreenVisitCount,
+                negativeScreenSpecimenCount,
+                negativeScreenTestCount,
+                minimumVisits,
+                minimumSpecimens,
+                minimumTests)
             .FirstOrDefault(r => r.Severity == RuleSeverity.HardStop);
         return firstStop ?? RuleResult.Pass(Code);
+    }
+
+    private static RuleResult CountCriterion(string code, string noun, int actual, int minimum)
+    {
+        if (minimum <= 0 || actual >= minimum)
+        {
+            return RuleResult.Pass(
+                code,
+                $"Negative antibody screen {noun} meet the electronic XM minimum ({actual} of {Math.Max(minimum, 0)}).");
+        }
+
+        return RuleResult.HardStop(
+            code,
+            $"Electronic crossmatch requires at least {minimum} {noun} with no positive antibody screen reaction (found {actual}).");
     }
 }

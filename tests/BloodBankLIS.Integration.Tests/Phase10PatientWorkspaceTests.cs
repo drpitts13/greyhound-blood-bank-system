@@ -280,7 +280,7 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
-    public async Task ProductOrder_RequiringCrossmatch_AutoAddsCrossmatchLine()
+    public async Task ProductOrder_RequiringCrossmatch_DoesNotAddCrossmatchLineUntilScreenComplete()
     {
         await using var c = _factory.Create();
         var (patient, loc) = await SeedPatientAsync(c);
@@ -312,8 +312,8 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
 
         var list = await Orders(c).ListByPatientAsync(patient.Id);
         Assert.Single(list);
-        Assert.Equal(2, list[0].Lines.Count);
-        Assert.Contains(list[0].Lines, l => l.TestCode == "XM");
+        Assert.Single(list[0].Lines);
+        Assert.DoesNotContain(list[0].Lines, l => l.TestCode == "XM");
 
         var ffpOrder = await Orders(c).CreateAsync(patient.Id, new CreateOrderRequest(
             enc.Value.Id, loc.Id, $"ORD-FFP-{Guid.NewGuid():N}",

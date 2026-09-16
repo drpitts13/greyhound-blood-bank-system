@@ -71,6 +71,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<TransfusionEvent> TransfusionEvents => Set<TransfusionEvent>();
     public DbSet<ReactionInvestigation> ReactionInvestigations => Set<ReactionInvestigation>();
     public DbSet<SpecialTransfusionRequirement> SpecialTransfusionRequirements => Set<SpecialTransfusionRequirement>();
+    public DbSet<SpecialRequirementDefinition> SpecialRequirementDefinitions => Set<SpecialRequirementDefinition>();
     public DbSet<PatientIdentifier> PatientIdentifiers => Set<PatientIdentifier>();
     public DbSet<LookbackNotification> LookbackNotifications => Set<LookbackNotification>();
     public DbSet<Deviation> Deviations => Set<Deviation>();
@@ -110,6 +111,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<ProductAttribute> ProductAttributes => Set<ProductAttribute>();
     public DbSet<ProductAttributeAssignment> ProductAttributeAssignments => Set<ProductAttributeAssignment>();
     public DbSet<ExceptionDefinition> ExceptionDefinitions => Set<ExceptionDefinition>();
+    public DbSet<CrossmatchSettings> CrossmatchSettings => Set<CrossmatchSettings>();
     public DbSet<ExpirationModificationCode> ExpirationModificationCodes => Set<ExpirationModificationCode>();
     public DbSet<ModificationRule> ModificationRules => Set<ModificationRule>();
     public DbSet<UnitModification> UnitModifications => Set<UnitModification>();

@@ -76,9 +76,7 @@ public static class PatientWorkspaceEndpoints
             CancellationToken ct) =>
         {
             var result = await service.UpdateAsync(patientId, orderId, request, ct);
-            return result.Succeeded
-                ? Results.Ok(new { result.Value!.Id, result.Value.Status })
-                : Results.BadRequest(new { error = result.Error });
+            return EndpointResults.FromEvaluation(result, o => new { o.Id, o.Status });
         }).RequirePermission(PermissionCodes.PatientWrite);
 
         group.MapPost("/orders/{orderId:long}/cancel", async (

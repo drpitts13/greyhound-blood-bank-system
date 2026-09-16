@@ -32,7 +32,11 @@ public sealed class ElectronicCrossmatchEligibilityService
         [ElectronicCrossmatchEligibilityRule.SecondTypeCode] = "Second concordant ABO/Rh",
         [ElectronicCrossmatchEligibilityRule.ScreenCode] = "Antibody screen negative",
         [ElectronicCrossmatchEligibilityRule.HistoryCode] = "No significant antibody history",
-        [ElectronicCrossmatchEligibilityRule.WorkupOpenCode] = "No open antibody-identification workup"
+        [ElectronicCrossmatchEligibilityRule.WorkupOpenCode] = "No open antibody-identification workup",
+        [ElectronicCrossmatchEligibilityRule.ExtendedXmCode] = "No extended-crossmatch special requirement",
+        [ElectronicCrossmatchEligibilityRule.VisitsCode] = "Minimum negative-screen visits",
+        [ElectronicCrossmatchEligibilityRule.SpecimensCode] = "Minimum negative-screen specimens",
+        [ElectronicCrossmatchEligibilityRule.TestsCode] = "Minimum negative antibody screens"
     };
 
     private readonly IRepository<Patient> _patients;
@@ -41,6 +45,7 @@ public sealed class ElectronicCrossmatchEligibilityService
     private readonly IRepository<AntibodyIdentificationWorkup> _workups;
     private readonly AntibodyScreenCompatLoader _antibodyScreen;
     private readonly FacilityPolicyService _policy;
+    private readonly CrossmatchSettingsReader? _crossmatchSettings;
 
     public ElectronicCrossmatchEligibilityService(
         IRepository<Patient> patients,
@@ -48,7 +53,8 @@ public sealed class ElectronicCrossmatchEligibilityService
         IRepository<AntibodyHistory> antibodies,
         IRepository<AntibodyIdentificationWorkup> workups,
         AntibodyScreenCompatLoader antibodyScreen,
-        FacilityPolicyService policy)
+        FacilityPolicyService policy,
+        CrossmatchSettingsReader? crossmatchSettings = null)
     {
         _patients = patients;
         _bloodTypes = bloodTypes;
@@ -56,6 +62,7 @@ public sealed class ElectronicCrossmatchEligibilityService
         _workups = workups;
         _antibodyScreen = antibodyScreen;
         _policy = policy;
+        _crossmatchSettings = crossmatchSettings;
     }
 
     public async Task<ElectronicCrossmatchEligibilityDto?> AssessAsync(long patientId, CancellationToken ct = default)
@@ -80,8 +87,24 @@ public sealed class ElectronicCrossmatchEligibilityService
                     || w.Status == AntibodyWorkupStatus.PendingSupervisorReview),
             ct);
 
+        var requiresExtendedXm = await _antibodyScreen.HasActiveExtendedCrossmatchRequirementAsync(patientId, ct);
+        var counts = await _antibodyScreen.CountNegativeAntibodyScreensAsync(patientId, ct);
+        var settings = _crossmatchSettings is null
+            ? null
+            : await _crossmatchSettings.GetActiveAsync(ct);
         var clinical = ElectronicCrossmatchEligibilityRule.EvaluateCriteria(
-            currentConfirmed, screenNegative, hasAntibodyHistory, secondAbo, hasOpenWorkup);
+            currentConfirmed,
+            screenNegative,
+            hasAntibodyHistory,
+            secondAbo,
+            hasOpenWorkup,
+            requiresExtendedXm,
+            counts.Visits,
+            counts.Specimens,
+            counts.Tests,
+            settings?.ElectronicXmMinimumVisits ?? 0,
+            settings?.ElectronicXmMinimumSpecimens ?? 0,
+            settings?.ElectronicXmMinimumTests ?? 0);
         var facility = facilityAllows
             ? RuleResult.Pass(ElectronicCrossmatchEligibilityRule.FacilityCode, "Electronic XM is enabled in facility policy.")
             : RuleResult.HardStop(

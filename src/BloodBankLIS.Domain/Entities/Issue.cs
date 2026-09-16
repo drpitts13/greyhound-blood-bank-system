@@ -93,4 +93,7 @@ public class Issue : BaseEntity
     public string? PatientIdentifier1 { get; set; }
 
     public string? PatientIdentifier2 { get; set; }
+
+    /// <summary>Comma-separated special-requirement codes acknowledged at issue (warmer / Other).</summary>
+    public string? AcknowledgedSpecialRequirementCodes { get; set; }
 }

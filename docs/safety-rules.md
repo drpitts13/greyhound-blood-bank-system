@@ -48,9 +48,9 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `XM-ALLOC-PERM` | Caller has `compatibility.allocate` when reserving a unit to a patient | HardStop when a permission evaluator is present and the privilege is missing |
 | `XM-REL-PERM` | Caller has `compatibility.allocate` when releasing a reservation back to Available | HardStop when a permission evaluator is present and the privilege is missing |
 | `XM-PERM` | Caller has `compatibility.crossmatch` when recording a crossmatch | HardStop when a permission evaluator is present and the privilege is missing |
-| `ISS-SPECIAL-REQ` | All active special requirements met (irradiated/CMV-neg/leukoreduced/washed/antigen-negative) — computer-evaluated from persisted patient requirements | HardStop |
+| `ISS-SPECIAL-REQ` | All clinically active special requirements met (unit product attributes / antigen-negative / issue acknowledgment / A1/A2 subgroup). End-dated rows are ignored. Extended XM is enforced via `ALLOC-XM-AB-HISTORY` / `XM-EC-EXTXM`, not this boolean | HardStop |
 | `ISS-ANTIGEN-NEG` | For RBC/WB: unit typed antigen-negative for each clinically significant patient antibody (current or historical) | Warning (supervisor+ override via ExceptionDefinitions, MinSecurityLevel 2) |
-| `ALLOC-XM-AB-HISTORY` | Positive antibody screen (current/historical) or antibody history requires complex crossmatch (simple XM needs override) | Warning |
+| `ALLOC-XM-AB-HISTORY` | Positive antibody screen (current/historical), antibody history, or an active extended-crossmatch special requirement requires complex crossmatch (simple XM needs override) | Warning |
 | `ABID-ALLOC-OPEN` | An open antibody-identification workup is the identification of record; antigen-negative needs may change when it completes | Warning (does not block reserve) |
 | `ABID-XM-OPEN` | Same open workup at serologic XM; antigen-negative needs may change when it completes | Warning (does not block serologic XM; electronic XM stays HardStop) |
 | `ABID-ISSUE-OPEN` | Same open workup at issue; antigen-negative needs may change when it completes | Warning after the gate (does not block or require override) |
@@ -97,10 +97,9 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `INV-DIR-ALLO` | Unused directed unit may be converted to allogeneic inventory; autologous cannot; reserved/issued statuses must be released first | HardStop |
 | `INV-DIR-CONV-2ND` | Distinct directory user as second verifier to convert a directed unit to allogeneic | HardStop when `Inventory.RequireDirectedConversionVerifier` is true (default) |
 | `INV-RCV-2ND` | Distinct directory user as second verifier when receiving a unit (walk-in, expected arrival, ISBT) | HardStop when `Inventory.RequireReceiveVerifier` is true (default) |
-| `RES-SELF-VERIFY` | The user who entered a unit ABO/Rh retype may not verify it | HardStop when `Inventory.BlockRetypeSelfVerify` is true (default) |
 | `RES-SELF-VERIFY` | The user who entered a patient ABO/Rh result may not verify it | HardStop when `Result.BlockAboSelfVerify` is true (default); `MarkComplete` does not auto-verify ABO/Rh |
-| `RES-VERIFY-PERM` | Caller has `result.verify` when verifying a test result or unit ABO/Rh retype | HardStop when a permission evaluator is present and the privilege is missing |
-| `RES-ENTER-PERM` | Caller has `result.enter` when entering or updating an unverified result or unit retype | HardStop when a permission evaluator is present and the privilege is missing |
+| `RES-VERIFY-PERM` | Caller has `result.verify` when verifying a test result, or when confirming a leftover Entered unit retype | HardStop when a permission evaluator is present and the privilege is missing |
+| `RES-ENTER-PERM` | Caller has `result.enter` when entering or updating an unverified result or recording a unit retype | HardStop when a permission evaluator is present and the privilege is missing |
 | `RES-CORRECT-PERM` | Caller has `result.correct` when correcting a verified result | HardStop when a permission evaluator is present and the privilege is missing |
 | `SPEC-ACC-PERM` | Caller has `specimen.accession` when accessioning a specimen | HardStop when a permission evaluator is present and the privilege is missing |
 | `SPEC-EDIT-PERM` | Caller has `specimen.edit` when editing specimen collection metadata | HardStop when a permission evaluator is present and the privilege is missing |
@@ -289,7 +288,7 @@ Modified   -> (terminal)
 - `ReturnedToSupplier` is the SoftBank/SafeTrace consignee reject / unused-stock return to the vendor. Distinct from ward `Returned` and from packing-list `CancelledAssignment`. Terminal; not issuable.
 - Releasing a unit from quality quarantine requires a distinct directory second verifier (`INV-Q-RELEASE-2ND`) when `Inventory.RequireQuarantineReleaseVerifier` is true (default).
 - Placing a unit in quality quarantine requires a coded catalog reason (`INV-Q-REASON`). Intake, locate, inspect, retype discrepancy, failed return, reaction remainder, and modification results store the matching code automatically.
-- Unit ABO/Rh retype entry writes `Result` with interpreted ABO/Rh. An unverified update writes Result with old/new interpreted type. Verification writes interpreted ABO/Rh on `Verify` old/new and `ProductStatus` (Received → Available or Quarantine). Save and verify feedback name that interpreted type. Product-definition create/update writes `Configure` (including the required-retype flag).
+- Unit ABO/Rh retype record writes `Result` with interpreted ABO/Rh and immediately writes interpreted ABO/Rh on `Verify` old/new and `ProductStatus` (Received → Available or Quarantine). The retype is the second confirmation of the supplier type; no second reviewer. Record feedback names that interpreted type. Product-definition create/update writes `Configure` (including the required-retype flag).
 - Unit ISBT identity correction writes `Correct` on the unit after the correction row has an id, with field, old/new value, and `CorrectionId`. Post-issue lock and `inventory.correct-identity` stay as-is.
 - Discarding a unit requires a distinct directory second verifier (`INV-DISC-2ND`) when `Inventory.RequireDiscardVerifier` is true (default).
 - Any transition writes `InventoryStatusHistory` + `AuditEvent`.
@@ -310,12 +309,15 @@ Enforced by `UnitModificationEligibilityRule` and `ModificationExpirationRule` i
 | `MOD-POOL-MIN-SOURCES` | Pool has at least two source units | HardStop |
 | `MOD-POOL-ABO-MISMATCH` | All pooled source units share the same product type, ABO, and Rh(D) | HardStop |
 | `MOD-DIVIDE-MIN-TARGETS` | Divide requests at least two result units | HardStop |
-| `MOD-VOLUME-EXCEEDS-SOURCE` | Divide's requested child volumes (when supplied) do not exceed the source unit's volume | HardStop |
+| `MOD-DIVIDE-VOLUME-REQUIRED` | Every divide result unit has a volume greater than zero | HardStop |
+| `MOD-VOLUME-EXCEEDS-SOURCE` | Divide child volumes do not exceed the source unit's volume | HardStop |
+| `MOD-DIVIDE-LEVEL-EXCEEDED` | Source division is still at the first ISBT level (`00` or `0A`/`0B`); second-level codes (`Aa`) cannot be subdivided without extended division | HardStop |
+| `MOD-DIVIDE-DIVISION-EXHAUSTED` | Unused ISBT division codes remain for the donation + PDC + collection type | HardStop |
 | `MOD-COLLECTION-REQUIRED` | Collection-relative expiration codes require every source unit to have a collection date/time | HardStop |
 
 Admin `ExpirationModificationCodes` catalog validation (`ExpirationModificationCodeValidator`), all HardStop: `EXPCODE.CODE.REQUIRED`, `EXPCODE.AMOUNT.INVALID`, `EXPCODE.UNIT.INVALID`, `EXPCODE.RELATIVE.INVALID`, `EXPCODE.CODE.DUPLICATE`. Create/update writes `Configure`; activate/deactivate stay Activate/Deactivate.
 
-Admin `ModificationRules` catalog validation (`ModificationRuleValidator`), all HardStop: `MODRULE.CODE.REQUIRED`, `MODRULE.CODE.DUPLICATE`, `MODRULE.SOURCE.REQUIRED`, `MODRULE.TARGET.REQUIRED`, `MODRULE.EXPCODE.REQUIRED`, `MODRULE.EXPCODE.INACTIVE`, `MODRULE.TRIPLE.DUPLICATE` (another active rule already maps the same source product + type + target product), `MODRULE.SOURCE.INACTIVE`/`MODRULE.TARGET.INACTIVE`. `MODRULE.SAMEPRODUCT` is a non-blocking Warning. Create/update writes `Configure`; activate/deactivate stay Activate/Deactivate.
+Admin `ModificationRules` catalog validation (`ModificationRuleValidator`), all HardStop: `MODRULE.CODE.REQUIRED`, `MODRULE.CODE.DUPLICATE` (another rule already uses the same modification code + source product + target product), `MODRULE.SOURCE.REQUIRED`, `MODRULE.TARGET.REQUIRED`, `MODRULE.EXPCODE.REQUIRED`, `MODRULE.EXPCODE.INACTIVE`, `MODRULE.TRIPLE.DUPLICATE` (another active rule already maps the same source product + type + target product), `MODRULE.SOURCE.INACTIVE`/`MODRULE.TARGET.INACTIVE`. `MODRULE.SAMEPRODUCT` is a non-blocking Warning. Create/update writes `Configure`; activate/deactivate stay Activate/Deactivate.
 
 Expiration: `ResultExpiresUtc = min(anchor + offset, earliest source ExpiresUtc)` — the anchor is `PerformedUtc` when the expiration code is relative to modification, or the earliest source collection timestamp when it is relative to collection. A result unit can never outlive the shortest-lived unit consumed to produce it.
 
@@ -416,7 +418,10 @@ permissions revokes outstanding sessions for the affected user(s). Development
 
 The engine does not invent ICCBBA product or ABO/RhD codes (OCD-004). A facility
 that holds a license may replace placeholder rows through
-`IsbtLicensedCatalogImportRule`.
+`IsbtLicensedCatalogImportRule`. When extract files are available, CSV/TSV/JSON
+from the drop folder or an upload are parsed by `IccbbaExtractParser` and then
+use the same gate. Access and Excel databases are rejected. An empty drop
+folder is a no-op.
 
 | Code | Rule | Severity if violated |
 |---|---|---|

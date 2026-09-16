@@ -23,7 +23,7 @@ public static class FacilityPolicyKeys
     /// <summary>The user who entered a patient ABO/Rh result may not verify it (establishes current type).</summary>
     public const string BlockAboSelfVerify = "Result.BlockAboSelfVerify";
 
-    /// <summary>The user who entered a unit ABO/Rh retype may not verify it.</summary>
+    /// <summary>Retired. Unit retype is the supplier confirmation and no longer requires a second reviewer.</summary>
     public const string BlockRetypeSelfVerify = "Inventory.BlockRetypeSelfVerify";
     public const string RetentionYears = "Record.RetentionYears";
     public const string SignatureValidityMinutes = "Signature.ValidityMinutes";

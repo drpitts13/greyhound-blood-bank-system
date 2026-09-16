@@ -38,6 +38,16 @@ public class ProductType : BaseEntity
     /// </summary>
     public bool RequiresRetype { get; set; }
 
+    /// <summary>Catalog test used when a labeled Rh-positive unit of this product is received.</summary>
+    public long? RhPositiveRetypeTestId { get; set; }
+
+    public TestDefinition? RhPositiveRetypeTest { get; set; }
+
+    /// <summary>Catalog test used when a labeled Rh-negative unit of this product is received.</summary>
+    public long? RhNegativeRetypeTestId { get; set; }
+
+    public TestDefinition? RhNegativeRetypeTest { get; set; }
+
     /// <summary>ISBT 128 product description code placeholder (facility-configurable).</summary>
     public string? Isbt128ProductCode { get; set; }
 

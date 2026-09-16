@@ -19,6 +19,7 @@ public sealed class IsbtProductCodeAdminService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IIccbbaExtractDirectory? _extracts;
 
     public IsbtProductCodeAdminService(
         IRepository<IsbtProductCode> codes,
@@ -27,7 +28,8 @@ public sealed class IsbtProductCodeAdminService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IIccbbaExtractDirectory? extracts = null)
     {
         _codes = codes;
         _abo = abo;
@@ -36,7 +38,11 @@ public sealed class IsbtProductCodeAdminService
         _currentUser = currentUser;
         _audit = audit;
         _permissions = permissions;
+        _extracts = extracts;
     }
+
+    public IReadOnlyList<IccbbaExtractFileDto> ListExtracts() =>
+        _extracts?.ListAvailable() ?? [];
 
     public async Task<IReadOnlyList<IsbtProductCodeDto>> ListAsync(CancellationToken ct = default)
     {
@@ -185,6 +191,85 @@ public sealed class IsbtProductCodeAdminService
         return EvaluationResult<LicensedIsbtCatalogImportResult>.Ok(result, new RuleEvaluation([gate]));
     }
 
+    public async Task<EvaluationResult<LicensedIsbtCatalogImportResult>> ImportExtractFilesAsync(
+        LicensedIsbtExtractImportRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (_extracts is null)
+        {
+            return EvaluationResult<LicensedIsbtCatalogImportResult>.Fail(
+                "No ICCBBA extract drop folder is configured.");
+        }
+
+        var names = request.DropFileNames ?? [];
+        if (names.Count == 0)
+        {
+            return EvaluationResult<LicensedIsbtCatalogImportResult>.Fail(
+                "Select at least one extract file from the drop folder.");
+        }
+
+        var files = new List<IccbbaExtractUploadFile>();
+        foreach (var name in names)
+        {
+            if (!_extracts.TryRead(name, out var content, out var error))
+                return EvaluationResult<LicensedIsbtCatalogImportResult>.Fail(error);
+            files.Add(new IccbbaExtractUploadFile(name, content));
+        }
+
+        return await ImportParsedExtractsAsync(
+            request.StandardVersion,
+            request.LicenseAcknowledgment,
+            request.Reason,
+            files,
+            ct);
+    }
+
+    public Task<EvaluationResult<LicensedIsbtCatalogImportResult>> ImportUploadedExtractsAsync(
+        string standardVersion,
+        bool licenseAcknowledgment,
+        string? reason,
+        IReadOnlyList<IccbbaExtractUploadFile> files,
+        CancellationToken ct = default) =>
+        ImportParsedExtractsAsync(standardVersion, licenseAcknowledgment, reason, files, ct);
+
+    private async Task<EvaluationResult<LicensedIsbtCatalogImportResult>> ImportParsedExtractsAsync(
+        string standardVersion,
+        bool licenseAcknowledgment,
+        string? reason,
+        IReadOnlyList<IccbbaExtractUploadFile> files,
+        CancellationToken ct)
+    {
+        if (files.Count == 0)
+        {
+            return EvaluationResult<LicensedIsbtCatalogImportResult>.Fail(
+                "No ICCBBA extract files were supplied.");
+        }
+
+        var parsed = new List<IccbbaExtractParseResult>(files.Count);
+        foreach (var file in files)
+        {
+            var part = IccbbaExtractParser.Parse(file.FileName, file.Content);
+            if (!part.Succeeded)
+            {
+                return EvaluationResult<LicensedIsbtCatalogImportResult>.Fail(
+                    part.Error ?? "Extract file could not be parsed.");
+            }
+
+            parsed.Add(part);
+        }
+
+        var merged = IccbbaExtractParser.Merge(parsed);
+        return await ImportLicensedAsync(
+            new LicensedIsbtCatalogImportRequest(
+                standardVersion,
+                licenseAcknowledgment,
+                reason,
+                merged.ProductCodes,
+                merged.AboRhdCodes),
+            ct);
+    }
+
     private static void ApplyProduct(
         IsbtProductCode entity,
         LicensedIsbtProductCodeRow row,
@@ -199,6 +284,8 @@ public sealed class IsbtProductCodeAdminService
             ? null
             : row.StorageRequirements.Trim();
         entity.RequiresExtendedDivision = row.RequiresExtendedDivision;
+        entity.EffectiveDate = row.EffectiveDate;
+        entity.RetiredDate = row.RetiredDate;
         entity.StandardVersion = version;
         entity.AttributesJson = "[]";
     }
@@ -215,6 +302,12 @@ public sealed class IsbtProductCodeAdminService
         entity.Abo = abo;
         entity.RhD = rh;
         entity.CollectionType = string.IsNullOrWhiteSpace(row.CollectionType) ? null : row.CollectionType.Trim();
+        entity.SpecialMessage = string.IsNullOrWhiteSpace(row.SpecialMessage) ? null : row.SpecialMessage.Trim();
+        entity.AdditionalPhenotype = string.IsNullOrWhiteSpace(row.AdditionalPhenotype)
+            ? null
+            : row.AdditionalPhenotype.Trim();
+        entity.EffectiveDate = row.EffectiveDate;
+        entity.RetiredDate = row.RetiredDate;
         entity.StandardVersion = version;
     }
 

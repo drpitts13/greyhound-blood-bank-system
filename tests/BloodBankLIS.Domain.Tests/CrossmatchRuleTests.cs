@@ -55,12 +55,13 @@ public class CrossmatchRuleTests
     public void ElectronicEligibility_Criteria_ReportEachCheck()
     {
         var results = ElectronicCrossmatchEligibilityRule.EvaluateCriteria(true, false, true, false);
-        Assert.Equal(5, results.Count);
+        Assert.Equal(9, results.Count);
         Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.ScreenCode && r.Severity == RuleSeverity.HardStop);
         Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.HistoryCode && r.Severity == RuleSeverity.HardStop);
         Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.SecondTypeCode && r.Severity == RuleSeverity.HardStop);
         Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.CurrentTypeCode && r.Severity == RuleSeverity.Pass);
         Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.WorkupOpenCode && r.Severity == RuleSeverity.Pass);
+        Assert.Contains(results, r => r.Code == ElectronicCrossmatchEligibilityRule.ExtendedXmCode && r.Severity == RuleSeverity.Pass);
     }
 
     [Fact]
@@ -75,5 +76,42 @@ public class CrossmatchRuleTests
 
         Assert.Equal(RuleSeverity.HardStop, result.Severity);
         Assert.Equal(ElectronicCrossmatchEligibilityRule.WorkupOpenCode, result.Code);
+    }
+
+    [Fact]
+    public void ElectronicEligibility_CountMinimums_BelowThreshold_IsHardStop()
+    {
+        var result = ElectronicCrossmatchEligibilityRule.Evaluate(
+            currentAboRhConfirmed: true,
+            antibodyScreenNegative: true,
+            hasAntibodyHistory: false,
+            hasSecondConcordantAboRh: true,
+            negativeScreenVisitCount: 1,
+            negativeScreenSpecimenCount: 2,
+            negativeScreenTestCount: 2,
+            minimumVisits: 2,
+            minimumSpecimens: 2,
+            minimumTests: 2);
+
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(ElectronicCrossmatchEligibilityRule.VisitsCode, result.Code);
+    }
+
+    [Fact]
+    public void ElectronicEligibility_CountMinimums_Met_Passes()
+    {
+        var result = ElectronicCrossmatchEligibilityRule.Evaluate(
+            currentAboRhConfirmed: true,
+            antibodyScreenNegative: true,
+            hasAntibodyHistory: false,
+            hasSecondConcordantAboRh: true,
+            negativeScreenVisitCount: 2,
+            negativeScreenSpecimenCount: 2,
+            negativeScreenTestCount: 2,
+            minimumVisits: 2,
+            minimumSpecimens: 2,
+            minimumTests: 2);
+
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
 }

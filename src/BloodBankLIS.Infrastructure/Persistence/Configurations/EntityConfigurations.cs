@@ -292,6 +292,16 @@ public sealed class ProductTypeConfiguration : IEntityTypeConfiguration<ProductT
         b.Property(t => t.ModifiedBy).HasMaxLength(100);
 
         b.HasIndex(t => t.ProductCode).IsUnique();
+        b.HasOne(t => t.RhPositiveRetypeTest)
+            .WithMany()
+            .HasForeignKey(t => t.RhPositiveRetypeTestId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(t => t.RhNegativeRetypeTest)
+            .WithMany()
+            .HasForeignKey(t => t.RhNegativeRetypeTestId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(t => t.RhPositiveRetypeTestId);
+        b.HasIndex(t => t.RhNegativeRetypeTestId);
     }
 }
 
@@ -442,7 +452,7 @@ public sealed class ModificationRuleConfiguration : IEntityTypeConfiguration<Mod
         b.HasOne(r => r.ExpirationModificationCode).WithMany(c => c.ModificationRules)
             .HasForeignKey(r => r.ExpirationModificationCodeId).OnDelete(DeleteBehavior.Restrict);
 
-        b.HasIndex(r => r.ModificationCode).IsUnique();
+        b.HasIndex(r => new { r.ModificationCode, r.SourceProductTypeId, r.TargetProductTypeId }).IsUnique();
         b.HasIndex(r => new { r.SourceProductTypeId, r.ModificationType, r.TargetProductTypeId });
         b.HasIndex(r => r.IsActive);
         b.HasIndex(r => r.ExpirationModificationCodeId);
@@ -613,6 +623,7 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
         b.HasIndex(i => new { i.Status, i.WardReceivedUtc });
         b.Property(i => i.PatientIdentifier1).HasMaxLength(100);
         b.Property(i => i.PatientIdentifier2).HasMaxLength(100);
+        b.Property(i => i.AcknowledgedSpecialRequirementCodes).HasMaxLength(500);
     }
 }
 
@@ -1440,6 +1451,24 @@ public sealed class CompatibilityRuleConfiguration : IEntityTypeConfiguration<Co
     }
 }
 
+public sealed class SpecialRequirementDefinitionConfiguration : IEntityTypeConfiguration<SpecialRequirementDefinition>
+{
+    public void Configure(EntityTypeBuilder<SpecialRequirementDefinition> b)
+    {
+        b.ToTable("SpecialRequirementDefinitions");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Code).HasMaxLength(20).IsRequired();
+        b.Property(x => x.Name).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ProductAttributeCode).HasMaxLength(20);
+        b.Property(x => x.Instruction).HasMaxLength(500);
+        b.Property(x => x.ChangeReason).HasMaxLength(500);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.Code);
+        b.HasIndex(x => new { x.IsActive, x.IsDraft });
+    }
+}
+
 public sealed class SpecialTransfusionRequirementConfiguration : IEntityTypeConfiguration<SpecialTransfusionRequirement>
 {
     public void Configure(EntityTypeBuilder<SpecialTransfusionRequirement> b)
@@ -1453,6 +1482,7 @@ public sealed class SpecialTransfusionRequirementConfiguration : IEntityTypeConf
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
         b.HasIndex(x => new { x.PatientId, x.IsActive });
+        b.HasIndex(x => x.RequirementDefinitionId);
     }
 }
 
@@ -1529,6 +1559,22 @@ public sealed class DeviationConfiguration : IEntityTypeConfiguration<Deviation>
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
         b.HasIndex(x => x.Status);
+    }
+}
+
+public sealed class CrossmatchSettingsConfiguration : IEntityTypeConfiguration<CrossmatchSettings>
+{
+    public void Configure(EntityTypeBuilder<CrossmatchSettings> b)
+    {
+        b.ToTable("CrossmatchSettings");
+        b.HasKey(s => s.Id);
+        b.Property(s => s.NegativeAntibodyHistoryTestCode).HasMaxLength(50).IsRequired();
+        b.Property(s => s.PositiveAntibodyHistoryTestCode).HasMaxLength(50).IsRequired();
+        b.Property(s => s.ElectronicCrossmatchTestCode).HasMaxLength(50).IsRequired();
+        b.Property(s => s.ChangeReason).HasMaxLength(1000);
+        b.Property(s => s.ApprovedBy).HasMaxLength(100);
+        b.Property(s => s.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(s => s.ModifiedBy).HasMaxLength(100);
     }
 }
 

@@ -13,7 +13,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | R-PT-02 | Encounter/visit support | erd.md Encounters | Encounter create + visit uniqueness | I | |
 | R-PT-03 | ABO/Rh history append-only | erd.md PatientBloodTypeHistory; safety-rules 6/7 | History append + IsCurrent flip | A,I | 21 CFR 606.160 |
 | R-PT-04 | Antibody history | erd.md AntibodyHistory; safety-rules 6 | Manual add/deactivate; verified ABID posts catalog/free-text specificities | D,A,I | 21 CFR 606.151 |
-| R-PT-05 | Special transfusion requirements | erd.md SpecialTransfusionRequirements; IssueGate ISS-SPECIAL-REQ | Requirement enforced on issue | D,A,I | AABB special needs; computer check |
+| R-PT-05 | Special transfusion requirements | erd.md SpecialRequirementDefinitions / SpecialTransfusionRequirements; IssueGate ISS-SPECIAL-REQ; XM-EC-EXTXM | Catalog-defined types; clinically active rows enforced at issue / XM | D,A,I | AABB special needs; computer check |
 | R-SP-01 | Specimen accessioning + barcode | workflows 2; erd.md Specimens | Accession + unique accession no. | A,I | AABB 5.11 two identifiers |
 | R-SP-02 | Specimen expiration logic | safety-rules 2 | 3-day vs standard window | D,I | AABB 3-day when transfused/pregnant 3 mo |
 | R-SP-03 | Specimen rejection/cancellation | workflows 2 | Reject sets status + reason | A | |
@@ -94,7 +94,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-015 / FRS-BB-003 | Merged patient record cannot be used clinically | `PatientMergeRule` `PAT-MERGED-INACTIVE`; IssueGate; CompatibilityService; SpecimenService; EncounterService; OrderService; ResultService (enter/verify/correct); ImmunohematologyService; SpecialRequirementService; `PatientMergeFollow` on ADT/ORM | TEST-BB-021; Phase 5 HL7 merge tests | D,I | RISK-BB-015; RISK-BB-010; OCD-009 |
 | URS-BB-017 / FRS-BB-003 | Manual and ADT merge reassign history to the survivor | `PatientMergeService`; `POST /api/patients/{id}/merge` requires `patient.merge`; ADT A18/A40; workups reassign (`ABID-MERGE-WORKUP` / `ABID-MERGE-DUP-OPEN`) | TEST-BB-027; Phase 8 security seed tests; Phase 5 HL7 merge tests | I | RISK-BB-015; RISK-BB-017; RISK-BB-175; OCD-010 |
 | URS-BB-003 / FRS-BB-010 | Expired specimen cannot establish results | `ResultService.ValidateSpecimenForEntryAsync` on enter and verify | `MergedPatientClinicalUseTests` expired-verify case | I | RISK-BB-016 |
-| URS-BB-018 / FRS-BB-051 | Unit retype stays Received until a second user verifies | `ProductRetypeService` enter/verify; `RES-SELF-VERIFY` | TEST-BB-028 | I | RISK-BB-018; OCD-011 |
+| URS-BB-018 / FRS-BB-051 | Unit retype record confirms the supplier type and releases or quarantines immediately | `ProductRetypeService` record; no second reviewer | TEST-BB-028 | I | RISK-BB-018; OCD-011 |
 | URS-BB-006 / FRS-BB-040 | Emergency/MTP issue requires a distinct privilege | `IssueAuthorizationRule` `ISS-EMERG-PERM`; `issue.emergency-release`; issue UI hides those types | TEST-BB-029; Phase 8 seed tests | D,I | RISK-BB-019 |
 | URS-BB-019 / FRS-BB-021 | Manual ABO/Rh requires immuno.override in Application | `ImmunoAuthorizationRule` `IH-ABO-PERM`; `ImmunohematologyService`; `ABID-ABO-OPEN` | TEST-BB-030; Phase 3 manual ABO tests; `AntibodyIdentificationWorkupTests.RecordBloodType_OpenWorkup_WarnsAndWithdrawsInterpretation` | D,I | RISK-BB-020; RISK-BB-178 |
 | URS-BB-002 / FRS-BB-002 | Antibody and antigen writes require immuno privileges in Application | `IH-AB-ADD-PERM`, `IH-AB-DEACT-PERM`, `IH-AG-PERM` | TEST-BB-030; Phase 3 antibody permission tests | D,I | RISK-BB-021 |
@@ -104,7 +104,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-023 / FRS-BB-052 | Quarantine release requires inventory.release in Application | `INV-REL-PERM`; dual verifier still applies | `InventoryAuthorizationRuleTests`; InventoryService permission test | D,I | RISK-BB-025 |
 | URS-BB-024 / FRS-BB-053 | Directed-to-allogeneic conversion requires inventory.release in Application | `INV-DIR-PERM`; reason and dual verifier still apply | `InventoryAuthorizationRuleTests`; InventoryService directed-conversion permission test | D,I | RISK-BB-026 |
 | URS-BB-025 / FRS-BB-054 | Operational-hold release requires inventory.release in Application | `INV-HOLD-PERM` | `InventoryAuthorizationRuleTests`; InventoryService hold-release permission test | D,I | RISK-BB-027 |
-| URS-BB-026 / FRS-BB-055 | Result and unit-retype verify require result.verify in Application | `RES-VERIFY-PERM`; self-verify still applies | `ResultAuthorizationRuleTests`; Phase 3 and ProductRetype permission tests | D,I | RISK-BB-028 |
+| URS-BB-026 / FRS-BB-055 | Result verify requires result.verify; unit retype record requires result.enter | `RES-VERIFY-PERM`; `RES-ENTER-PERM`; leftover retype verify still gated | `ResultAuthorizationRuleTests`; Phase 3 and ProductRetype permission tests | D,I | RISK-BB-028 |
 | URS-BB-027 / FRS-BB-056 | Allocate and crossmatch require compatibility privileges in Application | `XM-ALLOC-PERM`, `XM-PERM` | `CompatibilityAuthorizationRuleTests`; PatientAllocation permission tests | D,I | RISK-BB-029 |
 | URS-BB-028 / FRS-BB-057 | Issue requires issue.create in Application | `ISS-CREATE-PERM`; emergency still needs `ISS-EMERG-PERM` | `IssueAuthorizationRuleTests`; Phase 4 issue-create permission test | D,I | RISK-BB-030 |
 | URS-BB-029 / FRS-BB-058 | Result enter and verified-result correction require privileges in Application | `RES-ENTER-PERM`, `RES-CORRECT-PERM` | `ResultAuthorizationRuleTests`; Phase 3 and ProductRetype permission tests | D,I | RISK-BB-031 |
@@ -149,7 +149,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-069 / FRS-BB-103 | Direct interface transfusion documentation requires transfusion.document in Application | `TXN-IFACE-PERM` | `IssueAuthorizationRuleTests`; `InterfaceTransfusionAuthorizationTests` | D,I | RISK-BB-072 |
 | URS-BB-070 / FRS-BB-104 | Subtest, blood-attribute, and reflex-rule create/update write TestChange | `AuditEventType.TestChange` | `SubtestAndGrouperAdminTests`; `AdminCatalogTests`; `ReflexRulesTests` | A | RISK-BB-073 |
 | URS-BB-071 / FRS-BB-105 | ISBT scan-session start and add-scan require inventory.receive in Application | `INV-SCAN-START-PERM`, `INV-SCAN-ADD-PERM` | `InventoryAuthorizationRuleTests`; `ScanSessionAuthorizationTests` | D,I | RISK-BB-074 |
-| URS-BB-072 / FRS-BB-106 | Unit retype writes Result/Verify; status change writes ProductStatus | `ProductRetypeService` | `ProductRetypeServiceTests` matching-retype audit assertions | A,I | RISK-BB-075 |
+| URS-BB-072 / FRS-BB-106 | Unit retype record writes Result, Verify, and ProductStatus | `ProductRetypeService` | `ProductRetypeServiceTests` matching-retype audit assertions | A,I | RISK-BB-075 |
 | URS-BB-073 / FRS-BB-107 | User activate/lock/password-reset require admin.users.manage in Application | `USR-ACTIVE-PERM`, `USR-LOCK-PERM`, `USR-RESET-PERM` | `AdminAuthorizationRuleTests`; `UserAdminAuthorizationTests` | D,I | RISK-BB-076 |
 | URS-BB-074 / FRS-BB-108 | Test-definition catalog writes require admin.tests.manage in Application | `TEST-CREATE-PERM`, `TEST-UPD-PERM`, `TEST-ACT-PERM`, `TEST-DEACT-PERM`, `TEST-CLONE-PERM` | `TestCatalogAuthorizationRuleTests`; `TestDefinitionAuthorizationTests` | D,I | RISK-BB-078 |
 | URS-BB-075 / FRS-BB-109 | Exception-definition create/update write Configure; phase-definition create/update write TestChange | `ExceptionDefinitionAdminService`; `PhaseDefinitionAdminService` | `AdminCatalogTests` exception and phase audit tests | A | RISK-BB-079 |
@@ -211,8 +211,8 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-131 / FRS-BB-165 | Lookback recall/attempt write Lookback with ids | `LookbackService` | `LookbackSearchAuthorizationTests.RecallAndRecordAttempt_WriteLookback` | A | RISK-BB-138 |
 | URS-BB-132 / FRS-BB-166 | Submit/invalidate audits include ResultSource | `ResultService` | `ResultLifecycleTests` submit and invalidate assertions | A | RISK-BB-139 |
 | URS-BB-133 / FRS-BB-167 | Verify and re-entry-after-invalidate audits include ResultSource | `ResultService` | `ResultLifecycleTests.ReenterAfterInvalidate_WritesSourceOnOldAndNew` | A | RISK-BB-140 |
-| URS-BB-134 / FRS-BB-168 | Unit retype enter/update/verify include interpreted ABO/Rh | `ProductRetypeService` | `ProductRetypeServiceTests.RecordUpdateAndVerify_WriteInterpretedType` | A | RISK-BB-141 |
-| URS-BB-135 / FRS-BB-169 | Unit retype save/verify feedback names interpreted ABO/Rh | `ProductRetypeEntryCopy`; `ProductRetypeEntryPanel` | `ProductRetypeEntryCopyTests` | A | RISK-BB-142 |
+| URS-BB-134 / FRS-BB-168 | Unit retype record includes interpreted ABO/Rh on Result and Verify | `ProductRetypeService` | `ProductRetypeServiceTests.Record_WriteInterpretedType` | A | RISK-BB-141 |
+| URS-BB-135 / FRS-BB-169 | Unit retype record feedback names interpreted ABO/Rh | `ProductRetypeEntryCopy`; `ProductRetypeEntryPanel` | `ProductRetypeEntryCopyTests` | A | RISK-BB-142 |
 | URS-BB-136 / FRS-BB-170 | Compatibility XM save feedback names method and result | `CrossmatchEntryCopy`; `Compatibility` | `CrossmatchEntryCopyTests` | A | RISK-BB-143 |
 | URS-BB-137 / FRS-BB-171 | Worklist XM save feedback names source, method, and result | `CrossmatchEntryCopy`; `TestResultEntryPanel` | `CrossmatchEntryCopyTests` | A | RISK-BB-144 |
 | URS-BB-138 / FRS-BB-172 | Identity-correction Correct includes CorrectionId | `ComponentIdentityCorrectionService` | `ComponentIdentityCorrectionServiceTests.Correct_WritesCorrectWithCorrectionId` | A | RISK-BB-145 |
@@ -230,6 +230,19 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-150 / FRS-BB-184 | New audit rows carry a SHA-256 hash chain; verify detects edit or gap | `AuditHashChainRule`; `BloodBankDbContext.StampAuditHashChain` | TEST-BB-007; TEST-BB-008 | A,I | RISK-BB-257 |
 | URS-BB-151 / FRS-BB-185 | Transfusion documentation matches two patient identity tokens; PPID checkbox removed | `IssuingService.DocumentTransfusionAsync`; `PatientIdentityMatchRule` | TEST-BB-009; TEST-BB-010; TEST-BB-011; TEST-BB-012 | A,I | RISK-BB-258 |
 | URS-BB-152 / FRS-BB-186 | Licensed ISBT catalog import replaces placeholders; no invented ICCBBA codes | `IsbtLicensedCatalogImportRule`; `IsbtProductCodeAdminService.ImportLicensedAsync` | TEST-BB-013; TEST-BB-014 | A,I | RISK-BB-014; RISK-BB-259 |
+| URS-BB-159 / FRS-BB-193 | Import ICCBBA CSV/TSV/JSON extracts if available; Access/Excel rejected; seed does not revert licensed rows | `IccbbaExtractParser`; `IccbbaExtractDirectory`; `IsbtProductCodeAdminService.ImportExtractFilesAsync` | TEST-BB-031; TEST-BB-032; TEST-BB-033 | A,I | RISK-BB-014; RISK-BB-259; RISK-BB-266 |
+| URS-BB-160 / FRS-BB-194 | Admin crossmatch settings and electronic XM minimums | `CrossmatchSettings`; `CrossmatchAttachmentService` | TEST-BB-034; TEST-BB-035 | D,I | |
+| URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
+| URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
+| URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |
+| URS-BB-113 / FRS-BB-147 / FRS-BB-165 | Seeded DIN lookback recipient and pending notification | `LookbackService`; DIN W123426000001 | TEST-BB-039 | I | 21 CFR 610.46–47, 606.165 |
+| URS-BB-006 / FRS-BB-040 | Seeded emergency release incomplete-testing statement | `Issue` MRN0005 | TEST-BB-040 | I | 21 CFR 606.151(b) |
+| URS-BB-005 / FRS-BB-030 | Seeded anti-K antigen-negative override | `BloodAttributeCompatibilityRule`; MRN0004 | TEST-BB-041 | I | 21 CFR 606.151 |
+| URS-BB-006 / FRS-BB-031 | Seeded quarantine, missing, and expired units not issuable | `IssueGate` ISS-UNIT-STATUS | TEST-BB-042 | I | 21 CFR 606.165 |
+| URS-BB-020 / FRS-BB-022 | Seeded ABO self-verify block | `SelfVerifyRule`; `Result.BlockAboSelfVerify` | TEST-BB-043 | I | CLIA/AABB self-verify |
+| URS-BB-036 / FRS-BB-066 | Seeded reaction investigation clerical check and DAT | `ReactionInvestigation` MRN0006 | TEST-BB-044 | I | 21 CFR 606.170 |
+| URS-BB-011 / FRS-BB-060 | Seeded clinical actions write audit events | `AuditEvent` | TEST-BB-045 | I | 21 CFR 606.160 |
+| URS-BB-009 / FRS-BB-033 | Seeded computer XM eligibility on Patricia Demo | `ElectronicCrossmatchEligibilityService` | TEST-BB-046 | I | AABB 5.16-style; OCD-006 |
 | URS-BB-153 / FRS-BB-187 | HTTP HL7 inbound is session + `hl7.manage`; MLLP and file-drop stay transport-trust | `Hl7Endpoints`; `MllpListenerService`; `Hl7FileDropService` | TEST-BB-015 | A,I | RISK-BB-260 |
 | URS-BB-154 / FRS-BB-188 | Security headers on API and Web; no Production wildcard CORS | `HttpSecurityHeaderPolicy`; `SecurityHeadersMiddleware` | TEST-BB-016 | A,I | RISK-BB-261 |
 | URS-BB-155 / FRS-BB-189 | Formal TEST-BB-* catalog; living docs not Phase 0 drafts; no clinical/audit purge | `docs/validation/TEST_CATALOG.md` | TEST-BB-017 | I | RISK-BB-262 |

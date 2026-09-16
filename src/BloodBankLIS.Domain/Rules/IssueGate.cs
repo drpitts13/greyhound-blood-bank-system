@@ -47,7 +47,7 @@ public sealed record IssueGateContext
     /// <summary>Unit antigen phenotype results.</summary>
     public IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> UnitAntigens { get; init; } = [];
 
-    /// <summary>All active special transfusion requirements satisfied (irradiated/CMV-neg/...).</summary>
+    /// <summary>All clinically active special transfusion requirements satisfied (unit attributes, acknowledgments, A2 subgroup).</summary>
     public required bool SpecialRequirementsMet { get; init; }
 
     /// <summary>A current vs historical ABO/Rh discrepancy that has not been resolved.</summary>

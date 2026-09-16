@@ -285,6 +285,13 @@ public sealed class BloodBankApiClient
         var q = new List<string>();
         if (!string.IsNullOrWhiteSpace(c.UnitNumber)) q.Add($"unitNumber={Uri.EscapeDataString(c.UnitNumber)}");
         if (c.Status is not null) q.Add($"status={c.Status}");
+        if (c.Statuses is { Count: > 0 })
+        {
+            foreach (var s in c.Statuses)
+            {
+                q.Add($"statuses={s}");
+            }
+        }
         if (c.Abo is not null) q.Add($"abo={c.Abo}");
         if (c.RhD is not null) q.Add($"rh={c.RhD}");
         if (c.ProductTypeId is not null) q.Add($"productTypeId={c.ProductTypeId}");
@@ -695,6 +702,27 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<BloodAttributeDefinitionDto>> DeactivateAdminBloodAttributeAsync(long id, string? reason, CancellationToken ct = default) =>
         SendAsync<BloodAttributeDefinitionDto>(HttpMethod.Post, $"api/admin/blood-attributes/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
 
+    public Task<ApiResult<List<SpecialRequirementDefinitionDto>>> GetAdminSpecialRequirementsAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<SpecialRequirementDefinitionDto>>(HttpMethod.Get, $"api/admin/special-requirements?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<SpecialRequirementDefinitionDto>> GetAdminSpecialRequirementAsync(long id, CancellationToken ct = default) =>
+        SendAsync<SpecialRequirementDefinitionDto>(HttpMethod.Get, $"api/admin/special-requirements/{id}", ct: ct);
+
+    public Task<ApiResult<SpecialRequirementDefinitionDto>> CreateAdminSpecialRequirementAsync(SaveSpecialRequirementDefinitionRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecialRequirementDefinitionDto>(HttpMethod.Post, "api/admin/special-requirements", req, ct);
+
+    public Task<ApiResult<SpecialRequirementDefinitionDto>> UpdateAdminSpecialRequirementAsync(long id, SaveSpecialRequirementDefinitionRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecialRequirementDefinitionDto>(HttpMethod.Put, $"api/admin/special-requirements/{id}", req, ct);
+
+    public Task<ApiResult<SpecialRequirementDefinitionDto>> ActivateAdminSpecialRequirementAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<SpecialRequirementDefinitionDto>(HttpMethod.Post, $"api/admin/special-requirements/{id}/activate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<SpecialRequirementDefinitionDto>> DeactivateAdminSpecialRequirementAsync(long id, string? reason, CancellationToken ct = default) =>
+        SendAsync<SpecialRequirementDefinitionDto>(HttpMethod.Post, $"api/admin/special-requirements/{id}/deactivate", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<List<SpecialRequirementDefinitionDto>>> GetReferenceSpecialRequirementsAsync(CancellationToken ct = default) =>
+        SendAsync<List<SpecialRequirementDefinitionDto>>(HttpMethod.Get, "api/reference/special-requirements", ct: ct);
+
     public Task<ApiResult<List<BloodAttributeListItemDto>>> GetReferenceBloodAttributesAsync(CancellationToken ct = default) =>
         SendAsync<List<BloodAttributeListItemDto>>(HttpMethod.Get, "api/reference/blood-attributes", ct: ct);
 
@@ -904,6 +932,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<FacilityPolicyDto>> UpdateAdminFacilityPolicyAsync(long id, SaveFacilityPolicyRequest req, CancellationToken ct = default) =>
         SendAsync<FacilityPolicyDto>(HttpMethod.Put, $"api/admin/facility-policies/{id}", req, ct);
 
+    public Task<ApiResult<CrossmatchSettingsDto>> GetAdminCrossmatchSettingsAsync(CancellationToken ct = default) =>
+        SendAsync<CrossmatchSettingsDto>(HttpMethod.Get, "api/admin/crossmatch-settings", ct: ct);
+
+    public Task<ApiResult<CrossmatchSettingsDto>> UpdateAdminCrossmatchSettingsAsync(SaveCrossmatchSettingsRequest req, CancellationToken ct = default) =>
+        SendAsync<CrossmatchSettingsDto>(HttpMethod.Put, "api/admin/crossmatch-settings", req, ct);
+
     // ---- Admin: Compatibility tables ----
     public Task<ApiResult<List<CompatibilityRuleVersionDto>>> GetAdminCompatibilityVersionsAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<CompatibilityRuleVersionDto>>(HttpMethod.Get, $"api/admin/compatibility-rule-versions?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
@@ -1070,6 +1104,54 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<LicensedIsbtCatalogImportResult>> ImportLicensedIsbtCatalogAsync(
         LicensedIsbtCatalogImportRequest req, CancellationToken ct = default) =>
         SendAsync<LicensedIsbtCatalogImportResult>(HttpMethod.Post, "api/admin/isbt-product-codes/import-licensed", req, ct);
+
+    public Task<ApiResult<List<IccbbaExtractFileDto>>> GetAdminIsbtExtractsAsync(CancellationToken ct = default) =>
+        SendAsync<List<IccbbaExtractFileDto>>(HttpMethod.Get, "api/admin/isbt-product-codes/extracts", ct: ct);
+
+    public Task<ApiResult<LicensedIsbtCatalogImportResult>> ImportIccbbaExtractFilesAsync(
+        LicensedIsbtExtractImportRequest req, CancellationToken ct = default) =>
+        SendAsync<LicensedIsbtCatalogImportResult>(HttpMethod.Post, "api/admin/isbt-product-codes/import-extract", req, ct);
+
+    public async Task<ApiResult<LicensedIsbtCatalogImportResult>> ImportIccbbaExtractUploadAsync(
+        string standardVersion,
+        bool licenseAcknowledgment,
+        string? reason,
+        IReadOnlyList<(string FileName, string Content)> files,
+        CancellationToken ct = default)
+    {
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent(standardVersion ?? string.Empty), "standardVersion");
+        content.Add(new StringContent(licenseAcknowledgment ? "true" : "false"), "licenseAcknowledgment");
+        if (!string.IsNullOrWhiteSpace(reason))
+            content.Add(new StringContent(reason), "reason");
+        foreach (var (fileName, text) in files)
+        {
+            var fileContent = new ByteArrayContent(Encoding.UTF8.GetBytes(text));
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+            content.Add(fileContent, "files", fileName);
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "api/admin/isbt-product-codes/import-extract-upload")
+        {
+            Content = content
+        };
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<LicensedIsbtCatalogImportResult>.Fail($"Could not reach the API: {ex.Message}", 0);
+        }
+
+        using (response)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            return Parse<LicensedIsbtCatalogImportResult>(response.StatusCode, body);
+        }
+    }
 
     // ---- Admin: HL7 endpoints / interface setup ----
     public Task<ApiResult<List<Hl7EndpointDto>>> GetAdminHl7EndpointsAsync(CancellationToken ct = default) =>

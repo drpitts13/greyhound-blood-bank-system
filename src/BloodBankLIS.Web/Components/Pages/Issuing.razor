@@ -141,8 +141,10 @@
     {
         <Outcome Value="_issueFb" RequiresSignature="true" />
         <div class="form-row">
-            <div class="field"><label>Blood unit id</label><input type="number" @bind="_issue.BloodUnitId" /></div>
-            <div class="field"><label>Patient id</label><input type="number" @bind="_issue.PatientId" /></div>
+            <div class="field"><label>Unit number</label>
+                <UnitPickerComboBox Scope="UnitPickerScope.Issuable" @bind-Value="_issue.BloodUnitId" />
+            </div>
+            <div class="field"><label>Patient id</label><input type="number" @bind="_issue.PatientId" @bind:after="LoadIssueRequirementsAsync" /></div>
             <div class="field"><label>Issued to (person)</label><input @bind="_issue.IssuedTo" /></div>
             <div class="field"><label>Issued to (location)</label><input @bind="_issue.IssuedToLocation" /></div>
             <div class="field"><label>Cooler / transport id</label><input @bind="_issue.CoolerId" placeholder="Optional cooler checkout" /></div>
@@ -173,6 +175,19 @@
             </div>
         </div>
         <UnitScanVerificationPanel Scan="_issueScan" />
+        @if (_issueAckRequirements.Count > 0)
+        {
+            <div class="alert alert-warning" style="margin-top:.75rem;">
+                <strong>Acknowledge special requirements</strong>
+                @foreach (var req in _issueAckRequirements)
+                {
+                    <label class="flex" style="gap:.35rem;margin-top:.35rem;">
+                        <input type="checkbox" checked="@_issueAcks.Contains(req.Code ?? "")" @onchange="e => ToggleIssueAck(req.Code, (bool)(e.Value ?? false))" />
+                        @(req.Name ?? req.Code) @(string.IsNullOrWhiteSpace(req.Instruction) ? "" : $"— {req.Instruction}")
+                    </label>
+                }
+            </div>
+        }
 
         <div class="alert alert-warning">
             <label class="flex"><input type="checkbox" @bind="_overrideOn" /> &nbsp;<strong>Override</strong> (emergency release / warning override)</label>
@@ -189,11 +204,11 @@
 
         @if (_overrideOn)
         {
-            <button class="btn btn-danger" disabled="@_busy" @onclick="IssueWithOverrideAsync">Sign &amp; issue (override)</button>
+            <button class="btn btn-danger" disabled="@(_busy || _issue.BloodUnitId is null)" @onclick="IssueWithOverrideAsync">Sign &amp; issue (override)</button>
         }
         else
         {
-            <button class="btn btn-primary" disabled="@_busy" @onclick="IssueAsync">Issue unit</button>
+            <button class="btn btn-primary" disabled="@(_busy || _issue.BloodUnitId is null)" @onclick="IssueAsync">Issue unit</button>
         }
 
         @if (_lastIssue is not null)
@@ -317,6 +332,8 @@
     private bool _busy;
 
     private IssueModel _issue = new();
+    private List<SpecialRequirementDto> _issueAckRequirements = new();
+    private HashSet<string> _issueAcks = new(StringComparer.OrdinalIgnoreCase);
     private Feedback? _issueFb;
     private IssueDto? _lastIssue;
 
@@ -363,6 +380,38 @@
         await LoadWorklistsAsync();
     }
 
+    private async Task LoadIssueRequirementsAsync()
+    {
+        _issueAckRequirements = [];
+        _issueAcks.Clear();
+        if (_issue.PatientId <= 0)
+        {
+            return;
+        }
+
+        var rows = (await Api.GetSpecialRequirementsAsync(_issue.PatientId)).Value ?? new();
+        _issueAckRequirements = rows
+            .Where(r => r.IsClinicallyActive && r.EnforcementKind == SpecialRequirementEnforcementKind.RequireIssueAcknowledgment)
+            .ToList();
+    }
+
+    private void ToggleIssueAck(string? code, bool on)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return;
+        }
+
+        if (on)
+        {
+            _issueAcks.Add(code);
+        }
+        else
+        {
+            _issueAcks.Remove(code);
+        }
+    }
+
     private async Task LoadWorklistsAsync()
     {
         if (!Session.Has(PermissionCodes.IssueCreate)) return;
@@ -375,7 +424,7 @@
     }
 
     private IssueUnitRequest BuildRequest(string? overrideReason, string? authorizedBy) => new(
-        _issue.BloodUnitId,
+        _issue.BloodUnitId!.Value,
         _issue.PatientId,
         IdentityTokenType.MedicalRecordNumber,
         _issue.PatientIdentifier1Value,
@@ -390,7 +439,8 @@
         AuthorizedBy: authorizedBy,
         VerifiedScan: _issueScan.ToRequest(),
         CoolerId: string.IsNullOrWhiteSpace(_issue.CoolerId) ? null : _issue.CoolerId.Trim(),
-        Appearance: _issue.Appearance);
+        Appearance: _issue.Appearance,
+        AcknowledgedSpecialRequirementCodes: _issueAcks.ToList());
 
     private async Task IssueAsync()
     {
@@ -494,7 +544,7 @@
 
     private sealed class IssueModel
     {
-        public long BloodUnitId { get; set; }
+        public long? BloodUnitId { get; set; }
         public long PatientId { get; set; }
         public string? PatientIdentifier1Value { get; set; }
         public string? PatientIdentifier2Value { get; set; }

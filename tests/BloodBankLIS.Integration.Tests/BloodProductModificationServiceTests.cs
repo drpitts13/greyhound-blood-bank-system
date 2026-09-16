@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Modifications;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Audit;
@@ -36,11 +37,24 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             permissions: permissions);
     }
 
-    private async Task<(long SourceProductId, long TargetProductId)> EnsureProductTypesAsync(string suffix)
+    private async Task<(long SourceProductId, long TargetProductId)> EnsureProductTypesAsync(
+        string suffix,
+        string? sourceIsbt = null,
+        string? targetIsbt = null)
     {
         await using var context = _factory.Create();
-        var source = new ProductType { ProductCode = $"MODSRC-{suffix}", Name = "Source Product" };
-        var target = new ProductType { ProductCode = $"MODTGT-{suffix}", Name = "Target Product" };
+        var source = new ProductType
+        {
+            ProductCode = $"MODSRC-{suffix}",
+            Name = "Source Product",
+            Isbt128ProductCode = sourceIsbt
+        };
+        var target = new ProductType
+        {
+            ProductCode = $"MODTGT-{suffix}",
+            Name = "Target Product",
+            Isbt128ProductCode = targetIsbt
+        };
         context.ProductTypes.AddRange(source, target);
         await context.SaveChangesAsync();
         return (source.Id, target.Id);
@@ -122,6 +136,45 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             Status = status,
             Volume = volume,
             CollectedUtc = collectedUtc
+        };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync();
+        return unit.Id;
+    }
+
+    private async Task<long> CreateIsbtUnitAsync(
+        string din,
+        string productCodeData,
+        long productTypeId,
+        decimal volume,
+        DateTime? collectedUtc = null)
+    {
+        await using var context = _factory.Create();
+        var pdc = productCodeData[..5];
+        var collection = productCodeData[5..6];
+        var division = productCodeData[6..8];
+        var identity = ComponentIdentityBuilder.Build(din, productCodeData);
+        var collected = collectedUtc ?? _factory.Clock.UtcNow.AddDays(-7);
+        var unit = new BloodUnit
+        {
+            UnitNumber = identity,
+            ComponentIdentity = identity,
+            ComponentIdentityKey = ComponentIdentityBuilder.BuildUniquenessKey(din, productCodeData, null),
+            ProductTypeId = productTypeId,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(30),
+            Status = UnitStatus.Available,
+            Volume = volume,
+            CollectedUtc = collected,
+            CollectionDateTime = collected,
+            Din = din,
+            Isbt128DonationId = din,
+            ProductCodeData = productCodeData,
+            ProductDescriptionCode = pdc,
+            CollectionTypeCode = collection,
+            DivisionCode = division,
+            Isbt128ProductCode = productCodeData
         };
         context.BloodUnits.Add(unit);
         await context.SaveChangesAsync();
@@ -291,8 +344,10 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
 
         Assert.True(result.Succeeded);
         Assert.Equal(2, result.ResultUnits!.Count);
-        Assert.Contains(result.ResultUnits, u => u.UnitNumber == "U-DIVIDE-SRC-A");
-        Assert.Contains(result.ResultUnits, u => u.UnitNumber == "U-DIVIDE-SRC-B");
+        Assert.Contains(result.ResultUnits, u => u.UnitNumber == "U-DIVIDE-SRC-0A");
+        Assert.Contains(result.ResultUnits, u => u.UnitNumber == "U-DIVIDE-SRC-0B");
+        Assert.Contains(result.ResultUnits, u => u.DivisionCode == "0A" && u.Volume == 150m);
+        Assert.Contains(result.ResultUnits, u => u.DivisionCode == "0B" && u.Volume == 150m);
         Assert.All(result.ResultUnits, u => Assert.Equal(UnitStatus.Quarantine, u.Status));
 
         await using var verify = _factory.Create();
@@ -332,6 +387,114 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
 
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == "MOD-VOLUME-EXCEEDS-SOURCE");
+    }
+
+    [Fact]
+    public async Task Divide_MissingChildVolume_IsBlocked()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("DIVIDEMISS");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Divide);
+        var sourceId = await CreateUnitAsync("U-DIVIDEMISS-SRC", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var children = new[] { new DivideChildSpec(null, 150m), new DivideChildSpec(null, null) };
+        var result = await service.DivideAsync(sourceId, new PerformDivideRequest(ruleId, children, "attempt"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeRequiredCode);
+    }
+
+    [Fact]
+    public async Task Divide_IsbtSameProduct_GeneratesV0AAndV0BWithoutExtraProductType()
+    {
+        var (sourceProductId, _) = await EnsureProductTypesAsync("DIVISBT", "E0336", "E0336");
+        var ruleId = await CreateRuleAsync(sourceProductId, sourceProductId, ModificationType.Divide, "5D");
+        var sourceId = await CreateIsbtUnitAsync("W123425111111", "E0336V00", sourceProductId, 300m);
+        var productCountBefore = await CountProductTypesAsync();
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.DivideAsync(
+            sourceId,
+            new PerformDivideRequest(ruleId, [new DivideChildSpec(null, 150m), new DivideChildSpec(null, 150m)], "ISBT split"));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(2, result.ResultUnits!.Count);
+        Assert.Contains(result.ResultUnits, u => u.ProductCodeData == "E0336V0A" && u.Volume == 150m);
+        Assert.Contains(result.ResultUnits, u => u.ProductCodeData == "E0336V0B" && u.Volume == 150m);
+        Assert.All(result.ResultUnits, u =>
+        {
+            Assert.Equal(sourceProductId, u.ProductTypeId);
+            Assert.Equal("W123425111111", u.Din);
+            Assert.Equal(ComponentIdentityBuilder.Build(u.Din!, u.ProductCodeData!), u.ComponentIdentity);
+            Assert.Equal(u.ComponentIdentity, u.UnitNumber);
+        });
+        Assert.Equal(productCountBefore, await CountProductTypesAsync());
+    }
+
+    [Fact]
+    public async Task Divide_IsbtProductChange_UsesRuleTargetProductCode()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("DIVCHG", "E0023", "E0336");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Divide, "5D");
+        var sourceId = await CreateIsbtUnitAsync("W123425222222", "E0023V00", sourceProductId, 450m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.DivideAsync(
+            sourceId,
+            new PerformDivideRequest(ruleId, [new DivideChildSpec(null, 200m), new DivideChildSpec(null, 250m)], "WB to RBC"));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Contains(result.ResultUnits!, u => u.ProductCodeData == "E0336V0A" && u.Volume == 200m && u.ProductTypeId == targetProductId);
+        Assert.Contains(result.ResultUnits!, u => u.ProductCodeData == "E0336V0B" && u.Volume == 250m && u.ProductTypeId == targetProductId);
+    }
+
+    [Fact]
+    public async Task Divide_IsbtSubdivide_GeneratesVAaAndVAb()
+    {
+        var (sourceProductId, _) = await EnsureProductTypesAsync("DIVSUB", "E0336", "E0336");
+        var ruleId = await CreateRuleAsync(sourceProductId, sourceProductId, ModificationType.Divide, "5D");
+        var sourceId = await CreateIsbtUnitAsync("W123425333333", "E0336V0A", sourceProductId, 150m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.DivideAsync(
+            sourceId,
+            new PerformDivideRequest(ruleId, [new DivideChildSpec(null, 75m), new DivideChildSpec(null, 75m)], "subdivide"));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Contains(result.ResultUnits!, u => u.ProductCodeData == "E0336VAa" && u.DivisionCode == "Aa");
+        Assert.Contains(result.ResultUnits!, u => u.ProductCodeData == "E0336VAb" && u.DivisionCode == "Ab");
+    }
+
+    [Fact]
+    public async Task Divide_SecondLevelIsbt_IsBlocked()
+    {
+        var (sourceProductId, _) = await EnsureProductTypesAsync("DIVL2", "E0336", "E0336");
+        var ruleId = await CreateRuleAsync(sourceProductId, sourceProductId, ModificationType.Divide, "5D");
+        var sourceId = await CreateIsbtUnitAsync("W123425444444", "E0336VAa", sourceProductId, 75m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.DivideAsync(
+            sourceId,
+            new PerformDivideRequest(ruleId, [new DivideChildSpec(null, 35m), new DivideChildSpec(null, 40m)], "too deep"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == IsbtDivisionCode.LevelExceededCode);
+    }
+
+    private async Task<int> CountProductTypesAsync()
+    {
+        await using var context = _factory.Create();
+        return await context.ProductTypes.CountAsync();
     }
 
     [Fact]

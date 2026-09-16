@@ -100,7 +100,7 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
-    public async Task Create_DuplicateModificationCode_IsBlocked()
+    public async Task Create_SameModificationCode_DifferentSource_Succeeds()
     {
         var (sourceId, targetId) = await EnsureProductTypesAsync("DUPCODE");
         var codeId = await EnsureExpirationCodeAsync();
@@ -116,6 +116,29 @@ public class ModificationRuleAdminServiceTests : IClassFixture<SqliteContextFact
         await context.SaveChangesAsync();
 
         var second = await service.CreateAsync(NewRequest(otherSource.Id, targetId, codeId, modificationCode: "SAME-CODE"));
+
+        Assert.True(second.Succeeded);
+        Assert.Equal("SAME-CODE", second.Value!.ModificationCode);
+    }
+
+    [Fact]
+    public async Task Create_DuplicateModificationCodeSourceAndTarget_IsBlocked()
+    {
+        var (sourceId, targetId) = await EnsureProductTypesAsync("DUPPATH");
+        var codeId = await EnsureExpirationCodeAsync();
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var first = await service.CreateAsync(NewRequest(sourceId, targetId, codeId, modificationCode: "SAME-CODE"));
+        Assert.True(first.Succeeded);
+
+        var second = await service.CreateAsync(NewRequest(
+            sourceId,
+            targetId,
+            codeId,
+            ModificationType.Wash,
+            modificationCode: "SAME-CODE"));
 
         Assert.False(second.Succeeded);
         Assert.Contains(second.Evaluation!.HardStops, r => r.Code == "MODRULE.CODE.DUPLICATE");

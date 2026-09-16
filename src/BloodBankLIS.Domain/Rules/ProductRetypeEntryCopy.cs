@@ -4,7 +4,7 @@ namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
 /// Entry-form wording for unit ABO/Rh retype. Names the interpreted type
-/// after save and verify. This is UX for an already stored interpretation,
+/// after record. This is UX for an already stored interpretation,
 /// not a new regulatory claim.
 /// </summary>
 public static class ProductRetypeEntryCopy
@@ -27,13 +27,16 @@ public static class ProductRetypeEntryCopy
     }
 
     public static string Saved(AboGroup abo, RhType? rh) =>
-        $"Retype saved as {Format(abo, rh)}. A second user must verify before the unit is released.";
+        $"Retype recorded as {Format(abo, rh)}. Unit is Available.";
+
+    public static string SavedQuarantine(AboGroup abo, RhType? rh, string? discrepancy) =>
+        string.IsNullOrWhiteSpace(discrepancy)
+            ? $"Retype recorded as {Format(abo, rh)}. Unit moved to Quarantine."
+            : $"Retype recorded as {Format(abo, rh)}. {discrepancy}";
 
     public static string VerifiedAvailable(AboGroup abo, RhType? rh) =>
-        $"Retype verified as {Format(abo, rh)}. Unit is Available.";
+        Saved(abo, rh);
 
     public static string VerifiedQuarantine(AboGroup abo, RhType? rh, string? discrepancy) =>
-        string.IsNullOrWhiteSpace(discrepancy)
-            ? $"Retype verified as {Format(abo, rh)}. Unit moved to Quarantine."
-            : $"Retype verified as {Format(abo, rh)}. {discrepancy}";
+        SavedQuarantine(abo, rh, discrepancy);
 }

@@ -41,6 +41,21 @@ public static class PanelSubtestDefinitions
         new(AboRhPanelSubtestCodes.AntiD, "Anti-D", false, 3)
     ];
 
+    /// <summary>Rh-positive unit retype: Anti-A and Anti-B only.</summary>
+    public static IReadOnlyList<PanelSubtestDefinition> DefaultAboRhRetypePositive() =>
+    [
+        new(AboRhPanelSubtestCodes.AntiA, "Anti-A", true, 1),
+        new(AboRhPanelSubtestCodes.AntiB, "Anti-B", true, 2)
+    ];
+
+    /// <summary>Rh-negative unit retype: Anti-A, Anti-B, and Anti-D.</summary>
+    public static IReadOnlyList<PanelSubtestDefinition> DefaultAboRhRetypeNegative() =>
+    [
+        new(AboRhPanelSubtestCodes.AntiA, "Anti-A", true, 1),
+        new(AboRhPanelSubtestCodes.AntiB, "Anti-B", true, 2),
+        new(AboRhPanelSubtestCodes.AntiD, "Anti-D", true, 3)
+    ];
+
     public static string? ToJson(IReadOnlyList<PanelSubtestDefinition>? items)
     {
         if (items is null || items.Count == 0)

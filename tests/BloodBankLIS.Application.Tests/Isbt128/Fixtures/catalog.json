@@ -1,0 +1,18 @@
+{
+  "productCodes": [
+    {
+      "productDescriptionCode": "T0003",
+      "description": "Licensee JSON product",
+      "componentClass": "Platelets",
+      "retiredDate": "2030-12-31"
+    }
+  ],
+  "aboRhdCodes": [
+    {
+      "code": "T3",
+      "abo": "B",
+      "rhD": "Positive",
+      "additionalPhenotype": "synthetic"
+    }
+  ]
+}

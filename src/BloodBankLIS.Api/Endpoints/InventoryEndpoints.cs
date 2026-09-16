@@ -26,10 +26,12 @@ public static class InventoryEndpoints
             long? productTypeId,
             long? locationId,
             DateTime? expiringBeforeUtc,
+            UnitStatus[]? statuses,
             InventoryService service,
             CancellationToken ct) =>
         {
-            var criteria = new InventorySearchCriteria(unitNumber, status, abo, rh, productTypeId, locationId, expiringBeforeUtc);
+            var criteria = new InventorySearchCriteria(
+                unitNumber, status, abo, rh, productTypeId, locationId, expiringBeforeUtc, statuses);
             var units = await service.SearchAsync(criteria, ct);
             return Results.Ok(units.Select(BloodUnitDto.From));
         });

@@ -358,9 +358,12 @@ public sealed class PatientMergeService
         foreach (var requirement in incoming)
         {
             var already = existing.Any(e =>
-                e.RequirementType == requirement.RequirementType
+                e.IsActive
                 && string.Equals(e.AntigenCode, requirement.AntigenCode, StringComparison.OrdinalIgnoreCase)
-                && e.IsActive);
+                && ((e.RequirementDefinitionId is not null
+                        && e.RequirementDefinitionId == requirement.RequirementDefinitionId)
+                    || (e.RequirementDefinitionId is null
+                        && e.RequirementType == requirement.RequirementType)));
             if (already && requirement.IsActive)
             {
                 continue;

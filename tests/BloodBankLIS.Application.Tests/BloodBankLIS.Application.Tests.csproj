@@ -23,4 +23,8 @@
     <ProjectReference Include="..\..\src\BloodBankLIS.Domain\BloodBankLIS.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Isbt128\Fixtures\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

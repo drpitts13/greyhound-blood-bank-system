@@ -13,4 +13,5 @@ public sealed record InventorySearchCriteria(
     RhType? RhD = null,
     long? ProductTypeId = null,
     long? LocationId = null,
-    DateTime? ExpiringBeforeUtc = null);
+    DateTime? ExpiringBeforeUtc = null,
+    IReadOnlyList<UnitStatus>? Statuses = null);

@@ -28,6 +28,14 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var lookups = new IsbtLookupCatalog(
             new EfRepository<IsbtAboRhdCode>(context),
             new EfRepository<IsbtProductCode>(context));
+        var retype = new ProductRetypeService(
+            repository,
+            new EfRepository<ProductRetypeResult>(context),
+            new EfRepository<TestDefinition>(context),
+            context,
+            _factory.Clock,
+            _factory.CurrentUser,
+            audit);
         return new InventoryService(
             repository,
             new EfRepository<UnitBloodAttribute>(context),
@@ -40,7 +48,38 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             new EfRepository<User>(context),
             new FacilityPolicyService(new EfRepository<SystemSetting>(context)),
             new EfRepository<Patient>(context),
-            permissions: permissions);
+            permissions: permissions,
+            retype: retype);
+    }
+
+    private static async Task<(long PosId, long NegId)> EnsureRhRetypeCatalogAsync(BloodBankDbContext context)
+    {
+        async Task<long> Ensure(string code, string name)
+        {
+            var existing = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == code);
+            if (existing is not null)
+            {
+                return existing.Id;
+            }
+
+            var test = new TestDefinition
+            {
+                Code = code,
+                Name = name,
+                Category = TestCategory.AboRhRetype,
+                ResultValueType = ResultValueType.AboRh,
+                IsActive = true,
+                IsDraft = false,
+                Version = 1
+            };
+            context.TestDefinitions.Add(test);
+            await context.SaveChangesAsync();
+            return test.Id;
+        }
+
+        return (
+            await Ensure(ProductRetypeAssignment.RhPositiveTestCode, "Rh+ Retype"),
+            await Ensure(ProductRetypeAssignment.RhNegativeTestCode, "Rh− Retype"));
     }
 
     private async Task EnsureSecondVerifierAsync(string userName = "tech2")
@@ -884,16 +923,20 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     [Fact]
     public async Task ReceiveExpected_RetypeProduct_LandsInReceived()
     {
+        await EnsureSecondVerifierAsync();
         await EnsureProductCodesAsync();
         long productTypeId;
         await using (var context = _factory.Create())
         {
+            var (posId, negId) = await EnsureRhRetypeCatalogAsync(context);
             var type = new ProductType
             {
                 ProductCode = "RBC-EXPECT-RETYPE",
                 Name = "Expect Retype RBC",
                 ComponentClass = ComponentClass.RedBloodCells,
-                RequiresRetype = true
+                RequiresRetype = true,
+                RhPositiveRetypeTestId = posId,
+                RhNegativeRetypeTestId = negId
             };
             context.ProductTypes.Add(type);
             await context.SaveChangesAsync();
@@ -909,8 +952,11 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         await using var receive = _factory.Create();
         var result = await CreateService(receive).ReceiveExpectedUnitAsync(
             unitId, new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m));
-        Assert.True(result.Succeeded);
+        Assert.True(result.Succeeded, result.Error);
         Assert.Equal(UnitStatus.Received, result.Unit!.Status);
+        var pending = Assert.Single(await receive.ProductRetypeResults.Where(r => r.BloodProductId == result.Unit.Id).ToListAsync());
+        Assert.Equal(ProductRetypeAssignment.RhPositiveTestCode, pending.TestCode);
+        Assert.Equal(ResultStatus.Pending, pending.Status);
     }
 
     [Fact]
@@ -1937,18 +1983,108 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Search_UnitNumber_MatchesContains()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var unitNumber = $"U-CONTAINS-{key}";
+
+        await using (var context = _factory.Create())
+        {
+            context.BloodUnits.Add(new BloodUnit
+            {
+                UnitNumber = unitNumber,
+                ProductTypeId = productTypeId,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(30),
+                Status = UnitStatus.Available
+            });
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var service = CreateService(context);
+            var fragment = await service.SearchAsync(new InventorySearchCriteria(UnitNumber: key.ToLowerInvariant()));
+            Assert.Contains(fragment, u => u.UnitNumber == unitNumber);
+
+            var miss = await service.SearchAsync(new InventorySearchCriteria(UnitNumber: $"ZZZ-{key}"));
+            Assert.DoesNotContain(miss, u => u.UnitNumber == unitNumber);
+        }
+    }
+
+    [Fact]
+    public async Task Search_FiltersByStatuses()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var availableNumber = $"U-MULTI-A-{key}";
+        var quarantineNumber = $"U-MULTI-Q-{key}";
+        var issuedNumber = $"U-MULTI-I-{key}";
+
+        await using (var context = _factory.Create())
+        {
+            context.BloodUnits.AddRange(
+                new BloodUnit
+                {
+                    UnitNumber = availableNumber,
+                    ProductTypeId = productTypeId,
+                    Abo = AboGroup.O,
+                    RhD = RhType.Positive,
+                    ExpiresUtc = _factory.Clock.UtcNow.AddDays(30),
+                    Status = UnitStatus.Available
+                },
+                new BloodUnit
+                {
+                    UnitNumber = quarantineNumber,
+                    ProductTypeId = productTypeId,
+                    Abo = AboGroup.O,
+                    RhD = RhType.Positive,
+                    ExpiresUtc = _factory.Clock.UtcNow.AddDays(30),
+                    Status = UnitStatus.Quarantine
+                },
+                new BloodUnit
+                {
+                    UnitNumber = issuedNumber,
+                    ProductTypeId = productTypeId,
+                    Abo = AboGroup.O,
+                    RhD = RhType.Positive,
+                    ExpiresUtc = _factory.Clock.UtcNow.AddDays(30),
+                    Status = UnitStatus.Issued
+                });
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var service = CreateService(context);
+            var rows = await service.SearchAsync(new InventorySearchCriteria(
+                Statuses: [UnitStatus.Available, UnitStatus.Quarantine]));
+            var numbers = rows.Select(u => u.UnitNumber).ToHashSet();
+            Assert.Contains(availableNumber, numbers);
+            Assert.Contains(quarantineNumber, numbers);
+            Assert.DoesNotContain(issuedNumber, numbers);
+        }
+    }
+
+    [Fact]
     public async Task ReceiveUnit_RequiresRetype_CreatesReceivedUnit()
     {
+        await EnsureSecondVerifierAsync();
         await EnsureProductCodesAsync();
         long productTypeId;
         await using (var context = _factory.Create())
         {
+            var (posId, negId) = await EnsureRhRetypeCatalogAsync(context);
             var type = new ProductType
             {
                 ProductCode = "RBC-RETYPE",
                 Name = "Retype RBC",
                 ComponentClass = ComponentClass.RedBloodCells,
-                RequiresRetype = true
+                RequiresRetype = true,
+                RhPositiveRetypeTestId = posId,
+                RhNegativeRetypeTestId = negId
             };
             context.ProductTypes.Add(type);
             await context.SaveChangesAsync();
@@ -1959,12 +2095,76 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         var service = CreateService(receive);
         var result = await service.ReceiveUnitAsync(NewUnitRequest("U-RETYPE-1", productTypeId));
 
-        Assert.True(result.Succeeded);
+        Assert.True(result.Succeeded, result.Error);
         Assert.Equal(UnitStatus.Received, result.Unit!.Status);
         var history = await receive.InventoryStatusHistory.Where(h => h.BloodProductId == result.Unit.Id).ToListAsync();
         var initial = Assert.Single(history);
         Assert.Equal(UnitStatus.Received, initial.ToStatus);
         Assert.Contains("retype", initial.Reason, StringComparison.OrdinalIgnoreCase);
+        var pending = Assert.Single(await receive.ProductRetypeResults.Where(r => r.BloodProductId == result.Unit.Id).ToListAsync());
+        Assert.Equal(ResultStatus.Pending, pending.Status);
+        Assert.Equal(ProductRetypeAssignment.RhPositiveTestCode, pending.TestCode);
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_RequiresRetype_RhNegative_AddsNegativeTest()
+    {
+        await EnsureSecondVerifierAsync();
+        await EnsureProductCodesAsync();
+        long productTypeId;
+        await using (var context = _factory.Create())
+        {
+            var (posId, negId) = await EnsureRhRetypeCatalogAsync(context);
+            var type = new ProductType
+            {
+                ProductCode = "RBC-RETYPE-NEG",
+                Name = "Retype RBC Neg",
+                ComponentClass = ComponentClass.RedBloodCells,
+                RequiresRetype = true,
+                RhPositiveRetypeTestId = posId,
+                RhNegativeRetypeTestId = negId
+            };
+            context.ProductTypes.Add(type);
+            await context.SaveChangesAsync();
+            productTypeId = type.Id;
+        }
+
+        await using var receive = _factory.Create();
+        var result = await CreateService(receive).ReceiveUnitAsync(
+            NewUnitRequest("U-RETYPE-NEG", productTypeId) with { RhD = RhType.Negative, Abo = AboGroup.A });
+
+        Assert.True(result.Succeeded, result.Error);
+        var pending = Assert.Single(await receive.ProductRetypeResults.Where(r => r.BloodProductId == result.Unit!.Id).ToListAsync());
+        Assert.Equal(ProductRetypeAssignment.RhNegativeTestCode, pending.TestCode);
+        Assert.Equal(ResultStatus.Pending, pending.Status);
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_RequiresRetype_MissingAssignment_Fails()
+    {
+        await EnsureSecondVerifierAsync();
+        await EnsureProductCodesAsync();
+        long productTypeId;
+        await using (var context = _factory.Create())
+        {
+            var type = new ProductType
+            {
+                ProductCode = "RBC-RETYPE-BARE",
+                Name = "Retype without tests",
+                ComponentClass = ComponentClass.RedBloodCells,
+                RequiresRetype = true
+            };
+            context.ProductTypes.Add(type);
+            await context.SaveChangesAsync();
+            productTypeId = type.Id;
+        }
+
+        await using var receive = _factory.Create();
+        var result = await CreateService(receive).ReceiveUnitAsync(NewUnitRequest("U-RETYPE-BARE", productTypeId));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ProductRetypeAssignment.MissingTestCode);
+        Assert.False(await receive.BloodUnits.AnyAsync(u => u.UnitNumber == "U-RETYPE-BARE"));
     }
 
     [Fact]

@@ -41,6 +41,10 @@
     }
     @if (Session.Has(PermissionCodes.AdminConfigView))
     {
+        <a class="admin-card" href="admin/crossmatch-settings">
+            <h3>Crossmatch Settings</h3>
+            <p>Default XM/CXM tests by antibody history and electronic XM visit, specimen, and test minimums.</p>
+        </a>
         <a class="admin-card" href="admin/exceptions">
             <h3>Exceptions</h3>
             <p>Clinical exception catalog and minimum security level required to override each rule.</p>
@@ -95,6 +99,10 @@
     }
     @if (Session.Has(PermissionCodes.AdminConfigView))
     {
+        <a class="admin-card" href="admin/special-requirements">
+            <h3>Special Requirements</h3>
+            <p>Unit, issuing, and patient special-requirement types. Enforced on the chart while active; end-dated rows are inactive.</p>
+        </a>
         <a class="admin-card" href="admin/specimen-types">
             <h3>Specimen Types</h3>
             <p>Specimen type catalog for accessioning with per-type test exclusions.</p>

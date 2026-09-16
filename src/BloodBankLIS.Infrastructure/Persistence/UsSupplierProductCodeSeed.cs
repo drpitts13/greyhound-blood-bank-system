@@ -40,12 +40,18 @@ public static class UsSupplierProductCodeSeed
         Row("E5085", "Frozen RED BLOOD CELLS|None/XX/<-65C|ResLeu:<5E6", ComponentClass.RedBloodCells),
         Row("E5160", "Washed RED BLOOD CELLS|None/XX/refg|Open", ComponentClass.RedBloodCells),
         Row("E5169", "Washed RED BLOOD CELLS|None/XX/refg|Open|ResLeu:<5E6", ComponentClass.RedBloodCells),
+        Row("E0178", "RED BLOOD CELLS|CPD/500mL/refg|Irradiated", ComponentClass.RedBloodCells),
+        Row("E0384", "RED BLOOD CELLS|CP2D>AS3/500mL/refg|Irradiated|ResLeu:<5E6", ComponentClass.RedBloodCells),
+        Row("E0418", "RED BLOOD CELLS|CPD>AS5/500mL/refg|Irradiated|ResLeu:<5E6", ComponentClass.RedBloodCells),
 
         // Plasma / FFP
         Row("E0701", "FRESH FROZEN PLASMA|CPD/XX/<=-18C", ComponentClass.Plasma),
         Row("E0707", "FRESH FROZEN PLASMA|CPDA-1/XX/<=-18C", ComponentClass.Plasma),
+        Row("E0833", "PLASMA|CPD/XX/<=-18C|Frozen within 24 hours", ComponentClass.Plasma),
         Row("E0869", "Apheresis FRESH FROZEN PLASMA|ACD-A/XX/<=-18C", ComponentClass.Plasma),
         Row("E2553", "PLASMA|CPD/XX/<=-18C|Cryo reduced", ComponentClass.Plasma),
+        Row("E2555", "PLASMA|CPDA-1/XX/<=-18C|Cryo reduced", ComponentClass.Plasma),
+        Row("E2618", "THAWED PLASMA|CPD/XX/1-6C", ComponentClass.Plasma),
 
         // Platelets
         Row("E2807", "PLATELETS|CPD/450mL/20-24C", ComponentClass.Platelets),
@@ -56,6 +62,7 @@ public static class UsSupplierProductCodeSeed
         Row("E3089", "Apheresis PLATELETS|ACD-A/XX/20-24C|ResLeu:<5E6|3rd container", ComponentClass.Platelets),
         Row("E3102", "Apheresis PLATELETS|ACD-A/XX/20-24C|1st container", ComponentClass.Platelets),
         Row("E3103", "Apheresis PLATELETS|ACD-A/XX/20-24C|2nd container", ComponentClass.Platelets),
+        Row("E3858", "Apheresis PLATELETS|ACD-A/XX/20-24C|Irradiated|ResLeu:<5E6", ComponentClass.Platelets),
         Row("E4635", "Apheresis PLATELETS|ACD-A/XX/20-24C|<3E11 plts", ComponentClass.Platelets),
         Row("E4643", "Apheresis PLATELETS|ACD-A/XX/20-24C|ResLeu:<5E6|<3E11 plts", ComponentClass.Platelets),
         Row("E4644", "Apheresis PLATELETS|ACD-A/XX/20-24C|ResLeu:<5E6|1st container|<3E11 plts", ComponentClass.Platelets),
@@ -64,6 +71,10 @@ public static class UsSupplierProductCodeSeed
 
         // Cryoprecipitate
         Row("E5165", "CRYOPRECIPITATE|None/XX/<=-18C", ComponentClass.Cryoprecipitate),
+        Row("E5166", "POOLED CRYOPRECIPITATE|None/XX/<=-18C", ComponentClass.Cryoprecipitate),
+
+        // Granulocytes
+        Row("E4253", "Apheresis GRANULOCYTES|ACD-A/XX/20-24C", ComponentClass.Granulocytes),
     ];
 
     private static IsbtProductCode Row(string pdc, string description, ComponentClass componentClass) =>

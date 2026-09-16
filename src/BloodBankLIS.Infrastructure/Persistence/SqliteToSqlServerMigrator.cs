@@ -37,6 +37,8 @@ public sealed class SqliteToSqlServerMigrator
         "BloodAttributeDefinitions",
         "SpecimenTypeDefinitions",
         "TestDefinitions",
+        "CrossmatchSettings",
+        "SpecialRequirementDefinitions",
         "SubtestDefinitions",
         "PhaseDefinitions",
         "TestGroupers",

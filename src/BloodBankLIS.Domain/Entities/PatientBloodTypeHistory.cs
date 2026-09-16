@@ -18,6 +18,9 @@ public class PatientBloodTypeHistory : BaseEntity
 
     public RhType RhD { get; set; } = RhType.Unknown;
 
+    /// <summary>A1/A2 subgroup when ABO is A or AB; otherwise NotApplicable.</summary>
+    public AboSubgroup AboSubgroup { get; set; } = AboSubgroup.Unknown;
+
     public BloodTypeSource Source { get; set; } = BloodTypeSource.TestResult;
 
     public long? SourceResultId { get; set; }

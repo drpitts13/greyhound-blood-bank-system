@@ -1,6 +1,8 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Isbt128;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,8 +11,9 @@ namespace BloodBankLIS.Infrastructure.Persistence;
 /// <summary>
 /// Extended demo data. Each scenario exercises a distinct slice of the system so a fresh
 /// development database can demonstrate the rules engine, antibody workups, emergency
-/// release, transfusion reactions, product modifications, and ISBT 128 component identity
-/// without anyone hand-entering data. Every method is independently idempotent.
+/// release, transfusion reactions, product modifications, ISBT 128 component identity,
+/// and FDA/AABB-style validation paths without anyone hand-entering data. Every method
+/// is independently idempotent.
 /// </summary>
 public static partial class DatabaseSeeder
 {
@@ -41,7 +44,13 @@ public static partial class DatabaseSeeder
         await SeedTraumaScenarioAsync(context, ct);
         await SeedTransfusionReactionScenarioAsync(context, ct);
         await SeedModificationScenarioAsync(context, ct);
+        await SeedIsbtDivideScenarioAsync(context, ct);
         await SeedIsbtScenarioAsync(context, ct);
+        await SeedAlloimmunizationSpecimenScenarioAsync(context, ct);
+        await SeedAutologousDirectedScenarioAsync(context, ct);
+        await SeedLookbackScenarioAsync(context, ct);
+        await SeedDiscrepancyScenarioAsync(context, ct);
+        await SeedComputerXmEligibleScenarioAsync(context, ct);
     }
 
     // ---------------------------------------------------------------------
@@ -126,6 +135,158 @@ public static partial class DatabaseSeeder
     }
 
     /// <summary>
+    /// Extra facility product types for receive, issue, and catalog testing. Idempotent
+    /// so existing databases pick them up on the next seed.
+    /// </summary>
+    private static async Task EnsureAdditionalProductTypesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await AddMissingByCodeAsync(
+            context,
+            context.ProductTypes,
+            p => p.ProductCode,
+            [
+                new ProductType
+                {
+                    ProductCode = "WB-LR",
+                    Name = "Whole Blood, Leukoreduced",
+                    ComponentClass = ComponentClass.WholeBlood,
+                    RequiresCrossmatch = true,
+                    RequiresAboMatch = true,
+                    RequiresRhMatch = true,
+                    RequiresRetype = true,
+                    StorageRequirements = "1-6C",
+                    DefaultShelfLifeHours = 35 * 24,
+                    Isbt128ProductCode = "E0033"
+                },
+                new ProductType
+                {
+                    ProductCode = "RBC-APH",
+                    Name = "Apheresis Red Blood Cells, Leukoreduced",
+                    ComponentClass = ComponentClass.RedBloodCells,
+                    RequiresCrossmatch = true,
+                    RequiresAboMatch = true,
+                    RequiresRhMatch = true,
+                    RequiresRetype = true,
+                    StorageRequirements = "1-6C",
+                    DefaultShelfLifeHours = 42 * 24,
+                    Isbt128ProductCode = "E0685"
+                },
+                new ProductType
+                {
+                    ProductCode = "RBC-DEG",
+                    Name = "Deglycerolized Red Blood Cells",
+                    ComponentClass = ComponentClass.RedBloodCells,
+                    RequiresCrossmatch = true,
+                    RequiresAboMatch = true,
+                    RequiresRhMatch = true,
+                    RequiresRetype = true,
+                    StorageRequirements = "1-6C",
+                    DefaultShelfLifeHours = 24,
+                    Isbt128ProductCode = "E4520"
+                },
+                new ProductType
+                {
+                    ProductCode = "RBC-FROZ",
+                    Name = "Frozen Red Blood Cells",
+                    ComponentClass = ComponentClass.RedBloodCells,
+                    RequiresCrossmatch = true,
+                    RequiresAboMatch = true,
+                    RequiresRhMatch = true,
+                    RequiresRetype = true,
+                    StorageRequirements = "<-65C",
+                    DefaultShelfLifeHours = 10 * 365 * 24,
+                    Isbt128ProductCode = "E5085"
+                },
+                new ProductType
+                {
+                    ProductCode = "PF24",
+                    Name = "Plasma Frozen Within 24 Hours",
+                    ComponentClass = ComponentClass.Plasma,
+                    RequiresCrossmatch = false,
+                    RequiresAboMatch = true,
+                    RequiresRhMatch = false,
+                    StorageRequirements = "<=-18C",
+                    DefaultShelfLifeHours = 365 * 24,
+                    Isbt128ProductCode = "E0833"
+                },
+                new ProductType
+                {
+                    ProductCode = "CRP",
+                    Name = "Cryoprecipitate-Reduced Plasma",
+                    ComponentClass = ComponentClass.Plasma,
+                    RequiresCrossmatch = false,
+                    RequiresAboMatch = true,
+                    RequiresRhMatch = false,
+                    StorageRequirements = "<=-18C",
+                    DefaultShelfLifeHours = 365 * 24,
+                    Isbt128ProductCode = "E2553"
+                },
+                new ProductType
+                {
+                    ProductCode = "CRYO",
+                    Name = "Cryoprecipitate",
+                    ComponentClass = ComponentClass.Cryoprecipitate,
+                    RequiresCrossmatch = false,
+                    RequiresAboMatch = false,
+                    RequiresRhMatch = false,
+                    StorageRequirements = "<=-18C",
+                    DefaultShelfLifeHours = 365 * 24,
+                    Isbt128ProductCode = "E5165"
+                },
+                new ProductType
+                {
+                    ProductCode = "CRYO-P",
+                    Name = "Pooled Cryoprecipitate",
+                    ComponentClass = ComponentClass.Cryoprecipitate,
+                    RequiresCrossmatch = false,
+                    RequiresAboMatch = false,
+                    RequiresRhMatch = false,
+                    StorageRequirements = "<=-18C",
+                    DefaultShelfLifeHours = 365 * 24,
+                    Isbt128ProductCode = "E5166"
+                },
+                new ProductType
+                {
+                    ProductCode = "PLT-P",
+                    Name = "Pooled Platelets, Leukoreduced",
+                    ComponentClass = ComponentClass.Platelets,
+                    RequiresCrossmatch = false,
+                    RequiresAboMatch = false,
+                    RequiresRhMatch = false,
+                    StorageRequirements = "20-24C",
+                    DefaultShelfLifeHours = 5 * 24,
+                    Isbt128ProductCode = "E6001"
+                },
+                new ProductType
+                {
+                    ProductCode = "PLT-IRR",
+                    Name = "Apheresis Platelets, Irradiated",
+                    ComponentClass = ComponentClass.Platelets,
+                    RequiresCrossmatch = false,
+                    RequiresAboMatch = false,
+                    RequiresRhMatch = false,
+                    StorageRequirements = "20-24C",
+                    DefaultShelfLifeHours = 5 * 24,
+                    Isbt128ProductCode = "E3858"
+                },
+                new ProductType
+                {
+                    ProductCode = "GRAN",
+                    Name = "Apheresis Granulocytes",
+                    ComponentClass = ComponentClass.Granulocytes,
+                    RequiresCrossmatch = true,
+                    RequiresAboMatch = true,
+                    RequiresRhMatch = true,
+                    RequiresRetype = true,
+                    StorageRequirements = "20-24C",
+                    DefaultShelfLifeHours = 24,
+                    Isbt128ProductCode = "E4253"
+                }
+            ],
+            ct);
+    }
+
+    /// <summary>
     /// Stamps ISBT product description codes on facility product types so modification
     /// rules and inventory show E-codes (e.g. E0336) instead of internal aliases.
     /// </summary>
@@ -139,7 +300,18 @@ public static partial class DatabaseSeeder
             ["FFP"] = "E0701",
             [ThawedPlasmaCode] = "E0701",
             ["WB"] = "E0023",
-            ["PLT-A"] = "E3077"
+            ["WB-LR"] = "E0033",
+            ["PLT-A"] = "E3077",
+            ["PLT-P"] = "E6001",
+            ["PLT-IRR"] = "E3858",
+            ["CRYO"] = "E5165",
+            ["CRYO-P"] = "E5166",
+            ["CRP"] = "E2553",
+            ["PF24"] = "E0833",
+            ["RBC-APH"] = "E0685",
+            ["RBC-DEG"] = "E4520",
+            ["RBC-FROZ"] = "E5085",
+            ["GRAN"] = "E4253"
         };
 
         var products = await context.ProductTypes.ToListAsync(ct);
@@ -224,60 +396,65 @@ public static partial class DatabaseSeeder
     /// </summary>
     private static async Task SeedModificationRulesAsync(BloodBankDbContext context, CancellationToken ct)
     {
-        if (await context.ModificationRules.AnyAsync(ct))
-        {
-            return;
-        }
-
         var products = await context.ProductTypes.ToDictionaryAsync(p => p.ProductCode, ct);
         var codes = await context.ExpirationModificationCodes.ToDictionaryAsync(c => c.Code, ct);
         if (!products.TryGetValue("RBC-LR", out var redCells)
             || !products.TryGetValue("FFP", out var plasma)
+            || !products.TryGetValue("WB", out var wholeBlood)
             || !products.TryGetValue(IrradiatedRedCellsCode, out var irradiated)
             || !products.TryGetValue(WashedRedCellsCode, out var washed)
             || !products.TryGetValue(ThawedPlasmaCode, out var thawed)
             || !codes.TryGetValue("28D", out var irradiateExpiry)
             || !codes.TryGetValue("24H", out var washExpiry)
-            || !codes.TryGetValue("5D", out var thawExpiry))
+            || !codes.TryGetValue("5D", out var thawExpiry)
+            || !codes.TryGetValue("42D", out var divideExpiry))
         {
             return;
         }
 
-        context.ModificationRules.AddRange(
-            new ModificationRule
-            {
-                ModificationCode = "IRR-RBC-LR",
-                SourceProductTypeId = redCells.Id,
-                ModificationType = ModificationType.Irradiate,
-                TargetProductTypeId = irradiated.Id,
-                ExpirationModificationCodeId = irradiateExpiry.Id,
-                Description = "Irradiate leukoreduced red cells for cellular immunodeficiency or directed donation.",
-                IsActive = true,
-                Version = 1
-            },
-            new ModificationRule
-            {
-                ModificationCode = "WASH-RBC-LR",
-                SourceProductTypeId = redCells.Id,
-                ModificationType = ModificationType.Wash,
-                TargetProductTypeId = washed.Id,
-                ExpirationModificationCodeId = washExpiry.Id,
-                Description = "Saline wash red cells to remove plasma proteins for IgA deficient recipients.",
-                IsActive = true,
-                Version = 1
-            },
-            new ModificationRule
-            {
-                ModificationCode = "THAW-FFP",
-                SourceProductTypeId = plasma.Id,
-                ModificationType = ModificationType.Thaw,
-                TargetProductTypeId = thawed.Id,
-                ExpirationModificationCodeId = thawExpiry.Id,
-                Description = "Thaw fresh frozen plasma for transfusion.",
-                IsActive = true,
-                Version = 1
-            });
+        await EnsureModificationRuleAsync(context, "IRR-RBC-LR", redCells.Id, irradiated.Id,
+            ModificationType.Irradiate, irradiateExpiry.Id,
+            "Irradiate leukoreduced red cells for cellular immunodeficiency or directed donation.", ct);
+        await EnsureModificationRuleAsync(context, "WASH-RBC-LR", redCells.Id, washed.Id,
+            ModificationType.Wash, washExpiry.Id,
+            "Saline wash red cells to remove plasma proteins for IgA deficient recipients.", ct);
+        await EnsureModificationRuleAsync(context, "THAW-FFP", plasma.Id, thawed.Id,
+            ModificationType.Thaw, thawExpiry.Id,
+            "Thaw fresh frozen plasma for transfusion.", ct);
+        await EnsureModificationRuleAsync(context, "DIV-RBC-LR", redCells.Id, redCells.Id,
+            ModificationType.Divide, divideExpiry.Id,
+            "Divide leukoreduced red cells into ISBT aliquots (V00 → V0A / V0B).", ct);
+        await EnsureModificationRuleAsync(context, "DIV-WB-RBC", wholeBlood.Id, redCells.Id,
+            ModificationType.Divide, divideExpiry.Id,
+            "Divide whole blood into leukoreduced red-cell aliquots using the target product code.", ct);
+    }
 
+    private static async Task EnsureModificationRuleAsync(
+        BloodBankDbContext context,
+        string modificationCode,
+        long sourceProductTypeId,
+        long targetProductTypeId,
+        ModificationType type,
+        long expirationCodeId,
+        string description,
+        CancellationToken ct)
+    {
+        if (await context.ModificationRules.AnyAsync(r => r.ModificationCode == modificationCode, ct))
+        {
+            return;
+        }
+
+        context.ModificationRules.Add(new ModificationRule
+        {
+            ModificationCode = modificationCode,
+            SourceProductTypeId = sourceProductTypeId,
+            ModificationType = type,
+            TargetProductTypeId = targetProductTypeId,
+            ExpirationModificationCodeId = expirationCodeId,
+            Description = description,
+            IsActive = true,
+            Version = 1
+        });
         await context.SaveChangesAsync(ct);
     }
 
@@ -353,50 +530,89 @@ public static partial class DatabaseSeeder
     /// </summary>
     private static async Task SeedRetypeDemoUnitsAsync(BloodBankDbContext context, CancellationToken ct)
     {
-        if (await context.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123RET0001", ct))
-        {
-            return;
-        }
-
-        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
-        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
-        if (redCells is null || fridge is null)
-        {
-            return;
-        }
-
         var now = DateTime.UtcNow;
-        context.BloodUnits.AddRange(
-            new BloodUnit
+        if (!await context.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123RET0001", ct))
+        {
+            var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+            var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+            if (redCells is null || fridge is null)
             {
-                UnitNumber = "W000123RET0001",
-                ProductTypeId = redCells.Id,
-                Abo = AboGroup.O,
-                RhD = RhType.Positive,
-                ExpiresUtc = now.AddDays(28),
-                CurrentLocationId = fridge.Id,
-                Status = UnitStatus.Received,
-                Volume = 300m,
-                CollectionFacility = "Regional Blood Center",
-                Supplier = "Regional Blood Center",
-                CollectedUtc = now.AddDays(-1)
-            },
-            new BloodUnit
-            {
-                UnitNumber = "W000123RET0002",
-                ProductTypeId = redCells.Id,
-                Abo = AboGroup.A,
-                RhD = RhType.Negative,
-                ExpiresUtc = now.AddDays(26),
-                CurrentLocationId = fridge.Id,
-                Status = UnitStatus.Received,
-                Volume = 300m,
-                CollectionFacility = "Regional Blood Center",
-                Supplier = "Regional Blood Center",
-                CollectedUtc = now.AddDays(-1)
-            });
+                return;
+            }
 
-        await context.SaveChangesAsync(ct);
+            context.BloodUnits.AddRange(
+                new BloodUnit
+                {
+                    UnitNumber = "W000123RET0001",
+                    ProductTypeId = redCells.Id,
+                    Abo = AboGroup.O,
+                    RhD = RhType.Positive,
+                    ExpiresUtc = now.AddDays(28),
+                    CurrentLocationId = fridge.Id,
+                    Status = UnitStatus.Received,
+                    Volume = 300m,
+                    CollectionFacility = "Regional Blood Center",
+                    Supplier = "Regional Blood Center",
+                    CollectedUtc = now.AddDays(-1)
+                },
+                new BloodUnit
+                {
+                    UnitNumber = "W000123RET0002",
+                    ProductTypeId = redCells.Id,
+                    Abo = AboGroup.A,
+                    RhD = RhType.Negative,
+                    ExpiresUtc = now.AddDays(26),
+                    CurrentLocationId = fridge.Id,
+                    Status = UnitStatus.Received,
+                    Volume = 300m,
+                    CollectionFacility = "Regional Blood Center",
+                    Supplier = "Regional Blood Center",
+                    CollectedUtc = now.AddDays(-1)
+                });
+            await context.SaveChangesAsync(ct);
+        }
+
+        var posTest = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == ProductRetypeAssignment.RhPositiveTestCode, ct);
+        var negTest = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == ProductRetypeAssignment.RhNegativeTestCode, ct);
+        var rhPos = await context.BloodUnits.FirstOrDefaultAsync(u => u.UnitNumber == "W000123RET0001", ct);
+        var rhNeg = await context.BloodUnits.FirstOrDefaultAsync(u => u.UnitNumber == "W000123RET0002", ct);
+        var changed = false;
+        if (posTest is not null && rhPos is not null
+            && !await context.ProductRetypeResults.AnyAsync(r => r.BloodProductId == rhPos.Id, ct))
+        {
+            context.ProductRetypeResults.Add(new ProductRetypeResult
+            {
+                BloodProductId = rhPos.Id,
+                TestDefinitionId = posTest.Id,
+                TestCode = posTest.Code,
+                Value = string.Empty,
+                Status = ResultStatus.Pending,
+                EnteredBy = "system",
+                EnteredUtc = now
+            });
+            changed = true;
+        }
+
+        if (negTest is not null && rhNeg is not null
+            && !await context.ProductRetypeResults.AnyAsync(r => r.BloodProductId == rhNeg.Id, ct))
+        {
+            context.ProductRetypeResults.Add(new ProductRetypeResult
+            {
+                BloodProductId = rhNeg.Id,
+                TestDefinitionId = negTest.Id,
+                TestCode = negTest.Code,
+                Value = string.Empty,
+                Status = ResultStatus.Pending,
+                EnteredBy = "system",
+                EnteredUtc = now
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
     }
 
     private static BloodUnit NewUnit(
@@ -1111,6 +1327,163 @@ public static partial class DatabaseSeeder
     private static DateTime Earliest(DateTime left, DateTime right) => left < right ? left : right;
 
     /// <summary>
+    /// ISBT divide inventory: an undivided RBC (V00), a first-level aliquot ready to
+    /// subdivide (V0A), a whole-blood unit for the product-change rule, and a completed
+    /// divide that already produced V0A / V0B children with tracked volumes.
+    /// </summary>
+    private static async Task SeedIsbtDivideScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        const string availableRbcDin = "W123425000001";
+        const string availableAliquotDin = "W123425000002";
+        const string availableWbDin = "W123425000003";
+        const string completedSourceDin = "W123425000010";
+
+        var products = await context.ProductTypes.ToDictionaryAsync(p => p.ProductCode, ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        if (!products.TryGetValue("RBC-LR", out var redCells)
+            || !products.TryGetValue("WB", out var wholeBlood)
+            || fridge is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var collected = now.AddDays(-7);
+
+        if (!await context.BloodUnits.AnyAsync(u => u.Din == availableRbcDin, ct))
+        {
+            context.BloodUnits.Add(NewIsbtUnit(
+                availableRbcDin, "E0336V00", redCells.Id, AboGroup.O, RhType.Positive,
+                fridge.Id, now.AddDays(28), 300m, collected, UnitStatus.Available));
+        }
+
+        if (!await context.BloodUnits.AnyAsync(u => u.Din == availableAliquotDin, ct))
+        {
+            context.BloodUnits.Add(NewIsbtUnit(
+                availableAliquotDin, "E0336V0A", redCells.Id, AboGroup.A, RhType.Positive,
+                fridge.Id, now.AddDays(28), 150m, collected, UnitStatus.Available));
+        }
+
+        if (!await context.BloodUnits.AnyAsync(u => u.Din == availableWbDin, ct))
+        {
+            context.BloodUnits.Add(NewIsbtUnit(
+                availableWbDin, "E0023V00", wholeBlood.Id, AboGroup.O, RhType.Negative,
+                fridge.Id, now.AddDays(28), 450m, collected, UnitStatus.Available));
+        }
+
+        await context.SaveChangesAsync(ct);
+
+        if (await context.UnitModifications.AnyAsync(m => m.ModificationType == ModificationType.Divide, ct)
+            || await context.BloodUnits.AnyAsync(u => u.Din == completedSourceDin, ct))
+        {
+            return;
+        }
+
+        var divideRule = await context.ModificationRules
+            .FirstOrDefaultAsync(r => r.ModificationCode == "DIV-RBC-LR" && r.IsActive, ct);
+        if (divideRule is null)
+        {
+            return;
+        }
+
+        var expCode = await context.ExpirationModificationCodes.FindAsync([divideRule.ExpirationModificationCodeId], ct);
+        var offset = expCode is not null
+            ? new ExpirationOffsetCode(expCode.OffsetAmount, expCode.OffsetUnit)
+            : new ExpirationOffsetCode(42, ExpirationOffsetUnit.Days);
+        var performedUtc = now.AddHours(-2);
+        var sourceExpires = now.AddDays(28);
+        var resultExpires = Earliest(Apply(offset, collected), sourceExpires);
+
+        var source = NewIsbtUnit(
+            completedSourceDin, "E0336V00", redCells.Id, AboGroup.B, RhType.Positive,
+            fridge.Id, sourceExpires, 300m, collected, UnitStatus.Modified);
+        context.BloodUnits.Add(source);
+        await context.SaveChangesAsync(ct);
+
+        var modification = new UnitModification
+        {
+            ModificationRuleId = divideRule.Id,
+            ModificationType = ModificationType.Divide,
+            ExpirationOffsetCodeApplied = expCode?.Code ?? "42D",
+            ResultExpiresUtc = resultExpires,
+            Reason = "Pediatric split; ISBT V00 divided to V0A and V0B.",
+            PerformedBy = "tech1",
+            PerformedUtc = performedUtc
+        };
+        context.UnitModifications.Add(modification);
+        await context.SaveChangesAsync(ct);
+
+        var childA = NewIsbtUnit(
+            completedSourceDin, "E0336V0A", redCells.Id, AboGroup.B, RhType.Positive,
+            fridge.Id, resultExpires, 150m, collected, UnitStatus.Quarantine);
+        childA.DerivedFromModificationId = modification.Id;
+        childA.QuarantineReasonCode = UnitQuarantineReason.PendingRelease;
+        childA.QuarantineReason = "Created by Divide modification";
+
+        var childB = NewIsbtUnit(
+            completedSourceDin, "E0336V0B", redCells.Id, AboGroup.B, RhType.Positive,
+            fridge.Id, resultExpires, 150m, collected, UnitStatus.Quarantine);
+        childB.DerivedFromModificationId = modification.Id;
+        childB.QuarantineReasonCode = UnitQuarantineReason.PendingRelease;
+        childB.QuarantineReason = "Created by Divide modification";
+
+        context.BloodUnits.AddRange(childA, childB);
+        await context.SaveChangesAsync(ct);
+
+        context.UnitModificationUnits.AddRange(
+            new UnitModificationUnit { UnitModificationId = modification.Id, BloodProductId = source.Id, Role = ModificationUnitRole.Source, SortOrder = 0 },
+            new UnitModificationUnit { UnitModificationId = modification.Id, BloodProductId = childA.Id, Role = ModificationUnitRole.Result, SortOrder = 0 },
+            new UnitModificationUnit { UnitModificationId = modification.Id, BloodProductId = childB.Id, Role = ModificationUnitRole.Result, SortOrder = 1 });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static BloodUnit NewIsbtUnit(
+        string din,
+        string productCodeData,
+        long productTypeId,
+        AboGroup abo,
+        RhType rh,
+        long locationId,
+        DateTime expiresUtc,
+        decimal volume,
+        DateTime collectedUtc,
+        UnitStatus status)
+    {
+        var pdc = productCodeData[..5];
+        var collection = productCodeData[5..6];
+        var division = productCodeData[6..8];
+        var identity = ComponentIdentityBuilder.Build(din, productCodeData);
+        return new BloodUnit
+        {
+            UnitNumber = identity,
+            ComponentIdentity = identity,
+            ComponentIdentityKey = ComponentIdentityBuilder.BuildUniquenessKey(din, productCodeData, null),
+            ProductTypeId = productTypeId,
+            Abo = abo,
+            RhD = rh,
+            ExpiresUtc = expiresUtc,
+            CurrentLocationId = locationId,
+            Status = status,
+            Volume = volume,
+            CollectionFacility = "Regional Blood Center",
+            Supplier = "Regional Blood Center",
+            CollectedUtc = collectedUtc,
+            CollectionDateTime = collectedUtc,
+            Source = ComponentEntrySource.Manual,
+            Din = din,
+            Isbt128DonationId = din,
+            ProductCodeData = productCodeData,
+            ProductDescriptionCode = pdc,
+            CollectionTypeCode = collection,
+            DivisionCode = division,
+            Isbt128ProductCode = productCodeData,
+            Fin = din.Length >= 5 ? din[..5] : din,
+            NominalYear = din.Length >= 7 ? din[5..7] : null,
+            DonationSequence = din.Length >= 13 ? din[7..13] : null
+        };
+    }
+
+    /// <summary>
     /// A unit received by scanning ISBT 128 labels, keeping the raw scans and the completed
     /// scan session so the receive workflow has a worked example to inspect.
     /// </summary>
@@ -1234,6 +1607,270 @@ public static partial class DatabaseSeeder
             SanitizedValue = sanitized,
             ScannedAt = scannedAt
         };
+
+    // ---------------------------------------------------------------------
+    // FDA / AABB validation scenarios
+    // ---------------------------------------------------------------------
+
+    /// <summary>
+    /// AABB-style 3-day specimen window: recent pregnancy in the lookback period
+    /// forces the 72-hour alloimmunization expiry, not the 168-hour standard window.
+    /// </summary>
+    private static async Task SeedAlloimmunizationSpecimenScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0007", ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var collectedUtc = now.AddHours(-2);
+        var visit = await AddPatientVisitAsync(
+            context,
+            mrn: "MRN0007",
+            last: "Gravid",
+            first: "Elena",
+            dateOfBirth: new DateOnly(1994, 3, 8),
+            sex: Sex.Female,
+            visitNumber: "VIS-2026-017",
+            encounterType: EncounterType.Inpatient,
+            currentLocation: "L&D 2",
+            accession: "ACC0017",
+            specimenType: "EDTA",
+            collectedUtc: collectedUtc,
+            ct);
+
+        visit.Patient.RecentPregnancyUtc = now.AddDays(-30);
+        visit.Specimen.ExpiresUtc = SpecimenValidityPolicy.ComputeExpiresUtc(collectedUtc, alloimmunizationRisk: true);
+        visit.Specimen.Identifier1Type = IdentityTokenType.MedicalRecordNumber;
+        visit.Specimen.Identifier1Value = "MRN0007";
+        visit.Specimen.Identifier2Type = IdentityTokenType.DateOfBirth;
+        visit.Specimen.Identifier2Value = "1994-03-08";
+        await context.SaveChangesAsync(ct);
+
+        var orderingLocation = await context.OrderingLocations.FirstAsync(l => l.Code == "OR", ct);
+        var provider = await context.OrderingProviders.FirstOrDefaultAsync(p => p.ProviderId == "PROV-JONES", ct);
+
+        var order = new Order
+        {
+            OrderNumber = "ORD0017",
+            PatientId = visit.Patient.Id,
+            EncounterId = visit.Encounter.Id,
+            OrderingLocationId = orderingLocation.Id,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Type and Screen",
+            OrderType = OrderType.TypeAndScreen,
+            TestCode = "TNS",
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.InProcess,
+            Source = OrderSource.Manual,
+            OrderingProviderId = provider?.Id,
+            OrderingProvider = provider?.Name,
+            OrderedUtc = collectedUtc.AddMinutes(10),
+            ResultStatus = ResultStatus.Pending
+        };
+        context.Orders.Add(order);
+        await context.SaveChangesAsync(ct);
+
+        context.OrderLines.AddRange(
+            new OrderLine { OrderId = order.Id, LineNumber = 1, LineCategory = OrderCategory.Test, LineName = "ABO/Rh Type", TestCode = "ABORH", OrderType = OrderType.AboRh },
+            new OrderLine { OrderId = order.Id, LineNumber = 2, LineCategory = OrderCategory.Test, LineName = "Antibody Screen", TestCode = "ABSC", OrderType = OrderType.AntibodyScreen });
+        context.OrderSpecimens.Add(new OrderSpecimen { OrderId = order.Id, SpecimenId = visit.Specimen.Id, IsPrimary = true });
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Autologous and unused directed red cells reserved to one recipient so issue-gate
+    /// and directed-to-allogeneic conversion can be demonstrated without hand entry.
+    /// </summary>
+    private static async Task SeedAutologousDirectedScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0008", ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var visit = await AddPatientVisitAsync(
+            context,
+            mrn: "MRN0008",
+            last: "Autologous",
+            first: "Clara",
+            dateOfBirth: new DateOnly(1971, 8, 19),
+            sex: Sex.Female,
+            visitNumber: "VIS-2026-018",
+            encounterType: EncounterType.Inpatient,
+            currentLocation: "OR Holding",
+            accession: "ACC0018",
+            specimenType: "EDTA",
+            collectedUtc: now.AddHours(-4),
+            ct);
+
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        if (redCells is null || fridge is null)
+        {
+            return;
+        }
+
+        var autologous = NewUnit(900001, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(21), 300m);
+        autologous.UnitNumber = "W000123AUTO001";
+        autologous.DonationRestriction = DonationRestriction.Autologous;
+        autologous.ReservedPatientId = visit.Patient.Id;
+        autologous.CollectionFacility = "Hospital Autologous Program";
+        autologous.Supplier = "Hospital Autologous Program";
+
+        var directed = NewUnit(900002, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(24), 300m);
+        directed.UnitNumber = "W000123DIR0001";
+        directed.DonationRestriction = DonationRestriction.Directed;
+        directed.ReservedPatientId = visit.Patient.Id;
+        directed.CollectionFacility = "Directed Donor Program";
+        directed.Supplier = "Directed Donor Program";
+
+        context.BloodUnits.AddRange(autologous, directed);
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// 21 CFR 610.46–47 / 606.165 lookback: a transfused DIN plus a sibling component
+    /// still in inventory, with a pending recipient notification. The LIS does not
+    /// auto-notify patients.
+    /// </summary>
+    private static async Task SeedLookbackScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123LSIB001", ct))
+        {
+            return;
+        }
+
+        const string din = "W123426000001";
+        var now = DateTime.UtcNow;
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        if (redCells is null || fridge is null)
+        {
+            return;
+        }
+
+        var transfused = await context.BloodUnits.FirstOrDefaultAsync(u => u.UnitNumber == "W0001230000099", ct);
+        var recipient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0001", ct);
+        if (transfused is null || recipient is null)
+        {
+            return;
+        }
+
+        transfused.Din = din;
+        transfused.Isbt128DonationId = din;
+
+        var sibling = NewUnit(900003, redCells.Id, AboGroup.O, RhType.Positive, fridge.Id, now.AddDays(26), 300m);
+        sibling.UnitNumber = "W000123LSIB001";
+        sibling.Din = din;
+        sibling.Isbt128DonationId = din;
+        sibling.Status = UnitStatus.Available;
+        context.BloodUnits.Add(sibling);
+        await context.SaveChangesAsync(ct);
+
+        var issue = await context.Issues.FirstOrDefaultAsync(i => i.BloodProductId == transfused.Id, ct);
+        if (!await context.LookbackNotifications.AnyAsync(n => n.Din == din, ct))
+        {
+            context.LookbackNotifications.Add(new LookbackNotification
+            {
+                Din = din,
+                BloodProductId = transfused.Id,
+                PatientId = recipient.Id,
+                IssueId = issue?.Id,
+                Status = LookbackNotificationStatus.Pending,
+                PhysicianOfRecord = "Dr. Smith",
+                Reason = "Subsequent donor infectious-disease testing; recipient notification pending facility SOP."
+            });
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>
+    /// 21 CFR 606.165 discrepancy worklist: one missing and one damaged unit.
+    /// Neither status is issuable.
+    /// </summary>
+    private static async Task SeedDiscrepancyScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123MISS001", ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        if (redCells is null || fridge is null)
+        {
+            return;
+        }
+
+        var missing = NewUnit(900004, redCells.Id, AboGroup.A, RhType.Positive, fridge.Id, now.AddDays(18), 300m);
+        missing.UnitNumber = "W000123MISS001";
+        missing.Status = UnitStatus.Missing;
+        missing.MissingReason = "Not found during physical inventory count.";
+
+        var damaged = NewUnit(900005, redCells.Id, AboGroup.B, RhType.Negative, fridge.Id, now.AddDays(16), 300m);
+        damaged.UnitNumber = "W000123DMG0001";
+        damaged.Status = UnitStatus.Damaged;
+        damaged.DamagedReason = "Bag seam leak discovered on storage inspection.";
+
+        context.BloodUnits.AddRange(missing, damaged);
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// AABB 5.16-style computer XM preconditions on Patricia Demo: two concordant
+    /// ABO/Rh determinations already exist; a verified negative antibody screen is
+    /// added so eligibility can pass when the facility allow-EXM policy is on.
+    /// Production use remains gated by OCD-006.
+    /// </summary>
+    private static async Task SeedComputerXmEligibleScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0001", ct);
+        if (patient is null)
+        {
+            return;
+        }
+
+        if (await context.TestResults.AnyAsync(r => r.PatientId == patient.Id && r.TestCode == "ABSC", ct))
+        {
+            return;
+        }
+
+        var order = await context.Orders.FirstOrDefaultAsync(o => o.OrderNumber == "ORD0001", ct);
+        var specimen = await context.Specimens.FirstOrDefaultAsync(s => s.AccessionNumber == "ACC0001", ct);
+        if (order is null || specimen is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        context.TestResults.Add(new TestResult
+        {
+            SpecimenId = specimen.Id,
+            PatientId = patient.Id,
+            OrderId = order.Id,
+            TestCode = "ABSC",
+            Version = 1,
+            Value = "Negative",
+            Status = ResultStatus.Verified,
+            EnteredBy = "tech1",
+            EnteredUtc = now.AddMinutes(-28),
+            VerifiedBy = "tech2",
+            VerifiedUtc = now.AddMinutes(-18)
+        });
+
+        var abscLine = await context.OrderLines.FirstOrDefaultAsync(
+            l => l.OrderId == order.Id && l.TestCode == "ABSC", ct);
+        if (abscLine is not null)
+        {
+            abscLine.ResultStatus = ResultStatus.Verified;
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
 
     // ---------------------------------------------------------------------
     // Shared helpers

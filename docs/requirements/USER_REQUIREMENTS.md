@@ -24,7 +24,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-015 | A merged (losing) patient record cannot be used for testing, allocation, or issue. Work continues on the surviving record. | P1 | FRS-BB-003 |
 | URS-BB-017 | Authorized staff can merge a duplicate patient into the surviving record without deleting history. | P1 | FRS-BB-003 |
 | URS-BB-016 | A result cannot be verified from an expired or rejected specimen. | P0 | FRS-BB-010 |
-| URS-BB-018 | A unit that requires ABO/Rh retype is not Available until a verified matching retype exists. | P0 | FRS-BB-051, FRS-BB-106, FRS-BB-126 |
+| URS-BB-018 | A unit that requires ABO/Rh retype is not Available until a matching retype is recorded. The retype is the second confirmation of the supplier type; a second reviewer is not required. | P0 | FRS-BB-051, FRS-BB-106, FRS-BB-126 |
 | URS-BB-019 | Manually setting the current ABO/Rh (not from a verified result) is limited to authorized staff. | P0 | FRS-BB-021 |
 | URS-BB-020 | The user who entered a patient ABO/Rh cannot verify it. Current type is established only after a second user verifies. | P0 | FRS-BB-022 |
 | URS-BB-021 | Changing special transfusion requirements (irradiated, CMV-neg, antigen-negative, …) is limited to authorized immuno staff. | P0 | FRS-BB-023 |
@@ -32,7 +32,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-023 | Releasing a unit from quality quarantine to Available is limited to staff with inventory.release. | P0 | FRS-BB-052 |
 | URS-BB-024 | Converting an unused directed unit to allogeneic inventory is limited to staff with inventory.release. | P0 | FRS-BB-053, FRS-BB-136 |
 | URS-BB-025 | Releasing a unit from operational hold to Available is limited to staff with inventory.release. | P0 | FRS-BB-054 |
-| URS-BB-026 | Verifying a test result or a unit ABO/Rh retype is limited to staff with result.verify. | P0 | FRS-BB-055 |
+| URS-BB-026 | Verifying a test result is limited to staff with result.verify. Recording a unit ABO/Rh retype is limited to staff with result.enter and confirms the unit without a second reviewer. | P0 | FRS-BB-055 |
 | URS-BB-027 | Allocating a unit to a patient is limited to staff with compatibility.allocate. Recording a crossmatch is limited to staff with compatibility.crossmatch. | P0 | FRS-BB-056 |
 | URS-BB-028 | Issuing a unit is limited to staff with issue.create. Emergency/MTP still also requires issue.emergency-release. | P0 | FRS-BB-057 |
 | URS-BB-029 | Entering a result or unit ABO/Rh retype is limited to staff with result.enter. Correcting a verified result is limited to staff with result.correct. | P0 | FRS-BB-058 |
@@ -77,7 +77,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-069 | Documenting a transfusion through the interface service (not inbound BPAM) is limited to staff with transfusion.document. | P0 | FRS-BB-103 |
 | URS-BB-070 | Staff can find create/update of subtest, blood-attribute, and reflex-rule catalogs as TestChange, because those definitions change calculated results, antibody/antigen history, and reflex-added tests. | P3 | FRS-BB-104 |
 | URS-BB-071 | Starting an ISBT scan session or adding a scan line is limited to staff with inventory.receive. | P3 | FRS-BB-105 |
-| URS-BB-072 | Staff can find unit ABO/Rh retype entry, verification, and the resulting Available/Quarantine change as named Result, Verify, and ProductStatus events. | P0 | FRS-BB-106 |
+| URS-BB-072 | Staff can find unit ABO/Rh retype record and the resulting Available/Quarantine change as named Result, Verify, and ProductStatus events from the same action. | P0 | FRS-BB-106 |
 | URS-BB-073 | Activating, deactivating, locking, unlocking, or requesting a password reset for a directory user is limited to staff with admin.users.manage. | P6 | FRS-BB-107 |
 | URS-BB-074 | Creating, updating, activating, deactivating, or cloning a test definition is limited to staff with admin.tests.manage. | P2 | FRS-BB-108 |
 | URS-BB-075 | Staff can find exception-definition create/update as Configure (override eligibility at result verify) and phase-definition create/update as TestChange (result-entry phases). | P3 | FRS-BB-109 |
@@ -139,8 +139,8 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-131 | Staff can find DIN lookback recall as Lookback on a unit id, and recipient-notification attempts as Lookback on the notification row with old/new, because those actions follow issued/transfused units that had results. Search and traceback stay Lookback. | P1 | FRS-BB-165 |
 | URS-BB-132 | Staff can see on `/audit` whether a submitted-for-verification or invalidated result was Manual, Instrument, Interface, or Calculated. Verify and correct already stored source. | P0 | FRS-BB-166 |
 | URS-BB-133 | Staff can see on `/audit` the stored source on verify old/new and on re-entry after invalidation old/new, including when the replacement arrives from Interface. | P0 | FRS-BB-167 |
-| URS-BB-134 | Staff can see on `/audit` the interpreted ABO/Rh of a unit retype on enter, update, and verify, because that type is used at later compatibility and issue. | P0 | FRS-BB-168 |
-| URS-BB-135 | Staff can see the interpreted ABO/Rh after saving or verifying a unit retype, not only a generic entered/verified message. | P3 | FRS-BB-169 |
+| URS-BB-134 | Staff can see on `/audit` the interpreted ABO/Rh of a unit retype on record (Result and Verify), because that type is used at later compatibility and issue. | P0 | FRS-BB-168 |
+| URS-BB-135 | Staff can see the interpreted ABO/Rh after recording a unit retype, not only a generic saved message. | P3 | FRS-BB-169 |
 | URS-BB-136 | Staff can see the crossmatch method and Compatible or Incompatible result after recording a crossmatch, not only the row id. | P3 | FRS-BB-170 |
 | URS-BB-137 | Staff can see the crossmatch method and Compatible or Incompatible result after saving a worklist XM, not only Manual/Calculated source. | P3 | FRS-BB-171 |
 | URS-BB-138 | Staff can see on `/audit` the identity-correction row id on a unit DIN, product-code, or ABO/Rh identity Correct event, not only the field old/new. | P1 | FRS-BB-172 |
@@ -164,3 +164,5 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-156 | After downtime, authorized staff can see a read-only snapshot of unresolved interface errors, pending outbound HL7, open issues, pending retrospective crossmatches, and audit-chain status. The system does not invent paper OCR or multi-site failover. | P5 | FRS-BB-190 |
 | URS-BB-157 | Core issue-gate, merged-patient, electronic-XM, and lookback evidence can be cited by a stable TEST-BB-* identifier, and those catalog rows still point at source files. | P5 | FRS-BB-191 |
 | URS-BB-158 | Uniqueness, merge, unit-retype, emergency-issue privilege, and immuno-privilege evidence can be cited by a stable TEST-BB-* identifier. | P5 | FRS-BB-192 |
+| URS-BB-159 | When a facility has exported ICCBBA extract files, an administrator can import them from a drop folder or by upload. The system does not invent ICCBBA codes and does not parse licensed Access or Excel databases. | P1 | FRS-BB-193 |
+| URS-BB-160 | Administrators can define default crossmatch tests for negative and positive antibody history, and the minimum negative-screen visits, specimens, and tests required for electronic XM. Those tests attach to product orders after the current antibody screen; electronic XM is auto-added and resulted when an eligible patient with a current type and screen has units selected. Downgrading complex to simple XM requires a permanent exception. | P1 | FRS-BB-194 |

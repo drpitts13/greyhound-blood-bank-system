@@ -72,7 +72,7 @@ public sealed class ImmunohematologyService
     /// writes a named audit event in addition to appending append-only history.
     /// </summary>
     public async Task<OperationResult<PatientBloodTypeHistory>> RecordBloodTypeManualAsync(
-        long patientId, AboGroup abo, RhType rhD, string reason, CancellationToken ct = default)
+        long patientId, AboGroup abo, RhType rhD, string reason, AboSubgroup aboSubgroup = AboSubgroup.Unknown, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason))
         {
@@ -92,8 +92,11 @@ public sealed class ImmunohematologyService
             return patientGate;
         }
 
+        var resolvedSubgroup = abo is AboGroup.A or AboGroup.AB
+            ? aboSubgroup
+            : SpecialRequirementCatalog.DefaultSubgroup(abo);
         var current = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == patientId && h.IsCurrent, ct);
-        var typeChanged = current is null || current.Abo != abo || current.RhD != rhD;
+        var typeChanged = current is null || current.Abo != abo || current.RhD != rhD || current.AboSubgroup != resolvedSubgroup;
         if (current is not null)
         {
             current.IsCurrent = false;
@@ -105,6 +108,7 @@ public sealed class ImmunohematologyService
             PatientId = patientId,
             Abo = abo,
             RhD = rhD,
+            AboSubgroup = resolvedSubgroup,
             Source = BloodTypeSource.ManualEntry,
             IsCurrent = true,
             Reason = reason

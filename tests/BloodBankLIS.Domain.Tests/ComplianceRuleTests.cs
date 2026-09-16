@@ -19,7 +19,7 @@ public class SpecialTransfusionRequirementRuleTests
     [Fact]
     public void IrradiatedMissing_IsHardStop()
     {
-        var req = new SpecialTransfusionRequirementRule.RequirementRef(
+        var req = SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
             SpecialTransfusionRequirementType.Irradiated, null, Now.AddDays(-1), null, true);
         var results = SpecialTransfusionRequirementRule.Evaluate([req], new HashSet<string> { "LR" }, [], Now);
         Assert.Contains(results, r => r.Severity == RuleSeverity.HardStop && r.Code == IssueGate.SpecialReqCode);
@@ -28,7 +28,7 @@ public class SpecialTransfusionRequirementRuleTests
     [Fact]
     public void IrradiatedPresent_Passes()
     {
-        var req = new SpecialTransfusionRequirementRule.RequirementRef(
+        var req = SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
             SpecialTransfusionRequirementType.Irradiated, null, Now.AddDays(-1), null, true);
         var results = SpecialTransfusionRequirementRule.Evaluate([req], new HashSet<string> { "IRRAD" }, [], Now);
         Assert.True(SpecialTransfusionRequirementRule.AllMet(results));
@@ -37,7 +37,7 @@ public class SpecialTransfusionRequirementRuleTests
     [Fact]
     public void AntigenNegativeUnmet_IsHardStop()
     {
-        var req = new SpecialTransfusionRequirementRule.RequirementRef(
+        var req = SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
             SpecialTransfusionRequirementType.AntigenNegative, "K", Now.AddDays(-1), null, true);
         var results = SpecialTransfusionRequirementRule.Evaluate(
             [req],
@@ -45,6 +45,62 @@ public class SpecialTransfusionRequirementRuleTests
             [new BloodAttributeCompatibilityRule.AntigenRef("K", AntigenResult.Positive)],
             Now);
         Assert.Contains(results, r => r.Severity == RuleSeverity.HardStop);
+    }
+
+    [Fact]
+    public void ExpiredRequirement_IsIgnored()
+    {
+        var req = SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
+            SpecialTransfusionRequirementType.Irradiated, null, Now.AddDays(-10), Now.AddDays(-1), true);
+        var results = SpecialTransfusionRequirementRule.Evaluate([req], new HashSet<string>(), [], Now);
+        Assert.True(SpecialTransfusionRequirementRule.AllMet(results));
+    }
+
+    [Fact]
+    public void WarmerWithoutAck_IsHardStop()
+    {
+        var req = new SpecialTransfusionRequirementRule.RequirementRef(
+            SpecialRequirementCatalog.BloodWarmer,
+            SpecialRequirementEnforcementKind.RequireIssueAcknowledgment,
+            null, null, Now.AddDays(-1), null, true);
+        var results = SpecialTransfusionRequirementRule.Evaluate([req], new HashSet<string>(), [], Now);
+        Assert.Contains(results, r => r.Severity == RuleSeverity.HardStop && r.Code == IssueGate.SpecialReqCode);
+    }
+
+    [Fact]
+    public void WarmerWithAck_Passes()
+    {
+        var req = new SpecialTransfusionRequirementRule.RequirementRef(
+            SpecialRequirementCatalog.BloodWarmer,
+            SpecialRequirementEnforcementKind.RequireIssueAcknowledgment,
+            null, null, Now.AddDays(-1), null, true);
+        var results = SpecialTransfusionRequirementRule.Evaluate(
+            [req], new HashSet<string>(), [], Now, new HashSet<string> { SpecialRequirementCatalog.BloodWarmer });
+        Assert.True(SpecialTransfusionRequirementRule.AllMet(results));
+    }
+
+    [Fact]
+    public void TypeA2_MissingSubgroupOnGroupA_IsHardStop()
+    {
+        var req = new SpecialTransfusionRequirementRule.RequirementRef(
+            SpecialRequirementCatalog.TypeForA2,
+            SpecialRequirementEnforcementKind.RequireAboSubgroup,
+            null, null, Now.AddDays(-1), null, true);
+        var results = SpecialTransfusionRequirementRule.Evaluate(
+            [req], new HashSet<string>(), [], Now, patientAbo: AboGroup.A, patientSubgroup: AboSubgroup.Unknown);
+        Assert.Contains(results, r => r.Severity == RuleSeverity.HardStop);
+    }
+
+    [Fact]
+    public void TypeA2_GroupO_PassesWithoutSubgroup()
+    {
+        var req = new SpecialTransfusionRequirementRule.RequirementRef(
+            SpecialRequirementCatalog.TypeForA2,
+            SpecialRequirementEnforcementKind.RequireAboSubgroup,
+            null, null, Now.AddDays(-1), null, true);
+        var results = SpecialTransfusionRequirementRule.Evaluate(
+            [req], new HashSet<string>(), [], Now, patientAbo: AboGroup.O, patientSubgroup: AboSubgroup.Unknown);
+        Assert.True(SpecialTransfusionRequirementRule.AllMet(results));
     }
 }
 

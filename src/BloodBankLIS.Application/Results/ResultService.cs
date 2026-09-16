@@ -61,6 +61,7 @@ public sealed class ResultService
     private readonly IRepository<Patient>? _patients;
     private readonly IRepository<AntibodyIdentificationWorkup>? _antibodyWorkups;
     private readonly IRepository<AntibodyIdentificationFinding>? _antibodyFindings;
+    private readonly CrossmatchAttachmentService? _crossmatchAttachment;
 
     public ResultService(
         IRepository<TestResult> results,
@@ -91,7 +92,8 @@ public sealed class ResultService
         IRepository<PhaseDefinition>? phaseDefinitions = null,
         IRepository<Patient>? patients = null,
         IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null,
-        IRepository<AntibodyIdentificationFinding>? antibodyFindings = null)
+        IRepository<AntibodyIdentificationFinding>? antibodyFindings = null,
+        CrossmatchAttachmentService? crossmatchAttachment = null)
     {
         _ruleEngine = ruleEngine;
         _allocations = allocations;
@@ -122,6 +124,7 @@ public sealed class ResultService
         _reflexRules = reflexRules;
         _antibodyWorkups = antibodyWorkups;
         _antibodyFindings = antibodyFindings;
+        _crossmatchAttachment = crossmatchAttachment;
     }
 
     public Task<TestResult?> GetAsync(long id, CancellationToken ct = default) =>
@@ -831,6 +834,12 @@ public sealed class ResultService
             warnings.AddRange(ruleOutcome.Warnings);
         }
 
+        if (_crossmatchAttachment is not null && await IsAntibodyScreenResultAsync(result, ct))
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+            await _crossmatchAttachment.AfterAntibodyScreenVerifiedAsync(result.PatientId, ct);
+        }
+
         _audit.Record(
             AuditEventType.Verify,
             nameof(TestResult),
@@ -1016,6 +1025,7 @@ public sealed class ResultService
             PatientId = result.PatientId,
             Abo = aboRh.Abo,
             RhD = aboRh.Rh,
+            AboSubgroup = SpecialRequirementCatalog.DefaultSubgroup(aboRh.Abo),
             Source = BloodTypeSource.TestResult,
             SourceResultId = result.Id,
             IsCurrent = true
@@ -1836,7 +1846,7 @@ public sealed class ResultService
 
         var trimmed = unitNumber.Trim();
         var units = await _inventory.SearchAsync(new InventorySearchCriteria(UnitNumber: trimmed), ct);
-        var unit = units.FirstOrDefault();
+        var unit = FindExactUnit(units, trimmed);
         if (unit is null)
         {
             return $"Unit '{trimmed}' was not found.";
@@ -1859,7 +1869,7 @@ public sealed class ResultService
         }
 
         var units = await _inventory.SearchAsync(new InventorySearchCriteria(UnitNumber: request.UnitNumber!.Trim()), ct);
-        var unit = units.FirstOrDefault();
+        var unit = FindExactUnit(units, request.UnitNumber.Trim());
         if (unit is null)
         {
             return OperationResult<TestResult>.Fail($"Unit '{request.UnitNumber}' was not found.");
@@ -2224,7 +2234,7 @@ public sealed class ResultService
             if (!string.IsNullOrWhiteSpace(unitNumber))
             {
                 var units = await _inventory.SearchAsync(new InventorySearchCriteria(UnitNumber: unitNumber), ct);
-                unitId = units.FirstOrDefault()?.Id;
+                unitId = FindExactUnit(units, unitNumber)?.Id;
             }
         }
 
@@ -2258,6 +2268,9 @@ public sealed class ResultService
 
         return phenotypeChanged;
     }
+
+    private static BloodUnit? FindExactUnit(IReadOnlyList<BloodUnit> units, string unitNumber) =>
+        units.FirstOrDefault(u => string.Equals(u.UnitNumber, unitNumber, StringComparison.OrdinalIgnoreCase));
 
     private static string? ParseUnitNumberFromInterpretation(string? interpretation)
     {
@@ -2483,5 +2496,22 @@ public sealed class ResultService
         var allowed = await _permissions.HasPermissionAsync(_currentUser.UserName, permissionCode, ct);
         var auth = evaluate(allowed);
         return auth.Severity == RuleSeverity.HardStop ? auth : null;
+    }
+
+    private async Task<bool> IsAntibodyScreenResultAsync(TestResult result, CancellationToken ct)
+    {
+        if (string.Equals(result.TestCode, AntibodyScreenCompatLoader.AntibodyScreenTestCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        if (_testDefinitions is null || string.IsNullOrWhiteSpace(result.TestCode))
+        {
+            return false;
+        }
+
+        var code = result.TestCode.Trim().ToUpperInvariant();
+        var def = await _testDefinitions.FirstOrDefaultAsync(t => t.Code == code, ct);
+        return def?.Category == TestCategory.AntibodyScreen;
     }
 }

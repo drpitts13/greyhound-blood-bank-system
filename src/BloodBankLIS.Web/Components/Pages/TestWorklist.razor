@@ -114,6 +114,7 @@
                     <th>Unit #</th>
                     <th>Product</th>
                     <th>Name</th>
+                    <th>Test</th>
                     <th>Labeled ABO/Rh</th>
                     <th>Received</th>
                     <th>Status</th>
@@ -127,9 +128,20 @@
                         <td class="mono">@item.UnitNumber</td>
                         <td class="mono">@item.ProductCode</td>
                         <td>@item.ProductName</td>
+                        <td>
+                            @if (!string.IsNullOrWhiteSpace(item.TestCode))
+                            {
+                                <strong>@(item.TestName ?? item.TestCode)</strong>
+                                <span class="mono muted">@item.TestCode</span>
+                            }
+                            else
+                            {
+                                <span class="muted">—</span>
+                            }
+                        </td>
                         <td><strong>@Ui.BloodType(item.Abo, item.RhD)</strong></td>
                         <td class="nowrap">@item.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                        <td><span class="@Ui.Badge(item.Status)">@item.Status</span></td>
+                        <td><span class="@Ui.Badge(item.Status)">@Ui.StatusLabel(item.Status)</span></td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => ToggleRetype(item.UnitId)">
                                 @(_expandedUnitId == item.UnitId ? "Hide" : "Enter")
@@ -138,7 +150,7 @@
                     </tr>
                     @if (_expandedUnitId == item.UnitId)
                     {
-                        <tr><td colspan="7">
+                        <tr><td colspan="8">
                             @if (_retypeDetail?.UnitId == item.UnitId)
                             {
                                 <ProductRetypeEntryPanel Detail="_retypeDetail" OnSaved="OnRetypeSaved" />

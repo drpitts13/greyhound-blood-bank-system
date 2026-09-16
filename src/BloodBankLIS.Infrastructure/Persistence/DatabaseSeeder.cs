@@ -42,9 +42,11 @@ public static partial class DatabaseSeeder
         await SeedProductTypesAsync(context, cancellationToken);
         await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
         await EnsureModificationProductTypesAsync(context, cancellationToken);
+        await EnsureAdditionalProductTypesAsync(context, cancellationToken);
         await EnsureProductRetypeFlagsAsync(context, cancellationToken);
         await EnsureProductTypeIsbtCodesAsync(context, cancellationToken);
         await SeedProductAttributesAsync(context, cancellationToken);
+        await SeedSpecialRequirementDefinitionsAsync(context, cancellationToken);
         await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
         await SeedAntibodyIdentificationPanelsAsync(context, cancellationToken);
         await SeedSpecimenTypeDefinitionsAsync(context, cancellationToken);
@@ -52,10 +54,13 @@ public static partial class DatabaseSeeder
         await SeedPhaseDefinitionsAsync(context, cancellationToken);
         await SeedTestDefinitionsAsync(context, cancellationToken);
         await EnsureAboRhRetypeTestAsync(context, cancellationToken);
+        await EnsureRhRetypeTestsAsync(context, cancellationToken);
+        await EnsureProductRetypeTestAssignmentsAsync(context, cancellationToken);
         await EnsureAgtypeTestAsync(context, cancellationToken);
         await EnsureWeakDTestAsync(context, cancellationToken);
         await EnsureNeonatalTypeAndScreenTestAsync(context, cancellationToken);
         await EnsureCrossmatchTestsAsync(context, cancellationToken);
+        await EnsureCrossmatchSettingsAsync(context, cancellationToken);
         await EnsureAbscPanelAsync(context, cancellationToken);
         await MigrateExistingTestPanelConfigAsync(context, cancellationToken);
         await SeedTestGroupersAsync(context, cancellationToken);
@@ -773,7 +778,13 @@ public static partial class DatabaseSeeder
         {
             if (byPdc.TryGetValue(seed.ProductDescriptionCode, out var rows))
             {
-                // Unique index is (PDC, StandardVersion); collapse legacy duplicates for the same PDC first.
+                // Licensed (non-placeholder) rows must survive restart. Do not add or
+                // refresh the US-public-subset seed when a facility extract replaced the code.
+                if (rows.Any(r => !r.IsPlaceholder))
+                    continue;
+
+                // Unique index is (PDC, StandardVersion); collapse leftover placeholder
+                // duplicates for the same PDC first.
                 for (var i = 1; i < rows.Count; i++)
                 {
                     context.IsbtProductCodes.Remove(rows[i]);
@@ -1338,7 +1349,9 @@ public static partial class DatabaseSeeder
         var changed = false;
         foreach (var product in products)
         {
-            var shouldRetype = product.ComponentClass is ComponentClass.RedBloodCells or ComponentClass.WholeBlood;
+            var shouldRetype = product.ComponentClass is ComponentClass.RedBloodCells
+                or ComponentClass.WholeBlood
+                or ComponentClass.Granulocytes;
             if (product.RequiresRetype != shouldRetype)
             {
                 product.RequiresRetype = shouldRetype;
@@ -1365,6 +1378,69 @@ public static partial class DatabaseSeeder
             new ProductAttribute { Code = "CMVNEG", Name = "CMV Negative", Description = "Tested CMV seronegative" },
             new ProductAttribute { Code = "WASHED", Name = "Washed", Description = "Plasma removed by washing" },
             new ProductAttribute { Code = "VOLRED", Name = "Volume Reduced", Description = "Reduced plasma volume" });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedSpecialRequirementDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SpecialRequirementDefinitions.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+
+        SpecialRequirementDefinition Def(
+            string code,
+            string name,
+            SpecialRequirementLevel level,
+            SpecialRequirementEnforcementKind kind,
+            int sort,
+            string? productAttribute = null,
+            string? instruction = null) => new()
+        {
+            Code = code,
+            Name = name,
+            Level = level,
+            EnforcementKind = kind,
+            ProductAttributeCode = productAttribute,
+            Instruction = instruction,
+            SortOrder = sort,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = now,
+            Version = 1
+        };
+
+        context.SpecialRequirementDefinitions.AddRange(
+            Def(SpecialRequirementCatalog.Irradiated, "Irradiated", SpecialRequirementLevel.Unit,
+                SpecialRequirementEnforcementKind.RequireProductAttribute, 10, "IRRAD",
+                "Issue only irradiated units."),
+            Def(SpecialRequirementCatalog.CmvNegative, "CMV-negative", SpecialRequirementLevel.Unit,
+                SpecialRequirementEnforcementKind.RequireProductAttribute, 20, "CMVNEG",
+                "Issue only CMV-negative units."),
+            Def(SpecialRequirementCatalog.Leukoreduced, "Leukoreduced", SpecialRequirementLevel.Unit,
+                SpecialRequirementEnforcementKind.RequireProductAttribute, 30, "LR",
+                "Issue only leukoreduced units."),
+            Def(SpecialRequirementCatalog.Washed, "Washed", SpecialRequirementLevel.Unit,
+                SpecialRequirementEnforcementKind.RequireProductAttribute, 40, "WASHED",
+                "Issue only washed units."),
+            Def(SpecialRequirementCatalog.AntigenNegative, "Antigen-negative", SpecialRequirementLevel.Unit,
+                SpecialRequirementEnforcementKind.RequireAntigenNegative, 50, instruction:
+                "Issue only units typed antigen-negative for the assigned antigen."),
+            Def(SpecialRequirementCatalog.Other, "Other", SpecialRequirementLevel.Unit,
+                SpecialRequirementEnforcementKind.RequireIssueAcknowledgment, 60,
+                instruction: "Confirm the free-text special requirement against the unit at issue."),
+            Def(SpecialRequirementCatalog.BloodWarmer, "Blood warmer", SpecialRequirementLevel.Issuing,
+                SpecialRequirementEnforcementKind.RequireIssueAcknowledgment, 70,
+                instruction: "Issue only after acknowledging that a blood warmer will be used."),
+            Def(SpecialRequirementCatalog.ExtendedCrossmatch, "Extended crossmatch", SpecialRequirementLevel.Issuing,
+                SpecialRequirementEnforcementKind.RequireComplexCrossmatch, 80,
+                instruction: "Requires a complex (extended) serologic crossmatch; electronic XM is not permitted."),
+            Def(SpecialRequirementCatalog.TypeForA2, "Type for A2", SpecialRequirementLevel.Patient,
+                SpecialRequirementEnforcementKind.RequireAboSubgroup, 90,
+                instruction: "Record A1/A2 subgroup on group A or AB patients before issue."));
 
         await context.SaveChangesAsync(ct);
     }
@@ -1646,6 +1722,104 @@ public static partial class DatabaseSeeder
         await context.SaveChangesAsync(ct);
     }
 
+    private static string AboRhRetypePositivePanelJson() =>
+        PanelSubtestAssignments.ToJson(PanelSubtestDefinitions.DefaultAboRhRetypePositive()
+            .Select(s => new PanelSubtestAssignment(s.Code, s.Required, s.SortOrder))
+            .ToList())!;
+
+    private static string AboRhRetypeNegativePanelJson() =>
+        PanelSubtestAssignments.ToJson(PanelSubtestDefinitions.DefaultAboRhRetypeNegative()
+            .Select(s => new PanelSubtestAssignment(s.Code, s.Required, s.SortOrder))
+            .ToList())!;
+
+    /// <summary>
+    /// Distinct Rh+ / Rh− product retype catalog tests so product settings can
+    /// reference Test setup rows independently of the legacy ABORH-RETYPE code.
+    /// </summary>
+    private static async Task EnsureRhRetypeTestsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var changed = false;
+        if (!await context.TestDefinitions.AnyAsync(t => t.Code == ProductRetypeAssignment.RhPositiveTestCode, ct))
+        {
+            context.TestDefinitions.Add(new TestDefinition
+            {
+                Code = ProductRetypeAssignment.RhPositiveTestCode,
+                Name = "Rh+ Retype",
+                Category = TestCategory.AboRhRetype,
+                ResultValueType = ResultValueType.AboRh,
+                PanelSubtestsJson = AboRhRetypePositivePanelJson(),
+                InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(InterpretationLogicDefinitions.DefaultAboRhRetypeLogic()),
+                VerificationRequired = false,
+                ContributesToAboRhHistory = false,
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = DateTime.UtcNow,
+                Version = 1
+            });
+            changed = true;
+        }
+
+        if (!await context.TestDefinitions.AnyAsync(t => t.Code == ProductRetypeAssignment.RhNegativeTestCode, ct))
+        {
+            context.TestDefinitions.Add(new TestDefinition
+            {
+                Code = ProductRetypeAssignment.RhNegativeTestCode,
+                Name = "Rh− Retype",
+                Category = TestCategory.AboRhRetype,
+                ResultValueType = ResultValueType.AboRh,
+                PanelSubtestsJson = AboRhRetypeNegativePanelJson(),
+                InterpretationLogicJson = InterpretationLogicDefinitions.ToJson(InterpretationLogicDefinitions.DefaultAboRhRetypeLogic()),
+                VerificationRequired = false,
+                ContributesToAboRhHistory = false,
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = DateTime.UtcNow,
+                Version = 1
+            });
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>
+    /// Point every retype-required product at the seeded Rh+ / Rh− catalog tests.
+    /// </summary>
+    private static async Task EnsureProductRetypeTestAssignmentsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var pos = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == ProductRetypeAssignment.RhPositiveTestCode, ct);
+        var neg = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == ProductRetypeAssignment.RhNegativeTestCode, ct);
+        if (pos is null || neg is null)
+        {
+            return;
+        }
+
+        var products = await context.ProductTypes.Where(p => p.RequiresRetype).ToListAsync(ct);
+        var changed = false;
+        foreach (var product in products)
+        {
+            if (product.RhPositiveRetypeTestId != pos.Id)
+            {
+                product.RhPositiveRetypeTestId = pos.Id;
+                changed = true;
+            }
+
+            if (product.RhNegativeRetypeTestId != neg.Id)
+            {
+                product.RhNegativeRetypeTestId = neg.Id;
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
     private static string DefaultCrossmatchPanelJson() =>
         PanelSubtestAssignments.ToJson([
             new PanelSubtestAssignment("IS", true, 1),
@@ -1863,10 +2037,45 @@ public static partial class DatabaseSeeder
             changed = true;
         }
 
+        if (!await context.TestDefinitions.AnyAsync(t => t.Code == "EXM", ct))
+        {
+            context.TestDefinitions.Add(new TestDefinition
+            {
+                Code = "EXM",
+                Name = "Electronic Crossmatch",
+                Category = TestCategory.Crossmatch,
+                ResultValueType = ResultValueType.Crossmatch,
+                AllowedResultValues = "Compatible\nIncompatible",
+                PanelSubtestsJson = DefaultCrossmatchPanelJson(),
+                VerificationRequired = true,
+                ContributesToCompatibility = true,
+                Billable = true,
+                ChargeCodeMapping = "BB-XM",
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = now,
+                Version = 1
+            });
+            changed = true;
+        }
+
         if (changed)
         {
             await context.SaveChangesAsync(ct);
         }
+    }
+
+    private static async Task EnsureCrossmatchSettingsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.CrossmatchSettings.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var row = CrossmatchSettings.CreateDefault();
+        row.EffectiveUtc = DateTime.UtcNow;
+        context.CrossmatchSettings.Add(row);
+        await context.SaveChangesAsync(ct);
     }
 
     private static async Task EnsureAgtypeTestAsync(BloodBankDbContext context, CancellationToken ct)

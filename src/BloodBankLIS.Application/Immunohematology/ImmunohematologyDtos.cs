@@ -3,7 +3,7 @@ using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Immunohematology;
 
-public sealed record RecordBloodTypeRequest(AboGroup Abo, RhType RhD, string Reason);
+public sealed record RecordBloodTypeRequest(AboGroup Abo, RhType RhD, string Reason, AboSubgroup AboSubgroup = AboSubgroup.Unknown);
 
 public sealed record AddAntibodyRequest(
     long? BloodAttributeDefinitionId,
@@ -27,11 +27,12 @@ public sealed record BloodTypeDto(
     bool IsCurrent,
     string? Reason,
     DateTime RecordedUtc,
-    string RecordedBy)
+    string RecordedBy,
+    AboSubgroup AboSubgroup = AboSubgroup.Unknown)
 {
     public static BloodTypeDto From(PatientBloodTypeHistory h) => new(
         h.Id, h.PatientId, h.Abo, h.RhD, h.BloodType.ToString(), h.Source, h.SourceResultId,
-        h.IsCurrent, h.Reason, h.CreatedUtc, h.CreatedBy);
+        h.IsCurrent, h.Reason, h.CreatedUtc, h.CreatedBy, h.AboSubgroup);
 }
 
 public sealed record AntibodyDto(

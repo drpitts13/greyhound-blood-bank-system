@@ -203,6 +203,106 @@ public static class TestDefinitionValidator
         valueType is ResultValueType.Crossmatch or ResultValueType.ComplexCrossmatch;
 }
 
+public static class CrossmatchSettingsValidator
+{
+    public const string ReasonRequiredCode = "XMSET.REASON.REQUIRED";
+    public const string NegativeTestCode = "XMSET.NEG.TEST";
+    public const string PositiveTestCode = "XMSET.POS.TEST";
+    public const string ElectronicTestCode = "XMSET.EXM.TEST";
+    public const string MinVisitsCode = "XMSET.EXM.VISITS";
+    public const string MinSpecimensCode = "XMSET.EXM.SPECIMENS";
+    public const string MinTestsCode = "XMSET.EXM.TESTS";
+
+    public static RuleEvaluation Validate(
+        CrossmatchSettings settings,
+        string? reason,
+        TestDefinition? negativeTest,
+        TestDefinition? positiveTest,
+        TestDefinition? electronicTest)
+    {
+        var results = new List<RuleResult>();
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            results.Add(RuleResult.HardStop(ReasonRequiredCode, "A change reason is required."));
+        }
+
+        AddSerologicTestCheck(
+            results,
+            NegativeTestCode,
+            "negative antibody history",
+            settings.NegativeAntibodyHistoryTestCode,
+            negativeTest);
+        AddSerologicTestCheck(
+            results,
+            PositiveTestCode,
+            "positive antibody history",
+            settings.PositiveAntibodyHistoryTestCode,
+            positiveTest);
+
+        if (string.IsNullOrWhiteSpace(settings.ElectronicCrossmatchTestCode))
+        {
+            results.Add(RuleResult.HardStop(ElectronicTestCode, "An electronic crossmatch test is required."));
+        }
+        else if (electronicTest is null || !electronicTest.IsActive || electronicTest.IsDraft)
+        {
+            results.Add(RuleResult.HardStop(
+                ElectronicTestCode,
+                $"Electronic crossmatch test '{settings.ElectronicCrossmatchTestCode}' is not an active catalog test."));
+        }
+        else if (electronicTest.ResultValueType != ResultValueType.Crossmatch)
+        {
+            results.Add(RuleResult.HardStop(
+                ElectronicTestCode,
+                "The electronic crossmatch test must use the Crossmatch result type (not complex)."));
+        }
+
+        if (settings.ElectronicXmMinimumVisits < 1)
+        {
+            results.Add(RuleResult.HardStop(MinVisitsCode, "Electronic XM minimum visits must be at least 1."));
+        }
+
+        if (settings.ElectronicXmMinimumSpecimens < 1)
+        {
+            results.Add(RuleResult.HardStop(MinSpecimensCode, "Electronic XM minimum specimens must be at least 1."));
+        }
+
+        if (settings.ElectronicXmMinimumTests < 1)
+        {
+            results.Add(RuleResult.HardStop(MinTestsCode, "Electronic XM minimum tests must be at least 1."));
+        }
+
+        return new RuleEvaluation(results);
+    }
+
+    private static void AddSerologicTestCheck(
+        List<RuleResult> results,
+        string code,
+        string role,
+        string? testCode,
+        TestDefinition? test)
+    {
+        if (string.IsNullOrWhiteSpace(testCode))
+        {
+            results.Add(RuleResult.HardStop(code, $"A default crossmatch test for {role} is required."));
+            return;
+        }
+
+        if (test is null || !test.IsActive || test.IsDraft)
+        {
+            results.Add(RuleResult.HardStop(code, $"Default {role} test '{testCode}' is not an active catalog test."));
+            return;
+        }
+
+        if (!TestDefinitionValidator.IsCrossmatchResultType(test.ResultValueType))
+        {
+            results.Add(RuleResult.HardStop(
+                code,
+                $"Default {role} test '{testCode}' must be a crossmatch or complex crossmatch."));
+        }
+    }
+}
+
 public static class BloodAttributeDefinitionValidator
 {
     public static RuleEvaluation Validate(BloodAttributeDefinition d, bool duplicateActiveCode)
@@ -524,6 +624,23 @@ public static class ProductDefinitionValidator
             results.Add(RuleResult.Warning("PRODUCT.ABO.UNSAFE", "Product requires crossmatch but is not configured to require ABO matching."));
         }
 
+        if (p.RequiresRetype)
+        {
+            if (p.RhPositiveRetypeTestId is null)
+            {
+                results.Add(RuleResult.HardStop(
+                    "PRODUCT.RETYPE.RHPOS.REQUIRED",
+                    "Rh+ Retype Test is required when Retype is Y."));
+            }
+
+            if (p.RhNegativeRetypeTestId is null)
+            {
+                results.Add(RuleResult.HardStop(
+                    "PRODUCT.RETYPE.RHNEG.REQUIRED",
+                    "Rh− Retype Test is required when Retype is Y."));
+            }
+        }
+
         return new RuleEvaluation(results);
     }
 }
@@ -584,7 +701,7 @@ public static class ModificationRuleValidator
         if (duplicateCode)
         {
             results.Add(RuleResult.HardStop("MODRULE.CODE.DUPLICATE",
-                "Another modification rule already uses this modification code."));
+                "Another modification rule already uses this modification code with the same source and target product codes."));
         }
 
         if (r.SourceProductTypeId <= 0)
@@ -869,5 +986,45 @@ public static class RuleDefinitionValidator
             results.Add(RuleResult.Warning("RULE.TEST.UNKNOWN",
                 $"Test '{code}' is not in the active test catalog. The action will be skipped until it exists."));
         }
+    }
+}
+
+public static class SpecialRequirementDefinitionValidator
+{
+    public static RuleEvaluation Validate(SpecialRequirementDefinition d, bool duplicateActiveCode, bool knownProductAttribute)
+    {
+        var results = new List<RuleResult>();
+
+        if (string.IsNullOrWhiteSpace(d.Code))
+        {
+            results.Add(RuleResult.HardStop("SRDEF.CODE.REQUIRED", "Special requirement code is required."));
+        }
+
+        if (string.IsNullOrWhiteSpace(d.Name))
+        {
+            results.Add(RuleResult.HardStop("SRDEF.NAME.REQUIRED", "Display name is required."));
+        }
+
+        if (duplicateActiveCode)
+        {
+            results.Add(RuleResult.HardStop("SRDEF.CODE.DUPLICATE",
+                $"Another active special requirement already uses code '{d.Code}'."));
+        }
+
+        if (d.EnforcementKind == SpecialRequirementEnforcementKind.RequireProductAttribute)
+        {
+            if (string.IsNullOrWhiteSpace(d.ProductAttributeCode))
+            {
+                results.Add(RuleResult.HardStop("SRDEF.ATTR.REQUIRED",
+                    "A product attribute code is required when enforcement requires a unit product attribute."));
+            }
+            else if (!knownProductAttribute)
+            {
+                results.Add(RuleResult.HardStop("SRDEF.ATTR.UNKNOWN",
+                    $"Product attribute '{d.ProductAttributeCode}' is not in the active product-attribute catalog."));
+            }
+        }
+
+        return new RuleEvaluation(results);
     }
 }

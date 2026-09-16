@@ -76,6 +76,7 @@
         }
         @if (Session.Has(PermissionCodes.AdminConfigView))
         {
+            <NavLink href="admin/crossmatch-settings" ActiveClass="active">Crossmatch Settings</NavLink>
             <NavLink href="admin/exceptions" ActiveClass="active">Exceptions</NavLink>
             <NavLink href="admin/facility-policies" ActiveClass="active">Facility Policy</NavLink>
             <NavLink href="admin/expiration-codes" ActiveClass="active">Expiration Codes</NavLink>
@@ -97,6 +98,7 @@
         }
         @if (Session.Has(PermissionCodes.AdminConfigView))
         {
+            <NavLink href="admin/special-requirements" ActiveClass="active">Special Requirements</NavLink>
             <NavLink href="admin/specimen-types" ActiveClass="active">Specimen Types</NavLink>
             <NavLink href="admin/subtests" ActiveClass="active">Subtests</NavLink>
             <NavLink href="admin/test-groupers" ActiveClass="active">Test Groupers</NavLink>

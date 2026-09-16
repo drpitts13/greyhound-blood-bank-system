@@ -4,13 +4,15 @@ using BloodBankLIS.Domain.Enums;
 namespace BloodBankLIS.Domain.Entities;
 
 /// <summary>
-/// Persisted special transfusion requirement for a patient (irradiated, CMV-negative,
-/// leukoreduced, washed, antigen-negative). Enforced by the issue gate; never an
-/// operator checkbox (docs/erd.md §2, 21 CFR 606.151 / AABB special needs).
+/// Persisted special transfusion requirement for a patient. Enforced by the issue
+/// gate while clinically active (effective now, not end-dated); never an operator
+/// checkbox (docs/erd.md §2, 21 CFR 606.151 / AABB special needs).
 /// </summary>
 public class SpecialTransfusionRequirement : BaseEntity
 {
     public long PatientId { get; set; }
+
+    public long? RequirementDefinitionId { get; set; }
 
     public SpecialTransfusionRequirementType RequirementType { get; set; }
 

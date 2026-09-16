@@ -19,7 +19,9 @@ using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Common;
 using BloodBankLIS.Infrastructure.Identity;
+using BloodBankLIS.Infrastructure.Isbt128;
 using BloodBankLIS.Infrastructure.Persistence;
+using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -105,6 +107,7 @@ public static class DependencyInjection
         // Admin configuration services.
         services.AddScoped<TestDefinitionAdminService>();
         services.AddScoped<BloodAttributeAdminService>();
+        services.AddScoped<SpecialRequirementAdminService>();
         services.AddScoped<AntibodyPanelLotAdminService>();
         services.AddScoped<SpecimenTypeAdminService>();
         services.AddScoped<SubtestDefinitionAdminService>();
@@ -116,10 +119,15 @@ public static class DependencyInjection
         services.AddScoped<ModificationRuleAdminService>();
         services.AddScoped<ExpirationModificationCodeAdminService>();
         services.AddScoped<IsbtProductCodeAdminService>();
+        services.TryAddSingleton<IIccbbaExtractDirectory>(sp =>
+            IccbbaExtractDirectory.FromConfiguration(sp.GetService<IConfiguration>()));
         services.AddScoped<OrderingProviderAdminService>();
         services.AddScoped<OrderingLocationAdminService>();
         services.AddScoped<InventoryLocationAdminService>();
         services.AddScoped<FacilityPolicyAdminService>();
+        services.AddScoped<CrossmatchSettingsAdminService>();
+        services.AddScoped<CrossmatchSettingsReader>();
+        services.AddScoped<CrossmatchAttachmentService>();
         services.AddScoped<CompatibilityRuleAdminService>();
         services.AddScoped<ChargeCodeAdminService>();
         services.AddScoped<ChargeRuleAdminService>();

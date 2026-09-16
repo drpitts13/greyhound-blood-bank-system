@@ -28,25 +28,39 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
 
         await using (var verify = _factory.Create())
         {
-            // Four base products plus the three modification targets.
-            Assert.Equal(7, await verify.ProductTypes.CountAsync());
+            // Four base products, three modification targets, and eleven extra test products.
+            Assert.Equal(18, await verify.ProductTypes.CountAsync());
             Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "WB" && p.RequiresCrossmatch));
             Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "RBC-LR" && p.RequiresRetype));
             Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "FFP" && !p.RequiresRetype));
+            Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "CRYO" && p.Isbt128ProductCode == "E5165"));
+            Assert.True(await verify.ProductTypes.AnyAsync(p => p.ProductCode == "GRAN" && p.ComponentClass == ComponentClass.Granulocytes));
             Assert.True(await verify.TestDefinitions.AnyAsync(t => t.Code == AboRhRetypeRule.TestCode && t.Category == TestCategory.AboRhRetype));
+            Assert.True(await verify.TestDefinitions.AnyAsync(t => t.Code == ProductRetypeAssignment.RhPositiveTestCode && t.Category == TestCategory.AboRhRetype));
+            Assert.True(await verify.TestDefinitions.AnyAsync(t => t.Code == ProductRetypeAssignment.RhNegativeTestCode && t.Category == TestCategory.AboRhRetype));
+            var rbcLr = await verify.ProductTypes.SingleAsync(p => p.ProductCode == "RBC-LR");
+            Assert.True(rbcLr.RequiresRetype);
+            Assert.NotNull(rbcLr.RhPositiveRetypeTestId);
+            Assert.NotNull(rbcLr.RhNegativeRetypeTestId);
+            Assert.Equal(2, await verify.ProductRetypeResults.CountAsync(r => r.Status == ResultStatus.Pending));
+            Assert.True(await verify.ProductRetypeResults.AnyAsync(r => r.TestCode == ProductRetypeAssignment.RhPositiveTestCode));
+            Assert.True(await verify.ProductRetypeResults.AnyAsync(r => r.TestCode == ProductRetypeAssignment.RhNegativeTestCode));
             Assert.Equal(5, await verify.InventoryLocations.CountAsync());
             Assert.True(await verify.AntibodyPanelLots.AnyAsync(l => l.LotNumber == "GHP-ABID-2026A" && l.IsActive));
             Assert.True(await verify.AntibodyPanelCells.CountAsync() >= 10);
 
-            // The original demo patient plus the five extended scenarios.
-            Assert.Equal(6, await verify.Patients.CountAsync());
-            Assert.Equal(7, await verify.Encounters.CountAsync());
-            Assert.Equal(11, await verify.Orders.CountAsync());
+            // The original demo patient, five clinical scenarios, plus alloimmunization
+            // and autologous/directed FDA/AABB validation patients.
+            Assert.Equal(8, await verify.Patients.CountAsync());
+            Assert.Equal(9, await verify.Encounters.CountAsync());
+            Assert.Equal(12, await verify.Orders.CountAsync());
 
             // Three original units, 28 stocked across every ABO/Rh, two modification
             // results, one received by ISBT 128 scan, two waiting for ABO/Rh retype,
-            // and one on operational hold.
-            Assert.Equal(37, await verify.BloodUnits.CountAsync());
+            // one on operational hold, six ISBT divide-scenario units
+            // (three available + one completed source + two V0A/V0B results),
+            // autologous + directed, lookback sibling, and missing + damaged.
+            Assert.Equal(48, await verify.BloodUnits.CountAsync());
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.Status == UnitStatus.OnHold && u.HoldReason != null));
             Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Received));
 
@@ -69,6 +83,9 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E0206"));
             Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E0701"));
             Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E5165"));
+            Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E5166"));
+            Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E3858"));
+            Assert.True(await verify.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == "E4253"));
 
             await AssertExtendedScenariosAsync(verify);
         }
@@ -118,15 +135,63 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             && i.DatResult == DatWorkupResult.Negative));
 
         // Modifications consume a source unit and produce a derived one.
-        Assert.Equal(2, await verify.UnitModifications.CountAsync());
-        Assert.Equal(4, await verify.UnitModificationUnits.CountAsync());
+        Assert.Equal(3, await verify.UnitModifications.CountAsync());
+        Assert.Equal(7, await verify.UnitModificationUnits.CountAsync());
         Assert.True(await verify.UnitModifications.AnyAsync(m => m.ModificationType == ModificationType.Wash));
-        Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.DerivedFromModificationId != null));
-        Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Modified));
+        Assert.True(await verify.UnitModifications.AnyAsync(m => m.ModificationType == ModificationType.Divide));
+        Assert.Equal(4, await verify.BloodUnits.CountAsync(u => u.DerivedFromModificationId != null));
+        Assert.Equal(3, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Modified));
+
+        Assert.True(await verify.ModificationRules.AnyAsync(r => r.ModificationCode == "DIV-RBC-LR" && r.IsActive));
+        Assert.True(await verify.ModificationRules.AnyAsync(r => r.ModificationCode == "DIV-WB-RBC" && r.IsActive));
+        Assert.True(await verify.BloodUnits.AnyAsync(u =>
+            u.Din == "W123425000001" && u.ProductCodeData == "E0336V00" && u.Volume == 300m && u.Status == UnitStatus.Available));
+        Assert.True(await verify.BloodUnits.AnyAsync(u =>
+            u.Din == "W123425000002" && u.ProductCodeData == "E0336V0A" && u.Volume == 150m && u.Status == UnitStatus.Available));
+        Assert.True(await verify.BloodUnits.AnyAsync(u =>
+            u.Din == "W123425000003" && u.ProductCodeData == "E0023V00" && u.Volume == 450m && u.Status == UnitStatus.Available));
+        Assert.True(await verify.BloodUnits.AnyAsync(u =>
+            u.Din == "W123425000010" && u.ProductCodeData == "E0336V0A" && u.Volume == 150m && u.DerivedFromModificationId != null));
+        Assert.True(await verify.BloodUnits.AnyAsync(u =>
+            u.Din == "W123425000010" && u.ProductCodeData == "E0336V0B" && u.Volume == 150m && u.DerivedFromModificationId != null));
 
         var scanned = await verify.BloodUnits.SingleAsync(u => u.Source == ComponentEntrySource.Scanner);
         Assert.Equal(4, await verify.BloodComponentRawScans.CountAsync(s => s.BloodProductId == scanned.Id));
         Assert.True(await verify.BloodComponentScanSessions.AnyAsync(s => s.IsCompleted));
+
+        var pregnant = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0007");
+        Assert.NotNull(pregnant.RecentPregnancyUtc);
+        var alloSpecimen = await verify.Specimens.SingleAsync(s => s.AccessionNumber == "ACC0017");
+        Assert.Equal(
+            SpecimenValidityPolicy.ComputeExpiresUtc(alloSpecimen.CollectedUtc, alloimmunizationRisk: true),
+            alloSpecimen.ExpiresUtc);
+        Assert.NotEqual(
+            SpecimenValidityPolicy.ComputeExpiresUtc(alloSpecimen.CollectedUtc, alloimmunizationRisk: false),
+            alloSpecimen.ExpiresUtc);
+
+        var reserved = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0008");
+        var autologous = await verify.BloodUnits.SingleAsync(u => u.UnitNumber == "W000123AUTO001");
+        Assert.Equal(DonationRestriction.Autologous, autologous.DonationRestriction);
+        Assert.Equal(reserved.Id, autologous.ReservedPatientId);
+        var directed = await verify.BloodUnits.SingleAsync(u => u.UnitNumber == "W000123DIR0001");
+        Assert.Equal(DonationRestriction.Directed, directed.DonationRestriction);
+        Assert.Equal(reserved.Id, directed.ReservedPatientId);
+
+        const string lookbackDin = "W123426000001";
+        Assert.True(await verify.BloodUnits.CountAsync(u => u.Din == lookbackDin) >= 2);
+        Assert.True(await verify.LookbackNotifications.AnyAsync(n =>
+            n.Din == lookbackDin && n.Status == LookbackNotificationStatus.Pending));
+
+        Assert.True(await verify.BloodUnits.AnyAsync(u =>
+            u.UnitNumber == "W000123MISS001" && u.Status == UnitStatus.Missing && u.MissingReason != null));
+        Assert.True(await verify.BloodUnits.AnyAsync(u =>
+            u.UnitNumber == "W000123DMG0001" && u.Status == UnitStatus.Damaged && u.DamagedReason != null));
+
+        var patricia = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0001");
+        Assert.True(await verify.TestResults.AnyAsync(r =>
+            r.PatientId == patricia.Id && r.TestCode == "ABSC" && r.Value == "Negative" && r.Status == ResultStatus.Verified));
+        Assert.Equal(2, await verify.PatientBloodTypeHistory.CountAsync(h =>
+            h.PatientId == patricia.Id && h.Abo == AboGroup.O && h.RhD == RhType.Positive));
     }
 
     [Fact]
@@ -168,6 +233,37 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Seed_DoesNotRevertLicensedProductCode()
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("DataSource=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<BloodBankDbContext>()
+            .UseSqlite(connection)
+            .Options;
+        await using var context = new BloodBankDbContext(options, _factory.Clock, _factory.CurrentUser);
+        await context.Database.EnsureCreatedAsync();
+        await TestCatalogSeeder.EnsureSpecimenTypesAsync(context, _factory.Clock.UtcNow);
+
+        context.IsbtProductCodes.Add(new IsbtProductCode
+        {
+            ProductDescriptionCode = "E0206",
+            Description = "Facility-licensed extract row",
+            ComponentClass = "RedBloodCells",
+            AttributesJson = "[]",
+            StandardVersion = "ICCBBA-ST-TEST",
+            IsPlaceholder = false
+        });
+        await context.SaveChangesAsync();
+
+        await DatabaseSeeder.SeedAsync(context);
+
+        var licensed = await context.IsbtProductCodes.SingleAsync(p => p.ProductDescriptionCode == "E0206");
+        Assert.False(licensed.IsPlaceholder);
+        Assert.Equal("ICCBBA-ST-TEST", licensed.StandardVersion);
+        Assert.Equal("Facility-licensed extract row", licensed.Description);
+    }
+
+    [Fact]
     public async Task Seed_AddsRequiredReferenceCodes_WhenTableHasPartialMigrationData()
     {
         await using (var context = _factory.Create())
@@ -191,7 +287,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "CUSTOM"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "OR"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "ED"));
-            Assert.Equal(6, await verify.Patients.CountAsync());
+            Assert.Equal(8, await verify.Patients.CountAsync());
         }
     }
 }

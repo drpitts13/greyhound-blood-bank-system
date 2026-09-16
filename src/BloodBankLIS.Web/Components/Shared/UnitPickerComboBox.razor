@@ -1,0 +1,71 @@
+@inject BloodBankApiClient Api
+
+<FilterableComboBox TItem="BloodUnitDto" TValue="long?"
+    Items="VisibleItems"
+    Value="Value"
+    ValueChanged="OnValueChangedAsync"
+    DisplayText="FormatDisplay"
+    ItemValue="@(u => u.Id)"
+    SearchText="FormatSearch"
+    Clearable="Clearable"
+    Placeholder="@(Placeholder ?? "Type unit number")" />
+
+@code {
+    [Parameter] public long? Value { get; set; }
+    [Parameter] public EventCallback<long?> ValueChanged { get; set; }
+    [Parameter] public EventCallback<BloodUnitDto?> SelectedItemChanged { get; set; }
+    [Parameter] public UnitPickerScope Scope { get; set; } = UnitPickerScope.OnHand;
+    [Parameter] public IEnumerable<BloodUnitDto>? Items { get; set; }
+    [Parameter] public IEnumerable<long>? ExcludeIds { get; set; }
+    [Parameter] public bool Clearable { get; set; } = true;
+    [Parameter] public string? Placeholder { get; set; }
+
+    private List<BloodUnitDto> _loaded = new();
+    private bool _loadStarted;
+
+    private IEnumerable<BloodUnitDto> VisibleItems
+    {
+        get
+        {
+            IEnumerable<BloodUnitDto> source = Items ?? _loaded;
+            if (ExcludeIds is null)
+            {
+                return source;
+            }
+
+            var skip = ExcludeIds as HashSet<long> ?? ExcludeIds.ToHashSet();
+            return source.Where(u => !skip.Contains(u.Id));
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Items is not null || _loadStarted)
+        {
+            return;
+        }
+
+        _loadStarted = true;
+        var statuses = Scope switch
+        {
+            UnitPickerScope.Available => InventoryUnitScopes.Available,
+            UnitPickerScope.Issuable => InventoryUnitScopes.Issuable,
+            _ => InventoryUnitScopes.OnHand
+        };
+        var result = await Api.SearchUnitsAsync(new InventorySearchCriteria(Statuses: statuses));
+        _loaded = result.Value ?? new();
+    }
+
+    private async Task OnValueChangedAsync(long? id)
+    {
+        await ValueChanged.InvokeAsync(id);
+        var item = id is null ? null : VisibleItems.FirstOrDefault(u => u.Id == id);
+        await SelectedItemChanged.InvokeAsync(item);
+    }
+
+    private static string FormatDisplay(BloodUnitDto u) =>
+        $"{u.UnitNumber} · {Ui.BloodType(u.Abo, u.RhD)} · {u.Status} · expires {u.ExpiresUtc:yyyy-MM-dd}";
+
+    private static string FormatSearch(BloodUnitDto u) =>
+        $"{u.UnitNumber} {u.Din} {u.ComponentIdentity} {u.Id}";
+}

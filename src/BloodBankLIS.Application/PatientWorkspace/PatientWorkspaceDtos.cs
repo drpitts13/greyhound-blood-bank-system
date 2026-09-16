@@ -100,7 +100,9 @@ public sealed record UpdateOrderRequest(
     long OrderingLocationId,
     IReadOnlyList<OrderLineInputDto> Lines,
     OrderPriority Priority,
-    long? OrderingProviderId);
+    long? OrderingProviderId,
+    string? OverrideReason = null,
+    string? AuthorizedBy = null);
 
 public sealed record PatientOrderDto(
     long Id,

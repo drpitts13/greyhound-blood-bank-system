@@ -27,7 +27,7 @@ Use the strongest control that matches the hazard:
 - Warnings for overridable clinical exceptions (emergency missing XM, some
   antigen-negative and ABID-in-progress notices)
 - Acknowledgment for advisory ABID completion leftovers (does not identify)
-- Second-user verification (result/retype self-verify, discard, quarantine
+- Second-user verification (patient ABO/Rh self-verify, discard, quarantine
   release, issue dual ID) when facility policy requires it
 - Electronic verification (ISBT scan at issue / ward receipt / bedside; two-token patient identity at issue and transfusion documentation)
 - Role-based overrides with reason, authorizer, and signature

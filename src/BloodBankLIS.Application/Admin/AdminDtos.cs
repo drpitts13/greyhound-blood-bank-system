@@ -282,7 +282,13 @@ public sealed record ProductDefinitionDto(
     string? ModificationRules,
     int Version,
     bool IsActive,
-    IReadOnlyList<ProductAttributeAssignmentDto> Attributes);
+    IReadOnlyList<ProductAttributeAssignmentDto> Attributes,
+    long? RhPositiveRetypeTestId = null,
+    string? RhPositiveRetypeTestCode = null,
+    string? RhPositiveRetypeTestName = null,
+    long? RhNegativeRetypeTestId = null,
+    string? RhNegativeRetypeTestCode = null,
+    string? RhNegativeRetypeTestName = null);
 
 public sealed record ProductAttributeAssignmentDto(long AttributeId, string Code, string Name, bool IsRequired);
 
@@ -303,7 +309,9 @@ public sealed record SaveProductDefinitionRequest(
     string? ReturnRules,
     string? ModificationRules,
     IReadOnlyList<ProductAttributeSelection>? Attributes,
-    string? ChangeReason);
+    string? ChangeReason,
+    long? RhPositiveRetypeTestId = null,
+    long? RhNegativeRetypeTestId = null);
 
 public sealed record ProductAttributeSelection(long AttributeId, bool IsRequired);
 
@@ -397,19 +405,41 @@ public sealed record LicensedIsbtProductCodeRow(
     string ComponentClass = "Other",
     string? Modifier = null,
     string? StorageRequirements = null,
-    bool RequiresExtendedDivision = false);
+    bool RequiresExtendedDivision = false,
+    DateOnly? EffectiveDate = null,
+    DateOnly? RetiredDate = null);
 
 public sealed record LicensedIsbtAboRhdRow(
     string Code,
     string Abo,
     string RhD,
-    string? CollectionType = null);
+    string? CollectionType = null,
+    string? SpecialMessage = null,
+    string? AdditionalPhenotype = null,
+    DateOnly? EffectiveDate = null,
+    DateOnly? RetiredDate = null);
 
 public sealed record LicensedIsbtCatalogImportResult(
     string StandardVersion,
     int ProductCodesImported,
     int AboRhdCodesImported,
     int PlaceholdersReplaced);
+
+public sealed record IccbbaExtractFileDto(
+    string FileName,
+    long SizeBytes,
+    string Kind,
+    string DirectoryPath);
+
+public sealed record LicensedIsbtExtractImportRequest(
+    string StandardVersion,
+    bool LicenseAcknowledgment,
+    string? Reason,
+    IReadOnlyList<string>? DropFileNames = null);
+
+public sealed record IccbbaExtractUploadFile(
+    string FileName,
+    string Content);
 
 // ---- HL7 endpoints / interface setup ----
 

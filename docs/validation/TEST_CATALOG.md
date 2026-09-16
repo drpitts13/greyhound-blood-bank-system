@@ -5,7 +5,7 @@ software is AABB-accredited or FDA-cleared. Remaining automated tests stay
 citable by class or method name until an ID is assigned.
 
 Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
-**TEST-BB-031**.
+**TEST-BB-047**.
 
 | ID | Layer | Test | Traces to |
 |---|---|---|---|
@@ -39,5 +39,21 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-028 | I | `ProductRetypeServiceTests` | URS-BB-018 / FRS-BB-051 / RISK-BB-018 |
 | TEST-BB-029 | D | `IssueAuthorizationRuleTests` | URS-BB-006 / FRS-BB-040 / RISK-BB-019 |
 | TEST-BB-030 | D | `ImmunoAuthorizationRuleTests` | URS-BB-002 / FRS-BB-002 / RISK-BB-021 |
+| TEST-BB-031 | A | `IccbbaExtractParserTests` | URS-BB-159 / FRS-BB-193 / RISK-BB-266 |
+| TEST-BB-032 | I | `IccbbaExtractImportTests` | URS-BB-159 / FRS-BB-193 / RISK-BB-266 |
+| TEST-BB-033 | I | `SeederTests.Seed_DoesNotRevertLicensedProductCode` | URS-BB-159 / FRS-BB-193 / RISK-BB-266 |
+| TEST-BB-034 | D | `CrossmatchSettingsValidatorTests` | URS-BB-160 / FRS-BB-194 |
+| TEST-BB-035 | I | `CrossmatchSettingsTests` | URS-BB-160 / FRS-BB-194 |
+| TEST-BB-036 | I | `FdaAabbScenarioTests.PregnantPatientSpecimen_ExpiresAt72HourAlloimmunizationWindow` | URS-BB-003 / FRS-BB-010 |
+| TEST-BB-037 | I | `FdaAabbScenarioTests.AutologousUnit_IssuesOnlyToReservedPatient` | URS-BB-008 / FRS-BB-032 |
+| TEST-BB-038 | I | `FdaAabbScenarioTests.DirectedUnit_ConvertWithoutSecondVerifier_IsHardStopped` | URS-BB-024 / FRS-BB-053 |
+| TEST-BB-039 | I | `FdaAabbScenarioTests.LookbackByDin_ListsSeededRecipientAndPendingNotification` | URS-BB-113 / FRS-BB-147 / FRS-BB-165 |
+| TEST-BB-040 | I | `FdaAabbScenarioTests.EmergencyRelease_CarriesIncompleteTestingStatement` | URS-BB-006 / FRS-BB-040 |
+| TEST-BB-041 | I | `FdaAabbScenarioTests.AntiKPatient_UntypedOrKPositiveUnit_RequiresAntigenNegOverride` | URS-BB-005 / FRS-BB-030 |
+| TEST-BB-042 | I | `FdaAabbScenarioTests.QuarantineMissingAndExpiredUnits_AreNotIssuable` | URS-BB-006 / FRS-BB-031 |
+| TEST-BB-043 | I | `FdaAabbScenarioTests.AboSelfVerify_IsBlockedBySeededFacilityPolicy` | URS-BB-020 / FRS-BB-022 |
+| TEST-BB-044 | I | `FdaAabbScenarioTests.ReactionInvestigation_HasClericalCheckAndDat` | URS-BB-036 / FRS-BB-066 |
+| TEST-BB-045 | I | `FdaAabbScenarioTests.SeededClinicalActions_ProduceAuditEvents` | URS-BB-011 / FRS-BB-060 |
+| TEST-BB-046 | I | `FdaAabbScenarioTests.PatriciaDemo_IsElectronicXmEligible_WhenFacilityAllows` | URS-BB-009 / FRS-BB-033 |
 
-Layers: D = Domain.Tests, I = Integration.Tests (including `tests/safety_regression`).
+Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -222,7 +222,10 @@ public sealed class ModificationRuleAdminService : ConfigAdminServiceBase
             && r.ModificationType == entity.ModificationType
             && r.TargetProductTypeId == entity.TargetProductTypeId, ct);
         var duplicateCode = await _rules.AnyAsync(r =>
-            r.Id != selfId && r.ModificationCode == entity.ModificationCode, ct);
+            r.Id != selfId
+            && r.ModificationCode == entity.ModificationCode
+            && r.SourceProductTypeId == entity.SourceProductTypeId
+            && r.TargetProductTypeId == entity.TargetProductTypeId, ct);
 
         bool? sourceActive = entity.SourceProductTypeId > 0
             ? (await _products.ListAsync(p => p.Id == entity.SourceProductTypeId, ct)).FirstOrDefault()?.IsActive ?? false

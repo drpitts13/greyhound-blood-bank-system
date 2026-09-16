@@ -20,6 +20,7 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
     private readonly IRepository<ProductType> _products;
     private readonly IRepository<ProductAttribute> _attributes;
     private readonly IRepository<ProductAttributeAssignment> _assignments;
+    private readonly IRepository<TestDefinition>? _tests;
     private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public ProductAdminService(
@@ -31,12 +32,14 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         ICurrentUser currentUser,
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
+        IRepository<TestDefinition>? tests = null,
         IPermissionEvaluator? permissionEvaluator = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _products = products;
         _attributes = attributes;
         _assignments = assignments;
+        _tests = tests;
         _permissionEvaluator = permissionEvaluator;
     }
 
@@ -51,7 +54,8 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         var products = includeInactive ? await _products.ListAsync(ct) : await _products.ListAsync(p => p.IsActive, ct);
         var attrs = await _attributes.ListAsync(ct);
         var assigns = await _assignments.ListAsync(a => a.IsActive, ct);
-        return products.OrderBy(p => p.ProductCode).Select(p => Map(p, assigns, attrs)).ToList();
+        var tests = await LoadRetypeTestsAsync(ct);
+        return products.OrderBy(p => p.ProductCode).Select(p => Map(p, assigns, attrs, tests)).ToList();
     }
 
     public async Task<ProductDefinitionDto?> GetAsync(long id, CancellationToken ct = default)
@@ -64,7 +68,8 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
 
         var attrs = await _attributes.ListAsync(ct);
         var assigns = await _assignments.ListAsync(a => a.ProductTypeId == id && a.IsActive, ct);
-        return Map(p, assigns, attrs);
+        var tests = await LoadRetypeTestsAsync(ct);
+        return Map(p, assigns, attrs, tests);
     }
 
     public async Task<EvaluationResult<ProductDefinitionDto>> CreateAsync(SaveProductDefinitionRequest req, CancellationToken ct = default)
@@ -266,6 +271,16 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         e.RequiresAboMatch = req.RequiresAboMatch;
         e.RequiresRhMatch = req.RequiresRhMatch;
         e.RequiresRetype = req.RequiresRetype;
+        if (req.RequiresRetype)
+        {
+            e.RhPositiveRetypeTestId = req.RhPositiveRetypeTestId;
+            e.RhNegativeRetypeTestId = req.RhNegativeRetypeTestId;
+        }
+        else
+        {
+            e.RhPositiveRetypeTestId = null;
+            e.RhNegativeRetypeTestId = null;
+        }
         e.Isbt128ProductCode = req.Isbt128ProductCode?.Trim();
         e.DefaultChargeCode = req.DefaultChargeCode?.Trim();
         e.StorageRequirements = req.StorageRequirements?.Trim();
@@ -274,10 +289,22 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         e.ModificationRules = req.ModificationRules?.Trim();
     }
 
+    private async Task<IReadOnlyDictionary<long, TestDefinition>> LoadRetypeTestsAsync(CancellationToken ct)
+    {
+        if (_tests is null)
+        {
+            return new Dictionary<long, TestDefinition>();
+        }
+
+        var items = await _tests.ListAsync(ct);
+        return items.ToDictionary(t => t.Id);
+    }
+
     private static ProductDefinitionDto Map(
         ProductType p,
         IReadOnlyList<ProductAttributeAssignment> assignments,
-        IReadOnlyList<ProductAttribute> attributes)
+        IReadOnlyList<ProductAttribute> attributes,
+        IReadOnlyDictionary<long, TestDefinition> tests)
     {
         var attrById = attributes.ToDictionary(a => a.Id);
         var assigned = assignments
@@ -290,10 +317,15 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
             .OrderBy(a => a.Code)
             .ToList();
 
+        tests.TryGetValue(p.RhPositiveRetypeTestId ?? 0, out var pos);
+        tests.TryGetValue(p.RhNegativeRetypeTestId ?? 0, out var neg);
+
         return new ProductDefinitionDto(
             p.Id, p.ProductCode, p.Name, p.ComponentClass, p.Category, p.DefaultShelfLifeHours,
             p.RequiresCrossmatch, p.RequiresAboMatch, p.RequiresRhMatch, p.RequiresRetype, p.Isbt128ProductCode, p.DefaultChargeCode,
-            p.StorageRequirements, p.IssueRules, p.ReturnRules, p.ModificationRules, p.Version, p.IsActive, assigned);
+            p.StorageRequirements, p.IssueRules, p.ReturnRules, p.ModificationRules, p.Version, p.IsActive, assigned,
+            p.RhPositiveRetypeTestId, pos?.Code, pos?.Name,
+            p.RhNegativeRetypeTestId, neg?.Code, neg?.Name);
     }
 
     private async Task<EvaluationResult<ProductDefinitionDto>?> RejectUnauthorizedEvalAsync(

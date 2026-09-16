@@ -103,8 +103,29 @@ public class ProductCatalogAuthorizationTests : IClassFixture<SqliteContextFacto
             && a.EntityId == created.Value!.Id
             && a.EventType == AuditEventType.Configure));
 
-        var updated = await svc.UpdateAsync(created.Value!.Id, Request(code) with { RequiresRetype = true, ChangeReason = "Require ABO/Rh retype." });
+        var test = new TestDefinition
+        {
+            Code = $"RT{Guid.NewGuid():N}"[..8].ToUpperInvariant(),
+            Name = "Retype catalog",
+            Category = TestCategory.AboRhRetype,
+            ResultValueType = ResultValueType.AboRh,
+            IsActive = true,
+            IsDraft = false,
+            Version = 1
+        };
+        c.TestDefinitions.Add(test);
+        await c.SaveChangesAsync();
+
+        var updated = await svc.UpdateAsync(created.Value!.Id, Request(code) with
+        {
+            RequiresRetype = true,
+            RhPositiveRetypeTestId = test.Id,
+            RhNegativeRetypeTestId = test.Id,
+            ChangeReason = "Require ABO/Rh retype."
+        });
         Assert.True(updated.Succeeded, updated.Error ?? updated.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.Equal(test.Id, updated.Value!.RhPositiveRetypeTestId);
+        Assert.Equal(test.Id, updated.Value.RhNegativeRetypeTestId);
 
         var events = await c.AuditEvents
             .Where(a => a.EntityType == nameof(ProductType) && a.EntityId == created.Value.Id)

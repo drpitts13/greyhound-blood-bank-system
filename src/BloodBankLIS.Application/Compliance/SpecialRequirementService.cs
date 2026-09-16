@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -11,7 +12,8 @@ public sealed record AddSpecialRequirementRequest(
     string Reason,
     string? AntigenCode = null,
     DateTime? EffectiveUtc = null,
-    DateTime? ExpiresUtc = null);
+    DateTime? ExpiresUtc = null,
+    long? RequirementDefinitionId = null);
 
 public sealed record SpecialRequirementDto(
     long Id,
@@ -22,10 +24,42 @@ public sealed record SpecialRequirementDto(
     DateTime EffectiveUtc,
     DateTime? ExpiresUtc,
     bool IsActive,
-    string EnteredBy)
+    string EnteredBy,
+    long? RequirementDefinitionId = null,
+    string? Code = null,
+    string? Name = null,
+    SpecialRequirementLevel? Level = null,
+    SpecialRequirementEnforcementKind? EnforcementKind = null,
+    string? Instruction = null,
+    bool IsClinicallyActive = false)
 {
-    public static SpecialRequirementDto From(SpecialTransfusionRequirement r) => new(
-        r.Id, r.PatientId, r.RequirementType, r.AntigenCode, r.Reason, r.EffectiveUtc, r.ExpiresUtc, r.IsActive, r.EnteredBy);
+    public static SpecialRequirementDto From(
+        SpecialTransfusionRequirement r,
+        SpecialRequirementDefinition? definition = null,
+        DateTime? nowUtc = null)
+    {
+        var now = nowUtc ?? DateTime.UtcNow;
+        var code = definition?.Code ?? SpecialRequirementCatalog.CodeFor(r.RequirementType);
+        var clinicallyActive = SpecialRequirementCatalog.IsClinicallyActive(
+            r.IsActive, r.EffectiveUtc, r.ExpiresUtc, now);
+        return new(
+            r.Id,
+            r.PatientId,
+            r.RequirementType,
+            r.AntigenCode,
+            r.Reason,
+            r.EffectiveUtc,
+            r.ExpiresUtc,
+            r.IsActive,
+            r.EnteredBy,
+            r.RequirementDefinitionId ?? definition?.Id,
+            code,
+            definition?.Name ?? r.RequirementType.ToString(),
+            definition?.Level,
+            definition?.EnforcementKind,
+            definition?.Instruction,
+            clinicallyActive);
+    }
 }
 
 public sealed class SpecialRequirementService
@@ -38,6 +72,7 @@ public sealed class SpecialRequirementService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
+    private readonly IRepository<SpecialRequirementDefinition>? _definitions;
 
     public SpecialRequirementService(
         IRepository<SpecialTransfusionRequirement> requirements,
@@ -47,7 +82,8 @@ public sealed class SpecialRequirementService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IPermissionEvaluator? permissions = null,
-        IRepository<AntibodyIdentificationWorkup>? workups = null)
+        IRepository<AntibodyIdentificationWorkup>? workups = null,
+        IRepository<SpecialRequirementDefinition>? definitions = null)
     {
         _requirements = requirements;
         _patients = patients;
@@ -57,17 +93,30 @@ public sealed class SpecialRequirementService
         _audit = audit;
         _permissions = permissions;
         _workups = workups;
+        _definitions = definitions;
     }
 
     public async Task<IReadOnlyList<SpecialTransfusionRequirement>> ListActiveAsync(long patientId, CancellationToken ct = default)
     {
         var now = _clock.UtcNow;
         var rows = await _requirements.ListAsync(r => r.PatientId == patientId && r.IsActive, ct);
-        return rows.Where(r => r.EffectiveUtc <= now && (r.ExpiresUtc is null || r.ExpiresUtc > now)).ToList();
+        return rows.Where(r => SpecialRequirementCatalog.IsClinicallyActive(r.IsActive, r.EffectiveUtc, r.ExpiresUtc, now)).ToList();
     }
 
     public Task<IReadOnlyList<SpecialTransfusionRequirement>> ListAsync(long patientId, CancellationToken ct = default) =>
         _requirements.ListAsync(r => r.PatientId == patientId, ct);
+
+    public async Task<IReadOnlyList<SpecialRequirementDto>> ListDtosAsync(long patientId, CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+        var rows = await _requirements.ListAsync(r => r.PatientId == patientId, ct);
+        var definitions = await LoadDefinitionsAsync(ct);
+        return rows
+            .OrderByDescending(r => SpecialRequirementCatalog.IsClinicallyActive(r.IsActive, r.EffectiveUtc, r.ExpiresUtc, now))
+            .ThenBy(r => r.EffectiveUtc)
+            .Select(r => SpecialRequirementDto.From(r, ResolveDefinition(r, definitions), now))
+            .ToList();
+    }
 
     public async Task<OperationResult<SpecialTransfusionRequirement>> AddAsync(
         long patientId, AddSpecialRequirementRequest request, CancellationToken ct = default)
@@ -97,7 +146,14 @@ public sealed class SpecialRequirementService
             return OperationResult<SpecialTransfusionRequirement>.Fail(clinical.Message);
         }
 
-        if (request.RequirementType == SpecialTransfusionRequirementType.AntigenNegative
+        var definition = await ResolveDefinitionAsync(request, ct);
+        var requirementType = definition is not null
+            ? SpecialRequirementCatalog.TypeFor(definition.Code) ?? request.RequirementType
+            : request.RequirementType;
+        var enforcement = definition?.EnforcementKind
+            ?? SpecialRequirementCatalog.ToRef(requirementType, request.AntigenCode, _clock.UtcNow, null, true).EnforcementKind;
+
+        if (enforcement == SpecialRequirementEnforcementKind.RequireAntigenNegative
             && string.IsNullOrWhiteSpace(request.AntigenCode))
         {
             return OperationResult<SpecialTransfusionRequirement>.Fail("An antigen code is required for antigen-negative requirements.");
@@ -106,7 +162,8 @@ public sealed class SpecialRequirementService
         var row = new SpecialTransfusionRequirement
         {
             PatientId = patientId,
-            RequirementType = request.RequirementType,
+            RequirementDefinitionId = definition?.Id,
+            RequirementType = requirementType,
             AntigenCode = string.IsNullOrWhiteSpace(request.AntigenCode) ? null : request.AntigenCode.Trim(),
             Reason = request.Reason.Trim(),
             EffectiveUtc = request.EffectiveUtc ?? _clock.UtcNow,
@@ -120,7 +177,7 @@ public sealed class SpecialRequirementService
             AuditEventType.Antibody,
             nameof(SpecialTransfusionRequirement),
             row.Id,
-            newValue: new { row.PatientId, row.RequirementType, row.AntigenCode, row.IsActive },
+            newValue: new { row.PatientId, row.RequirementType, row.RequirementDefinitionId, row.AntigenCode, row.IsActive, row.ExpiresUtc },
             reason: request.Reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SpecialTransfusionRequirement>.Ok(row, await EvaluateOpenWorkupWarningsAsync(patientId, ct));
@@ -156,18 +213,65 @@ public sealed class SpecialRequirementService
             }
         }
 
-        var old = new { row.PatientId, row.RequirementType, row.AntigenCode, row.IsActive };
+        var now = _clock.UtcNow;
+        var old = new { row.PatientId, row.RequirementType, row.AntigenCode, row.IsActive, row.ExpiresUtc };
         row.IsActive = false;
+        if (row.ExpiresUtc is null || row.ExpiresUtc > now)
+        {
+            row.ExpiresUtc = now;
+        }
+
         row.DeactivationReason = reason.Trim();
         _audit.Record(
             AuditEventType.Deactivate,
             nameof(SpecialTransfusionRequirement),
             id,
             oldValue: old,
-            newValue: new { row.PatientId, row.RequirementType, row.AntigenCode, row.IsActive, row.DeactivationReason },
+            newValue: new { row.PatientId, row.RequirementType, row.AntigenCode, row.IsActive, row.ExpiresUtc, row.DeactivationReason },
             reason: reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SpecialTransfusionRequirement>.Ok(row, await EvaluateOpenWorkupWarningsAsync(row.PatientId, ct));
+    }
+
+    private async Task<IReadOnlyList<SpecialRequirementDefinition>> LoadDefinitionsAsync(CancellationToken ct)
+    {
+        if (_definitions is null)
+        {
+            return [];
+        }
+
+        return await _definitions.ListAsync(ct);
+    }
+
+    private static SpecialRequirementDefinition? ResolveDefinition(
+        SpecialTransfusionRequirement row,
+        IReadOnlyList<SpecialRequirementDefinition> definitions)
+    {
+        if (row.RequirementDefinitionId is long id)
+        {
+            return definitions.FirstOrDefault(d => d.Id == id);
+        }
+
+        var code = SpecialRequirementCatalog.CodeFor(row.RequirementType);
+        return definitions.FirstOrDefault(d => string.Equals(d.Code, code, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private async Task<SpecialRequirementDefinition?> ResolveDefinitionAsync(
+        AddSpecialRequirementRequest request, CancellationToken ct)
+    {
+        if (_definitions is null)
+        {
+            return null;
+        }
+
+        if (request.RequirementDefinitionId is long id)
+        {
+            return await _definitions.GetByIdAsync(id, ct);
+        }
+
+        var code = SpecialRequirementCatalog.CodeFor(request.RequirementType);
+        return await _definitions.FirstOrDefaultAsync(
+            d => d.IsActive && !d.IsDraft && d.Code == code, ct);
     }
 
     private async Task<IReadOnlyList<RuleResult>?> EvaluateOpenWorkupWarningsAsync(long patientId, CancellationToken ct)

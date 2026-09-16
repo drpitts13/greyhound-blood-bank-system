@@ -33,3 +33,7 @@ appsettings.*.local.json
 ## OS
 .DS_Store
 Thumbs.db
+
+## Facility-supplied ICCBBA extracts (licensed; do not commit)
+testdata/isbt128/extracts/*
+!testdata/isbt128/extracts/README.md

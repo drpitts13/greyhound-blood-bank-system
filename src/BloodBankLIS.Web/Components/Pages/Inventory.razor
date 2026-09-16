@@ -192,7 +192,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Receive a unit</h3></div>
-        <p class="muted">Products marked Retype Y enter as Received until the front-type retype is recorded. Others enter Quarantine.</p>
+        <p class="muted">Products marked Retype Y enter as Pending Retype until the applicable Rh+ or Rh− retype test is entered and verified. Others enter Quarantine.</p>
         <Outcome Value="_receiveFb" />
         <div class="form-row">
             <div class="field"><label>Unit number</label><input @bind="_rec.UnitNumber" placeholder="W0001230000099" /></div>
@@ -358,7 +358,7 @@
                                 <span class="badge badge-amber">Near expiry</span>
                             }
                         </td>
-                        <td><span class="@Ui.Badge(u.Status)">@u.Status</span>
+                        <td><span class="@Ui.Badge(u.Status)">@Ui.StatusLabel(u.Status)</span>
                             @if (u.Status == UnitStatus.Expected && u.ExpectedArrivalDueUtc is DateTime due && due < DateTime.UtcNow)
                             {
                                 <span class="badge badge-amber">Overdue</span>
@@ -569,7 +569,7 @@
         var r = await Api.ReceiveUnitAsync(req);
         _busy = false;
         _receiveFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
-            ? "Unit received. ABO/Rh retype is required before the unit is Available."
+            ? "Unit received. Pending retype until results are entered and verified."
             : "Unit received into quarantine.");
         if (r.Succeeded) { _rec = new(); _showReceive = false; await SearchAsync(); await LoadNearExpiryAsync(); await LoadQuarantineAsync(); }
     }
@@ -825,7 +825,7 @@
             ReceiveTemperatureCelsius: _arrivalTemperatureCelsius));
         _busy = false;
         _actionFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
-            ? "Arrival confirmed. ABO/Rh retype is required before the unit is Available."
+            ? "Arrival confirmed. Pending retype until results are entered and verified."
             : "Arrival confirmed into quarantine.");
         if (r.Succeeded)
         {

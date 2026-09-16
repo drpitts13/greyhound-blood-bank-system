@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Modifications;
@@ -135,8 +136,16 @@ public sealed class BloodProductModificationService
                 return new UnitModificationDto(
                     m.Id, m.ModificationType, sourceCode ?? string.Empty, targetCode ?? string.Empty,
                     m.ExpirationOffsetCodeApplied, m.ResultExpiresUtc, m.Reason, m.PerformedBy, m.PerformedUtc,
-                    links.Select(l => new ModificationUnitSummaryDto(
-                        l.BloodProductId, unitById.GetValueOrDefault(l.BloodProductId)?.UnitNumber ?? string.Empty, l.Role)).ToList());
+                    links.Select(l =>
+                    {
+                        unitById.TryGetValue(l.BloodProductId, out var unit);
+                        return new ModificationUnitSummaryDto(
+                            l.BloodProductId,
+                            unit?.UnitNumber ?? string.Empty,
+                            l.Role,
+                            unit?.ProductCodeData,
+                            unit?.Volume);
+                    }).ToList());
             })
             .ToList();
     }
@@ -382,15 +391,53 @@ public sealed class BloodProductModificationService
         sortOrder = 0;
         var targetProduct = await _products.GetByIdAsync(rule.TargetProductTypeId, ct);
 
+        IReadOnlyList<string>? divideDivisions = null;
+        string? dividePdc = null;
+        string? divideCollection = null;
+        if (rule.ModificationType == ModificationType.Divide && singleSource)
+        {
+            var planned = await PlanDivideCodesAsync(primarySource, targetProduct, resultSpecs.Count, ct);
+            if (!planned.Succeeded)
+            {
+                return planned.Failure!;
+            }
+
+            divideDivisions = planned.Divisions;
+            dividePdc = planned.ProductDescriptionCode;
+            divideCollection = planned.CollectionType;
+        }
+
         foreach (var spec in resultSpecs)
         {
-            var unitNumber = await GenerateUnitNumberAsync(primarySource.UnitNumber, spec.Suffix, sortOrder + 1, usedUnitNumbers, ct);
+            var division = divideDivisions is not null ? divideDivisions[sortOrder] : null;
+            var productCodeData = dividePdc is not null && divideCollection is not null && division is not null
+                ? IsbtDivisionCode.BuildProductCodeData(dividePdc, divideCollection, division)
+                : null;
+            var suffix = division ?? spec.Suffix;
+            var unitNumber = await GenerateUnitNumberAsync(primarySource.UnitNumber, suffix, sortOrder + 1, usedUnitNumbers, ct);
+            string? identity = null;
+            string? identityKey = null;
+
+            if (singleSource
+                && !string.IsNullOrWhiteSpace(primarySource.Din)
+                && productCodeData is not null)
+            {
+                identity = ComponentIdentityBuilder.Build(primarySource.Din, productCodeData);
+                identityKey = ComponentIdentityBuilder.BuildUniquenessKey(primarySource.Din, productCodeData, null);
+                unitNumber = await EnsureUniqueIdentityAsync(identity, usedUnitNumbers, ct);
+            }
+
             var result = new BloodUnit
             {
                 UnitNumber = unitNumber,
+                ComponentIdentity = identity,
+                ComponentIdentityKey = identityKey,
                 ProductTypeId = rule.TargetProductTypeId,
-                Isbt128ProductCode = targetProduct?.Isbt128ProductCode,
-                ProductDescriptionCode = targetProduct?.Isbt128ProductCode,
+                Isbt128ProductCode = productCodeData ?? targetProduct?.Isbt128ProductCode,
+                ProductCodeData = productCodeData,
+                ProductDescriptionCode = dividePdc ?? targetProduct?.Isbt128ProductCode,
+                CollectionTypeCode = productCodeData is not null ? divideCollection : null,
+                DivisionCode = division,
                 Abo = primarySource.Abo,
                 RhD = primarySource.RhD,
                 ExpiresUtc = resultExpiresUtc,
@@ -415,6 +462,7 @@ public sealed class BloodProductModificationService
                 result.DonationSequence = primarySource.DonationSequence;
                 result.DinFlags = primarySource.DinFlags;
                 result.DinKeyboardCheck = primarySource.DinKeyboardCheck;
+                result.Isbt128DonationId = primarySource.Isbt128DonationId ?? primarySource.Din;
             }
 
             await _inventory.AddUnitAsync(result, ct);
@@ -467,6 +515,66 @@ public sealed class BloodProductModificationService
         await _unitOfWork.SaveChangesAsync(ct);
 
         return ModificationActionResult.Ok(header, resultUnits);
+    }
+
+    private async Task<DivideCodePlan> PlanDivideCodesAsync(
+        BloodUnit source,
+        ProductType? targetProduct,
+        int childCount,
+        CancellationToken ct)
+    {
+        var sourcePdc = IsbtDivisionCode.ResolveProductDescriptionCode(
+            source.ProductDescriptionCode, source.ProductCodeData);
+        var targetPdc = IsbtDivisionCode.ResolveProductDescriptionCode(
+            targetProduct?.Isbt128ProductCode, null);
+        var pdc = IsbtDivisionCode.ResolveBaseProductDescriptionCode(sourcePdc, targetPdc);
+        var collection = IsbtDivisionCode.ResolveCollectionType(source.CollectionTypeCode, source.ProductCodeData);
+        var sourceDivision = IsbtDivisionCode.ResolveDivision(source.DivisionCode, source.ProductCodeData);
+
+        IReadOnlyList<string> used = Array.Empty<string>();
+        if (!string.IsNullOrWhiteSpace(source.Din) && pdc is not null)
+        {
+            used = await _inventory.ListUsedDivisionCodesAsync(source.Din, pdc, collection, ct);
+        }
+
+        if (!IsbtDivisionCode.TryAllocate(sourceDivision, childCount, used, out var divisions, out var errorCode, out var errorMessage))
+        {
+            return DivideCodePlan.Fail(ModificationActionResult.Blocked(new RuleEvaluation(
+            [
+                RuleResult.HardStop(errorCode ?? IsbtDivisionCode.LevelExceededCode, errorMessage ?? "ISBT division codes could not be allocated.")
+            ])));
+        }
+
+        return DivideCodePlan.Ok(divisions, pdc, collection);
+    }
+
+    private async Task<string> EnsureUniqueIdentityAsync(
+        string identity, HashSet<string> usedThisRun, CancellationToken ct)
+    {
+        var key = identity;
+        if (!usedThisRun.Contains(identity)
+            && !await _inventory.ComponentIdentityKeyExistsAsync(key, ct)
+            && !await _inventory.UnitNumberExistsAsync(identity, ct))
+        {
+            usedThisRun.Add(identity);
+            return identity;
+        }
+
+        return await GenerateUnitNumberAsync(identity, null, 1, usedThisRun, ct);
+    }
+
+    private readonly record struct DivideCodePlan(
+        bool Succeeded,
+        IReadOnlyList<string> Divisions,
+        string? ProductDescriptionCode,
+        string? CollectionType,
+        ModificationActionResult? Failure)
+    {
+        public static DivideCodePlan Ok(IReadOnlyList<string> divisions, string? pdc, string collection) =>
+            new(true, divisions, pdc, collection, null);
+
+        public static DivideCodePlan Fail(ModificationActionResult failure) =>
+            new(false, Array.Empty<string>(), null, null, failure);
     }
 
     private async Task<string> GenerateUnitNumberAsync(

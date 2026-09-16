@@ -1,5 +1,4 @@
 using BloodBankLIS.Application.Abstractions;
-using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Domain.Entities;
@@ -31,7 +30,8 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             context,
             _factory.Clock,
             _factory.CurrentUser,
-            new AuditWriter(context, _factory.Clock, _factory.CurrentUser));
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            retype: Retype(context));
 
     private ProductRetypeService Retype(
         BloodBankDbContext context,
@@ -46,17 +46,6 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             user ?? _factory.CurrentUser,
             new AuditWriter(context, _factory.Clock, user ?? _factory.CurrentUser),
             permissions: permissions);
-
-    private ProductRetypeService RetypeWithPolicy(BloodBankDbContext context, ICurrentUser? user = null) =>
-        new(
-            new InventoryRepository(context),
-            new EfRepository<ProductRetypeResult>(context),
-            new EfRepository<TestDefinition>(context),
-            context,
-            _factory.Clock,
-            user ?? _factory.CurrentUser,
-            new AuditWriter(context, _factory.Clock, user ?? _factory.CurrentUser),
-            new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
 
     private static RecordProductRetypeRequest MatchOPos() => new(
         AboGroup.O,
@@ -89,9 +78,10 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             });
         }
 
-        if (!await context.TestDefinitions.AnyAsync(t => t.Code == AboRhRetypeRule.TestCode))
+        var retypeTest = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == AboRhRetypeRule.TestCode);
+        if (retypeTest is null)
         {
-            context.TestDefinitions.Add(new TestDefinition
+            retypeTest = new TestDefinition
             {
                 Code = AboRhRetypeRule.TestCode,
                 Name = "ABO/Rh Retype",
@@ -100,7 +90,9 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
                 IsActive = true,
                 IsDraft = false,
                 Version = 1
-            });
+            };
+            context.TestDefinitions.Add(retypeTest);
+            await context.SaveChangesAsync();
         }
 
         var type = new ProductType
@@ -108,7 +100,9 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             ProductCode = $"RBC-{unitNumber}",
             Name = "Retype product",
             ComponentClass = ComponentClass.RedBloodCells,
-            RequiresRetype = requiresRetype
+            RequiresRetype = requiresRetype,
+            RhPositiveRetypeTestId = requiresRetype ? retypeTest.Id : null,
+            RhNegativeRetypeTestId = requiresRetype ? retypeTest.Id : null
         };
         context.ProductTypes.Add(type);
         await context.SaveChangesAsync();
@@ -123,32 +117,40 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
-    public async Task MatchingRetype_StaysReceivedUntilVerifiedBySecondUser()
+    public async Task Receive_CreatesPendingRetype_AndRecordUpdatesSameRow()
+    {
+        var (_, unitId) = await SeedReceivedUnitAsync("RT-PENDING", AboGroup.O, RhType.Positive);
+        await using var context = _factory.Create();
+        var before = Assert.Single(await context.ProductRetypeResults.Where(r => r.BloodProductId == unitId).ToListAsync());
+        Assert.Equal(ResultStatus.Pending, before.Status);
+        Assert.Equal(AboRhRetypeRule.TestCode, before.TestCode);
+
+        var recorded = await Retype(context).RecordAsync(unitId, MatchOPos());
+        Assert.True(recorded.Succeeded, recorded.Error);
+        Assert.Equal(ResultStatus.Verified, recorded.Value!.Latest!.Status);
+        Assert.Equal(before.Id, recorded.Value.Latest.Id);
+        Assert.Equal(1, await context.ProductRetypeResults.CountAsync(r => r.BloodProductId == unitId));
+    }
+
+    [Fact]
+    public async Task MatchingRetype_ReleasesUnitWithoutSecondReviewer()
     {
         var (_, unitId) = await SeedReceivedUnitAsync("RT-MATCH", AboGroup.O, RhType.Positive);
         await using var context = _factory.Create();
-        var entered = await Retype(context).RecordAsync(unitId, MatchOPos());
+        var recorded = await Retype(context).RecordAsync(unitId, MatchOPos());
 
-        Assert.True(entered.Succeeded);
-        Assert.Equal(UnitStatus.Received, entered.Value!.Status);
-        Assert.True(entered.Value.CanVerify);
-        Assert.Equal(ResultStatus.Entered, entered.Value.Latest!.Status);
-
-        var self = await Retype(context).VerifyAsync(unitId, entered.Value.Latest.Id);
-        Assert.False(self.Succeeded);
-        Assert.Contains(self.Evaluation!.HardStops, r => r.Code == SelfVerifyRule.Code);
-
-        var verified = await Retype(context, Verifier).VerifyAsync(unitId, entered.Value.Latest.Id);
-        Assert.True(verified.Succeeded, verified.Error);
-        Assert.Equal(UnitStatus.Available, verified.Value!.Status);
-        Assert.Equal("tech-verify", verified.Value.Latest!.VerifiedBy);
+        Assert.True(recorded.Succeeded, recorded.Error);
+        Assert.Equal(UnitStatus.Available, recorded.Value!.Status);
+        Assert.False(recorded.Value.CanVerify);
+        Assert.Equal(ResultStatus.Verified, recorded.Value.Latest!.Status);
+        Assert.Equal(_factory.CurrentUser.UserName, recorded.Value.Latest.VerifiedBy);
 
         var unit = await context.BloodUnits.AsNoTracking().FirstAsync(u => u.Id == unitId);
         Assert.Equal(UnitStatus.Available, unit.Status);
         Assert.Contains(await context.InventoryStatusHistory.Where(h => h.BloodProductId == unitId).ToListAsync(),
             h => h.ToStatus == UnitStatus.Available && h.Reason != null && h.Reason.Contains("retype", StringComparison.OrdinalIgnoreCase));
 
-        var retypeId = entered.Value.Latest.Id;
+        var retypeId = recorded.Value.Latest.Id;
         Assert.True(await context.AuditEvents.AnyAsync(a =>
             a.EventType == AuditEventType.Result && a.EntityType == nameof(ProductRetypeResult) && a.EntityId == retypeId));
         Assert.True(await context.AuditEvents.AnyAsync(a =>
@@ -165,13 +167,12 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
     {
         var (_, unitId) = await SeedReceivedUnitAsync("RT-PERM", AboGroup.O, RhType.Positive);
         await using var context = _factory.Create();
-        var entered = await Retype(context).RecordAsync(unitId, MatchOPos());
-        Assert.True(entered.Succeeded);
+        var leftover = await SeedEnteredRetypeAsync(context, unitId);
 
         var denied = await Retype(
             context,
             Verifier,
-            new FixedPermissionEvaluator(1, PermissionCodes.ResultEnter)).VerifyAsync(unitId, entered.Value!.Latest!.Id);
+            new FixedPermissionEvaluator(1, PermissionCodes.ResultEnter)).VerifyAsync(unitId, leftover.Id);
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == ResultAuthorizationRule.VerifyCode);
         Assert.Equal(UnitStatus.Received, (await context.BloodUnits.FindAsync(unitId))!.Status);
@@ -179,7 +180,7 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
         var allowed = await Retype(
             context,
             Verifier,
-            new FixedPermissionEvaluator(1, PermissionCodes.ResultVerify)).VerifyAsync(unitId, entered.Value.Latest.Id);
+            new FixedPermissionEvaluator(1, PermissionCodes.ResultVerify)).VerifyAsync(unitId, leftover.Id);
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(UnitStatus.Available, allowed.Value!.Status);
     }
@@ -194,13 +195,15 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             permissions: new FixedPermissionEvaluator(1, PermissionCodes.ResultVerify)).RecordAsync(unitId, MatchOPos());
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == ResultAuthorizationRule.EnterCode);
-        Assert.False(await context.ProductRetypeResults.AnyAsync(r => r.BloodProductId == unitId));
+        Assert.False(await context.ProductRetypeResults.AnyAsync(
+            r => r.BloodProductId == unitId && r.Status == ResultStatus.Entered));
 
         var allowed = await Retype(
             context,
             permissions: new FixedPermissionEvaluator(1, PermissionCodes.ResultEnter)).RecordAsync(unitId, MatchOPos());
         Assert.True(allowed.Succeeded, allowed.Error);
-        Assert.Equal(ResultStatus.Entered, allowed.Value!.Latest!.Status);
+        Assert.Equal(ResultStatus.Verified, allowed.Value!.Latest!.Status);
+        Assert.Equal(UnitStatus.Available, allowed.Value.Status);
     }
 
     [Fact]
@@ -218,13 +221,10 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             }));
 
         Assert.True(result.Succeeded);
-        Assert.Equal(UnitStatus.Received, result.Value!.Status);
-        Assert.False(result.Value.Latest!.MatchesLabel);
+        Assert.Equal(UnitStatus.Quarantine, result.Value!.Status);
+        Assert.Equal(ResultStatus.Verified, result.Value.Latest!.Status);
+        Assert.False(result.Value.Latest.MatchesLabel);
         Assert.NotNull(result.Value.Latest.DiscrepancyDetail);
-
-        var verified = await Retype(context, Verifier).VerifyAsync(unitId, result.Value.Latest.Id);
-        Assert.True(verified.Succeeded, verified.Error);
-        Assert.Equal(UnitStatus.Quarantine, verified.Value!.Status);
 
         var unit = await context.BloodUnits.AsNoTracking().FirstAsync(u => u.Id == unitId);
         Assert.Equal(UnitStatus.Quarantine, unit.Status);
@@ -269,12 +269,31 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
                 IsPlaceholder = true
             });
         }
+        var retypeTest = await context.TestDefinitions.FirstOrDefaultAsync(t => t.Code == AboRhRetypeRule.TestCode);
+        if (retypeTest is null)
+        {
+            retypeTest = new TestDefinition
+            {
+                Code = AboRhRetypeRule.TestCode,
+                Name = "ABO/Rh Retype",
+                Category = TestCategory.AboRhRetype,
+                ResultValueType = ResultValueType.AboRh,
+                IsActive = true,
+                IsDraft = false,
+                Version = 1
+            };
+            context.TestDefinitions.Add(retypeTest);
+            await context.SaveChangesAsync();
+        }
+
         var type = new ProductType
         {
             ProductCode = "RBC-ISBT-RT",
             Name = "ISBT retype RBC",
             ComponentClass = ComponentClass.RedBloodCells,
-            RequiresRetype = true
+            RequiresRetype = true,
+            RhPositiveRetypeTestId = retypeTest.Id,
+            RhNegativeRetypeTestId = retypeTest.Id
         };
         context.ProductTypes.Add(type);
         await context.SaveChangesAsync();
@@ -306,45 +325,16 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
-    public async Task SameUserMayVerifyWhenRetypeSelfVerifyPolicyIsOff()
-    {
-        var (_, unitId) = await SeedReceivedUnitAsync("RT-SELF-OK", AboGroup.O, RhType.Positive);
-        await using var context = _factory.Create();
-        context.SystemSettings.Add(new SystemSetting
-        {
-            Key = FacilityPolicyKeys.BlockRetypeSelfVerify,
-            Value = "false",
-            Category = "Inventory",
-            Description = "Test override"
-        });
-        await context.SaveChangesAsync();
-
-        var entered = await RetypeWithPolicy(context).RecordAsync(unitId, MatchOPos());
-        Assert.True(entered.Succeeded);
-
-        var verified = await RetypeWithPolicy(context).VerifyAsync(unitId, entered.Value!.Latest!.Id);
-        Assert.True(verified.Succeeded, verified.Error);
-        Assert.Equal(UnitStatus.Available, verified.Value!.Status);
-        Assert.Equal(_factory.CurrentUser.UserName, verified.Value.Latest!.VerifiedBy);
-    }
-
-    [Fact]
-    public async Task RecordUpdateAndVerify_WriteInterpretedType()
+    public async Task Record_WriteInterpretedType()
     {
         var key = Guid.NewGuid().ToString("N")[..8];
         var (_, unitId) = await SeedReceivedUnitAsync($"RT-AUD-{key}", AboGroup.O, RhType.Positive);
         await using var context = _factory.Create();
 
-        var first = await Retype(context).RecordAsync(unitId, MatchOPos());
-        Assert.True(first.Succeeded, first.Error);
-        var retypeId = first.Value!.Latest!.Id;
-
-        var updated = await Retype(context).RecordAsync(unitId, MatchOPos());
-        Assert.True(updated.Succeeded, updated.Error);
-        Assert.Equal(retypeId, updated.Value!.Latest!.Id);
-
-        var verified = await Retype(context, Verifier).VerifyAsync(unitId, retypeId);
-        Assert.True(verified.Succeeded, verified.Error);
+        var recorded = await Retype(context).RecordAsync(unitId, MatchOPos());
+        Assert.True(recorded.Succeeded, recorded.Error);
+        var retypeId = recorded.Value!.Latest!.Id;
+        Assert.Equal(UnitStatus.Available, recorded.Value.Status);
 
         var events = context.AuditEvents.ToList();
         Assert.Contains(events, e =>
@@ -355,15 +345,6 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             && e.NewValueJson is not null
             && e.NewValueJson.Contains("O"));
         Assert.Contains(events, e =>
-            e.EventType == AuditEventType.Result
-            && e.EntityType == nameof(ProductRetypeResult)
-            && e.EntityId == retypeId
-            && e.Reason == "Unit ABO/Rh retype updated."
-            && e.OldValueJson is not null
-            && e.NewValueJson is not null
-            && e.OldValueJson.Contains("O")
-            && e.NewValueJson.Contains("O"));
-        Assert.Contains(events, e =>
             e.EventType == AuditEventType.Verify
             && e.EntityType == nameof(ProductRetypeResult)
             && e.EntityId == retypeId
@@ -371,5 +352,24 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             && e.NewValueJson is not null
             && e.OldValueJson.Contains("O")
             && e.NewValueJson.Contains("O"));
+    }
+
+    private static async Task<ProductRetypeResult> SeedEnteredRetypeAsync(BloodBankDbContext context, long unitId)
+    {
+        var pending = Assert.Single(await context.ProductRetypeResults.Where(r => r.BloodProductId == unitId).ToListAsync());
+        pending.Value = AboRhResultValue.FormatPanel(new AboRhPanelResult(
+            AboGroup.O,
+            RhType.Positive,
+            new Dictionary<string, string>
+            {
+                [AboRhPanelSubtestCodes.AntiA] = "0",
+                [AboRhPanelSubtestCodes.AntiB] = "0"
+            }));
+        pending.InterpretedAbo = AboGroup.O;
+        pending.InterpretedRh = RhType.Positive;
+        pending.MatchesLabel = true;
+        pending.Status = ResultStatus.Entered;
+        await context.SaveChangesAsync();
+        return pending;
     }
 }

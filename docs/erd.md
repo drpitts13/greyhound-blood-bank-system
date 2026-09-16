@@ -19,6 +19,7 @@ erDiagram
     Patients ||--o{ AntibodyHistory : has
     Patients ||--o{ AntigenProfiles : has
     Patients ||--o{ SpecialTransfusionRequirements : has
+    SpecialRequirementDefinitions ||--o{ SpecialTransfusionRequirements : defines
     Patients ||--o{ Specimens : provides
     Encounters ||--o{ Orders : contains
     Specimens ||--o{ OrderSpecimens : linkedTo
@@ -103,16 +104,21 @@ Index: unique(`VisitNumber`), (`PatientId`).
 ### PatientComments
 `Id`, `PatientId` (FK Patients), `CommentType` (Comment/Warning), `Severity` (Info/Warning/Critical), `Text`, `IsActive`, `EnteredBy`, audit metadata.
 
+### SpecialRequirementDefinitions
+Versioned catalog (`VersionedConfigEntity`): `Code`, `Name`, `Level` (Unit/Issuing/Patient), `EnforcementKind` (RequireProductAttribute/RequireAntigenNegative/RequireIssueAcknowledgment/RequireComplexCrossmatch/RequireAboSubgroup), `ProductAttributeCode NULL`, `Instruction NULL`, `SortOrder`. Index: (`Code`), (`IsActive`,`IsDraft`).
+
 ### SpecialTransfusionRequirements
-`Id`, `PatientId` (FK Patients), `RequirementType` (Irradiated/CMVNegative/Leukoreduced/Washed/AntigenNegative/Other), `AntigenCode NULL` (for antigen-negative requirements), `Reason`, `EffectiveUtc`, `ExpiresUtc NULL`, `IsActive`, `EnteredBy`, audit metadata.
-Index: (`PatientId`,`IsActive`).
+`Id`, `PatientId` (FK Patients), `RequirementDefinitionId NULL` (FK SpecialRequirementDefinitions), `RequirementType` (legacy enum; new rows also store the catalog id), `AntigenCode NULL` (for antigen-negative requirements), `Reason`, `EffectiveUtc`, `ExpiresUtc NULL` (end date; clinically inactive when elapsed), `IsActive`, `EnteredBy`, audit metadata.
+Index: (`PatientId`,`IsActive`), (`RequirementDefinitionId`).
+
+Clinically active = `IsActive && EffectiveUtc <= now && (ExpiresUtc is null || ExpiresUtc > now)`.
 
 ---
 
 ## 3. Immunohematology History (append-only)
 
 ### PatientBloodTypeHistory
-`Id`, `PatientId` (FK Patients), `Abo` (A/B/AB/O/Unknown), `RhD` (Pos/Neg/Unknown/WeakD), `Source` (TestResult/HL7/ManualEntry/HistoricalImport), `SourceResultId BIGINT NULL` (FK TestResults), `RecordedUtc`, `RecordedBy`, `IsCurrent BIT`, `Reason NULL` (required for manual edits). Append-only; corrections add a new row and flip `IsCurrent`.
+`Id`, `PatientId` (FK Patients), `Abo` (A/B/AB/O/Unknown), `RhD` (Pos/Neg/Unknown/WeakD), `AboSubgroup` (Unknown/A1/A2/NotApplicable), `Source` (TestResult/HL7/ManualEntry/HistoricalImport), `SourceResultId BIGINT NULL` (FK TestResults), `RecordedUtc`, `RecordedBy`, `IsCurrent BIT`, `Reason NULL` (required for manual edits). Append-only; corrections add a new row and flip `IsCurrent`.
 Index: (`PatientId`,`IsCurrent`).
 
 ### AntibodyHistory
@@ -199,8 +205,8 @@ Every modification (Divide, Pool, Irradiate, Thaw, Volume Reduction, Leukoreduct
 Indexes: (`Code` unique), (`IsActive`).
 
 #### ModificationRules (admin config)
-`Id`, `ModificationCode` (unique, e.g. `IRR-RBC-LR`), `SourceProductTypeId` (FK ProductTypes), `ModificationType` (Divide/Pool/Irradiate/Thaw/VolumeReduction/Leukoreduction/Wash), `TargetProductTypeId` (FK ProductTypes), `ExpirationModificationCodeId` (FK ExpirationModificationCodes), `Description NULL`, `IsActive`, `Version`, audit metadata. Admin and modify screens display each product's ISBT description code (`ProductTypes.Isbt128ProductCode`, e.g. `E0336`) when one is configured.
-Indexes: (`ModificationCode` unique), (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`), (`ExpirationModificationCodeId`), (`IsActive`). App-layer guard prevents more than one **active** rule per (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`) triple.
+`Id` (system-assigned PK), `ModificationCode` (e.g. `IRR-RBC-LR`; reusable across product paths), `SourceProductTypeId` (FK ProductTypes), `ModificationType` (Divide/Pool/Irradiate/Thaw/VolumeReduction/Leukoreduction/Wash), `TargetProductTypeId` (FK ProductTypes), `ExpirationModificationCodeId` (FK ExpirationModificationCodes), `Description NULL`, `IsActive`, `Version`, audit metadata. Admin and modify screens display each product's ISBT description code (`ProductTypes.Isbt128ProductCode`, e.g. `E0336`) when one is configured.
+Indexes: (`ModificationCode`,`SourceProductTypeId`,`TargetProductTypeId` unique), (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`), (`ExpirationModificationCodeId`), (`IsActive`). App-layer guard prevents more than one **active** rule per (`SourceProductTypeId`,`ModificationType`,`TargetProductTypeId`) triple.
 
 #### UnitModifications (header, append-only)
 `Id`, `ModificationRuleId` (FK ModificationRules), `ModificationType` (denormalized), `ExpirationOffsetCodeApplied` (denormalized snapshot of the expiration code), `ResultExpiresUtc` (= `min(anchor + offset, earliest source ExpiresUtc)` where the anchor is modification time or the earliest source collection time), `Reason`, `PerformedBy`, `PerformedUtc`, audit metadata.

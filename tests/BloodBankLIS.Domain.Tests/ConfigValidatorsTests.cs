@@ -93,6 +93,40 @@ public class ConfigValidatorsTests
     }
 
     [Fact]
+    public void Product_RetypeWithoutTests_HardStops()
+    {
+        var product = new ProductType
+        {
+            ProductCode = "RBC",
+            Name = "Red Cells",
+            RequiresRetype = true
+        };
+
+        var eval = ProductDefinitionValidator.Validate(product, duplicateActiveCode: false);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "PRODUCT.RETYPE.RHPOS.REQUIRED");
+        Assert.Contains(eval.HardStops, r => r.Code == "PRODUCT.RETYPE.RHNEG.REQUIRED");
+    }
+
+    [Fact]
+    public void Product_RetypeWithBothTests_Passes()
+    {
+        var product = new ProductType
+        {
+            ProductCode = "RBC",
+            Name = "Red Cells",
+            RequiresRetype = true,
+            RhPositiveRetypeTestId = 1,
+            RhNegativeRetypeTestId = 2
+        };
+
+        var eval = ProductDefinitionValidator.Validate(product, duplicateActiveCode: false);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
     public void Hl7Endpoint_MllpWithoutHostOrPort_HardStops()
     {
         var endpoint = new InterfaceEndpoint
