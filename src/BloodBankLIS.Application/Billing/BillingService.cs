@@ -46,6 +46,8 @@ public sealed class BillingService
     private readonly IAuditWriter _audit;
     private readonly IBillingInterfacePublisher _publisher;
     private readonly IPermissionEvaluator? _permissionEvaluator;
+    private readonly IRepository<Patient>? _patients;
+    private readonly IRepository<Hl7MessageLog>? _messages;
 
     public BillingService(
         IRepository<BillingEvent> events,
@@ -62,7 +64,9 @@ public sealed class BillingService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IBillingInterfacePublisher publisher,
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+        IRepository<Patient>? patients = null,
+        IRepository<Hl7MessageLog>? messages = null)
     {
         _events = events;
         _rules = rules;
@@ -79,6 +83,8 @@ public sealed class BillingService
         _audit = audit;
         _publisher = publisher;
         _permissionEvaluator = permissionEvaluator;
+        _patients = patients;
+        _messages = messages;
     }
 
     /// <summary>Captures charges for a verified result. Safe to call repeatedly (idempotent).</summary>
@@ -313,6 +319,75 @@ public sealed class BillingService
 
     public async Task<IReadOnlyList<BillingEvent>> GetReviewQueueAsync(CancellationToken ct = default) =>
         await _events.ListAsync(e => e.Status == BillingEventStatus.Pending, ct);
+
+    /// <summary>
+    /// Pending charges with MRN, patient name, test code or unit number, and queued
+    /// DFT control id so review does not depend on raw entity ids.
+    /// </summary>
+    public async Task<IReadOnlyList<BillingEventDto>> ListReviewQueueDtosAsync(CancellationToken ct = default)
+    {
+        var queue = await GetReviewQueueAsync(ct);
+        if (queue.Count == 0)
+        {
+            return Array.Empty<BillingEventDto>();
+        }
+
+        var patientIds = queue.Select(e => e.PatientId).OfType<long>().Distinct().ToList();
+        var patients = _patients is null || patientIds.Count == 0
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+
+        var resultIds = queue
+            .Where(e => e.TriggerEntityType == nameof(TestResult))
+            .Select(e => e.TriggerEntityId)
+            .Distinct()
+            .ToList();
+        var results = resultIds.Count == 0
+            ? new Dictionary<long, TestResult>()
+            : (await _results.ListAsync(r => resultIds.Contains(r.Id), ct)).ToDictionary(r => r.Id);
+
+        var issueIds = queue
+            .Where(e => e.TriggerEntityType is nameof(Issue) or nameof(TransfusionEvent))
+            .Select(e => e.TriggerEntityId)
+            .Distinct()
+            .ToList();
+        var issues = issueIds.Count == 0
+            ? new Dictionary<long, Issue>()
+            : (await _issues.ListAsync(i => issueIds.Contains(i.Id), ct)).ToDictionary(i => i.Id);
+
+        var unitIds = issues.Values.Select(i => i.BloodProductId).Distinct().ToList();
+        var units = unitIds.Count == 0
+            ? new Dictionary<long, BloodUnit>()
+            : (await _units.ListAsync(u => unitIds.Contains(u.Id), ct)).ToDictionary(u => u.Id);
+
+        var messageIds = queue.Where(e => e.Hl7MessageId is > 0).Select(e => e.Hl7MessageId!.Value).Distinct().ToList();
+        var messages = _messages is null || messageIds.Count == 0
+            ? new Dictionary<long, Hl7MessageLog>()
+            : (await _messages.ListAsync(m => messageIds.Contains(m.Id), ct)).ToDictionary(m => m.Id);
+
+        return queue.Select(e =>
+        {
+            patients.TryGetValue(e.PatientId ?? 0, out var patient);
+            string? clinical = null;
+            if (e.TriggerEntityType == nameof(TestResult) && results.TryGetValue(e.TriggerEntityId, out var result))
+            {
+                clinical = result.TestCode;
+            }
+            else if (issues.TryGetValue(e.TriggerEntityId, out var issue)
+                     && units.TryGetValue(issue.BloodProductId, out var unit))
+            {
+                clinical = unit.UnitNumber;
+            }
+
+            messages.TryGetValue(e.Hl7MessageId ?? 0, out var message);
+            return BillingEventDto.From(
+                e,
+                patient?.MedicalRecordNumber,
+                patient is null ? null : $"{patient.LastName}, {patient.FirstName}",
+                clinical,
+                message?.MessageControlId);
+        }).ToList();
+    }
 
     private async Task CaptureFromChargeRulesAsync(
         BillingTriggerContext context,

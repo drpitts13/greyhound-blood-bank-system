@@ -42,11 +42,21 @@ public sealed record BillingEventDto(
     string? RevenueCode = null,
     string? Modifier = null,
     string? Description = null,
-    string? PerformingLocationCode = null)
+    string? PerformingLocationCode = null,
+    string? MedicalRecordNumber = null,
+    string? PatientDisplayName = null,
+    string? ClinicalLabel = null,
+    string? DftControlId = null)
 {
-    public static BillingEventDto From(BillingEvent e) => new(
+    public static BillingEventDto From(
+        BillingEvent e,
+        string? mrn = null,
+        string? displayName = null,
+        string? clinicalLabel = null,
+        string? dftControlId = null) => new(
         e.Id, e.ChargeCodeId, e.BillingCode, e.TriggerType, e.TriggerEntityType, e.TriggerEntityId, e.PatientId,
         e.ServiceDateUtc, e.Amount, e.SourceKind, e.SourceId, e.Hl7MessageId, e.DedupeKey, e.Status,
         e.ReviewedBy, e.ReviewedUtc, e.ExportedUtc, e.CancellationReason,
-        e.ProcedureCode, e.RevenueCode, e.Modifier, e.Description, e.PerformingLocationCode);
+        e.ProcedureCode, e.RevenueCode, e.Modifier, e.Description, e.PerformingLocationCode,
+        mrn, displayName, clinicalLabel, dftControlId);
 }

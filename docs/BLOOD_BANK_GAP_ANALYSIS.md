@@ -70,6 +70,10 @@ Cycle 20: seeded `MRN0009` is an ADT/ORM/ORU load onto an accepted
 specimen; the test worklist verifies the posted interface value without
 re-keying (RISK-BB-272). OBX-11 and specimen gates are unchanged.
 
+Cycle 21: seeded Patricia Demo verify/issue/transfusion charges appear
+on the review queue with MRN, unit/test, and queued DFT control id
+(RISK-BB-273). Capture stays automatic; review-before-export is unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

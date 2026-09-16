@@ -5,7 +5,7 @@
 <PageTitle>Billing &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Billing &amp; Charge Capture</h1>
-<p class="muted">Review, export, or cancel captured charges. Charges are captured automatically on result verification and unit issue.</p>
+<p class="muted">Review, export, or cancel captured charges. Charges are captured automatically on result verification, unit issue, and completed transfusion — no second manual capture. Each row shows MRN, name, the test or unit, and the queued DFT control id.</p>
 
 <Outcome Value="_fb" />
 
@@ -25,16 +25,17 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Id</th><th>Billing code</th><th>Trigger</th><th>Source</th><th>Patient</th><th>Service date</th><th class="right">Amount</th><th>Status</th><th></th></tr></thead>
+                <thead><tr><th>Patient</th><th>MRN</th><th>Charge</th><th>Test / unit</th><th>Trigger</th><th>DFT</th><th>Service date</th><th class="right">Amount</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var c in _charges)
                 {
                     <tr>
-                        <td>@c.Id</td>
+                        <td>@(c.PatientDisplayName ?? "—")</td>
+                        <td class="mono">@(c.MedicalRecordNumber ?? "—")</td>
                         <td class="mono">@c.BillingCode</td>
+                        <td class="mono">@(c.ClinicalLabel ?? "—")</td>
                         <td>@c.TriggerType</td>
-                        <td class="muted">@c.SourceKind · @c.TriggerEntityType #@c.TriggerEntityId</td>
-                        <td>@(c.PatientId?.ToString() ?? "—")</td>
+                        <td class="mono">@(c.DftControlId ?? "—")</td>
                         <td class="nowrap">@c.ServiceDateUtc.ToString("yyyy-MM-dd")</td>
                         <td class="right">@(c.Amount?.ToString("C") ?? "—")</td>
                         <td><span class="@Ui.Badge(c.Status)">@c.Status</span></td>
@@ -55,7 +56,7 @@
                     </tr>
                     @if (_cancelId == c.Id)
                     {
-                        <tr><td colspan="9">
+                        <tr><td colspan="10">
                             <div class="flex gap">
                                 <input @bind="_cancelReason" placeholder="Cancellation reason" style="flex:1;" />
                                 <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => CancelAsync(c.Id)">Confirm cancel</button>

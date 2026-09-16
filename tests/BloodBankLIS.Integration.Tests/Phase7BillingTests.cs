@@ -16,13 +16,19 @@ public class Phase7BillingTests : IDisposable
 
     public void Dispose() => _factory.Dispose();
 
-    private BillingService Billing(BloodBankDbContext c, CapturingPublisher? publisher = null) =>
+    private BillingService Billing(
+        BloodBankDbContext c,
+        CapturingPublisher? publisher = null,
+        IRepository<Patient>? patients = null,
+        IRepository<Hl7MessageLog>? messages = null) =>
         new(new EfRepository<BillingEvent>(c), new EfRepository<ChargeRule>(c), new EfRepository<ChargeCode>(c),
             new EfRepository<TestServiceBilling>(c), new EfRepository<ProductBilling>(c),
             new EfRepository<TestResult>(c), new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c),
             new EfRepository<ProductType>(c), c, _factory.Clock, _factory.CurrentUser,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            publisher ?? new CapturingPublisher());
+            publisher ?? new CapturingPublisher(),
+            patients: patients,
+            messages: messages);
 
     private async Task<long> SeedChargeCodeAsync(BloodBankDbContext c, string code, decimal amount)
     {
@@ -519,6 +525,138 @@ public class Phase7BillingTests : IDisposable
 
         var second = await billing.ReviewAsync(chargeId);
         Assert.False(second.Succeeded);
+    }
+
+    [Fact]
+    public async Task ReviewQueueDtos_SurfaceMrnUnitAndQueuedDft()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = "MRN-BILL-DTO",
+            LastName = "Charge",
+            FirstName = "Review",
+            DateOfBirth = new DateOnly(1985, 1, 2),
+            Sex = Sex.Female
+        };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+
+        var specimen = new Specimen
+        {
+            AccessionNumber = "ACC-BILL-DTO",
+            PatientId = patient.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-1),
+            Status = SpecimenStatus.Accepted
+        };
+        c.Specimens.Add(specimen);
+        var product = new ProductType { ProductCode = "RBC-LR", Name = "RBC-LR", Isbt128ProductCode = "E0336" };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+
+        var result = new TestResult
+        {
+            SpecimenId = specimen.Id,
+            PatientId = patient.Id,
+            TestCode = "ABSC",
+            Value = "Negative",
+            Status = ResultStatus.Verified,
+            VerifiedBy = "tech2",
+            VerifiedUtc = _factory.Clock.UtcNow
+        };
+        var unit = new BloodUnit
+        {
+            UnitNumber = "W000123BILLDTO",
+            ProductTypeId = product.Id,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Issued
+        };
+        c.TestResults.Add(result);
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+
+        var issue = new Issue
+        {
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            IssuedUtc = _factory.Clock.UtcNow,
+            IssuedBy = "tech"
+        };
+        c.Issues.Add(issue);
+        await c.SaveChangesAsync();
+
+        var screenLog = new Hl7MessageLog
+        {
+            Direction = Hl7Direction.Outbound,
+            MessageType = "DFT",
+            TriggerEvent = "P03",
+            MessageControlId = "CTRL-DFT-TEST-ABSC",
+            RawMessage = "MSH|^~\\&|BBLIS||||20260101||DFT^P03|CTRL-DFT-TEST-ABSC|P|2.5",
+            Status = Hl7MessageStatus.Received,
+            ReceivedUtc = _factory.Clock.UtcNow
+        };
+        var issueLog = new Hl7MessageLog
+        {
+            Direction = Hl7Direction.Outbound,
+            MessageType = "DFT",
+            TriggerEvent = "P03",
+            MessageControlId = "CTRL-DFT-TEST-ISSUE",
+            RawMessage = "MSH|^~\\&|BBLIS||||20260101||DFT^P03|CTRL-DFT-TEST-ISSUE|P|2.5",
+            Status = Hl7MessageStatus.Received,
+            ReceivedUtc = _factory.Clock.UtcNow
+        };
+        c.Hl7Messages.AddRange(screenLog, issueLog);
+        await c.SaveChangesAsync();
+
+        c.BillingEvents.AddRange(
+            new BillingEvent
+            {
+                BillingCode = "BB-SCREEN",
+                TriggerType = BillingTriggerType.TestVerified,
+                TriggerEntityType = nameof(TestResult),
+                TriggerEntityId = result.Id,
+                PatientId = patient.Id,
+                ServiceDateUtc = _factory.Clock.UtcNow,
+                Amount = 55m,
+                SourceKind = BillingChargeSourceKind.TestService,
+                SourceId = 1,
+                Hl7MessageId = screenLog.Id,
+                DedupeKey = "dto-absc",
+                Status = BillingEventStatus.Pending
+            },
+            new BillingEvent
+            {
+                BillingCode = "BB-RBC-ISSUE",
+                TriggerType = BillingTriggerType.UnitIssued,
+                TriggerEntityType = nameof(Issue),
+                TriggerEntityId = issue.Id,
+                PatientId = patient.Id,
+                ServiceDateUtc = _factory.Clock.UtcNow,
+                Amount = 250m,
+                SourceKind = BillingChargeSourceKind.Product,
+                SourceId = 1,
+                Hl7MessageId = issueLog.Id,
+                DedupeKey = "dto-issue",
+                Status = BillingEventStatus.Pending
+            });
+        await c.SaveChangesAsync();
+
+        var dtos = await Billing(
+            c,
+            patients: new EfRepository<Patient>(c),
+            messages: new EfRepository<Hl7MessageLog>(c)).ListReviewQueueDtosAsync();
+
+        Assert.Equal(2, dtos.Count);
+        var screen = Assert.Single(dtos, d => d.BillingCode == "BB-SCREEN");
+        Assert.Equal("MRN-BILL-DTO", screen.MedicalRecordNumber);
+        Assert.Equal("Charge, Review", screen.PatientDisplayName);
+        Assert.Equal("ABSC", screen.ClinicalLabel);
+        Assert.Equal("CTRL-DFT-TEST-ABSC", screen.DftControlId);
+
+        var issued = Assert.Single(dtos, d => d.BillingCode == "BB-RBC-ISSUE");
+        Assert.Equal("W000123BILLDTO", issued.ClinicalLabel);
+        Assert.Equal("CTRL-DFT-TEST-ISSUE", issued.DftControlId);
     }
 
     private async Task<long> CaptureSingleChargeAsync(string mrn, string testCode, string chargeCode)

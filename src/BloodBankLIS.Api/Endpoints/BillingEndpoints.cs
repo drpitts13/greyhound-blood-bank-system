@@ -13,8 +13,7 @@ public static class BillingEndpoints
         // Charge review queue (pending charges awaiting billing-staff action).
         group.MapGet("/charges", async (BillingService service, CancellationToken ct) =>
         {
-            var queue = await service.GetReviewQueueAsync(ct);
-            return Results.Ok(queue.Select(BillingEventDto.From));
+            return Results.Ok(await service.ListReviewQueueDtosAsync(ct));
         }).RequirePermission(PermissionCodes.BillingReview);
 
         group.MapPost("/charges/{id:long}/review", async (long id, BillingService service, CancellationToken ct) =>

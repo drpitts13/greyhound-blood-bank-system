@@ -53,6 +53,7 @@ public static partial class DatabaseSeeder
         await SeedDiscrepancyScenarioAsync(context, ct);
         await SeedComputerXmEligibleScenarioAsync(context, ct);
         await SeedHl7DataLoadScenarioAsync(context, ct);
+        await SeedBillingCaptureScenarioAsync(context, ct);
     }
 
     // ---------------------------------------------------------------------
@@ -2068,6 +2069,149 @@ public static partial class DatabaseSeeder
                 CreatedBy = "hl7"
             });
 
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Patricia Demo already has a verified type/screen, an issued RBC-LR unit, and a
+    /// completed transfusion. This captures those charges and queues outbound DFT
+    /// rows so /billing is not empty and staff do not POST a second capture.
+    /// </summary>
+    private static async Task SeedBillingCaptureScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Hl7Messages.AnyAsync(m => m.MessageControlId.StartsWith("CTRL-DFT-"), ct))
+        {
+            return;
+        }
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0001", ct);
+        if (patient is null)
+        {
+            return;
+        }
+
+        var aboRh = await context.TestResults.FirstOrDefaultAsync(
+            r => r.PatientId == patient.Id && r.TestCode == "ABORH" && r.Status == ResultStatus.Verified, ct);
+        var absc = await context.TestResults.FirstOrDefaultAsync(
+            r => r.PatientId == patient.Id && r.TestCode == "ABSC" && r.Status == ResultStatus.Verified, ct);
+        var unit = await context.BloodUnits.FirstOrDefaultAsync(u => u.UnitNumber == "W0001230000099", ct);
+        var issue = unit is null
+            ? null
+            : await context.Issues.FirstOrDefaultAsync(i => i.BloodProductId == unit.Id && i.PatientId == patient.Id, ct);
+
+        var aboRhBill = await context.TestServiceBillings.FirstOrDefaultAsync(
+            b => b.TestCode == "ABORH" && b.Trigger == BillingTriggerType.TestVerified, ct);
+        var abscBill = await context.TestServiceBillings.FirstOrDefaultAsync(
+            b => b.TestCode == "ABSC" && b.Trigger == BillingTriggerType.TestVerified, ct);
+        var issueBill = await context.ProductBillings.FirstOrDefaultAsync(
+            b => b.IsbtProductCode == "E0336" && b.Trigger == BillingTriggerType.UnitIssued, ct);
+        var txBill = await context.ProductBillings.FirstOrDefaultAsync(
+            b => b.IsbtProductCode == "E0336" && b.Trigger == BillingTriggerType.UnitTransfused, ct);
+
+        if (aboRh is not null && aboRhBill is not null)
+        {
+            await SeedCapturedChargeAsync(
+                context, BillingTriggerType.TestVerified, nameof(TestResult), aboRh.Id, patient.Id,
+                aboRh.VerifiedUtc ?? aboRh.EnteredUtc ?? DateTime.UtcNow, "BB-ABORH", BillingChargeSourceKind.TestService,
+                aboRhBill.Id, performingLocation: null, ct);
+        }
+
+        if (absc is not null && abscBill is not null)
+        {
+            await SeedCapturedChargeAsync(
+                context, BillingTriggerType.TestVerified, nameof(TestResult), absc.Id, patient.Id,
+                absc.VerifiedUtc ?? absc.EnteredUtc ?? DateTime.UtcNow, "BB-SCREEN", BillingChargeSourceKind.TestService,
+                abscBill.Id, performingLocation: null, ct);
+        }
+
+        if (issue is not null && issueBill is not null)
+        {
+            await SeedCapturedChargeAsync(
+                context, BillingTriggerType.UnitIssued, nameof(Issue), issue.Id, patient.Id,
+                issue.IssuedUtc, "BB-RBC-ISSUE", BillingChargeSourceKind.Product,
+                issueBill.Id, issue.IssuedToLocation, ct);
+        }
+
+        if (issue is not null && txBill is not null)
+        {
+            await SeedCapturedChargeAsync(
+                context, BillingTriggerType.UnitTransfused, nameof(TransfusionEvent), issue.Id, patient.Id,
+                DateTime.UtcNow, "BB-RBC-TX", BillingChargeSourceKind.Product,
+                txBill.Id, issue.IssuedToLocation, ct);
+        }
+    }
+
+    private static async Task SeedCapturedChargeAsync(
+        BloodBankDbContext context,
+        BillingTriggerType triggerType,
+        string triggerEntityType,
+        long triggerEntityId,
+        long patientId,
+        DateTime serviceDateUtc,
+        string billingCode,
+        BillingChargeSourceKind sourceKind,
+        long sourceId,
+        string? performingLocation,
+        CancellationToken ct)
+    {
+        var dedupeKey = $"{triggerType}|{triggerEntityType}|{triggerEntityId}|{sourceKind}|{sourceId}|{serviceDateUtc:yyyyMMdd}";
+        if (await context.BillingEvents.AnyAsync(e => e.DedupeKey == dedupeKey, ct))
+        {
+            return;
+        }
+
+        var code = await context.ChargeCodes.FirstOrDefaultAsync(c => c.Code == billingCode, ct);
+        if (code is null)
+        {
+            return;
+        }
+
+        var billingEvent = new BillingEvent
+        {
+            ChargeCodeId = code.Id,
+            BillingCode = code.Code,
+            TriggerType = triggerType,
+            TriggerEntityType = triggerEntityType,
+            TriggerEntityId = triggerEntityId,
+            PatientId = patientId,
+            ServiceDateUtc = serviceDateUtc,
+            Amount = code.DefaultAmount,
+            SourceKind = sourceKind,
+            SourceId = sourceId,
+            DedupeKey = dedupeKey,
+            Status = BillingEventStatus.Pending,
+            ProcedureCode = code.CptCode,
+            RevenueCode = code.RevenueCode,
+            Modifier = code.Modifier,
+            Description = code.Description,
+            PerformingLocationCode = string.IsNullOrWhiteSpace(performingLocation) ? null : performingLocation.Trim()
+        };
+        context.BillingEvents.Add(billingEvent);
+        await context.SaveChangesAsync(ct);
+
+        var controlId = $"CTRL-DFT-{billingCode}-{triggerEntityId}";
+        if (!await context.Hl7Messages.AnyAsync(m => m.MessageControlId == controlId, ct))
+        {
+            context.Hl7Messages.Add(new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Outbound,
+                MessageType = "DFT",
+                TriggerEvent = "P03",
+                MessageControlId = controlId,
+                RawMessage =
+                    "MSH|^~\\&|BBLIS|LAB|BILL|HOSP|20260101150000||DFT^P03|" + controlId + "|P|2.5\r"
+                    + "EVN|P03|20260101150000\r"
+                    + "PID|1||MRN0001^^^HOSP^MR||DEMO^PATRICIA\r"
+                    + "FT1|1|||" + serviceDateUtc.ToString("yyyyMMdd") + "||CG|" + billingCode,
+                Status = Hl7MessageStatus.Received,
+                ReceivedUtc = serviceDateUtc,
+                CreatedBy = "billing"
+            });
+            await context.SaveChangesAsync(ct);
+        }
+
+        var log = await context.Hl7Messages.SingleAsync(m => m.MessageControlId == controlId, ct);
+        billingEvent.Hl7MessageId = log.Id;
         await context.SaveChangesAsync(ct);
     }
 

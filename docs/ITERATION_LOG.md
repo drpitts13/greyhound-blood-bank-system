@@ -699,3 +699,30 @@ interface value but only offered Enter, so the bench re-keyed to verify.
 
 Next workflow family: billing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 21 — Billing capture on the review queue (2026-09-16)
+
+Workflow-audit loop tick 7 (billing). Verify, issue, and completed
+transfusion already capture charges, but the demo database had no events
+and the queue showed raw patient and trigger ids.
+
+### Implemented
+
+- Idempotent seed from Patricia Demo (`MRN0001`): verified ABORH/ABSC,
+  issued `W0001230000099`, completed transfusion, pending charges, and
+  queued outbound DFT logs. No second capture POST.
+- Review-queue DTOs include MRN, name, test code or unit number, and DFT
+  control id. Review-before-export and dedupe keys are unchanged.
+
+### Requirements / risk
+
+- URS-BB-167, FRS-BB-201, SRS-BB-162, RISK-BB-273.
+
+### Tests
+
+- TEST-BB-053 (`Phase7BillingTests.ReviewQueueDtos_SurfaceMrnUnitAndQueuedDft`).
+
+### Next ranked residual
+
+Next workflow family: patient testing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

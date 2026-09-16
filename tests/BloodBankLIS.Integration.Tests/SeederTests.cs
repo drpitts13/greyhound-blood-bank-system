@@ -60,6 +60,11 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
                 && r.Source == ResultSource.Interface
                 && r.Status == ResultStatus.PendingVerification));
             Assert.Equal(3, await verify.Hl7Messages.CountAsync(m => m.MessageControlId.StartsWith("CTRL-HL7-")));
+            Assert.Equal(4, await verify.BillingEvents.CountAsync());
+            Assert.True(await verify.BillingEvents.AnyAsync(e => e.BillingCode == "BB-SCREEN" && e.Status == BillingEventStatus.Pending));
+            Assert.True(await verify.BillingEvents.AnyAsync(e => e.BillingCode == "BB-RBC-ISSUE"));
+            Assert.True(await verify.BillingEvents.AnyAsync(e => e.BillingCode == "BB-RBC-TX"));
+            Assert.Equal(4, await verify.Hl7Messages.CountAsync(m => m.MessageControlId.StartsWith("CTRL-DFT-")));
 
             // Three original units, 28 stocked across every ABO/Rh, two modification
             // results, one received by ISBT 128 scan, two waiting for ABO/Rh retype,
