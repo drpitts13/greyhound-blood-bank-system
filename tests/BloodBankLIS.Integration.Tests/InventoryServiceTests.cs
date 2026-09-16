@@ -800,6 +800,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             var row = Assert.Single(list, i => i.UnitNumber == "U-EXPECT-OVERDUE");
             Assert.True(row.IsOverdue);
             Assert.Equal("ASN-LATE", row.ShipmentId);
+            Assert.Equal(productTypeId, row.ProductTypeId);
         }
         finally
         {

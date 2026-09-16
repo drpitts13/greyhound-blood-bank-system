@@ -61,12 +61,12 @@ public static class ComplianceEndpoints
             .RequirePermission(PermissionCodes.ReactionInvestigate);
 
         group.MapGet("/", async (ReactionInvestigationService service, CancellationToken ct) =>
-            Results.Ok((await service.ListAsync(ct)).Select(ReactionInvestigationDto.From)));
+            Results.Ok(await service.ListDtosAsync(ct)));
 
         group.MapGet("/{id:long}", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
         {
-            var row = await service.GetAsync(id, ct);
-            return row is null ? Results.NotFound() : Results.Ok(ReactionInvestigationDto.From(row));
+            var row = await service.GetDtoAsync(id, ct);
+            return row is null ? Results.NotFound() : Results.Ok(row);
         });
 
         group.MapPut("/{id:long}", async (long id, UpdateReactionInvestigationRequest request, ReactionInvestigationService service, CancellationToken ct) =>

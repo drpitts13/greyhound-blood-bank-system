@@ -5,7 +5,7 @@ software is AABB-accredited or FDA-cleared. Remaining automated tests stay
 citable by class or method name until an ID is assigned.
 
 Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
-**TEST-BB-047**.
+**TEST-BB-049**.
 
 | ID | Layer | Test | Traces to |
 |---|---|---|---|
@@ -55,5 +55,11 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-044 | I | `FdaAabbScenarioTests.ReactionInvestigation_HasClericalCheckAndDat` | URS-BB-036 / FRS-BB-066 |
 | TEST-BB-045 | I | `FdaAabbScenarioTests.SeededClinicalActions_ProduceAuditEvents` | URS-BB-011 / FRS-BB-060 |
 | TEST-BB-046 | I | `FdaAabbScenarioTests.PatriciaDemo_IsElectronicXmEligible_WhenFacilityAllows` | URS-BB-009 / FRS-BB-033 |
+| TEST-BB-047 | I | `TestWorklistTests.PendingWorklist_SurfacesBloodTypeAntibodyHistoryAndSpecimenExpiry` | URS-BB-161 / FRS-BB-195 / RISK-BB-267 |
+| TEST-BB-048 | I | `InventoryServiceTests.ListExpected_FlagsOverdueWhenPastDue` | URS-BB-162 / FRS-BB-196 / RISK-BB-268 |
+| TEST-BB-049 | I | `Phase4IssuingTests.Issue_SetsCoolerAndAppearsOnInTransitWorklist` | URS-BB-163 / FRS-BB-197 / RISK-BB-269 |
+| TEST-BB-050 | I | `ReactionInvestigationServiceTests.ListDtos_SurfacesPatientUnitTypeAndWorkupIncomplete` | URS-BB-164 / FRS-BB-198 / RISK-BB-270 |
+| TEST-BB-051 | I | `Phase5Hl7Tests.Replay_AfterPatientExists_ResolvesMappingError` | URS-BB-165 / FRS-BB-199 / RISK-BB-271 |
+| TEST-BB-052 | I | `TestWorklistTests.PendingWorklist_InterfaceResult_CanVerifyWithoutReentry` | URS-BB-166 / FRS-BB-200 / RISK-BB-272 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

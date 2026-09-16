@@ -27,7 +27,10 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             _factory.Clock,
             _factory.CurrentUser,
             new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
-            permissions: permissions);
+            permissions: permissions,
+            patients: new EfRepository<Patient>(context),
+            bloodTypes: new EfRepository<PatientBloodTypeHistory>(context),
+            antibodies: new EfRepository<AntibodyHistory>(context));
 
     [Fact]
     public async Task Update_WithoutReactionInvestigate_IsHardStopped()
@@ -145,7 +148,27 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             && e.NewValueJson.Contains("FNHTR"));
     }
 
-    private async Task<TransfusionEvent> SeedTransfusionAsync(BloodBankDbContext context, string key)
+    [Fact]
+    public async Task ListDtos_SurfacesPatientUnitTypeAndWorkupIncomplete()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key, includeCurrentType: true);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+
+        var list = await CreateService(context).ListDtosAsync();
+        var row = Assert.Single(list, r => r.Id == opened.Id);
+        Assert.Equal($"MRN-RXN-{key}", row.MedicalRecordNumber);
+        Assert.Equal("React, Pat", row.PatientDisplayName);
+        Assert.Equal($"U-RXN-{key}", row.UnitNumber);
+        Assert.False(string.IsNullOrWhiteSpace(row.CurrentBloodType));
+        Assert.False(row.HasAntibodyHistory);
+        Assert.True(row.WorkupIncomplete);
+        Assert.False(row.RemainderQuarantined);
+    }
+
+    private async Task<TransfusionEvent> SeedTransfusionAsync(
+        BloodBankDbContext context, string key, bool includeCurrentType = false)
     {
         var patient = new Patient
         {
@@ -158,6 +181,19 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         context.Patients.Add(patient);
         context.ProductTypes.Add(product);
         await context.SaveChangesAsync();
+
+        if (includeCurrentType)
+        {
+            context.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Source = BloodTypeSource.TestResult,
+                IsCurrent = true
+            });
+            await context.SaveChangesAsync();
+        }
 
         var unit = new BloodUnit
         {

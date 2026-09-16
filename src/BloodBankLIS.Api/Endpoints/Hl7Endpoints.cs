@@ -32,10 +32,15 @@ public sealed record Hl7ErrorDto(
     string ErrorDetail,
     int RetryCount,
     DateTime? NextRetryUtc,
-    bool Resolved)
+    bool Resolved,
+    string? MessageControlId = null,
+    string? MessageType = null,
+    string? TriggerEvent = null,
+    string? AckCode = null)
 {
-    public static Hl7ErrorDto From(InterfaceErrorQueueItem e) => new(
-        e.Id, e.Hl7MessageId, e.ErrorType, e.ErrorDetail, e.RetryCount, e.NextRetryUtc, e.Resolved);
+    public static Hl7ErrorDto From(InterfaceErrorQueueItem e, Hl7MessageLog? message = null) => new(
+        e.Id, e.Hl7MessageId, e.ErrorType, e.ErrorDetail, e.RetryCount, e.NextRetryUtc, e.Resolved,
+        message?.MessageControlId, message?.MessageType, message?.TriggerEvent, message?.AckCode);
 }
 
 public static class Hl7Endpoints
@@ -87,10 +92,20 @@ public static class Hl7Endpoints
             return Results.Ok(new { ackCode = outcome.AckCode, ack = outcome.AckMessage, logId = outcome.Log.Id });
         });
 
-        group.MapGet("/errors", async (IRepository<InterfaceErrorQueueItem> repo, CancellationToken ct) =>
+        group.MapGet("/errors", async (
+            IRepository<InterfaceErrorQueueItem> repo,
+            IRepository<Hl7MessageLog> logs,
+            CancellationToken ct) =>
         {
             var errors = await repo.ListAsync(e => !e.Resolved, ct);
-            return Results.Ok(errors.Select(Hl7ErrorDto.From));
+            var messageIds = errors.Select(e => e.Hl7MessageId).Distinct().ToList();
+            var messages = messageIds.Count == 0
+                ? []
+                : await logs.ListAsync(m => messageIds.Contains(m.Id), ct);
+            var byId = messages.ToDictionary(m => m.Id);
+            return Results.Ok(errors
+                .OrderByDescending(e => e.Id)
+                .Select(e => Hl7ErrorDto.From(e, byId.GetValueOrDefault(e.Hl7MessageId))));
         });
 
         // Queues an outbound ORU for a verified result (transport handled by the sender).

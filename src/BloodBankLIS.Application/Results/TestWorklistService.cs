@@ -17,6 +17,8 @@ public sealed class TestWorklistService
     private readonly IRepository<OrderSpecimen> _orderSpecimens;
     private readonly IRepository<Specimen> _specimens;
     private readonly IRepository<Patient> _patients;
+    private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
+    private readonly IRepository<AntibodyHistory> _antibodies;
     private readonly IRepository<TestResult> _results;
     private readonly IRepository<TestDefinition> _testDefinitions;
     private readonly IRepository<SpecimenTypeDefinition> _specimenTypes;
@@ -28,6 +30,8 @@ public sealed class TestWorklistService
         IRepository<OrderSpecimen> orderSpecimens,
         IRepository<Specimen> specimens,
         IRepository<Patient> patients,
+        IRepository<PatientBloodTypeHistory> bloodTypes,
+        IRepository<AntibodyHistory> antibodies,
         IRepository<TestResult> results,
         IRepository<TestDefinition> testDefinitions,
         IRepository<SpecimenTypeDefinition> specimenTypes,
@@ -38,6 +42,8 @@ public sealed class TestWorklistService
         _orderSpecimens = orderSpecimens;
         _specimens = specimens;
         _patients = patients;
+        _bloodTypes = bloodTypes;
+        _antibodies = antibodies;
         _results = results;
         _testDefinitions = testDefinitions;
         _specimenTypes = specimenTypes;
@@ -123,6 +129,12 @@ public sealed class TestWorklistService
         var patientIds = orders.Select(o => o.PatientId).Distinct().ToList();
         var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct))
             .ToDictionary(p => p.Id);
+        var currentTypes = (await _bloodTypes.ListAsync(h => patientIds.Contains(h.PatientId) && h.IsCurrent, ct))
+            .GroupBy(h => h.PatientId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(h => h.Id).First());
+        var antibodyRows = (await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct))
+            .GroupBy(a => a.PatientId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.IsActive).ThenBy(a => a.AntibodySpecificity).ToList());
 
         var primarySpecimenByOrder = links
             .GroupBy(l => l.OrderId)
@@ -205,6 +217,8 @@ public sealed class TestWorklistService
                 line.TestCode!,
                 testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType,
                 specimenTypeDefs);
+            currentTypes.TryGetValue(order.PatientId, out var currentType);
+            antibodyRows.TryGetValue(order.PatientId, out var history);
             items.Add(new TestWorkItemDto(
                 line.Id,
                 order.Id,
@@ -219,6 +233,11 @@ public sealed class TestWorklistService
                 specimen?.AccessionNumber,
                 resolvedSpecimenId > 0 ? resolvedSpecimenId : null,
                 specimen?.Status,
+                specimen?.ExpiresUtc,
+                specimen?.ExpiresUtc is DateTime expires && expires <= _clock.UtcNow,
+                currentType?.BloodType.ToString(),
+                history is { Count: > 0 },
+                FormatAntibodySummary(history),
                 current?.Id,
                 current?.Status,
                 current?.Value,
@@ -268,6 +287,19 @@ public sealed class TestWorklistService
         }
 
         return (true, null);
+    }
+
+    private static string? FormatAntibodySummary(IReadOnlyList<AntibodyHistory>? history)
+    {
+        if (history is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        return string.Join(", ", history.Select(a =>
+            a.IsActive
+                ? a.AntibodySpecificity
+                : $"{a.AntibodySpecificity} (historical / currently undetectable)"));
     }
 
     private static string BuildResultKey(long orderId, string testCode, long specimenId) =>

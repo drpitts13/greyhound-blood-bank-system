@@ -37,11 +37,30 @@
         else
         {
             <table class="bb">
-                <thead><tr><th>Msg</th><th>Type</th><th>Detail</th><th>Retries</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Control id</th>
+                        <th>Message</th>
+                        <th>Error</th>
+                        <th>Detail</th>
+                        <th>Retries</th>
+                        <th></th>
+                    </tr>
+                </thead>
                 <tbody>
                     @foreach (var e in _errors)
                     {
-                        <tr><td>@e.Hl7MessageId</td><td>@e.ErrorType</td><td>@e.ErrorDetail</td><td>@e.RetryCount</td></tr>
+                        <tr>
+                            <td class="mono">@(e.MessageControlId ?? "—")</td>
+                            <td>@(string.IsNullOrEmpty(e.MessageType) ? $"#{e.Hl7MessageId}" : $"{e.MessageType}{(string.IsNullOrEmpty(e.TriggerEvent) ? "" : $"^{e.TriggerEvent}")}")</td>
+                            <td>@e.ErrorType</td>
+                            <td>@e.ErrorDetail</td>
+                            <td>@e.RetryCount</td>
+                            <td class="right nowrap">
+                                <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(e.Hl7MessageId)">View</button>
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(e.Hl7MessageId)">Replay</button>
+                            </td>
+                        </tr>
                     }
                 </tbody>
             </table>
@@ -156,8 +175,19 @@
     private async Task ReplayAsync(long id)
     {
         _busy = true;
-        await Api.ReplayHl7Async(id);
+        var r = await Api.ReplayHl7Async(id);
         _busy = false;
+        _ack = r.Value?.Ack;
+        _ackFb = r.Succeeded
+            ? new Feedback(
+                true,
+                r.Value?.AckCode == "AA" ? "Replay accepted (AA). Mapping error cleared when the work item resolved." : $"Replay completed ({r.Value?.AckCode}).",
+                Array.Empty<RuleMessage>(),
+                false,
+                false,
+                Array.Empty<RuleMessage>(),
+                null)
+            : r.ToFeedback();
         await LoadAsync();
     }
 

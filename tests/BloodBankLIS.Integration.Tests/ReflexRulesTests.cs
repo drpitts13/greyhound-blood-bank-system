@@ -50,7 +50,9 @@ public class ReflexRulesTests : IClassFixture<SqliteContextFactory>
 
     private TestWorklistService Worklist(BloodBankDbContext c) =>
         new(new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
-            new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<TestResult>(c),
+            new EfRepository<Specimen>(c), new EfRepository<Patient>(c),
+            new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<AntibodyHistory>(c),
+            new EfRepository<TestResult>(c),
             new EfRepository<TestDefinition>(c), new EfRepository<SpecimenTypeDefinition>(c), _factory.Clock);
 
     private ReflexRuleAdminService ReflexAdmin(BloodBankDbContext c)

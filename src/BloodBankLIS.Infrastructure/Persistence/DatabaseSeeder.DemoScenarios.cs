@@ -49,8 +49,10 @@ public static partial class DatabaseSeeder
         await SeedAlloimmunizationSpecimenScenarioAsync(context, ct);
         await SeedAutologousDirectedScenarioAsync(context, ct);
         await SeedLookbackScenarioAsync(context, ct);
+        await SeedExpectedInboundScenarioAsync(context, ct);
         await SeedDiscrepancyScenarioAsync(context, ct);
         await SeedComputerXmEligibleScenarioAsync(context, ct);
+        await SeedHl7DataLoadScenarioAsync(context, ct);
     }
 
     // ---------------------------------------------------------------------
@@ -521,6 +523,61 @@ public static partial class DatabaseSeeder
         units.AddRange([expiringSoon, quarantined, discarded, expired, held]);
 
         context.BloodUnits.AddRange(units);
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Packing-list units so the expected-inbound worklist can confirm arrival on a
+    /// fresh demo database (one on time, one overdue).
+    /// </summary>
+    private static async Task SeedExpectedInboundScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123ASN0001", ct))
+        {
+            return;
+        }
+
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        if (redCells is null || fridge is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        context.BloodUnits.AddRange(
+            new BloodUnit
+            {
+                UnitNumber = "W000123ASN0001",
+                ProductTypeId = redCells.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                ExpiresUtc = now.AddDays(28),
+                CurrentLocationId = fridge.Id,
+                Status = UnitStatus.Expected,
+                Volume = 300m,
+                CollectionFacility = "Regional Blood Center",
+                Supplier = "Regional Blood Center",
+                CollectedUtc = now.AddDays(-2),
+                ShipmentId = "ASN-DEMO-01",
+                ExpectedArrivalDueUtc = now.AddHours(8)
+            },
+            new BloodUnit
+            {
+                UnitNumber = "W000123ASN0002",
+                ProductTypeId = redCells.Id,
+                Abo = AboGroup.A,
+                RhD = RhType.Negative,
+                ExpiresUtc = now.AddDays(26),
+                CurrentLocationId = fridge.Id,
+                Status = UnitStatus.Expected,
+                Volume = 300m,
+                CollectionFacility = "Regional Blood Center",
+                Supplier = "Regional Blood Center",
+                CollectedUtc = now.AddDays(-3),
+                ShipmentId = "ASN-DEMO-02",
+                ExpectedArrivalDueUtc = now.AddHours(-6)
+            });
         await context.SaveChangesAsync(ct);
     }
 
@@ -1868,6 +1925,148 @@ public static partial class DatabaseSeeder
         {
             abscLine.ResultStatus = ResultStatus.Verified;
         }
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// End-to-end inbound load: ADT patient/visit, ORM type-and-screen, accepted
+    /// specimen, and ORU antibody screen waiting for verification. Message logs
+    /// are stored so /hl7 can show the accepted load without re-keying.
+    /// </summary>
+    private static async Task SeedHl7DataLoadScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0009", ct))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var visit = await AddPatientVisitAsync(
+            context,
+            mrn: "MRN0009",
+            last: "Interface",
+            first: "Helen",
+            dateOfBirth: new DateOnly(1988, 4, 17),
+            sex: Sex.Female,
+            visitNumber: "VIS-2026-HL7",
+            encounterType: EncounterType.Inpatient,
+            currentLocation: "4W Oncology",
+            accession: "ACC-HL7-0009",
+            specimenType: "EDTA",
+            collectedUtc: now.AddHours(-3),
+            ct);
+
+        var orderingLocation = await context.OrderingLocations.FirstAsync(l => l.Code == "ED", ct);
+        var order = new Order
+        {
+            OrderNumber = "PLACER-HL7-0009",
+            PatientId = visit.Patient.Id,
+            EncounterId = visit.Encounter.Id,
+            OrderingLocationId = orderingLocation.Id,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Type and Screen",
+            OrderType = OrderType.TypeAndScreen,
+            TestCode = "TNS",
+            Priority = OrderPriority.Stat,
+            Status = OrderStatus.InProcess,
+            Source = OrderSource.Hl7,
+            OrderedUtc = now.AddHours(-2),
+            ResultStatus = ResultStatus.PendingVerification
+        };
+        context.Orders.Add(order);
+        await context.SaveChangesAsync(ct);
+
+        context.OrderLines.Add(new OrderLine
+        {
+            OrderId = order.Id,
+            LineNumber = 1,
+            LineCategory = OrderCategory.Test,
+            LineName = "Antibody Screen",
+            TestCode = "ABSC",
+            OrderType = OrderType.AntibodyScreen,
+            ResultStatus = ResultStatus.PendingVerification
+        });
+        context.OrderSpecimens.Add(new OrderSpecimen
+        {
+            OrderId = order.Id,
+            SpecimenId = visit.Specimen.Id,
+            IsPrimary = true
+        });
+        context.TestResults.Add(new TestResult
+        {
+            SpecimenId = visit.Specimen.Id,
+            PatientId = visit.Patient.Id,
+            OrderId = order.Id,
+            TestCode = "ABSC",
+            Version = 1,
+            Value = "Negative",
+            Status = ResultStatus.PendingVerification,
+            Source = ResultSource.Interface,
+            SourceReference = "CTRL-HL7-ORU-0009",
+            EnteredBy = "hl7",
+            EnteredUtc = now.AddMinutes(-20)
+        });
+        context.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = visit.Patient.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.HistoricalImport,
+            IsCurrent = true
+        });
+
+        context.Hl7Messages.AddRange(
+            new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Inbound,
+                MessageType = "ADT",
+                TriggerEvent = "A04",
+                MessageControlId = "CTRL-HL7-ADT-0009",
+                RawMessage =
+                    "MSH|^~\\&|ADT|HOSP|LIS|LAB|20260101120000||ADT^A04|CTRL-HL7-ADT-0009|P|2.5\r"
+                    + "PID|1||MRN0009^^^HOSP^MR||INTERFACE^HELEN||19880417|F",
+                Status = Hl7MessageStatus.Processed,
+                ReceivedUtc = now.AddHours(-3),
+                ProcessedUtc = now.AddHours(-3),
+                AckCode = "AA",
+                CreatedBy = "hl7"
+            },
+            new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Inbound,
+                MessageType = "ORM",
+                TriggerEvent = "O01",
+                MessageControlId = "CTRL-HL7-ORM-0009",
+                RawMessage =
+                    "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260101130000||ORM^O01|CTRL-HL7-ORM-0009|P|2.5\r"
+                    + "PID|1||MRN0009^^^HOSP^MR||INTERFACE^HELEN\r"
+                    + "ORC|NW|PLACER-HL7-0009\r"
+                    + "OBR|1|PLACER-HL7-0009||TNS^Type and Screen",
+                Status = Hl7MessageStatus.Processed,
+                ReceivedUtc = now.AddHours(-2),
+                ProcessedUtc = now.AddHours(-2),
+                AckCode = "AA",
+                CreatedBy = "hl7"
+            },
+            new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Inbound,
+                MessageType = "ORU",
+                TriggerEvent = "R01",
+                MessageControlId = "CTRL-HL7-ORU-0009",
+                RawMessage =
+                    "MSH|^~\\&|ANALYZER|LAB|BBLIS|BB|20260101140000||ORU^R01|CTRL-HL7-ORU-0009|P|2.5\r"
+                    + "PID|1||MRN0009^^^HOSP^MR||INTERFACE^HELEN\r"
+                    + "ORC|RE|PLACER-HL7-0009\r"
+                    + "OBR|1|PLACER-HL7-0009||ABSC^Antibody Screen\r"
+                    + "OBX|1|ST|ABSC||Negative||||||F",
+                Status = Hl7MessageStatus.Processed,
+                ReceivedUtc = now.AddMinutes(-20),
+                ProcessedUtc = now.AddMinutes(-20),
+                AckCode = "AA",
+                CreatedBy = "hl7"
+            });
 
         await context.SaveChangesAsync(ct);
     }

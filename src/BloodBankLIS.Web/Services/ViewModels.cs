@@ -27,7 +27,11 @@ public sealed record Hl7ErrorVm(
     string ErrorDetail,
     int RetryCount,
     DateTime? NextRetryUtc,
-    bool Resolved);
+    bool Resolved,
+    string? MessageControlId = null,
+    string? MessageType = null,
+    string? TriggerEvent = null,
+    string? AckCode = null);
 
 public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 

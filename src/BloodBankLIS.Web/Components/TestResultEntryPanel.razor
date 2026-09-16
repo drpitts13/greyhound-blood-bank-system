@@ -7,6 +7,15 @@
 <div class="stack">
     <Outcome Value="_fb" />
 
+    <div class="muted" style="margin-bottom:.5rem;">
+        Type <strong>@(WorkItem.CurrentBloodType ?? "—")</strong>
+        · Antibodies @(WorkItem.HasAntibodyHistory ? WorkItem.AntibodySummary : "none")
+        @if (WorkItem.SpecimenExpiresUtc is DateTime expires)
+        {
+            <span> · Specimen expires <span class="@(WorkItem.SpecimenExpired ? "badge badge-red" : "mono")">@expires.ToString("yyyy-MM-dd HH:mm")</span></span>
+        }
+    </div>
+
     @if (WorkItem.CurrentResultId is not null)
     {
         <div class="muted" style="margin-bottom:.5rem;">
@@ -19,6 +28,13 @@
                 <span> · @WorkItem.CurrentResultInterpretation</span>
             }
         </div>
+        @if (CanVerifyPostedResult)
+        {
+            <div class="flex gap" style="margin-bottom:.75rem;">
+                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="VerifyPostedAsync">Verify posted result</button>
+            </div>
+            <p class="muted">The interface or instrument value is already on the order. Verify it without re-keying unless you need to correct it.</p>
+        }
     }
 
     @if (!WorkItem.CanEnterResults)
@@ -401,6 +417,11 @@
 
     private bool CanOverrideDelta => Session.SecurityLevel >= _deltaMinLevel;
 
+    private bool CanVerifyPostedResult =>
+        WorkItem.CurrentResultId is > 0
+        && WorkItem.CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
+        && Session.Has(PermissionCodes.ResultVerify);
+
     protected override async Task OnParametersSetAsync()
     {
         _fb = null;
@@ -696,6 +717,23 @@
             : _definition.AllowedResultValues.Split(new[] { '\n', '\r', ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private void BeginSave() => _showSavePrompt = true;
+
+    private async Task VerifyPostedAsync()
+    {
+        if (WorkItem.CurrentResultId is not long resultId)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.VerifyResultAsync(resultId);
+        _busy = false;
+        _fb = r.ToFeedback("Posted result verified.");
+        if (r.Succeeded)
+        {
+            await OnSaved.InvokeAsync();
+        }
+    }
 
     private void CancelDeltaOverride()
     {

@@ -1121,7 +1121,7 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Status</th><th>Source</th><th>Priority</th><th>Ordered</th><th></th></tr></thead>
+                    <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Expires</th><th>Status</th><th>Source</th><th>Priority</th><th>Ordered</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var item in _testWorklist)
                         {
@@ -1129,6 +1129,16 @@ else
                                 <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span></td>
                                 <td class="mono">@item.OrderNumber</td>
                                 <td class="mono">@(item.AccessionNumber ?? "—")</td>
+                                <td class="nowrap">
+                                    @if (item.SpecimenExpiresUtc is DateTime expires)
+                                    {
+                                        <span class="@(item.SpecimenExpired ? "badge badge-red" : "muted")">@expires.ToString("yyyy-MM-dd HH:mm")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="muted">—</span>
+                                    }
+                                </td>
                                 <td>
                                     @if (item.CurrentResultStatus is not null)
                                     {
@@ -1150,7 +1160,7 @@ else
                             </tr>
                             @if (_expandedTestLineId == item.OrderLineId)
                             {
-                                <tr><td colspan="8">
+                                <tr><td colspan="9">
                                     <TestResultEntryPanel WorkItem="item" OnSaved="OnTestResultSaved" />
                                 </td></tr>
                             }
@@ -1460,7 +1470,7 @@ else
                                 <td class="mono">@(h.HasMissingVisitContext ? "—" : (h.VisitNumber ?? "—"))</td>
                                 <td class="mono">@(h.OrderNumber ?? "—")</td>
                                 <td>@(h.CompatibilityStatus ?? "—")</td>
-                                <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <span class="badge badge-red">Reaction</span> }</td>
+                                <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <a class="badge badge-red" href="@($"/reactions?patientId={Id}")">Reaction</a> }</td>
                             </tr>
                         }
                     </tbody>
@@ -1472,6 +1482,7 @@ else
 
 @code {
     [Parameter] public long Id { get; set; }
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }
 
     private bool _loading = true;
     private string? _error;
@@ -1714,7 +1725,31 @@ else
             ?.ResultValueType
         ?? ResultValueType.Crossmatch;
 
-    protected override async Task OnParametersSetAsync() => await LoadAsync();
+    private static readonly HashSet<string> KnownTabs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "overview", "visits", "orders", "specimens", "tests", "test-history", "products", "history"
+    };
+
+    private bool _tabFromQueryApplied;
+    private long _tabQueryPatientId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_tabQueryPatientId != Id)
+        {
+            _tabFromQueryApplied = false;
+            _tabQueryPatientId = Id;
+        }
+
+        await LoadAsync();
+        if (!_tabFromQueryApplied
+            && !string.IsNullOrWhiteSpace(TabQuery)
+            && KnownTabs.Contains(TabQuery))
+        {
+            _tabFromQueryApplied = true;
+            await SelectTab(TabQuery.Trim().ToLowerInvariant());
+        }
+    }
 
     private async Task LoadAsync()
     {

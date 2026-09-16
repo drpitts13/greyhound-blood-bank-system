@@ -72,7 +72,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             permissions ?? new FixedPermissionEvaluator(3),
             c, _factory.Clock, _factory.CurrentUser, audit,
             workups: new EfRepository<AntibodyIdentificationWorkup>(c),
-            requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c));
+            requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c),
+            antibodies: new EfRepository<AntibodyHistory>(c));
     }
 
     private InventoryService Inventory(BloodBankDbContext c)
@@ -95,7 +96,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     private sealed record Scenario(
-        long PatientId, long SpecimenId, long UnitId, long ProductTypeId, string Mrn, string DateOfBirth = "1975-06-01");
+        long PatientId, long SpecimenId, long UnitId, long ProductTypeId, string Mrn, string DateOfBirth = "1975-06-01", string UnitNumber = "");
 
     private static IssueUnitRequest IssueReq(
         Scenario s,
@@ -206,7 +207,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         c.BloodUnits.Add(unit);
         await c.SaveChangesAsync();
 
-        return new Scenario(patient.Id, specimen.Id, unit.Id, productType.Id, $"MRN-{key}", birth.ToString("yyyy-MM-dd"));
+        return new Scenario(patient.Id, specimen.Id, unit.Id, productType.Id, $"MRN-{key}", birth.ToString("yyyy-MM-dd"), unit.UnitNumber);
     }
 
     private async Task RecordCompatibleCrossmatchAsync(Scenario s)
@@ -728,7 +729,11 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
             var pending = await Issuing(c).ListPendingRetrospectiveCrossmatchesAsync();
             Assert.Contains(pending, p => p.IssueId == issueId);
-            Assert.Equal(s.Mrn, pending.Single(p => p.IssueId == issueId).MedicalRecordNumber);
+            var retro = pending.Single(p => p.IssueId == issueId);
+            Assert.Equal(s.Mrn, retro.MedicalRecordNumber);
+            Assert.Equal(s.UnitNumber, retro.UnitNumber);
+            Assert.False(string.IsNullOrWhiteSpace(retro.PatientDisplayName));
+            Assert.False(string.IsNullOrWhiteSpace(retro.CurrentBloodType));
         }
 
         await using (var c = _factory.Create())
@@ -1430,6 +1435,12 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             var row = Assert.Single(transit, t => t.IssueId == issueId);
             Assert.Equal("CLR-7", row.CoolerId);
             Assert.False(row.IsOverdue);
+            Assert.Equal(s.UnitNumber, row.UnitNumber);
+            Assert.False(string.IsNullOrWhiteSpace(row.PatientDisplayName));
+            Assert.False(string.IsNullOrWhiteSpace(row.CurrentBloodType));
+            Assert.NotNull(row.SpecimenExpiresUtc);
+            Assert.False(row.SpecimenExpired);
+            Assert.False(row.HasAntibodyHistory);
         }
 
         await using (var c = _factory.Create())

@@ -25,14 +25,60 @@ else
         else
         {
             <table class="bb">
-                <thead><tr><th>Id</th><th>Patient</th><th>Unit</th><th>Severity</th><th>Status</th><th>Fatality</th><th>Written report due</th><th></th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>MRN</th>
+                        <th>Unit</th>
+                        <th>Type</th>
+                        <th>Antibodies</th>
+                        <th>Workup</th>
+                        <th>Remainder</th>
+                        <th>Severity</th>
+                        <th>Status</th>
+                        <th>Fatality</th>
+                        <th>Written report due</th>
+                        <th></th>
+                    </tr>
+                </thead>
                 <tbody>
-                    @foreach (var r in _rows)
+                    @foreach (var r in VisibleRows)
                     {
                         <tr>
-                            <td>@r.Id</td>
-                            <td>@r.PatientId</td>
-                            <td>@r.BloodProductId</td>
+                            <td><a href="@($"/patients/{r.PatientId}")">@(r.PatientDisplayName ?? $"Patient #{r.PatientId}")</a></td>
+                            <td class="mono">@(r.MedicalRecordNumber ?? "—")</td>
+                            <td class="mono">@(r.UnitNumber ?? $"#{r.BloodProductId}")</td>
+                            <td><strong>@(r.CurrentBloodType ?? "—")</strong></td>
+                            <td>
+                                @if (r.HasAntibodyHistory)
+                                {
+                                    <span class="badge badge-amber" title="@r.AntibodySummary">@r.AntibodySummary</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">None</span>
+                                }
+                            </td>
+                            <td>
+                                @if (r.WorkupIncomplete)
+                                {
+                                    <span class="badge badge-amber">Incomplete</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">Ready to close</span>
+                                }
+                            </td>
+                            <td>
+                                @if (r.RemainderQuarantined)
+                                {
+                                    <span class="badge badge-amber">Held</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-red">Not held</span>
+                                }
+                            </td>
                             <td>@r.Severity</td>
                             <td>@r.Status</td>
                             <td>@(r.IsFatality ? r.FatalityNotificationStatus.ToString() : "")</td>
@@ -98,8 +144,19 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery]
+    public long? Id { get; set; }
+
+    [SupplyParameterFromQuery]
+    public long? PatientId { get; set; }
+
     private List<ReactionInvestigationDto> _rows = new();
     private ReactionInvestigationDto? _selected;
+
+    private IEnumerable<ReactionInvestigationDto> VisibleRows =>
+        PatientId is long patientId
+            ? _rows.Where(r => r.PatientId == patientId)
+            : _rows;
     private Feedback? _fb;
     private bool _busy;
     private string? _type;
@@ -129,8 +186,34 @@ else
         _busy = true;
         var r = await Api.GetReactionInvestigationsAsync();
         _busy = false;
-        if (r.Succeeded) _rows = r.Value ?? new();
+        if (r.Succeeded)
+        {
+            _rows = r.Value ?? new();
+            ApplyQuerySelection();
+        }
         else _fb = r.ToFeedback();
+    }
+
+    private void ApplyQuerySelection()
+    {
+        if (Id is long id)
+        {
+            var match = _rows.FirstOrDefault(r => r.Id == id);
+            if (match is not null)
+            {
+                Select(match);
+                return;
+            }
+        }
+
+        if (PatientId is long patientId)
+        {
+            var match = _rows.FirstOrDefault(r => r.PatientId == patientId);
+            if (match is not null)
+            {
+                Select(match);
+            }
+        }
     }
 
     private void Select(ReactionInvestigationDto r)

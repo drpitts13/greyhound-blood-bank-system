@@ -55,16 +55,34 @@ public sealed record ReactionInvestigationDto(
     string? RepeatUnitAboRh = null,
     DatWorkupResult DatResult = DatWorkupResult.NotRecorded,
     string? ElutionResult = null,
-    bool RemainderQuarantined = false)
+    bool RemainderQuarantined = false,
+    string? MedicalRecordNumber = null,
+    string? PatientDisplayName = null,
+    string? UnitNumber = null,
+    string? CurrentBloodType = null,
+    bool HasAntibodyHistory = false,
+    string? AntibodySummary = null,
+    bool WorkupIncomplete = false)
 {
-    public static ReactionInvestigationDto From(ReactionInvestigation r) => new(
+    public static ReactionInvestigationDto From(
+        ReactionInvestigation r,
+        string? mrn = null,
+        string? displayName = null,
+        string? unitNumber = null,
+        string? currentBloodType = null,
+        bool hasAntibodyHistory = false,
+        string? antibodySummary = null) => new(
         r.Id, r.TransfusionEventId, r.PatientId, r.BloodProductId, r.ReportedUtc, r.ReportedBy,
         r.ReactionType, r.Severity, r.Findings, r.Conclusions, r.FollowUp, r.Status, r.Disposition,
         r.ProductAtFault, r.IsFatality, r.FatalityNotificationStatus, r.WrittenReportDueUtc,
         r.CberNotifiedUtc, r.WrittenReportSubmittedUtc,
         r.ClericalCheckCompleted, r.ClericalCheckNotes, r.VisualInspectionCompleted,
         r.VisualInspectionAcceptable, r.RepeatPatientAboRh, r.RepeatUnitAboRh,
-        r.DatResult, r.ElutionResult, r.RemainderQuarantined);
+        r.DatResult, r.ElutionResult, r.RemainderQuarantined,
+        mrn, displayName, unitNumber, currentBloodType, hasAntibodyHistory, antibodySummary,
+        ReactionWorkupCompletenessRule.Evaluate(
+            r.ClericalCheckCompleted, r.VisualInspectionCompleted, r.DatResult, r.ElutionResult)
+            .Severity == RuleSeverity.HardStop);
 }
 
 public sealed class ReactionInvestigationService
@@ -77,6 +95,9 @@ public sealed class ReactionInvestigationService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<Patient>? _patients;
+    private readonly IRepository<PatientBloodTypeHistory>? _bloodTypes;
+    private readonly IRepository<AntibodyHistory>? _antibodies;
 
     public ReactionInvestigationService(
         IRepository<ReactionInvestigation> investigations,
@@ -86,7 +107,10 @@ public sealed class ReactionInvestigationService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<Patient>? patients = null,
+        IRepository<PatientBloodTypeHistory>? bloodTypes = null,
+        IRepository<AntibodyHistory>? antibodies = null)
     {
         _investigations = investigations;
         _transfusions = transfusions;
@@ -96,6 +120,9 @@ public sealed class ReactionInvestigationService
         _currentUser = currentUser;
         _audit = audit;
         _permissions = permissions;
+        _patients = patients;
+        _bloodTypes = bloodTypes;
+        _antibodies = antibodies;
     }
 
     public Task<IReadOnlyList<ReactionInvestigation>> ListAsync(CancellationToken ct = default) =>
@@ -103,6 +130,28 @@ public sealed class ReactionInvestigationService
 
     public Task<ReactionInvestigation?> GetAsync(long id, CancellationToken ct = default) =>
         _investigations.GetByIdAsync(id, ct);
+
+    public async Task<IReadOnlyList<ReactionInvestigationDto>> ListDtosAsync(CancellationToken ct = default)
+    {
+        var rows = await _investigations.ListAsync(ct);
+        var context = await LoadDisplayContextAsync(rows, ct);
+        return rows
+            .OrderByDescending(r => r.ReportedUtc)
+            .Select(r => context.ToDto(r))
+            .ToList();
+    }
+
+    public async Task<ReactionInvestigationDto?> GetDtoAsync(long id, CancellationToken ct = default)
+    {
+        var row = await _investigations.GetByIdAsync(id, ct);
+        if (row is null)
+        {
+            return null;
+        }
+
+        var context = await LoadDisplayContextAsync([row], ct);
+        return context.ToDto(row);
+    }
 
     public async Task<ReactionInvestigation> OpenForTransfusionAsync(TransfusionEvent transfusion, CancellationToken ct = default)
     {
@@ -346,5 +395,77 @@ public sealed class ReactionInvestigationService
         return auth.Severity == RuleSeverity.HardStop
             ? OperationResult<ReactionInvestigation>.Fail(auth.Message)
             : null;
+    }
+
+    private async Task<ReactionDisplayContext> LoadDisplayContextAsync(
+        IReadOnlyList<ReactionInvestigation> rows, CancellationToken ct)
+    {
+        var patientIds = rows.Select(r => r.PatientId).Distinct().ToList();
+        var patients = _patients is null || patientIds.Count == 0
+            ? []
+            : await _patients.ListAsync(p => patientIds.Contains(p.Id), ct);
+        var types = _bloodTypes is null || patientIds.Count == 0
+            ? []
+            : await _bloodTypes.ListAsync(h => patientIds.Contains(h.PatientId) && h.IsCurrent, ct);
+        var antibodies = _antibodies is null || patientIds.Count == 0
+            ? []
+            : await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct);
+
+        var units = new Dictionary<long, BloodUnit>();
+        foreach (var unitId in rows.Select(r => r.BloodProductId).Distinct())
+        {
+            var unit = await _inventory.GetUnitAsync(unitId, ct);
+            if (unit is not null)
+            {
+                units[unitId] = unit;
+            }
+        }
+
+        return new ReactionDisplayContext(patients, types, antibodies, units);
+    }
+
+    private sealed class ReactionDisplayContext(
+        IReadOnlyList<Patient> patients,
+        IReadOnlyList<PatientBloodTypeHistory> types,
+        IReadOnlyList<AntibodyHistory> antibodies,
+        IReadOnlyDictionary<long, BloodUnit> units)
+    {
+        private readonly Dictionary<long, Patient> _patients = patients.ToDictionary(p => p.Id);
+        private readonly Dictionary<long, PatientBloodTypeHistory> _types = types
+            .GroupBy(h => h.PatientId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(h => h.Id).First());
+        private readonly Dictionary<long, List<AntibodyHistory>> _antibodies = antibodies
+            .GroupBy(a => a.PatientId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.IsActive).ThenBy(a => a.AntibodySpecificity).ToList());
+        private readonly IReadOnlyDictionary<long, BloodUnit> _units = units;
+
+        public ReactionInvestigationDto ToDto(ReactionInvestigation row)
+        {
+            _patients.TryGetValue(row.PatientId, out var patient);
+            _types.TryGetValue(row.PatientId, out var type);
+            _antibodies.TryGetValue(row.PatientId, out var history);
+            _units.TryGetValue(row.BloodProductId, out var unit);
+            return ReactionInvestigationDto.From(
+                row,
+                patient?.MedicalRecordNumber,
+                patient is null ? null : $"{patient.LastName}, {patient.FirstName}",
+                unit?.UnitNumber,
+                type?.BloodType.ToString(),
+                history is { Count: > 0 },
+                FormatAntibodySummary(history));
+        }
+
+        private static string? FormatAntibodySummary(IReadOnlyList<AntibodyHistory>? history)
+        {
+            if (history is not { Count: > 0 })
+            {
+                return null;
+            }
+
+            return string.Join(", ", history.Select(a =>
+                a.IsActive
+                    ? a.AntibodySpecificity
+                    : $"{a.AntibodySpecificity} (historical / currently undetectable)"));
+        }
     }
 }

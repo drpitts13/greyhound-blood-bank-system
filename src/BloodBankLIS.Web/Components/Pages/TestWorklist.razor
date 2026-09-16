@@ -6,7 +6,7 @@
 <PageTitle>Test Worklist &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Test Worklist</h1>
-<p class="muted">Pending patient tests and product ABO/Rh retypes. Expand a row to enter results.</p>
+<p class="muted">Pending patient tests and product ABO/Rh retypes. Each row shows current ABO/Rh, antibody history, and specimen expiry so the bench does not open the chart just to check dating and history. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it.</p>
 
 <Outcome Value="_fb" />
 
@@ -38,9 +38,12 @@
                 <tr>
                     <th>Patient</th>
                     <th>MRN</th>
+                    <th>ABO/Rh</th>
+                    <th>Antibodies</th>
                     <th>Test</th>
                     <th>Order #</th>
                     <th>Accession</th>
+                    <th>Expires</th>
                     <th>Status</th>
                     <th>Source</th>
                     <th>Priority</th>
@@ -54,9 +57,30 @@
                     <tr class="@RowClass(item)">
                         <td>@item.PatientName</td>
                         <td class="mono">@item.Mrn</td>
+                        <td><strong>@(item.CurrentBloodType ?? "—")</strong></td>
+                        <td>
+                            @if (item.HasAntibodyHistory)
+                            {
+                                <span class="badge badge-amber" title="@item.AntibodySummary">@item.AntibodySummary</span>
+                            }
+                            else
+                            {
+                                <span class="muted">None</span>
+                            }
+                        </td>
                         <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span></td>
                         <td class="mono">@item.OrderNumber</td>
                         <td class="mono">@(item.AccessionNumber ?? "—")</td>
+                        <td class="nowrap">
+                            @if (item.SpecimenExpiresUtc is DateTime expires)
+                            {
+                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "muted")">@expires.ToString("yyyy-MM-dd HH:mm")</span>
+                            }
+                            else
+                            {
+                                <span class="muted">—</span>
+                            }
+                        </td>
                         <td>
                             @if (item.CurrentResultStatus is not null)
                             {
@@ -71,15 +95,15 @@
                         <td>@item.Priority</td>
                         <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="right nowrap">
-                            <button class="btn btn-ghost btn-sm" @onclick='() => Nav.NavigateTo($"/patients/{item.PatientId}")'>Patient</button>
+                            <button class="btn btn-ghost btn-sm" @onclick='() => Nav.NavigateTo($"/patients/{item.PatientId}?tab=tests")'>Patient</button>
                             <button class="btn btn-ghost btn-sm" @onclick="() => ToggleEntry(item.OrderLineId)">
-                                @(_expandedLineId == item.OrderLineId ? "Hide" : "Enter")
+                                @(_expandedLineId == item.OrderLineId ? "Hide" : WorklistActionLabel(item))
                             </button>
                         </td>
                     </tr>
                     @if (_expandedLineId == item.OrderLineId)
                     {
-                        <tr><td colspan="10">
+                        <tr><td colspan="13">
                             <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
                         </td></tr>
                     }
@@ -259,4 +283,10 @@
     private static string RowClass(TestWorkItemDto item) =>
         item.Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease or OrderPriority.MassiveTransfusionProtocol
             ? "row-urgent" : string.Empty;
+
+    private static string WorklistActionLabel(TestWorkItemDto item) =>
+        item.CurrentResultStatus is ResultStatus.PendingVerification
+        && item.CurrentResultSource is ResultSource.Interface or ResultSource.Instrument
+            ? "Verify"
+            : "Enter";
 }

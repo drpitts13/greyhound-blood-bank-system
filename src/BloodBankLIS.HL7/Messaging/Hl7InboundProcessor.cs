@@ -45,6 +45,7 @@ public sealed class Hl7InboundProcessor
     private readonly ResultService? _results;
     private readonly IRepository<OrderSpecimen>? _orderSpecimens;
     private readonly IRepository<Specimen>? _specimens;
+    private readonly ICurrentUser? _currentUser;
 
     public Hl7InboundProcessor(
         IRepository<Hl7MessageLog> logs,
@@ -65,7 +66,8 @@ public sealed class Hl7InboundProcessor
         PatientMergeService? merges = null,
         ResultService? results = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
-        IRepository<Specimen>? specimens = null)
+        IRepository<Specimen>? specimens = null,
+        ICurrentUser? currentUser = null)
     {
         _logs = logs;
         _errors = errors;
@@ -86,6 +88,7 @@ public sealed class Hl7InboundProcessor
         _results = results;
         _orderSpecimens = orderSpecimens;
         _specimens = specimens;
+        _currentUser = currentUser;
     }
 
     /// <summary>
@@ -101,7 +104,34 @@ public sealed class Hl7InboundProcessor
             return null;
         }
 
-        return await ProcessAsync(original.RawMessage, original.EndpointId, isReplay: true, ct);
+        var outcome = await ProcessAsync(original.RawMessage, original.EndpointId, isReplay: true, ct);
+        if (outcome.Accepted)
+        {
+            await ResolveErrorsAsync(messageId, ct);
+        }
+
+        return outcome;
+    }
+
+    private async Task ResolveErrorsAsync(long messageId, CancellationToken ct)
+    {
+        var open = await _errors.ListAsync(e => e.Hl7MessageId == messageId && !e.Resolved, ct);
+        if (open.Count == 0)
+        {
+            return;
+        }
+
+        var now = _clock.UtcNow;
+        var resolvedBy = string.IsNullOrWhiteSpace(_currentUser?.UserName) ? "replay" : _currentUser.UserName;
+        foreach (var item in open)
+        {
+            item.Resolved = true;
+            item.ResolvedBy = resolvedBy;
+            item.ResolvedUtc = now;
+            _errors.Update(item);
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
     }
 
     public async Task<Hl7ProcessResult> ProcessAsync(string rawMessage, long? endpointId = null, bool isReplay = false, CancellationToken ct = default)

@@ -106,7 +106,14 @@ public sealed record InTransitWorkItemDto(
     long IssueId,
     long PatientId,
     string? MedicalRecordNumber,
+    string? PatientDisplayName,
     long BloodUnitId,
+    string? UnitNumber,
+    string? CurrentBloodType,
+    bool HasAntibodyHistory,
+    string? AntibodySummary,
+    DateTime? SpecimenExpiresUtc,
+    bool SpecimenExpired,
     DateTime IssuedUtc,
     DateTime? DueUtc,
     bool IsOverdue,
@@ -114,8 +121,20 @@ public sealed record InTransitWorkItemDto(
     string? IssuedToLocation,
     IssueStatus Status)
 {
-    public static InTransitWorkItemDto From(Issue i, DateTime now, string? mrn) => new(
-        i.Id, i.PatientId, mrn, i.BloodProductId, i.IssuedUtc, i.InTransitDueUtc,
+    public static InTransitWorkItemDto From(
+        Issue i,
+        DateTime now,
+        string? mrn,
+        string? displayName,
+        string? unitNumber,
+        string? currentBloodType,
+        bool hasAntibodyHistory,
+        string? antibodySummary,
+        DateTime? specimenExpiresUtc,
+        bool specimenExpired) => new(
+        i.Id, i.PatientId, mrn, displayName, i.BloodProductId, unitNumber, currentBloodType,
+        hasAntibodyHistory, antibodySummary, specimenExpiresUtc, specimenExpired,
+        i.IssuedUtc, i.InTransitDueUtc,
         InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning,
         i.CoolerId, i.IssuedToLocation, i.Status);
 }
@@ -132,7 +151,14 @@ public sealed record RetrospectiveCrossmatchWorkItemDto(
     long IssueId,
     long PatientId,
     string? MedicalRecordNumber,
+    string? PatientDisplayName,
     long BloodUnitId,
+    string? UnitNumber,
+    string? CurrentBloodType,
+    bool HasAntibodyHistory,
+    string? AntibodySummary,
+    DateTime? SpecimenExpiresUtc,
+    bool SpecimenExpired,
     DateTime IssuedUtc,
     DateTime? DueUtc,
     bool IsOverdue,
@@ -140,8 +166,20 @@ public sealed record RetrospectiveCrossmatchWorkItemDto(
     IssueStatus Status,
     string? EmergencyReleaseDetails)
 {
-    public static RetrospectiveCrossmatchWorkItemDto From(Issue i, DateTime now, string? mrn) => new(
-        i.Id, i.PatientId, mrn, i.BloodProductId, i.IssuedUtc, i.RetrospectiveCrossmatchDueUtc,
+    public static RetrospectiveCrossmatchWorkItemDto From(
+        Issue i,
+        DateTime now,
+        string? mrn,
+        string? displayName,
+        string? unitNumber,
+        string? currentBloodType,
+        bool hasAntibodyHistory,
+        string? antibodySummary,
+        DateTime? specimenExpiresUtc,
+        bool specimenExpired) => new(
+        i.Id, i.PatientId, mrn, displayName, i.BloodProductId, unitNumber, currentBloodType,
+        hasAntibodyHistory, antibodySummary, specimenExpiresUtc, specimenExpired,
+        i.IssuedUtc, i.RetrospectiveCrossmatchDueUtc,
         i.RetrospectiveCrossmatchDueUtc is DateTime due && now > due,
         i.IssueType, i.Status, i.EmergencyReleaseDetails);
 }

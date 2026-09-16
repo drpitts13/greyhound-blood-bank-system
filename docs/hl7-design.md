@@ -67,7 +67,7 @@ Default catalog (customizable per endpoint):
 | `TestResult.Interpretation` | `OBX-8` |
 | `TestResult.ObxStatus` | `OBX-11` |
 
-Action: post through `ResultService.EnterFromInterfaceAsync`. Source is `Interface`; initial status is `PendingVerification` (OCD-018). Verified rows are never overwritten (sender must use the correction workflow). Specimen must be an accepted specimen already linked to the order. OBX-11 empty/`F`/`C`/`P`/`R` may post; other statuses NAK (`RES-IFACE-OBX-STATUS`, OCD-019). Audit event type is `Interface`. The interface path does not require `result.enter`.
+Action: post through `ResultService.EnterFromInterfaceAsync`. Source is `Interface`; initial status is `PendingVerification` (OCD-018). Verified rows are never overwritten (sender must use the correction workflow). Specimen must be an accepted specimen already linked to the order. OBX-11 empty/`F`/`C`/`P`/`R` may post; other statuses NAK (`RES-IFACE-OBX-STATUS`, OCD-019). Audit event type is `Interface`. The interface path does not require `result.enter`. The pending worklist Verify action calls `VerifyResultAsync` on that posted row so the bench does not re-key a good ORU. Demo seed `MRN0009` is this ADT/ORM/ORU path.
 
 ### 2.4 Outbound DFT (billing)
 Triggered when charge capture creates a `BillingEvent`. Builds `MSH + EVN + PID + FT1` DFT^P03. Default `FT1-6` is `CG`, `FT1-7` is the billing code, `FT1-4` is the service date. Transaction amount is omitted — catalog price is internal only.
@@ -111,7 +111,7 @@ flowchart TD
 ## 5. Logging and observability
 
 - Every message (in/out) is persisted with raw text, parsed JSON, status, timestamps, ack code, and error detail.
-- `InterfaceErrorQueue` is the operational work list for interface failures, with resolve/replay actions that are audited.
+- `InterfaceErrorQueue` is the operational work list for interface failures. The `/hl7` error queue shows message control id and type, and Replay resubmits the linked inbound log. An accepted replay (`AA`) marks the original work item resolved.
 - Indexes on `MessageControlId`, `Status`, `ReceivedUtc`, `MessageType` support the error-queue and replay UIs.
 
 ---

@@ -52,6 +52,7 @@ public sealed class IssuingService
     private readonly IAuditWriter _audit;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
     private readonly CrossmatchSettingsReader? _crossmatchSettings;
+    private readonly IRepository<AntibodyHistory>? _antibodies;
 
     public IssuingService(
         IInventoryRepository inventory,
@@ -83,7 +84,8 @@ public sealed class IssuingService
         IAuditWriter audit,
         IRepository<AntibodyIdentificationWorkup>? workups = null,
         IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
-        CrossmatchSettingsReader? crossmatchSettings = null)
+        CrossmatchSettingsReader? crossmatchSettings = null,
+        IRepository<AntibodyHistory>? antibodies = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -115,6 +117,7 @@ public sealed class IssuingService
         _workups = workups;
         _requirementDefinitions = requirementDefinitions;
         _crossmatchSettings = crossmatchSettings;
+        _antibodies = antibodies;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -502,16 +505,16 @@ public sealed class IssuingService
             && i.RetrospectiveCrossmatchCompletedUtc == null
             && i.Status != IssueStatus.Returned, ct);
 
-        var patientIds = rows.Select(i => i.PatientId).Distinct().ToList();
-        var patients = patientIds.Count == 0
-            ? []
-            : await _patients.ListAsync(p => patientIds.Contains(p.Id), ct);
-        var mrnByPatient = patients.ToDictionary(p => p.Id, p => p.MedicalRecordNumber);
-
+        var context = await LoadIssueWorklistContextAsync(rows, ct);
         return rows
             .OrderBy(i => i.RetrospectiveCrossmatchDueUtc ?? i.IssuedUtc)
-            .Select(i => RetrospectiveCrossmatchWorkItemDto.From(
-                i, now, mrnByPatient.GetValueOrDefault(i.PatientId)))
+            .Select(i =>
+            {
+                var row = context.For(i, now);
+                return RetrospectiveCrossmatchWorkItemDto.From(
+                    i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
+                    row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired);
+            })
             .ToList();
     }
 
@@ -524,15 +527,16 @@ public sealed class IssuingService
         var rows = await _issues.ListAsync(i =>
             i.Status == IssueStatus.Issued && i.WardReceivedUtc == null, ct);
 
-        var patientIds = rows.Select(i => i.PatientId).Distinct().ToList();
-        var patients = patientIds.Count == 0
-            ? []
-            : await _patients.ListAsync(p => patientIds.Contains(p.Id), ct);
-        var mrnByPatient = patients.ToDictionary(p => p.Id, p => p.MedicalRecordNumber);
-
+        var context = await LoadIssueWorklistContextAsync(rows, ct);
         return rows
             .OrderBy(i => i.InTransitDueUtc ?? i.IssuedUtc)
-            .Select(i => InTransitWorkItemDto.From(i, now, mrnByPatient.GetValueOrDefault(i.PatientId)))
+            .Select(i =>
+            {
+                var row = context.For(i, now);
+                return InTransitWorkItemDto.From(
+                    i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
+                    row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired);
+            })
             .ToList();
     }
 
@@ -1191,5 +1195,113 @@ public sealed class IssuingService
             RelatedEntityType = relatedType,
             RelatedEntityId = relatedId
         });
+    }
+
+    private async Task<IssueWorklistContext> LoadIssueWorklistContextAsync(
+        IReadOnlyList<Issue> rows, CancellationToken ct)
+    {
+        var patientIds = rows.Select(i => i.PatientId).Distinct().ToList();
+        var patients = patientIds.Count == 0
+            ? []
+            : await _patients.ListAsync(p => patientIds.Contains(p.Id), ct);
+        var types = patientIds.Count == 0
+            ? []
+            : await _bloodTypes.ListAsync(h => patientIds.Contains(h.PatientId) && h.IsCurrent, ct);
+        var antibodies = _antibodies is null || patientIds.Count == 0
+            ? []
+            : await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct);
+        var specimens = patientIds.Count == 0
+            ? []
+            : await _specimens.ListAsync(s => patientIds.Contains(s.PatientId), ct);
+        var allocationIds = rows
+            .Where(i => i.AllocationId is > 0)
+            .Select(i => i.AllocationId!.Value)
+            .Distinct()
+            .ToList();
+        var allocations = allocationIds.Count == 0
+            ? []
+            : await _allocations.ListAsync(a => allocationIds.Contains(a.Id), ct);
+
+        var units = new Dictionary<long, BloodUnit>();
+        foreach (var unitId in rows.Select(i => i.BloodProductId).Distinct())
+        {
+            var unit = await _inventory.GetUnitAsync(unitId, ct);
+            if (unit is not null)
+            {
+                units[unitId] = unit;
+            }
+        }
+
+        return new IssueWorklistContext(patients, types, antibodies, specimens, allocations, units);
+    }
+
+    private sealed class IssueWorklistContext(
+        IReadOnlyList<Patient> patients,
+        IReadOnlyList<PatientBloodTypeHistory> types,
+        IReadOnlyList<AntibodyHistory> antibodies,
+        IReadOnlyList<Specimen> specimens,
+        IReadOnlyList<Allocation> allocations,
+        IReadOnlyDictionary<long, BloodUnit> units)
+    {
+        private readonly Dictionary<long, Patient> _patients = patients.ToDictionary(p => p.Id);
+        private readonly Dictionary<long, PatientBloodTypeHistory> _types = types
+            .GroupBy(h => h.PatientId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(h => h.Id).First());
+        private readonly Dictionary<long, List<AntibodyHistory>> _antibodies = antibodies
+            .GroupBy(a => a.PatientId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.IsActive).ThenBy(a => a.AntibodySpecificity).ToList());
+        private readonly Dictionary<long, Allocation> _allocations = allocations.ToDictionary(a => a.Id);
+        private readonly Dictionary<long, Specimen> _specimens = specimens.ToDictionary(s => s.Id);
+        private readonly IReadOnlyDictionary<long, BloodUnit> _units = units;
+
+        public (string? Mrn, string? DisplayName, string? UnitNumber, string? CurrentBloodType,
+            bool HasAntibodyHistory, string? AntibodySummary, DateTime? SpecimenExpiresUtc, bool SpecimenExpired)
+            For(Issue issue, DateTime clock)
+        {
+            _patients.TryGetValue(issue.PatientId, out var patient);
+            _types.TryGetValue(issue.PatientId, out var type);
+            _antibodies.TryGetValue(issue.PatientId, out var history);
+            _units.TryGetValue(issue.BloodProductId, out var unit);
+            var specimen = ResolveSpecimen(issue);
+            var expires = specimen?.ExpiresUtc;
+            return (
+                patient?.MedicalRecordNumber,
+                patient is null ? null : $"{patient.LastName}, {patient.FirstName}",
+                unit?.UnitNumber,
+                type?.BloodType.ToString(),
+                history is { Count: > 0 },
+                FormatAntibodySummary(history),
+                expires,
+                expires is DateTime exp && exp <= clock);
+        }
+
+        private Specimen? ResolveSpecimen(Issue issue)
+        {
+            if (issue.AllocationId is long allocationId
+                && _allocations.TryGetValue(allocationId, out var allocation)
+                && allocation.SpecimenId is long specimenId
+                && _specimens.TryGetValue(specimenId, out var linked))
+            {
+                return linked;
+            }
+
+            return _specimens.Values
+                .Where(s => s.PatientId == issue.PatientId && s.Status == SpecimenStatus.Accepted)
+                .OrderByDescending(s => s.CollectedUtc)
+                .FirstOrDefault();
+        }
+
+        private static string? FormatAntibodySummary(IReadOnlyList<AntibodyHistory>? history)
+        {
+            if (history is not { Count: > 0 })
+            {
+                return null;
+            }
+
+            return string.Join(", ", history.Select(a =>
+                a.IsActive
+                    ? a.AntibodySpecificity
+                    : $"{a.AntibodySpecificity} (historical / currently undetectable)"));
+        }
     }
 }

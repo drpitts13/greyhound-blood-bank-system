@@ -45,6 +45,31 @@ them silently and do not invent ICCBBA tables.
 Later (not ranked into Cycle 1): no Blazor E2E suite; open antibody-identification
 workup still allows allocate / serologic XM / issue as Warning (OCD-023).
 
+Cycle 15 (workflow-audit loop): pending test worklist now surfaces ABO/Rh,
+antibody history, and specimen expiration; `/compatibility` uses MRN/name and
+accession pickers (RISK-BB-267). This is not a new AABB default.
+
+Cycle 16: expected inbound arrival can be confirmed on the packing-list
+worklist (RISK-BB-268). Receive gates are unchanged.
+
+Cycle 17: in-transit and retrospective boards show unit number, ABO/Rh,
+antibody history, and specimen expiration; Receive prefills ward receipt;
+generic issue identifies the recipient by MRN/name (RISK-BB-269). Issue
+gates are unchanged.
+
+Cycle 18: reaction investigations list MRN, name, unit number, type,
+antibodies, workup completeness, and remainder hold; documenting a
+reaction or the patient product-history badge opens the case
+(RISK-BB-270). Close and quarantine gates are unchanged.
+
+Cycle 19: the HL7 error queue shows control id and message type and
+replays from that row; an accepted replay resolves the original mapping
+error (RISK-BB-271). MSH-10 idempotency is unchanged.
+
+Cycle 20: seeded `MRN0009` is an ADT/ORM/ORU load onto an accepted
+specimen; the test worklist verifies the posted interface value without
+re-keying (RISK-BB-272). OBX-11 and specimen gates are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

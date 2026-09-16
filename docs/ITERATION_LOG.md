@@ -524,3 +524,178 @@ extract files when a facility has exported them.
 Ask in conversation: OCD-001/006 eXM policy defaults; OCD-022 antigen
 phenotype versioning; OCD-008 dual-ID policy defaults. OCD-004 remains
 open until a licensed extract is loaded.
+
+## Iteration 15 — Patient-testing bench context (2026-09-16)
+
+Workflow-audit loop cycle 1 (patient testing). Iteration 14 leftovers
+(`ElectronicEligibility_Criteria_ReportEachCheck` and special-requirement
+integration tests) are green. Simulated T&S / worklist / compatibility:
+the pending worklist hid current ABO/Rh, antibody history, and specimen
+expiry, and `/compatibility` accepted raw numeric patient and specimen ids.
+
+### Implemented
+
+- `TestWorkItemDto` carries current blood type, antibody-history summary,
+  specimen expiration, and an expired flag. Entry remains HardStopped when
+  the specimen is expired.
+- `/test-worklist` and the patient Tests tab show those fields. Patient
+  opens `/patients/{id}?tab=tests`. Result entry repeats the same context.
+- `/compatibility` identifies the recipient by MRN/name and the specimen
+  by accession. No clinical default, ICCBBA table, or AABB window was
+  invented.
+
+### Requirements / risk
+
+- URS-BB-161, FRS-BB-195, SRS-BB-156, RISK-BB-267.
+
+### Tests
+
+- TEST-BB-047 (`TestWorklistTests.PendingWorklist_SurfacesBloodTypeAntibodyHistoryAndSpecimenExpiry`).
+
+### Next ranked residual
+
+Next workflow family: unit preparation (receive, retype, irradiate, wash,
+divide, pool). SME items remain: OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 16 — Expected inbound bench confirm (2026-09-16)
+
+Workflow-audit loop tick 2 (unit preparation). Simulated receive, expected
+ASN, retype, quarantine, and modification. The packing-list worklist
+required Open → Manage before visual inspection, temperature, and second
+verifier could be recorded.
+
+### Implemented
+
+- `ExpectedInboundWorkItemDto` includes product type. `/inventory` Expected
+  inbound shows product and an inline Confirm that calls the existing
+  `ReceiveExpectedUnitAsync` gates. Manage drawer confirm remains.
+- Demo seed adds `W000123ASN0001` (on time) and `W000123ASN0002` (overdue).
+- No new temperature range, verifier default, or AABB window was invented.
+
+### Requirements / risk
+
+- URS-BB-162, FRS-BB-196, SRS-BB-157, RISK-BB-268.
+
+### Tests
+
+- TEST-BB-048 (`InventoryServiceTests.ListExpected_FlagsOverdueWhenPastDue`).
+- `SeederTests` expects 50 units including two `Expected`.
+
+### Next ranked residual
+
+Next workflow family: assignment and issuing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 17 — Issue worklists by unit number (2026-09-16)
+
+Workflow-audit loop tick 3 (assignment and issuing). Simulated allocate,
+emergency/MTP, in-transit cooler, ward receipt, and retrospective XM.
+The in-transit and retrospective boards showed raw `BloodUnitId`, the
+ward-receipt form required a typed issue id, and generic issue accepted
+a raw patient id.
+
+### Implemented
+
+- In-transit and retrospective DTOs carry unit number, patient name,
+  current ABO/Rh, antibody-history summary, and specimen expiration.
+- `/issuing` displays those fields. Receive on an in-transit row prefills
+  ward receipt. The issue form identifies the recipient by MRN/name and
+  fills MRN/DOB tokens. Issue stays disabled until a patient is selected.
+- Issue-gate order, identity tokens, and clinical defaults are unchanged.
+
+### Requirements / risk
+
+- URS-BB-163, FRS-BB-197, SRS-BB-158, RISK-BB-269.
+
+### Tests
+
+- TEST-BB-049 (`Phase4IssuingTests.Issue_SetsCoolerAndAppearsOnInTransitWorklist`).
+
+### Next ranked residual
+
+Next workflow family: transfusion reactions. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 18 — Reaction worklist identification (2026-09-16)
+
+Workflow-audit loop tick 4 (reactions). Simulated suspected transfusion,
+auto-open, remainder quarantine, and AABB close gate. The investigation
+board showed raw patient and unit ids; documenting a reaction left the
+workup on another page with no deep link.
+
+### Implemented
+
+- `ReactionInvestigationDto` carries MRN, patient name, unit number,
+  current ABO/Rh, antibody-history summary, and workup-incomplete from
+  `ReactionWorkupCompletenessRule`. `/reactions` shows those fields plus
+  remainder-held status. `?id=` and `?patientId=` open the matching case.
+- After a suspected transfusion is documented, `/issuing` links to the
+  opened workup. Patient product history Reaction opens `/reactions?patientId=`.
+- Auto-open, remainder quarantine, and close gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-164, FRS-BB-198, SRS-BB-159, RISK-BB-270.
+
+### Tests
+
+- TEST-BB-050 (`ReactionInvestigationServiceTests.ListDtos_SurfacesPatientUnitTypeAndWorkupIncomplete`).
+
+### Next ranked residual
+
+Next workflow family: HL7 interface processing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 19 — HL7 error-queue replay (2026-09-16)
+
+Workflow-audit loop tick 5 (HL7 interface processing). Simulated ADT/ORM
+ACK/NAK, MSH-10 idempotency, mapping AE, and replay. The error queue
+showed raw message ids and had no replay; a successful replay left the
+mapping error open.
+
+### Implemented
+
+- Error-queue rows include control id, message type, trigger, and ACK.
+  `/hl7` Replay and View run from that row. Successful replay (`AA`)
+  resolves the original work item. MSH-10 idempotency and mapping NAKs
+  are unchanged.
+
+### Requirements / risk
+
+- URS-BB-165, FRS-BB-199, SRS-BB-160, RISK-BB-271.
+
+### Tests
+
+- TEST-BB-051 (`Phase5Hl7Tests.Replay_AfterPatientExists_ResolvesMappingError`).
+
+### Next ranked residual
+
+Next workflow family: HL7 interface data load. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 20 — HL7 load verify without re-key (2026-09-16)
+
+Workflow-audit loop tick 6 (HL7 data load). There was no demo ADT → ORM →
+accepted specimen → ORU story. After a good ORU the worklist showed the
+interface value but only offered Enter, so the bench re-keyed to verify.
+
+### Implemented
+
+- Idempotent seed `MRN0009` (Helen Interface): accepted specimen,
+  HL7 type-and-screen, pending-verification ABSC, and ADT/ORM/ORU logs.
+- Test worklist Verify opens the posted interface/instrument value.
+  `TestResultEntryPanel` verifies that row without re-entry. Specimen and
+  OBX-11 gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-166, FRS-BB-200, SRS-BB-161, RISK-BB-272.
+
+### Tests
+
+- TEST-BB-052 (`TestWorklistTests.PendingWorklist_InterfaceResult_CanVerifyWithoutReentry`).
+
+### Next ranked residual
+
+Next workflow family: billing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

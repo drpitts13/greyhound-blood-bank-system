@@ -5,7 +5,7 @@
 <PageTitle>Compatibility &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Compatibility Testing</h1>
-<p class="muted">Record crossmatches and reserve units for a patient. ABO/Rh incompatibility is a hard stop. Electronic XM HardStops while an antibody-identification workup is open. Serologic XM warns (`ABID-XM-OPEN`) and still records. Allocation warns (`ABID-ALLOC-OPEN`) but still reserves so serologic XM can proceed.</p>
+<p class="muted">Record crossmatches and reserve units for a patient identified by MRN and name, not an internal id. ABO/Rh incompatibility is a hard stop. Electronic XM HardStops while an antibody-identification workup is open. Serologic XM warns (`ABID-XM-OPEN`) and still records. Allocation warns (`ABID-ALLOC-OPEN`) but still reserves so serologic XM can proceed.</p>
 
 <div class="bb-grid cols-2">
     <div class="bb-card">
@@ -21,8 +21,27 @@
                 <div class="field"><label>Unit number</label>
                     <UnitPickerComboBox Scope="UnitPickerScope.OnHand" @bind-Value="_xm.BloodUnitId" />
                 </div>
-                <div class="field"><label>Patient id</label><input type="number" @bind="_xm.PatientId" /></div>
-                <div class="field"><label>Specimen id</label><input type="number" @bind="_xm.SpecimenId" /></div>
+                <div class="field"><label>Patient</label>
+                    <FilterableComboBox TItem="PatientDto" TValue="long?"
+                        Items="_patients"
+                        @bind-Value="XmPatientId"
+                        @bind-Value:after="LoadXmSpecimensAsync"
+                        DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                        ItemValue="@(p => p.Id)"
+                        SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
+                        Clearable="true"
+                        Placeholder="Search MRN or name" />
+                </div>
+                <div class="field"><label>Specimen</label>
+                    <FilterableComboBox TItem="SpecimenDto" TValue="long?"
+                        Items="_xmSpecimens"
+                        @bind-Value="XmSpecimenId"
+                        DisplayText="@FormatSpecimen"
+                        ItemValue="@(s => s.Id)"
+                        SearchText="@(s => $"{s.AccessionNumber} {s.SpecimenType}")"
+                        Clearable="true"
+                        Placeholder="Search accession" />
+                </div>
                 <div class="field"><label>Method</label>
                     <select @bind="_xm.Method">@foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@m</option> }</select>
                 </div>
@@ -34,7 +53,7 @@
                 </div>
             </div>
             <div class="field"><label>Comment</label><input @bind="_xm.Comment" /></div>
-            <button class="btn btn-primary" disabled="@(_busy || _xm.BloodUnitId is null)" @onclick="RecordCrossmatchAsync">Record crossmatch</button>
+            <button class="btn btn-primary" disabled="@(_busy || _xm.BloodUnitId is null || _xm.PatientId == 0 || _xm.SpecimenId == 0)" @onclick="RecordCrossmatchAsync">Record crossmatch</button>
         }
     </div>
 
@@ -51,10 +70,29 @@
                 <div class="field"><label>Unit number</label>
                     <UnitPickerComboBox Scope="UnitPickerScope.Available" @bind-Value="_alloc.BloodUnitId" />
                 </div>
-                <div class="field"><label>Patient id</label><input type="number" @bind="_alloc.PatientId" /></div>
-                <div class="field"><label>Specimen id (optional)</label><input type="number" @bind="_alloc.SpecimenId" /></div>
+                <div class="field"><label>Patient</label>
+                    <FilterableComboBox TItem="PatientDto" TValue="long?"
+                        Items="_patients"
+                        @bind-Value="AllocPatientId"
+                        @bind-Value:after="LoadAllocSpecimensAsync"
+                        DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                        ItemValue="@(p => p.Id)"
+                        SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
+                        Clearable="true"
+                        Placeholder="Search MRN or name" />
+                </div>
+                <div class="field"><label>Specimen (optional)</label>
+                    <FilterableComboBox TItem="SpecimenDto" TValue="long?"
+                        Items="_allocSpecimens"
+                        @bind-Value="AllocSpecimenId"
+                        DisplayText="@FormatSpecimen"
+                        ItemValue="@(s => s.Id)"
+                        SearchText="@(s => $"{s.AccessionNumber} {s.SpecimenType}")"
+                        Clearable="true"
+                        Placeholder="Search accession" />
+                </div>
             </div>
-            <button class="btn btn-primary" disabled="@(_busy || _alloc.BloodUnitId is null)" @onclick="AllocateAsync">Reserve unit</button>
+            <button class="btn btn-primary" disabled="@(_busy || _alloc.BloodUnitId is null || _alloc.PatientId == 0)" @onclick="AllocateAsync">Reserve unit</button>
 
             @if (_lastAllocation is not null)
             {
@@ -72,14 +110,107 @@
 
 @code {
     private bool _busy;
+    private List<PatientDto> _patients = new();
+    private List<SpecimenDto> _xmSpecimens = new();
+    private List<SpecimenDto> _allocSpecimens = new();
 
     private XmModel _xm = new();
     private Feedback? _xmFb;
+
+    private long? XmPatientId
+    {
+        get => _xm.PatientId == 0 ? null : _xm.PatientId;
+        set
+        {
+            var next = value ?? 0;
+            if (_xm.PatientId != next)
+            {
+                _xm.SpecimenId = 0;
+            }
+
+            _xm.PatientId = next;
+        }
+    }
+
+    private long? XmSpecimenId
+    {
+        get => _xm.SpecimenId == 0 ? null : _xm.SpecimenId;
+        set => _xm.SpecimenId = value ?? 0;
+    }
+
+    private long? AllocPatientId
+    {
+        get => _alloc.PatientId == 0 ? null : _alloc.PatientId;
+        set
+        {
+            var next = value ?? 0;
+            if (_alloc.PatientId != next)
+            {
+                _alloc.SpecimenId = 0;
+            }
+
+            _alloc.PatientId = next;
+        }
+    }
+
+    private long? AllocSpecimenId
+    {
+        get => _alloc.SpecimenId == 0 ? null : _alloc.SpecimenId;
+        set => _alloc.SpecimenId = value ?? 0;
+    }
 
     private AllocModel _alloc = new();
     private Feedback? _allocFb;
     private AllocationDto? _lastAllocation;
     private string _releaseReason = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var patients = await Api.GetPatientsAsync();
+        _patients = patients.Value ?? new();
+        if (!patients.Succeeded)
+        {
+            _xmFb = patients.ToFeedback();
+        }
+    }
+
+    private async Task LoadXmSpecimensAsync()
+    {
+        if (_xm.PatientId == 0)
+        {
+            _xmSpecimens = new();
+            return;
+        }
+
+        var r = await Api.GetPatientSpecimensAsync(_xm.PatientId);
+        _xmSpecimens = r.Value ?? new();
+        if (!r.Succeeded)
+        {
+            _xmFb = r.ToFeedback();
+        }
+    }
+
+    private async Task LoadAllocSpecimensAsync()
+    {
+        if (_alloc.PatientId == 0)
+        {
+            _allocSpecimens = new();
+            return;
+        }
+
+        var r = await Api.GetPatientSpecimensAsync(_alloc.PatientId);
+        _allocSpecimens = r.Value ?? new();
+        if (!r.Succeeded)
+        {
+            _allocFb = r.ToFeedback();
+        }
+    }
+
+    private static string FormatSpecimen(SpecimenDto s)
+    {
+        var expires = s.ExpiresUtc is DateTime exp ? $" expires {exp:yyyy-MM-dd HH:mm}" : "";
+        return $"{s.AccessionNumber} — {s.SpecimenType} ({s.Status}{expires})";
+    }
 
     private async Task RecordCrossmatchAsync()
     {

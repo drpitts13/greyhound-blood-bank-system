@@ -19,7 +19,9 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
 
     private TestWorklistService Worklist(BloodBankDbContext c) =>
         new(new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
-            new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<TestResult>(c),
+            new EfRepository<Specimen>(c), new EfRepository<Patient>(c),
+            new EfRepository<PatientBloodTypeHistory>(c), new EfRepository<AntibodyHistory>(c),
+            new EfRepository<TestResult>(c),
             new EfRepository<TestDefinition>(c), new EfRepository<SpecimenTypeDefinition>(c), _factory.Clock);
 
     private ResultService Results(BloodBankDbContext c) =>
@@ -230,6 +232,72 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Single(pending);
         Assert.Equal(ResultSource.Instrument, pending[0].CurrentResultSource);
         Assert.Equal(ResultStatus.PendingVerification, pending[0].CurrentResultStatus);
+    }
+
+    [Fact]
+    public async Task PendingWorklist_InterfaceResult_CanVerifyWithoutReentry()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+
+        var posted = await Results(c).EnterFromInterfaceAsync(
+            seed.specimen!.Id,
+            seed.order.Id,
+            seed.line.TestCode!,
+            "Negative",
+            units: null,
+            interpretation: null,
+            sourceReference: "CTRL-WL-ORU");
+        Assert.True(posted.Succeeded, posted.Error);
+        Assert.Equal(ResultStatus.PendingVerification, posted.Value!.Status);
+        Assert.Equal(ResultSource.Interface, posted.Value.Source);
+
+        var pending = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.Equal(ResultSource.Interface, pending.CurrentResultSource);
+        Assert.Equal("Negative", pending.CurrentResultValue);
+        Assert.Equal(posted.Value.Id, pending.CurrentResultId);
+
+        var postedRow = await c.TestResults.SingleAsync(r => r.Id == posted.Value.Id);
+        postedRow.EnteredBy = "hl7";
+        await c.SaveChangesAsync();
+
+        var verified = await Results(c).VerifyResultAsync(posted.Value.Id);
+        Assert.True(verified.Succeeded, verified.Error);
+        Assert.Equal(ResultStatus.Verified, verified.Value!.Status);
+        Assert.Equal("Negative", verified.Value.Value);
+    }
+
+    [Fact]
+    public async Task PendingWorklist_SurfacesBloodTypeAntibodyHistoryAndSpecimenExpiry()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        seed.specimen!.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = seed.patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+        c.AntibodyHistory.Add(new AntibodyHistory
+        {
+            PatientId = seed.patient.Id,
+            AntibodySpecificity = "anti-K",
+            Status = AntibodyStatus.Identified,
+            IsActive = true
+        });
+        await c.SaveChangesAsync();
+
+        var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.Equal("A+", item.CurrentBloodType);
+        Assert.True(item.HasAntibodyHistory);
+        Assert.Contains("anti-K", item.AntibodySummary);
+        Assert.Equal(seed.specimen.ExpiresUtc, item.SpecimenExpiresUtc);
+        Assert.True(item.SpecimenExpired);
+        Assert.False(item.CanEnterResults);
+        Assert.Contains("expired", item.BlockReason!, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

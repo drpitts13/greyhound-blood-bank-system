@@ -28,7 +28,7 @@ flowchart TD
 ```
 
 - Use case: `ExpectUnitAsync` (packing-list / ASN), `ReceiveExpectedUnitAsync`, `CancelExpectedUnitAsync`, `ReceiveUnitCommand` (walk-in), `ReleaseUnitFromQuarantineCommand`, `RecordProductRetype`. Walk-in receive, expected-arrival confirmation, normalized-component intake, ISBT scan-session start/add/complete, and manual entry require `inventory.receive` (`INV-RCV-PERM` / `INV-SCAN-START-PERM` / `INV-SCAN-ADD-PERM`) in the Application service. Saving a unit antigen or antibody attribute (`POST /api/inventory/units/{id}/blood-attributes`) requires the same privilege (`INV-ATTR-PERM`).
-- Expected inbound (SoftBank/SafeTrace consignee receipt): `POST /api/inventory/units/expected` creates `Expected` without visual inspection and sets `ExpectedArrivalDueUtc` from `Inventory.ExpectedArrivalDueHours` (default 24). Application requires `inventory.receive` (`INV-EXPECT-PERM`). The expected worklist (`GET /api/inventory/units/expected`) flags overdue packing lists (`INV-EXPECT-OVERDUE`). Confirm arrival (`receive-expected`) applies `INV-RCV-VISUAL` and lands in `Received` (retype) or `Quarantine`; late arrival is still allowed and is audited as late. Cancel moves to `CancelledAssignment` and requires `inventory.receive` (`INV-EXPECT-CXL-PERM`). Walk-in receive remains available for units that arrive without a prior packing list.
+- Expected inbound (SoftBank/SafeTrace consignee receipt): `POST /api/inventory/units/expected` creates `Expected` without visual inspection and sets `ExpectedArrivalDueUtc` from `Inventory.ExpectedArrivalDueHours` (default 24). Application requires `inventory.receive` (`INV-EXPECT-PERM`). The expected worklist (`GET /api/inventory/units/expected`) flags overdue packing lists (`INV-EXPECT-OVERDUE`) and includes product type. Confirm arrival (`receive-expected`) is available inline on `/inventory` Expected inbound (appearance, cooler temperature, second verifier) as well as in the unit Manage drawer. It applies `INV-RCV-VISUAL` / `INV-RCV-TEMP` / `INV-RCV-2ND` and lands in `Received` (retype) or `Quarantine`; late arrival is still allowed and is audited as late. Cancel moves to `CancelledAssignment` and requires `inventory.receive` (`INV-EXPECT-CXL-PERM`). Walk-in receive remains available for units that arrive without a prior packing list.
 - Products with Retype Y start in `Received`. ISBT "Release to Available" is ignored until a matching retype is recorded.
 - Front-type retype: Anti-A and Anti-B always; Anti-D required only when the unit is labeled Rh negative.
 - Recording a retype requires `result.enter` (`RES-ENTER-PERM`) and is the second confirmation of the supplier type. Matching record: `Received -> Available`. Mismatch: `Received -> Quarantine` with the discrepancy as the reason (supervisor uses existing release). No second reviewer. A leftover Entered retype may still be confirmed at `POST /api/inventory/units/{id}/retype/{resultId}/verify` with `result.verify`.
@@ -95,6 +95,7 @@ flowchart TD
 ```
 
 - Use cases: `EnterResultCommand`, `SubmitForVerificationCommand`, `VerifyResultCommand`, `CorrectResultCommand`, `InvalidateResultCommand`.
+- The pending test worklist (`GET /api/test-worklist/pending`, `/test-worklist`) shows current ABO/Rh, antibody history (including currently undetectable), and specimen expiration on each row so staff do not leave the bench list to check dating or history. Entry is still blocked when the specimen is missing, not Accepted, or expired. The Patient link opens `/patients/{id}?tab=tests`. The standalone `/compatibility` page identifies the recipient by MRN/name search and the specimen by accession, not by internal numeric ids.
 - Patient ABO/Rh stay `Entered` after save/complete. A second user verifies (`RES-SELF-VERIFY` when `Result.BlockAboSelfVerify` is on, default). Current type is written only on verify. The entering user cannot verify their own ABO/Rh.
 - Checks: result cannot be verified by entry of unknown test; ABO/Rh discrepancy vs history (`RES-ABORH-DELTA`) blocks verify until an authorized override chooses Retain or Replace (gated by exception `MinSecurityLevel`); correcting a verified result requires reason + e-signature.
 - No silent change: corrections always create a new `TestResults` version; the old row is retained and marked superseded.
@@ -149,7 +150,8 @@ flowchart TD
     out -->|All pass| ok[Issue allowed]
 ```
 
-- After a successful issue the unit is **in transit** until ward receipt or return. Optional `CoolerId` records SoftBank-style cooler checkout. `InTransitDueUtc` is `IssuedUtc` plus `Issue.InTransitDueHours` (default 4). The issuing worklist (`GET /api/issues/in-transit`) flags overdue custody (`ISS-IN-TRANSIT`). Late ward receipt is still allowed and is audited as `Transfusion` (late). ISBT-labeled units require a fresh quadrant scan at ward receipt (`UnitScanMismatch`), matching the SoftBank remote-issue chain (issue scan → cooler → ward scan → bedside scan). Legacy units without `ComponentIdentity` are not blocked. HL7 BPAM administration stamps implicit receipt without a scan because the interface already identified the unit.
+- After a successful issue the unit is **in transit** until ward receipt or return. Optional `CoolerId` records SoftBank-style cooler checkout. `InTransitDueUtc` is `IssuedUtc` plus `Issue.InTransitDueHours` (default 4). The issuing worklist (`GET /api/issues/in-transit`) flags overdue custody (`ISS-IN-TRANSIT`) and shows unit number, current ABO/Rh, antibody history, and specimen expiration rather than a raw unit id. Receive on that row prefills ward receipt. Late ward receipt is still allowed and is audited as `Transfusion` (late). ISBT-labeled units require a fresh quadrant scan at ward receipt (`UnitScanMismatch`), matching the SoftBank remote-issue chain (issue scan → cooler → ward scan → bedside scan). Legacy units without `ComponentIdentity` are not blocked. HL7 BPAM administration stamps implicit receipt without a scan because the interface already identified the unit.
+- Generic issue on `/issuing` identifies the recipient by MRN and name. Selecting the patient fills the MRN and date-of-birth identity tokens; issue stays disabled until a patient is selected. The issue gate still verifies those tokens.
 - Documenting a transfusion requires two independent patient identity tokens that match the issued patient (`ISS-IDENTITY`). A checkbox is not positive identification. Electronic dual-ID (`TX-DUAL-ID`) is complete only when those tokens match and an ISBT bedside unit scan verifies. Legacy units keep the prior scan policy. Second-verifier policy is unchanged (OCD-008).
 - Appearance at issue uses the same coded catalog as receive (`ISS-APPEAR`). Defects are a HardStop; the selected code is stored on `Issues.IssueAppearance`.
 - Appearance at ward receipt uses the same catalog (`TX-WARD-APPEAR`). Defects are a HardStop — return the unit to the blood bank. The selected code is stored on `Issues.WardAppearance`.
@@ -244,6 +246,7 @@ flowchart TD
 ```
 
 - Opening from a suspected transfusion is an automatic issue-path write. Updating the investigation, recording CBER notification, or recording the written fatality report requires `reaction.investigate` (`RXN-PERM`) in the Application service.
+- The reaction board (`GET /api/reaction-investigations`) shows patient name, MRN, unit number, current ABO/Rh, antibody history, workup-incomplete from `ReactionWorkupCompletenessRule`, and remainder-hold status rather than raw ids. `/reactions?id=` and `?patientId=` open the matching case. Documenting a suspected transfusion on `/issuing` links to that workup. Patient product history Reaction opens the same board filtered by patient.
 
 Creating or closing a quality-system deviation requires `deviation.manage` (`DEV-PERM`) in the Application service.
 
@@ -259,6 +262,7 @@ flowchart LR
       adt[ADT A01/A04/A08] --> pat[Update Patient/Encounter]
       orm[ORM/OML] --> ord[Create Order]
       oruIn[ORU R01] --> res[Post pending Interface result]
+      res --> verify[Worklist verifies posted value]
     end
     subgraph outbound [Outbound]
       ver[Result verified] --> oru[Build ORU + MLLP send]
@@ -269,7 +273,7 @@ flowchart LR
     oru --> log[Log to HL7Messages]
 ```
 
-- Inbound messages are persisted to `HL7Messages` first, then parsed, then mapped to Application commands (which run the same safety checks as the API). Failures go to `InterfaceErrorQueue` and produce a NAK.
+- Inbound messages are persisted to `HL7Messages` first, then parsed, then mapped to Application commands (which run the same safety checks as the API). Failures go to `InterfaceErrorQueue` and produce a NAK. The error-queue worklist shows control id and message type; Replay from that row uses the same pipeline, and an accepted replay resolves the original work item.
 - Patient name, date of birth, and sex can also be edited on the patient record. Application requires `patient.write` (`PAT-WRITE-PERM`). Creating a patient requires the same privilege (`PAT-CREATE-PERM`). MRN stays immutable after create. A later ADT A08 may overwrite those demographic fields through the HL7 processor (not `PatientService`). ADT patient insert also bypasses `PatientService`.
 - Manual merge of a duplicate into the surviving record requires `patient.merge` in `PatientMergeService.MergeAsync` (`PAT-MERGE-PERM`; Supervisor and Administrator by default). A reason is required. History and antibody-identification workups are reassigned, not deleted. Merge HardStops if both records have an open workup (`ABID-MERGE-DUP-OPEN`) and warns if one does (`ABID-MERGE-WORKUP`). ADT A18/A40 uses `MergeFromHl7Async` and stays ungated.
 - Directory user create/update/role assignment requires `admin.users.manage` in `UserAdminService` (`USR-CREATE-PERM` / `USR-UPD-PERM` / `USR-ASSIGN-PERM`). Activate/deactivate, lock/unlock, and password-reset request use the same privilege (`USR-ACTIVE-PERM` / `USR-LOCK-PERM` / `USR-RESET-PERM`). Role create/update requires `admin.roles.manage` (`ROLE-CREATE-PERM` / `ROLE-UPD-PERM`).

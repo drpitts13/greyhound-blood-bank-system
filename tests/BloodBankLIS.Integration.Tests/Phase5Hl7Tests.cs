@@ -63,7 +63,8 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             merges: withMerge ? Merge(c) : null,
             results: Results(c),
             orderSpecimens: new EfRepository<OrderSpecimen>(c),
-            specimens: new EfRepository<Specimen>(c));
+            specimens: new EfRepository<Specimen>(c),
+            currentUser: _factory.CurrentUser);
     }
 
     private ResultService Results(BloodBankDbContext c) =>
@@ -541,6 +542,43 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
 
         var queued = await context.InterfaceErrorQueue.AnyAsync(e => e.Hl7MessageId == result.Log.Id && !e.Resolved);
         Assert.True(queued);
+        Assert.Equal("CTRL-O-ERR", result.Log.MessageControlId);
+        Assert.Equal("ORM", result.Log.MessageType);
+    }
+
+    [Fact]
+    public async Task Replay_AfterPatientExists_ResolvesMappingError()
+    {
+        long messageId;
+        await using (var c = _factory.Create())
+        {
+            var failed = await Processor(c).ProcessAsync(Orm("CTRL-O-FIX", "HL7-O-FIX", "PLACER-FIX"));
+            Assert.False(failed.Accepted);
+            messageId = failed.Log.Id;
+            Assert.True(await c.InterfaceErrorQueue.AnyAsync(e => e.Hl7MessageId == messageId && !e.Resolved));
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var registered = await Processor(c).ProcessAsync(Adt("CTRL-O-FIX-ADT", "HL7-O-FIX", "Mapped", "Pat"));
+            Assert.True(registered.Accepted);
+            if (!await c.OrderingLocations.AnyAsync(l => l.Code == "ED"))
+            {
+                c.OrderingLocations.Add(new OrderingLocation { Code = "ED", Name = "ED", IsActive = true });
+                await c.SaveChangesAsync();
+            }
+
+            var replay = await Processor(c).ReplayAsync(messageId);
+            Assert.NotNull(replay);
+            Assert.True(replay!.Accepted, replay.AckMessage);
+        }
+
+        await using var verify = _factory.Create();
+        var original = Assert.Single(await verify.InterfaceErrorQueue.Where(e => e.Hl7MessageId == messageId).ToListAsync());
+        Assert.True(original.Resolved);
+        Assert.False(string.IsNullOrWhiteSpace(original.ResolvedBy));
+        Assert.NotNull(original.ResolvedUtc);
+        Assert.True(await verify.Orders.AnyAsync(o => o.OrderNumber == "PLACER-FIX"));
     }
 
     [Fact]

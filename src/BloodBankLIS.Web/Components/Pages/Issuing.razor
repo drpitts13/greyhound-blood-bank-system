@@ -54,10 +54,13 @@
             <table class="bb">
                 <thead>
                     <tr>
-                        <th>Issue</th>
+                        <th>Patient</th>
                         <th>MRN</th>
                         <th>Unit</th>
                         <th>Type</th>
+                        <th>Antibodies</th>
+                        <th>Specimen</th>
+                        <th>Issue type</th>
                         <th>Issued</th>
                         <th>Due</th>
                     </tr>
@@ -66,9 +69,12 @@
                     @foreach (var row in _retroItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">#@row.IssueId</a></td>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
-                            <td class="mono">@row.BloodUnitId</td>
+                            <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
+                            <td><strong>@(row.CurrentBloodType ?? "—")</strong></td>
+                            <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
+                            <td>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</td>
                             <td>@row.IssueType</td>
                             <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
@@ -97,22 +103,29 @@
             <table class="bb">
                 <thead>
                     <tr>
-                        <th>Issue</th>
+                        <th>Patient</th>
                         <th>MRN</th>
                         <th>Unit</th>
+                        <th>Type</th>
+                        <th>Antibodies</th>
+                        <th>Specimen</th>
                         <th>Cooler</th>
                         <th>Location</th>
                         <th>Issued</th>
                         <th>Due</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var row in _inTransitItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">#@row.IssueId</a></td>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
-                            <td class="mono">@row.BloodUnitId</td>
+                            <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
+                            <td><strong>@(row.CurrentBloodType ?? "—")</strong></td>
+                            <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
+                            <td>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</td>
                             <td class="mono">@(row.CoolerId ?? "—")</td>
                             <td>@(row.IssuedToLocation ?? "—")</td>
                             <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
@@ -121,6 +134,12 @@
                                 @if (row.IsOverdue)
                                 {
                                     <span class="badge badge-amber">Overdue</span>
+                                }
+                            </td>
+                            <td>
+                                @if (Session.Has(PermissionCodes.TransfusionDocument))
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId)">Receive</button>
                                 }
                             </td>
                         </tr>
@@ -144,7 +163,17 @@
             <div class="field"><label>Unit number</label>
                 <UnitPickerComboBox Scope="UnitPickerScope.Issuable" @bind-Value="_issue.BloodUnitId" />
             </div>
-            <div class="field"><label>Patient id</label><input type="number" @bind="_issue.PatientId" @bind:after="LoadIssueRequirementsAsync" /></div>
+            <div class="field"><label>Patient</label>
+                <FilterableComboBox TItem="PatientDto" TValue="long?"
+                    Items="_patients"
+                    @bind-Value="IssuePatientId"
+                    @bind-Value:after="OnIssuePatientChangedAsync"
+                    DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                    ItemValue="@(p => p.Id)"
+                    SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
+                    Clearable="true"
+                    Placeholder="Search MRN or name" />
+            </div>
             <div class="field"><label>Issued to (person)</label><input @bind="_issue.IssuedTo" /></div>
             <div class="field"><label>Issued to (location)</label><input @bind="_issue.IssuedToLocation" /></div>
             <div class="field"><label>Cooler / transport id</label><input @bind="_issue.CoolerId" placeholder="Optional cooler checkout" /></div>
@@ -204,11 +233,11 @@
 
         @if (_overrideOn)
         {
-            <button class="btn btn-danger" disabled="@(_busy || _issue.BloodUnitId is null)" @onclick="IssueWithOverrideAsync">Sign &amp; issue (override)</button>
+            <button class="btn btn-danger" disabled="@(_busy || _issue.BloodUnitId is null || _issue.PatientId <= 0)" @onclick="IssueWithOverrideAsync">Sign &amp; issue (override)</button>
         }
         else
         {
-            <button class="btn btn-primary" disabled="@(_busy || _issue.BloodUnitId is null)" @onclick="IssueAsync">Issue unit</button>
+            <button class="btn btn-primary" disabled="@(_busy || _issue.BloodUnitId is null || _issue.PatientId <= 0)" @onclick="IssueAsync">Issue unit</button>
         }
 
         @if (_lastIssue is not null)
@@ -231,7 +260,7 @@
     {
         <Outcome Value="_wardFb" />
         <div class="form-row">
-            <div class="field"><label>Issue id</label><input type="number" @bind="_wardIssueId" /></div>
+            <div class="field"><label>Issue id</label><input type="number" @bind="_wardIssueId" placeholder="Or Receive from in transit" /></div>
             <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" /></div>
             <div class="field"><label>Appearance at receipt</label>
                 <select @bind="_wardAppearance">
@@ -319,6 +348,13 @@
             <div style="margin-top:.75rem;">
                 <button class="btn btn-secondary" disabled="@_busy" @onclick="DocumentTransfusionAsync">Document</button>
             </div>
+            @if (_openedReactionId is long reactionId)
+            {
+                <div class="alert alert-warning" style="margin-top:.75rem;">
+                    Reaction workup opened.
+                    <a href="@($"/reactions?id={reactionId}")">Open investigation #@reactionId</a>
+                </div>
+            }
         }
     </div>
 </div>
@@ -362,13 +398,21 @@
     private string? _txPatientIdentifier1;
     private string? _txPatientIdentifier2;
     private Feedback? _txFb;
+    private long? _openedReactionId;
     private readonly UnitScanModel _issueScan = new();
     private readonly UnitScanModel _txScan = new();
     private readonly UnitScanModel _wardScan = new();
     private List<DirectoryUserDto> _directoryUsers = new();
+    private List<PatientDto> _patients = new();
     private List<RetrospectiveCrossmatchWorkItemDto> _retroItems = new();
     private List<InTransitWorkItemDto> _inTransitItems = new();
     private List<SecondAboWorkItemDto> _secondAboItems = new();
+
+    private long? IssuePatientId
+    {
+        get => _issue.PatientId == 0 ? null : _issue.PatientId;
+        set => _issue.PatientId = value ?? 0;
+    }
 
     private IEnumerable<DirectoryUserDto> SecondVerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
@@ -377,8 +421,68 @@
     {
         var users = await Api.GetDirectoryUsersAsync();
         if (users.Succeeded) _directoryUsers = users.Value ?? new();
+        var patients = await Api.GetPatientsAsync();
+        if (patients.Succeeded) _patients = patients.Value ?? new();
         await LoadWorklistsAsync();
     }
+
+    private async Task OnIssuePatientChangedAsync()
+    {
+        var patient = _patients.FirstOrDefault(p => p.Id == _issue.PatientId);
+        if (patient is null)
+        {
+            _issue.PatientIdentifier1Value = null;
+            _issue.PatientIdentifier2Value = null;
+            await LoadIssueRequirementsAsync();
+            return;
+        }
+
+        _issue.PatientIdentifier1Value = patient.MedicalRecordNumber;
+        _issue.PatientIdentifier2Value = patient.DateOfBirth.ToString("yyyy-MM-dd");
+        await LoadIssueRequirementsAsync();
+    }
+
+    private void SelectWardIssue(long issueId)
+    {
+        _wardIssueId = issueId;
+    }
+
+    private static RenderFragment AntibodyCell(bool hasHistory, string? summary) => builder =>
+    {
+        if (hasHistory)
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", "badge badge-amber");
+            builder.AddAttribute(2, "title", summary);
+            builder.AddContent(3, summary);
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", "muted");
+            builder.AddContent(2, "None");
+            builder.CloseElement();
+        }
+    };
+
+    private static RenderFragment SpecimenExpiryCell(DateTime? expiresUtc, bool expired) => builder =>
+    {
+        if (expiresUtc is DateTime expires)
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", expired ? "badge badge-red" : "muted");
+            builder.AddContent(2, expires.ToString("yyyy-MM-dd HH:mm"));
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(0, "span");
+            builder.AddAttribute(1, "class", "muted");
+            builder.AddContent(2, "—");
+            builder.CloseElement();
+        }
+    };
 
     private async Task LoadIssueRequirementsAsync()
     {
@@ -540,6 +644,16 @@
             PatientIdentifier2Value: _txPatientIdentifier2));
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
+        _openedReactionId = null;
+        if (_txReaction && r.Succeeded && r.Value is not null)
+        {
+            var cases = await Api.GetReactionInvestigationsAsync();
+            var opened = cases.Value?.FirstOrDefault(x => x.TransfusionEventId == r.Value.Id);
+            if (opened is not null)
+            {
+                _openedReactionId = opened.Id;
+            }
+        }
     }
 
     private sealed class IssueModel
