@@ -30,7 +30,8 @@ else
                         <th>Patient</th>
                         <th>MRN</th>
                         <th>Unit</th>
-                        <th>Type</th>
+                        <th>Patient type</th>
+                        <th>Unit type</th>
                         <th>Antibodies</th>
                         <th>Workup</th>
                         <th>Remainder</th>
@@ -49,6 +50,7 @@ else
                             <td class="mono">@(r.MedicalRecordNumber ?? "—")</td>
                             <td class="mono">@(r.UnitNumber ?? $"#{r.BloodProductId}")</td>
                             <td><strong>@(r.CurrentBloodType ?? "—")</strong></td>
+                            <td><strong>@(r.UnitBloodType ?? "—")</strong></td>
                             <td>
                                 @if (r.HasAntibodyHistory)
                                 {
@@ -62,7 +64,7 @@ else
                             <td>
                                 @if (r.WorkupIncomplete)
                                 {
-                                    <span class="badge badge-amber">Incomplete</span>
+                                    <span class="badge badge-amber" title="@r.WorkupHoldReason">@(r.WorkupHoldReason ?? "Incomplete")</span>
                                 }
                                 else
                                 {
@@ -106,7 +108,7 @@ else
                 <div class="field"><label>Disposition</label><input @bind="_disposition" /></div>
             </div>
             <h4>AABB workup checklist</h4>
-            <p class="muted">Clerical check, visual inspection, and post-transfusion DAT are required before close (same gate as SoftBank / SafeTrace).</p>
+            <p class="muted">Clerical check, visual inspection, and post-transfusion DAT are required before close (same gate as SoftBank / SafeTrace). Compare patient <strong>@(_selected.CurrentBloodType ?? "—")</strong> with labeled unit <strong>@(_selected.UnitBloodType ?? "—")</strong> <span class="mono">@(_selected.UnitNumber ?? "")</span>. Checking remainder holds the bag in quality quarantine when the unit is still Issued, stopped, or Transfused.</p>
             <label class="flex"><input type="checkbox" @bind="_clerical" /> &nbsp;Clerical check completed (patient ID, unit number, ABO/Rh)</label>
             <div class="field"><label>Clerical notes</label><input @bind="_clericalNotes" /></div>
             <label class="flex"><input type="checkbox" @bind="_visual" /> &nbsp;Visual inspection of bag / tubing / segments completed</label>
@@ -232,8 +234,8 @@ else
         _clericalNotes = r.ClericalCheckNotes;
         _visual = r.VisualInspectionCompleted;
         _visualOk = r.VisualInspectionAcceptable;
-        _repeatPatient = r.RepeatPatientAboRh;
-        _repeatUnit = r.RepeatUnitAboRh;
+        _repeatPatient = r.RepeatPatientAboRh ?? r.CurrentBloodType;
+        _repeatUnit = r.RepeatUnitAboRh ?? r.UnitBloodType;
         _dat = r.DatResult;
         _elution = r.ElutionResult;
         _remainderHeld = r.RemainderQuarantined;

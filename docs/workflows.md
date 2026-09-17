@@ -238,7 +238,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     a([Transfusion event flags ReactionSuspected]) --> b[Open ReactionInvestigation]
-    b --> q[Quarantine remainder when unit status allows]
+    b --> q[Quarantine remainder including after completed transfusion]
     q --> c[AABB workup: clerical check, visual inspection, DAT]
     c --> d[Elution if DAT positive; findings, type, severity]
     d --> e[Status Open -> UnderReview -> Closed]
@@ -246,7 +246,7 @@ flowchart TD
 ```
 
 - Opening from a suspected transfusion is an automatic issue-path write. Updating the investigation, recording CBER notification, or recording the written fatality report requires `reaction.investigate` (`RXN-PERM`) in the Application service.
-- The reaction board (`GET /api/reaction-investigations`) shows patient name, MRN, unit number, current ABO/Rh, antibody history, workup-incomplete from `ReactionWorkupCompletenessRule`, and remainder-hold status rather than raw ids. `/reactions?id=` and `?patientId=` open the matching case. Documenting a suspected transfusion on `/issuing` links to that workup. Patient product history Reaction opens the same board filtered by patient.
+- The reaction board (`GET /api/reaction-investigations`) shows patient name, MRN, unit number, patient and labeled unit ABO/Rh, antibody history, the first `ReactionWorkupCompletenessRule` hold, and remainder-hold status rather than raw ids. `/reactions?id=` and `?patientId=` open the matching case. Documenting a suspected transfusion on `/issuing` links to that workup. Patient product history Reaction opens the same board filtered by patient. Remainder quarantine applies from Issued, started, stopped, Transfused, or Returned and does not mark held if the move fails.
 
 Creating or closing a quality-system deviation requires `deviation.manage` (`DEV-PERM`) in the Application service.
 

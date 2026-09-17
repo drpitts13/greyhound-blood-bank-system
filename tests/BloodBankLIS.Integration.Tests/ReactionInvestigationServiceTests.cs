@@ -162,9 +162,11 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.Equal("React, Pat", row.PatientDisplayName);
         Assert.Equal($"U-RXN-{key}", row.UnitNumber);
         Assert.False(string.IsNullOrWhiteSpace(row.CurrentBloodType));
+        Assert.Equal("O+", row.UnitBloodType);
         Assert.False(row.HasAntibodyHistory);
         Assert.True(row.WorkupIncomplete);
-        Assert.False(row.RemainderQuarantined);
+        Assert.Contains("Clerical check", row.WorkupHoldReason);
+        Assert.True(row.RemainderQuarantined);
     }
 
     private async Task<TransfusionEvent> SeedTransfusionAsync(

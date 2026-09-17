@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Compliance;
 
@@ -62,7 +63,9 @@ public sealed record ReactionInvestigationDto(
     string? CurrentBloodType = null,
     bool HasAntibodyHistory = false,
     string? AntibodySummary = null,
-    bool WorkupIncomplete = false)
+    bool WorkupIncomplete = false,
+    string? UnitBloodType = null,
+    string? WorkupHoldReason = null)
 {
     public static ReactionInvestigationDto From(
         ReactionInvestigation r,
@@ -71,18 +74,24 @@ public sealed record ReactionInvestigationDto(
         string? unitNumber = null,
         string? currentBloodType = null,
         bool hasAntibodyHistory = false,
-        string? antibodySummary = null) => new(
-        r.Id, r.TransfusionEventId, r.PatientId, r.BloodProductId, r.ReportedUtc, r.ReportedBy,
-        r.ReactionType, r.Severity, r.Findings, r.Conclusions, r.FollowUp, r.Status, r.Disposition,
-        r.ProductAtFault, r.IsFatality, r.FatalityNotificationStatus, r.WrittenReportDueUtc,
-        r.CberNotifiedUtc, r.WrittenReportSubmittedUtc,
-        r.ClericalCheckCompleted, r.ClericalCheckNotes, r.VisualInspectionCompleted,
-        r.VisualInspectionAcceptable, r.RepeatPatientAboRh, r.RepeatUnitAboRh,
-        r.DatResult, r.ElutionResult, r.RemainderQuarantined,
-        mrn, displayName, unitNumber, currentBloodType, hasAntibodyHistory, antibodySummary,
-        ReactionWorkupCompletenessRule.Evaluate(
-            r.ClericalCheckCompleted, r.VisualInspectionCompleted, r.DatResult, r.ElutionResult)
-            .Severity == RuleSeverity.HardStop);
+        string? antibodySummary = null,
+        string? unitBloodType = null)
+    {
+        var workup = ReactionWorkupCompletenessRule.Evaluate(
+            r.ClericalCheckCompleted, r.VisualInspectionCompleted, r.DatResult, r.ElutionResult);
+        return new(
+            r.Id, r.TransfusionEventId, r.PatientId, r.BloodProductId, r.ReportedUtc, r.ReportedBy,
+            r.ReactionType, r.Severity, r.Findings, r.Conclusions, r.FollowUp, r.Status, r.Disposition,
+            r.ProductAtFault, r.IsFatality, r.FatalityNotificationStatus, r.WrittenReportDueUtc,
+            r.CberNotifiedUtc, r.WrittenReportSubmittedUtc,
+            r.ClericalCheckCompleted, r.ClericalCheckNotes, r.VisualInspectionCompleted,
+            r.VisualInspectionAcceptable, r.RepeatPatientAboRh, r.RepeatUnitAboRh,
+            r.DatResult, r.ElutionResult, r.RemainderQuarantined,
+            mrn, displayName, unitNumber, currentBloodType, hasAntibodyHistory, antibodySummary,
+            workup.Severity == RuleSeverity.HardStop,
+            unitBloodType,
+            workup.Severity == RuleSeverity.HardStop ? workup.Message : null);
+    }
 }
 
 public sealed class ReactionInvestigationService
@@ -231,7 +240,10 @@ public sealed class ReactionInvestigationService
         {
             await TryQuarantineRemainderAsync(row, ct);
             if (!row.RemainderQuarantined)
-                row.RemainderQuarantined = true;
+            {
+                return OperationResult<ReactionInvestigation>.Fail(
+                    "Remainder / segments could not be moved to quality quarantine. Hold the bag in inventory before marking remainder held.");
+            }
         }
 
         if (request.IsFatality == true && !row.IsFatality)
@@ -354,13 +366,35 @@ public sealed class ReactionInvestigationService
         row.ProductAtFault
     };
 
+    private static bool CanHoldReactionRemainder(UnitStatus status) =>
+        status is UnitStatus.Quarantine
+            or UnitStatus.Issued
+            or UnitStatus.TransfusionStarted
+            or UnitStatus.TransfusionStopped
+            or UnitStatus.Transfused
+            or UnitStatus.Returned
+            or UnitStatus.ReturnPending
+        || InventoryStatusTransition.IsAllowed(status, UnitStatus.Quarantine);
+
     private async Task TryQuarantineRemainderAsync(ReactionInvestigation row, CancellationToken ct)
     {
         var unit = await _inventory.GetUnitAsync(row.BloodProductId, ct);
         if (unit is null)
             return;
 
-        if (!InventoryStatusTransition.IsAllowed(unit.Status, UnitStatus.Quarantine))
+        if (unit.Status == UnitStatus.Quarantine)
+        {
+            row.RemainderQuarantined = true;
+            if (unit.QuarantineReasonCode == UnitQuarantineReason.Unspecified
+                || unit.QuarantineReasonCode == UnitQuarantineReason.Other)
+            {
+                unit.QuarantineReasonCode = UnitQuarantineReason.ReactionRemainder;
+            }
+
+            return;
+        }
+
+        if (!CanHoldReactionRemainder(unit.Status))
             return;
 
         const string reason = "Transfusion reaction investigation — remainder or segments held.";
@@ -452,7 +486,8 @@ public sealed class ReactionInvestigationService
                 unit?.UnitNumber,
                 type?.BloodType.ToString(),
                 history is { Count: > 0 },
-                FormatAntibodySummary(history));
+                FormatAntibodySummary(history),
+                unit is null ? null : new AboRh(unit.Abo, unit.RhD).ToString());
         }
 
         private static string? FormatAntibodySummary(IReadOnlyList<AntibodyHistory>? history)

@@ -807,3 +807,31 @@ required a typed issue id.
 
 Next workflow family: transfusion reactions. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 25 — Reaction remainder after completed transfusion (2026-09-16)
+
+Workflow-audit loop tick 11 (reactions). Remainder quarantine already ran
+for a stopped transfusion, but a completed transfusion moved the unit to
+`Transfused` first, which cannot enter quality quarantine. The board also
+hid the labeled unit ABO/Rh needed for the clerical check.
+
+### Implemented
+
+- Reaction remainder hold now applies from Issued, TransfusionStarted,
+  TransfusionStopped, Transfused, and Returned. Checking remainder no
+  longer marks held when quarantine failed. The worklist shows unit
+  labeled type and the first `ReactionWorkupCompletenessRule` hold.
+  Clerical/visual/DAT close gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-171, FRS-BB-205, SRS-BB-166, RISK-BB-277.
+
+### Tests
+
+- TEST-BB-057 (`Phase4IssuingTests.Transfusion_ReactionCompleted_QuarantinesRemainder`).
+
+### Next ranked residual
+
+Next workflow family: HL7 interface processing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

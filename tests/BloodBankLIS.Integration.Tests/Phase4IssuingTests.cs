@@ -1140,6 +1140,37 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Transfusion_ReactionCompleted_QuarantinesRemainder()
+    {
+        var s = await SeedAsync("RXNCMP");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.True(issued.Succeeded);
+            issueId = issued.Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            var tx = await Issuing(c).DocumentTransfusionAsync(
+                issueId, TxReq(s, TransfusionDisposition.Completed, reactionSuspected: true));
+            Assert.True(tx.Succeeded, tx.Error);
+        }
+
+        await using var verify = _factory.Create();
+        var unit = await verify.BloodUnits.FindAsync(s.UnitId);
+        Assert.Equal(UnitStatus.Quarantine, unit!.Status);
+        Assert.Equal(UnitQuarantineReason.ReactionRemainder, unit.QuarantineReasonCode);
+        var inv = await verify.ReactionInvestigations.SingleAsync(r => r.PatientId == s.PatientId);
+        Assert.True(inv.RemainderQuarantined);
+    }
+
+    [Fact]
     public async Task CloseInvestigation_WithoutWorkup_Fails()
     {
         var s = await SeedAsync("RXNC");

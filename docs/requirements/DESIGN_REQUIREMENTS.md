@@ -169,3 +169,4 @@
 | SRS-BB-163 | `TestWorklistService` assesses each distinct patient with `ElectronicCrossmatchEligibilityService` and the first open InProgress/PendingInterpretation/PendingSupervisorReview workup. `/test-worklist` ABID navigates to `/patients/{id}/antibody-id/{workupId}`. | FRS-BB-202 |
 | SRS-BB-164 | `ListQuarantineAsync` loads product types and the latest `ProductRetypeResult` per unit. `/inventory` expands one quarantine row for the second-verifier combo already used by Manage. | FRS-BB-203 |
 | SRS-BB-165 | `ListOutstandingIssuedAsync` reuses `LoadIssueWorklistContextAsync` for Issued rows. `/issuing` Return and Document copy issue id, unit number, and MRN/DOB from the selected row. | FRS-BB-204 |
+| SRS-BB-166 | `TryQuarantineRemainderAsync` holds remainder without the general `InventoryStatusTransition` Transfused block. `/reactions` shows unit type and `WorkupHoldReason`. Update fails if remainder cannot be quarantined. | FRS-BB-205 |
