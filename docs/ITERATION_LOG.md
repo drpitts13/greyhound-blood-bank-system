@@ -1143,3 +1143,31 @@ type, so the bench did not see the disagreement until verify.
 
 Next workflow family: unit preparation. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 37 — Inventory pending retype board (2026-09-17)
+
+Workflow-audit loop tick 23 (unit preparation). Receive already left units
+in Received until a matching retype, but `/inventory` hid that queue
+behind `/test-worklist` or Manage.
+
+### Implemented
+
+- `/inventory` lists pending product ABO/Rh retype with product, labeled
+  type, and assigned test. Enter expands the existing
+  `ProductRetypeEntryPanel`. Match still releases to Available; mismatch
+  still quarantines.
+
+### Requirements / risk
+
+- URS-BB-183, FRS-BB-217, SRS-BB-178, RISK-BB-289.
+
+### Tests
+
+- TEST-BB-069 (`SeederTests.Seed_PendingRetypeWorklist_IncludesRetDemoUnits`).
+- Full suite green: Domain 1241, Application 35, HL7 50, Printing 11,
+  Integration 779.
+
+### Next ranked residual
+
+Next workflow family: assignment and issuing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

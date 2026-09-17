@@ -1,9 +1,11 @@
+using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
+using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -259,6 +261,37 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(ResultSource.Interface, hl7Order.CurrentResultSource);
         Assert.True(hl7Order.HasPostedInterfaceOrInstrumentValue);
         Assert.Equal("Verify", hl7Order.BenchActionLabel);
+    }
+
+    [Fact]
+    public async Task Seed_PendingRetypeWorklist_IncludesRetDemoUnits()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var pending = await new ProductRetypeService(
+            new InventoryRepository(verify),
+            new EfRepository<ProductRetypeResult>(verify),
+            new EfRepository<TestDefinition>(verify),
+            verify,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(verify, _factory.Clock, _factory.CurrentUser)).ListPendingAsync();
+        var pos = Assert.Single(pending, u => u.UnitNumber == "W000123RET0001");
+        var neg = Assert.Single(pending, u => u.UnitNumber == "W000123RET0002");
+        Assert.Equal("RBC-LR", pos.ProductCode);
+        Assert.Equal(AboGroup.O, pos.Abo);
+        Assert.Equal(RhType.Positive, pos.RhD);
+        Assert.Equal(ProductRetypeAssignment.RhPositiveTestCode, pos.TestCode);
+        Assert.Equal(UnitStatus.Received, pos.Status);
+        Assert.Equal("RBC-LR", neg.ProductCode);
+        Assert.Equal(AboGroup.A, neg.Abo);
+        Assert.Equal(RhType.Negative, neg.RhD);
+        Assert.Equal(ProductRetypeAssignment.RhNegativeTestCode, neg.TestCode);
+        Assert.Equal(UnitStatus.Received, neg.Status);
     }
 
     [Fact]

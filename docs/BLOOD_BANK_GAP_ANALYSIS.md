@@ -137,6 +137,10 @@ Cycle 36: pending ABO/Rh worklist rows show a historical discrepancy
 badge from `AboRhDeltaRule` before verify (RISK-BB-288). Override and
 self-verify gates are unchanged.
 
+Cycle 37: `/inventory` shows pending product ABO/Rh retype with inline
+Enter (RISK-BB-289). Match/mismatch release and quarantine gates are
+unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

@@ -181,3 +181,4 @@
 | SRS-BB-175 | `OrderService.ListByPatientAsync` loads current `TestResult` rows per order. Orders-tab Verify calls `POST /api/results/{id}/verify` and reloads orders. | FRS-BB-214 |
 | SRS-BB-176 | `CaptureAsync` calls catalog capture before `CaptureFromChargeRulesAsync` and skips rules when `HasActiveCatalogMatchAsync` is true. `DeactivateChargeRulesOverlappingCatalogsAsync` sets overlapping seeded rules inactive. | FRS-BB-215 |
 | SRS-BB-177 | `TestWorklistService.EvaluateAboRhDelta` parses the current ABORH value and calls `AboRhDeltaRule.Evaluate` against current `PatientBloodTypeHistory`. | FRS-BB-216 |
+| SRS-BB-178 | `Inventory.razor` loads pending retypes in `OnInitializedAsync` and after receive. Board Enter calls `GET /api/inventory/units/{id}/retype` and `ProductRetypeEntryPanel`. | FRS-BB-217 |

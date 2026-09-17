@@ -117,6 +117,91 @@
     </div>
 }
 
+@if (_retypeItems.Count > 0 || Session.Has(PermissionCodes.ResultEnter))
+{
+    <div class="bb-card">
+        <div class="bb-card-title">
+            <h3>Pending ABO/Rh retype</h3>
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadRetypesAsync">Refresh</button>
+        </div>
+        <p class="muted">Received units that still need a front-type confirmation before they become Available. Enter from the row — the same panel as the test-worklist Retype tab and the Manage drawer. A match releases the unit; a mismatch quarantines it.</p>
+        @if (_retypesLoading)
+        {
+            <div class="loading">Loading retypes...</div>
+        }
+        else if (_retypeItems.Count == 0)
+        {
+            <div class="muted">No units are waiting for an ABO/Rh retype.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Unit</th>
+                        <th>Product</th>
+                        <th>Test</th>
+                        <th>Labeled ABO/Rh</th>
+                        <th>Received</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _retypeItems)
+                    {
+                        <tr>
+                            <td class="mono">@row.UnitNumber</td>
+                            <td>
+                                <span class="mono">@row.ProductCode</span>
+                                <span class="muted">@row.ProductName</span>
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(row.TestCode))
+                                {
+                                    <strong>@(row.TestName ?? row.TestCode)</strong>
+                                    <span class="mono muted">@row.TestCode</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                            <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
+                            <td class="nowrap">@row.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td><span class="@Ui.Badge(row.Status)">@Ui.StatusLabel(row.Status)</span></td>
+                            <td class="right nowrap">
+                                @if (Session.Has(PermissionCodes.ResultEnter))
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ToggleBoardRetype(row.UnitId)">
+                                        @(_expandedRetypeUnitId == row.UnitId ? "Hide" : "Enter")
+                                    </button>
+                                }
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => OpenExpectedAsync(row.UnitId)">Open</button>
+                            </td>
+                        </tr>
+                        @if (_expandedRetypeUnitId == row.UnitId && Session.Has(PermissionCodes.ResultEnter))
+                        {
+                            <tr>
+                                <td colspan="7">
+                                    @if (_boardRetypeDetail?.UnitId == row.UnitId)
+                                    {
+                                        <ProductRetypeEntryPanel Detail="_boardRetypeDetail" OnSaved="OnBoardRetypeSaved" />
+                                    }
+                                    else
+                                    {
+                                        <div class="loading">Loading retype...</div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
 @if (_nearExpiryItems.Count > 0)
 {
     <div class="bb-card">
@@ -541,6 +626,10 @@
     private List<QuarantineWorkItemDto> _quarantineItems = new();
     private List<DiscrepancyWorkItemDto> _discrepancyItems = new();
     private List<OnHoldWorkItemDto> _onHoldItems = new();
+    private List<ProductRetypeWorkItemDto> _retypeItems = new();
+    private bool _retypesLoading;
+    private long? _expandedRetypeUnitId;
+    private ProductRetypeDetailDto? _boardRetypeDetail;
     private List<ProductTypeDto> _productTypes = new();
     private List<InventoryLocationDto> _locations = new();
     private bool _loading = true;
@@ -613,6 +702,7 @@
         await LoadQuarantineAsync();
         await LoadDiscrepancyAsync();
         await LoadOnHoldAsync();
+        await LoadRetypesAsync();
     }
 
     private string ProductCode(BloodUnitDto u)
@@ -706,6 +796,38 @@
         if (r.Succeeded) _onHoldItems = r.Value ?? new();
     }
 
+    private async Task LoadRetypesAsync()
+    {
+        _retypesLoading = true;
+        var r = await Api.GetPendingRetypesAsync();
+        _retypesLoading = false;
+        if (r.Succeeded) _retypeItems = r.Value ?? new();
+    }
+
+    private async Task ToggleBoardRetype(long unitId)
+    {
+        if (_expandedRetypeUnitId == unitId)
+        {
+            _expandedRetypeUnitId = null;
+            _boardRetypeDetail = null;
+            return;
+        }
+
+        _expandedRetypeUnitId = unitId;
+        var r = await Api.GetUnitRetypeAsync(unitId);
+        _boardRetypeDetail = r.Value;
+        if (!r.Succeeded) _actionFb = r.ToFeedback();
+    }
+
+    private async Task OnBoardRetypeSaved()
+    {
+        _expandedRetypeUnitId = null;
+        _boardRetypeDetail = null;
+        await LoadRetypesAsync();
+        await LoadQuarantineAsync();
+        await SearchAsync();
+    }
+
     private void ToggleExpectedConfirm(long unitId)
     {
         _confirmingExpectedId = _confirmingExpectedId == unitId ? null : unitId;
@@ -757,7 +879,7 @@
         _receiveFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
             ? "Unit received. Pending retype until results are entered and verified."
             : "Unit received into quarantine.");
-        if (r.Succeeded) { _rec = new(); _showReceive = false; await SearchAsync(); await LoadNearExpiryAsync(); await LoadQuarantineAsync(); }
+        if (r.Succeeded) { _rec = new(); _showReceive = false; await SearchAsync(); await LoadNearExpiryAsync(); await LoadQuarantineAsync(); await LoadRetypesAsync(); }
     }
 
     private async Task ExpectAsync()
@@ -1090,6 +1212,7 @@
         await LoadQuarantineAsync();
         await LoadDiscrepancyAsync();
         await LoadOnHoldAsync();
+        await LoadRetypesAsync();
         _selected = _units.FirstOrDefault(u => u.Id == id);
         if (_selected is not null)
         {
