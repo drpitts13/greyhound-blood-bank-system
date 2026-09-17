@@ -180,3 +180,4 @@
 | SRS-BB-174 | `Hl7MessageIdentity.TryRead` returns placer (`ORC-2`/`OBR-2`), test (`OBR-4`/`OBX-3`), and unit (`RXA-15`). Error list joins patient by MRN. `Hl7OutboundSender` resolves queue items after AA. | FRS-BB-213 |
 | SRS-BB-175 | `OrderService.ListByPatientAsync` loads current `TestResult` rows per order. Orders-tab Verify calls `POST /api/results/{id}/verify` and reloads orders. | FRS-BB-214 |
 | SRS-BB-176 | `CaptureAsync` calls catalog capture before `CaptureFromChargeRulesAsync` and skips rules when `HasActiveCatalogMatchAsync` is true. `DeactivateChargeRulesOverlappingCatalogsAsync` sets overlapping seeded rules inactive. | FRS-BB-215 |
+| SRS-BB-177 | `TestWorklistService.EvaluateAboRhDelta` parses the current ABORH value and calls `AboRhDeltaRule.Evaluate` against current `PatientBloodTypeHistory`. | FRS-BB-216 |

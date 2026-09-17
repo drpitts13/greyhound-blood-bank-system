@@ -133,6 +133,10 @@ catalog row matches, even if a ChargeRule also matches; demo seed
 deactivates overlapping rules (RISK-BB-287). Review-before-export and
 dedupe keys are unchanged.
 
+Cycle 36: pending ABO/Rh worklist rows show a historical discrepancy
+badge from `AboRhDeltaRule` before verify (RISK-BB-288). Override and
+self-verify gates are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

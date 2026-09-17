@@ -6,7 +6,7 @@
 <PageTitle>Test Worklist &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Test Worklist</h1>
-<p class="muted">Pending patient tests and product ABO/Rh retypes. Each row shows current ABO/Rh, antibody history, specimen expiry, electronic-XM eligibility, an open antibody-identification workup, and the posted result so the bench does not open the chart just to check dating, history, eXM holds, or the interface value. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it. The same Verify cue and Result column appear on the patient Tests tab.</p>
+<p class="muted">Pending patient tests and product ABO/Rh retypes. Each row shows current ABO/Rh, antibody history, specimen expiry, electronic-XM eligibility, an open antibody-identification workup, a historical ABO/Rh discrepancy on an entered type, and the posted result so the bench does not open the chart just to check dating, history, eXM holds, or the interface value. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it. The same Verify cue and Result column appear on the patient Tests tab.</p>
 
 <Outcome Value="_fb" />
 
@@ -105,7 +105,13 @@
                                 <span class="badge badge-gray">Pending</span>
                             }
                         </td>
-                        <td class="mono">@(item.CurrentResultValue ?? "—")</td>
+                        <td class="mono">
+                            @(item.CurrentResultValue ?? "—")
+                            @if (item.AboRhDeltaHold)
+                            {
+                                <span class="badge badge-amber" title="@(item.AboRhDeltaDetail ?? "ABO/Rh disagrees with history")">Discrepancy</span>
+                            }
+                        </td>
                         <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
                         <td>@item.Priority</td>
                         <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>

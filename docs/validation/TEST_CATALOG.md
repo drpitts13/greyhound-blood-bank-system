@@ -76,5 +76,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-065 | I | `Phase5Hl7Tests.OutboundSender_Aa_ResolvesErrorQueue` | URS-BB-179 / FRS-BB-213 / RISK-BB-285 |
 | TEST-BB-066 | I | `SeederTests.Seed_HelenHl7Order_SurfacesPostedInterfaceValueAndVerifyAction` | URS-BB-180 / FRS-BB-214 / RISK-BB-286 |
 | TEST-BB-067 | I | `SeederTests.Seed_ChargeRulesDoNotOverlapBillingCatalogs` | URS-BB-181 / FRS-BB-215 / RISK-BB-287 |
+| TEST-BB-068 | I | `TestWorklistTests.PendingWorklist_SurfacesAboRhDeltaHold_OnEnteredAborh` | URS-BB-182 / FRS-BB-216 / RISK-BB-288 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

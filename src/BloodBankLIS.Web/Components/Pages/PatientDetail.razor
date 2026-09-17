@@ -1170,7 +1170,13 @@ else
                                         <span class="badge badge-gray">Pending</span>
                                     }
                                 </td>
-                                <td class="mono">@(item.CurrentResultValue ?? "—")</td>
+                                <td class="mono">
+                                    @(item.CurrentResultValue ?? "—")
+                                    @if (item.AboRhDeltaHold)
+                                    {
+                                        <span class="badge badge-amber" title="@(item.AboRhDeltaDetail ?? "ABO/Rh disagrees with history")">Discrepancy</span>
+                                    }
+                                </td>
                                 <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
                                 <td>@item.Priority</td>
                                 <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>

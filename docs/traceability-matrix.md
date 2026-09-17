@@ -254,6 +254,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-179 / FRS-BB-213 | HL7 error queue shows placer/test/unit; Send vs Replay by direction; outbound AA resolves the row | `Hl7MessageIdentity`; `Hl7OutboundSender`; `Hl7.razor` | TEST-BB-065 | I | |
 | URS-BB-180 / FRS-BB-214 | Patient Orders tab shows posted HL7 result and Verify | `OrderService`; `PatientDetail.razor` | TEST-BB-066 | I | |
 | URS-BB-181 / FRS-BB-215 | One charge per verify/issue/transfusion when a catalog mapping exists | `BillingService`; `DatabaseSeeder` | TEST-BB-067 | I | |
+| URS-BB-182 / FRS-BB-216 | Pending ABO/Rh worklist rows show historical type discrepancy before verify | `TestWorklistService`; `TestWorklist.razor`; `PatientDetail.razor` | TEST-BB-068 | I | |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

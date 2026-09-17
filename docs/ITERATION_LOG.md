@@ -1115,3 +1115,31 @@ active, so a live trigger could drop two events and two DFTs.
 
 Next workflow family: patient testing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 36 — Worklist ABO/Rh historical discrepancy (2026-09-17)
+
+Workflow-audit loop tick 22 (patient testing). Verify already blocked
+`RES-ABORH-DELTA`, but the pending worklist only showed the historical
+type, so the bench did not see the disagreement until verify.
+
+### Implemented
+
+- `TestWorkItemDto` includes `AboRhDeltaHold` and detail from
+  `AboRhDeltaRule` when a pending ABORH value disagrees with current
+  history. `/test-worklist` and the patient Tests tab badge Discrepancy.
+  Override and self-verify gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-182, FRS-BB-216, SRS-BB-177, RISK-BB-288.
+
+### Tests
+
+- TEST-BB-068 (`TestWorklistTests.PendingWorklist_SurfacesAboRhDeltaHold_OnEnteredAborh`).
+- Full suite green: Domain 1241, Application 35, HL7 50, Printing 11,
+  Integration 778.
+
+### Next ranked residual
+
+Next workflow family: unit preparation. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

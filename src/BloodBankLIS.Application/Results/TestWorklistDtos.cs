@@ -41,7 +41,9 @@ public sealed record TestWorkItemDto(
     string? ElectronicXmClinicalBlockReason = null,
     bool HasOpenAntibodyIdWorkup = false,
     long? OpenAntibodyIdWorkupId = null,
-    string? CurrentResultEnteredBy = null)
+    string? CurrentResultEnteredBy = null,
+    bool AboRhDeltaHold = false,
+    string? AboRhDeltaDetail = null)
 {
     public bool HasPostedInterfaceOrInstrumentValue =>
         CurrentResultStatus is ResultStatus.PendingVerification

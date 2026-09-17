@@ -379,6 +379,33 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task PendingWorklist_SurfacesAboRhDeltaHold_OnEnteredAborh()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c, testCode: "ABORH");
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = seed.patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+        await c.SaveChangesAsync();
+
+        var save = await Results(c).EnterAboRhAsync(new EnterAboRhRequest(
+            seed.specimen!.Id, AboGroup.O, RhType.Negative, OrderId: seed.order.Id));
+        Assert.True(save.Succeeded);
+        Assert.NotEqual(ResultStatus.Verified, save.Value!.Status);
+
+        var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.True(item.AboRhDeltaHold);
+        Assert.Contains("historical", item.AboRhDeltaDetail, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("O-", item.AboRhDeltaDetail);
+        Assert.Contains("A+", item.AboRhDeltaDetail);
+    }
+
+    [Fact]
     public async Task SaveComplete_VerifiesResult_AndMovesToCompletedFilter()
     {
         await using var c = _factory.Create();

@@ -250,6 +250,7 @@ public sealed class TestWorklistService
             antibodyRows.TryGetValue(order.PatientId, out var history);
             eligibility.TryGetValue(order.PatientId, out var exm);
             openWorkupIds.TryGetValue(order.PatientId, out var openWorkupId);
+            var (aboRhDeltaHold, aboRhDeltaDetail) = EvaluateAboRhDelta(line.TestCode, current, currentType);
             items.Add(new TestWorkItemDto(
                 line.Id,
                 order.Id,
@@ -283,10 +284,30 @@ public sealed class TestWorklistService
                     !c.Satisfied && c.Code != ElectronicCrossmatchEligibilityRule.FacilityCode)?.Detail,
                 openWorkupId > 0,
                 openWorkupId > 0 ? openWorkupId : null,
-                current?.EnteredBy));
+                current?.EnteredBy,
+                aboRhDeltaHold,
+                aboRhDeltaDetail));
         }
 
         return items;
+    }
+
+    private static (bool Hold, string? Detail) EvaluateAboRhDelta(
+        string? testCode,
+        TestResult? current,
+        PatientBloodTypeHistory? currentType)
+    {
+        if (!string.Equals(testCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
+            || current is null
+            || !AboRhResultValue.TryParse(current.Value, out var entered))
+        {
+            return (false, null);
+        }
+
+        var delta = AboRhDeltaRule.Evaluate(currentType?.BloodType, entered);
+        return delta.Severity == RuleSeverity.Warning
+            ? (true, delta.Message)
+            : (false, null);
     }
 
     private (bool CanEnter, string? BlockReason) EvaluateEntryGate(
