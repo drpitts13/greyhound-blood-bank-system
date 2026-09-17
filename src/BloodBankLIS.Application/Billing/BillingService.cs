@@ -317,12 +317,20 @@ public sealed class BillingService
         return OperationResult<BillingEvent>.Ok(billingEvent);
     }
 
-    public async Task<IReadOnlyList<BillingEvent>> GetReviewQueueAsync(CancellationToken ct = default) =>
-        await _events.ListAsync(e => e.Status == BillingEventStatus.Pending, ct);
+    public async Task<IReadOnlyList<BillingEvent>> GetReviewQueueAsync(CancellationToken ct = default)
+    {
+        var rows = await _events.ListAsync(
+            e => e.Status == BillingEventStatus.Pending || e.Status == BillingEventStatus.Reviewed,
+            ct);
+        return rows
+            .OrderBy(e => e.Status == BillingEventStatus.Pending ? 0 : 1)
+            .ThenBy(e => e.ServiceDateUtc)
+            .ToList();
+    }
 
     /// <summary>
-    /// Pending charges with MRN, patient name, test code or unit number, and queued
-    /// DFT control id so review does not depend on raw entity ids.
+    /// Pending and reviewed charges with MRN, patient name, test code or unit number,
+    /// and queued DFT control id so review-before-export stays on the same worklist.
     /// </summary>
     public async Task<IReadOnlyList<BillingEventDto>> ListReviewQueueDtosAsync(CancellationToken ct = default)
     {

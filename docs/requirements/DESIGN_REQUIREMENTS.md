@@ -172,3 +172,4 @@
 | SRS-BB-166 | `TryQuarantineRemainderAsync` holds remainder without the general `InventoryStatusTransition` Transfused block. `/reactions` shows unit type and `WorkupHoldReason`. Update fails if remainder cannot be quarantined. | FRS-BB-205 |
 | SRS-BB-167 | `Hl7MessageIdentity.TryRead` uses PID-3-1 and PID-5. List and error-queue `From` methods call it on the stored raw message. | FRS-BB-206 |
 | SRS-BB-168 | `SeedHl7BpamDataLoadScenarioAsync` is skipped when `W000123BPAM001` exists. `HandleBpamAsync` calls existing `DocumentFromHl7Async`. Product-history rows include `PatientIdentificationMethod`. | FRS-BB-207 |
+| SRS-BB-169 | `GetReviewQueueAsync` lists Pending and Reviewed. `InterfaceTransfusionService` optionally calls `CaptureForTransfusionAsync` after BPAM save. `SeedHl7BpamBillingScenarioAsync` is skipped when `CTRL-DFT-BPAM-` exists. | FRS-BB-208 |

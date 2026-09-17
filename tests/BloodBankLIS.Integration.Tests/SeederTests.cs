@@ -65,11 +65,12 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.TransfusionEvents.AnyAsync(t =>
                 t.PatientIdentificationMethod == "HL7-BPAM"
                 && t.UnitIdentificationMethod == "HL7-BPAM"));
-            Assert.Equal(4, await verify.BillingEvents.CountAsync());
+            Assert.Equal(6, await verify.BillingEvents.CountAsync());
             Assert.True(await verify.BillingEvents.AnyAsync(e => e.BillingCode == "BB-SCREEN" && e.Status == BillingEventStatus.Pending));
             Assert.True(await verify.BillingEvents.AnyAsync(e => e.BillingCode == "BB-RBC-ISSUE"));
             Assert.True(await verify.BillingEvents.AnyAsync(e => e.BillingCode == "BB-RBC-TX"));
-            Assert.Equal(4, await verify.Hl7Messages.CountAsync(m => m.MessageControlId.StartsWith("CTRL-DFT-")));
+            Assert.Equal(6, await verify.Hl7Messages.CountAsync(m => m.MessageControlId.StartsWith("CTRL-DFT-")));
+            Assert.Equal(2, await verify.Hl7Messages.CountAsync(m => m.MessageControlId.StartsWith("CTRL-DFT-BPAM-")));
 
             // Three original units, 28 stocked across every ABO/Rh, two modification
             // results, one received by ISBT 128 scan, two waiting for ABO/Rh retype,
@@ -219,6 +220,10 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             && t.FinalDisposition == TransfusionDisposition.Completed));
         Assert.True(await verify.Hl7Messages.AnyAsync(m =>
             m.MessageControlId == "CTRL-HL7-RAS-0009" && m.AckCode == "AA"));
+        Assert.True(await verify.BillingEvents.AnyAsync(e =>
+            e.PatientId == helen.Id
+            && e.TriggerType == BillingTriggerType.UnitTransfused
+            && e.Status == BillingEventStatus.Pending));
     }
 
     [Fact]

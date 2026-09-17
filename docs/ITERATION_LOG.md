@@ -886,3 +886,30 @@ re-documented administration on `/issuing`.
 
 Next workflow family: billing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 28 — Billing review-to-export and RAS capture (2026-09-17)
+
+Workflow-audit loop tick 14 (billing). Review-before-export already existed,
+but the queue listed only Pending rows, so Review hid the charge and Export
+could not run on `/billing`. Inbound RAS also skipped capture.
+
+### Implemented
+
+- The review queue keeps Pending and Reviewed charges until export or cancel.
+  `/billing` offers Export only after Review. Completed inbound RAS calls the
+  same `CaptureForTransfusionAsync` as Issuing Document. Helen Interface seed
+  adds issue/transfusion charges and DFT stubs. Dedupe keys and export-only-
+  after-review are unchanged.
+
+### Requirements / risk
+
+- URS-BB-174, FRS-BB-208, SRS-BB-169, RISK-BB-280.
+
+### Tests
+
+- TEST-BB-060 (`Phase7BillingTests.ReviewQueueDtos_KeepReviewedUntilExported`).
+
+### Next ranked residual
+
+Next workflow family: patient testing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

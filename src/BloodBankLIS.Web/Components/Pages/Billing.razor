@@ -5,7 +5,7 @@
 <PageTitle>Billing &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Billing &amp; Charge Capture</h1>
-<p class="muted">Review, export, or cancel captured charges. Charges are captured automatically on result verification, unit issue, and completed transfusion — no second manual capture. Each row shows MRN, name, the test or unit, and the queued DFT control id.</p>
+<p class="muted">Review, then export, or cancel captured charges. Charges are captured automatically on result verification, unit issue, and completed transfusion — including inbound RAS — with no second manual capture. Reviewed rows stay on this queue until export. Each row shows MRN, name, the test or unit, and the queued DFT control id.</p>
 
 <Outcome Value="_fb" />
 
@@ -44,7 +44,7 @@
                             {
                                 <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReviewAsync(c.Id)">Review</button>
                             }
-                            @if (c.Status is BillingEventStatus.Pending or BillingEventStatus.Reviewed && Session.Has(PermissionCodes.BillingExport))
+                            @if (c.Status == BillingEventStatus.Reviewed && Session.Has(PermissionCodes.BillingExport))
                             {
                                 <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ExportAsync(c.Id)">Export</button>
                             }

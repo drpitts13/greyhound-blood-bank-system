@@ -2272,6 +2272,60 @@ public static partial class DatabaseSeeder
                 DateTime.UtcNow, "BB-RBC-TX", BillingChargeSourceKind.Product,
                 txBill.Id, issue.IssuedToLocation, ct);
         }
+
+        await SeedHl7BpamBillingScenarioAsync(context, ct);
+    }
+
+    /// <summary>
+    /// Helen Interface RAS transfusion gets the same issue/transfusion charges and DFT
+    /// stubs as Patricia so /billing shows the interface load without a second capture.
+    /// </summary>
+    private static async Task SeedHl7BpamBillingScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Hl7Messages.AnyAsync(m => m.MessageControlId.StartsWith("CTRL-DFT-BPAM-"), ct))
+        {
+            return;
+        }
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0009", ct);
+        var unit = await context.BloodUnits.FirstOrDefaultAsync(u => u.UnitNumber == "W000123BPAM001", ct);
+        if (patient is null || unit is null)
+        {
+            return;
+        }
+
+        var issue = await context.Issues.FirstOrDefaultAsync(
+            i => i.BloodProductId == unit.Id && i.PatientId == patient.Id, ct);
+        var issueBill = await context.ProductBillings.FirstOrDefaultAsync(
+            b => b.IsbtProductCode == "E0336" && b.Trigger == BillingTriggerType.UnitIssued, ct);
+        var txBill = await context.ProductBillings.FirstOrDefaultAsync(
+            b => b.IsbtProductCode == "E0336" && b.Trigger == BillingTriggerType.UnitTransfused, ct);
+        if (issue is null)
+        {
+            return;
+        }
+
+        if (issueBill is not null)
+        {
+            await SeedCapturedChargeAsync(
+                context, BillingTriggerType.UnitIssued, nameof(Issue), issue.Id, patient.Id,
+                issue.IssuedUtc, "BB-RBC-ISSUE", BillingChargeSourceKind.Product,
+                issueBill.Id, issue.IssuedToLocation, ct,
+                controlPrefix: "CTRL-DFT-BPAM",
+                pidMrn: "MRN0009",
+                pidName: "INTERFACE^HELEN");
+        }
+
+        if (txBill is not null)
+        {
+            await SeedCapturedChargeAsync(
+                context, BillingTriggerType.UnitTransfused, nameof(TransfusionEvent), issue.Id, patient.Id,
+                DateTime.UtcNow, "BB-RBC-TX", BillingChargeSourceKind.Product,
+                txBill.Id, issue.IssuedToLocation, ct,
+                controlPrefix: "CTRL-DFT-BPAM",
+                pidMrn: "MRN0009",
+                pidName: "INTERFACE^HELEN");
+        }
     }
 
     private static async Task SeedCapturedChargeAsync(
@@ -2285,7 +2339,10 @@ public static partial class DatabaseSeeder
         BillingChargeSourceKind sourceKind,
         long sourceId,
         string? performingLocation,
-        CancellationToken ct)
+        CancellationToken ct,
+        string controlPrefix = "CTRL-DFT",
+        string pidMrn = "MRN0001",
+        string pidName = "DEMO^PATRICIA")
     {
         var dedupeKey = $"{triggerType}|{triggerEntityType}|{triggerEntityId}|{sourceKind}|{sourceId}|{serviceDateUtc:yyyyMMdd}";
         if (await context.BillingEvents.AnyAsync(e => e.DedupeKey == dedupeKey, ct))
@@ -2322,7 +2379,7 @@ public static partial class DatabaseSeeder
         context.BillingEvents.Add(billingEvent);
         await context.SaveChangesAsync(ct);
 
-        var controlId = $"CTRL-DFT-{billingCode}-{triggerEntityId}";
+        var controlId = $"{controlPrefix}-{billingCode}-{triggerEntityId}";
         if (!await context.Hl7Messages.AnyAsync(m => m.MessageControlId == controlId, ct))
         {
             context.Hl7Messages.Add(new Hl7MessageLog
@@ -2334,7 +2391,7 @@ public static partial class DatabaseSeeder
                 RawMessage =
                     "MSH|^~\\&|BBLIS|LAB|BILL|HOSP|20260101150000||DFT^P03|" + controlId + "|P|2.5\r"
                     + "EVN|P03|20260101150000\r"
-                    + "PID|1||MRN0001^^^HOSP^MR||DEMO^PATRICIA\r"
+                    + "PID|1||" + pidMrn + "^^^HOSP^MR||" + pidName + "\r"
                     + "FT1|1|||" + serviceDateUtc.ToString("yyyyMMdd") + "||CG|" + billingCode,
                 Status = Hl7MessageStatus.Received,
                 ReceivedUtc = serviceDateUtc,

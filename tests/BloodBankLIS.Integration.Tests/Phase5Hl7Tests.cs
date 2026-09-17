@@ -1,3 +1,5 @@
+using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Patients;
@@ -101,7 +103,31 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             c,
             _factory.Clock,
             _factory.CurrentUser,
-            new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            billing: Billing(c));
+
+    private BillingService Billing(BloodBankDbContext c) =>
+        new(
+            new EfRepository<BillingEvent>(c),
+            new EfRepository<ChargeRule>(c),
+            new EfRepository<ChargeCode>(c),
+            new EfRepository<TestServiceBilling>(c),
+            new EfRepository<ProductBilling>(c),
+            new EfRepository<TestResult>(c),
+            new EfRepository<Issue>(c),
+            new EfRepository<BloodUnit>(c),
+            new EfRepository<ProductType>(c),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            new NoopBillingPublisher());
+
+    private sealed class NoopBillingPublisher : IBillingInterfacePublisher
+    {
+        public Task<long?> PublishChargeAsync(BillingEvent billingEvent, CancellationToken ct = default) =>
+            Task.FromResult<long?>(null);
+    }
 
     private static PatientProductHistoryService History(BloodBankDbContext c) =>
         new(
@@ -1118,5 +1144,39 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Equal("W-BPAM-LIVE", row.UnitNumber);
         Assert.Equal("HL7-BPAM", row.PatientIdentificationMethod);
         Assert.False(await context.Issues.AnyAsync(i => i.PatientId == patient.Id && i.Status == IssueStatus.Issued));
+    }
+
+    [Fact]
+    public async Task InboundRas_CapturesCompletedTransfusionChargeWithoutRecapture()
+    {
+        await using var context = _factory.Create();
+        var (patient, _) = await SeedIssuedUnitForBpamAsync(context, "HL7-BPAM-BILL", "W-BPAM-BILL");
+        context.ChargeCodes.Add(new ChargeCode
+        {
+            Code = "BB-RAS-TX",
+            Description = "Interface transfusion",
+            DefaultAmount = 75m
+        });
+        await context.SaveChangesAsync();
+        var code = await context.ChargeCodes.SingleAsync(c => c.Code == "BB-RAS-TX");
+        context.ChargeRules.Add(new ChargeRule
+        {
+            TriggerType = BillingTriggerType.UnitTransfused,
+            TriggerKey = "RBC-W-BPAM-BILL",
+            ChargeCodeId = code.Id
+        });
+        await context.SaveChangesAsync();
+
+        var result = await Processor(context).ProcessAsync(Ras("CTRL-RAS-BILL", "HL7-BPAM-BILL", "W-BPAM-BILL"));
+        Assert.True(result.Accepted, result.Log.ErrorDetail);
+
+        var charge = Assert.Single(await context.BillingEvents.Where(e => e.PatientId == patient.Id).ToListAsync());
+        Assert.Equal("BB-RAS-TX", charge.BillingCode);
+        Assert.Equal(BillingTriggerType.UnitTransfused, charge.TriggerType);
+        Assert.Equal(BillingEventStatus.Pending, charge.Status);
+
+        var again = await Processor(context).ProcessAsync(Ras("CTRL-RAS-BILL-2", "HL7-BPAM-BILL", "W-BPAM-BILL"));
+        Assert.True(again.Accepted, again.Log.ErrorDetail);
+        Assert.Equal(1, await context.BillingEvents.CountAsync(e => e.PatientId == patient.Id));
     }
 }

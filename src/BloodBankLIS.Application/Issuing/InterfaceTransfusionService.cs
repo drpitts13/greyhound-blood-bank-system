@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
@@ -35,6 +36,7 @@ public sealed class InterfaceTransfusionService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly BillingService? _billing;
 
     public InterfaceTransfusionService(
         IRepository<Patient> patients,
@@ -47,7 +49,8 @@ public sealed class InterfaceTransfusionService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        BillingService? billing = null)
     {
         _patients = patients;
         _units = units;
@@ -60,6 +63,7 @@ public sealed class InterfaceTransfusionService
         _currentUser = currentUser;
         _audit = audit;
         _permissions = permissions;
+        _billing = billing;
     }
 
     public async Task<OperationResult<string>> DocumentAsync(InterfaceTransfusionRequest request, CancellationToken ct = default)
@@ -142,6 +146,7 @@ public sealed class InterfaceTransfusionService
             }
 
             await _unitOfWork.SaveChangesAsync(ct);
+            await TryCaptureAsync(issue.Id, existing.FinalDisposition, ct);
             return $"Transfusion for unit {unitKey} updated from BPAM.";
         }
 
@@ -207,7 +212,18 @@ public sealed class InterfaceTransfusionService
             await _unitOfWork.SaveChangesAsync(ct);
         }
 
+        await TryCaptureAsync(issue.Id, transfusion.FinalDisposition, ct);
         return $"Transfusion for unit {unitKey} documented from BPAM.";
+    }
+
+    private async Task TryCaptureAsync(long issueId, TransfusionDisposition disposition, CancellationToken ct)
+    {
+        if (_billing is null)
+        {
+            return;
+        }
+
+        await _billing.CaptureForTransfusionAsync(issueId, disposition, ct);
     }
 
     private async Task<BloodUnit?> FindUnitAsync(string? unitNumber, string? din, CancellationToken ct)

@@ -98,6 +98,10 @@ Cycle 27: seeded Helen Interface RAS documents transfusion of
 `W000123BPAM001`; product history shows `HL7-BPAM` without a second
 Issuing Document (RISK-BB-279). Bedside-scan and issue gates are unchanged.
 
+Cycle 28: the billing queue keeps reviewed charges until export; inbound
+RAS captures the completed-transfusion charge; Helen seed includes DFT
+stubs (RISK-BB-280). Dedupe keys and export-after-review are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

@@ -659,6 +659,34 @@ public class Phase7BillingTests : IDisposable
         Assert.Equal("CTRL-DFT-TEST-ISSUE", issued.DftControlId);
     }
 
+    [Fact]
+    public async Task ReviewQueueDtos_KeepReviewedUntilExported()
+    {
+        long chargeId = await CaptureSingleChargeAsync("BILL-QUEUE", "ABORH", "BILL-ABORH-Q");
+
+        await using var context = _factory.Create();
+        var billing = Billing(
+            context,
+            patients: new EfRepository<Patient>(context),
+            messages: new EfRepository<Hl7MessageLog>(context));
+
+        var pending = await billing.ListReviewQueueDtosAsync();
+        Assert.Contains(pending, d => d.Id == chargeId && d.Status == BillingEventStatus.Pending);
+
+        var reviewed = await billing.ReviewAsync(chargeId);
+        Assert.True(reviewed.Succeeded);
+
+        var stillQueued = await billing.ListReviewQueueDtosAsync();
+        var row = Assert.Single(stillQueued, d => d.Id == chargeId);
+        Assert.Equal(BillingEventStatus.Reviewed, row.Status);
+
+        var exported = await billing.ExportAsync(chargeId);
+        Assert.True(exported.Succeeded);
+        Assert.DoesNotContain(
+            await billing.ListReviewQueueDtosAsync(),
+            d => d.Id == chargeId);
+    }
+
     private async Task<long> CaptureSingleChargeAsync(string mrn, string testCode, string chargeCode)
     {
         long resultId;
