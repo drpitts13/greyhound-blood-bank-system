@@ -50,6 +50,10 @@ public static class InventoryEndpoints
             Results.Ok(await service.ListDiscrepancyAsync(ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
+        group.MapGet("/units/on-hold", async (InventoryService service, CancellationToken ct) =>
+            Results.Ok(await service.ListOnHoldAsync(ct)))
+            .RequirePermission(PermissionCodes.InventoryRelease);
+
         group.MapGet("/units/{id:long}", async (long id, InventoryService service, CancellationToken ct) =>
         {
             var unit = await service.GetAsync(id, ct);

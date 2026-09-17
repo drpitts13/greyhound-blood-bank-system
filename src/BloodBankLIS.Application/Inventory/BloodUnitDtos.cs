@@ -136,10 +136,30 @@ public sealed record DiscrepancyWorkItemDto(
     string? Reason,
     AboGroup Abo,
     RhType RhD,
-    long? CurrentLocationId)
+    long? CurrentLocationId,
+    long ProductTypeId = 0,
+    string? ProductCode = null)
 {
-    public static DiscrepancyWorkItemDto From(BloodUnit u) => new(
+    public static DiscrepancyWorkItemDto From(BloodUnit u, string? productCode = null) => new(
         u.Id, u.UnitNumber, u.Status,
         u.Status == UnitStatus.Missing ? u.MissingReason : u.DamagedReason,
-        u.Abo, u.RhD, u.CurrentLocationId);
+        u.Abo, u.RhD, u.CurrentLocationId,
+        u.ProductTypeId,
+        productCode ?? u.ProductType?.ProductCode);
+}
+
+public sealed record OnHoldWorkItemDto(
+    long UnitId,
+    string UnitNumber,
+    string? HoldReason,
+    AboGroup Abo,
+    RhType RhD,
+    DateTime ExpiresUtc,
+    long ProductTypeId = 0,
+    string? ProductCode = null)
+{
+    public static OnHoldWorkItemDto From(BloodUnit u, string? productCode = null) => new(
+        u.Id, u.UnitNumber, u.HoldReason, u.Abo, u.RhD, u.ExpiresUtc,
+        u.ProductTypeId,
+        productCode ?? u.ProductType?.ProductCode);
 }

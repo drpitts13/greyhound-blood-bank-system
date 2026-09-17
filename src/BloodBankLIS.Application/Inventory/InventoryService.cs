@@ -168,11 +168,47 @@ public sealed class InventoryService
     {
         var missing = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Missing), ct);
         var damaged = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Damaged), ct);
-        return missing.Concat(damaged)
+        var rows = missing.Concat(damaged).ToList();
+        var products = await LoadProductsAsync(rows, ct);
+        return rows
             .OrderBy(u => u.Status)
             .ThenBy(u => u.UnitNumber)
-            .Select(DiscrepancyWorkItemDto.From)
+            .Select(u =>
+            {
+                products.TryGetValue(u.ProductTypeId, out var product);
+                return DiscrepancyWorkItemDto.From(u, product?.ProductCode);
+            })
             .ToList();
+    }
+
+    /// <summary>
+    /// Operational hold worklist: units that cannot be issued until hold is released.
+    /// </summary>
+    public async Task<IReadOnlyList<OnHoldWorkItemDto>> ListOnHoldAsync(CancellationToken ct = default)
+    {
+        var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.OnHold), ct);
+        var products = await LoadProductsAsync(rows, ct);
+        return rows
+            .OrderBy(u => u.UnitNumber)
+            .Select(u =>
+            {
+                products.TryGetValue(u.ProductTypeId, out var product);
+                return OnHoldWorkItemDto.From(u, product?.ProductCode);
+            })
+            .ToList();
+    }
+
+    private async Task<Dictionary<long, ProductType>> LoadProductsAsync(
+        IReadOnlyCollection<BloodUnit> rows,
+        CancellationToken ct)
+    {
+        var productIds = rows.Select(u => u.ProductTypeId).Distinct().ToList();
+        if (_productTypes is null || productIds.Count == 0)
+        {
+            return new Dictionary<long, ProductType>();
+        }
+
+        return (await _productTypes.ListAsync(p => productIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
     }
 
     public Task<BloodUnit?> GetAsync(long id, CancellationToken ct = default) =>

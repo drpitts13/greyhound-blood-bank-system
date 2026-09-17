@@ -174,3 +174,4 @@
 | SRS-BB-168 | `SeedHl7BpamDataLoadScenarioAsync` is skipped when `W000123BPAM001` exists. `HandleBpamAsync` calls existing `DocumentFromHl7Async`. Product-history rows include `PatientIdentificationMethod`. | FRS-BB-207 |
 | SRS-BB-169 | `GetReviewQueueAsync` lists Pending and Reviewed. `InterfaceTransfusionService` optionally calls `CaptureForTransfusionAsync` after BPAM save. `SeedHl7BpamBillingScenarioAsync` is skipped when `CTRL-DFT-BPAM-` exists. | FRS-BB-208 |
 | SRS-BB-170 | `TestWorklistService` maps `EnteredBy`. `TestWorkItemDto.BenchActionLabel` is Verify for Interface/Instrument PendingVerification. Patient Tests tab uses the same label and Result column. Panel `CanVerifyPostedResult` applies `IsAboSelfVerifyBlocked`. | FRS-BB-209 |
+| SRS-BB-171 | `ListDiscrepancyAsync` and `ListOnHoldAsync` load product types. `/inventory` calls existing locate, inspect, and release-hold endpoints from those rows. | FRS-BB-210 |

@@ -940,3 +940,32 @@ Enter and neither grid showed the posted result.
 
 Next workflow family: unit preparation. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 30 — Unit-prep discrepancy and hold boards (2026-09-17)
+
+Workflow-audit loop tick 16 (unit preparation). Expected inbound and
+quarantine already identified product and acted inline. Missing, damaged,
+and operational-hold rows still hid product and sent staff to Manage.
+
+### Implemented
+
+- `DiscrepancyWorkItemDto` includes product. `OnHoldWorkItemDto` lists
+  held units with product, ABO/Rh, and reason. `/inventory` Locates,
+  Inspects, and Releases hold from those rows through the existing
+  Application methods. Locate-to-quarantine and `inventory.release`
+  gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-176, FRS-BB-210, SRS-BB-171, RISK-BB-282.
+
+### Tests
+
+- TEST-BB-062 (`InventoryServiceTests.ListOnHold_SurfacesProductAndHoldReason`).
+- Full suite green: Domain 1241, Application 35, HL7 48, Printing 11,
+  Integration 772.
+
+### Next ranked residual
+
+Next workflow family: assignment / issuing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

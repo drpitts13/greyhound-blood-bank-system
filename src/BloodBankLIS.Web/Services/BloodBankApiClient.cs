@@ -331,6 +331,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<DiscrepancyWorkItemDto>>> GetDiscrepancyUnitsAsync(CancellationToken ct = default) =>
         SendAsync<List<DiscrepancyWorkItemDto>>(HttpMethod.Get, "api/inventory/units/discrepancy", ct: ct);
 
+    public Task<ApiResult<List<OnHoldWorkItemDto>>> GetOnHoldUnitsAsync(CancellationToken ct = default) =>
+        SendAsync<List<OnHoldWorkItemDto>>(HttpMethod.Get, "api/inventory/units/on-hold", ct: ct);
+
     public Task<ApiResult<BloodUnitDto>> ReceiveExpectedUnitAsync(long id, ReceiveExpectedUnitRequest req, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/receive-expected", req, ct);
 

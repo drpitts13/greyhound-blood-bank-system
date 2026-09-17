@@ -107,6 +107,10 @@ result and use Verify for interface/instrument PendingVerification; ABO
 self-verify is hidden for the enterer (RISK-BB-281). Specimen and OCD-018
 gates are unchanged.
 
+Cycle 30: discrepancy and operational-hold boards show product and ABO/Rh;
+Locate, Inspect, and Release from hold run from the row (RISK-BB-282).
+Locate-to-quarantine and `inventory.release` gates are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

@@ -1597,9 +1597,40 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(releasedOk.Succeeded, releasedOk.Error);
 
         var list = await service.ListDiscrepancyAsync();
-        Assert.Contains(list, i => i.UnitNumber == "U-DISC-MISS" && i.Status == UnitStatus.Missing && i.Reason == "Not on shelf");
-        Assert.Contains(list, i => i.UnitNumber == "U-DISC-DMG" && i.Status == UnitStatus.Damaged && i.Reason == "Leaking bag");
+        Assert.Contains(list, i => i.UnitNumber == "U-DISC-MISS" && i.Status == UnitStatus.Missing && i.Reason == "Not on shelf" && i.ProductCode == "RBC-TEST");
+        Assert.Contains(list, i => i.UnitNumber == "U-DISC-DMG" && i.Status == UnitStatus.Damaged && i.Reason == "Leaking bag" && i.ProductCode == "RBC-TEST");
         Assert.DoesNotContain(list, i => i.UnitNumber == "U-DISC-OK");
+    }
+
+    [Fact]
+    public async Task ListOnHold_SurfacesProductAndHoldReason()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var held = await service.ReceiveUnitAsync(NewUnitRequest("U-HOLD-BOARD", productTypeId));
+        Assert.True(held.Succeeded, held.Error);
+        var released = await service.ReleaseFromQuarantineAsync(held.Unit!.Id, "tech2");
+        Assert.True(released.Succeeded, released.Error);
+        var onHold = await service.HoldAsync(held.Unit.Id, "Pending packing slip");
+        Assert.True(onHold.Succeeded, onHold.Error);
+
+        var available = await service.ReceiveUnitAsync(NewUnitRequest("U-HOLD-OK", productTypeId));
+        Assert.True(available.Succeeded, available.Error);
+        var releasedOk = await service.ReleaseFromQuarantineAsync(available.Unit!.Id, "tech2");
+        Assert.True(releasedOk.Succeeded, releasedOk.Error);
+
+        var list = await service.ListOnHoldAsync();
+        var row = Assert.Single(list, i => i.UnitNumber == "U-HOLD-BOARD");
+        Assert.Equal("RBC-TEST", row.ProductCode);
+        Assert.Equal("Pending packing slip", row.HoldReason);
+        Assert.DoesNotContain(list, i => i.UnitNumber == "U-HOLD-OK");
+
+        var afterRelease = await service.ReleaseFromHoldAsync(held.Unit.Id);
+        Assert.True(afterRelease.Succeeded, afterRelease.Error);
+        Assert.DoesNotContain(await service.ListOnHoldAsync(), i => i.UnitNumber == "U-HOLD-BOARD");
     }
 
     [Fact]

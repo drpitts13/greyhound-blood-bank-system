@@ -263,6 +263,7 @@
                     <tr>
                         <th>Unit</th>
                         <th>ABO/Rh</th>
+                        <th>Product</th>
                         <th>Status</th>
                         <th>Reason</th>
                         <th>Location</th>
@@ -275,10 +276,67 @@
                         <tr>
                             <td class="mono">@row.UnitNumber</td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
+                            <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
                             <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
                             <td>@(row.Reason ?? "—")</td>
                             <td>@LocationName(row.CurrentLocationId)</td>
-                            <td class="right"><button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => OpenExpectedAsync(row.UnitId)">Open</button></td>
+                            <td class="right nowrap">
+                                @if (Session.Has(PermissionCodes.InventoryRelease) && row.Status == UnitStatus.Missing)
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => LocateMissingAsync(row.UnitId)">Locate</button>
+                                }
+                                @if (Session.Has(PermissionCodes.InventoryRelease) && row.Status == UnitStatus.Damaged)
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => InspectDamagedAsync(row.UnitId)">Inspect</button>
+                                }
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => OpenExpectedAsync(row.UnitId)">Open</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@if (_onHoldItems.Count > 0 || Session.Has(PermissionCodes.InventoryRelease))
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Operational hold</h3></div>
+        <p class="muted">Units that cannot be issued until hold is released (paperwork or pending review — not quality quarantine). Release uses the same <code>inventory.release</code> gate as Manage.</p>
+        @if (_onHoldItems.Count == 0)
+        {
+            <div class="muted">No units on operational hold.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Unit</th>
+                        <th>ABO/Rh</th>
+                        <th>Product</th>
+                        <th>Reason</th>
+                        <th>Expires</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _onHoldItems)
+                    {
+                        <tr>
+                            <td class="mono">@row.UnitNumber</td>
+                            <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
+                            <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
+                            <td>@(row.HoldReason ?? "—")</td>
+                            <td>@row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="right nowrap">
+                                @if (Session.Has(PermissionCodes.InventoryRelease))
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReleaseHoldAsync(row.UnitId)">Release from hold</button>
+                                }
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => OpenExpectedAsync(row.UnitId)">Open</button>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -482,6 +540,7 @@
     private List<NearExpiryWorkItemDto> _nearExpiryItems = new();
     private List<QuarantineWorkItemDto> _quarantineItems = new();
     private List<DiscrepancyWorkItemDto> _discrepancyItems = new();
+    private List<OnHoldWorkItemDto> _onHoldItems = new();
     private List<ProductTypeDto> _productTypes = new();
     private List<InventoryLocationDto> _locations = new();
     private bool _loading = true;
@@ -553,6 +612,7 @@
         await LoadNearExpiryAsync();
         await LoadQuarantineAsync();
         await LoadDiscrepancyAsync();
+        await LoadOnHoldAsync();
     }
 
     private string ProductCode(BloodUnitDto u)
@@ -632,6 +692,18 @@
 
         var r = await Api.GetDiscrepancyUnitsAsync();
         if (r.Succeeded) _discrepancyItems = r.Value ?? new();
+    }
+
+    private async Task LoadOnHoldAsync()
+    {
+        if (!Session.Has(PermissionCodes.InventoryRelease))
+        {
+            _onHoldItems = new();
+            return;
+        }
+
+        var r = await Api.GetOnHoldUnitsAsync();
+        if (r.Succeeded) _onHoldItems = r.Value ?? new();
     }
 
     private void ToggleExpectedConfirm(long unitId)
@@ -1017,6 +1089,7 @@
         await LoadNearExpiryAsync();
         await LoadQuarantineAsync();
         await LoadDiscrepancyAsync();
+        await LoadOnHoldAsync();
         _selected = _units.FirstOrDefault(u => u.Id == id);
         if (_selected is not null)
         {
