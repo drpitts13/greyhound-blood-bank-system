@@ -78,6 +78,11 @@ Cycle 22: the pending test worklist shows electronic-XM eligibility and
 an open antibody-identification workup (RISK-BB-274). AABB 5.16 criteria
 and OCD-006 remain the existing eligibility service.
 
+Cycle 23: the quality-quarantine board shows product and a labeled-versus-
+interpreted retype mismatch; Release is available on the row with the
+existing second-verifier gate (RISK-BB-275). Retype auto-quarantine and
+release privilege are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

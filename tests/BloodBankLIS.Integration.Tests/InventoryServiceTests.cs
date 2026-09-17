@@ -48,8 +48,10 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             new EfRepository<User>(context),
             new FacilityPolicyService(new EfRepository<SystemSetting>(context)),
             new EfRepository<Patient>(context),
+            productTypes: new EfRepository<ProductType>(context),
             permissions: permissions,
-            retype: retype);
+            retype: retype,
+            retypeResults: new EfRepository<ProductRetypeResult>(context));
     }
 
     private static async Task<(long PosId, long NegId)> EnsureRhRetypeCatalogAsync(BloodBankDbContext context)
@@ -267,8 +269,58 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(expected.Succeeded, expected.Error);
 
         var list = await service.ListQuarantineAsync();
-        Assert.Contains(list, i => i.UnitNumber == "U-Q-LIST" && i.ReasonCode == UnitQuarantineReason.PendingRelease);
+        var receivedRow = Assert.Single(list, i => i.UnitNumber == "U-Q-LIST");
+        Assert.Equal(UnitQuarantineReason.PendingRelease, receivedRow.ReasonCode);
+        Assert.Equal("RBC-TEST", receivedRow.ProductCode);
+        Assert.False(receivedRow.RetypeMismatch);
         Assert.DoesNotContain(list, i => i.UnitNumber == "U-Q-ASN");
+    }
+
+    [Fact]
+    public async Task ListQuarantine_SurfacesRetypeMismatch()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest("U-Q-RETYPE", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var test = new TestDefinition
+        {
+            Code = "ABORH-RETYPE-Q",
+            Name = "Quarantine retype",
+            Category = TestCategory.AboRhRetype,
+            ResultValueType = ResultValueType.AboRh,
+            IsActive = true,
+            IsDraft = false,
+            Version = 1
+        };
+        context.TestDefinitions.Add(test);
+        await context.SaveChangesAsync();
+
+        context.ProductRetypeResults.Add(new ProductRetypeResult
+        {
+            BloodProductId = received.Unit!.Id,
+            TestDefinitionId = test.Id,
+            TestCode = test.Code,
+            Value = "A|Positive",
+            InterpretedAbo = AboGroup.A,
+            InterpretedRh = RhType.Positive,
+            MatchesLabel = false,
+            DiscrepancyDetail = "Labeled O Positive; interpreted A Positive.",
+            Status = ResultStatus.Verified,
+            EnteredBy = "tech1",
+            EnteredUtc = _factory.Clock.UtcNow,
+            VerifiedBy = "tech2",
+            VerifiedUtc = _factory.Clock.UtcNow
+        });
+        await context.SaveChangesAsync();
+
+        var row = Assert.Single(await service.ListQuarantineAsync(), i => i.UnitNumber == "U-Q-RETYPE");
+        Assert.Equal("RBC-TEST", row.ProductCode);
+        Assert.True(row.RetypeMismatch);
+        Assert.Equal(AboGroup.A, row.RetypeInterpretedAbo);
+        Assert.Equal(RhType.Positive, row.RetypeInterpretedRh);
     }
 
     [Fact]

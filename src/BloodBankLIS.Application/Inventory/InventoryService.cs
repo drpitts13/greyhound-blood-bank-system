@@ -50,6 +50,7 @@ public sealed class InventoryService
     private readonly IRepository<ProductType>? _productTypes;
     private readonly IPermissionEvaluator? _permissions;
     private readonly ProductRetypeService? _retype;
+    private readonly IRepository<ProductRetypeResult>? _retypeResults;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -66,7 +67,8 @@ public sealed class InventoryService
         IRepository<InventoryLocation>? locations = null,
         IRepository<ProductType>? productTypes = null,
         IPermissionEvaluator? permissions = null,
-        ProductRetypeService? retype = null)
+        ProductRetypeService? retype = null,
+        IRepository<ProductRetypeResult>? retypeResults = null)
     {
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -83,6 +85,7 @@ public sealed class InventoryService
         _productTypes = productTypes;
         _permissions = permissions;
         _retype = retype;
+        _retypeResults = retypeResults;
     }
 
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
@@ -135,9 +138,25 @@ public sealed class InventoryService
     public async Task<IReadOnlyList<QuarantineWorkItemDto>> ListQuarantineAsync(CancellationToken ct = default)
     {
         var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Quarantine), ct);
+        var productIds = rows.Select(u => u.ProductTypeId).Distinct().ToList();
+        var products = _productTypes is null || productIds.Count == 0
+            ? new Dictionary<long, ProductType>()
+            : (await _productTypes.ListAsync(p => productIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var unitIds = rows.Select(u => u.Id).ToList();
+        var retypes = _retypeResults is null || unitIds.Count == 0
+            ? new Dictionary<long, ProductRetypeResult>()
+            : (await _retypeResults.ListAsync(r => unitIds.Contains(r.BloodProductId), ct))
+                .GroupBy(r => r.BloodProductId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Id).First());
+
         return rows
             .OrderBy(u => u.CreatedUtc)
-            .Select(QuarantineWorkItemDto.From)
+            .Select(u =>
+            {
+                products.TryGetValue(u.ProductTypeId, out var product);
+                retypes.TryGetValue(u.Id, out var latest);
+                return QuarantineWorkItemDto.From(u, product?.ProductCode, latest);
+            })
             .ToList();
     }
 

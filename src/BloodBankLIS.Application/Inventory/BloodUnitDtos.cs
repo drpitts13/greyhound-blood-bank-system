@@ -110,10 +110,23 @@ public sealed record QuarantineWorkItemDto(
     string? Notes,
     AboGroup Abo,
     RhType RhD,
-    DateTime ExpiresUtc)
+    DateTime ExpiresUtc,
+    long ProductTypeId = 0,
+    string? ProductCode = null,
+    AboGroup? RetypeInterpretedAbo = null,
+    RhType? RetypeInterpretedRh = null,
+    bool RetypeMismatch = false)
 {
-    public static QuarantineWorkItemDto From(BloodUnit u) => new(
-        u.Id, u.UnitNumber, u.QuarantineReasonCode, u.QuarantineReason, u.Abo, u.RhD, u.ExpiresUtc);
+    public static QuarantineWorkItemDto From(
+        BloodUnit u,
+        string? productCode = null,
+        ProductRetypeResult? latestRetype = null) => new(
+        u.Id, u.UnitNumber, u.QuarantineReasonCode, u.QuarantineReason, u.Abo, u.RhD, u.ExpiresUtc,
+        u.ProductTypeId,
+        productCode ?? u.ProductType?.ProductCode,
+        latestRetype?.InterpretedAbo,
+        latestRetype?.InterpretedRh,
+        latestRetype is { MatchesLabel: false });
 }
 
 public sealed record DiscrepancyWorkItemDto(

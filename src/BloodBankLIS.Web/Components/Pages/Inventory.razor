@@ -157,7 +157,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Quality quarantine</h3></div>
-        <p class="muted">Units held for quality disposition with a coded reason (SoftBank/SafeTrace). Release requires a second verifier.</p>
+        <p class="muted">Units held for quality disposition with a coded reason (SoftBank/SafeTrace). The board shows product and any ABO/Rh retype mismatch. Release from the row with the same second-verifier gate as Manage.</p>
         @if (_quarantineItems.Count == 0)
         {
             <div class="muted">No units in quality quarantine.</div>
@@ -168,7 +168,9 @@
                 <thead>
                     <tr>
                         <th>Unit</th>
+                        <th>Product</th>
                         <th>ABO/Rh</th>
+                        <th>Retype</th>
                         <th>Reason</th>
                         <th>Notes</th>
                         <th>Expires</th>
@@ -180,12 +182,64 @@
                     {
                         <tr>
                             <td class="mono">@row.UnitNumber</td>
+                            <td class="mono">@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
+                            <td>
+                                @if (row.RetypeMismatch && row.RetypeInterpretedAbo is AboGroup interp)
+                                {
+                                    <span class="badge badge-red" title="Labeled @Ui.BloodType(row.Abo, row.RhD)">Retype @Ui.BloodType(interp, row.RetypeInterpretedRh ?? RhType.Unknown)</span>
+                                }
+                                else if (row.RetypeInterpretedAbo is AboGroup ok)
+                                {
+                                    <span class="muted">@Ui.BloodType(ok, row.RetypeInterpretedRh ?? RhType.Unknown)</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
                             <td>@row.ReasonCode</td>
                             <td>@(row.Notes ?? "—")</td>
                             <td class="nowrap">@row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                            <td class="right"><button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => OpenExpectedAsync(row.UnitId)">Open</button></td>
+                            <td class="right nowrap">
+                                @if (Session.Has(PermissionCodes.InventoryRelease))
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ToggleQuarantineRelease(row.UnitId)">
+                                        @(_releasingQuarantineId == row.UnitId ? "Hide" : "Release")
+                                    </button>
+                                }
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => OpenExpectedAsync(row.UnitId)">Open</button>
+                            </td>
                         </tr>
+                        @if (_releasingQuarantineId == row.UnitId && Session.Has(PermissionCodes.InventoryRelease))
+                        {
+                            <tr>
+                                <td colspan="8">
+                                    <div class="alert alert-info" style="margin:.25rem 0;">
+                                        <p class="muted" style="margin:0 0 .5rem;">
+                                            Release <span class="mono">@row.UnitNumber</span> with the same second-verifier gate as Manage.
+                                            @if (row.RetypeMismatch)
+                                            {
+                                                <span> This unit was quarantined after an ABO/Rh retype mismatch.</span>
+                                            }
+                                        </p>
+                                        <Outcome Value="_actionFb" />
+                                        <div class="field" style="min-width:16rem;max-width:22rem;">
+                                            <label>Second verifier</label>
+                                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                                Items="QuarantineVerifierChoices"
+                                                @bind-Value="_releaseSecondVerifier"
+                                                DisplayText="@(x => x.Label)"
+                                                ItemValue="@(x => x.UserName)"
+                                                SearchText="@(x => x.Label)"
+                                                Clearable="true"
+                                                Placeholder="Different active user" />
+                                        </div>
+                                        <button class="btn btn-primary btn-sm" style="margin-top:.5rem;" disabled="@_busy" @onclick="() => ReleaseAsync(row.UnitId)">Release from quarantine</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -452,6 +506,7 @@
     private string? _arrivalSecondVerifier;
     private decimal? _arrivalTemperatureCelsius;
     private long? _confirmingExpectedId;
+    private long? _releasingQuarantineId;
     private string _cancelExpectedReason = string.Empty;
     private string _supplierReturnReason = string.Empty;
     private string _directedConversionReason = string.Empty;
@@ -582,6 +637,13 @@
     private void ToggleExpectedConfirm(long unitId)
     {
         _confirmingExpectedId = _confirmingExpectedId == unitId ? null : unitId;
+        _actionFb = null;
+    }
+
+    private void ToggleQuarantineRelease(long unitId)
+    {
+        _releasingQuarantineId = _releasingQuarantineId == unitId ? null : unitId;
+        _releaseSecondVerifier = null;
         _actionFb = null;
     }
 
@@ -731,7 +793,13 @@
         if (r.Succeeded)
         {
             _releaseSecondVerifier = null;
-            await RefreshSelected(id);
+            _releasingQuarantineId = null;
+            await LoadQuarantineAsync();
+            await SearchAsync();
+            if (_selected?.Id == id)
+            {
+                await RefreshSelected(id);
+            }
         }
     }
 

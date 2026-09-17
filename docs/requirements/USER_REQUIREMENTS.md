@@ -174,3 +174,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-166 | After a good inbound ORU posts to an accepted specimen, technologists can verify the interface value from the test worklist without re-keying it. | P1 | FRS-BB-200 |
 | URS-BB-167 | After a verified test, issued unit, or completed transfusion, billing staff can identify the pending charge by patient name, MRN, test or unit, and queued DFT control id without a second manual capture. | P1 | FRS-BB-201 |
 | URS-BB-168 | Technologists can see electronic-crossmatch eligibility and an open antibody-identification workup on the pending test worklist without opening the patient chart. | P2 | FRS-BB-202 |
+| URS-BB-169 | Technologists can identify a quality-quarantine unit by product and see a labeled-versus-interpreted ABO/Rh retype mismatch on the quarantine board, then release from that row with the existing second-verifier gate. | P1 | FRS-BB-203 |

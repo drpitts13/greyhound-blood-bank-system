@@ -752,3 +752,32 @@ an open antibody-identification workup still required opening the chart.
 
 Next workflow family: unit preparation. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 23 — Quarantine board product and retype (2026-09-16)
+
+Workflow-audit loop tick 9 (unit preparation). The quality-quarantine
+board already showed unit number, labeled ABO/Rh, and coded reason, but
+not product or the latest retype interpretation. Release still required
+opening the Manage drawer, so staff could release without seeing a
+labeled-versus-interpreted mismatch on the worklist.
+
+### Implemented
+
+- `QuarantineWorkItemDto` includes product code and the latest
+  `ProductRetypeResult` interpretation and mismatch flag.
+  `/inventory` Quality quarantine shows those columns and Releases from
+  the row with the existing second-verifier gate. Manage release and
+  `ReleaseFromQuarantineAsync` are unchanged.
+
+### Requirements / risk
+
+- URS-BB-169, FRS-BB-203, SRS-BB-164, RISK-BB-275.
+
+### Tests
+
+- TEST-BB-055 (`InventoryServiceTests.ListQuarantine_SurfacesRetypeMismatch`).
+
+### Next ranked residual
+
+Next workflow family: assignment and issuing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.
