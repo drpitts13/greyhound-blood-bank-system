@@ -35,7 +35,12 @@ public sealed record Hl7ErrorVm(
     string? TriggerEvent = null,
     string? AckCode = null,
     string? PatientMrn = null,
-    string? PatientDisplayName = null);
+    string? PatientDisplayName = null,
+    Hl7Direction? Direction = null,
+    string? PlacerOrderNumber = null,
+    string? TestCode = null,
+    string? UnitNumber = null,
+    long? PatientId = null);
 
 public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 

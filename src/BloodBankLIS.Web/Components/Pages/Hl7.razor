@@ -40,8 +40,10 @@
                 <thead>
                     <tr>
                         <th>Control id</th>
+                        <th>Dir</th>
                         <th>Patient</th>
                         <th>MRN</th>
+                        <th>Order / test / unit</th>
                         <th>Message</th>
                         <th>Error</th>
                         <th>Detail</th>
@@ -54,15 +56,33 @@
                     {
                         <tr>
                             <td class="mono">@(e.MessageControlId ?? "—")</td>
-                            <td>@(e.PatientDisplayName ?? "—")</td>
+                            <td>@(e.Direction?.ToString() ?? "—")</td>
+                            <td>
+                                @if (e.PatientId is long patientId)
+                                {
+                                    <a href="@($"/patients/{patientId}")">@(e.PatientDisplayName ?? e.PatientMrn)</a>
+                                }
+                                else
+                                {
+                                    @(e.PatientDisplayName ?? "—")
+                                }
+                            </td>
                             <td class="mono">@(e.PatientMrn ?? "—")</td>
+                            <td class="mono">@FormatContext(e.PlacerOrderNumber, e.TestCode, e.UnitNumber)</td>
                             <td>@(string.IsNullOrEmpty(e.MessageType) ? $"#{e.Hl7MessageId}" : $"{e.MessageType}{(string.IsNullOrEmpty(e.TriggerEvent) ? "" : $"^{e.TriggerEvent}")}")</td>
                             <td>@e.ErrorType</td>
                             <td>@e.ErrorDetail</td>
                             <td>@e.RetryCount</td>
                             <td class="right nowrap">
                                 <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(e.Hl7MessageId)">View</button>
-                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(e.Hl7MessageId)">Replay</button>
+                                @if (e.Direction is null or Hl7Direction.Inbound)
+                                {
+                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(e.Hl7MessageId)">Replay</button>
+                                }
+                                @if (e.Direction == Hl7Direction.Outbound)
+                                {
+                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(e.Hl7MessageId)">Send</button>
+                                }
                             </td>
                         </tr>
                     }
@@ -195,6 +215,13 @@
                 null)
             : r.ToFeedback();
         await LoadAsync();
+    }
+
+    private static string FormatContext(string? placer, string? test, string? unit)
+    {
+        var parts = new[] { placer, test, unit }.Where(v => !string.IsNullOrWhiteSpace(v));
+        var text = string.Join(" · ", parts);
+        return string.IsNullOrEmpty(text) ? "—" : text;
     }
 
     private async Task SendAsync(long id)

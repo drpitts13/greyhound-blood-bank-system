@@ -111,6 +111,7 @@ public sealed class Hl7OutboundSender
             row.Status = Hl7MessageStatus.Acked;
             row.AckCode = AckCode.Accept;
             row.ErrorDetail = null;
+            await ResolveErrorsAsync(row.Id, ct);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -144,6 +145,7 @@ public sealed class Hl7OutboundSender
             row.Status = Hl7MessageStatus.Acked;
             row.AckCode = send.AckCode;
             row.ErrorDetail = null;
+            await ResolveErrorsAsync(row.Id, ct);
         }
         else
         {
@@ -178,6 +180,24 @@ public sealed class Hl7OutboundSender
         InterfaceTransport.File => !string.IsNullOrWhiteSpace(e.Path),
         _ => false
     };
+
+    private async Task ResolveErrorsAsync(long messageId, CancellationToken ct)
+    {
+        var open = await _errors.ListAsync(e => e.Hl7MessageId == messageId && !e.Resolved, ct);
+        if (open.Count == 0)
+        {
+            return;
+        }
+
+        var now = _clock.UtcNow;
+        foreach (var item in open)
+        {
+            item.Resolved = true;
+            item.ResolvedBy = "outbound";
+            item.ResolvedUtc = now;
+            _errors.Update(item);
+        }
+    }
 
     private async Task EnqueueErrorAsync(Hl7MessageLog row, string type, string detail, CancellationToken ct)
     {

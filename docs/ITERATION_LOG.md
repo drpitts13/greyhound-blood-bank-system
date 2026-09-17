@@ -1029,3 +1029,31 @@ or uncrossmatched.
 
 Next workflow family: HL7 process. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 33 — HL7 error-queue order context and outbound Send (2026-09-17)
+
+Workflow-audit loop tick 19 (HL7 process). The error queue already showed
+PID MRN and name, but hid placer/test/unit and offered Replay on outbound
+failures. Successful outbound AA also left the queue open.
+
+### Implemented
+
+- `Hl7MessageIdentity` reads placer, test, and unit from stored raw.
+  `Hl7ErrorDto` includes direction, those fields, and optional patient
+  id. `/hl7` Replays inbound rows and Sends outbound rows. Outbound AA
+  resolves the queue item. ReplayAllowed and mapping NAKs are unchanged.
+
+### Requirements / risk
+
+- URS-BB-179, FRS-BB-213, SRS-BB-174, RISK-BB-285.
+
+### Tests
+
+- TEST-BB-065 (`Phase5Hl7Tests.OutboundSender_Aa_ResolvesErrorQueue`).
+- Full suite green: Domain 1241, Application 35, HL7 50, Printing 11,
+  Integration 774.
+
+### Next ranked residual
+
+Next workflow family: HL7 data load. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

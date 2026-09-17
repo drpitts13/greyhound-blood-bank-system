@@ -25,10 +25,11 @@ public sealed record Hl7MessageDto(
 {
     public static Hl7MessageDto From(Hl7MessageLog m)
     {
-        Hl7MessageIdentity.TryRead(m.RawMessage, out var mrn, out var name);
+        Hl7MessageIdentity.TryRead(m.RawMessage, out var identity);
         return new(
             m.Id, m.Direction, m.MessageType, m.TriggerEvent, m.MessageControlId,
-            m.Status, m.ReceivedUtc, m.ProcessedUtc, m.AckCode, m.ErrorDetail, mrn, name);
+            m.Status, m.ReceivedUtc, m.ProcessedUtc, m.AckCode, m.ErrorDetail,
+            identity.MedicalRecordNumber, identity.DisplayName);
     }
 }
 
@@ -45,14 +46,25 @@ public sealed record Hl7ErrorDto(
     string? TriggerEvent = null,
     string? AckCode = null,
     string? PatientMrn = null,
-    string? PatientDisplayName = null)
+    string? PatientDisplayName = null,
+    Hl7Direction? Direction = null,
+    string? PlacerOrderNumber = null,
+    string? TestCode = null,
+    string? UnitNumber = null,
+    long? PatientId = null)
 {
-    public static Hl7ErrorDto From(InterfaceErrorQueueItem e, Hl7MessageLog? message = null)
+    public static Hl7ErrorDto From(
+        InterfaceErrorQueueItem e,
+        Hl7MessageLog? message = null,
+        long? patientId = null)
     {
-        Hl7MessageIdentity.TryRead(message?.RawMessage, out var mrn, out var name);
+        Hl7MessageIdentity.TryRead(message?.RawMessage, out var identity);
         return new(
             e.Id, e.Hl7MessageId, e.ErrorType, e.ErrorDetail, e.RetryCount, e.NextRetryUtc, e.Resolved,
-            message?.MessageControlId, message?.MessageType, message?.TriggerEvent, message?.AckCode, mrn, name);
+            message?.MessageControlId, message?.MessageType, message?.TriggerEvent, message?.AckCode,
+            identity.MedicalRecordNumber, identity.DisplayName,
+            message?.Direction, identity.PlacerOrderNumber, identity.TestCode, identity.UnitNumber,
+            patientId);
     }
 }
 
@@ -108,6 +120,7 @@ public static class Hl7Endpoints
         group.MapGet("/errors", async (
             IRepository<InterfaceErrorQueueItem> repo,
             IRepository<Hl7MessageLog> logs,
+            IRepository<Patient> patients,
             CancellationToken ct) =>
         {
             var errors = await repo.ListAsync(e => !e.Resolved, ct);
@@ -116,9 +129,25 @@ public static class Hl7Endpoints
                 ? []
                 : await logs.ListAsync(m => messageIds.Contains(m.Id), ct);
             var byId = messages.ToDictionary(m => m.Id);
-            return Results.Ok(errors
+            var dtos = errors
                 .OrderByDescending(e => e.Id)
-                .Select(e => Hl7ErrorDto.From(e, byId.GetValueOrDefault(e.Hl7MessageId))));
+                .Select(e => Hl7ErrorDto.From(e, byId.GetValueOrDefault(e.Hl7MessageId)))
+                .ToList();
+            var mrns = dtos
+                .Select(d => d.PatientMrn)
+                .Where(mrn => !string.IsNullOrWhiteSpace(mrn))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var matches = mrns.Count == 0
+                ? []
+                : await patients.ListAsync(p => mrns.Contains(p.MedicalRecordNumber), ct);
+            var byMrn = matches
+                .GroupBy(p => p.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.OrderBy(p => p.Id).First().Id, StringComparer.OrdinalIgnoreCase);
+            return Results.Ok(dtos.Select(d =>
+                d.PatientMrn is string mrn && byMrn.TryGetValue(mrn, out var patientId)
+                    ? d with { PatientId = patientId }
+                    : d));
         });
 
         // Queues an outbound ORU for a verified result (transport handled by the sender).

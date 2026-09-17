@@ -662,9 +662,11 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.True(queued);
         Assert.Equal("CTRL-O-ERR", result.Log.MessageControlId);
         Assert.Equal("ORM", result.Log.MessageType);
-        Assert.True(Hl7MessageIdentity.TryRead(result.Log.RawMessage, out var mrn, out var name));
-        Assert.Equal("MISSING-MRN", mrn);
-        Assert.Equal("Doe, John", name);
+        Assert.True(Hl7MessageIdentity.TryRead(result.Log.RawMessage, out var identity));
+        Assert.Equal("MISSING-MRN", identity.MedicalRecordNumber);
+        Assert.Equal("Doe, John", identity.DisplayName);
+        Assert.Equal("PLACER-999", identity.PlacerOrderNumber);
+        Assert.Equal("TS", identity.TestCode);
     }
 
     [Fact]
@@ -1032,6 +1034,91 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         await using var verify = _factory.Create();
         var stored = await verify.Hl7Messages.FindAsync(messageId);
         Assert.Equal(Hl7MessageStatus.Acked, stored!.Status);
+    }
+
+    [Fact]
+    public async Task OutboundSender_Aa_ResolvesErrorQueue()
+    {
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+
+        long messageId;
+        await using (var setup = _factory.Create())
+        {
+            setup.InterfaceEndpoints.Add(new InterfaceEndpoint
+            {
+                Name = "EHR-ORU-RESOLVE",
+                Direction = Hl7Direction.Outbound,
+                Transport = InterfaceTransport.Mllp,
+                InterfaceType = InterfaceType.Results,
+                Host = "127.0.0.1",
+                Port = port,
+                IsEnabled = true,
+                AckTimeoutSeconds = 5,
+                MessageTypes = "ORU"
+            });
+            var log = new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Outbound,
+                MessageType = "ORU",
+                TriggerEvent = "R01",
+                MessageControlId = "OUT-RESOLVE-1",
+                RawMessage = "MSH|^~\\&|BBLIS|LAB|EHR|HOSP|20260530120000||ORU^R01|OUT-RESOLVE-1|P|2.5\rPID|1||MRN1\rORC|RE|PLACER-OUT\rOBR|1|PLACER-OUT||ABO",
+                Status = Hl7MessageStatus.Errored,
+                ReceivedUtc = _factory.Clock.UtcNow,
+                ErrorDetail = "prior send failed"
+            };
+            setup.Hl7Messages.Add(log);
+            await setup.SaveChangesAsync();
+            messageId = log.Id;
+            setup.InterfaceErrorQueue.Add(new InterfaceErrorQueueItem
+            {
+                Hl7MessageId = messageId,
+                ErrorType = "MLLP_SEND",
+                ErrorDetail = "prior send failed",
+                RetryCount = 1
+            });
+            await setup.SaveChangesAsync();
+        }
+
+        var accept = Task.Run(async () =>
+        {
+            using var client = await listener.AcceptTcpClientAsync();
+            await using var stream = client.GetStream();
+            var buffer = new byte[8192];
+            var read = await stream.ReadAsync(buffer);
+            var frames = BloodBankLIS.HL7.Mllp.MllpFraming.Extract(buffer.AsSpan(0, read), out _);
+            var inbound = Hl7Parser.Parse(frames[0]);
+            var ack = Hl7AckBuilder.BuildAck(inbound, AckCode.Accept, "ok", "ACK-RESOLVE", _factory.Clock.UtcNow);
+            await stream.WriteAsync(BloodBankLIS.HL7.Mllp.MllpFraming.Wrap(ack));
+        });
+
+        await using (var context = _factory.Create())
+        {
+            var sender = new Hl7OutboundSender(
+                new EfRepository<Hl7MessageLog>(context),
+                new EfRepository<InterfaceEndpoint>(context),
+                new EfRepository<InterfaceErrorQueueItem>(context),
+                context,
+                _factory.Clock);
+            var result = await sender.SendOneAsync(messageId);
+            Assert.True(result.Succeeded, result.Error);
+            Assert.Equal(Hl7MessageStatus.Acked, result.Value!.Status);
+        }
+
+        await accept;
+        listener.Stop();
+
+        await using var verify = _factory.Create();
+        var item = Assert.Single(await verify.InterfaceErrorQueue.Where(e => e.Hl7MessageId == messageId).ToListAsync());
+        Assert.True(item.Resolved);
+        Assert.Equal("outbound", item.ResolvedBy);
+        Assert.NotNull(item.ResolvedUtc);
+        Assert.True(Hl7MessageIdentity.TryRead(
+            (await verify.Hl7Messages.FindAsync(messageId))!.RawMessage, out var identity));
+        Assert.Equal("PLACER-OUT", identity.PlacerOrderNumber);
+        Assert.Equal("ABO", identity.TestCode);
     }
 
     [Fact]

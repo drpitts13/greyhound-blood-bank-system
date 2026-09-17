@@ -251,6 +251,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-176 / FRS-BB-210 | Discrepancy and operational-hold boards show product; locate, inspect, and release-hold from the row | `InventoryService`; `Inventory.razor` | TEST-BB-062 | I | |
 | URS-BB-177 / FRS-BB-211 | Retrospective XM board prefills Record crossmatch with patient, issued unit, and specimen | `IssuingService`; `Issuing.razor`; `Compatibility.razor` | TEST-BB-063 | I | |
 | URS-BB-178 / FRS-BB-212 | Reaction board badges labeled ABO/Rh incompatibility and shows issue XM context | `ReactionInvestigationService`; `Reactions.razor` | TEST-BB-064 | I | |
+| URS-BB-179 / FRS-BB-213 | HL7 error queue shows placer/test/unit; Send vs Replay by direction; outbound AA resolves the row | `Hl7MessageIdentity`; `Hl7OutboundSender`; `Hl7.razor` | TEST-BB-065 | I | |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

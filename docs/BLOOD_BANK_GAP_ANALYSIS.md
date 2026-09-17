@@ -120,6 +120,10 @@ Cycle 32: the reaction board badges labeled ABO/Rh incompatibility using
 the existing issue-path rule and shows issue type / crossmatch status
 (RISK-BB-284). Close and workup completeness gates are unchanged.
 
+Cycle 33: the HL7 error queue shows placer/test/unit and direction;
+inbound Replay and outbound Send run from the row; outbound AA resolves
+the queue item (RISK-BB-285). ReplayAllowed stays unenforced.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |
