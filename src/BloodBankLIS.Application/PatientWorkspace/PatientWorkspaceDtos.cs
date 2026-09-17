@@ -157,7 +157,8 @@ public sealed record PatientProductHistoryRowDto(
     string? FinalDisposition,
     bool ReactionSuspected,
     bool HasMissingVisitContext,
-    bool IsOpenAssignment);
+    bool IsOpenAssignment,
+    string? PatientIdentificationMethod = null);
 
 public sealed record PatientTestHistoryRowDto(
     long ResultId,

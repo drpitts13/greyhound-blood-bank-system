@@ -53,13 +53,18 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             // autologous/directed FDA/AABB validation, and HL7 data-load patients.
             Assert.Equal(9, await verify.Patients.CountAsync());
             Assert.Equal(10, await verify.Encounters.CountAsync());
-            Assert.Equal(13, await verify.Orders.CountAsync());
+            Assert.Equal(14, await verify.Orders.CountAsync());
             Assert.True(await verify.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0009"));
             Assert.True(await verify.TestResults.AnyAsync(r =>
                 r.SourceReference == "CTRL-HL7-ORU-0009"
                 && r.Source == ResultSource.Interface
                 && r.Status == ResultStatus.PendingVerification));
-            Assert.Equal(3, await verify.Hl7Messages.CountAsync(m => m.MessageControlId.StartsWith("CTRL-HL7-")));
+            Assert.Equal(4, await verify.Hl7Messages.CountAsync(m => m.MessageControlId.StartsWith("CTRL-HL7-")));
+            Assert.True(await verify.BloodUnits.AnyAsync(u =>
+                u.UnitNumber == "W000123BPAM001" && u.Status == UnitStatus.Transfused));
+            Assert.True(await verify.TransfusionEvents.AnyAsync(t =>
+                t.PatientIdentificationMethod == "HL7-BPAM"
+                && t.UnitIdentificationMethod == "HL7-BPAM"));
             Assert.Equal(4, await verify.BillingEvents.CountAsync());
             Assert.True(await verify.BillingEvents.AnyAsync(e => e.BillingCode == "BB-SCREEN" && e.Status == BillingEventStatus.Pending));
             Assert.True(await verify.BillingEvents.AnyAsync(e => e.BillingCode == "BB-RBC-ISSUE"));
@@ -71,8 +76,8 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             // one on operational hold, six ISBT divide-scenario units
             // (three available + one completed source + two V0A/V0B results),
             // autologous + directed, lookback sibling, missing + damaged,
-            // and two expected inbound packing-list units.
-            Assert.Equal(50, await verify.BloodUnits.CountAsync());
+            // and two expected inbound packing-list units, plus the Helen BPAM unit.
+            Assert.Equal(51, await verify.BloodUnits.CountAsync());
             Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Expected));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123ASN0001" && u.ShipmentId == "ASN-DEMO-01"));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.Status == UnitStatus.OnHold && u.HoldReason != null));
@@ -206,6 +211,14 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             r.PatientId == patricia.Id && r.TestCode == "ABSC" && r.Value == "Negative" && r.Status == ResultStatus.Verified));
         Assert.Equal(2, await verify.PatientBloodTypeHistory.CountAsync(h =>
             h.PatientId == patricia.Id && h.Abo == AboGroup.O && h.RhD == RhType.Positive));
+
+        var helen = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0009");
+        Assert.True(await verify.TransfusionEvents.AnyAsync(t =>
+            t.PatientId == helen.Id
+            && t.PatientIdentificationMethod == "HL7-BPAM"
+            && t.FinalDisposition == TransfusionDisposition.Completed));
+        Assert.True(await verify.Hl7Messages.AnyAsync(m =>
+            m.MessageControlId == "CTRL-HL7-RAS-0009" && m.AckCode == "AA"));
     }
 
     [Fact]

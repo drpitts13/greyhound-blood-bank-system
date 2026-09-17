@@ -171,3 +171,4 @@
 | SRS-BB-165 | `ListOutstandingIssuedAsync` reuses `LoadIssueWorklistContextAsync` for Issued rows. `/issuing` Return and Document copy issue id, unit number, and MRN/DOB from the selected row. | FRS-BB-204 |
 | SRS-BB-166 | `TryQuarantineRemainderAsync` holds remainder without the general `InventoryStatusTransition` Transfused block. `/reactions` shows unit type and `WorkupHoldReason`. Update fails if remainder cannot be quarantined. | FRS-BB-205 |
 | SRS-BB-167 | `Hl7MessageIdentity.TryRead` uses PID-3-1 and PID-5. List and error-queue `From` methods call it on the stored raw message. | FRS-BB-206 |
+| SRS-BB-168 | `SeedHl7BpamDataLoadScenarioAsync` is skipped when `W000123BPAM001` exists. `HandleBpamAsync` calls existing `DocumentFromHl7Async`. Product-history rows include `PatientIdentificationMethod`. | FRS-BB-207 |

@@ -1471,7 +1471,7 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Date/time</th><th>Event</th><th>Unit</th><th>Product</th><th>Unit type</th><th>Visit</th><th>Order</th><th>Compatibility</th><th>Disposition</th></tr></thead>
+                    <thead><tr><th>Date/time</th><th>Event</th><th>Unit</th><th>Product</th><th>Unit type</th><th>Visit</th><th>Order</th><th>Compatibility</th><th>Disposition</th><th>Source</th></tr></thead>
                     <tbody>
                         @foreach (var h in _productHistory)
                         {
@@ -1485,6 +1485,7 @@ else
                                 <td class="mono">@(h.OrderNumber ?? "—")</td>
                                 <td>@(h.CompatibilityStatus ?? "—")</td>
                                 <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <a class="badge badge-red" href="@($"/reactions?patientId={Id}")">Reaction</a> }</td>
+                                <td class="mono">@(h.PatientIdentificationMethod ?? "—")</td>
                             </tr>
                         }
                     </tbody>

@@ -67,5 +67,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-056 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-170 / FRS-BB-204 / RISK-BB-276 |
 | TEST-BB-057 | I | `Phase4IssuingTests.Transfusion_ReactionCompleted_QuarantinesRemainder` | URS-BB-171 / FRS-BB-205 / RISK-BB-277 |
 | TEST-BB-058 | I | `Phase5Hl7Tests.InboundOrm_UnknownPatient_ProducesApplicationErrorAndQueuesIt` | URS-BB-172 / FRS-BB-206 / RISK-BB-278 |
+| TEST-BB-059 | I | `Phase5Hl7Tests.InboundRas_DocumentsTransfusionOnIssuedUnitWithoutRekey` | URS-BB-173 / FRS-BB-207 / RISK-BB-279 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

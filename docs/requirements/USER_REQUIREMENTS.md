@@ -178,3 +178,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-170 | Technologists can identify an outstanding issued unit by unit number and patient after ward receipt, then return or document transfusion from that row instead of a raw issue id. | P1 | FRS-BB-204 |
 | URS-BB-171 | When a transfusion reaction is suspected, technologists can see the labeled unit ABO/Rh for the clerical check and the remainder is held in quality quarantine even if the transfusion completed. | P1 | FRS-BB-205 |
 | URS-BB-172 | Interface staff can identify an HL7 mapping error or message-log row by patient MRN and name without opening the raw payload. | P1 | FRS-BB-206 |
+| URS-BB-173 | After a good inbound RAS documents an issued unit, technologists can see that transfusion on the patient product history without re-keying it on Issuing. | P1 | FRS-BB-207 |

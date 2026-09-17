@@ -1,3 +1,5 @@
+using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Results;
@@ -59,6 +61,7 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             _factory.Clock,
             new EfRepository<InterfaceEndpoint>(c),
             new InterfaceFieldMappingRepository(c),
+            bpam: Bpam(c),
             translations: new InterfaceValueTranslationRepository(c),
             merges: withMerge ? Merge(c) : null,
             results: Results(c),
@@ -79,6 +82,40 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             orders: new EfRepository<Order>(c),
             orderLines: new EfRepository<OrderLine>(c),
             patients: new EfRepository<Patient>(c));
+
+    private InterfaceTransfusionService Bpam(BloodBankDbContext c) =>
+        new(
+            new EfRepository<Patient>(c),
+            new EfRepository<BloodUnit>(c),
+            new EfRepository<Issue>(c),
+            new EfRepository<TransfusionEvent>(c),
+            new InventoryRepository(c),
+            new ReactionInvestigationService(
+                new EfRepository<ReactionInvestigation>(c),
+                new EfRepository<TransfusionEvent>(c),
+                new InventoryRepository(c),
+                c,
+                _factory.Clock,
+                _factory.CurrentUser,
+                new AuditWriter(c, _factory.Clock, _factory.CurrentUser)),
+            c,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+
+    private static PatientProductHistoryService History(BloodBankDbContext c) =>
+        new(
+            new EfRepository<Allocation>(c),
+            new EfRepository<Crossmatch>(c),
+            new EfRepository<Issue>(c),
+            new EfRepository<Return>(c),
+            new EfRepository<TransfusionEvent>(c),
+            new EfRepository<BloodUnit>(c),
+            new EfRepository<ProductType>(c),
+            new EfRepository<Encounter>(c),
+            new EfRepository<Order>(c),
+            new EfRepository<Specimen>(c),
+            new EfRepository<PatientBloodTypeHistory>(c));
 
     private PatientMergeService Merge(BloodBankDbContext c) =>
         new(
@@ -152,6 +189,61 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         $"ORC|RE|{placerId}\r" +
         $"OBR|1|{placerId}||{testCode}^{testCode}\r" +
         $"OBX|1|ST|{testCode}^{testCode}||{value}|||N|||{obxStatus}";
+
+    private static string Ras(string controlId, string mrn, string unitNumber) =>
+        $"MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20260530120000||RAS^O17|{controlId}|P|2.5\r" +
+        $"PID|1||{mrn}^^^HOSP^MR||Interface^Helen\r" +
+        $"RXA|0|1|20260530100000|20260530103000|CODE^RBC|300||||12345^Nurse^Pat|||||{unitNumber}";
+
+    private async Task<(Patient Patient, BloodUnit Unit)> SeedIssuedUnitForBpamAsync(
+        BloodBankDbContext context,
+        string mrn,
+        string unitNumber)
+    {
+        var patient = new Patient
+        {
+            MedicalRecordNumber = mrn,
+            LastName = "Bpam",
+            FirstName = "Iris",
+            DateOfBirth = new DateOnly(1985, 6, 2),
+            Sex = Sex.Female
+        };
+        context.Patients.Add(patient);
+        await context.SaveChangesAsync();
+
+        var product = new ProductType
+        {
+            ProductCode = $"RBC-{unitNumber}",
+            Name = "Red Blood Cells",
+            ComponentClass = ComponentClass.RedBloodCells
+        };
+        context.ProductTypes.Add(product);
+        await context.SaveChangesAsync();
+
+        var unit = new BloodUnit
+        {
+            UnitNumber = unitNumber,
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10),
+            Status = UnitStatus.Issued
+        };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync();
+
+        context.Issues.Add(new Issue
+        {
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            IssuedUtc = _factory.Clock.UtcNow.AddHours(-2),
+            IssuedBy = "tech2",
+            IssuedToLocation = "4W",
+            Status = IssueStatus.Issued
+        });
+        await context.SaveChangesAsync();
+        return (patient, unit);
+    }
 
     private async Task SeedLinkedOrderAsync(
         BloodBankDbContext context,
@@ -1003,5 +1095,28 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.False(result.Accepted);
         Assert.Contains("does not belong", result.Log.ErrorDetail, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(await context.TestResults.Where(r => r.SourceReference == "CTRL-ORU-OWN").ToListAsync());
+    }
+
+    [Fact]
+    public async Task InboundRas_DocumentsTransfusionOnIssuedUnitWithoutRekey()
+    {
+        await using var context = _factory.Create();
+        var (patient, unit) = await SeedIssuedUnitForBpamAsync(context, "HL7-BPAM-1", "W-BPAM-LIVE");
+
+        var result = await Processor(context).ProcessAsync(Ras("CTRL-RAS-1", "HL7-BPAM-1", "W-BPAM-LIVE"));
+        Assert.True(result.Accepted, result.Log.ErrorDetail);
+        Assert.Contains("documented from BPAM", result.AckMessage);
+
+        var transfusion = await context.TransfusionEvents.SingleAsync(t => t.PatientId == patient.Id);
+        Assert.Equal(unit.Id, transfusion.BloodProductId);
+        Assert.Equal("HL7-BPAM", transfusion.PatientIdentificationMethod);
+        Assert.Equal(TransfusionDisposition.Completed, transfusion.FinalDisposition);
+        Assert.Equal(300m, transfusion.VolumeTransfused);
+
+        var history = await History(context).ListByPatientAsync(patient.Id);
+        var row = Assert.Single(history, h => h.EventType == PatientProductHistoryEventType.Transfused);
+        Assert.Equal("W-BPAM-LIVE", row.UnitNumber);
+        Assert.Equal("HL7-BPAM", row.PatientIdentificationMethod);
+        Assert.False(await context.Issues.AnyAsync(i => i.PatientId == patient.Id && i.Status == IssueStatus.Issued));
     }
 }

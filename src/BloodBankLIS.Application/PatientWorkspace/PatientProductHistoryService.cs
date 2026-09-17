@@ -172,7 +172,7 @@ public sealed class PatientProductHistoryService
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, visit, orderNum, null, null, t.DocumentedBy, issue.IssuedToLocation,
                 null, t.StartUtc, t.StopUtc, t.VolumeTransfused, t.FinalDisposition.ToString(),
-                t.ReactionSuspected, missing, false));
+                t.ReactionSuspected, missing, false, t.PatientIdentificationMethod));
         }
 
         return rows.OrderByDescending(r => r.EventUtc).ToList();

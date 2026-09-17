@@ -860,3 +860,29 @@ see the PID patient.
 
 Next workflow family: HL7 interface data load. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 27 — HL7 BPAM transfusion load (2026-09-17)
+
+Workflow-audit loop tick 13 (HL7 data load). ADT/ORM/ORU already landed on
+Helen Interface, but a good RAS never produced a chart transfusion, so staff
+re-documented administration on `/issuing`.
+
+### Implemented
+
+- Idempotent seed of issued `W000123BPAM001` and processed RAS on `MRN0009`.
+  Product history shows the transfusion and `HL7-BPAM` identification.
+  Inbound RAS documents against an issued unit through the existing
+  `DocumentFromHl7Async` path. Issue and bedside-scan gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-173, FRS-BB-207, SRS-BB-168, RISK-BB-279.
+
+### Tests
+
+- TEST-BB-059 (`Phase5Hl7Tests.InboundRas_DocumentsTransfusionOnIssuedUnitWithoutRekey`).
+
+### Next ranked residual
+
+Next workflow family: billing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

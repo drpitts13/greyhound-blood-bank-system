@@ -94,6 +94,10 @@ workup hold (RISK-BB-277). Clerical/visual/DAT close gates are unchanged.
 Cycle 26: the HL7 error queue and message log show PID MRN and name
 (RISK-BB-278). Replay and MSH-10 idempotency are unchanged.
 
+Cycle 27: seeded Helen Interface RAS documents transfusion of
+`W000123BPAM001`; product history shows `HL7-BPAM` without a second
+Issuing Document (RISK-BB-279). Bedside-scan and issue gates are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

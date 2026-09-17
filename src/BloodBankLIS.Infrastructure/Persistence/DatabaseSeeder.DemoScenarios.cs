@@ -53,6 +53,7 @@ public static partial class DatabaseSeeder
         await SeedDiscrepancyScenarioAsync(context, ct);
         await SeedComputerXmEligibleScenarioAsync(context, ct);
         await SeedHl7DataLoadScenarioAsync(context, ct);
+        await SeedHl7BpamDataLoadScenarioAsync(context, ct);
         await SeedBillingCaptureScenarioAsync(context, ct);
     }
 
@@ -2068,6 +2069,138 @@ public static partial class DatabaseSeeder
                 AckCode = "AA",
                 CreatedBy = "hl7"
             });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Completes the Helen Interface load with an issued unit and a processed RAS so
+    /// product history shows a transfusion without a second /issuing Document.
+    /// </summary>
+    private static async Task SeedHl7BpamDataLoadScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123BPAM001", ct))
+        {
+            return;
+        }
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0009", ct);
+        if (patient is null)
+        {
+            return;
+        }
+
+        var encounter = await context.Encounters.FirstOrDefaultAsync(e => e.PatientId == patient.Id, ct);
+        if (encounter is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var orderingLocation = await context.OrderingLocations.FirstAsync(l => l.Code == "ED", ct);
+        var redCells = await context.ProductTypes.FirstAsync(p => p.ProductCode == "RBC-LR", ct);
+        var location = await context.InventoryLocations.FirstAsync(ct);
+
+        var unit = new BloodUnit
+        {
+            UnitNumber = "W000123BPAM001",
+            ProductTypeId = redCells.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = now.AddDays(20),
+            CurrentLocationId = location.Id,
+            Status = UnitStatus.Transfused,
+            Volume = 300m,
+            CollectionFacility = "Regional Blood Center",
+            Supplier = "Regional Blood Center",
+            CollectedUtc = now.AddDays(-6)
+        };
+        context.BloodUnits.Add(unit);
+        await context.SaveChangesAsync(ct);
+
+        var productOrder = new Order
+        {
+            OrderNumber = "PLACER-HL7-BPAM-0009",
+            PatientId = patient.Id,
+            EncounterId = encounter.Id,
+            OrderingLocationId = orderingLocation.Id,
+            OrderCategory = OrderCategory.Product,
+            OrderName = "Red Blood Cells",
+            OrderType = OrderType.Other,
+            ProductTypeId = redCells.Id,
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.Completed,
+            Source = OrderSource.Hl7,
+            OrderedUtc = now.AddHours(-90),
+            FulfillmentStatus = FulfillmentStatus.Complete
+        };
+        context.Orders.Add(productOrder);
+        await context.SaveChangesAsync(ct);
+
+        context.OrderLines.Add(new OrderLine
+        {
+            OrderId = productOrder.Id,
+            LineNumber = 1,
+            LineCategory = OrderCategory.Product,
+            LineName = "Red Blood Cells",
+            ProductTypeId = redCells.Id,
+            OrderType = OrderType.Other,
+            FulfillmentStatus = FulfillmentStatus.Complete
+        });
+
+        var issue = new Issue
+        {
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            EncounterId = encounter.Id,
+            OrderId = productOrder.Id,
+            IssuedUtc = now.AddHours(-80),
+            IssuedBy = "tech2",
+            IssuedTo = "RN Chen",
+            IssuedToLocation = "4W Oncology",
+            CrossmatchStatus = CrossmatchClinicalStatus.Compatible,
+            Status = IssueStatus.Transfused,
+            UnitExpirationAtIssueUtc = unit.ExpiresUtc,
+            WardReceivedUtc = now.AddHours(-75),
+            WardReceivedBy = "HL7-BPAM",
+            WardVisualAcceptable = true
+        };
+        context.Issues.Add(issue);
+        await context.SaveChangesAsync(ct);
+
+        context.TransfusionEvents.Add(new TransfusionEvent
+        {
+            IssueId = issue.Id,
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            StartUtc = now.AddHours(-74),
+            StopUtc = now.AddHours(-73),
+            VolumeTransfused = 300m,
+            Transfusionist = "Nurse, Pat",
+            Location = "4W Oncology",
+            ReactionSuspected = false,
+            FinalDisposition = TransfusionDisposition.Completed,
+            DocumentedBy = "hl7",
+            PatientIdentificationMethod = "HL7-BPAM",
+            UnitIdentificationMethod = "HL7-BPAM"
+        });
+
+        context.Hl7Messages.Add(new Hl7MessageLog
+        {
+            Direction = Hl7Direction.Inbound,
+            MessageType = "RAS",
+            TriggerEvent = "O17",
+            MessageControlId = "CTRL-HL7-RAS-0009",
+            RawMessage =
+                "MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20260101150000||RAS^O17|CTRL-HL7-RAS-0009|P|2.5\r"
+                + "PID|1||MRN0009^^^HOSP^MR||INTERFACE^HELEN\r"
+                + "RXA|0|1|20260101140000|20260101150000|CODE^RBC|300||||12345^Nurse^Pat|||||W000123BPAM001",
+            Status = Hl7MessageStatus.Processed,
+            ReceivedUtc = now.AddHours(-73),
+            ProcessedUtc = now.AddHours(-73),
+            AckCode = "AA",
+            CreatedBy = "hl7"
+        });
 
         await context.SaveChangesAsync(ct);
     }

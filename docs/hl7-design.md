@@ -73,7 +73,7 @@ Action: post through `ResultService.EnterFromInterfaceAsync`. Source is `Interfa
 Triggered when charge capture creates a `BillingEvent`. Builds `MSH + EVN + PID + FT1` DFT^P03. Default `FT1-6` is `CG`, `FT1-7` is the billing code, `FT1-4` is the service date. Transaction amount is omitted — catalog price is internal only.
 
 ### 2.5 Inbound BPAM (RAS/BPS)
-Thin blood-product administration intake (not IHE/Epic certification). Mapped fields include patient MRN, unit number/DIN, start/stop, volume, location, transfusionist, and reaction flag. When an issued unit for that patient can be matched, a `TransfusionEvent` is documented; otherwise the message is NAK/`AE` and queued.
+Thin blood-product administration intake (not IHE/Epic certification). Mapped fields include patient MRN, unit number/DIN, start/stop, volume, location, transfusionist, and reaction flag. When an issued unit for that patient can be matched, a `TransfusionEvent` is documented with `PatientIdentificationMethod` / `UnitIdentificationMethod` `HL7-BPAM`; otherwise the message is NAK/`AE` and queued. Patient product history shows that source so staff do not re-key the administration on Issuing. Demo seed `MRN0009` / `W000123BPAM001` is this RAS path.
 
 ---
 
