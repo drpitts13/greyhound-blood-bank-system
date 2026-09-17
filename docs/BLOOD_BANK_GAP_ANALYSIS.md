@@ -141,6 +141,10 @@ Cycle 37: `/inventory` shows pending product ABO/Rh retype with inline
 Enter (RISK-BB-289). Match/mismatch release and quarantine gates are
 unchanged.
 
+Cycle 38: `/issuing` lists reserved units as Ready to issue and prefills
+the issue form from the row or `/compatibility` (RISK-BB-290). IssueGate
+and emergency defaults are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

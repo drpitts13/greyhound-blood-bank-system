@@ -75,6 +75,10 @@ public static class IssuingEndpoints
             Results.Ok(await service.ListPendingSecondAboAsync(ct)))
             .RequirePermission(PermissionCodes.IssueCreate);
 
+        issues.MapGet("/ready-to-issue", async (IssuingService service, CancellationToken ct) =>
+            Results.Ok(await service.ListReadyToIssueAllocationsAsync(ct)))
+            .RequirePermission(PermissionCodes.IssueCreate);
+
         issues.MapGet("/{id:long}", async (long id, IssuingService service, CancellationToken ct) =>
         {
             var issue = await service.GetAsync(id, ct);

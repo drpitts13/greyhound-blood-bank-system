@@ -1171,3 +1171,31 @@ behind `/test-worklist` or Manage.
 
 Next workflow family: assignment and issuing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 38 — Ready-to-issue reserved units (2026-09-17)
+
+Workflow-audit loop tick 24 (assignment and issuing). Reserve already
+required an allocation before issue, but `/issuing` hid reserved units
+behind the patient Products tab.
+
+### Implemented
+
+- `ReadyToIssueWorkItemDto` lists reserved allocations with MRN, unit
+  number, XM, and display status. `/issuing` Issue prefills the existing
+  form. `/compatibility` links to `/issuing?patientId=&bloodUnitId=`.
+  IssueGate and emergency defaults are unchanged.
+
+### Requirements / risk
+
+- URS-BB-184, FRS-BB-218, SRS-BB-179, RISK-BB-290.
+
+### Tests
+
+- TEST-BB-070 (`Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate`).
+- Full suite green: Domain 1241, Application 35, HL7 50, Printing 11,
+  Integration 780.
+
+### Next ranked residual
+
+Next workflow family: reactions. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

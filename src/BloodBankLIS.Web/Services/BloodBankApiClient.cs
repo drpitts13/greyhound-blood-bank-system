@@ -442,6 +442,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<SecondAboWorkItemDto>>> GetPendingSecondAboAsync(CancellationToken ct = default) =>
         SendAsync<List<SecondAboWorkItemDto>>(HttpMethod.Get, "api/issues/pending-second-abo", ct: ct);
 
+    public Task<ApiResult<List<ReadyToIssueWorkItemDto>>> GetReadyToIssueAllocationsAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReadyToIssueWorkItemDto>>(HttpMethod.Get, "api/issues/ready-to-issue", ct: ct);
+
     public Task<ApiResult<IssueDto>> GetIssueAsync(long id, CancellationToken ct = default) =>
         SendAsync<IssueDto>(HttpMethod.Get, $"api/issues/{id}", ct: ct);
 

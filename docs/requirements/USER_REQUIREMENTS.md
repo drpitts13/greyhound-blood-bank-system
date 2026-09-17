@@ -189,3 +189,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-181 | After verify, issue, or completed transfusion, billing staff see exactly one pending charge for that clinical event when a catalog mapping exists. | P1 | FRS-BB-215 |
 | URS-BB-182 | Technologists can see on the pending test worklist when an entered ABO/Rh disagrees with the current historical type before they attempt verify. | P1 | FRS-BB-216 |
 | URS-BB-183 | After receive, technologists can record the front-type ABO/Rh retype from the inventory page without opening the test worklist or the unit Manage drawer. | P1 | FRS-BB-217 |
+| URS-BB-184 | After a unit is reserved, technologists can identify it on the issuing page by patient and unit number and open Issue with those identities already set. | P1 | FRS-BB-218 |

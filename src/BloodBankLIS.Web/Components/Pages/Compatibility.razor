@@ -105,6 +105,10 @@
                     <div class="flex gap" style="margin-top:.5rem;">
                         <input @bind="_releaseReason" placeholder="Release reason" style="flex:1;" />
                         <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(_lastAllocation.Id)">Release</button>
+                        @if (Session.Has(PermissionCodes.IssueCreate))
+                        {
+                            <a class="btn btn-primary btn-sm" href="@($"/issuing?patientId={_lastAllocation.PatientId}&bloodUnitId={_lastAllocation.BloodUnitId}")">Issue</a>
+                        }
                     </div>
                 </div>
             }

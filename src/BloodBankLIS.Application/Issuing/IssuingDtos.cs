@@ -176,6 +176,23 @@ public sealed record OutstandingIssueWorkItemDto(
         i.IssuedUtc, i.WardReceivedUtc, i.WardReceivedBy, i.CoolerId, i.IssuedToLocation, i.Status);
 }
 
+public sealed record ReadyToIssueWorkItemDto(
+    long AllocationId,
+    long PatientId,
+    string? MedicalRecordNumber,
+    string? PatientDisplayName,
+    string? DateOfBirth,
+    long BloodUnitId,
+    string? UnitNumber,
+    string? CurrentBloodType,
+    bool HasAntibodyHistory,
+    string? AntibodySummary,
+    DateTime? SpecimenExpiresUtc,
+    bool SpecimenExpired,
+    DateTime AllocatedUtc,
+    ProductAllocationDisplayStatus DisplayStatus,
+    CrossmatchResult? LatestCrossmatchResult);
+
 public sealed record SecondAboWorkItemDto(
     long PatientId,
     string MedicalRecordNumber,

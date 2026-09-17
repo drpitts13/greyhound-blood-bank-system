@@ -1,11 +1,12 @@
 @page "/issuing"
+@using Microsoft.AspNetCore.Components
 @inject BloodBankApiClient Api
 @inject UserSession Session
 
 <PageTitle>Issue &amp; Transfuse &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Issue &amp; Transfuse</h1>
-<p class="muted">The issue gate runs all safety checks, including storage-location policy and electronic / remote issue eligibility (AABB 5.16). Overrides require a reason and an electronic signature.</p>
+<p class="muted">The issue gate runs all safety checks, including storage-location policy and electronic / remote issue eligibility (AABB 5.16). Overrides require a reason and an electronic signature. Reserved units appear on Ready to issue so the desk does not re-key patient and unit after allocate.</p>
 
 @if (Session.Has(PermissionCodes.IssueCreate))
 {
@@ -35,6 +36,51 @@
                             <td class="mono">@row.MedicalRecordNumber</td>
                             <td class="mono">@row.CurrentAboRh</td>
                             <td>@row.ReservedUnitCount</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Ready to issue</h3></div>
+        <p class="muted">Units reserved to a patient. Issue from the row prefills unit, MRN, and date of birth on the existing issue form. The issue gate is unchanged.</p>
+        @if (_readyItems.Count == 0)
+        {
+            <div class="muted">No reserved units waiting to issue.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>MRN</th>
+                        <th>Unit</th>
+                        <th>Type</th>
+                        <th>Antibodies</th>
+                        <th>XM</th>
+                        <th>Status</th>
+                        <th>Specimen</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _readyItems)
+                    {
+                        <tr>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? "—")</a></td>
+                            <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
+                            <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
+                            <td><strong>@(row.CurrentBloodType ?? "—")</strong></td>
+                            <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
+                            <td>@(row.LatestCrossmatchResult?.ToString() ?? "—")</td>
+                            <td><span class="@Ui.Badge(row.DisplayStatus)">@Ui.StatusLabel(row.DisplayStatus)</span></td>
+                            <td>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</td>
+                            <td class="right">
+                                <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectReadyToIssue(row)">Issue</button>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -490,6 +536,10 @@
     private List<InTransitWorkItemDto> _inTransitItems = new();
     private List<OutstandingIssueWorkItemDto> _outstandingItems = new();
     private List<SecondAboWorkItemDto> _secondAboItems = new();
+    private List<ReadyToIssueWorkItemDto> _readyItems = new();
+
+    [SupplyParameterFromQuery(Name = "patientId")] public long? QueryPatientId { get; set; }
+    [SupplyParameterFromQuery(Name = "bloodUnitId")] public long? QueryBloodUnitId { get; set; }
     private string? _returnUnitNumber;
     private string? _returnPatientName;
 
@@ -509,6 +559,25 @@
         var patients = await Api.GetPatientsAsync();
         if (patients.Succeeded) _patients = patients.Value ?? new();
         await LoadWorklistsAsync();
+        if (QueryBloodUnitId is long unitId)
+        {
+            _issue.BloodUnitId = unitId;
+        }
+
+        if (QueryPatientId is long patientId)
+        {
+            _issue.PatientId = patientId;
+            await OnIssuePatientChangedAsync();
+        }
+    }
+
+    private async Task SelectReadyToIssue(ReadyToIssueWorkItemDto row)
+    {
+        _issue.BloodUnitId = row.BloodUnitId;
+        _issue.PatientId = row.PatientId;
+        _issue.PatientIdentifier1Value = row.MedicalRecordNumber;
+        _issue.PatientIdentifier2Value = row.DateOfBirth;
+        await LoadIssueRequirementsAsync();
     }
 
     private async Task OnIssuePatientChangedAsync()
@@ -636,6 +705,8 @@
             if (transit.Succeeded) _inTransitItems = transit.Value ?? new();
             var secondAbo = await Api.GetPendingSecondAboAsync();
             if (secondAbo.Succeeded) _secondAboItems = secondAbo.Value ?? new();
+            var ready = await Api.GetReadyToIssueAllocationsAsync();
+            if (ready.Succeeded) _readyItems = ready.Value ?? new();
         }
 
         if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.IssueReturn) || Session.Has(PermissionCodes.TransfusionDocument))

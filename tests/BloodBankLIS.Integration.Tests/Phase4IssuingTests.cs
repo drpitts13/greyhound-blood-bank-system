@@ -1485,6 +1485,27 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate()
+    {
+        var s = await SeedAsync("RDYISS");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var row = Assert.Single(await Issuing(c).ListReadyToIssueAllocationsAsync(), r => r.BloodUnitId == s.UnitId);
+        Assert.Equal(s.UnitNumber, row.UnitNumber);
+        Assert.Equal(s.Mrn, row.MedicalRecordNumber);
+        Assert.Equal(s.DateOfBirth, row.DateOfBirth);
+        Assert.Equal(s.PatientId, row.PatientId);
+        Assert.False(string.IsNullOrWhiteSpace(row.PatientDisplayName));
+        Assert.Equal(CrossmatchResult.Compatible, row.LatestCrossmatchResult);
+        Assert.Equal(ProductAllocationDisplayStatus.ReadyForIssue, row.DisplayStatus);
+
+        Assert.True((await Issuing(c).IssueUnitAsync(IssueReq(s))).Succeeded);
+        Assert.DoesNotContain(await Issuing(c).ListReadyToIssueAllocationsAsync(), r => r.BloodUnitId == s.UnitId);
+    }
+
+    [Fact]
     public async Task ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt()
     {
         var s = await SeedAsync("OUTISS");

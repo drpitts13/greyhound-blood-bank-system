@@ -71,6 +71,14 @@ public static class Ui
         _ => "badge"
     };
 
+    public static string StatusLabel(ProductAllocationDisplayStatus status) => status switch
+    {
+        ProductAllocationDisplayStatus.ReadyForIssue => "Ready for issue",
+        ProductAllocationDisplayStatus.Exception => "Exception",
+        ProductAllocationDisplayStatus.Reserved => "Reserved",
+        _ => status.ToString()
+    };
+
     public static string Badge(AllocationStatus status) => status switch
     {
         AllocationStatus.Reserved => "badge badge-blue",

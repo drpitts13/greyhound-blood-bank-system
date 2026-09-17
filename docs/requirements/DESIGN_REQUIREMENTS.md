@@ -182,3 +182,4 @@
 | SRS-BB-176 | `CaptureAsync` calls catalog capture before `CaptureFromChargeRulesAsync` and skips rules when `HasActiveCatalogMatchAsync` is true. `DeactivateChargeRulesOverlappingCatalogsAsync` sets overlapping seeded rules inactive. | FRS-BB-215 |
 | SRS-BB-177 | `TestWorklistService.EvaluateAboRhDelta` parses the current ABORH value and calls `AboRhDeltaRule.Evaluate` against current `PatientBloodTypeHistory`. | FRS-BB-216 |
 | SRS-BB-178 | `Inventory.razor` loads pending retypes in `OnInitializedAsync` and after receive. Board Enter calls `GET /api/inventory/units/{id}/retype` and `ProductRetypeEntryPanel`. | FRS-BB-217 |
+| SRS-BB-179 | `ListReadyToIssueAllocationsAsync` joins reserved allocations, units, current type, antibodies, latest XM, and `ProductAllocationDisplayStatusRule`. `GET /api/issues/ready-to-issue` requires `issue.create`. | FRS-BB-218 |

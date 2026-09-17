@@ -613,6 +613,94 @@ public sealed class IssuingService
     }
 
     /// <summary>
+    /// Reserved allocations waiting to leave the blood bank. The issue desk uses
+    /// unit number and MRN instead of opening the patient chart after reserve.
+    /// </summary>
+    public async Task<IReadOnlyList<ReadyToIssueWorkItemDto>> ListReadyToIssueAllocationsAsync(
+        CancellationToken ct = default)
+    {
+        var reserved = await _allocations.ListAsync(a => a.Status == AllocationStatus.Reserved, ct);
+        if (reserved.Count == 0)
+        {
+            return [];
+        }
+
+        var now = _clock.UtcNow;
+        var patientIds = reserved.Select(a => a.PatientId).Distinct().ToList();
+        var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct))
+            .ToDictionary(p => p.Id);
+        var types = (await _bloodTypes.ListAsync(h => patientIds.Contains(h.PatientId) && h.IsCurrent, ct))
+            .GroupBy(h => h.PatientId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(h => h.Id).First());
+        var antibodies = _antibodies is null
+            ? []
+            : await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct);
+        var antibodiesByPatient = antibodies
+            .GroupBy(a => a.PatientId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.IsActive).ThenBy(a => a.AntibodySpecificity).ToList());
+        var specimens = await _specimens.ListAsync(s => patientIds.Contains(s.PatientId), ct);
+        var specimensById = specimens.ToDictionary(s => s.Id);
+        var xms = await _crossmatches.ListAsync(
+            x => patientIds.Contains(x.PatientId), ct);
+
+        var items = new List<ReadyToIssueWorkItemDto>();
+        foreach (var allocation in reserved.OrderBy(a => a.AllocatedUtc))
+        {
+            patients.TryGetValue(allocation.PatientId, out var patient);
+            types.TryGetValue(allocation.PatientId, out var type);
+            antibodiesByPatient.TryGetValue(allocation.PatientId, out var history);
+            var unit = await _inventory.GetUnitAsync(allocation.BloodProductId, ct);
+            var latestXm = xms
+                .Where(x => x.PatientId == allocation.PatientId && x.BloodProductId == allocation.BloodProductId)
+                .OrderByDescending(x => x.Id)
+                .FirstOrDefault();
+            var requiresXm = unit?.ProductType?.RequiresCrossmatch ?? true;
+            var display = ProductAllocationDisplayStatusRule.Evaluate(
+                requiresXm,
+                latestXm?.Result,
+                latestXm?.Result == CrossmatchResult.Incompatible);
+            var specimen = allocation.SpecimenId is long specimenId && specimensById.TryGetValue(specimenId, out var linked)
+                ? linked
+                : specimens
+                    .Where(s => s.PatientId == allocation.PatientId && s.Status == SpecimenStatus.Accepted)
+                    .OrderByDescending(s => s.CollectedUtc)
+                    .FirstOrDefault();
+            var expires = specimen?.ExpiresUtc;
+            items.Add(new ReadyToIssueWorkItemDto(
+                allocation.Id,
+                allocation.PatientId,
+                patient?.MedicalRecordNumber,
+                patient is null ? null : $"{patient.LastName}, {patient.FirstName}",
+                patient?.DateOfBirth.ToString("yyyy-MM-dd"),
+                allocation.BloodProductId,
+                unit?.UnitNumber,
+                type?.BloodType.ToString(),
+                history is { Count: > 0 },
+                FormatReadyToIssueAntibodies(history),
+                expires,
+                expires is DateTime exp && exp <= now,
+                allocation.AllocatedUtc,
+                display,
+                latestXm?.Result));
+        }
+
+        return items;
+    }
+
+    private static string? FormatReadyToIssueAntibodies(IReadOnlyList<AntibodyHistory>? history)
+    {
+        if (history is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        return string.Join(", ", history.Select(a =>
+            a.IsActive
+                ? a.AntibodySpecificity
+                : $"{a.AntibodySpecificity} (historical / currently undetectable)"));
+    }
+
+    /// <summary>
     /// Nursing-unit custody acknowledgment after the unit leaves the blood bank.
     /// Required before transfusion when <see cref="FacilityPolicyKeys.RequireWardReceipt"/> is true.
     /// </summary>
