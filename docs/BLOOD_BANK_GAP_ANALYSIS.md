@@ -111,6 +111,11 @@ Cycle 30: discrepancy and operational-hold boards show product and ABO/Rh;
 Locate, Inspect, and Release from hold run from the row (RISK-BB-282).
 Locate-to-quarantine and `inventory.release` gates are unchanged.
 
+Cycle 31: the retrospective crossmatch board shows specimen accession and
+opens Record crossmatch with patient, issued unit, and specimen prefilled
+(RISK-BB-283). Compatible XM still closes the queue; emergency defaults
+are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

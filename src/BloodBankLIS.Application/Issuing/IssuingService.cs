@@ -513,7 +513,8 @@ public sealed class IssuingService
                 var row = context.For(i, now);
                 return RetrospectiveCrossmatchWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
-                    row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired);
+                    row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
+                    row.SpecimenId, row.AccessionNumber);
             })
             .ToList();
     }
@@ -1278,7 +1279,8 @@ public sealed class IssuingService
         private readonly IReadOnlyDictionary<long, BloodUnit> _units = units;
 
         public (string? Mrn, string? DisplayName, string? DateOfBirth, string? UnitNumber, string? CurrentBloodType,
-            bool HasAntibodyHistory, string? AntibodySummary, DateTime? SpecimenExpiresUtc, bool SpecimenExpired)
+            bool HasAntibodyHistory, string? AntibodySummary, DateTime? SpecimenExpiresUtc, bool SpecimenExpired,
+            long? SpecimenId, string? AccessionNumber)
             For(Issue issue, DateTime clock)
         {
             _patients.TryGetValue(issue.PatientId, out var patient);
@@ -1296,7 +1298,9 @@ public sealed class IssuingService
                 history is { Count: > 0 },
                 FormatAntibodySummary(history),
                 expires,
-                expires is DateTime exp && exp <= clock);
+                expires is DateTime exp && exp <= clock,
+                specimen?.Id,
+                specimen?.AccessionNumber);
         }
 
         private Specimen? ResolveSpecimen(Issue issue)

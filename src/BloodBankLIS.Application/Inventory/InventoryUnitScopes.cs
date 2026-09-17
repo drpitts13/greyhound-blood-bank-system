@@ -33,4 +33,15 @@ public static class InventoryUnitScopes
         UnitStatus.CancelledAssignment,
         UnitStatus.OnHold
     ];
+
+    /// <summary>
+    /// Crossmatch entry includes issued and transfused units so retrospective
+    /// emergency / MTP follow-up can name the unit already released.
+    /// </summary>
+    public static readonly IReadOnlyList<UnitStatus> Crossmatch =
+    [
+        ..OnHand,
+        UnitStatus.Issued,
+        UnitStatus.Transfused
+    ];
 }

@@ -50,6 +50,7 @@
         {
             UnitPickerScope.Available => InventoryUnitScopes.Available,
             UnitPickerScope.Issuable => InventoryUnitScopes.Issuable,
+            UnitPickerScope.Crossmatch => InventoryUnitScopes.Crossmatch,
             _ => InventoryUnitScopes.OnHand
         };
         var result = await Api.SearchUnitsAsync(new InventorySearchCriteria(Statuses: statuses));

@@ -732,6 +732,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             var retro = pending.Single(p => p.IssueId == issueId);
             Assert.Equal(s.Mrn, retro.MedicalRecordNumber);
             Assert.Equal(s.UnitNumber, retro.UnitNumber);
+            Assert.Equal(s.SpecimenId, retro.SpecimenId);
+            Assert.Equal("ACC-RETROXM", retro.AccessionNumber);
             Assert.False(string.IsNullOrWhiteSpace(retro.PatientDisplayName));
             Assert.False(string.IsNullOrWhiteSpace(retro.CurrentBloodType));
         }

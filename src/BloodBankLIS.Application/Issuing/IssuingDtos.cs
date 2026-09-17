@@ -201,7 +201,9 @@ public sealed record RetrospectiveCrossmatchWorkItemDto(
     bool IsOverdue,
     IssueType IssueType,
     IssueStatus Status,
-    string? EmergencyReleaseDetails)
+    string? EmergencyReleaseDetails,
+    long? SpecimenId = null,
+    string? AccessionNumber = null)
 {
     public static RetrospectiveCrossmatchWorkItemDto From(
         Issue i,
@@ -213,12 +215,15 @@ public sealed record RetrospectiveCrossmatchWorkItemDto(
         bool hasAntibodyHistory,
         string? antibodySummary,
         DateTime? specimenExpiresUtc,
-        bool specimenExpired) => new(
+        bool specimenExpired,
+        long? specimenId = null,
+        string? accessionNumber = null) => new(
         i.Id, i.PatientId, mrn, displayName, i.BloodProductId, unitNumber, currentBloodType,
         hasAntibodyHistory, antibodySummary, specimenExpiresUtc, specimenExpired,
         i.IssuedUtc, i.RetrospectiveCrossmatchDueUtc,
         i.RetrospectiveCrossmatchDueUtc is DateTime due && now > due,
-        i.IssueType, i.Status, i.EmergencyReleaseDetails);
+        i.IssueType, i.Status, i.EmergencyReleaseDetails,
+        specimenId, accessionNumber);
 }
 
 public sealed record ReturnDto(

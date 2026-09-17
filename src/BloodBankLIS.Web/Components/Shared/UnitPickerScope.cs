@@ -4,5 +4,6 @@ public enum UnitPickerScope
 {
     OnHand,
     Available,
-    Issuable
+    Issuable,
+    Crossmatch
 }

@@ -969,3 +969,33 @@ and operational-hold rows still hid product and sent staff to Manage.
 
 Next workflow family: assignment / issuing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 31 — Retrospective XM follow-up from issuing (2026-09-17)
+
+Workflow-audit loop tick 17 (assignment / issuing). The retrospective
+crossmatch board already identified the emergency or MTP unit, but staff
+had to re-key patient, unit, and specimen on `/compatibility`.
+
+### Implemented
+
+- `RetrospectiveCrossmatchWorkItemDto` includes specimen id and accession.
+  `/issuing` Record crossmatch opens `/compatibility` with those fields
+  prefilled. The XM unit picker includes Issued and Transfused so the
+  released unit can be named. Compatible XM still closes the queue through
+  existing `TryCloseRetrospectiveCrossmatchAsync`. Emergency defaults and
+  due hours are unchanged.
+
+### Requirements / risk
+
+- URS-BB-177, FRS-BB-211, SRS-BB-172, RISK-BB-283.
+
+### Tests
+
+- TEST-BB-063 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1241, Application 35, HL7 48, Printing 11,
+  Integration 772.
+
+### Next ranked residual
+
+Next workflow family: reactions. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.
