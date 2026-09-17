@@ -50,12 +50,22 @@ else
                             <td><a href="@($"/patients/{r.PatientId}")">@(r.PatientDisplayName ?? $"Patient #{r.PatientId}")</a></td>
                             <td class="mono">@(r.MedicalRecordNumber ?? "—")</td>
                             <td class="mono">@(r.UnitNumber ?? $"#{r.BloodProductId}")</td>
-                            <td><strong>@(r.CurrentBloodType ?? "—")</strong></td>
+                            <td>
+                                <strong>@(r.CurrentBloodType ?? "—")</strong>
+                                @if (r.RepeatPatientAboRhDiscrepancy)
+                                {
+                                    <span class="badge badge-red" title="@r.RepeatAboRhDetail">Repeat disagrees</span>
+                                }
+                            </td>
                             <td>
                                 <strong>@(r.UnitBloodType ?? "—")</strong>
                                 @if (r.AboRhIncompatible)
                                 {
                                     <span class="badge badge-red" title="@r.AboRhCompatibilityAlert">ABO/Rh incompatible</span>
+                                }
+                                @if (r.RepeatUnitAboRhDiscrepancy)
+                                {
+                                    <span class="badge badge-red" title="@r.RepeatAboRhDetail">Repeat disagrees</span>
                                 }
                             </td>
                             <td>
@@ -131,13 +141,17 @@ else
             {
                 <p class="badge badge-red" title="@_selected.AboRhCompatibilityAlert">Labeled ABO/Rh is incompatible with the current patient type — existing issue-path rule; this does not block close.</p>
             }
+            @if (_selected.RepeatPatientAboRhDiscrepancy || _selected.RepeatUnitAboRhDiscrepancy)
+            {
+                <p class="badge badge-red" title="@_selected.RepeatAboRhDetail">@(_selected.RepeatAboRhDetail ?? "Repeat ABO/Rh disagrees with the current or labeled type.") Close still requires clerical, visual, and DAT only.</p>
+            }
             <label class="flex"><input type="checkbox" @bind="_clerical" /> &nbsp;Clerical check completed (patient ID, unit number, ABO/Rh)</label>
             <div class="field"><label>Clerical notes</label><input @bind="_clericalNotes" /></div>
             <label class="flex"><input type="checkbox" @bind="_visual" /> &nbsp;Visual inspection of bag / tubing / segments completed</label>
             <label class="flex"><input type="checkbox" @bind="_visualOk" /> &nbsp;Visual inspection acceptable</label>
             <div class="form-row">
-                <div class="field"><label>Repeat patient ABO/Rh</label><input @bind="_repeatPatient" placeholder="e.g. A Positive" /></div>
-                <div class="field"><label>Repeat unit ABO/Rh</label><input @bind="_repeatUnit" placeholder="e.g. A Positive" /></div>
+                <div class="field"><label>Repeat patient ABO/Rh</label><input @bind="_repeatPatient" placeholder="@(_selected.CurrentBloodType is { } pt ? $"recorded type {pt}" : "e.g. A+")" /></div>
+                <div class="field"><label>Repeat unit ABO/Rh</label><input @bind="_repeatUnit" placeholder="@(_selected.UnitBloodType is { } ut ? $"labeled {ut}" : "e.g. A+")" /></div>
                 <div class="field"><label>DAT</label>
                     <select @bind="_dat">@foreach (var d in Enum.GetValues<DatWorkupResult>()) { <option value="@d">@d</option> }</select>
                 </div>
@@ -256,8 +270,8 @@ else
         _clericalNotes = r.ClericalCheckNotes;
         _visual = r.VisualInspectionCompleted;
         _visualOk = r.VisualInspectionAcceptable;
-        _repeatPatient = r.RepeatPatientAboRh ?? r.CurrentBloodType;
-        _repeatUnit = r.RepeatUnitAboRh ?? r.UnitBloodType;
+        _repeatPatient = r.RepeatPatientAboRh;
+        _repeatUnit = r.RepeatUnitAboRh;
         _dat = r.DatResult;
         _elution = r.ElutionResult;
         _remainderHeld = r.RemainderQuarantined;

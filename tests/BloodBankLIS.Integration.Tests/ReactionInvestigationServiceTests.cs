@@ -190,6 +190,31 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.True(row.TestsIncompleteAtIssue);
     }
 
+    [Fact]
+    public async Task ListDtos_SurfacesRepeatAboRhDiscrepancy()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key, includeCurrentType: true);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+
+        var updated = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                null, null, null, null, null, null, null, null, null,
+                RepeatPatientAboRh: "A Positive",
+                RepeatUnitAboRh: "B Positive"));
+        Assert.True(updated.Succeeded, updated.Error);
+
+        var row = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.True(row.RepeatPatientAboRhDiscrepancy);
+        Assert.True(row.RepeatUnitAboRhDiscrepancy);
+        Assert.Contains("A+", row.RepeatAboRhDetail);
+        Assert.Contains("O+", row.RepeatAboRhDetail);
+        Assert.Contains("B+", row.RepeatAboRhDetail);
+        Assert.False(row.AboRhIncompatible);
+    }
+
     private async Task<TransfusionEvent> SeedTransfusionAsync(
         BloodBankDbContext context,
         string key,

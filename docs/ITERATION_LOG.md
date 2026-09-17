@@ -1199,3 +1199,34 @@ behind the patient Products tab.
 
 Next workflow family: reactions. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 39 — Reaction repeat ABO/Rh discrepancy cue (2026-09-17)
+
+Workflow-audit loop tick 25 (reactions). The workup already stored
+repeat patient and unit ABO/Rh as free text, and the board already
+compared labeled types, but a recorded repeat that disagreed with the
+current or labeled type was invisible.
+
+### Implemented
+
+- `ReactionRepeatAboRhRule` compares recorded repeat text to current
+  patient type and labeled unit type. `ReactionInvestigationDto` carries
+  the Warning flags and first messages. `/reactions` badges those cells
+  and does not copy labeled type into the repeat fields. Close still
+  requires only clerical, visual, and DAT.
+
+### Requirements / risk
+
+- URS-BB-185, FRS-BB-219, SRS-BB-180, RISK-BB-291.
+
+### Tests
+
+- TEST-BB-071 (`ReactionInvestigationServiceTests.ListDtos_SurfacesRepeatAboRhDiscrepancy`).
+- Domain `ReactionRepeatAboRhRuleTests`.
+- Full suite green: Domain 1247, Application 35, HL7 50, Printing 11,
+  Integration 781.
+
+### Next ranked residual
+
+Next workflow family: HL7 process. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

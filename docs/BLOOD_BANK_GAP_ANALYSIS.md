@@ -145,6 +145,10 @@ Cycle 38: `/issuing` lists reserved units as Ready to issue and prefills
 the issue form from the row or `/compatibility` (RISK-BB-290). IssueGate
 and emergency defaults are unchanged.
 
+Cycle 39: the reaction board badges a recorded repeat ABO/Rh that
+disagrees with the current patient type or labeled unit type
+(RISK-BB-291). Close and workup completeness gates are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

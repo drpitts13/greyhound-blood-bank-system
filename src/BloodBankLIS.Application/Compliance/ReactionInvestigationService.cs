@@ -70,7 +70,10 @@ public sealed record ReactionInvestigationDto(
     string? AboRhCompatibilityAlert = null,
     IssueType? IssueType = null,
     CrossmatchClinicalStatus? CrossmatchStatus = null,
-    bool TestsIncompleteAtIssue = false)
+    bool TestsIncompleteAtIssue = false,
+    bool RepeatPatientAboRhDiscrepancy = false,
+    bool RepeatUnitAboRhDiscrepancy = false,
+    string? RepeatAboRhDetail = null)
 {
     public static ReactionInvestigationDto From(
         ReactionInvestigation r,
@@ -85,7 +88,10 @@ public sealed record ReactionInvestigationDto(
         string? aboRhCompatibilityAlert = null,
         IssueType? issueType = null,
         CrossmatchClinicalStatus? crossmatchStatus = null,
-        bool testsIncompleteAtIssue = false)
+        bool testsIncompleteAtIssue = false,
+        bool repeatPatientAboRhDiscrepancy = false,
+        bool repeatUnitAboRhDiscrepancy = false,
+        string? repeatAboRhDetail = null)
     {
         var workup = ReactionWorkupCompletenessRule.Evaluate(
             r.ClericalCheckCompleted, r.VisualInspectionCompleted, r.DatResult, r.ElutionResult);
@@ -105,7 +111,10 @@ public sealed record ReactionInvestigationDto(
             aboRhCompatibilityAlert,
             issueType,
             crossmatchStatus,
-            testsIncompleteAtIssue);
+            testsIncompleteAtIssue,
+            repeatPatientAboRhDiscrepancy,
+            repeatUnitAboRhDiscrepancy,
+            repeatAboRhDetail);
     }
 }
 
@@ -534,6 +543,18 @@ public sealed class ReactionInvestigationService
             }
 
             var (incompatible, alert) = EvaluateLabeledCompatibility(type, unit, product);
+            var labeledUnit = unit is null ? (AboRh?)null : new AboRh(unit.Abo, unit.RhD);
+            var patientRepeat = ReactionRepeatAboRhRule.Evaluate(
+                type?.BloodType, row.RepeatPatientAboRh, "Patient");
+            var unitRepeat = ReactionRepeatAboRhRule.Evaluate(
+                labeledUnit, row.RepeatUnitAboRh, "Unit");
+            var patientDelta = patientRepeat.Severity == RuleSeverity.Warning;
+            var unitDelta = unitRepeat.Severity == RuleSeverity.Warning;
+            var repeatDetail = string.Join(" ", new[]
+            {
+                patientDelta ? patientRepeat.Message : null,
+                unitDelta ? unitRepeat.Message : null
+            }.Where(m => !string.IsNullOrWhiteSpace(m)));
             return ReactionInvestigationDto.From(
                 row,
                 patient?.MedicalRecordNumber,
@@ -542,12 +563,15 @@ public sealed class ReactionInvestigationService
                 type?.BloodType.ToString(),
                 history is { Count: > 0 },
                 FormatAntibodySummary(history),
-                unit is null ? null : new AboRh(unit.Abo, unit.RhD).ToString(),
+                labeledUnit?.ToString(),
                 incompatible,
                 alert,
                 issue?.IssueType,
                 issue?.CrossmatchStatus,
-                issue?.TestsIncompleteAtIssue ?? false);
+                issue?.TestsIncompleteAtIssue ?? false,
+                patientDelta,
+                unitDelta,
+                string.IsNullOrWhiteSpace(repeatDetail) ? null : repeatDetail);
         }
 
         private static (bool Incompatible, string? Alert) EvaluateLabeledCompatibility(
