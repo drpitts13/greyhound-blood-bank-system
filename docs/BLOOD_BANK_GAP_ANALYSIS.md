@@ -102,6 +102,11 @@ Cycle 28: the billing queue keeps reviewed charges until export; inbound
 RAS captures the completed-transfusion charge; Helen seed includes DFT
 stubs (RISK-BB-280). Dedupe keys and export-after-review are unchanged.
 
+Cycle 29: the pending test worklist and patient Tests tab show the posted
+result and use Verify for interface/instrument PendingVerification; ABO
+self-verify is hidden for the enterer (RISK-BB-281). Specimen and OCD-018
+gates are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

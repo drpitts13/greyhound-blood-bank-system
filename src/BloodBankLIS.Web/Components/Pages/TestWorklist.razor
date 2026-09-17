@@ -6,7 +6,7 @@
 <PageTitle>Test Worklist &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Test Worklist</h1>
-<p class="muted">Pending patient tests and product ABO/Rh retypes. Each row shows current ABO/Rh, antibody history, specimen expiry, electronic-XM eligibility, and an open antibody-identification workup so the bench does not open the chart just to check dating, history, or eXM holds. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it.</p>
+<p class="muted">Pending patient tests and product ABO/Rh retypes. Each row shows current ABO/Rh, antibody history, specimen expiry, electronic-XM eligibility, an open antibody-identification workup, and the posted result so the bench does not open the chart just to check dating, history, eXM holds, or the interface value. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it. The same Verify cue and Result column appear on the patient Tests tab.</p>
 
 <Outcome Value="_fb" />
 
@@ -46,6 +46,7 @@
                     <th>Expires</th>
                     <th>eXM</th>
                     <th>Status</th>
+                    <th>Result</th>
                     <th>Source</th>
                     <th>Priority</th>
                     <th>Ordered</th>
@@ -104,6 +105,7 @@
                                 <span class="badge badge-gray">Pending</span>
                             }
                         </td>
+                        <td class="mono">@(item.CurrentResultValue ?? "—")</td>
                         <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
                         <td>@item.Priority</td>
                         <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
@@ -114,13 +116,13 @@
                                 <button class="btn btn-ghost btn-sm" @onclick='() => Nav.NavigateTo($"/patients/{item.PatientId}/antibody-id/{workupId}")'>ABID</button>
                             }
                             <button class="btn btn-ghost btn-sm" @onclick="() => ToggleEntry(item.OrderLineId)">
-                                @(_expandedLineId == item.OrderLineId ? "Hide" : WorklistActionLabel(item))
+                                @(_expandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
                             </button>
                         </td>
                     </tr>
                     @if (_expandedLineId == item.OrderLineId)
                     {
-                        <tr><td colspan="14">
+                        <tr><td colspan="15">
                             <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
                         </td></tr>
                     }
@@ -301,9 +303,4 @@
         item.Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease or OrderPriority.MassiveTransfusionProtocol
             ? "row-urgent" : string.Empty;
 
-    private static string WorklistActionLabel(TestWorkItemDto item) =>
-        item.CurrentResultStatus is ResultStatus.PendingVerification
-        && item.CurrentResultSource is ResultSource.Interface or ResultSource.Instrument
-            ? "Verify"
-            : "Enter";
 }

@@ -1121,7 +1121,7 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Expires</th><th>eXM</th><th>Status</th><th>Source</th><th>Priority</th><th>Ordered</th><th></th></tr></thead>
+                    <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Expires</th><th>eXM</th><th>Status</th><th>Result</th><th>Source</th><th>Priority</th><th>Ordered</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var item in _testWorklist)
                         {
@@ -1159,6 +1159,7 @@ else
                                         <span class="badge badge-gray">Pending</span>
                                     }
                                 </td>
+                                <td class="mono">@(item.CurrentResultValue ?? "—")</td>
                                 <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
                                 <td>@item.Priority</td>
                                 <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
@@ -1168,13 +1169,13 @@ else
                                         <button class="btn btn-ghost btn-sm" @onclick='() => Nav.NavigateTo($"/patients/{item.PatientId}/antibody-id/{workupId}")'>ABID</button>
                                     }
                                     <button class="btn btn-ghost btn-sm" @onclick="() => ToggleTestEntry(item.OrderLineId)">
-                                        @(_expandedTestLineId == item.OrderLineId ? "Hide" : "Enter")
+                                        @(_expandedTestLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
                                     </button>
                                 </td>
                             </tr>
                             @if (_expandedTestLineId == item.OrderLineId)
                             {
-                                <tr><td colspan="10">
+                                <tr><td colspan="11">
                                     <TestResultEntryPanel WorkItem="item" OnSaved="OnTestResultSaved" />
                                 </td></tr>
                             }

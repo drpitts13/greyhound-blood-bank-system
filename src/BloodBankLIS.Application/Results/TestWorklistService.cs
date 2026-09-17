@@ -282,7 +282,8 @@ public sealed class TestWorklistService
                 exm?.Criteria.FirstOrDefault(c =>
                     !c.Satisfied && c.Code != ElectronicCrossmatchEligibilityRule.FacilityCode)?.Detail,
                 openWorkupId > 0,
-                openWorkupId > 0 ? openWorkupId : null));
+                openWorkupId > 0 ? openWorkupId : null,
+                current?.EnteredBy));
         }
 
         return items;

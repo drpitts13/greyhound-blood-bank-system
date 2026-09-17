@@ -269,6 +269,8 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(ResultSource.Interface, pending.CurrentResultSource);
         Assert.Equal("Negative", pending.CurrentResultValue);
         Assert.Equal(posted.Value.Id, pending.CurrentResultId);
+        Assert.Equal("Verify", pending.BenchActionLabel);
+        Assert.True(pending.HasPostedInterfaceOrInstrumentValue);
 
         var postedRow = await c.TestResults.SingleAsync(r => r.Id == posted.Value.Id);
         postedRow.EnteredBy = "hl7";
@@ -278,6 +280,30 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.True(verified.Succeeded, verified.Error);
         Assert.Equal(ResultStatus.Verified, verified.Value!.Status);
         Assert.Equal("Negative", verified.Value.Value);
+    }
+
+    [Fact]
+    public async Task PendingWorklist_PostedInterface_SurfacesResultAndVerifyAction()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+
+        var posted = await Results(c).EnterFromInterfaceAsync(
+            seed.specimen!.Id,
+            seed.order.Id,
+            seed.line.TestCode!,
+            "Negative",
+            units: null,
+            interpretation: null,
+            sourceReference: "CTRL-WL-VERIFY");
+        Assert.True(posted.Succeeded, posted.Error);
+
+        var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.Equal("Negative", item.CurrentResultValue);
+        Assert.Equal("Verify", item.BenchActionLabel);
+        Assert.True(item.HasPostedInterfaceOrInstrumentValue);
+        Assert.Equal(posted.Value!.EnteredBy, item.CurrentResultEnteredBy);
+        Assert.False(item.IsAboSelfVerifyBlocked(item.CurrentResultEnteredBy));
     }
 
     [Fact]

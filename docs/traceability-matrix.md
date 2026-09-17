@@ -246,6 +246,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-172 / FRS-BB-206 | HL7 error queue and message log show PID MRN and name | `Hl7MessageIdentity`; `Hl7.razor` | TEST-BB-058 | I | |
 | URS-BB-173 / FRS-BB-207 | Inbound RAS documents transfusion on an issued unit; product history shows HL7-BPAM | `InterfaceTransfusionService`; `PatientProductHistoryService`; `SeedHl7BpamDataLoadScenarioAsync` | TEST-BB-059 | I | |
 | URS-BB-174 / FRS-BB-208 | Review queue keeps reviewed charges until export; inbound RAS captures transfusion charge | `BillingService`; `InterfaceTransfusionService`; `Billing.razor` | TEST-BB-060 | I | |
+| URS-BB-175 / FRS-BB-209 | Pending worklist and patient Tests tab show posted result and Verify for interface/instrument rows | `TestWorkItemDto`; `TestWorklist.razor`; `PatientDetail.razor` | TEST-BB-061 | I | |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

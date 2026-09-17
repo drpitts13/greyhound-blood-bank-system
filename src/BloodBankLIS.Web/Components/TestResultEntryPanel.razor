@@ -40,6 +40,10 @@
             </div>
             <p class="muted">The interface or instrument value is already on the order. Verify it without re-keying unless you need to correct it.</p>
         }
+        else if (WorkItem.IsAboSelfVerifyBlocked(Session.UserName))
+        {
+            <p class="muted">A second technologist must verify this ABO/Rh. The enterer cannot self-verify.</p>
+        }
     }
 
     @if (!WorkItem.CanEnterResults)
@@ -425,7 +429,8 @@
     private bool CanVerifyPostedResult =>
         WorkItem.CurrentResultId is > 0
         && WorkItem.CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
-        && Session.Has(PermissionCodes.ResultVerify);
+        && Session.Has(PermissionCodes.ResultVerify)
+        && !WorkItem.IsAboSelfVerifyBlocked(Session.UserName);
 
     protected override async Task OnParametersSetAsync()
     {

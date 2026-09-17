@@ -180,3 +180,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-172 | Interface staff can identify an HL7 mapping error or message-log row by patient MRN and name without opening the raw payload. | P1 | FRS-BB-206 |
 | URS-BB-173 | After a good inbound RAS documents an issued unit, technologists can see that transfusion on the patient product history without re-keying it on Issuing. | P1 | FRS-BB-207 |
 | URS-BB-174 | After a charge is captured, billing staff can review it and then export it from the same queue, including a transfusion documented by inbound RAS, without a second capture. | P1 | FRS-BB-208 |
+| URS-BB-175 | Technologists can see a posted interface or instrument value on the pending test worklist and the patient Tests tab, and Verify that row without re-keying. The ABO enterer is not offered self-verify. | P1 | FRS-BB-209 |

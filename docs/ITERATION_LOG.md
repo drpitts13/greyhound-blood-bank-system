@@ -913,3 +913,30 @@ could not run on `/billing`. Inbound RAS also skipped capture.
 
 Next workflow family: patient testing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 29 — Patient-testing Verify cue and posted result (2026-09-17)
+
+Workflow-audit loop tick 15 (patient testing). The global worklist already
+offered Verify for a posted interface value, but the patient Tests tab said
+Enter and neither grid showed the posted result.
+
+### Implemented
+
+- `TestWorkItemDto` exposes `BenchActionLabel`, posted value, enterer, and
+  ABO self-verify hold. `/test-worklist` and the patient Tests tab show Result
+  and use Verify for interface/instrument PendingVerification. The entry panel
+  hides Verify posted result when the ABO enterer is the current user.
+  Specimen and OCD-018/019 gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-175, FRS-BB-209, SRS-BB-170, RISK-BB-281.
+
+### Tests
+
+- TEST-BB-061 (`TestWorklistTests.PendingWorklist_PostedInterface_SurfacesResultAndVerifyAction`).
+
+### Next ranked residual
+
+Next workflow family: unit preparation. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.
