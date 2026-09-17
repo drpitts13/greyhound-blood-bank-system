@@ -111,7 +111,7 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Id</th><th>Dir</th><th>Type</th><th>Patient</th><th>MRN</th><th>Control id</th><th>Received</th><th>Status</th><th>Ack</th><th></th></tr></thead>
+            <thead><tr><th>Id</th><th>Dir</th><th>Type</th><th>Patient</th><th>MRN</th><th>Order / test / unit</th><th>Control id</th><th>Received</th><th>Status</th><th>Ack</th><th></th></tr></thead>
             <tbody>
                 @foreach (var m in _messages)
                 {
@@ -119,8 +119,18 @@
                         <td>@m.Id</td>
                         <td>@m.Direction</td>
                         <td>@m.MessageType@(string.IsNullOrEmpty(m.TriggerEvent) ? "" : $"^{m.TriggerEvent}")</td>
-                        <td>@(m.PatientDisplayName ?? "—")</td>
+                        <td>
+                            @if (m.PatientId is long patientId)
+                            {
+                                <a href="@($"/patients/{patientId}")">@(m.PatientDisplayName ?? m.PatientMrn)</a>
+                            }
+                            else
+                            {
+                                @(m.PatientDisplayName ?? "—")
+                            }
+                        </td>
                         <td class="mono">@(m.PatientMrn ?? "—")</td>
+                        <td class="mono">@FormatContext(m.PlacerOrderNumber, m.TestCode, m.UnitNumber)</td>
                         <td class="mono">@m.MessageControlId</td>
                         <td class="nowrap">@m.ReceivedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td><span class="@Ui.Badge(m.Status)">@m.Status</span></td>
@@ -139,7 +149,7 @@
                     </tr>
                     @if (_viewId == m.Id && _detail is not null)
                     {
-                        <tr><td colspan="10">
+                        <tr><td colspan="11">
                             @if (!string.IsNullOrEmpty(m.ErrorDetail))
                             {
                                 <div class="alert alert-danger">@m.ErrorDetail</div>

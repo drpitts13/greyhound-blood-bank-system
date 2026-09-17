@@ -21,15 +21,21 @@ public sealed record Hl7MessageDto(
     string? AckCode,
     string? ErrorDetail,
     string? PatientMrn = null,
-    string? PatientDisplayName = null)
+    string? PatientDisplayName = null,
+    string? PlacerOrderNumber = null,
+    string? TestCode = null,
+    string? UnitNumber = null,
+    long? PatientId = null)
 {
-    public static Hl7MessageDto From(Hl7MessageLog m)
+    public static Hl7MessageDto From(Hl7MessageLog m, long? patientId = null)
     {
         Hl7MessageIdentity.TryRead(m.RawMessage, out var identity);
         return new(
             m.Id, m.Direction, m.MessageType, m.TriggerEvent, m.MessageControlId,
             m.Status, m.ReceivedUtc, m.ProcessedUtc, m.AckCode, m.ErrorDetail,
-            identity.MedicalRecordNumber, identity.DisplayName);
+            identity.MedicalRecordNumber, identity.DisplayName,
+            identity.PlacerOrderNumber, identity.TestCode, identity.UnitNumber,
+            patientId);
     }
 }
 
@@ -88,10 +94,17 @@ public static class Hl7Endpoints
             return Results.Text(outcome.AckMessage, "text/plain", statusCode: outcome.Accepted ? 200 : 422);
         });
 
-        group.MapGet("/messages", async (IRepository<Hl7MessageLog> repo, CancellationToken ct) =>
+        group.MapGet("/messages", async (
+            IRepository<Hl7MessageLog> repo,
+            IRepository<Patient> patients,
+            CancellationToken ct) =>
         {
             var messages = await repo.ListAsync(ct);
-            return Results.Ok(messages.OrderByDescending(m => m.ReceivedUtc).Select(Hl7MessageDto.From));
+            var dtos = messages
+                .OrderByDescending(m => m.ReceivedUtc)
+                .Select(m => Hl7MessageDto.From(m))
+                .ToList();
+            return Results.Ok(await AttachPatientIdsAsync(dtos, patients, ct));
         });
 
         group.MapGet("/messages/{id:long}", async (long id, IRepository<Hl7MessageLog> repo, CancellationToken ct) =>
@@ -133,21 +146,7 @@ public static class Hl7Endpoints
                 .OrderByDescending(e => e.Id)
                 .Select(e => Hl7ErrorDto.From(e, byId.GetValueOrDefault(e.Hl7MessageId)))
                 .ToList();
-            var mrns = dtos
-                .Select(d => d.PatientMrn)
-                .Where(mrn => !string.IsNullOrWhiteSpace(mrn))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-            var matches = mrns.Count == 0
-                ? []
-                : await patients.ListAsync(p => mrns.Contains(p.MedicalRecordNumber), ct);
-            var byMrn = matches
-                .GroupBy(p => p.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.OrderBy(p => p.Id).First().Id, StringComparer.OrdinalIgnoreCase);
-            return Results.Ok(dtos.Select(d =>
-                d.PatientMrn is string mrn && byMrn.TryGetValue(mrn, out var patientId)
-                    ? d with { PatientId = patientId }
-                    : d));
+            return Results.Ok(await AttachPatientIdsAsync(dtos, patients, ct));
         });
 
         // Queues an outbound ORU for a verified result (transport handled by the sender).
@@ -169,5 +168,48 @@ public static class Hl7Endpoints
             var processed = await poller.PollAsync(ct: ct);
             return Results.Ok(new { processed });
         });
+    }
+
+    private static async Task<IReadOnlyList<T>> AttachPatientIdsAsync<T>(
+        IReadOnlyList<T> rows,
+        IRepository<Patient> patients,
+        CancellationToken ct,
+        Func<T, string?>? getMrn = null,
+        Func<T, long, T>? withPatientId = null)
+    {
+        getMrn ??= row => row switch
+        {
+            Hl7MessageDto message => message.PatientMrn,
+            Hl7ErrorDto error => error.PatientMrn,
+            _ => null
+        };
+        withPatientId ??= (row, patientId) => row switch
+        {
+            Hl7MessageDto message => (T)(object)(message with { PatientId = patientId }),
+            Hl7ErrorDto error => (T)(object)(error with { PatientId = patientId }),
+            _ => row
+        };
+
+        var mrns = rows
+            .Select(getMrn)
+            .Where(mrn => !string.IsNullOrWhiteSpace(mrn))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (mrns.Count == 0)
+        {
+            return rows.ToList();
+        }
+
+        var matches = await patients.ListAsync(p => mrns.Contains(p.MedicalRecordNumber), ct);
+        var byMrn = matches
+            .GroupBy(p => p.MedicalRecordNumber, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.OrderBy(p => p.Id).First().Id, StringComparer.OrdinalIgnoreCase);
+
+        return rows
+            .Select(row =>
+                getMrn(row) is string mrn && byMrn.TryGetValue(mrn, out var patientId)
+                    ? withPatientId(row, patientId)
+                    : row)
+            .ToList();
     }
 }

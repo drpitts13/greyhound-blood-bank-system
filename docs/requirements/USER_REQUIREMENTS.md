@@ -191,3 +191,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-183 | After receive, technologists can record the front-type ABO/Rh retype from the inventory page without opening the test worklist or the unit Manage drawer. | P1 | FRS-BB-217 |
 | URS-BB-184 | After a unit is reserved, technologists can identify it on the issuing page by patient and unit number and open Issue with those identities already set. | P1 | FRS-BB-218 |
 | URS-BB-185 | Investigators can see when a recorded reaction-workup repeat ABO/Rh disagrees with the current patient type or the labeled unit type without that mismatch blocking close. | P1 | FRS-BB-219 |
+| URS-BB-186 | Interface staff can identify a logged HL7 message by placer order, test, or unit number when those fields are present, without opening the raw payload. | P1 | FRS-BB-220 |

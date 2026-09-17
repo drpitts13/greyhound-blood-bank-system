@@ -18,7 +18,11 @@ public sealed record Hl7MessageVm(
     string? AckCode,
     string? ErrorDetail,
     string? PatientMrn = null,
-    string? PatientDisplayName = null);
+    string? PatientDisplayName = null,
+    string? PlacerOrderNumber = null,
+    string? TestCode = null,
+    string? UnitNumber = null,
+    long? PatientId = null);
 
 public sealed record Hl7MessageDetailVm(Hl7MessageVm Message, string? Raw);
 

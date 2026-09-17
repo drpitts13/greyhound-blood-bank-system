@@ -5,6 +5,7 @@ using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
+using BloodBankLIS.HL7.Parsing;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -228,6 +229,26 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             e.PatientId == helen.Id
             && e.TriggerType == BillingTriggerType.UnitTransfused
             && e.Status == BillingEventStatus.Pending));
+    }
+
+    [Fact]
+    public async Task Seed_HelenHl7Messages_SurfacePlacerTestAndUnit()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var oru = await verify.Hl7Messages.SingleAsync(m => m.MessageControlId == "CTRL-HL7-ORU-0009");
+        Assert.True(Hl7MessageIdentity.TryRead(oru.RawMessage, out var oruId));
+        Assert.Equal("MRN0009", oruId.MedicalRecordNumber);
+        Assert.Equal("PLACER-HL7-0009", oruId.PlacerOrderNumber);
+        Assert.Equal("ABSC", oruId.TestCode);
+
+        var ras = await verify.Hl7Messages.SingleAsync(m => m.MessageControlId == "CTRL-HL7-RAS-0009");
+        Assert.True(Hl7MessageIdentity.TryRead(ras.RawMessage, out var rasId));
+        Assert.Equal("W000123BPAM001", rasId.UnitNumber);
     }
 
     [Fact]

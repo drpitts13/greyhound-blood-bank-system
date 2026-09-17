@@ -1230,3 +1230,31 @@ current or labeled type was invisible.
 
 Next workflow family: HL7 process. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 40 — HL7 message-log order context (2026-09-17)
+
+Workflow-audit loop tick 26 (HL7 process). The error queue already showed
+placer, test, and unit, but the message log still hid those fields behind
+View raw.
+
+### Implemented
+
+- `Hl7MessageDto` copies placer, test, and unit from `Hl7MessageIdentity`
+  and joins the patient by MRN. `/hl7` lists that context and links the
+  patient. Replay, Send, MSH-10 idempotency, and mapping NAKs are
+  unchanged. ReplayAllowed stays unenforced.
+
+### Requirements / risk
+
+- URS-BB-186, FRS-BB-220, SRS-BB-181, RISK-BB-292.
+
+### Tests
+
+- TEST-BB-072 (`SeederTests.Seed_HelenHl7Messages_SurfacePlacerTestAndUnit`).
+- Full suite green: Domain 1247, Application 35, HL7 50, Printing 11,
+  Integration 782.
+
+### Next ranked residual
+
+Next workflow family: HL7 data load. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

@@ -149,6 +149,9 @@ Cycle 39: the reaction board badges a recorded repeat ABO/Rh that
 disagrees with the current patient type or labeled unit type
 (RISK-BB-291). Close and workup completeness gates are unchanged.
 
+Cycle 40: the HL7 message log shows placer, test, and unit and links
+the patient (RISK-BB-292). ReplayAllowed stays unenforced.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |
