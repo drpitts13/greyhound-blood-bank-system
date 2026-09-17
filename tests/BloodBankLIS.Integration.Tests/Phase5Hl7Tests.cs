@@ -544,6 +544,9 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.True(queued);
         Assert.Equal("CTRL-O-ERR", result.Log.MessageControlId);
         Assert.Equal("ORM", result.Log.MessageType);
+        Assert.True(Hl7MessageIdentity.TryRead(result.Log.RawMessage, out var mrn, out var name));
+        Assert.Equal("MISSING-MRN", mrn);
+        Assert.Equal("Doe, John", name);
     }
 
     [Fact]

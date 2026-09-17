@@ -16,7 +16,9 @@ public sealed record Hl7MessageVm(
     DateTime ReceivedUtc,
     DateTime? ProcessedUtc,
     string? AckCode,
-    string? ErrorDetail);
+    string? ErrorDetail,
+    string? PatientMrn = null,
+    string? PatientDisplayName = null);
 
 public sealed record Hl7MessageDetailVm(Hl7MessageVm Message, string? Raw);
 
@@ -31,7 +33,9 @@ public sealed record Hl7ErrorVm(
     string? MessageControlId = null,
     string? MessageType = null,
     string? TriggerEvent = null,
-    string? AckCode = null);
+    string? AckCode = null,
+    string? PatientMrn = null,
+    string? PatientDisplayName = null);
 
 public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 

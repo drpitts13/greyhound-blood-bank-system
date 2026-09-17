@@ -4,6 +4,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.HL7.Messaging;
+using BloodBankLIS.HL7.Parsing;
 
 namespace BloodBankLIS.Api.Endpoints;
 
@@ -18,11 +19,17 @@ public sealed record Hl7MessageDto(
     DateTime ReceivedUtc,
     DateTime? ProcessedUtc,
     string? AckCode,
-    string? ErrorDetail)
+    string? ErrorDetail,
+    string? PatientMrn = null,
+    string? PatientDisplayName = null)
 {
-    public static Hl7MessageDto From(Hl7MessageLog m) => new(
-        m.Id, m.Direction, m.MessageType, m.TriggerEvent, m.MessageControlId,
-        m.Status, m.ReceivedUtc, m.ProcessedUtc, m.AckCode, m.ErrorDetail);
+    public static Hl7MessageDto From(Hl7MessageLog m)
+    {
+        Hl7MessageIdentity.TryRead(m.RawMessage, out var mrn, out var name);
+        return new(
+            m.Id, m.Direction, m.MessageType, m.TriggerEvent, m.MessageControlId,
+            m.Status, m.ReceivedUtc, m.ProcessedUtc, m.AckCode, m.ErrorDetail, mrn, name);
+    }
 }
 
 public sealed record Hl7ErrorDto(
@@ -36,11 +43,17 @@ public sealed record Hl7ErrorDto(
     string? MessageControlId = null,
     string? MessageType = null,
     string? TriggerEvent = null,
-    string? AckCode = null)
+    string? AckCode = null,
+    string? PatientMrn = null,
+    string? PatientDisplayName = null)
 {
-    public static Hl7ErrorDto From(InterfaceErrorQueueItem e, Hl7MessageLog? message = null) => new(
-        e.Id, e.Hl7MessageId, e.ErrorType, e.ErrorDetail, e.RetryCount, e.NextRetryUtc, e.Resolved,
-        message?.MessageControlId, message?.MessageType, message?.TriggerEvent, message?.AckCode);
+    public static Hl7ErrorDto From(InterfaceErrorQueueItem e, Hl7MessageLog? message = null)
+    {
+        Hl7MessageIdentity.TryRead(message?.RawMessage, out var mrn, out var name);
+        return new(
+            e.Id, e.Hl7MessageId, e.ErrorType, e.ErrorDetail, e.RetryCount, e.NextRetryUtc, e.Resolved,
+            message?.MessageControlId, message?.MessageType, message?.TriggerEvent, message?.AckCode, mrn, name);
+    }
 }
 
 public static class Hl7Endpoints

@@ -40,6 +40,8 @@
                 <thead>
                     <tr>
                         <th>Control id</th>
+                        <th>Patient</th>
+                        <th>MRN</th>
                         <th>Message</th>
                         <th>Error</th>
                         <th>Detail</th>
@@ -52,6 +54,8 @@
                     {
                         <tr>
                             <td class="mono">@(e.MessageControlId ?? "—")</td>
+                            <td>@(e.PatientDisplayName ?? "—")</td>
+                            <td class="mono">@(e.PatientMrn ?? "—")</td>
                             <td>@(string.IsNullOrEmpty(e.MessageType) ? $"#{e.Hl7MessageId}" : $"{e.MessageType}{(string.IsNullOrEmpty(e.TriggerEvent) ? "" : $"^{e.TriggerEvent}")}")</td>
                             <td>@e.ErrorType</td>
                             <td>@e.ErrorDetail</td>
@@ -87,7 +91,7 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Id</th><th>Dir</th><th>Type</th><th>Control id</th><th>Received</th><th>Status</th><th>Ack</th><th></th></tr></thead>
+            <thead><tr><th>Id</th><th>Dir</th><th>Type</th><th>Patient</th><th>MRN</th><th>Control id</th><th>Received</th><th>Status</th><th>Ack</th><th></th></tr></thead>
             <tbody>
                 @foreach (var m in _messages)
                 {
@@ -95,6 +99,8 @@
                         <td>@m.Id</td>
                         <td>@m.Direction</td>
                         <td>@m.MessageType@(string.IsNullOrEmpty(m.TriggerEvent) ? "" : $"^{m.TriggerEvent}")</td>
+                        <td>@(m.PatientDisplayName ?? "—")</td>
+                        <td class="mono">@(m.PatientMrn ?? "—")</td>
                         <td class="mono">@m.MessageControlId</td>
                         <td class="nowrap">@m.ReceivedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td><span class="@Ui.Badge(m.Status)">@m.Status</span></td>
@@ -113,7 +119,7 @@
                     </tr>
                     @if (_viewId == m.Id && _detail is not null)
                     {
-                        <tr><td colspan="8">
+                        <tr><td colspan="10">
                             @if (!string.IsNullOrEmpty(m.ErrorDetail))
                             {
                                 <div class="alert alert-danger">@m.ErrorDetail</div>

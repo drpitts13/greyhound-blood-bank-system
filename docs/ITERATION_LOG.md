@@ -835,3 +835,28 @@ hid the labeled unit ABO/Rh needed for the clerical check.
 
 Next workflow family: HL7 interface processing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 26 — HL7 error-queue patient identity (2026-09-16)
+
+Workflow-audit loop tick 12 (HL7 interface processing). The error queue
+already showed control id and replayed from the row, but staff could not
+see the PID patient.
+
+### Implemented
+
+- Message log and error-queue DTOs read MRN and name from PID.
+  `/hl7` lists those fields. Replay, MSH-10 idempotency, and mapping
+  NAKs are unchanged.
+
+### Requirements / risk
+
+- URS-BB-172, FRS-BB-206, SRS-BB-167, RISK-BB-278.
+
+### Tests
+
+- TEST-BB-058 (`Phase5Hl7Tests.InboundOrm_UnknownPatient_ProducesApplicationErrorAndQueuesIt`).
+
+### Next ranked residual
+
+Next workflow family: HL7 interface data load. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.
