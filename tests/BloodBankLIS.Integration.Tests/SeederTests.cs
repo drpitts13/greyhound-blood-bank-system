@@ -1,4 +1,6 @@
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
@@ -224,6 +226,39 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             e.PatientId == helen.Id
             && e.TriggerType == BillingTriggerType.UnitTransfused
             && e.Status == BillingEventStatus.Pending));
+    }
+
+    [Fact]
+    public async Task Seed_HelenHl7Order_SurfacesPostedInterfaceValueAndVerifyAction()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var helen = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0009");
+        var helenOrders = await new OrderService(
+            new EfRepository<Order>(verify),
+            new EfRepository<OrderLine>(verify),
+            new EfRepository<OrderSpecimen>(verify),
+            new EfRepository<Encounter>(verify),
+            new EfRepository<OrderingLocation>(verify),
+            new EfRepository<Patient>(verify),
+            new EfRepository<Specimen>(verify),
+            new EfRepository<OrderingProvider>(verify),
+            new EfRepository<ProductType>(verify),
+            new EfRepository<TestDefinition>(verify),
+            new EfRepository<TestGrouper>(verify),
+            _factory.Clock,
+            verify,
+            results: new EfRepository<TestResult>(verify)).ListByPatientAsync(helen.Id);
+        var hl7Order = Assert.Single(helenOrders, o => o.OrderNumber == "PLACER-HL7-0009");
+        Assert.Equal(OrderSource.Hl7, hl7Order.Source);
+        Assert.Equal("Negative", hl7Order.CurrentResultValue);
+        Assert.Equal(ResultSource.Interface, hl7Order.CurrentResultSource);
+        Assert.True(hl7Order.HasPostedInterfaceOrInstrumentValue);
+        Assert.Equal("Verify", hl7Order.BenchActionLabel);
     }
 
     [Fact]

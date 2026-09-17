@@ -759,7 +759,7 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Date/time</th><th>Visit</th><th>Type</th><th>Order</th><th>Priority</th><th>Location</th><th>Provider</th><th>Specimen</th><th>Status</th><th>Fulfillment</th><th></th></tr></thead>
+                    <thead><tr><th>Date/time</th><th>Visit</th><th>Type</th><th>Order</th><th>Source</th><th>Priority</th><th>Location</th><th>Provider</th><th>Specimen</th><th>Status</th><th>Result</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var o in _orders)
                         {
@@ -774,6 +774,7 @@ else
                                         <div>@line.LineName <span class="muted">(@(line.LineCategory == OrderCategory.Test ? line.TestCode : "product"))</span></div>
                                     }
                                 </td>
+                                <td>@o.Source</td>
                                 <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@o.Priority</span> } else { @o.Priority }</td>
                                 <td>@o.OrderingLocationName</td>
                                 <td>@(o.OrderingProvider ?? "—")</td>
@@ -787,8 +788,18 @@ else
                                     }
                                 </td>
                                 <td><span class="@Ui.Badge(o.Status)">@o.Status</span></td>
-                                <td>@(o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")</td>
+                                <td>
+                                    @(o.CurrentResultValue ?? o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")
+                                    @if (o.HasPostedInterfaceOrInstrumentValue)
+                                    {
+                                        <span class="badge badge-amber">@(o.CurrentResultSource)</span>
+                                    }
+                                </td>
                                 <td class="right nowrap">
+                                    @if (CanVerifyPostedOrderResult(o))
+                                    {
+                                        <button type="button" class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => VerifyPostedOrderResultAsync(o)">Verify</button>
+                                    }
                                     @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive)
                                     {
                                         <button type="button" class="btn btn-ghost btn-sm" @onclick="() => BeginEditOrder(o)">@(_editingOrderId == o.Id ? "Cancel" : "Edit")</button>
@@ -798,7 +809,7 @@ else
                             @if (_linkingOrderId == o.Id)
                             {
                                 <tr>
-                                    <td colspan="11">
+                                    <td colspan="12">
                                         <div class="alert alert-info" style="margin:.25rem 0;">
                                             <p class="muted" style="margin:0 0 .5rem;">Link specimen to order <span class="mono">@o.OrderNumber</span>. Tests on this order will appear on the worklist for the selected specimen.</p>
                                             <div class="flex gap" style="align-items:end;">
@@ -825,7 +836,7 @@ else
                             @if (_editingOrderId == o.Id)
                             {
                                 <tr>
-                                    <td colspan="11">
+                                    <td colspan="12">
                                         <div class="alert alert-info" style="margin:.25rem 0;">
                                             <p class="muted" style="margin:0 0 .5rem;">Editing order <span class="mono">@o.OrderNumber</span></p>
                                             <div class="form-row">
@@ -2403,6 +2414,35 @@ else
         _orders = (await Api.GetPatientOrdersAsync(Id, enc, string.IsNullOrWhiteSpace(_orderCategoryFilter) ? null : _orderCategoryFilter, active, _orderSearch)).Value ?? new();
         _ordersLoading = false;
         _ordersLoaded = true;
+    }
+
+    private bool CanVerifyPostedOrderResult(PatientOrderDto o) =>
+        o.HasPostedInterfaceOrInstrumentValue
+        && Session.Has(PermissionCodes.ResultVerify)
+        && !(string.Equals(o.CurrentResultTestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(o.CurrentResultEnteredBy, Session.UserName, StringComparison.OrdinalIgnoreCase));
+
+    private async Task VerifyPostedOrderResultAsync(PatientOrderDto o)
+    {
+        if (o.CurrentResultId is not long resultId)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.VerifyResultAsync(resultId);
+        _busy = false;
+        _orderFb = r.Succeeded && r.Value is not null
+            ? r.ToFeedback(ResultSourceEntryCopy.Verified(r.Value.Source))
+            : r.ToFeedback();
+        if (r.Succeeded)
+        {
+            await LoadOrdersAsync();
+            if (_testsLoaded)
+            {
+                await LoadTestWorklistAsync();
+            }
+        }
     }
 
     private async Task LoadProductHistoryAsync()

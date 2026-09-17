@@ -185,3 +185,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-177 | After an emergency or MTP issue, technologists can open Record crossmatch from the retrospective board with the patient, released unit, and specimen already identified. | P2 | FRS-BB-211 |
 | URS-BB-178 | Investigators can see when labeled unit ABO/Rh is incompatible with the current patient type on the reaction board, along with whether the issue was emergency or uncrossmatched. | P0 | FRS-BB-212 |
 | URS-BB-179 | Interface staff can identify an HL7 error by direction and placer/test/unit when present, and recover from that row with Replay (inbound) or Send (outbound). | P1 | FRS-BB-213 |
+| URS-BB-180 | After a good inbound ORU, technologists can see the posted interface value on the patient Orders tab and Verify it without re-keying. | P1 | FRS-BB-214 |

@@ -35,6 +35,7 @@ public sealed class OrderService
     private readonly AntibodyScreenCompatLoader? _antibodyScreen;
     private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
     private readonly IRepository<Override>? _overrides;
+    private readonly IRepository<TestResult>? _results;
 
     public OrderService(
         IRepository<Order> orders,
@@ -57,7 +58,8 @@ public sealed class OrderService
         CrossmatchAttachmentService? crossmatchAttachment = null,
         AntibodyScreenCompatLoader? antibodyScreen = null,
         IRepository<ExceptionDefinition>? exceptionDefinitions = null,
-        IRepository<Override>? overrides = null)
+        IRepository<Override>? overrides = null,
+        IRepository<TestResult>? results = null)
     {
         _ruleEngine = ruleEngine;
         _audit = audit;
@@ -67,6 +69,7 @@ public sealed class OrderService
         _antibodyScreen = antibodyScreen;
         _exceptionDefinitions = exceptionDefinitions;
         _overrides = overrides;
+        _results = results;
         _orders = orders;
         _orderLines = orderLines;
         _orderSpecimens = orderSpecimens;
@@ -111,6 +114,19 @@ public sealed class OrderService
         var primarySpecimenByOrder = links
             .GroupBy(l => l.OrderId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.IsPrimary).First().SpecimenId);
+        var results = _results is null || orderIds.Count == 0
+            ? []
+            : await _results.ListAsync(
+                r => r.OrderId != null && orderIds.Contains(r.OrderId.Value) && r.SupersededByResultId == null, ct);
+        var resultByOrder = results
+            .GroupBy(r => r.OrderId!.Value)
+            .ToDictionary(
+                g => g.Key,
+                g => g
+                    .OrderByDescending(r => r.Status == ResultStatus.PendingVerification)
+                    .ThenByDescending(r => r.Version)
+                    .ThenByDescending(r => r.Id)
+                    .First());
 
         IEnumerable<Order> query = orders;
 
@@ -175,13 +191,15 @@ public sealed class OrderService
 
                 var orderLines = linesByOrder.GetValueOrDefault(o.Id) ?? Array.Empty<OrderLine>();
 
+                resultByOrder.TryGetValue(o.Id, out var current);
                 return new PatientOrderDto(
                     o.Id, o.PatientId, o.EncounterId, enc?.VisitNumber ?? "—",
                     o.OrderNumber, o.OrderCategory, o.OrderName, o.Priority, o.Status,
                     o.OrderingLocationId, loc?.Name ?? "—", o.OrderingProviderId, o.OrderingProvider,
                     primarySpecimenId, accession, o.ResultStatus, o.FulfillmentStatus,
                     o.Source, o.OrderedUtc, o.CancellationReason,
-                    orderLines.Select(OrderLineDto.From).ToList());
+                    orderLines.Select(OrderLineDto.From).ToList(),
+                    current?.Id, current?.Value, current?.Source, current?.EnteredBy, current?.TestCode);
             })
             .ToList();
     }

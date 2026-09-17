@@ -125,7 +125,12 @@ public sealed record PatientOrderDto(
     OrderSource Source,
     DateTime OrderedUtc,
     string? CancellationReason,
-    IReadOnlyList<OrderLineDto> Lines)
+    IReadOnlyList<OrderLineDto> Lines,
+    long? CurrentResultId = null,
+    string? CurrentResultValue = null,
+    ResultSource? CurrentResultSource = null,
+    string? CurrentResultEnteredBy = null,
+    string? CurrentResultTestCode = null)
 {
     public bool IsUrgentPriority =>
         Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease
@@ -133,6 +138,13 @@ public sealed record PatientOrderDto(
 
     public bool IsActive =>
         Status is not (OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued);
+
+    public bool HasPostedInterfaceOrInstrumentValue =>
+        ResultStatus is BloodBankLIS.Domain.Enums.ResultStatus.PendingVerification
+        && CurrentResultId is not null
+        && CurrentResultSource is ResultSource.Interface or ResultSource.Instrument;
+
+    public string BenchActionLabel => HasPostedInterfaceOrInstrumentValue ? "Verify" : "Edit";
 }
 
 public sealed record PatientProductHistoryRowDto(

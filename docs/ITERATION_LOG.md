@@ -1057,3 +1057,32 @@ failures. Successful outbound AA also left the queue open.
 
 Next workflow family: HL7 data load. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 34 — Orders-tab Verify for posted HL7 results (2026-09-17)
+
+Workflow-audit loop tick 20 (HL7 data load). Helen's inbound ORU already
+landed as a pending interface antibody screen, but the Orders tab hid
+the posted value and offered only Edit.
+
+### Implemented
+
+- `PatientOrderDto` includes the current result value, source, and
+  Verify label when the posted result is Interface/Instrument
+  PendingVerification. `/patients/{id}` Orders shows Source and Result
+  and Verifies through existing `VerifyResultAsync`. Specimen and
+  OCD-018/019 gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-180, FRS-BB-214, SRS-BB-175, RISK-BB-286.
+
+### Tests
+
+- TEST-BB-066 (`SeederTests.Seed_HelenHl7Order_SurfacesPostedInterfaceValueAndVerifyAction`).
+- Full suite green: Domain 1241, Application 35, HL7 50, Printing 11,
+  Integration 775.
+
+### Next ranked residual
+
+Next workflow family: billing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

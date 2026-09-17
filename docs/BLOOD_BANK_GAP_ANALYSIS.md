@@ -124,6 +124,10 @@ Cycle 33: the HL7 error queue shows placer/test/unit and direction;
 inbound Replay and outbound Send run from the row; outbound AA resolves
 the queue item (RISK-BB-285). ReplayAllowed stays unenforced.
 
+Cycle 34: the patient Orders tab shows HL7 source and the posted
+interface value, and Verifies without re-keying (RISK-BB-286). Specimen
+and OCD-018/019 gates are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

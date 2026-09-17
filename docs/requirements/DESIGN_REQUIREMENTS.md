@@ -178,3 +178,4 @@
 | SRS-BB-172 | `IssueWorklistContext.For` returns specimen id and accession. `/compatibility` binds `patientId`, `bloodUnitId`, and `specimenId` query params onto the existing Record crossmatch form. `UnitPickerScope.Crossmatch` uses `InventoryUnitScopes.Crossmatch`. | FRS-BB-211 |
 | SRS-BB-173 | `LoadDisplayContextAsync` loads product types, transfusions, and issues. `ToDto` calls `AboCompatibilityRule.Evaluate` on current patient type vs labeled unit type. | FRS-BB-212 |
 | SRS-BB-174 | `Hl7MessageIdentity.TryRead` returns placer (`ORC-2`/`OBR-2`), test (`OBR-4`/`OBX-3`), and unit (`RXA-15`). Error list joins patient by MRN. `Hl7OutboundSender` resolves queue items after AA. | FRS-BB-213 |
+| SRS-BB-175 | `OrderService.ListByPatientAsync` loads current `TestResult` rows per order. Orders-tab Verify calls `POST /api/results/{id}/verify` and reloads orders. | FRS-BB-214 |

@@ -28,7 +28,8 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Specimen>(c), new EfRepository<OrderingProvider>(c), new EfRepository<ProductType>(c),
             new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c), new FixedClock(DateTime.UtcNow), c,
             ruleEngine: null,
-            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            results: new EfRepository<TestResult>(c));
 
     private static PatientProductHistoryService History(BloodBankDbContext c) =>
         new(new EfRepository<Allocation>(c), new EfRepository<Crossmatch>(c), new EfRepository<Issue>(c),
