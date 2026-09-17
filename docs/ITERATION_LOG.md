@@ -999,3 +999,33 @@ had to re-key patient, unit, and specimen on `/compatibility`.
 
 Next workflow family: reactions. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 32 — Reaction board ABO/Rh incompatibility cue (2026-09-17)
+
+Workflow-audit loop tick 18 (reactions). The investigation board already
+showed patient and labeled unit types side by side, but did not apply the
+existing issue-path ABO/Rh rule or show whether the issue was emergency
+or uncrossmatched.
+
+### Implemented
+
+- `ReactionInvestigationDto` evaluates `AboCompatibilityRule` on current
+  patient type vs labeled unit type and copies issue type, crossmatch
+  status, and tests-incomplete. `/reactions` badges ABO/Rh incompatible
+  and shows issue context. Close, clerical, visual, and DAT gates are
+  unchanged.
+
+### Requirements / risk
+
+- URS-BB-178, FRS-BB-212, SRS-BB-173, RISK-BB-284.
+
+### Tests
+
+- TEST-BB-064 (`ReactionInvestigationServiceTests.ListDtos_SurfacesAboIncompatibilityAndEmergencyIssueContext`).
+- Full suite green: Domain 1241, Application 35, HL7 48, Printing 11,
+  Integration 773.
+
+### Next ranked residual
+
+Next workflow family: HL7 process. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

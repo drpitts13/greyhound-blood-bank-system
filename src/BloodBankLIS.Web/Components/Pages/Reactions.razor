@@ -32,6 +32,7 @@ else
                         <th>Unit</th>
                         <th>Patient type</th>
                         <th>Unit type</th>
+                        <th>Issue</th>
                         <th>Antibodies</th>
                         <th>Workup</th>
                         <th>Remainder</th>
@@ -50,7 +51,24 @@ else
                             <td class="mono">@(r.MedicalRecordNumber ?? "—")</td>
                             <td class="mono">@(r.UnitNumber ?? $"#{r.BloodProductId}")</td>
                             <td><strong>@(r.CurrentBloodType ?? "—")</strong></td>
-                            <td><strong>@(r.UnitBloodType ?? "—")</strong></td>
+                            <td>
+                                <strong>@(r.UnitBloodType ?? "—")</strong>
+                                @if (r.AboRhIncompatible)
+                                {
+                                    <span class="badge badge-red" title="@r.AboRhCompatibilityAlert">ABO/Rh incompatible</span>
+                                }
+                            </td>
+                            <td>
+                                @(r.IssueType?.ToString() ?? "—")
+                                @if (r.CrossmatchStatus is { } xm)
+                                {
+                                    <div class="muted">@xm</div>
+                                }
+                                @if (r.TestsIncompleteAtIssue)
+                                {
+                                    <span class="badge badge-amber">Uncrossmatched</span>
+                                }
+                            </td>
                             <td>
                                 @if (r.HasAntibodyHistory)
                                 {
@@ -109,6 +127,10 @@ else
             </div>
             <h4>AABB workup checklist</h4>
             <p class="muted">Clerical check, visual inspection, and post-transfusion DAT are required before close (same gate as SoftBank / SafeTrace). Compare patient <strong>@(_selected.CurrentBloodType ?? "—")</strong> with labeled unit <strong>@(_selected.UnitBloodType ?? "—")</strong> <span class="mono">@(_selected.UnitNumber ?? "")</span>. Checking remainder holds the bag in quality quarantine when the unit is still Issued, stopped, or Transfused.</p>
+            @if (_selected.AboRhIncompatible)
+            {
+                <p class="badge badge-red" title="@_selected.AboRhCompatibilityAlert">Labeled ABO/Rh is incompatible with the current patient type — existing issue-path rule; this does not block close.</p>
+            }
             <label class="flex"><input type="checkbox" @bind="_clerical" /> &nbsp;Clerical check completed (patient ID, unit number, ABO/Rh)</label>
             <div class="field"><label>Clerical notes</label><input @bind="_clericalNotes" /></div>
             <label class="flex"><input type="checkbox" @bind="_visual" /> &nbsp;Visual inspection of bag / tubing / segments completed</label>
@@ -267,8 +289,8 @@ else
         _fb = r.ToFeedback("Investigation updated.");
         if (r.Succeeded)
         {
-            _selected = r.Value;
             await LoadAsync();
+            _selected = _rows.FirstOrDefault(x => x.Id == _selected.Id) ?? r.Value;
         }
     }
 

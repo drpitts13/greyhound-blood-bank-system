@@ -176,3 +176,4 @@
 | SRS-BB-170 | `TestWorklistService` maps `EnteredBy`. `TestWorkItemDto.BenchActionLabel` is Verify for Interface/Instrument PendingVerification. Patient Tests tab uses the same label and Result column. Panel `CanVerifyPostedResult` applies `IsAboSelfVerifyBlocked`. | FRS-BB-209 |
 | SRS-BB-171 | `ListDiscrepancyAsync` and `ListOnHoldAsync` load product types. `/inventory` calls existing locate, inspect, and release-hold endpoints from those rows. | FRS-BB-210 |
 | SRS-BB-172 | `IssueWorklistContext.For` returns specimen id and accession. `/compatibility` binds `patientId`, `bloodUnitId`, and `specimenId` query params onto the existing Record crossmatch form. `UnitPickerScope.Crossmatch` uses `InventoryUnitScopes.Crossmatch`. | FRS-BB-211 |
+| SRS-BB-173 | `LoadDisplayContextAsync` loads product types, transfusions, and issues. `ToDto` calls `AboCompatibilityRule.Evaluate` on current patient type vs labeled unit type. | FRS-BB-212 |

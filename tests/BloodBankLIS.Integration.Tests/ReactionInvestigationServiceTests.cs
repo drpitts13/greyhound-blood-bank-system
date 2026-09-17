@@ -30,7 +30,9 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             permissions: permissions,
             patients: new EfRepository<Patient>(context),
             bloodTypes: new EfRepository<PatientBloodTypeHistory>(context),
-            antibodies: new EfRepository<AntibodyHistory>(context));
+            antibodies: new EfRepository<AntibodyHistory>(context),
+            issues: new EfRepository<Issue>(context),
+            productTypes: new EfRepository<ProductType>(context));
 
     [Fact]
     public async Task Update_WithoutReactionInvestigate_IsHardStopped()
@@ -167,10 +169,33 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.True(row.WorkupIncomplete);
         Assert.Contains("Clerical check", row.WorkupHoldReason);
         Assert.True(row.RemainderQuarantined);
+        Assert.False(row.AboRhIncompatible);
+        Assert.Equal(IssueType.Standard, row.IssueType);
+    }
+
+    [Fact]
+    public async Task ListDtos_SurfacesAboIncompatibilityAndEmergencyIssueContext()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(
+            context, key, includeCurrentType: true, unitAbo: AboGroup.A, emergency: true);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+
+        var row = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.True(row.AboRhIncompatible);
+        Assert.Contains("not compatible", row.AboRhCompatibilityAlert, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(IssueType.EmergencyRelease, row.IssueType);
+        Assert.Equal(CrossmatchClinicalStatus.NotCrossmatchedEmergency, row.CrossmatchStatus);
+        Assert.True(row.TestsIncompleteAtIssue);
     }
 
     private async Task<TransfusionEvent> SeedTransfusionAsync(
-        BloodBankDbContext context, string key, bool includeCurrentType = false)
+        BloodBankDbContext context,
+        string key,
+        bool includeCurrentType = false,
+        AboGroup unitAbo = AboGroup.O,
+        bool emergency = false)
     {
         var patient = new Patient
         {
@@ -201,7 +226,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         {
             UnitNumber = $"U-RXN-{key}",
             ProductTypeId = product.Id,
-            Abo = AboGroup.O,
+            Abo = unitAbo,
             RhD = RhType.Positive,
             Status = UnitStatus.Issued,
             ExpiresUtc = _factory.Clock.UtcNow.AddDays(10)
@@ -215,7 +240,12 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             PatientId = patient.Id,
             IssuedUtc = _factory.Clock.UtcNow,
             IssuedBy = "tech-test",
-            Status = IssueStatus.Issued
+            Status = IssueStatus.Issued,
+            IssueType = emergency ? IssueType.EmergencyRelease : IssueType.Standard,
+            CrossmatchStatus = emergency
+                ? CrossmatchClinicalStatus.NotCrossmatchedEmergency
+                : CrossmatchClinicalStatus.NotPerformed,
+            TestsIncompleteAtIssue = emergency
         };
         context.Issues.Add(issue);
         await context.SaveChangesAsync();

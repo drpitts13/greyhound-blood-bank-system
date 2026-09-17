@@ -116,6 +116,10 @@ opens Record crossmatch with patient, issued unit, and specimen prefilled
 (RISK-BB-283). Compatible XM still closes the queue; emergency defaults
 are unchanged.
 
+Cycle 32: the reaction board badges labeled ABO/Rh incompatibility using
+the existing issue-path rule and shows issue type / crossmatch status
+(RISK-BB-284). Close and workup completeness gates are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

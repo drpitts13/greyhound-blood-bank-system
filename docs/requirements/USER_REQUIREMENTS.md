@@ -183,3 +183,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-175 | Technologists can see a posted interface or instrument value on the pending test worklist and the patient Tests tab, and Verify that row without re-keying. The ABO enterer is not offered self-verify. | P1 | FRS-BB-209 |
 | URS-BB-176 | Technologists can identify a missing, damaged, or operational-hold unit by product and ABO/Rh on the inventory boards, then locate, inspect, or release hold from that row without opening Manage. | P1 | FRS-BB-210 |
 | URS-BB-177 | After an emergency or MTP issue, technologists can open Record crossmatch from the retrospective board with the patient, released unit, and specimen already identified. | P2 | FRS-BB-211 |
+| URS-BB-178 | Investigators can see when labeled unit ABO/Rh is incompatible with the current patient type on the reaction board, along with whether the issue was emergency or uncrossmatched. | P0 | FRS-BB-212 |

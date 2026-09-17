@@ -65,7 +65,12 @@ public sealed record ReactionInvestigationDto(
     string? AntibodySummary = null,
     bool WorkupIncomplete = false,
     string? UnitBloodType = null,
-    string? WorkupHoldReason = null)
+    string? WorkupHoldReason = null,
+    bool AboRhIncompatible = false,
+    string? AboRhCompatibilityAlert = null,
+    IssueType? IssueType = null,
+    CrossmatchClinicalStatus? CrossmatchStatus = null,
+    bool TestsIncompleteAtIssue = false)
 {
     public static ReactionInvestigationDto From(
         ReactionInvestigation r,
@@ -75,7 +80,12 @@ public sealed record ReactionInvestigationDto(
         string? currentBloodType = null,
         bool hasAntibodyHistory = false,
         string? antibodySummary = null,
-        string? unitBloodType = null)
+        string? unitBloodType = null,
+        bool aboRhIncompatible = false,
+        string? aboRhCompatibilityAlert = null,
+        IssueType? issueType = null,
+        CrossmatchClinicalStatus? crossmatchStatus = null,
+        bool testsIncompleteAtIssue = false)
     {
         var workup = ReactionWorkupCompletenessRule.Evaluate(
             r.ClericalCheckCompleted, r.VisualInspectionCompleted, r.DatResult, r.ElutionResult);
@@ -90,7 +100,12 @@ public sealed record ReactionInvestigationDto(
             mrn, displayName, unitNumber, currentBloodType, hasAntibodyHistory, antibodySummary,
             workup.Severity == RuleSeverity.HardStop,
             unitBloodType,
-            workup.Severity == RuleSeverity.HardStop ? workup.Message : null);
+            workup.Severity == RuleSeverity.HardStop ? workup.Message : null,
+            aboRhIncompatible,
+            aboRhCompatibilityAlert,
+            issueType,
+            crossmatchStatus,
+            testsIncompleteAtIssue);
     }
 }
 
@@ -107,6 +122,8 @@ public sealed class ReactionInvestigationService
     private readonly IRepository<Patient>? _patients;
     private readonly IRepository<PatientBloodTypeHistory>? _bloodTypes;
     private readonly IRepository<AntibodyHistory>? _antibodies;
+    private readonly IRepository<Issue>? _issues;
+    private readonly IRepository<ProductType>? _productTypes;
 
     public ReactionInvestigationService(
         IRepository<ReactionInvestigation> investigations,
@@ -119,7 +136,9 @@ public sealed class ReactionInvestigationService
         IPermissionEvaluator? permissions = null,
         IRepository<Patient>? patients = null,
         IRepository<PatientBloodTypeHistory>? bloodTypes = null,
-        IRepository<AntibodyHistory>? antibodies = null)
+        IRepository<AntibodyHistory>? antibodies = null,
+        IRepository<Issue>? issues = null,
+        IRepository<ProductType>? productTypes = null)
     {
         _investigations = investigations;
         _transfusions = transfusions;
@@ -132,6 +151,8 @@ public sealed class ReactionInvestigationService
         _patients = patients;
         _bloodTypes = bloodTypes;
         _antibodies = antibodies;
+        _issues = issues;
+        _productTypes = productTypes;
     }
 
     public Task<IReadOnlyList<ReactionInvestigation>> ListAsync(CancellationToken ct = default) =>
@@ -455,14 +476,31 @@ public sealed class ReactionInvestigationService
             }
         }
 
-        return new ReactionDisplayContext(patients, types, antibodies, units);
+        var productIds = units.Values.Select(u => u.ProductTypeId).Distinct().ToList();
+        var products = _productTypes is null || productIds.Count == 0
+            ? []
+            : await _productTypes.ListAsync(p => productIds.Contains(p.Id), ct);
+
+        var transfusionIds = rows.Select(r => r.TransfusionEventId).Distinct().ToList();
+        var transfusions = transfusionIds.Count == 0
+            ? []
+            : await _transfusions.ListAsync(t => transfusionIds.Contains(t.Id), ct);
+        var issueIds = transfusions.Select(t => t.IssueId).Distinct().ToList();
+        var issues = _issues is null || issueIds.Count == 0
+            ? []
+            : await _issues.ListAsync(i => issueIds.Contains(i.Id), ct);
+
+        return new ReactionDisplayContext(patients, types, antibodies, units, products, transfusions, issues);
     }
 
     private sealed class ReactionDisplayContext(
         IReadOnlyList<Patient> patients,
         IReadOnlyList<PatientBloodTypeHistory> types,
         IReadOnlyList<AntibodyHistory> antibodies,
-        IReadOnlyDictionary<long, BloodUnit> units)
+        IReadOnlyDictionary<long, BloodUnit> units,
+        IReadOnlyList<ProductType> products,
+        IReadOnlyList<TransfusionEvent> transfusions,
+        IReadOnlyList<Issue> issues)
     {
         private readonly Dictionary<long, Patient> _patients = patients.ToDictionary(p => p.Id);
         private readonly Dictionary<long, PatientBloodTypeHistory> _types = types
@@ -472,6 +510,9 @@ public sealed class ReactionInvestigationService
             .GroupBy(a => a.PatientId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.IsActive).ThenBy(a => a.AntibodySpecificity).ToList());
         private readonly IReadOnlyDictionary<long, BloodUnit> _units = units;
+        private readonly Dictionary<long, ProductType> _products = products.ToDictionary(p => p.Id);
+        private readonly Dictionary<long, TransfusionEvent> _transfusions = transfusions.ToDictionary(t => t.Id);
+        private readonly Dictionary<long, Issue> _issues = issues.ToDictionary(i => i.Id);
 
         public ReactionInvestigationDto ToDto(ReactionInvestigation row)
         {
@@ -479,6 +520,20 @@ public sealed class ReactionInvestigationService
             _types.TryGetValue(row.PatientId, out var type);
             _antibodies.TryGetValue(row.PatientId, out var history);
             _units.TryGetValue(row.BloodProductId, out var unit);
+            ProductType? product = null;
+            if (unit is not null)
+            {
+                _products.TryGetValue(unit.ProductTypeId, out product);
+            }
+
+            _transfusions.TryGetValue(row.TransfusionEventId, out var transfusion);
+            Issue? issue = null;
+            if (transfusion is not null)
+            {
+                _issues.TryGetValue(transfusion.IssueId, out issue);
+            }
+
+            var (incompatible, alert) = EvaluateLabeledCompatibility(type, unit, product);
             return ReactionInvestigationDto.From(
                 row,
                 patient?.MedicalRecordNumber,
@@ -487,7 +542,28 @@ public sealed class ReactionInvestigationService
                 type?.BloodType.ToString(),
                 history is { Count: > 0 },
                 FormatAntibodySummary(history),
-                unit is null ? null : new AboRh(unit.Abo, unit.RhD).ToString());
+                unit is null ? null : new AboRh(unit.Abo, unit.RhD).ToString(),
+                incompatible,
+                alert,
+                issue?.IssueType,
+                issue?.CrossmatchStatus,
+                issue?.TestsIncompleteAtIssue ?? false);
+        }
+
+        private static (bool Incompatible, string? Alert) EvaluateLabeledCompatibility(
+            PatientBloodTypeHistory? type,
+            BloodUnit? unit,
+            ProductType? product)
+        {
+            if (type is null || unit is null)
+            {
+                return (false, null);
+            }
+
+            var component = product?.ComponentClass ?? ComponentClass.RedBloodCells;
+            var firstStop = AboCompatibilityRule.Evaluate(type.BloodType, new AboRh(unit.Abo, unit.RhD), component)
+                .FirstOrDefault(r => r.Severity == RuleSeverity.HardStop);
+            return firstStop is null ? (false, null) : (true, firstStop.Message);
         }
 
         private static string? FormatAntibodySummary(IReadOnlyList<AntibodyHistory>? history)

@@ -72,5 +72,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-061 | I | `TestWorklistTests.PendingWorklist_PostedInterface_SurfacesResultAndVerifyAction` | URS-BB-175 / FRS-BB-209 / RISK-BB-281 |
 | TEST-BB-062 | I | `InventoryServiceTests.ListOnHold_SurfacesProductAndHoldReason` | URS-BB-176 / FRS-BB-210 / RISK-BB-282 |
 | TEST-BB-063 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-177 / FRS-BB-211 / RISK-BB-283 |
+| TEST-BB-064 | I | `ReactionInvestigationServiceTests.ListDtos_SurfacesAboIncompatibilityAndEmergencyIssueContext` | URS-BB-178 / FRS-BB-212 / RISK-BB-284 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
