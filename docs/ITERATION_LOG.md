@@ -1086,3 +1086,32 @@ the posted value and offered only Edit.
 
 Next workflow family: billing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 35 — One charge per catalog-mapped billing trigger (2026-09-17)
+
+Workflow-audit loop tick 21 (billing). Verify, issue, and transfusion already
+captured charges, but the demo seed left ChargeRules and catalogs both
+active, so a live trigger could drop two events and two DFTs.
+
+### Implemented
+
+- `BillingService.CaptureAsync` runs test/product catalogs first and skips
+  ChargeRules when an active catalog row matches the trigger. Demo seed
+  deactivates ChargeRules that duplicate catalog test or product keys.
+  Catch-all null-key rules remain for unmapped products. Review, export,
+  and dedupe keys are unchanged.
+
+### Requirements / risk
+
+- URS-BB-181, FRS-BB-215, SRS-BB-176, RISK-BB-287.
+
+### Tests
+
+- TEST-BB-067 (`SeederTests.Seed_ChargeRulesDoNotOverlapBillingCatalogs`).
+- Full suite green: Domain 1241, Application 35, HL7 50, Printing 11,
+  Integration 777.
+
+### Next ranked residual
+
+Next workflow family: patient testing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

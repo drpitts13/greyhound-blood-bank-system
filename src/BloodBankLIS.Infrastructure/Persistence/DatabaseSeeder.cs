@@ -72,6 +72,7 @@ public static partial class DatabaseSeeder
         await SeedChargeMasterAsync(context, cancellationToken);
         await SeedBillingCatalogsAsync(context, cancellationToken);
         await EnsureTransfusionBillingAsync(context, cancellationToken);
+        await DeactivateChargeRulesOverlappingCatalogsAsync(context, cancellationToken);
         await SeedExpirationModificationCodesAsync(context, cancellationToken);
         await SeedModificationRulesAsync(context, cancellationToken);
         await SeedDemoClinicalDataAsync(context, cancellationToken);
@@ -1212,6 +1213,71 @@ public static partial class DatabaseSeeder
         }
 
         await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Catalogs and charge rules can both fire on the same trigger. Demo seed keeps
+    /// catalog rows as the live mapping and deactivates ChargeRules that duplicate
+    /// those test codes or product codes so S-10 sees one charge per event. Catch-all
+    /// (null-key) rules stay active for products without a catalog row.
+    /// </summary>
+    private static async Task DeactivateChargeRulesOverlappingCatalogsAsync(
+        BloodBankDbContext context,
+        CancellationToken ct)
+    {
+        var testKeys = await context.TestServiceBillings
+            .Where(r => r.IsActive)
+            .Select(r => new { r.Trigger, r.TestCode })
+            .ToListAsync(ct);
+        var productRows = await context.ProductBillings
+            .Where(r => r.IsActive)
+            .Select(r => new { r.Trigger, r.IsbtProductCode })
+            .ToListAsync(ct);
+        if (testKeys.Count == 0 && productRows.Count == 0)
+        {
+            return;
+        }
+
+        var isbtCodes = productRows
+            .Select(r => r.IsbtProductCode)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct()
+            .ToList();
+        var productCodesByIsbt = await context.ProductTypes
+            .Where(p => p.Isbt128ProductCode != null && isbtCodes.Contains(p.Isbt128ProductCode))
+            .Select(p => new { p.Isbt128ProductCode, p.ProductCode })
+            .ToListAsync(ct);
+
+        var rules = await context.ChargeRules.Where(r => r.IsActive).ToListAsync(ct);
+        var changed = false;
+        foreach (var rule in rules)
+        {
+            if (string.IsNullOrWhiteSpace(rule.TriggerKey))
+            {
+                continue;
+            }
+
+            var overlapsTest = testKeys.Any(t =>
+                t.Trigger == rule.TriggerType
+                && string.Equals(t.TestCode, rule.TriggerKey, StringComparison.OrdinalIgnoreCase));
+            var overlapsProduct = productRows.Any(p =>
+                p.Trigger == rule.TriggerType
+                && productCodesByIsbt.Any(map =>
+                    string.Equals(map.Isbt128ProductCode, p.IsbtProductCode, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(map.ProductCode, rule.TriggerKey, StringComparison.OrdinalIgnoreCase)));
+            if (!overlapsTest && !overlapsProduct)
+            {
+                continue;
+            }
+
+            rule.IsActive = false;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
     }
 
     private static async Task EnsureTransfusionBillingAsync(BloodBankDbContext context, CancellationToken ct)

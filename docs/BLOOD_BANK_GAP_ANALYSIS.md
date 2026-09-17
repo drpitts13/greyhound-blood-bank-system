@@ -128,6 +128,11 @@ Cycle 34: the patient Orders tab shows HL7 source and the posted
 interface value, and Verifies without re-keying (RISK-BB-286). Specimen
 and OCD-018/019 gates are unchanged.
 
+Cycle 35: verify, issue, and transfusion capture one charge when a
+catalog row matches, even if a ChargeRule also matches; demo seed
+deactivates overlapping rules (RISK-BB-287). Review-before-export and
+dedupe keys are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

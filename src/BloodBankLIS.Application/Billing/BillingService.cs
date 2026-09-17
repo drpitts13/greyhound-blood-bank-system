@@ -171,9 +171,12 @@ public sealed class BillingService
     {
         var created = new List<BillingEvent>();
 
-        await CaptureFromChargeRulesAsync(context, created, ct);
         await CaptureFromTestServiceCatalogAsync(context, created, ct);
         await CaptureFromProductCatalogAsync(context, created, ct);
+        if (!await HasActiveCatalogMatchAsync(context, ct))
+        {
+            await CaptureFromChargeRulesAsync(context, created, ct);
+        }
 
         if (created.Count == 0)
         {
@@ -422,6 +425,24 @@ public sealed class BillingService
                 created,
                 ct);
         }
+    }
+
+    private async Task<bool> HasActiveCatalogMatchAsync(BillingTriggerContext context, CancellationToken ct)
+    {
+        if (context.TriggerType == BillingTriggerType.TestVerified && !string.IsNullOrWhiteSpace(context.Key))
+        {
+            return await _testBillings.AnyAsync(
+                r => r.IsActive && r.Trigger == context.TriggerType && r.TestCode == context.Key, ct);
+        }
+
+        if (context.TriggerType is BillingTriggerType.UnitIssued or BillingTriggerType.UnitTransfused
+            && !string.IsNullOrWhiteSpace(context.IsbtProductCode))
+        {
+            return await _productBillings.AnyAsync(
+                r => r.IsActive && r.Trigger == context.TriggerType && r.IsbtProductCode == context.IsbtProductCode, ct);
+        }
+
+        return false;
     }
 
     private async Task CaptureFromTestServiceCatalogAsync(

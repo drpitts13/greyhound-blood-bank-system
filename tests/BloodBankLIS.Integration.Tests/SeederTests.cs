@@ -262,6 +262,45 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Seed_ChargeRulesDoNotOverlapBillingCatalogs()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var testKeys = await verify.TestServiceBillings
+            .Where(r => r.IsActive)
+            .Select(r => new { r.Trigger, r.TestCode })
+            .ToListAsync();
+        var productRows = await verify.ProductBillings
+            .Where(r => r.IsActive)
+            .Select(r => new { r.Trigger, r.IsbtProductCode })
+            .ToListAsync();
+        var productCodesByIsbt = await verify.ProductTypes
+            .Where(p => p.Isbt128ProductCode != null)
+            .Select(p => new { p.Isbt128ProductCode, p.ProductCode })
+            .ToListAsync();
+        var activeRules = await verify.ChargeRules.Where(r => r.IsActive).ToListAsync();
+
+        Assert.DoesNotContain(activeRules, rule =>
+            !string.IsNullOrWhiteSpace(rule.TriggerKey)
+            && testKeys.Any(t =>
+                t.Trigger == rule.TriggerType
+                && string.Equals(t.TestCode, rule.TriggerKey, StringComparison.OrdinalIgnoreCase)));
+        Assert.DoesNotContain(activeRules, rule =>
+            !string.IsNullOrWhiteSpace(rule.TriggerKey)
+            && productRows.Any(p =>
+                p.Trigger == rule.TriggerType
+                && productCodesByIsbt.Any(map =>
+                    string.Equals(map.Isbt128ProductCode, p.IsbtProductCode, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(map.ProductCode, rule.TriggerKey, StringComparison.OrdinalIgnoreCase))));
+        Assert.Contains(activeRules, r =>
+            r.TriggerType == BillingTriggerType.UnitIssued && r.TriggerKey == null);
+    }
+
+    [Fact]
     public async Task Seed_UpsertsMissingProductCodes_WhenPlaceholderAlreadyPresent()
     {
         await using (var context = _factory.Create())

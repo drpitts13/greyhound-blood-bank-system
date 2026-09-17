@@ -48,7 +48,7 @@ Charge capture is event-driven and isolated from clinical decisions: clinical us
   - `TestServiceBillings`: charge code (`ChargeCodes`), `TestVerified` trigger, and test code (e.g. `ABORH`).
   - `ProductBillings`: charge code (`ChargeCodes`), `UnitIssued` trigger, and ISBT product description code (e.g. `E0336`).
 - Amount is taken from `ChargeCodes.DefaultAmount` and snapshotted onto `BillingEvents.Amount`. It is **not** sent on the DFT.
-- Because both sources can drop a charge for the same clinical event, deactivate overlapping `ChargeRules` when you do not want two charges / two DFTs.
+- Catalogs run first. When a catalog row captures a charge for the trigger, overlapping `ChargeRules` (including catch-all null-key rules) are skipped so one clinical event produces one charge and one DFT. Demo seed deactivates `ChargeRules` that duplicate catalog test or product keys. Catch-all rules still apply when no catalog matches.
 
 ## B.2 Trigger events
 

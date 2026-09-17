@@ -191,10 +191,10 @@ Negative (authz): any `/api/hl7/*` call as `viewer` → **403** (`hl7.manage`).
 ## S-10 — Billing capture and review
 
 1. Verify a billable result (S-03 step 2) → exactly one **pending** `BillingEvent` is
-   captured from the matching charge rule.
+   captured from the matching catalog or charge rule (not both).
 2. Repeat the verify/capture trigger → **no** second event (unique `DedupeKey`).
-3. Issue a unit (S-05) → a unit-issued charge is captured (product-specific rule or
-   catch-all).
+3. Issue a unit (S-05) → a unit-issued charge is captured (product catalog, then
+   product-specific rule or catch-all).
 4. `GET /api/billing/charges` as `tech1` → the pending queue.
 5. `POST /api/billing/charges/{id}/cancel` as `supervisor` with a reason → **200**,
    `Status = Cancelled`, explicit audit event with reason.

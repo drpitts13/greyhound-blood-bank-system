@@ -275,7 +275,7 @@ public class Phase7BillingTests : IDisposable
     }
 
     [Fact]
-    public async Task CaptureForResult_ChargeRuleAndCatalog_BothDrop()
+    public async Task CaptureForResult_CatalogPreferred_SkipsOverlappingChargeRule()
     {
         long resultId;
         await using (var setup = _factory.Create())
@@ -297,10 +297,10 @@ public class Phase7BillingTests : IDisposable
         var result = await Billing(context, publisher).CaptureForResultAsync(resultId);
 
         Assert.True(result.Succeeded);
-        Assert.Equal(2, result.Value!.Count);
-        Assert.Contains(result.Value, e => e.SourceKind == BillingChargeSourceKind.ChargeRule && e.BillingCode == "RULE-ABORH");
-        Assert.Contains(result.Value, e => e.SourceKind == BillingChargeSourceKind.TestService && e.BillingCode == "CAT-ABORH-2");
-        Assert.Equal(2, publisher.Published.Count);
+        var charge = Assert.Single(result.Value!);
+        Assert.Equal(BillingChargeSourceKind.TestService, charge.SourceKind);
+        Assert.Equal("CAT-ABORH-2", charge.BillingCode);
+        Assert.Single(publisher.Published);
     }
 
     [Fact]
@@ -352,6 +352,35 @@ public class Phase7BillingTests : IDisposable
     }
 
     [Fact]
+    public async Task CaptureForIssue_CatchAllRuleAndCatalog_CreatesSingleCatalogCharge()
+    {
+        long issueId;
+        await using (var setup = _factory.Create())
+        {
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitIssued, null, "RULE-ANY-ISSUE", 200m);
+            var catalogCodeId = await SeedChargeCodeAsync(setup, "CAT-E0336-2", 250m);
+            setup.ProductBillings.Add(new ProductBilling
+            {
+                ChargeCodeId = catalogCodeId,
+                IsbtProductCode = "E0336",
+                Trigger = BillingTriggerType.UnitIssued
+            });
+            await setup.SaveChangesAsync();
+            issueId = await CreateIssuedUnitAsync(setup, "BILL-ISSUE-CATCH", "RBC-LR", "E0336");
+        }
+
+        await using var context = _factory.Create();
+        var publisher = new CapturingPublisher();
+        var result = await Billing(context, publisher).CaptureForIssueAsync(issueId);
+
+        Assert.True(result.Succeeded);
+        var charge = Assert.Single(result.Value!);
+        Assert.Equal(BillingChargeSourceKind.Product, charge.SourceKind);
+        Assert.Equal("CAT-E0336-2", charge.BillingCode);
+        Assert.Single(publisher.Published);
+    }
+
+    [Fact]
     public async Task CaptureForTransfusion_Completed_CreatesChargeFromCatalogAndRule()
     {
         long issueId;
@@ -379,10 +408,10 @@ public class Phase7BillingTests : IDisposable
 
         var completed = await billing.CaptureForTransfusionAsync(issueId, TransfusionDisposition.Completed);
         Assert.True(completed.Succeeded);
-        Assert.Equal(2, completed.Value!.Count);
-        Assert.Contains(completed.Value, e => e.SourceKind == BillingChargeSourceKind.ChargeRule && e.BillingCode == "RULE-TX");
-        Assert.Contains(completed.Value, e => e.SourceKind == BillingChargeSourceKind.Product && e.BillingCode == "CAT-TX-E0336");
-        Assert.All(completed.Value, e => Assert.Equal(BillingTriggerType.UnitTransfused, e.TriggerType));
+        var charge = Assert.Single(completed.Value!);
+        Assert.Equal(BillingChargeSourceKind.Product, charge.SourceKind);
+        Assert.Equal("CAT-TX-E0336", charge.BillingCode);
+        Assert.Equal(BillingTriggerType.UnitTransfused, charge.TriggerType);
 
         var again = await billing.CaptureForTransfusionAsync(issueId, TransfusionDisposition.Completed);
         Assert.True(again.Succeeded);
