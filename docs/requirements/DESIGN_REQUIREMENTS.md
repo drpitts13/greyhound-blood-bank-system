@@ -168,3 +168,4 @@
 | SRS-BB-162 | `SeedBillingCaptureScenarioAsync` is skipped when `CTRL-DFT-` messages exist. `ListReviewQueueDtosAsync` loads patients, results, issues/units, and HL7 logs. `/billing` shows those fields instead of raw ids. | FRS-BB-201 |
 | SRS-BB-163 | `TestWorklistService` assesses each distinct patient with `ElectronicCrossmatchEligibilityService` and the first open InProgress/PendingInterpretation/PendingSupervisorReview workup. `/test-worklist` ABID navigates to `/patients/{id}/antibody-id/{workupId}`. | FRS-BB-202 |
 | SRS-BB-164 | `ListQuarantineAsync` loads product types and the latest `ProductRetypeResult` per unit. `/inventory` expands one quarantine row for the second-verifier combo already used by Manage. | FRS-BB-203 |
+| SRS-BB-165 | `ListOutstandingIssuedAsync` reuses `LoadIssueWorklistContextAsync` for Issued rows. `/issuing` Return and Document copy issue id, unit number, and MRN/DOB from the selected row. | FRS-BB-204 |

@@ -83,6 +83,10 @@ interpreted retype mismatch; Release is available on the row with the
 existing second-verifier gate (RISK-BB-275). Retype auto-quarantine and
 release privilege are unchanged.
 
+Cycle 24: outstanding Issued units stay on `/issuing` after ward receipt
+with unit number and patient context; Return and Document prefill from
+the row (RISK-BB-276). Return and identity-token gates are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

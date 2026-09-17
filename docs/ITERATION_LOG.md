@@ -781,3 +781,29 @@ labeled-versus-interpreted mismatch on the worklist.
 
 Next workflow family: assignment and issuing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 24 — Outstanding issued return and transfusion (2026-09-16)
+
+Workflow-audit loop tick 10 (assignment and issuing). After ward receipt
+the unit left the in-transit board, and return and transfusion still
+required a typed issue id.
+
+### Implemented
+
+- `OutstandingIssueWorkItemDto` lists Issued units with unit number,
+  patient, type, antibodies, specimen expiry, and ward-receipt status.
+  `/issuing` Issued units prefills Return, Document, and Receive.
+  Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-170, FRS-BB-204, SRS-BB-165, RISK-BB-276.
+
+### Tests
+
+- TEST-BB-056 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+
+### Next ranked residual
+
+Next workflow family: transfusion reactions. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

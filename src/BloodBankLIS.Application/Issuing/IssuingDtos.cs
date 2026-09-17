@@ -139,6 +139,43 @@ public sealed record InTransitWorkItemDto(
         i.CoolerId, i.IssuedToLocation, i.Status);
 }
 
+public sealed record OutstandingIssueWorkItemDto(
+    long IssueId,
+    long PatientId,
+    string? MedicalRecordNumber,
+    string? PatientDisplayName,
+    string? DateOfBirth,
+    long BloodUnitId,
+    string? UnitNumber,
+    string? CurrentBloodType,
+    bool HasAntibodyHistory,
+    string? AntibodySummary,
+    DateTime? SpecimenExpiresUtc,
+    bool SpecimenExpired,
+    DateTime IssuedUtc,
+    DateTime? WardReceivedUtc,
+    string? WardReceivedBy,
+    string? CoolerId,
+    string? IssuedToLocation,
+    IssueStatus Status)
+{
+    public static OutstandingIssueWorkItemDto From(
+        Issue i,
+        DateTime now,
+        string? mrn,
+        string? displayName,
+        string? dateOfBirth,
+        string? unitNumber,
+        string? currentBloodType,
+        bool hasAntibodyHistory,
+        string? antibodySummary,
+        DateTime? specimenExpiresUtc,
+        bool specimenExpired) => new(
+        i.Id, i.PatientId, mrn, displayName, dateOfBirth, i.BloodProductId, unitNumber, currentBloodType,
+        hasAntibodyHistory, antibodySummary, specimenExpiresUtc, specimenExpired,
+        i.IssuedUtc, i.WardReceivedUtc, i.WardReceivedBy, i.CoolerId, i.IssuedToLocation, i.Status);
+}
+
 public sealed record SecondAboWorkItemDto(
     long PatientId,
     string MedicalRecordNumber,

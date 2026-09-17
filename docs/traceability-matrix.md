@@ -241,6 +241,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-167 / FRS-BB-201 | Seeded verify/issue/transfusion charges appear with MRN, unit/test, and queued DFT; no second capture | `DatabaseSeeder.SeedBillingCaptureScenarioAsync`; `BillingService` | TEST-BB-053 | I | |
 | URS-BB-168 / FRS-BB-202 | Test worklist shows eXM eligibility and opens the ABID workup without leaving the bench list | `TestWorklistService`; `TestWorklist.razor` | TEST-BB-054 | I | |
 | URS-BB-169 / FRS-BB-203 | Quarantine board shows product and retype mismatch; release from the row with existing second verifier | `InventoryService`; `Inventory.razor` | TEST-BB-055 | I | |
+| URS-BB-170 / FRS-BB-204 | Outstanding issued board shows unit number and patient; return and transfusion prefill from the row | `IssuingService`; `Issuing.razor` | TEST-BB-056 | I | |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

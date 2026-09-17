@@ -64,5 +64,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-053 | I | `Phase7BillingTests.ReviewQueueDtos_SurfaceMrnUnitAndQueuedDft` | URS-BB-167 / FRS-BB-201 / RISK-BB-273 |
 | TEST-BB-054 | I | `TestWorklistTests.PendingWorklist_SurfacesElectronicXmHoldAndOpenAntibodyId` | URS-BB-168 / FRS-BB-202 / RISK-BB-274 |
 | TEST-BB-055 | I | `InventoryServiceTests.ListQuarantine_SurfacesRetypeMismatch` | URS-BB-169 / FRS-BB-203 / RISK-BB-275 |
+| TEST-BB-056 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-170 / FRS-BB-204 / RISK-BB-276 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

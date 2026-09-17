@@ -150,6 +150,74 @@
     </div>
 }
 
+@if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.IssueReturn) || Session.Has(PermissionCodes.TransfusionDocument))
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Issued units</h3></div>
+        <p class="muted">Units still Issued — including after ward receipt — so return and transfusion identify the unit by number instead of a raw issue id. Return, ward-receipt, and bedside identity gates are unchanged.</p>
+        @if (_outstandingItems.Count == 0)
+        {
+            <div class="muted">No outstanding issued units.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>MRN</th>
+                        <th>Unit</th>
+                        <th>Type</th>
+                        <th>Antibodies</th>
+                        <th>Specimen</th>
+                        <th>Ward receipt</th>
+                        <th>Issued</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _outstandingItems)
+                    {
+                        <tr>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
+                            <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
+                            <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
+                            <td><strong>@(row.CurrentBloodType ?? "—")</strong></td>
+                            <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
+                            <td>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</td>
+                            <td>
+                                @if (row.WardReceivedUtc is DateTime received)
+                                {
+                                    <span>@received.ToString("yyyy-MM-dd HH:mm") @(row.WardReceivedBy ?? "")</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">Awaiting</span>
+                                }
+                            </td>
+                            <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="right nowrap">
+                                @if (row.WardReceivedUtc is null && Session.Has(PermissionCodes.TransfusionDocument))
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId)">Receive</button>
+                                }
+                                @if (Session.Has(PermissionCodes.IssueReturn))
+                                {
+                                    <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectReturnIssue(row)">Return</button>
+                                }
+                                @if (row.WardReceivedUtc is not null && Session.Has(PermissionCodes.TransfusionDocument))
+                                {
+                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(row)">Document</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
 <div class="bb-card">
     <div class="bb-card-title"><h3>Issue a unit</h3></div>
     @if (!Session.Has(PermissionCodes.IssueCreate))
@@ -260,7 +328,7 @@
     {
         <Outcome Value="_wardFb" />
         <div class="form-row">
-            <div class="field"><label>Issue id</label><input type="number" @bind="_wardIssueId" placeholder="Or Receive from in transit" /></div>
+            <div class="field"><label>Issue id</label><input type="number" @bind="_wardIssueId" placeholder="Or Receive from Issued units" /></div>
             <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" /></div>
             <div class="field"><label>Appearance at receipt</label>
                 <select @bind="_wardAppearance">
@@ -303,8 +371,12 @@
         {
             <Outcome Value="_returnFb" />
             <div class="form-row">
-                <div class="field"><label>Issue id</label><input type="number" @bind="_returnIssueId" /></div>
+                <div class="field"><label>Issue id</label><input type="number" @bind="_returnIssueId" placeholder="Or Return from Issued units" /></div>
                 <div class="field"><label>Reason</label><input @bind="_returnReason" /></div>
+                @if (_returnUnitNumber is not null)
+                {
+                    <p class="muted" style="margin:0;">Returning <span class="mono">@_returnUnitNumber</span>@(string.IsNullOrWhiteSpace(_returnPatientName) ? "" : $" · {_returnPatientName}").</p>
+                }
             </div>
             <p class="muted">Reissue eligibility is computed from temperature, seal, visual inspection, and time out of storage.</p>
             <button class="btn btn-secondary" disabled="@_busy" @onclick="ReturnAsync">Return unit</button>
@@ -321,7 +393,7 @@
         {
             <Outcome Value="_txFb" />
             <div class="form-row">
-                <div class="field"><label>Issue id</label><input type="number" @bind="_txIssueId" /></div>
+                <div class="field"><label>Issue id</label><input type="number" @bind="_txIssueId" placeholder="Or Document from Issued units" /></div>
                 <div class="field"><label>Disposition</label>
                     <select @bind="_txDisposition">@foreach (var d in Enum.GetValues<TransfusionDisposition>()) { <option value="@d">@d</option> }</select>
                 </div>
@@ -406,7 +478,10 @@
     private List<PatientDto> _patients = new();
     private List<RetrospectiveCrossmatchWorkItemDto> _retroItems = new();
     private List<InTransitWorkItemDto> _inTransitItems = new();
+    private List<OutstandingIssueWorkItemDto> _outstandingItems = new();
     private List<SecondAboWorkItemDto> _secondAboItems = new();
+    private string? _returnUnitNumber;
+    private string? _returnPatientName;
 
     private long? IssuePatientId
     {
@@ -445,6 +520,20 @@
     private void SelectWardIssue(long issueId)
     {
         _wardIssueId = issueId;
+    }
+
+    private void SelectReturnIssue(OutstandingIssueWorkItemDto row)
+    {
+        _returnIssueId = row.IssueId;
+        _returnUnitNumber = row.UnitNumber;
+        _returnPatientName = row.PatientDisplayName;
+    }
+
+    private void SelectTransfusionIssue(OutstandingIssueWorkItemDto row)
+    {
+        _txIssueId = row.IssueId;
+        _txPatientIdentifier1 = row.MedicalRecordNumber;
+        _txPatientIdentifier2 = row.DateOfBirth;
     }
 
     private static RenderFragment AntibodyCell(bool hasHistory, string? summary) => builder =>
@@ -518,13 +607,21 @@
 
     private async Task LoadWorklistsAsync()
     {
-        if (!Session.Has(PermissionCodes.IssueCreate)) return;
-        var retro = await Api.GetPendingRetrospectiveCrossmatchesAsync();
-        if (retro.Succeeded) _retroItems = retro.Value ?? new();
-        var transit = await Api.GetInTransitIssuesAsync();
-        if (transit.Succeeded) _inTransitItems = transit.Value ?? new();
-        var secondAbo = await Api.GetPendingSecondAboAsync();
-        if (secondAbo.Succeeded) _secondAboItems = secondAbo.Value ?? new();
+        if (Session.Has(PermissionCodes.IssueCreate))
+        {
+            var retro = await Api.GetPendingRetrospectiveCrossmatchesAsync();
+            if (retro.Succeeded) _retroItems = retro.Value ?? new();
+            var transit = await Api.GetInTransitIssuesAsync();
+            if (transit.Succeeded) _inTransitItems = transit.Value ?? new();
+            var secondAbo = await Api.GetPendingSecondAboAsync();
+            if (secondAbo.Succeeded) _secondAboItems = secondAbo.Value ?? new();
+        }
+
+        if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.IssueReturn) || Session.Has(PermissionCodes.TransfusionDocument))
+        {
+            var outstanding = await Api.GetOutstandingIssuesAsync();
+            if (outstanding.Succeeded) _outstandingItems = outstanding.Value ?? new();
+        }
     }
 
     private IssueUnitRequest BuildRequest(string? overrideReason, string? authorizedBy) => new(
@@ -627,7 +724,12 @@
         _busy = true;
         var r = await Api.ReturnUnitAsync(_returnIssueId, new ReturnUnitRequest(_returnReason));
         _returnFb = r.ToFeedback("Unit returned.");
-        if (r.Succeeded) await LoadWorklistsAsync();
+        if (r.Succeeded)
+        {
+            _returnUnitNumber = null;
+            _returnPatientName = null;
+            await LoadWorklistsAsync();
+        }
         _busy = false;
     }
 
@@ -645,6 +747,10 @@
         _busy = false;
         _txFb = r.ToFeedback("Transfusion documented.");
         _openedReactionId = null;
+        if (r.Succeeded)
+        {
+            await LoadWorklistsAsync();
+        }
         if (_txReaction && r.Succeeded && r.Value is not null)
         {
             var cases = await Api.GetReactionInvestigationsAsync();

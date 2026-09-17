@@ -67,6 +67,10 @@ public static class IssuingEndpoints
             Results.Ok(await service.ListInTransitAsync(ct)))
             .RequirePermission(PermissionCodes.IssueCreate);
 
+        issues.MapGet("/outstanding", async (IssuingService service, CancellationToken ct) =>
+            Results.Ok(await service.ListOutstandingIssuedAsync(ct)))
+            .RequireAuthenticatedUser();
+
         issues.MapGet("/pending-second-abo", async (IssuingService service, CancellationToken ct) =>
             Results.Ok(await service.ListPendingSecondAboAsync(ct)))
             .RequirePermission(PermissionCodes.IssueCreate);

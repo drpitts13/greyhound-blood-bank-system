@@ -433,6 +433,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<InTransitWorkItemDto>>> GetInTransitIssuesAsync(CancellationToken ct = default) =>
         SendAsync<List<InTransitWorkItemDto>>(HttpMethod.Get, "api/issues/in-transit", ct: ct);
 
+    public Task<ApiResult<List<OutstandingIssueWorkItemDto>>> GetOutstandingIssuesAsync(CancellationToken ct = default) =>
+        SendAsync<List<OutstandingIssueWorkItemDto>>(HttpMethod.Get, "api/issues/outstanding", ct: ct);
+
     public Task<ApiResult<List<SecondAboWorkItemDto>>> GetPendingSecondAboAsync(CancellationToken ct = default) =>
         SendAsync<List<SecondAboWorkItemDto>>(HttpMethod.Get, "api/issues/pending-second-abo", ct: ct);
 

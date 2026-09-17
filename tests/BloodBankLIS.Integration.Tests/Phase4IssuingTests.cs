@@ -1452,6 +1452,43 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt()
+    {
+        var s = await SeedAsync("OUTISS");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with { CoolerId = "CLR-OUT" });
+            Assert.True(issued.Succeeded);
+            issueId = issued.Value!.Id;
+
+            var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+            Assert.Equal(s.UnitNumber, row.UnitNumber);
+            Assert.Equal(s.Mrn, row.MedicalRecordNumber);
+            Assert.Equal(s.DateOfBirth, row.DateOfBirth);
+            Assert.False(string.IsNullOrWhiteSpace(row.PatientDisplayName));
+            Assert.False(string.IsNullOrWhiteSpace(row.CurrentBloodType));
+            Assert.Null(row.WardReceivedUtc);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.DoesNotContain(await Issuing(c).ListInTransitAsync(), t => t.IssueId == issueId);
+            var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+            Assert.Equal(s.UnitNumber, row.UnitNumber);
+            Assert.NotNull(row.WardReceivedUtc);
+        }
+
+        await using var ctx = _factory.Create();
+        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed after receipt"))).Succeeded);
+        Assert.DoesNotContain(await Issuing(ctx).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+    }
+
+    [Fact]
     public async Task Transfusion_MissingPatientIdentifiers_IsHardStopped()
     {
         var s = await SeedAsync("TXIDMISS");

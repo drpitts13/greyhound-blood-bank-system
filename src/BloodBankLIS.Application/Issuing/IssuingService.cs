@@ -589,6 +589,29 @@ public sealed class IssuingService
     }
 
     /// <summary>
+    /// Issued units not yet returned or transfused. After ward receipt they leave
+    /// the in-transit board and remain here so return and transfusion identify
+    /// the unit by number instead of a raw issue id.
+    /// </summary>
+    public async Task<IReadOnlyList<OutstandingIssueWorkItemDto>> ListOutstandingIssuedAsync(
+        CancellationToken ct = default)
+    {
+        var now = _clock.UtcNow;
+        var rows = await _issues.ListAsync(i => i.Status == IssueStatus.Issued, ct);
+        var context = await LoadIssueWorklistContextAsync(rows, ct);
+        return rows
+            .OrderBy(i => i.IssuedUtc)
+            .Select(i =>
+            {
+                var row = context.For(i, now);
+                return OutstandingIssueWorkItemDto.From(
+                    i, now, row.Mrn, row.DisplayName, row.DateOfBirth, row.UnitNumber, row.CurrentBloodType,
+                    row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired);
+            })
+            .ToList();
+    }
+
+    /// <summary>
     /// Nursing-unit custody acknowledgment after the unit leaves the blood bank.
     /// Required before transfusion when <see cref="FacilityPolicyKeys.RequireWardReceipt"/> is true.
     /// </summary>
@@ -1254,7 +1277,7 @@ public sealed class IssuingService
         private readonly Dictionary<long, Specimen> _specimens = specimens.ToDictionary(s => s.Id);
         private readonly IReadOnlyDictionary<long, BloodUnit> _units = units;
 
-        public (string? Mrn, string? DisplayName, string? UnitNumber, string? CurrentBloodType,
+        public (string? Mrn, string? DisplayName, string? DateOfBirth, string? UnitNumber, string? CurrentBloodType,
             bool HasAntibodyHistory, string? AntibodySummary, DateTime? SpecimenExpiresUtc, bool SpecimenExpired)
             For(Issue issue, DateTime clock)
         {
@@ -1267,6 +1290,7 @@ public sealed class IssuingService
             return (
                 patient?.MedicalRecordNumber,
                 patient is null ? null : $"{patient.LastName}, {patient.FirstName}",
+                patient?.DateOfBirth.ToString("yyyy-MM-dd"),
                 unit?.UnitNumber,
                 type?.BloodType.ToString(),
                 history is { Count: > 0 },
