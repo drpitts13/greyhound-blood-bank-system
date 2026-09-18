@@ -170,9 +170,11 @@ public sealed class PatientProductHistoryService
             rows.Add(new PatientProductHistoryRowDto(
                 t.Id, nameof(TransfusionEvent), eventType, t.StartUtc ?? t.CreatedUtc,
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
-                patientBloodType, visit, orderNum, null, null, t.DocumentedBy, issue.IssuedToLocation,
+                patientBloodType, visit, orderNum, null, null, t.DocumentedBy,
+                t.Location ?? issue.IssuedToLocation,
                 null, t.StartUtc, t.StopUtc, t.VolumeTransfused, t.FinalDisposition.ToString(),
-                t.ReactionSuspected, missing, false, t.PatientIdentificationMethod));
+                t.ReactionSuspected, missing, false, t.PatientIdentificationMethod,
+                t.Transfusionist));
         }
 
         return rows.OrderByDescending(r => r.EventUtc).ToList();

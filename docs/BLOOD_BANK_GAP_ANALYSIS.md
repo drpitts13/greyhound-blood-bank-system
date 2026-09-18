@@ -152,6 +152,10 @@ disagrees with the current patient type or labeled unit type
 Cycle 40: the HL7 message log shows placer, test, and unit and links
 the patient (RISK-BB-292). ReplayAllowed stays unenforced.
 
+Cycle 41: product history shows inbound RAS volume, location, and
+transfusionist; default transfusionist map is `RXA-10` XCN
+(RISK-BB-293). Issue and bedside-scan gates are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

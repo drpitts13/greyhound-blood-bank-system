@@ -192,3 +192,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-184 | After a unit is reserved, technologists can identify it on the issuing page by patient and unit number and open Issue with those identities already set. | P1 | FRS-BB-218 |
 | URS-BB-185 | Investigators can see when a recorded reaction-workup repeat ABO/Rh disagrees with the current patient type or the labeled unit type without that mismatch blocking close. | P1 | FRS-BB-219 |
 | URS-BB-186 | Interface staff can identify a logged HL7 message by placer order, test, or unit number when those fields are present, without opening the raw payload. | P1 | FRS-BB-220 |
+| URS-BB-187 | After a good inbound RAS, staff can see the loaded transfusion volume, location, and transfusionist on the patient product-history chart without opening Issuing or the raw message. | P1 | FRS-BB-221 |

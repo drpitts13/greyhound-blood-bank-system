@@ -119,7 +119,7 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.TransfusionStopUtc, "Stop date/time", "Administration end.", "RXA-4", false),
         new(InterfaceDataItemKeys.TransfusionVolume, "Volume transfused", "Administered amount.", "RXA-6", false),
         new(InterfaceDataItemKeys.TransfusionLocation, "Location", "Administration location.", "PV1-3-1", false),
-        new(InterfaceDataItemKeys.Transfusionist, "Transfusionist", "Administering provider.", "RXA-10-2", false),
+        new(InterfaceDataItemKeys.Transfusionist, "Transfusionist", "Administering provider (XCN).", "RXA-10", false),
         new(InterfaceDataItemKeys.TransfusionReaction, "Reaction suspected", "Reaction / completion flag.", "RXA-18", false)
     ];
 }

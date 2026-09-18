@@ -1258,3 +1258,35 @@ View raw.
 
 Next workflow family: HL7 data load. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 41 — RAS administration details on product history (2026-09-18)
+
+Workflow-audit loop tick 27 (HL7 data load). Inbound RAS already documented
+the transfusion and showed `HL7-BPAM`, but volume, location, and
+transfusionist stayed on the event row. Staff re-opened Issuing or the raw
+message to see what the interface had already loaded.
+
+### Implemented
+
+- `PatientProductHistoryRowDto` includes transfusionist. Transfusion rows
+  prefer event location over issue destination.
+- `/patients/{id}` Product History shows Location, Volume, and Transfusionist.
+- Default BPAM transfusionist path is `RXA-10` XCN (`Nurse, Pat`).
+- Demo RAS seed includes `PV1`. Issue and bedside-scan gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-187, FRS-BB-221, SRS-BB-182, RISK-BB-293.
+
+### Tests
+
+- TEST-BB-073 (`SeederTests.Seed_HelenHl7Bpam_SurfacesVolumeLocationAndTransfusionist`).
+- `Phase5Hl7Tests.InboundRas_DocumentsTransfusionOnIssuedUnitWithoutRekey`
+  asserts volume, location, and transfusionist on the history row.
+- Full suite green: Domain 1247, Application 35, HL7 50, Printing 11,
+  Integration 783.
+
+### Next ranked residual
+
+Next workflow family: billing. SME items remain:
+OCD-001/006, OCD-022, OCD-008, OCD-004.

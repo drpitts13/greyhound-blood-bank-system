@@ -101,12 +101,15 @@ public class Hl7MapperTests
         var message = Hl7Parser.Parse(
             "MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20260530120000||RAS^O17|C4|P|2.5\r" +
             "PID|1||MRN900^^^HOSP^MR||Blood^Pat\r" +
+            "PV1||I|4W Oncology\r" +
             "RXA|0|1|20260530100000|20260530103000|CODE^RBC|350||||12345^Nurse^Pat|||||W0001-00");
 
         var data = Hl7BpamMapper.Map(message);
         Assert.Equal("MRN900", data.Mrn);
         Assert.Equal("W0001-00", data.UnitNumber);
         Assert.Equal(350m, data.VolumeTransfused);
+        Assert.Equal("4W Oncology", data.Location);
+        Assert.Equal("Nurse, Pat", data.Transfusionist);
     }
 
     [Fact]

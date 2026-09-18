@@ -170,7 +170,8 @@ public sealed record PatientProductHistoryRowDto(
     bool ReactionSuspected,
     bool HasMissingVisitContext,
     bool IsOpenAssignment,
-    string? PatientIdentificationMethod = null);
+    string? PatientIdentificationMethod = null,
+    string? Transfusionist = null);
 
 public sealed record PatientTestHistoryRowDto(
     long ResultId,

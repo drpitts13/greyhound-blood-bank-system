@@ -259,6 +259,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-184 / FRS-BB-218 | Issuing page lists reserved units and prefills Issue from the row | `IssuingService`; `Issuing.razor`; `Compatibility.razor` | TEST-BB-070 | I | |
 | URS-BB-185 / FRS-BB-219 | Reaction board badges repeat ABO/Rh vs current and labeled type | `ReactionInvestigationService`; `Reactions.razor` | TEST-BB-071 | I | |
 | URS-BB-186 / FRS-BB-220 | HL7 message log shows placer/test/unit and links the patient | `Hl7MessageIdentity`; `Hl7.razor` | TEST-BB-072 | I | |
+| URS-BB-187 / FRS-BB-221 | Product history shows RAS-loaded volume, location, and transfusionist | `PatientProductHistoryService`; `PatientDetail.razor` | TEST-BB-073 | I | |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

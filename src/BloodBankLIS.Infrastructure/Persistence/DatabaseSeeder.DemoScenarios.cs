@@ -2194,6 +2194,7 @@ public static partial class DatabaseSeeder
             RawMessage =
                 "MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20260101150000||RAS^O17|CTRL-HL7-RAS-0009|P|2.5\r"
                 + "PID|1||MRN0009^^^HOSP^MR||INTERFACE^HELEN\r"
+                + "PV1||I|4W Oncology\r"
                 + "RXA|0|1|20260101140000|20260101150000|CODE^RBC|300||||12345^Nurse^Pat|||||W000123BPAM001",
             Status = Hl7MessageStatus.Processed,
             ReceivedUtc = now.AddHours(-73),

@@ -185,3 +185,4 @@
 | SRS-BB-179 | `ListReadyToIssueAllocationsAsync` joins reserved allocations, units, current type, antibodies, latest XM, and `ProductAllocationDisplayStatusRule`. `GET /api/issues/ready-to-issue` requires `issue.create`. | FRS-BB-218 |
 | SRS-BB-180 | `ToDto` calls `ReactionRepeatAboRhRule.Evaluate` on current patient type vs `RepeatPatientAboRh` and labeled unit type vs `RepeatUnitAboRh`. `/reactions` does not copy labeled type into the repeat inputs. | FRS-BB-219 |
 | SRS-BB-181 | `Hl7MessageDto.From` copies placer, test, and unit from `Hl7MessageIdentity`. `GET /api/hl7/messages` joins patient by MRN the same way as the error queue. | FRS-BB-220 |
+| SRS-BB-182 | Transfusion history rows set `IssuedToLocation` from `TransfusionEvent.Location` falling back to `Issue.IssuedToLocation`, copy `VolumeTransfused` and `Transfusionist`, and list them on the Product History tab. Default BPAM transfusionist path is `RXA-10`. | FRS-BB-221 |

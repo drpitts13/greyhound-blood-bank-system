@@ -285,6 +285,37 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Seed_HelenHl7Bpam_SurfacesVolumeLocationAndTransfusionist()
+    {
+        await using (var context = _factory.Create())
+        {
+            await DatabaseSeeder.SeedAsync(context);
+        }
+
+        await using var verify = _factory.Create();
+        var helen = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0009");
+        var history = await new PatientProductHistoryService(
+            new EfRepository<Allocation>(verify),
+            new EfRepository<Crossmatch>(verify),
+            new EfRepository<Issue>(verify),
+            new EfRepository<Return>(verify),
+            new EfRepository<TransfusionEvent>(verify),
+            new EfRepository<BloodUnit>(verify),
+            new EfRepository<ProductType>(verify),
+            new EfRepository<Encounter>(verify),
+            new EfRepository<Order>(verify),
+            new EfRepository<Specimen>(verify),
+            new EfRepository<PatientBloodTypeHistory>(verify)).ListByPatientAsync(helen.Id);
+        var row = Assert.Single(history, h =>
+            h.EventType == PatientProductHistoryEventType.Transfused
+            && h.UnitNumber == "W000123BPAM001");
+        Assert.Equal("HL7-BPAM", row.PatientIdentificationMethod);
+        Assert.Equal(300m, row.VolumeTransfused);
+        Assert.Equal("4W Oncology", row.IssuedToLocation);
+        Assert.Equal("Nurse, Pat", row.Transfusionist);
+    }
+
+    [Fact]
     public async Task Seed_PendingRetypeWorklist_IncludesRetDemoUnits()
     {
         await using (var context = _factory.Create())

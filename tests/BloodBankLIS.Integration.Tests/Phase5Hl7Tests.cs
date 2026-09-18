@@ -219,6 +219,7 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
     private static string Ras(string controlId, string mrn, string unitNumber) =>
         $"MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20260530120000||RAS^O17|{controlId}|P|2.5\r" +
         $"PID|1||{mrn}^^^HOSP^MR||Interface^Helen\r" +
+        "PV1||I|4W Oncology\r" +
         $"RXA|0|1|20260530100000|20260530103000|CODE^RBC|300||||12345^Nurse^Pat|||||{unitNumber}";
 
     private async Task<(Patient Patient, BloodUnit Unit)> SeedIssuedUnitForBpamAsync(
@@ -1225,11 +1226,16 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Equal("HL7-BPAM", transfusion.PatientIdentificationMethod);
         Assert.Equal(TransfusionDisposition.Completed, transfusion.FinalDisposition);
         Assert.Equal(300m, transfusion.VolumeTransfused);
+        Assert.Equal("4W Oncology", transfusion.Location);
+        Assert.Equal("Nurse, Pat", transfusion.Transfusionist);
 
         var history = await History(context).ListByPatientAsync(patient.Id);
         var row = Assert.Single(history, h => h.EventType == PatientProductHistoryEventType.Transfused);
         Assert.Equal("W-BPAM-LIVE", row.UnitNumber);
         Assert.Equal("HL7-BPAM", row.PatientIdentificationMethod);
+        Assert.Equal(300m, row.VolumeTransfused);
+        Assert.Equal("4W Oncology", row.IssuedToLocation);
+        Assert.Equal("Nurse, Pat", row.Transfusionist);
         Assert.False(await context.Issues.AnyAsync(i => i.PatientId == patient.Id && i.Status == IssueStatus.Issued));
     }
 

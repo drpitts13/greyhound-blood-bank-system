@@ -5,7 +5,7 @@ software is AABB-accredited or FDA-cleared. Remaining automated tests stay
 citable by class or method name until an ID is assigned.
 
 Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
-**TEST-BB-049**.
+**TEST-BB-074**.
 
 | ID | Layer | Test | Traces to |
 |---|---|---|---|
@@ -81,5 +81,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-070 | I | `Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate` | URS-BB-184 / FRS-BB-218 / RISK-BB-290 |
 | TEST-BB-071 | I | `ReactionInvestigationServiceTests.ListDtos_SurfacesRepeatAboRhDiscrepancy` | URS-BB-185 / FRS-BB-219 / RISK-BB-291 |
 | TEST-BB-072 | I | `SeederTests.Seed_HelenHl7Messages_SurfacePlacerTestAndUnit` | URS-BB-186 / FRS-BB-220 / RISK-BB-292 |
+| TEST-BB-073 | I | `SeederTests.Seed_HelenHl7Bpam_SurfacesVolumeLocationAndTransfusionist` | URS-BB-187 / FRS-BB-221 / RISK-BB-293 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
