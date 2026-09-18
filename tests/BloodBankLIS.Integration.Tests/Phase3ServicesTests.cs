@@ -919,4 +919,53 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("Negative", audits[1].OldValueJson);
         Assert.Contains("Positive", audits[1].NewValueJson);
     }
+
+    [Fact]
+    public async Task ResultSourcedAntigen_ChangeWithoutOverride_IsRejected()
+    {
+        var patientId = await EnsurePatientAsync("MRN-AG-LOCK");
+        long attrId;
+
+        await using (var context = _factory.Create())
+        {
+            var attr = new BloodAttributeDefinition
+            {
+                Code = "AG-LOCK-K",
+                Name = "Kell lock",
+                AntibodyName = "anti-K",
+                IsClinicallySignificant = true,
+                SortOrder = 91,
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = _factory.Clock.UtcNow,
+                Version = 1
+            };
+            context.BloodAttributeDefinitions.Add(attr);
+            await context.SaveChangesAsync();
+            attrId = attr.Id;
+        }
+
+        await using var ctx = _factory.Create();
+        var created = await Immuno(ctx).SaveAntigenProfileAsync(
+            patientId, new SaveAntigenProfileRequest(attrId, AntigenResult.Negative, "Tube"));
+        Assert.True(created.Succeeded, created.Error);
+        created.Value!.SourceResultId = 42;
+        ctx.AntigenProfiles.Update(created.Value);
+        await ctx.SaveChangesAsync();
+
+        var sameValue = await Immuno(ctx, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord))
+            .SaveAntigenProfileAsync(patientId, new SaveAntigenProfileRequest(attrId, AntigenResult.Negative, "Gel"));
+        Assert.True(sameValue.Succeeded, sameValue.Error);
+
+        var denied = await Immuno(ctx, new FixedPermissionEvaluator(1, PermissionCodes.ImmunoRecord))
+            .SaveAntigenProfileAsync(patientId, new SaveAntigenProfileRequest(attrId, AntigenResult.Positive, "Gel"));
+        Assert.False(denied.Succeeded);
+        Assert.Contains("immuno.override", denied.Error, StringComparison.OrdinalIgnoreCase);
+
+        var allowed = await Immuno(ctx, new FixedPermissionEvaluator(2, PermissionCodes.ImmunoRecord, PermissionCodes.ImmunoOverride))
+            .SaveAntigenProfileAsync(patientId, new SaveAntigenProfileRequest(attrId, AntigenResult.Positive, "Gel"));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal(AntigenResult.Positive, allowed.Value!.Result);
+        Assert.Equal(42, allowed.Value.SourceResultId);
+    }
 }

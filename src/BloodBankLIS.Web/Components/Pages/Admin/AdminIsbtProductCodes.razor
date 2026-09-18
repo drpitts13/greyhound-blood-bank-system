@@ -7,21 +7,30 @@
 
 <div class="flex-between">
     <h1>ISBT Product Description Codes</h1>
+    @if (CanImport)
+    {
+        <button class="btn btn-primary" type="button" @onclick="OpenImport">Import licensed extract…</button>
+    }
 </div>
 <p class="muted">
     Supplier product codes permitted for inventory intake. Units must match one of these codes.
-    Seeded rows are a US public subset pending ICCBBA validation. Official tables must be
-    imported from a licensed extract — this software does not invent product or ABO/RhD codes (OCD-004).
-    Microsoft Access and Excel ICCBBA databases are not parsed; export CSV, TSV, or JSON first.
+    Seeded rows are placeholders / a US public subset. When a licensed ICCBBA extract becomes
+    available, use <strong>Import licensed extract</strong> — this software does not invent
+    product or ABO/RhD codes (OCD-004). Microsoft Access and Excel databases are not parsed;
+    export CSV, TSV, or JSON first.
 </p>
 
 <Outcome Value="_feedback" />
 
-@if (CanImport)
+@if (CanImport && _showImport)
 {
-    <div class="bb-card" style="margin-top:1rem;">
-        <div class="bb-card-title"><h3>Import licensed ICCBBA catalog</h3></div>
-        <p class="muted">Same license acknowledgment and standard version apply to drop-folder files, uploaded extracts, and pasted JSON. Placeholder or pending-ICCBBA versions are rejected.</p>
+    <div class="bb-dialog-backdrop" @onclick="CloseImport">
+        <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="isbt-import-title" @onclick:stopPropagation="true">
+            <div class="flex-between">
+                <h2 id="isbt-import-title" style="margin:0;">Import licensed ICCBBA extract</h2>
+                <button class="btn btn-secondary btn-sm" type="button" @onclick="CloseImport">Close</button>
+            </div>
+            <p class="muted">Same license acknowledgment and standard version apply to drop-folder files, uploaded extracts, and pasted JSON. Placeholder or pending-ICCBBA versions are rejected. Placeholders stay until a licensed extract is imported.</p>
         <div class="form-row">
             <div class="field"><label>Standard version</label><input class="mono" @bind="_importVersion" placeholder="ICCBBA-licensed version id" /></div>
             <div class="field"><label>Reason</label><input @bind="_importReason" placeholder="Facility validation of licensed extract" /></div>
@@ -70,7 +79,8 @@
             <textarea rows="8" class="mono" style="width:100%;" @bind="_importJson"
                 placeholder='{"productCodes":[{"productDescriptionCode":"T0001","description":"Licensee-supplied example","componentClass":"Other"}],"aboRhdCodes":[{"code":"T1","abo":"O","rhD":"Positive"}]}'></textarea>
         </div>
-        <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@_busy" @onclick="ImportJsonAsync">Import licensed catalog</button>
+            <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@_busy" @onclick="ImportJsonAsync">Import licensed catalog</button>
+        </div>
     </div>
 }
 
@@ -144,6 +154,7 @@
     private bool _hideRetired = true;
     private Feedback? _feedback;
     private bool _busy;
+    private bool _showImport;
     private bool _importAck;
     private string _importVersion = string.Empty;
     private string _importReason = string.Empty;
@@ -198,6 +209,10 @@
                 _extracts = extracts.Value ?? new();
         }
     }
+
+    private void OpenImport() => _showImport = true;
+
+    private void CloseImport() => _showImport = false;
 
     private void ToggleDrop(string fileName, bool selected)
     {
@@ -280,6 +295,8 @@
 
     private void ApplyImportResult(ApiResult<LicensedIsbtCatalogImportResult> r)
     {
+        if (r.Succeeded)
+            _showImport = false;
         _feedback = r.ToFeedback(r.Succeeded
             ? $"Imported {r.Value?.ProductCodesImported ?? 0} product and {r.Value?.AboRhdCodesImported ?? 0} ABO/RhD row(s)."
             : null);

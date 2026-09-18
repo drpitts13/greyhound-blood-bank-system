@@ -6,7 +6,7 @@ This is a validation-support checklist, not a certification.
 - [ ] Full automated test suite passes, including `tests/safety_regression/`.
 - [ ] No HardStop was downgraded to a Warning except a documented emergency conversion.
 - [ ] Unique allocation/issue indexes present on the target database.
-- [ ] Facility policies reviewed (`AllowElectronicCrossmatch` remains off until OCD-006 is closed).
+- [ ] Facility policies reviewed (`AllowElectronicCrossmatch` remains off until the facility enables it after AABB 5.16 validation).
 - [ ] Open clinical decisions reviewed; none silently defaulted.
 - [ ] Traceability matrix updated for the change set.
 - [ ] Risk register residual ratings accepted by the quality reviewer.

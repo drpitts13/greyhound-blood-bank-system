@@ -59,6 +59,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(9, await verify.Patients.CountAsync());
             Assert.Equal(10, await verify.Encounters.CountAsync());
             Assert.Equal(14, await verify.Orders.CountAsync());
+            Assert.Equal("false", (await verify.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.AllowElectronicCrossmatch)).Value);
             Assert.True(await verify.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0009"));
             Assert.True(await verify.TestResults.AnyAsync(r =>
                 r.SourceReference == "CTRL-HL7-ORU-0009"

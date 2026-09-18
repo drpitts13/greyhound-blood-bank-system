@@ -304,9 +304,9 @@ public static partial class DatabaseSeeder
             new SystemSetting
             {
                 Key = FacilityPolicyKeys.AllowElectronicCrossmatch,
-                Value = "true",
+                Value = "false",
                 Category = "Issue",
-                Description = "Permit computer XM and electronic issue after AABB 5.16 preconditions."
+                Description = "Permit computer XM and electronic issue after AABB 5.16 preconditions. Off until enabled in Facility Policy (OCD-006)."
             },
             new SystemSetting
             {
@@ -417,9 +417,9 @@ public static partial class DatabaseSeeder
         context.SystemSettings.Add(new SystemSetting
         {
             Key = FacilityPolicyKeys.AllowElectronicCrossmatch,
-            Value = "true",
+            Value = "false",
             Category = "Issue",
-            Description = "Permit computer XM and electronic issue after AABB 5.16 preconditions."
+            Description = "Permit computer XM and electronic issue after AABB 5.16 preconditions. Off until enabled in Facility Policy (OCD-006)."
         });
         await context.SaveChangesAsync(ct);
     }

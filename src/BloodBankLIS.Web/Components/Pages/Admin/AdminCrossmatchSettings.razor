@@ -72,8 +72,8 @@ else if (_settings is not null)
         </div>
         <p class="muted">
             Minimums count only completed antibody screens with no positive reaction.
-            Facility policy allow electronic XM:
-            <strong>@(_settings.AllowElectronicCrossmatch ? "enabled" : "disabled")</strong>.
+            Electronic XM is <strong>@(_settings.AllowElectronicCrossmatch ? "enabled" : "disabled")</strong>
+            in Facility Policy (off by default; OCD-006). Activate it there after AABB 5.16 validation.
         </p>
     </div>
 

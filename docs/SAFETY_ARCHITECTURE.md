@@ -55,8 +55,9 @@ in a versioned catalog and do not replace `IssueGate`.
 `ElectronicCrossmatchEligibilityService` returns `eligible` plus reasons.
 Prerequisites include current ABO/Rh, two concordant determinations, negative
 screen, no antibody-history row (including deactivated), no open antibody-
-identification workup, and facility policy `AllowElectronicCrossmatch`.
-**REQUIRES REGULATORY / SME VERIFICATION** (OCD-001, OCD-006).
+identification workup, and facility policy `AllowElectronicCrossmatch`
+(off by default; OCD-006 closed). Historical/undetectable antibody still
+blocks (`XM-EC-HISTORY`). **REQUIRES REGULATORY / SME VERIFICATION** (OCD-001).
 
 ## Emergency release
 
@@ -70,7 +71,7 @@ Documenting a transfusion uses the same `PatientIdentityMatchRule` tokens as iss
 A client checkbox is not positive patient identification. Electronic `TX-DUAL-ID`
 is complete only after those tokens match and an ISBT bedside unit scan verifies.
 Legacy units without `ComponentIdentity` do not invent a scan requirement.
-`RequireSecondVerifier` remains a facility policy (OCD-008).
+`RequireSecondVerifier` remains an optional facility policy (OCD-008 closed).
 
 ## Identity (Cycle 1)
 

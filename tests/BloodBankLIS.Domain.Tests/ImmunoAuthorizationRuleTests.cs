@@ -1,3 +1,4 @@
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Domain.Tests;
@@ -41,6 +42,29 @@ public class ImmunoAuthorizationRuleTests
         var result = ImmunoAuthorizationRule.EvaluateAntigenProfile(hasImmunoRecord: false);
         Assert.Equal(ImmunoAuthorizationRule.AntigenProfileCode, result.Code);
         Assert.Equal(RuleSeverity.HardStop, result.Severity);
+    }
+
+    [Fact]
+    public void ResultSourcedAntigenChange_WithoutOverride_IsHardStop()
+    {
+        var result = ImmunoAuthorizationRule.EvaluateResultSourcedAntigenChange(
+            sourceResultId: 9,
+            existing: AntigenResult.Negative,
+            incoming: AntigenResult.Positive,
+            hasImmunoOverride: false);
+        Assert.Equal(ImmunoAuthorizationRule.ResultSourcedAntigenChangeCode, result.Code);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+    }
+
+    [Fact]
+    public void ResultSourcedAntigenChange_SameValueOrNoSource_Passes()
+    {
+        Assert.Equal(RuleSeverity.Pass, ImmunoAuthorizationRule.EvaluateResultSourcedAntigenChange(
+            9, AntigenResult.Negative, AntigenResult.Negative, hasImmunoOverride: false).Severity);
+        Assert.Equal(RuleSeverity.Pass, ImmunoAuthorizationRule.EvaluateResultSourcedAntigenChange(
+            null, AntigenResult.Negative, AntigenResult.Positive, hasImmunoOverride: false).Severity);
+        Assert.Equal(RuleSeverity.Pass, ImmunoAuthorizationRule.EvaluateResultSourcedAntigenChange(
+            9, AntigenResult.Negative, AntigenResult.Positive, hasImmunoOverride: true).Severity);
     }
 
     [Fact]

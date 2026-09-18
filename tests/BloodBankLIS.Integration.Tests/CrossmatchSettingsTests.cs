@@ -593,6 +593,21 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
             c.BloodUnits.Add(unit);
         }
 
+        var exm = await c.SystemSettings.FirstOrDefaultAsync(s => s.Key == FacilityPolicyKeys.AllowElectronicCrossmatch);
+        if (exm is null)
+        {
+            c.SystemSettings.Add(new SystemSetting
+            {
+                Key = FacilityPolicyKeys.AllowElectronicCrossmatch,
+                Value = "true",
+                Category = "Issue"
+            });
+        }
+        else
+        {
+            exm.Value = "true";
+        }
+
         await c.SaveChangesAsync();
         return seed with { Unit = unit };
     }

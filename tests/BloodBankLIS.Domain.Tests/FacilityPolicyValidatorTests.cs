@@ -43,4 +43,23 @@ public class FacilityPolicyValidatorTests
         var okHours = FacilityPolicyValidator.Validate(hours, "6", "Cooler validation supports six hours.", isLegalHold: false);
         Assert.False(okHours.IsHardStopped);
     }
+
+    [Fact]
+    public void ElectronicCrossmatch_CatalogDefault_IsOff()
+    {
+        var def = FacilityPolicyCatalog.Find(FacilityPolicyKeys.AllowElectronicCrossmatch);
+        Assert.NotNull(def);
+        Assert.Equal("false", def!.DefaultValue);
+        Assert.Contains("OCD-006", def.Citation);
+    }
+
+    [Fact]
+    public void SecondVerifierFlags_RemainOptional()
+    {
+        Assert.Contains("Optional", FacilityPolicyCatalog.Find(FacilityPolicyKeys.RequireSecondVerifier)!.Description);
+        Assert.Contains("Optional", FacilityPolicyCatalog.Find(FacilityPolicyKeys.RequireReceiveVerifier)!.Description);
+        Assert.Contains("Optional", FacilityPolicyCatalog.Find(FacilityPolicyKeys.RequireDiscardVerifier)!.Description);
+        Assert.Contains("Optional", FacilityPolicyCatalog.Find(FacilityPolicyKeys.RequireQuarantineReleaseVerifier)!.Description);
+        Assert.Contains("Optional", FacilityPolicyCatalog.Find(FacilityPolicyKeys.RequireDirectedConversionVerifier)!.Description);
+    }
 }

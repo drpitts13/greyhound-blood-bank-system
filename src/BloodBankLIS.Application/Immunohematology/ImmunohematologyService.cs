@@ -186,6 +186,15 @@ public sealed class ImmunohematologyService
         var existing = await _antigenProfiles.FirstOrDefaultAsync(
             p => p.PatientId == patientId && p.BloodAttributeDefinitionId == request.BloodAttributeDefinitionId, ct);
 
+        if (existing is not null)
+        {
+            var lockDenied = await RejectResultSourcedAntigenChangeAsync(existing, request.Result, ct);
+            if (lockDenied is not null)
+            {
+                return lockDenied;
+            }
+        }
+
         var phenotypeChanged = existing is null
             || existing.Result != request.Result
             || !string.Equals(existing.Method, request.Method, StringComparison.Ordinal);
@@ -495,6 +504,20 @@ public sealed class ImmunohematologyService
         var clinical = PatientMergeRule.EvaluateClinicalUse(patient.Status);
         return clinical.Severity == RuleSeverity.HardStop
             ? OperationResult<T>.Fail(clinical.Message)
+            : null;
+    }
+
+    private async Task<OperationResult<AntigenProfile>?> RejectResultSourcedAntigenChangeAsync(
+        AntigenProfile existing,
+        AntigenResult incoming,
+        CancellationToken ct)
+    {
+        var hasOverride = _permissions is null
+            || await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.ImmunoOverride, ct);
+        var gate = ImmunoAuthorizationRule.EvaluateResultSourcedAntigenChange(
+            existing.SourceResultId, existing.Result, incoming, hasOverride);
+        return gate.Severity == RuleSeverity.HardStop
+            ? OperationResult<AntigenProfile>.Fail(gate.Message)
             : null;
     }
 

@@ -193,3 +193,7 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-185 | Investigators can see when a recorded reaction-workup repeat ABO/Rh disagrees with the current patient type or the labeled unit type without that mismatch blocking close. | P1 | FRS-BB-219 |
 | URS-BB-186 | Interface staff can identify a logged HL7 message by placer order, test, or unit number when those fields are present, without opening the raw payload. | P1 | FRS-BB-220 |
 | URS-BB-187 | After a good inbound RAS, staff can see the loaded transfusion volume, location, and transfusionist on the patient product-history chart without opening Issuing or the raw message. | P1 | FRS-BB-221 |
+| URS-BB-188 | An administrator can open a licensed ICCBBA extract import dialog from ISBT Product Codes without replacing placeholders until a real extract is imported. | P1 | FRS-BB-222 |
+| URS-BB-189 | Electronic (computer) XM stays off until an administrator enables it in Facility Policy. | P0 | FRS-BB-223 |
+| URS-BB-190 | A blood attribute posted from a verified result stays on the patient chart unless a user with override privilege changes it. | P0 | FRS-BB-224 |
+| URS-BB-191 | Small labs can leave second-verifier policies off in Facility Policy. | P1 | FRS-BB-225 |

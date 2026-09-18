@@ -1290,3 +1290,40 @@ message to see what the interface had already loaded.
 
 Next workflow family: billing. SME items remain:
 OCD-001/006, OCD-022, OCD-008, OCD-004.
+
+## Iteration 42 — SME answers: eXM, phenotype lock, optional dual-ID, ISBT dialog (2026-09-18)
+
+Conversation SME slice (not a workflow-audit tick). Answers: keep ICCBBA
+placeholders and import via an admin dialog when an extract is available;
+electronic XM off until Facility Policy; antigen phenotype stays in place
+and result-sourced attributes stay unless `immuno.override`; second
+verifier remains optional for small labs.
+
+### Implemented
+
+- `/admin/isbt-product-codes` **Import licensed extract…** dialog (drop
+  folder, upload, JSON). Placeholders stay; no invented ICCBBA tables.
+- `AllowElectronicCrossmatch` seeds and falls back to false. Enable on
+  Facility Policy. Tests that need eXM turn the flag on.
+- Result-sourced antigen change HardStops `IH-AG-RESULT-LOCK` without
+  `immuno.override`. Chart-created rows stay editable in place.
+- Second-verifier catalog text marked Optional (OCD-008).
+
+### Requirements / risk
+
+- URS-BB-188–191, FRS-BB-222–225, SRS-BB-183–186, RISK-BB-294–297.
+- Closed OCD-006, OCD-008, OCD-022. OCD-004 and OCD-001 remain open.
+
+### Tests
+
+- TEST-BB-074 (`FdaAabbScenarioTests.PatriciaDemo_ElectronicXm_IsOffUntilFacilityAllows`).
+- TEST-BB-075 (`Phase3ServicesTests.ResultSourcedAntigen_ChangeWithoutOverride_IsRejected`).
+- TEST-BB-076 (`ImmunoAuthorizationRuleTests.ResultSourcedAntigenChange_WithoutOverride_IsHardStop`).
+- TEST-BB-077 (`FacilityPolicyValidatorTests.SecondVerifierFlags_RemainOptional`).
+- Full suite green: Domain 1251, Application 35, HL7 50, Printing 11,
+  Integration 786.
+
+### Next ranked residual
+
+Next workflow family: billing. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

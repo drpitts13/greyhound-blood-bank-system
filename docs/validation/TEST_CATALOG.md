@@ -5,7 +5,7 @@ software is AABB-accredited or FDA-cleared. Remaining automated tests stay
 citable by class or method name until an ID is assigned.
 
 Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
-**TEST-BB-074**.
+**TEST-BB-078**.
 
 | ID | Layer | Test | Traces to |
 |---|---|---|---|
@@ -82,5 +82,9 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-071 | I | `ReactionInvestigationServiceTests.ListDtos_SurfacesRepeatAboRhDiscrepancy` | URS-BB-185 / FRS-BB-219 / RISK-BB-291 |
 | TEST-BB-072 | I | `SeederTests.Seed_HelenHl7Messages_SurfacePlacerTestAndUnit` | URS-BB-186 / FRS-BB-220 / RISK-BB-292 |
 | TEST-BB-073 | I | `SeederTests.Seed_HelenHl7Bpam_SurfacesVolumeLocationAndTransfusionist` | URS-BB-187 / FRS-BB-221 / RISK-BB-293 |
+| TEST-BB-074 | I | `FdaAabbScenarioTests.PatriciaDemo_ElectronicXm_IsOffUntilFacilityAllows` | URS-BB-189 / FRS-BB-223 / RISK-BB-295 |
+| TEST-BB-075 | I | `Phase3ServicesTests.ResultSourcedAntigen_ChangeWithoutOverride_IsRejected` | URS-BB-190 / FRS-BB-224 / RISK-BB-296 |
+| TEST-BB-076 | D | `ImmunoAuthorizationRuleTests.ResultSourcedAntigenChange_WithoutOverride_IsHardStop` | URS-BB-190 / FRS-BB-224 / RISK-BB-296 |
+| TEST-BB-077 | D | `FacilityPolicyValidatorTests.SecondVerifierFlags_RemainOptional` | URS-BB-191 / FRS-BB-225 / RISK-BB-297 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

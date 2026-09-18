@@ -22,8 +22,8 @@ them silently and do not invent ICCBBA tables.
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|
 | 1 | P0 via P6 | API identity spoofing: `X-User` trusted after login; empty password hash signs in | Low (Bearer session; RISK-BB-254) | **Implemented Cycle 1** |
-| 2 | P1 | Unlicensed ISBT / ICCBBA catalogs (RISK-BB-014, OCD-004) | Medium (JSON + extract-file import; licensed extract not yet loaded) | **Import path Cycle 7/14**; do not invent tables |
-| 3 | P3 | Antigen phenotype updated in place (OCD-022) | Medium | Do not change default |
+| 2 | P1 | Unlicensed ISBT / ICCBBA catalogs (RISK-BB-014, OCD-004) | Medium (admin import dialog; licensed extract not yet loaded) | **Import path Cycle 7/14/42**; do not invent tables |
+| 3 | P3 | Antigen phenotype updated in place (OCD-022) | Low (in-place + result lock) | **Closed 2026-09-18** — stay in place; result-sourced change needs `immuno.override` |
 | 4 | P1 | Patient merge has no second authorizer (OCD-010) | Low | **Closed 2026-09-14** — keep `patient.merge` + reason only |
 | 5 | P6 / P8 | HL7 MLLP/file-drop inbound is transport-trust; HTTP inbound is session + `hl7.manage` | Low (accepted residual) | **Closed 2026-09-14** — keep transport-trust; do not invent a credential (OCD-034) |
 | 6 | P6 | Blazor circuit permissions stale after role change | Low (sessions revoked; `/api/me` refresh) | **Implemented Cycle 2** |
@@ -37,7 +37,7 @@ them silently and do not invent ICCBBA tables.
 | 14 | P8 | FHIR | Low | HL7 v2 exists |
 | 15 | P1 | Bedside dual-ID / administration device path incomplete | Low (PPID tokens + ISBT scan; RISK-BB-258). Residual: no dedicated administration-device protocol or required vitals (do not invent) | **Implemented Cycle 6** (identity tokens; device path still thin) |
 | 16 | P5 | Downtime reconciliation tooling thin | Low (snapshot; no paper OCR / failover) | **Implemented Cycle 11** |
-| 17 | P2 | Electronic XM policy defaults (OCD-001, OCD-006) | Low (policy off) | SME verification |
+| 17 | P2 | Electronic XM policy defaults (OCD-001, OCD-006) | Low (policy off) | **OCD-006 closed 2026-09-18** — off until Facility Policy. OCD-001 (undetectable antibody vs eXM) remains open |
 | 18 | P6 | Broader CSRF / XSS / secrets review | Low (headers + no wildcard CORS; Blazor CSP still allows inline/eval) | **Implemented Cycle 9** |
 | 19 | P5 | Validation packaging: no `TEST-BB-*` IDs; stale “Phase 0” headers; missing iteration log | Low (core safety IDs through TEST-BB-030) | **Implemented Cycle 10**; Cycles 12–13 assigned leftover high-safety class-name citations |
 | 20 | P6 | DevMode auto-admin | Low | Keep Development-only |
@@ -76,7 +76,7 @@ on the review queue with MRN, unit/test, and queued DFT control id
 
 Cycle 22: the pending test worklist shows electronic-XM eligibility and
 an open antibody-identification workup (RISK-BB-274). AABB 5.16 criteria
-and OCD-006 remain the existing eligibility service.
+and OCD-006 (now closed: off until Facility Policy) remain the existing eligibility service.
 
 Cycle 23: the quality-quarantine board shows product and a labeled-versus-
 interpreted retype mismatch; Release is available on the row with the

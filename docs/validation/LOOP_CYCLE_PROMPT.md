@@ -21,9 +21,7 @@ When the next ranked residual needs a clinical, regulatory, license, or facility
 
 Ranked SME / license items currently in the loop (see `docs/OPEN_CLINICAL_DECISIONS.md` and `docs/BLOOD_BANK_GAP_ANALYSIS.md`):
 
-- OCD-004 / gap 2 — Licensed ICCBBA / ISBT tables (JSON + CSV/TSV extract import if available; do not invent codes; ask before claiming a licensed extract is loaded)
-- OCD-001 / OCD-006 / gap 17 — Electronic XM policy defaults
-- OCD-022 / gap 3 — Antigen phenotype versioning
-- OCD-008 — Dual-ID policy defaults (flags already exist)
+- OCD-004 / gap 2 — Licensed ICCBBA / ISBT tables (admin import dialog exists; do not invent codes; ask before claiming a licensed extract is loaded)
+- OCD-001 / gap 17 — Electronic XM after a currently undetectable antibody (`XM-EC-HISTORY` still blocks)
 
 Do not stop after one feature. Continue until the cycle's coherent set is complete, or a genuine blocker requires human input.

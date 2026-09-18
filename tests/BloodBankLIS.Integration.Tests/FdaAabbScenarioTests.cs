@@ -234,9 +234,27 @@ public class FdaAabbScenarioTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task PatriciaDemo_ElectronicXm_IsOffUntilFacilityAllows()
+    {
+        await using var c = await SeededAsync();
+        var setting = await c.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.AllowElectronicCrossmatch);
+        setting.Value = "false";
+        await c.SaveChangesAsync();
+        var patient = await c.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0001");
+        var dto = await ElectronicXm(c).AssessAsync(patient.Id);
+        Assert.NotNull(dto);
+        Assert.False(dto!.FacilityAllowsElectronicCrossmatch);
+        Assert.False(dto.Eligible);
+        Assert.Contains(dto.Criteria, r => r.Code == ElectronicCrossmatchEligibilityRule.FacilityCode && !r.Satisfied);
+    }
+
+    [Fact]
     public async Task PatriciaDemo_IsElectronicXmEligible_WhenFacilityAllows()
     {
         await using var c = await SeededAsync();
+        var setting = await c.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.AllowElectronicCrossmatch);
+        setting.Value = "true";
+        await c.SaveChangesAsync();
         var patient = await c.Patients.SingleAsync(p => p.MedicalRecordNumber == "MRN0001");
         var dto = await ElectronicXm(c).AssessAsync(patient.Id);
         Assert.NotNull(dto);

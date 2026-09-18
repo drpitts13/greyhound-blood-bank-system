@@ -218,6 +218,26 @@ table.bb tbody tr:hover { background: #fafbfe; }
 .diff-old { background: #fdecee; }
 .diff-new { background: #e9f7ef; }
 
+.bb-dialog-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 24, 31, .45);
+    z-index: 40;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 4rem 1rem 2rem;
+    overflow: auto;
+}
+.bb-dialog {
+    background: var(--bb-surface);
+    border: 1px solid var(--bb-border);
+    border-radius: 12px;
+    box-shadow: 0 16px 48px rgba(16, 24, 40, .24);
+    width: min(720px, 100%);
+    padding: 1.2rem 1.3rem 1.4rem;
+}
+
 /* Patient workspace table highlights */
 tr.row-active td { background: #e8f4ec; }
 tr.row-urgent td { background: #fdecee; font-weight: 600; }

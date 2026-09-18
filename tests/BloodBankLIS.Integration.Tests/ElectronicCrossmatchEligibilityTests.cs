@@ -5,6 +5,7 @@ using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
 
@@ -56,13 +57,52 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
                 IsCurrent = true,
                 Source = BloodTypeSource.TestResult
             });
-        await c.SaveChangesAsync();
+        await SetElectronicXmAsync(c, enabled: true);
 
         var dto = await Service(c).AssessAsync(patient.Id);
         Assert.NotNull(dto);
         Assert.True(dto!.Eligible);
         Assert.True(dto.FacilityAllowsElectronicCrossmatch);
         Assert.All(dto.Criteria, criterion => Assert.True(criterion.Satisfied));
+    }
+
+    [Fact]
+    public async Task Assess_FacilityPolicyOff_IsNotEligible()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = "MRN-EXM-OFF",
+            LastName = "Policy",
+            FirstName = "Off",
+            DateOfBirth = new DateOnly(1988, 3, 1)
+        };
+        c.Patients.Add(patient);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                IsCurrent = false,
+                Source = BloodTypeSource.TestResult
+            },
+            new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                IsCurrent = true,
+                Source = BloodTypeSource.TestResult
+            });
+        await SetElectronicXmAsync(c, enabled: false);
+
+        var dto = await Service(c).AssessAsync(patient.Id);
+        Assert.NotNull(dto);
+        Assert.False(dto!.FacilityAllowsElectronicCrossmatch);
+        Assert.False(dto.Eligible);
+        Assert.Contains(dto.Criteria, r => r.Code == ElectronicCrossmatchEligibilityRule.FacilityCode && !r.Satisfied);
     }
 
     [Fact]
@@ -86,7 +126,7 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
             IsCurrent = true,
             Source = BloodTypeSource.TestResult
         });
-        await c.SaveChangesAsync();
+        await SetElectronicXmAsync(c, enabled: true);
 
         var dto = await Service(c).AssessAsync(patient.Id);
         Assert.NotNull(dto);
@@ -132,7 +172,7 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
             Status = AntibodyStatus.Identified,
             IsActive = true
         });
-        await c.SaveChangesAsync();
+        await SetElectronicXmAsync(c, enabled: true);
 
         var dto = await Service(c).AssessAsync(patient.Id);
         Assert.False(dto!.Eligible);
@@ -177,7 +217,7 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
             IsActive = false,
             DeactivationReason = "Currently undetectable; historical record retained."
         });
-        await c.SaveChangesAsync();
+        await SetElectronicXmAsync(c, enabled: true);
 
         var dto = await Service(c).AssessAsync(patient.Id);
         Assert.False(dto!.Eligible);
@@ -221,11 +261,31 @@ public class ElectronicCrossmatchEligibilityTests : IClassFixture<SqliteContextF
             PrimaryLotId = 1,
             Status = AntibodyWorkupStatus.InProgress
         });
-        await c.SaveChangesAsync();
+        await SetElectronicXmAsync(c, enabled: true);
 
         var dto = await Service(c).AssessAsync(patient.Id);
         Assert.False(dto!.Eligible);
         Assert.Contains(dto.Criteria, r => r.Code == ElectronicCrossmatchEligibilityRule.WorkupOpenCode && !r.Satisfied);
         Assert.Contains("antibody-identification workup is open", dto.BlockingReason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task SetElectronicXmAsync(BloodBankDbContext c, bool enabled)
+    {
+        var existing = await c.SystemSettings.FirstOrDefaultAsync(s => s.Key == FacilityPolicyKeys.AllowElectronicCrossmatch);
+        if (existing is null)
+        {
+            c.SystemSettings.Add(new SystemSetting
+            {
+                Key = FacilityPolicyKeys.AllowElectronicCrossmatch,
+                Value = enabled ? "true" : "false",
+                Category = "Issue"
+            });
+        }
+        else
+        {
+            existing.Value = enabled ? "true" : "false";
+        }
+
+        await c.SaveChangesAsync();
     }
 }

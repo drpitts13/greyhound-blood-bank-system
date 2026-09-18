@@ -1,3 +1,5 @@
+using BloodBankLIS.Domain.Enums;
+
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
@@ -10,6 +12,7 @@ public static class ImmunoAuthorizationRule
     public const string AntibodyAddCode = "IH-AB-ADD-PERM";
     public const string AntibodyDeactivateCode = "IH-AB-DEACT-PERM";
     public const string AntigenProfileCode = "IH-AG-PERM";
+    public const string ResultSourcedAntigenChangeCode = "IH-AG-RESULT-LOCK";
     public const string SpecialRequirementAddCode = "SR-ADD-PERM";
     public const string SpecialRequirementDeactivateCode = "SR-DEACT-PERM";
     public const string AntibodyIdWorkupCode = "ABID-WORKUP-PERM";
@@ -30,6 +33,28 @@ public static class ImmunoAuthorizationRule
     public static RuleResult EvaluateAntigenProfile(bool hasImmunoRecord) =>
         Require(hasImmunoRecord, AntigenProfileCode,
             "Recording an antigen profile requires the immuno.record permission.");
+
+    /// <summary>
+    /// A phenotype posted from a verified result stays in place (OCD-022)
+    /// unless <c>immuno.override</c> changes it.
+    /// </summary>
+    public static RuleResult EvaluateResultSourcedAntigenChange(bool hasImmunoOverride) =>
+        Require(hasImmunoOverride, ResultSourcedAntigenChangeCode,
+            "Changing a result-sourced antigen phenotype requires the immuno.override permission.");
+
+    public static RuleResult EvaluateResultSourcedAntigenChange(
+        long? sourceResultId,
+        AntigenResult existing,
+        AntigenResult incoming,
+        bool hasImmunoOverride)
+    {
+        if (sourceResultId is null || existing == incoming)
+        {
+            return RuleResult.Pass(ResultSourcedAntigenChangeCode);
+        }
+
+        return EvaluateResultSourcedAntigenChange(hasImmunoOverride);
+    }
 
     public static RuleResult EvaluateSpecialRequirementAdd(bool hasImmunoRecord) =>
         Require(hasImmunoRecord, SpecialRequirementAddCode,

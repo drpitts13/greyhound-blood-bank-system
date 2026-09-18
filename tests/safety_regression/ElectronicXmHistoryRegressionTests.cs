@@ -136,6 +136,12 @@ public class ElectronicXmHistoryRegressionTests : IClassFixture<SqliteContextFac
             Status = UnitStatus.Available
         };
         c.BloodUnits.Add(unit);
+        c.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.AllowElectronicCrossmatch,
+            Value = "true",
+            Category = "Issue"
+        });
         await c.SaveChangesAsync();
 
         var eligibility = new ElectronicCrossmatchEligibilityService(

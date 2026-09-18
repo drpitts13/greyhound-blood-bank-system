@@ -500,7 +500,7 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Antigen</th><th>Code</th><th>Result</th><th>Tested</th></tr></thead>
+                    <thead><tr><th>Antigen</th><th>Code</th><th>Result</th><th>Source</th><th>Tested</th></tr></thead>
                     <tbody>
                         @foreach (var p in _antigenProfiles)
                         {
@@ -508,6 +508,7 @@ else
                                 <td>@p.AntigenName</td>
                                 <td class="mono">@p.AntigenCode</td>
                                 <td>@p.Result</td>
+                                <td>@(p.SourceResultId is null ? "Chart" : "Verified result")</td>
                                 <td class="nowrap">@(p.TestedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
                             </tr>
                         }
@@ -547,6 +548,7 @@ else
                         <select @bind="_agResult">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }</select>
                     </div>
                 </div>
+                <p class="muted">Result-sourced phenotypes stay in place. Changing one requires immuno.override.</p>
                 <button class="btn btn-primary" disabled="@(_busy || _agCatalogId is null)" @onclick="SaveAntigenProfileAsync">Save antigen result</button>
             }
         </div>

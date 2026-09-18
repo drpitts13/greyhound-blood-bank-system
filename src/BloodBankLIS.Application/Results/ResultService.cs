@@ -774,6 +774,12 @@ public sealed class ResultService
                 return EvaluationResult<TestResult>.Blocked(new RuleEvaluation([block]));
             }
 
+            var antigenLock = await EvaluateResultSourcedAntigenLockAsync(result, ct);
+            if (antigenLock is { } locked)
+            {
+                return EvaluationResult<TestResult>.Blocked(new RuleEvaluation([locked]));
+            }
+
             result.Status = ResultStatus.Verified;
             result.VerifiedBy = _currentUser.UserName;
             result.VerifiedUtc = now;
@@ -2283,6 +2289,58 @@ public sealed class ResultService
         return interpretation.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
             ? interpretation[prefix.Length..].Trim()
             : null;
+    }
+
+    private async Task<RuleResult?> EvaluateResultSourcedAntigenLockAsync(TestResult result, CancellationToken ct)
+    {
+        if (_testDefinitions is null || _bloodAttributes is null || _antigenProfiles is null)
+        {
+            return null;
+        }
+
+        var def = await _testDefinitions.FirstOrDefaultAsync(
+            d => d.IsActive && d.Code == result.TestCode, ct);
+        if (def is null
+            || def.ResultValueType != ResultValueType.BloodAttribute
+            || def.BloodAttributeScopeKind != BloodAttributeKind.Antigen
+            || def.ContributesToUnitBloodAttributes)
+        {
+            return null;
+        }
+
+        if (!BloodAttributeResultValue.TryParse(result.Value, out var rows))
+        {
+            return null;
+        }
+
+        var catalog = await _bloodAttributes.ListAsync(d => d.IsActive, ct);
+        var byCode = catalog.ToDictionary(d => d.Code, StringComparer.Ordinal);
+        var hasOverride = _permissions is null
+            || await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.ImmunoOverride, ct);
+
+        foreach (var row in rows)
+        {
+            if (!byCode.TryGetValue(row.Code, out var attrDef))
+            {
+                continue;
+            }
+
+            var existing = await _antigenProfiles.FirstOrDefaultAsync(
+                p => p.PatientId == result.PatientId && p.BloodAttributeDefinitionId == attrDef.Id, ct);
+            if (existing is null)
+            {
+                continue;
+            }
+
+            var gate = ImmunoAuthorizationRule.EvaluateResultSourcedAntigenChange(
+                existing.SourceResultId, existing.Result, row.Result, hasOverride);
+            if (gate.Severity == RuleSeverity.HardStop)
+            {
+                return gate;
+            }
+        }
+
+        return null;
     }
 
     private async Task<bool> UpsertAntigenProfileAsync(

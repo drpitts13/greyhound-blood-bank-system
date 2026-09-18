@@ -85,7 +85,7 @@ public sealed class FacilityPolicyService
         GetIntAsync(FacilityPolicyKeys.RetentionYears, 10, ct);
 
     public Task<bool> GetAllowElectronicCrossmatchAsync(CancellationToken ct = default) =>
-        GetBoolAsync(FacilityPolicyKeys.AllowElectronicCrossmatch, true, ct);
+        GetBoolAsync(FacilityPolicyKeys.AllowElectronicCrossmatch, false, ct);
 
     public Task<bool> GetRequireSecondAboForCellularIssueAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireSecondAboForCellularIssue, true, ct);

@@ -260,6 +260,10 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-185 / FRS-BB-219 | Reaction board badges repeat ABO/Rh vs current and labeled type | `ReactionInvestigationService`; `Reactions.razor` | TEST-BB-071 | I | |
 | URS-BB-186 / FRS-BB-220 | HL7 message log shows placer/test/unit and links the patient | `Hl7MessageIdentity`; `Hl7.razor` | TEST-BB-072 | I | |
 | URS-BB-187 / FRS-BB-221 | Product history shows RAS-loaded volume, location, and transfusionist | `PatientProductHistoryService`; `PatientDetail.razor` | TEST-BB-073 | I | |
+| URS-BB-188 / FRS-BB-222 | Licensed ICCBBA extract import is an admin dialog | `AdminIsbtProductCodes.razor`; `IsbtLicensedCatalogImportRule` | TEST-BB-013; TEST-BB-014 | D,I | OCD-004 open |
+| URS-BB-189 / FRS-BB-223 | Electronic XM off until Facility Policy | `FacilityPolicyService`; `ElectronicCrossmatchEligibilityService` | TEST-BB-074; TEST-BB-046 | I | OCD-006 closed |
+| URS-BB-190 / FRS-BB-224 | Result-sourced antigen stays unless immuno.override | `ImmunoAuthorizationRule`; `ImmunohematologyService` | TEST-BB-075; TEST-BB-076 | D,I | OCD-022 closed |
+| URS-BB-191 / FRS-BB-225 | Second-verifier flags remain optional | `FacilityPolicyCatalog`; `DualIdentificationRule` | TEST-BB-012; TEST-BB-077 | D,I | OCD-008 closed |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |
@@ -270,7 +274,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-020 / FRS-BB-022 | Seeded ABO self-verify block | `SelfVerifyRule`; `Result.BlockAboSelfVerify` | TEST-BB-043 | I | CLIA/AABB self-verify |
 | URS-BB-036 / FRS-BB-066 | Seeded reaction investigation clerical check and DAT | `ReactionInvestigation` MRN0006 | TEST-BB-044 | I | 21 CFR 606.170 |
 | URS-BB-011 / FRS-BB-060 | Seeded clinical actions write audit events | `AuditEvent` | TEST-BB-045 | I | 21 CFR 606.160 |
-| URS-BB-009 / FRS-BB-033 | Seeded computer XM eligibility on Patricia Demo | `ElectronicCrossmatchEligibilityService` | TEST-BB-046 | I | AABB 5.16-style; OCD-006 |
+| URS-BB-009 / FRS-BB-033 | Seeded computer XM eligibility on Patricia Demo after Facility Policy enable | `ElectronicCrossmatchEligibilityService` | TEST-BB-046; TEST-BB-074 | I | AABB 5.16-style; OCD-006 closed |
 | URS-BB-153 / FRS-BB-187 | HTTP HL7 inbound is session + `hl7.manage`; MLLP and file-drop stay transport-trust | `Hl7Endpoints`; `MllpListenerService`; `Hl7FileDropService` | TEST-BB-015 | A,I | RISK-BB-260 |
 | URS-BB-154 / FRS-BB-188 | Security headers on API and Web; no Production wildcard CORS | `HttpSecurityHeaderPolicy`; `SecurityHeadersMiddleware` | TEST-BB-016 | A,I | RISK-BB-261 |
 | URS-BB-155 / FRS-BB-189 | Formal TEST-BB-* catalog; living docs not Phase 0 drafts; no clinical/audit purge | `docs/validation/TEST_CATALOG.md` | TEST-BB-017 | I | RISK-BB-262 |
