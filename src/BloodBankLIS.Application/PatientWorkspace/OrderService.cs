@@ -199,6 +199,7 @@ public sealed class OrderService
                     primarySpecimenId, accession, o.ResultStatus, o.FulfillmentStatus,
                     o.Source, o.OrderedUtc, o.CancellationReason,
                     orderLines.Select(OrderLineDto.From).ToList(),
+                    o.Comment,
                     current?.Id, current?.Value, current?.Source, current?.EnteredBy, current?.TestCode);
             })
             .ToList();
@@ -276,7 +277,8 @@ public sealed class OrderService
             OrderingProvider = orderingProviderName,
             OrderedUtc = request.OrderedUtc,
             SourceSystem = request.SourceSystem,
-            OrderedByUser = request.OrderedByUser
+            OrderedByUser = request.OrderedByUser,
+            Comment = NormalizeComment(request.Comment)
         };
 
         // Rules see the specimen the order will be linked to, so resolve it before evaluating.
@@ -398,6 +400,7 @@ public sealed class OrderService
         order.Priority = request.Priority;
         order.OrderingProviderId = orderingProviderId;
         order.OrderingProvider = orderingProviderName;
+        order.Comment = NormalizeComment(request.Comment);
 
         var specimenType = await PeekSpecimenTypeAsync(patientId, request.EncounterId, specimenId: null, ct);
         var ruleOutcome = await ApplyOrderRulesAsync(patientId, order, builtLines, specimenType, ct);
@@ -947,4 +950,54 @@ public sealed class OrderService
 
         return selected;
     }
+
+    public async Task<OperationResult<OrderLine>> UpdateLineCommentAsync(
+        long patientId,
+        long orderId,
+        long lineId,
+        UpdateOrderLineCommentRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var unauthorized = await RejectUnauthorizedAsync<OrderLine>(OrderAuthorizationRule.EvaluateUpdate, ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
+        var order = await _orders.FirstOrDefaultAsync(o => o.Id == orderId && o.PatientId == patientId, ct);
+        if (order is null)
+        {
+            return OperationResult<OrderLine>.Fail("Order not found.");
+        }
+
+        var line = await _orderLines.FirstOrDefaultAsync(l => l.Id == lineId && l.OrderId == orderId, ct);
+        if (line is null)
+        {
+            return OperationResult<OrderLine>.Fail("Order line not found.");
+        }
+
+        var comment = NormalizeComment(request.Comment);
+        if (comment is { Length: > 2000 })
+        {
+            return OperationResult<OrderLine>.Fail("Comment cannot exceed 2000 characters.");
+        }
+
+        var previous = line.Comment;
+        line.Comment = comment;
+        _orderLines.Update(line);
+        _audit?.Record(
+            AuditEventType.OrderChange,
+            nameof(OrderLine),
+            line.Id,
+            oldValue: new { Comment = previous },
+            newValue: new { Comment = comment },
+            reason: "Test comment updated.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<OrderLine>.Ok(line);
+    }
+
+    private static string? NormalizeComment(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

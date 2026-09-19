@@ -31,4 +31,7 @@ public class OrderLine : BaseEntity
     public ResultStatus? ResultStatus { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Free-text test-line comment. Coded comments from the Test catalog may be inserted.</summary>
+    public string? Comment { get; set; }
 }

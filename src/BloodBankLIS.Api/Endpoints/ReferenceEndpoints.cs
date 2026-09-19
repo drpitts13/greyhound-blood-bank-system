@@ -86,6 +86,21 @@ public static class ReferenceEndpoints
                 d.Id, d.Code, d.Name, d.AntibodyName, d.IsClinicallySignificant, d.SortOrder)));
         });
 
+        group.MapGet("/coded-comments", async (BloodBankDbContext context, CommentPage? page, CancellationToken ct) =>
+        {
+            var query = context.CodedCommentDefinitions.AsNoTracking().Where(c => c.IsActive);
+            if (page is not null)
+            {
+                query = query.Where(c => c.Page == page);
+            }
+
+            var items = await query
+                .OrderBy(c => c.SortOrder)
+                .ThenBy(c => c.Code)
+                .ToListAsync(ct);
+            return Results.Ok(items.Select(c => new CodedCommentRefDto(c.Code, c.CommentText, c.Page, c.SortOrder)));
+        });
+
         group.MapGet("/specimen-types", async (BloodBankDbContext context, CancellationToken ct) =>
         {
             var types = await context.SpecimenTypeDefinitions.AsNoTracking()

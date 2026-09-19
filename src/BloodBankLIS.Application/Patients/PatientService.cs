@@ -120,7 +120,8 @@ public sealed class PatientService
             FirstName = firstName,
             MiddleName = middleName,
             DateOfBirth = request.DateOfBirth,
-            Sex = request.Sex
+            Sex = request.Sex,
+            Comment = NormalizeComment(request.Comment)
         };
         await _patients.AddAsync(patient, ct);
         await _unitOfWork.SaveChangesAsync(ct);
@@ -212,7 +213,8 @@ public sealed class PatientService
             patient.DateOfBirth,
             patient.Sex,
             patient.Status,
-            patient.RecentPregnancyUtc
+            patient.RecentPregnancyUtc,
+            patient.Comment
         };
 
         var pregnancyChanged = patient.RecentPregnancyUtc != request.RecentPregnancyUtc;
@@ -224,6 +226,7 @@ public sealed class PatientService
         patient.Sex = request.Sex;
         patient.Status = request.Status;
         patient.RecentPregnancyUtc = request.RecentPregnancyUtc;
+        patient.Comment = NormalizeComment(request.Comment);
 
         _patients.Update(patient);
         _audit?.Record(
@@ -239,7 +242,8 @@ public sealed class PatientService
                 patient.DateOfBirth,
                 patient.Sex,
                 patient.Status,
-                patient.RecentPregnancyUtc
+                patient.RecentPregnancyUtc,
+                patient.Comment
             },
             reason: "Patient demographics updated.");
         await _unitOfWork.SaveChangesAsync(ct);
@@ -266,5 +270,16 @@ public sealed class PatientService
         return auth.Severity == RuleSeverity.HardStop
             ? OperationResult<Patient>.Fail(auth.Message)
             : null;
+    }
+
+    private static string? NormalizeComment(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length > 2000 ? trimmed[..2000] : trimmed;
     }
 }

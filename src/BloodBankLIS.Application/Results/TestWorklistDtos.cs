@@ -43,7 +43,8 @@ public sealed record TestWorkItemDto(
     long? OpenAntibodyIdWorkupId = null,
     string? CurrentResultEnteredBy = null,
     bool AboRhDeltaHold = false,
-    string? AboRhDeltaDetail = null)
+    string? AboRhDeltaDetail = null,
+    string? Comment = null)
 {
     public bool HasPostedInterfaceOrInstrumentValue =>
         CurrentResultStatus is ResultStatus.PendingVerification
@@ -56,4 +57,36 @@ public sealed record TestWorkItemDto(
         && string.Equals(TestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
         && !string.IsNullOrWhiteSpace(CurrentResultEnteredBy)
         && string.Equals(CurrentResultEnteredBy, userName, StringComparison.OrdinalIgnoreCase);
+
+    public bool OffersAntibodyIdHandoff =>
+        HasOpenAntibodyIdWorkup
+        || string.Equals(TestCode, "ABSC", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(TestCode, "ABID", StringComparison.OrdinalIgnoreCase);
+
+    public string AntibodyIdHref
+    {
+        get
+        {
+            if (OpenAntibodyIdWorkupId is long workupId)
+            {
+                return $"/patients/{PatientId}/antibody-id/{workupId}";
+            }
+
+            var href = $"/patients/{PatientId}/antibody-id";
+            if (SpecimenId is > 0)
+            {
+                href += $"?specimenId={SpecimenId}";
+            }
+
+            return href;
+        }
+    }
+
+    public string AntibodyIdHandoffLabel => HasOpenAntibodyIdWorkup ? "ABID" : "Start ABID";
+
+    public bool NeedsSpecimenLink =>
+        SpecimenId is null or 0
+        || BlockReason?.Contains("No specimen is linked", StringComparison.OrdinalIgnoreCase) == true;
+
+    public string ChartAccessionHref => $"/patients/{PatientId}?tab=orders&panel=accession";
 }

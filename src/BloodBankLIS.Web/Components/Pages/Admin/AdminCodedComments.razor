@@ -1,0 +1,186 @@
+@page "/admin/coded-comments"
+@using BloodBankLIS.Application.Admin
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Coded Comments &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Coded Comments</h1>
+    <div class="flex gap">
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New coded comment</button>
+        }
+    </div>
+</div>
+<p class="muted">Shortcuts that insert comment text on the Patient, Order, Specimen, or Tests page. Codes are unique per page.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code or comment" @bind="_filter" @bind:event="oninput" />
+        <select @bind="_pageFilter" @bind:after="LoadAsync">
+            <option value="">All pages</option>
+            @foreach (var commentPage in Enum.GetValues<CommentPage>())
+            {
+                <option value="@commentPage">@commentPage</option>
+            }
+        </select>
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No coded comments.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Comment</th><th>Page</th><th>Order</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var e in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@e.Code</td>
+                        <td>@e.CommentText</td>
+                        <td>@e.Page</td>
+                        <td>@e.SortOrder</td>
+                        <td>@(e.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => Edit(e)">Edit</button>
+                                @if (e.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(e.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(e.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_draft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New coded comment" : $"Edit: {_draft.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_draft.Code" /></div>
+            <div class="field"><label>Page</label>
+                <select @bind="_draft.Page">
+                    @foreach (var commentPage in Enum.GetValues<CommentPage>())
+                    {
+                        <option value="@commentPage">@commentPage</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Sort order</label><input type="number" @bind="_draft.SortOrder" /></div>
+        </div>
+        <div class="field"><label>Comment</label><input @bind="_draft.CommentText" /></div>
+        <div class="flex gap" style="margin-top:.6rem;">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private string _pageFilter = string.Empty;
+    private bool _includeInactive;
+    private List<CodedCommentDefinitionDto> _list = new();
+    private Feedback? _feedback;
+    private long? _editId;
+    private Draft? _draft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<CodedCommentDefinitionDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _list
+            : _list.Where(e =>
+                e.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || e.CommentText.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        CommentPage? page = Enum.TryParse<CommentPage>(_pageFilter, out var parsed) ? parsed : null;
+        var r = await Api.GetAdminCodedCommentsAsync(_includeInactive, page);
+        _list = r.Value ?? new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _draft = new Draft();
+        _feedback = null;
+    }
+
+    private void Edit(CodedCommentDefinitionDto e)
+    {
+        _editId = e.Id;
+        _draft = Draft.From(e);
+        _feedback = null;
+    }
+
+    private void CancelEdit() => _draft = null;
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        _busy = true;
+        var req = new SaveCodedCommentDefinitionRequest(_draft.Code, _draft.CommentText, _draft.Page, _draft.SortOrder);
+        var r = _editId is null
+            ? await Api.CreateAdminCodedCommentAsync(req)
+            : await Api.UpdateAdminCodedCommentAsync(_editId.Value, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Coded comment created." : "Saved.");
+        if (r.Succeeded) { _draft = null; await LoadAsync(); }
+    }
+
+    private async Task SetActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminCodedCommentActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.ToFeedback(active ? "Activated." : "Deactivated.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private sealed class Draft
+    {
+        public string Code { get; set; } = string.Empty;
+        public string CommentText { get; set; } = string.Empty;
+        public CommentPage Page { get; set; } = CommentPage.Patient;
+        public int SortOrder { get; set; }
+
+        public static Draft From(CodedCommentDefinitionDto e) => new()
+        {
+            Code = e.Code,
+            CommentText = e.CommentText,
+            Page = e.Page,
+            SortOrder = e.SortOrder
+        };
+    }
+}

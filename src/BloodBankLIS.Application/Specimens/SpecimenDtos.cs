@@ -15,14 +15,16 @@ public sealed record AccessionSpecimenRequest(
     IdentityTokenType? Identifier1Type = null,
     string? Identifier1Value = null,
     IdentityTokenType? Identifier2Type = null,
-    string? Identifier2Value = null);
+    string? Identifier2Value = null,
+    string? Comment = null);
 
 public sealed record UpdateSpecimenRequest(
     DateTime CollectedUtc,
     string? Barcode = null,
     string? DrawLocation = null,
     string? Collector = null,
-    int? ValidityHours = null);
+    int? ValidityHours = null,
+    string? Comment = null);
 
 public sealed record SpecimenDto(
     long Id,
@@ -37,9 +39,11 @@ public sealed record SpecimenDto(
     DateTime? ReceivedUtc,
     DateTime? ExpiresUtc,
     SpecimenStatus Status,
-    string? RejectionReason)
+    string? RejectionReason,
+    string? Comment = null)
 {
     public static SpecimenDto From(Specimen s, string? typeDescription = null) => new(
         s.Id, s.AccessionNumber, s.PatientId, s.SpecimenType, typeDescription, s.Barcode,
-        s.DrawLocation, s.Collector, s.CollectedUtc, s.ReceivedUtc, s.ExpiresUtc, s.Status, s.RejectionReason);
+        s.DrawLocation, s.Collector, s.CollectedUtc, s.ReceivedUtc, s.ExpiresUtc, s.Status, s.RejectionReason,
+        s.Comment);
 }

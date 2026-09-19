@@ -86,6 +86,15 @@ public enum OrderCategory
     Mixed = 2
 }
 
+/// <summary>Chart page that a coded comment may be inserted on.</summary>
+public enum CommentPage
+{
+    Patient = 0,
+    Order = 1,
+    Specimen = 2,
+    Test = 3
+}
+
 public enum OrderPriority
 {
     Routine = 0,

@@ -161,7 +161,8 @@ public sealed class SpecimenService
             Identifier1Value = id1Value,
             Identifier2Type = id2Type,
             Identifier2Value = id2Value,
-            Status = SpecimenStatus.Accepted
+            Status = SpecimenStatus.Accepted,
+            Comment = NormalizeComment(request.Comment)
         };
 
         await _specimens.AddAsync(specimen, ct);
@@ -218,7 +219,8 @@ public sealed class SpecimenService
             specimen.Barcode,
             specimen.DrawLocation,
             specimen.Collector,
-            specimen.ExpiresUtc
+            specimen.ExpiresUtc,
+            specimen.Comment
         };
 
         var nextExpires = request.CollectedUtc.AddHours(hours);
@@ -230,6 +232,7 @@ public sealed class SpecimenService
         specimen.DrawLocation = string.IsNullOrWhiteSpace(request.DrawLocation) ? null : request.DrawLocation.Trim();
         specimen.Collector = string.IsNullOrWhiteSpace(request.Collector) ? null : request.Collector.Trim();
         specimen.ExpiresUtc = nextExpires;
+        specimen.Comment = NormalizeComment(request.Comment);
 
         _specimens.Update(specimen);
         _audit?.Record(
@@ -243,7 +246,8 @@ public sealed class SpecimenService
                 specimen.Barcode,
                 specimen.DrawLocation,
                 specimen.Collector,
-                specimen.ExpiresUtc
+                specimen.ExpiresUtc,
+                specimen.Comment
             },
             reason: "Specimen metadata updated.");
         await _unitOfWork.SaveChangesAsync(ct);
@@ -439,6 +443,9 @@ public sealed class SpecimenService
 
     private static string? ResolveDescription(string typeCode, IReadOnlyDictionary<string, string> descriptions) =>
         descriptions.TryGetValue(typeCode, out var description) ? description : null;
+
+    private static string? NormalizeComment(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     private async Task<OperationResult<Specimen>?> RejectUnauthorizedAsync(
         string permissionCode,

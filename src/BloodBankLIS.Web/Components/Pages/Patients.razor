@@ -34,6 +34,10 @@
                     </InputSelect>
                 </div>
             </div>
+            <div class="field">
+                <label>Comment</label>
+                <CodedCommentField Page="CommentPage.Patient" @bind-Value="_new.Comment" />
+            </div>
             <button class="btn btn-primary" type="submit" disabled="@_saving">Register</button>
         </EditForm>
     </div>
@@ -67,12 +71,18 @@
                 @foreach (var p in Filtered)
                 {
                     <tr>
-                        <td class="mono">@p.MedicalRecordNumber</td>
-                        <td>@p.LastName, @p.FirstName @p.MiddleName</td>
+                        <td class="mono"><a href="@($"/patients/{p.Id}")">@p.MedicalRecordNumber</a></td>
+                        <td><a href="@($"/patients/{p.Id}")">@p.LastName, @p.FirstName @p.MiddleName</a></td>
                         <td>@p.DateOfBirth.ToString("yyyy-MM-dd")</td>
                         <td>@p.Sex</td>
                         <td><span class="badge badge-gray">@p.Status</span></td>
-                        <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => Open(p.Id)">Open</button></td>
+                        <td class="right nowrap">
+                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{p.Id}")">Open chart</a>
+                            @if (Session.Has(PermissionCodes.LookbackManage))
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@($"/lookback?mrn={Uri.EscapeDataString(p.MedicalRecordNumber)}")">Open Lookback</a>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -109,23 +119,21 @@
         else _error = result.FailureSummary();
     }
 
-    private void Open(long id) => Nav.NavigateTo($"/patients/{id}");
-
     private void ToggleCreate() => _showCreate = !_showCreate;
 
     private async Task CreateAsync()
     {
         _saving = true;
         var req = new CreatePatientRequest(_new.MedicalRecordNumber, _new.LastName, _new.FirstName,
-            string.IsNullOrWhiteSpace(_new.MiddleName) ? null : _new.MiddleName, _new.DateOfBirth, _new.Sex);
+            string.IsNullOrWhiteSpace(_new.MiddleName) ? null : _new.MiddleName, _new.DateOfBirth, _new.Sex,
+            string.IsNullOrWhiteSpace(_new.Comment) ? null : _new.Comment);
         var result = await Api.CreatePatientAsync(req);
         _saving = false;
         _createFb = result.ToFeedback("Patient registered.");
-        if (result.Succeeded)
+        if (result.Succeeded && result.Value is not null)
         {
-            _new = new();
-            _showCreate = false;
-            await LoadAsync();
+            Nav.NavigateTo($"/patients/{result.Value.Id}");
+            return;
         }
     }
 
@@ -137,5 +145,6 @@
         public string? MiddleName { get; set; }
         public DateOnly DateOfBirth { get; set; } = new(1980, 1, 1);
         public Sex Sex { get; set; } = Sex.Unknown;
+        public string? Comment { get; set; }
     }
 }

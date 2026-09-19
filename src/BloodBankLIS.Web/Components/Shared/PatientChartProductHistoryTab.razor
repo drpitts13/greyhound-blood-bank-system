@@ -1,0 +1,63 @@
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Product history</h3></div>
+    @if (Loading) { <div class="loading">Loading product history...</div> }
+    else if (Rows.Count == 0) { <div class="empty">No product events.</div> }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Date/time</th><th>Event</th><th>Unit</th><th>Product</th><th>Unit type</th><th>Visit</th><th>Order</th><th>Location</th><th>Volume</th><th>Transfusionist</th><th>Compatibility</th><th>Disposition</th><th>Source</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var h in Rows)
+                {
+                    <tr class="@HistoryRowClass(h)">
+                        <td class="nowrap">@h.EventUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td><strong>@h.EventType</strong></td>
+                        <td class="mono">
+                            @if (h.UnitId is long historyUnitId)
+                            {
+                                <a href="@($"/inventory?unitId={historyUnitId}")">@(h.UnitNumber ?? $"#{historyUnitId}")</a>
+                            }
+                            else
+                            {
+                                @(h.UnitNumber ?? "—")
+                            }
+                        </td>
+                        <td>@(h.ProductTypeName ?? "—")</td>
+                        <td>@(h.UnitBloodType ?? "—")</td>
+                        <td class="mono">@(h.HasMissingVisitContext ? "—" : (h.VisitNumber ?? "—"))</td>
+                        <td class="mono">@(h.OrderNumber ?? "—")</td>
+                        <td>@(h.IssuedToLocation ?? "—")</td>
+                        <td class="mono">@(h.VolumeTransfused is { } vol ? vol.ToString("0.###") : "—")</td>
+                        <td>@(h.Transfusionist ?? "—")</td>
+                        <td>@(h.CompatibilityStatus ?? "—")</td>
+                        <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <a class="badge badge-red" href="@($"/reactions?patientId={PatientId}")">Reaction</a> }</td>
+                        <td class="mono">@(h.PatientIdentificationMethod ?? "—")</td>
+                        <td class="right nowrap">
+                            @if (h.UnitId is long inventoryUnitId)
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={inventoryUnitId}")">Open Inventory</a>
+                            }
+                            @if (h.IssueId is not null && h.UnitId is long issueUnitId)
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@($"/issuing?bloodUnitId={issueUnitId}")">Open Issuing</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter] public long PatientId { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public IReadOnlyList<PatientProductHistoryRowDto> Rows { get; set; } = [];
+
+    private static string HistoryRowClass(PatientProductHistoryRowDto h)
+    {
+        if (h.ReactionSuspected) return "row-urgent";
+        if (h.IsOpenAssignment) return "row-active";
+        return string.Empty;
+    }
+}

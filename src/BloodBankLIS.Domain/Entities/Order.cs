@@ -111,6 +111,9 @@ public class Order : BaseEntity
 
     public string? CancellationReason { get; set; }
 
+    /// <summary>Free-text order comment. Coded comments from the Order catalog may be inserted.</summary>
+    public string? Comment { get; set; }
+
 
 
     public ResultStatus? ResultStatus { get; set; }

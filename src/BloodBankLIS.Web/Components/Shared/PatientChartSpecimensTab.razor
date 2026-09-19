@@ -1,0 +1,206 @@
+@inject UserSession Session
+
+<div class="bb-card">
+    <p class="muted" style="margin:0 0 .75rem;">For order-driven result entry, use the <strong>Tests</strong> tab.</p>
+    <div class="bb-card-title">
+        <h3>Specimens</h3>
+        @if (Session.Has(PermissionCodes.SpecimenAccession))
+        {
+            <button class="btn btn-primary btn-sm" @onclick="OnToggleAccession">@(ShowAccession ? "Cancel" : "Accession specimen")</button>
+        }
+    </div>
+    <Outcome Value="Feedback" />
+    @if (OpenAbidWorkups.Any(w => w.SpecimenId is not null))
+    {
+        <div class="alert alert-warning">
+            Open antibody-identification workup(s) are linked to a specimen. Rejecting that specimen withdraws interpretation and review; the workup remains the identification of record for the patient until it is voided or linked to a usable specimen.
+            This does not identify antibodies or block reject.
+            <a href="@AbidHref">Open antibody identification</a>.
+        </div>
+    }
+
+    @if (ShowAccession)
+    {
+        <div class="alert alert-info">
+            <Outcome Value="Feedback" />
+            <div class="form-row">
+                <div class="field"><label>Accession #</label><input @bind="Accession.AccessionNumber" /></div>
+                <div class="field"><label>Specimen type</label>
+                    <select @bind="Accession.SpecimenType">
+                        @if (SpecimenTypes.Count == 0)
+                        {
+                            <option value="EDTA">EDTA — EDTA Whole Blood</option>
+                        }
+                        else
+                        {
+                            @foreach (var t in SpecimenTypes)
+                            {
+                                <option value="@t.Code">@t.Code — @t.Description</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Accession.CollectedLocal" /></div>
+                <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="Accession.ValidityHours" /></div>
+                <div class="field"><label>Identifier 1 (MRN)</label><input @bind="Accession.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
+                <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="Accession.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
+            </div>
+            <div class="field">
+                <label>Comment</label>
+                <CodedCommentField Page="CommentPage.Specimen" @bind-Value="Accession.Comment" />
+            </div>
+            <button class="btn btn-primary" disabled="@Busy" @onclick="OnAccession">Accession</button>
+        </div>
+    }
+
+    @if (Specimens.Count == 0)
+    {
+        <div class="empty">No specimens.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Accession</th><th>Type</th><th>Collected</th><th>Expires</th><th>Status</th><th>Comment</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var s in Specimens)
+                {
+                    <tr>
+                        <td class="mono">@s.AccessionNumber</td>
+                        <td>@(s.SpecimenTypeDescription ?? s.SpecimenType)</td>
+                        <td class="nowrap">@s.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@(s.ExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td><span class="@Ui.Badge(s.Status)">@s.Status</span></td>
+                        <td>@(string.IsNullOrWhiteSpace(s.Comment) ? "—" : s.Comment)</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => OnSelect.InvokeAsync(s)">@(SelectedId == s.Id ? "Hide" : "Results")</button>
+                            @if (Session.Has(PermissionCodes.PrintLabel))
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@($"/printing?specimenId={s.Id}")">Print label</a>
+                            }
+                            @if (s.Status == SpecimenStatus.Accepted && Session.Has(PermissionCodes.SpecimenEdit))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginEdit.InvokeAsync(s)">@(EditId == s.Id ? "Cancel edit" : "Edit")</button>
+                            }
+                            @if (s.Status == SpecimenStatus.Accepted && Session.Has(PermissionCodes.SpecimenReject))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginReject.InvokeAsync(s)">Reject</button>
+                            }
+                        </td>
+                    </tr>
+                    @if (EditId == s.Id)
+                    {
+                        <tr><td colspan="7">
+                            <div class="alert alert-info" style="margin:0;">
+                                <Outcome Value="EditFeedback" />
+                                @if (OpenAbidWorkups.Any(w => w.SpecimenId == s.Id))
+                                {
+                                    <div class="alert alert-warning">
+                                        This specimen has an open antibody-identification workup. Changing collection or expiration withdraws interpretation and review. Edit still succeeds.
+                                    </div>
+                                }
+                                <div class="form-row">
+                                    <div class="field"><label>Accession #</label><input value="@s.AccessionNumber" disabled /></div>
+                                    <div class="field"><label>Specimen type</label><input value="@(s.SpecimenTypeDescription ?? s.SpecimenType)" disabled /></div>
+                                    <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Edit.CollectedLocal" /></div>
+                                    <div class="field"><label>Barcode</label><input @bind="Edit.Barcode" /></div>
+                                    <div class="field"><label>Draw location</label><input @bind="Edit.DrawLocation" /></div>
+                                    <div class="field"><label>Collector</label><input @bind="Edit.Collector" /></div>
+                                    <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="Edit.ValidityHours" /></div>
+                                </div>
+                                <div class="field">
+                                    <label>Comment</label>
+                                    <CodedCommentField Page="CommentPage.Specimen" @bind-Value="Edit.Comment" />
+                                </div>
+                                <div class="flex gap">
+                                    <button class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnSaveEdit.InvokeAsync(s.Id)">Save</button>
+                                    <button class="btn btn-secondary btn-sm" @onclick="OnCancelEdit">Cancel</button>
+                                </div>
+                            </div>
+                        </td></tr>
+                    }
+                    @if (RejectId == s.Id)
+                    {
+                        <tr><td colspan="7">
+                            <div class="flex gap" style="flex-wrap:wrap;">
+                                @if (OpenAbidWorkups.Any(w => w.SpecimenId == s.Id))
+                                {
+                                    <div class="alert alert-warning" style="flex:1 1 100%;margin:0;">
+                                        This specimen has an open antibody-identification workup. Reject still succeeds. Interpretation is withdrawn; void the workup or link a usable specimen before a new identification can post.
+                                    </div>
+                                }
+                                <input @bind="RejectReason" @bind:after="() => RejectReasonChanged.InvokeAsync(RejectReason)" placeholder="Rejection reason" style="flex:1;" />
+                                <button class="btn btn-danger btn-sm" disabled="@Busy" @onclick="() => OnReject.InvokeAsync(s.Id)">Confirm reject</button>
+                                <button class="btn btn-secondary btn-sm" @onclick="OnCancelReject">Cancel</button>
+                            </div>
+                        </td></tr>
+                    }
+                    @if (SelectedId == s.Id)
+                    {
+                        <tr><td colspan="7">
+                            @if (SpecimenWorklist.Count > 0)
+                            {
+                                <div style="margin-bottom:.75rem;">
+                                    <strong>Tests from linked orders</strong>
+                                    <table class="bb" style="margin-top:.35rem;">
+                                        <thead><tr><th>Test</th><th>Order #</th><th>Status</th><th>Source</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var item in SpecimenWorklist)
+                                            {
+                                                <tr>
+                                                    <td>@item.TestName <span class="mono muted">@item.TestCode</span></td>
+                                                    <td class="mono">@item.OrderNumber</td>
+                                                    <td>@(item.CurrentResultStatus?.ToString() ?? (item.CanEnterResults ? "Pending" : item.BlockReason ?? "Blocked"))</td>
+                                                    <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                    <p class="muted" style="margin:.35rem 0 0;font-size:.85rem;">Enter results on the <strong>Tests</strong> tab after linking.</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="muted" style="margin:0 0 .5rem;">No tests from linked orders. Tests appear on this specimen after it is linked to an order.</p>
+                                <button type="button" class="btn btn-secondary btn-sm" @onclick="OnOpenOrders">Open Orders to accession or link</button>
+                            }
+                            @if (ResultDetail is not null)
+                            {
+                                @ResultDetail(s)
+                            }
+                        </td></tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter] public bool ShowAccession { get; set; }
+    [Parameter] public Feedback? Feedback { get; set; }
+    [Parameter] public Feedback? EditFeedback { get; set; }
+    [Parameter] public PatientAccessionForm Accession { get; set; } = new();
+    [Parameter] public PatientSpecimenEditForm Edit { get; set; } = new();
+    [Parameter] public IReadOnlyList<SpecimenTypeListItemDto> SpecimenTypes { get; set; } = [];
+    [Parameter] public IReadOnlyList<SpecimenDto> Specimens { get; set; } = [];
+    [Parameter] public long? SelectedId { get; set; }
+    [Parameter] public long? EditId { get; set; }
+    [Parameter] public long? RejectId { get; set; }
+    [Parameter] public string RejectReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> RejectReasonChanged { get; set; }
+    [Parameter] public IReadOnlyList<TestWorkItemDto> SpecimenWorklist { get; set; } = [];
+    [Parameter] public IReadOnlyList<AntibodyIdWorkupListItemDto> OpenAbidWorkups { get; set; } = [];
+    [Parameter] public string AbidHref { get; set; } = "/antibody-id";
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public RenderFragment<SpecimenDto>? ResultDetail { get; set; }
+    [Parameter] public EventCallback OnToggleAccession { get; set; }
+    [Parameter] public EventCallback OnAccession { get; set; }
+    [Parameter] public EventCallback<SpecimenDto> OnSelect { get; set; }
+    [Parameter] public EventCallback<SpecimenDto> OnBeginEdit { get; set; }
+    [Parameter] public EventCallback<SpecimenDto> OnBeginReject { get; set; }
+    [Parameter] public EventCallback<long> OnSaveEdit { get; set; }
+    [Parameter] public EventCallback OnCancelEdit { get; set; }
+    [Parameter] public EventCallback<long> OnReject { get; set; }
+    [Parameter] public EventCallback OnCancelReject { get; set; }
+    [Parameter] public EventCallback OnOpenOrders { get; set; }
+}

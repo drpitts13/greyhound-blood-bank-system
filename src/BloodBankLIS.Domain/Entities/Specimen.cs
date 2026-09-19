@@ -47,4 +47,7 @@ public class Specimen : BaseEntity
     public SpecimenStatus Status { get; set; } = SpecimenStatus.Collected;
 
     public string? RejectionReason { get; set; }
+
+    /// <summary>Free-text specimen comment. Coded comments from the Specimen catalog may be inserted.</summary>
+    public string? Comment { get; set; }
 }

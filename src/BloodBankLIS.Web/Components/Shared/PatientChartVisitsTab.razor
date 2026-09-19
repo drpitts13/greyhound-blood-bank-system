@@ -1,0 +1,100 @@
+<div class="bb-card">
+    <div class="bb-card-title flex-between">
+        <h3>Visits / encounters</h3>
+        @if (CanWrite)
+        {
+            <button type="button" class="btn btn-primary btn-sm" @onclick="OnToggleAdd">@(ShowAddVisit ? "Cancel" : "Add visit")</button>
+        }
+    </div>
+    <Outcome Value="Feedback" />
+    @if (ShowAddVisit && CanWrite)
+    {
+        <div class="alert alert-info" style="margin-bottom:.75rem;">
+            <div class="form-row">
+                <div class="field"><label>Visit number</label><input @bind="NewVisitNumber" @bind:after="() => NewVisitNumberChanged.InvokeAsync(NewVisitNumber)" class="mono" placeholder="VIS-2026-100" /></div>
+                <div class="field"><label>Type</label>
+                    <select @bind="NewVisitType" @bind:after="() => NewVisitTypeChanged.InvokeAsync(NewVisitType)">@foreach (var t in Enum.GetValues<EncounterType>()) { <option value="@t">@t</option> }</select>
+                </div>
+                <div class="field"><label>Status</label>
+                    <select @bind="NewVisitStatus" @bind:after="() => NewVisitStatusChanged.InvokeAsync(NewVisitStatus)">@foreach (var s in Enum.GetValues<EncounterStatus>()) { <option value="@s">@s</option> }</select>
+                </div>
+                <div class="field"><label>Admit (local)</label><input type="datetime-local" @bind="NewVisitAdmit" @bind:after="() => NewVisitAdmitChanged.InvokeAsync(NewVisitAdmit)" /></div>
+                <div class="field"><label>Current location</label><input @bind="NewVisitLocation" @bind:after="() => NewVisitLocationChanged.InvokeAsync(NewVisitLocation)" /></div>
+                <div class="field"><label>Attending provider</label>
+                    <FilterableComboBox TItem="OrderingProviderRefDto" TValue="long?"
+                                       Items="Providers"
+                                       Value="NewVisitProviderId"
+                                       ValueChanged="OnProviderChanged"
+                                       DisplayText="@FormatProvider"
+                                       SearchText="@SearchProvider"
+                                       ItemValue="@ProviderItemValue"
+                                       Clearable="true"
+                                       Placeholder="Type to search providers..." />
+                </div>
+            </div>
+            <button type="button" class="btn btn-primary" disabled="@Busy" @onclick="OnSave">Save visit</button>
+        </div>
+    }
+    @if (VisitsLoading) { <div class="loading">Loading visits...</div> }
+    else if (Encounters.Count == 0) { <div class="empty">No visits on record.</div> }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Visit #</th><th>Type</th><th>Admit</th><th>Discharge</th><th>Location</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var v in Encounters)
+                {
+                    <tr class="@(v.Status == EncounterStatus.Active ? "row-active" : "")">
+                        <td class="mono">
+                            <a href="@($"/patients/{PatientId}?tab=orders")"><strong>@v.VisitNumber</strong></a>
+                        </td>
+                        <td>@v.EncounterType</td>
+                        <td class="nowrap">@(v.AdmitUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td class="nowrap">@(v.DischargeUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        <td>@(v.CurrentLocation ?? v.AdmissionLocation ?? "—")</td>
+                        <td><span class="@(v.Status == EncounterStatus.Active ? "badge badge-green" : "badge")">@v.Status</span></td>
+                        <td class="right nowrap">
+                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{PatientId}?tab=orders")">Open Orders</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter] public long PatientId { get; set; }
+    [Parameter] public bool CanWrite { get; set; }
+    [Parameter] public bool ShowAddVisit { get; set; }
+    [Parameter] public Feedback? Feedback { get; set; }
+    [Parameter] public bool VisitsLoading { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];
+    [Parameter] public IReadOnlyList<OrderingProviderRefDto> Providers { get; set; } = [];
+    [Parameter] public string NewVisitNumber { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> NewVisitNumberChanged { get; set; }
+    [Parameter] public EncounterType NewVisitType { get; set; } = EncounterType.Inpatient;
+    [Parameter] public EventCallback<EncounterType> NewVisitTypeChanged { get; set; }
+    [Parameter] public EncounterStatus NewVisitStatus { get; set; } = EncounterStatus.Active;
+    [Parameter] public EventCallback<EncounterStatus> NewVisitStatusChanged { get; set; }
+    [Parameter] public DateTime? NewVisitAdmit { get; set; }
+    [Parameter] public EventCallback<DateTime?> NewVisitAdmitChanged { get; set; }
+    [Parameter] public string NewVisitLocation { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> NewVisitLocationChanged { get; set; }
+    [Parameter] public long? NewVisitProviderId { get; set; }
+    [Parameter] public EventCallback<long?> NewVisitProviderIdChanged { get; set; }
+    [Parameter] public EventCallback OnToggleAdd { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+
+    private async Task OnProviderChanged(long? value)
+    {
+        NewVisitProviderId = value;
+        await NewVisitProviderIdChanged.InvokeAsync(value);
+    }
+
+    private static string FormatProvider(OrderingProviderRefDto p) => $"{p.Name} ({p.ProviderId})";
+    private static string SearchProvider(OrderingProviderRefDto p) =>
+        $"{p.Name} {p.ProviderId} {p.Specialty} {p.Location}";
+    private static long? ProviderItemValue(OrderingProviderRefDto p) => p.Id;
+}

@@ -1,0 +1,508 @@
+@inject UserSession Session
+
+<div class="bb-card">
+    <div class="bb-card-title flex-between">
+        <h3>Orders</h3>
+        @if (Session.Has(PermissionCodes.PatientWrite))
+        {
+            <button type="button" class="btn btn-primary btn-sm" @onclick="OnToggleAdd">@(ShowAddOrder ? "Cancel" : "Add order")</button>
+        }
+    </div>
+    <Outcome Value="Feedback" />
+    @if (ShowAddOrder && Session.Has(PermissionCodes.PatientWrite))
+    {
+        <div class="alert alert-info" style="margin-bottom:.75rem;">
+            @if (Encounters.Count == 0)
+            {
+                <p class="muted">Add a visit before placing an order.</p>
+            }
+            else
+            {
+                <p class="form-step">1. Visit</p>
+                <div class="form-row">
+                    <div class="field"><label>Visit</label>
+                        <select @bind="NewOrderEncounterId" @bind:after="() => NewOrderEncounterIdChanged.InvokeAsync(NewOrderEncounterId)">
+                            @foreach (var v in Encounters)
+                            {
+                                <option value="@v.Id">@v.VisitNumber</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="field"><label>Priority</label>
+                        <select @bind="NewOrderPriority" @bind:after="() => NewOrderPriorityChanged.InvokeAsync(NewOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@p</option> }</select>
+                    </div>
+                    <div class="field"><label>Ordering location</label>
+                        <select @bind="NewOrderLocationId" @bind:after="() => NewOrderLocationIdChanged.InvokeAsync(NewOrderLocationId)">
+                            @foreach (var l in OrderingLocations)
+                            {
+                                <option value="@l.Id">@l.DisplayName (@l.Code)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="field"><label>Ordering provider</label>
+                        <FilterableComboBox TItem="OrderingProviderRefDto" TValue="long?"
+                                           Items="Providers"
+                                           Value="NewOrderProviderId"
+                                           ValueChanged="OnNewProviderChanged"
+                                           DisplayText="@FormatProvider"
+                                           SearchText="@SearchProvider"
+                                           ItemValue="@ProviderItemValue"
+                                           Clearable="true"
+                                           Placeholder="Type to search providers..." />
+                    </div>
+                </div>
+                <p class="form-step">2. Order</p>
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field" style="flex:1;">
+                        @if (TestGroupers.Count > 0)
+                        {
+                            <label>Test groupers</label>
+                            <div class="checkbox-list" style="margin-bottom:.5rem;">
+                                @foreach (var g in TestGroupers)
+                                {
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" checked="@IsGrouperSelected(g.Code, NewOrderGrouperCodes)" @onchange="e => OnToggleNewOrderGrouper.InvokeAsync((g, e))" />
+                                        <strong>@g.Name</strong> <span class="muted mono">(@g.Code)</span>
+                                        <span class="muted"> — @string.Join(", ", g.MemberTestCodes)</span>
+                                    </label>
+                                }
+                            </div>
+                        }
+                        <label>Tests</label>
+                        <div class="checkbox-list">
+                            @foreach (var t in TestDefs)
+                            {
+                                <label class="checkbox-item">
+                                    <input type="checkbox" checked="@NewOrderTestCodes.Contains(t.Code)" @onchange="e => OnToggleNewOrderTest.InvokeAsync((t.Code, e))" />
+                                    @t.Name <span class="muted mono">(@t.Code)</span>
+                                </label>
+                            }
+                        </div>
+                    </div>
+                    <div class="field" style="flex:1;">
+                        <label>Products</label>
+                        <div class="checkbox-list">
+                            @foreach (var pt in ProductTypes)
+                            {
+                                <label class="checkbox-item">
+                                    <input type="checkbox" checked="@NewOrderProductTypeIds.Contains(pt.Id)" @onchange="e => OnToggleNewOrderProduct.InvokeAsync((pt.Id, e))" />
+                                    @pt.Name
+                                </label>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <p class="form-step">3. Specimen</p>
+                @if (Session.Has(PermissionCodes.SpecimenAccession))
+                {
+                    <label class="checkbox-item" style="margin:.25rem 0 .5rem;">
+                        <input type="checkbox" @bind="NewOrderAccessionNow" @bind:after="OnAccessionNowChanged" />
+                        Accession a new specimen now
+                    </label>
+                }
+                @if (NewOrderAccessionNow && Session.Has(PermissionCodes.SpecimenAccession))
+                {
+                    <div class="form-row">
+                        <div class="field"><label>Accession #</label><input @bind="OrderAcc.AccessionNumber" placeholder="Leave blank to assign" /></div>
+                        <div class="field"><label>Specimen type</label>
+                            <select @bind="OrderAcc.SpecimenType">
+                                @if (SpecimenTypes.Count == 0)
+                                {
+                                    <option value="EDTA">EDTA — EDTA Whole Blood</option>
+                                }
+                                else
+                                {
+                                    @foreach (var t in SpecimenTypes)
+                                    {
+                                        <option value="@t.Code">@t.Code — @t.Description</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="OrderAcc.CollectedLocal" /></div>
+                        <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="OrderAcc.ValidityHours" /></div>
+                        <div class="field"><label>Identifier 1 (MRN)</label><input @bind="OrderAcc.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
+                        <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="OrderAcc.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
+                    </div>
+                    <div class="field">
+                        <label>Specimen comment</label>
+                        <CodedCommentField Page="CommentPage.Specimen" @bind-Value="OrderAcc.Comment" />
+                    </div>
+                    <p class="muted" style="margin:.5rem 0 0;font-size:.85rem;">Save creates the specimen, the order, and the link so tests appear on the worklist. The Specimens tab still has reject, edit, and results.</p>
+                }
+                else
+                {
+                    <div class="field" style="grid-column:1/-1;max-width:420px;">
+                        <label>Specimen (optional)</label>
+                        <select @bind="NewOrderSpecimenId" @bind:after="() => NewOrderSpecimenIdChanged.InvokeAsync(NewOrderSpecimenId)">
+                            <option value="0">Auto-link most recent accepted specimen</option>
+                            @foreach (var s in LinkableSpecimens)
+                            {
+                                <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType</option>
+                            }
+                        </select>
+                    </div>
+                    <p class="muted" style="margin:.5rem 0 0;font-size:.85rem;">Link a specimen to inherit this order's tests on the worklist. Leave auto-link to use the most recent accepted specimen, or pick one explicitly.</p>
+                }
+                <div class="field" style="margin-top:.75rem;">
+                    <label>Comment</label>
+                    <CodedCommentField Page="CommentPage.Order" Value="@NewOrderComment" ValueChanged="OnNewCommentChanged" />
+                </div>
+                <button type="button" class="btn btn-primary" disabled="@Busy" @onclick="OnSave">Save order</button>
+            }
+        </div>
+    }
+    <div class="form-row" style="margin-bottom:.75rem;">
+        <div class="field">
+            <label>Visit</label>
+            <select @bind="OrderVisitFilter" @bind:after="OnFilterChanged">
+                <option value="0">All visits</option>
+                @foreach (var v in Encounters)
+                {
+                    <option value="@v.Id">@v.VisitNumber</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>Type</label>
+            <select @bind="OrderCategoryFilter" @bind:after="OnFilterChanged">
+                <option value="">All</option>
+                <option value="Test">Test</option>
+                <option value="Product">Product</option>
+                <option value="Mixed">Mixed</option>
+            </select>
+        </div>
+        <div class="field">
+            <label>Active</label>
+            <select @bind="OrderActiveFilter" @bind:after="OnFilterChanged">
+                <option value="">All</option>
+                <option value="true">Active only</option>
+                <option value="false">Historical</option>
+            </select>
+        </div>
+        <div class="field" style="flex:2;">
+            <label>Search</label>
+            <input @bind="OrderSearch" @bind:event="oninput" @bind:after="() => OrderSearchChanged.InvokeAsync(OrderSearch)" @onkeyup="OnRefresh" placeholder="Order name, accession, visit, provider" />
+        </div>
+    </div>
+    @if (Loading) { <div class="loading">Loading orders...</div> }
+    else if (Orders.Count == 0) { <div class="empty">No orders.</div> }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Date/time</th><th>Visit</th><th>Type</th><th>Order</th><th>Source</th><th>Priority</th><th>Location</th><th>Provider</th><th>Specimen</th><th>Status</th><th>Result</th><th>Comment</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var o in Orders)
+                {
+                    <tr class="@OrderRowClass(o)">
+                        <td class="nowrap">@o.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="mono">@o.VisitNumber</td>
+                        <td>@o.OrderCategory</td>
+                        <td>
+                            <div class="muted mono" style="margin-bottom:.15rem;">@o.OrderNumber</div>
+                            @foreach (var line in o.Lines)
+                            {
+                                <div>@line.LineName <span class="muted">(@(line.LineCategory == OrderCategory.Test ? line.TestCode : "product"))</span></div>
+                            }
+                        </td>
+                        <td>@o.Source</td>
+                        <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@o.Priority</span> } else { @o.Priority }</td>
+                        <td>@o.OrderingLocationName</td>
+                        <td>@(o.OrderingProvider ?? "—")</td>
+                        <td class="mono">
+                            @(o.AccessionNumber ?? "—")
+                            @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" style="margin-left:.35rem;" @onclick="() => OnBeginLink.InvokeAsync(o)">
+                                    @(LinkingOrderId == o.Id ? "Cancel" : string.IsNullOrEmpty(o.AccessionNumber) ? "Link" : "Change")
+                                </button>
+                            }
+                        </td>
+                        <td><span class="@Ui.Badge(o.Status)">@o.Status</span></td>
+                        <td>
+                            @(o.CurrentResultValue ?? o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")
+                            @if (o.HasPostedInterfaceOrInstrumentValue)
+                            {
+                                <span class="badge badge-amber">@(o.CurrentResultSource)</span>
+                            }
+                        </td>
+                        <td>@(string.IsNullOrWhiteSpace(o.Comment) ? "—" : o.Comment)</td>
+                        <td class="right nowrap">
+                            @if (CanVerifyPostedOrderResult(o))
+                            {
+                                <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnVerify.InvokeAsync(o)">Verify</button>
+                            }
+                            @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginEdit.InvokeAsync(o)">@(EditingOrderId == o.Id ? "Cancel" : "Edit")</button>
+                            }
+                        </td>
+                    </tr>
+                    @if (LinkingOrderId == o.Id)
+                    {
+                        <tr>
+                            <td colspan="13">
+                                <div class="alert alert-info" style="margin:.25rem 0;">
+                                    <p class="muted" style="margin:0 0 .5rem;">Link specimen to order <span class="mono">@o.OrderNumber</span>. Tests on this order will appear on the worklist for the selected specimen.</p>
+                                    <div class="flex gap" style="align-items:end;">
+                                        <div class="field" style="flex:1;max-width:420px;margin:0;">
+                                            <label>Specimen</label>
+                                            <select @bind="LinkSpecimenId" @bind:after="() => LinkSpecimenIdChanged.InvokeAsync(LinkSpecimenId)">
+                                                <option value="0">— Select —</option>
+                                                @foreach (var s in LinkableSpecimens)
+                                                {
+                                                    <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType (@s.CollectedUtc.ToString("yyyy-MM-dd HH:mm"))</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <button type="button" class="btn btn-primary btn-sm" disabled="@(Busy || LinkSpecimenId <= 0)" @onclick="() => OnLink.InvokeAsync(o.Id)">Link specimen</button>
+                                    </div>
+                                    @if (!LinkableSpecimens.Any())
+                                    {
+                                        <p class="muted" style="margin:.5rem 0 0;">No accepted, non-expired specimens are available. Accession a specimen first.</p>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (EditingOrderId == o.Id)
+                    {
+                        <tr>
+                            <td colspan="13">
+                                <div class="alert alert-info" style="margin:.25rem 0;">
+                                    <p class="muted" style="margin:0 0 .5rem;">Editing order <span class="mono">@o.OrderNumber</span></p>
+                                    <div class="form-row">
+                                        <div class="field"><label>Visit</label>
+                                            <select @bind="EditOrderEncounterId" @bind:after="() => EditOrderEncounterIdChanged.InvokeAsync(EditOrderEncounterId)">
+                                                @foreach (var v in Encounters)
+                                                {
+                                                    <option value="@v.Id">@v.VisitNumber</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="field"><label>Priority</label>
+                                            <select @bind="EditOrderPriority" @bind:after="() => EditOrderPriorityChanged.InvokeAsync(EditOrderPriority)">@foreach (var p in Enum.GetValues<OrderPriority>()) { <option value="@p">@p</option> }</select>
+                                        </div>
+                                        <div class="field"><label>Ordering location</label>
+                                            <select @bind="EditOrderLocationId" @bind:after="() => EditOrderLocationIdChanged.InvokeAsync(EditOrderLocationId)">
+                                                @foreach (var l in OrderingLocations)
+                                                {
+                                                    <option value="@l.Id">@l.DisplayName (@l.Code)</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="field"><label>Ordering provider</label>
+                                            <FilterableComboBox TItem="OrderingProviderRefDto" TValue="long?"
+                                                               Items="Providers"
+                                                               Value="EditOrderProviderId"
+                                                               ValueChanged="OnEditProviderChanged"
+                                                               DisplayText="@FormatProvider"
+                                                               SearchText="@SearchProvider"
+                                                               ItemValue="@ProviderItemValue"
+                                                               Clearable="true"
+                                                               Placeholder="Type to search providers..." />
+                                        </div>
+                                    </div>
+                                    <div class="form-row" style="margin-top:.5rem;">
+                                        <div class="field" style="flex:1;">
+                                            @if (TestGroupers.Count > 0)
+                                            {
+                                                <label>Test groupers</label>
+                                                <div class="checkbox-list" style="margin-bottom:.5rem;">
+                                                    @foreach (var g in TestGroupers)
+                                                    {
+                                                        <label class="checkbox-item">
+                                                            <input type="checkbox" checked="@IsGrouperSelected(g.Code, EditOrderGrouperCodes)" @onchange="e => OnToggleEditOrderGrouper.InvokeAsync((g, e))" />
+                                                            <strong>@g.Name</strong> <span class="muted mono">(@g.Code)</span>
+                                                        </label>
+                                                    }
+                                                </div>
+                                            }
+                                            <label>Tests</label>
+                                            <div class="checkbox-list">
+                                                @foreach (var t in TestDefs)
+                                                {
+                                                    <label class="checkbox-item">
+                                                        <input type="checkbox" checked="@EditOrderTestCodes.Contains(t.Code)" @onchange="e => OnToggleEditOrderTest.InvokeAsync((t.Code, e))" />
+                                                        @t.Name <span class="muted mono">(@t.Code)</span>
+                                                    </label>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="field" style="flex:1;">
+                                            <label>Products</label>
+                                            <div class="checkbox-list">
+                                                @foreach (var pt in ProductTypes)
+                                                {
+                                                    <label class="checkbox-item">
+                                                        <input type="checkbox" checked="@EditOrderProductTypeIds.Contains(pt.Id)" @onchange="e => OnToggleEditOrderProduct.InvokeAsync((pt.Id, e))" />
+                                                        @pt.Name
+                                                    </label>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                    @if (NeedsOrderXmOverride)
+                                    {
+                                        <div class="bb-card" style="background:#fff8f0;margin-top:.75rem;border:1px solid #e8c48a;">
+                                            <strong>Exception: antibody history</strong>
+                                            <p class="muted">Changing from a complex crossmatch to a simple crossmatch requires an authorized override. The exception is recorded and cannot be removed.</p>
+                                            @if (Session.SecurityLevel < AllocXmMinLevel)
+                                            {
+                                                <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum (@AllocXmMinLevel) required to override.</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="form-row">
+                                                    <div class="field"><label>Authorized by</label><input @bind="EditAuthorizedBy" @bind:after="() => EditAuthorizedByChanged.InvokeAsync(EditAuthorizedBy)" placeholder="@Session.UserName" /></div>
+                                                    <div class="field" style="grid-column:1/-1;"><label>Override comment</label><input @bind="EditOverrideReason" @bind:after="() => EditOverrideReasonChanged.InvokeAsync(EditOverrideReason)" /></div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    <div class="field" style="margin-top:.75rem;">
+                                        <label>Comment</label>
+                                        <CodedCommentField Page="CommentPage.Order" Value="@EditOrderComment" ValueChanged="OnEditCommentChanged" />
+                                    </div>
+                                    <button type="button" class="btn btn-primary" disabled="@Busy" @onclick="OnSaveEdit">Save changes</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool ShowAddOrder { get; set; }
+    [Parameter] public Feedback? Feedback { get; set; }
+    [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];
+    [Parameter] public IReadOnlyList<OrderingLocationRefDto> OrderingLocations { get; set; } = [];
+    [Parameter] public IReadOnlyList<OrderingProviderRefDto> Providers { get; set; } = [];
+    [Parameter] public IReadOnlyList<TestGrouperListItemDto> TestGroupers { get; set; } = [];
+    [Parameter] public IReadOnlyList<TestDefinitionListItemDto> TestDefs { get; set; } = [];
+    [Parameter] public IReadOnlyList<ProductTypeDto> ProductTypes { get; set; } = [];
+    [Parameter] public IReadOnlyList<SpecimenTypeListItemDto> SpecimenTypes { get; set; } = [];
+    [Parameter] public IEnumerable<SpecimenDto> LinkableSpecimens { get; set; } = [];
+    [Parameter] public IReadOnlyList<PatientOrderDto> Orders { get; set; } = [];
+    [Parameter] public HashSet<string> NewOrderTestCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    [Parameter] public HashSet<string> NewOrderGrouperCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    [Parameter] public HashSet<long> NewOrderProductTypeIds { get; set; } = [];
+    [Parameter] public HashSet<string> EditOrderTestCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    [Parameter] public HashSet<string> EditOrderGrouperCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    [Parameter] public HashSet<long> EditOrderProductTypeIds { get; set; } = [];
+    [Parameter] public PatientAccessionForm OrderAcc { get; set; } = new();
+    [Parameter] public bool NewOrderAccessionNow { get; set; }
+    [Parameter] public EventCallback<bool> NewOrderAccessionNowChanged { get; set; }
+    [Parameter] public long NewOrderEncounterId { get; set; }
+    [Parameter] public EventCallback<long> NewOrderEncounterIdChanged { get; set; }
+    [Parameter] public OrderPriority NewOrderPriority { get; set; } = OrderPriority.Routine;
+    [Parameter] public EventCallback<OrderPriority> NewOrderPriorityChanged { get; set; }
+    [Parameter] public long NewOrderLocationId { get; set; }
+    [Parameter] public EventCallback<long> NewOrderLocationIdChanged { get; set; }
+    [Parameter] public long? NewOrderProviderId { get; set; }
+    [Parameter] public EventCallback<long?> NewOrderProviderIdChanged { get; set; }
+    [Parameter] public long NewOrderSpecimenId { get; set; }
+    [Parameter] public EventCallback<long> NewOrderSpecimenIdChanged { get; set; }
+    [Parameter] public long OrderVisitFilter { get; set; }
+    [Parameter] public EventCallback<long> OrderVisitFilterChanged { get; set; }
+    [Parameter] public string OrderCategoryFilter { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> OrderCategoryFilterChanged { get; set; }
+    [Parameter] public string OrderActiveFilter { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> OrderActiveFilterChanged { get; set; }
+    [Parameter] public string OrderSearch { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> OrderSearchChanged { get; set; }
+    [Parameter] public long? LinkingOrderId { get; set; }
+    [Parameter] public long LinkSpecimenId { get; set; }
+    [Parameter] public EventCallback<long> LinkSpecimenIdChanged { get; set; }
+    [Parameter] public long? EditingOrderId { get; set; }
+    [Parameter] public long EditOrderEncounterId { get; set; }
+    [Parameter] public EventCallback<long> EditOrderEncounterIdChanged { get; set; }
+    [Parameter] public OrderPriority EditOrderPriority { get; set; } = OrderPriority.Routine;
+    [Parameter] public EventCallback<OrderPriority> EditOrderPriorityChanged { get; set; }
+    [Parameter] public long EditOrderLocationId { get; set; }
+    [Parameter] public EventCallback<long> EditOrderLocationIdChanged { get; set; }
+    [Parameter] public long? EditOrderProviderId { get; set; }
+    [Parameter] public EventCallback<long?> EditOrderProviderIdChanged { get; set; }
+    [Parameter] public bool NeedsOrderXmOverride { get; set; }
+    [Parameter] public int AllocXmMinLevel { get; set; } = 2;
+    [Parameter] public string EditAuthorizedBy { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> EditAuthorizedByChanged { get; set; }
+    [Parameter] public string EditOverrideReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> EditOverrideReasonChanged { get; set; }
+    [Parameter] public string? NewOrderComment { get; set; }
+    [Parameter] public EventCallback<string?> NewOrderCommentChanged { get; set; }
+    [Parameter] public string? EditOrderComment { get; set; }
+    [Parameter] public EventCallback<string?> EditOrderCommentChanged { get; set; }
+    [Parameter] public Func<PatientOrderDto, bool> CanVerifyPostedOrderResult { get; set; } = _ => false;
+    [Parameter] public EventCallback OnToggleAdd { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+    [Parameter] public EventCallback<(TestGrouperListItemDto Grouper, ChangeEventArgs Event)> OnToggleNewOrderGrouper { get; set; }
+    [Parameter] public EventCallback<(string Code, ChangeEventArgs Event)> OnToggleNewOrderTest { get; set; }
+    [Parameter] public EventCallback<(long Id, ChangeEventArgs Event)> OnToggleNewOrderProduct { get; set; }
+    [Parameter] public EventCallback<(TestGrouperListItemDto Grouper, ChangeEventArgs Event)> OnToggleEditOrderGrouper { get; set; }
+    [Parameter] public EventCallback<(string Code, ChangeEventArgs Event)> OnToggleEditOrderTest { get; set; }
+    [Parameter] public EventCallback<(long Id, ChangeEventArgs Event)> OnToggleEditOrderProduct { get; set; }
+    [Parameter] public EventCallback<PatientOrderDto> OnBeginLink { get; set; }
+    [Parameter] public EventCallback<long> OnLink { get; set; }
+    [Parameter] public EventCallback<PatientOrderDto> OnBeginEdit { get; set; }
+    [Parameter] public EventCallback<PatientOrderDto> OnVerify { get; set; }
+    [Parameter] public EventCallback OnSaveEdit { get; set; }
+    [Parameter] public EventCallback OnAccessionNowAfter { get; set; }
+
+    private async Task OnNewProviderChanged(long? value)
+    {
+        NewOrderProviderId = value;
+        await NewOrderProviderIdChanged.InvokeAsync(value);
+    }
+
+    private async Task OnEditProviderChanged(long? value)
+    {
+        EditOrderProviderId = value;
+        await EditOrderProviderIdChanged.InvokeAsync(value);
+    }
+
+    private async Task OnNewCommentChanged(string? value)
+    {
+        NewOrderComment = value;
+        await NewOrderCommentChanged.InvokeAsync(value);
+    }
+
+    private async Task OnEditCommentChanged(string? value)
+    {
+        EditOrderComment = value;
+        await EditOrderCommentChanged.InvokeAsync(value);
+    }
+
+    private async Task OnAccessionNowChanged()
+    {
+        await NewOrderAccessionNowChanged.InvokeAsync(NewOrderAccessionNow);
+        await OnAccessionNowAfter.InvokeAsync();
+    }
+
+    private async Task OnFilterChanged()
+    {
+        await OrderVisitFilterChanged.InvokeAsync(OrderVisitFilter);
+        await OrderCategoryFilterChanged.InvokeAsync(OrderCategoryFilter);
+        await OrderActiveFilterChanged.InvokeAsync(OrderActiveFilter);
+        await OnRefresh.InvokeAsync();
+    }
+
+    private static bool IsGrouperSelected(string code, HashSet<string> selected) => selected.Contains(code);
+
+    private static string OrderRowClass(PatientOrderDto o)
+    {
+        if (o.Status == OrderStatus.Cancelled || o.Status == OrderStatus.Completed) return "row-muted";
+        return o.IsUrgentPriority ? "row-urgent" : string.Empty;
+    }
+
+    private static string FormatProvider(OrderingProviderRefDto p) => $"{p.Name} ({p.ProviderId})";
+    private static string SearchProvider(OrderingProviderRefDto p) =>
+        $"{p.Name} {p.ProviderId} {p.Specialty} {p.Location}";
+    private static long? ProviderItemValue(OrderingProviderRefDto p) => p.Id;
+}

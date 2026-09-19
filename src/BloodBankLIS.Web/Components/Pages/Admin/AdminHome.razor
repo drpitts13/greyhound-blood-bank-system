@@ -11,122 +11,138 @@
 <div class="admin-grid" style="margin-top:1rem;">
     @if (Session.Has(PermissionCodes.AdminConfigView))
     {
-        <a class="admin-card" href="admin/antibody-panel-lots">
+        <a class="admin-card" href="/admin/antibody-panel-lots">
             <h3>Antibody Panel Lots</h3>
             <p>Withdraw or restore antibody-identification panel lots. Deactivation HardStops Accept and complete on open workups. Does not identify antibodies.</p>
         </a>
-        <a class="admin-card" href="admin/blood-attributes">
+        <a class="admin-card" href="/admin/blood-attributes">
             <h3>Blood Attributes</h3>
             <p>Antigen and antibody catalog for patient/unit typing and clinically significant compatibility.</p>
         </a>
-        <a class="admin-card" href="admin/charge-codes">
+        <a class="admin-card" href="/admin/charge-codes">
             <h3>Charge Codes</h3>
             <p>Billable charge master: internal code, description, default amount, and optional CPT mapping.</p>
         </a>
-        <a class="admin-card" href="admin/charge-rules">
+        <a class="admin-card" href="/admin/coded-comments">
+            <h3>Coded Comments</h3>
+            <p>Comment shortcuts by page: code, text, and whether they apply to Patient, Order, Specimen, or Tests.</p>
+        </a>
+        <a class="admin-card" href="/admin/charge-rules">
             <h3>Charge Rules</h3>
             <p>Map result verification and unit issue events to charge codes. Optional key scopes a rule to one test or product.</p>
         </a>
-        <a class="admin-card" href="admin/compatibility-rules">
+        <a class="admin-card" href="/admin/compatibility-rules">
             <h3>Compatibility Tables</h3>
             <p>Versioned ABO/Rh, antigen, and electronic XM rules by component class (AABB 5.14 / 5.16). Medical-director review required.</p>
         </a>
     }
     @if (Session.Has(PermissionCodes.AdminAuditReview))
     {
-        <a class="admin-card" href="admin/history">
+        <a class="admin-card" href="/admin/history">
             <h3>Configuration History</h3>
             <p>Review configuration changes and compare versions.</p>
         </a>
     }
     @if (Session.Has(PermissionCodes.AdminConfigView))
     {
-        <a class="admin-card" href="admin/crossmatch-settings">
+        <a class="admin-card" href="/admin/crossmatch-settings">
             <h3>Crossmatch Settings</h3>
             <p>Default XM/CXM tests by antibody history and electronic XM visit, specimen, and test minimums.</p>
         </a>
-        <a class="admin-card" href="admin/exceptions">
+        <a class="admin-card" href="/admin/expiration-codes">
+            <h3>Expiration Codes</h3>
+            <p>ISBT expiration-modification codes that change dating after irradiation, pooling, or similar processing.</p>
+        </a>
+        <a class="admin-card" href="/admin/exceptions">
             <h3>Exceptions</h3>
             <p>Clinical exception catalog and minimum security level required to override each rule.</p>
         </a>
-        <a class="admin-card" href="admin/facility-policies">
+        <a class="admin-card" href="/admin/facility-policies">
             <h3>Facility Policy</h3>
             <p>Specimen windows, dual verification, electronic XM, inventory receive, and retention (AABB / CLIA / 21 CFR).</p>
         </a>
-        <a class="admin-card" href="admin/hl7">
+        <a class="admin-card" href="/admin/hl7">
             <h3>Interface Setup</h3>
             <p>HL7 interfaces: type, direction, IP/port, vendor presets, field mapping, and value translation table.</p>
         </a>
-        <a class="admin-card" href="admin/inventory-locations">
+        <a class="admin-card" href="/admin/inventory-locations">
             <h3>Inventory Locations</h3>
             <p>Storage sites, satellite refrigerators, remote/electronic issue, and AABB storage-class rules.</p>
         </a>
-        <a class="admin-card" href="admin/isbt-product-codes">
+        <a class="admin-card" href="/admin/isbt-product-codes">
             <h3>ISBT Product Codes</h3>
             <p>Placeholder / US public subset. Import a licensed ICCBBA extract from the dialog when the facility has one.</p>
         </a>
-        <a class="admin-card" href="admin/locations">
+        <a class="admin-card" href="/admin/locations">
             <h3>Ordering Locations</h3>
             <p>Wards, OR, ED, and other order sources. Code required; name and department optional.</p>
         </a>
-        <a class="admin-card" href="admin/providers">
+        <a class="admin-card" href="/admin/modification-rules">
+            <h3>Modification Rules</h3>
+            <p>Pool, divide, irradiate, wash, and other component modifications. Result units start in Quarantine.</p>
+        </a>
+        <a class="admin-card" href="/admin/rules">
+            <h3>Order &amp; Test Rules</h3>
+            <p>When an order or test may be placed, accessioned, or resulted. Versioned and audited like the other rule catalogs.</p>
+        </a>
+        <a class="admin-card" href="/admin/providers">
             <h3>Ordering Providers</h3>
             <p>Clinicians who place orders or attend visits. Provider id and name required; specialty and location optional.</p>
         </a>
-        <a class="admin-card" href="admin/phases">
+        <a class="admin-card" href="/admin/phases">
             <h3>Phases</h3>
             <p>Reaction phases (IS, 37°C, AHG, check cells) assigned to panel subtests and interpretation tables.</p>
         </a>
-        <a class="admin-card" href="admin/product-billing">
+        <a class="admin-card" href="/admin/product-billing">
             <h3>Product Billing</h3>
             <p>Billing code, optional price, and UnitIssued or UnitTransfused trigger mapped to an ISBT product code.</p>
         </a>
-        <a class="admin-card" href="admin/products">
+        <a class="admin-card" href="/admin/products">
             <h3>Products</h3>
             <p>Product types, attributes (irradiated, leukoreduced, ...), and issue/return rules.</p>
         </a>
-        <a class="admin-card" href="admin/reflex-rules">
+        <a class="admin-card" href="/admin/reflex-rules">
             <h3>Reflex Rules</h3>
             <p>When a verified result matches a trigger value, add the reflex test onto the same order and specimen.</p>
         </a>
     }
     @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage))
     {
-        <a class="admin-card" href="admin/roles">
+        <a class="admin-card" href="/admin/roles">
             <h3>Roles &amp; Permissions</h3>
             <p>Define roles and the permission codes they aggregate.</p>
         </a>
     }
     @if (Session.Has(PermissionCodes.AdminConfigView))
     {
-        <a class="admin-card" href="admin/special-requirements">
+        <a class="admin-card" href="/admin/special-requirements">
             <h3>Special Requirements</h3>
             <p>Unit, issuing, and patient special-requirement types. Enforced on the chart while active; end-dated rows are inactive.</p>
         </a>
-        <a class="admin-card" href="admin/specimen-types">
+        <a class="admin-card" href="/admin/specimen-types">
             <h3>Specimen Types</h3>
             <p>Specimen type catalog for accessioning with per-type test exclusions.</p>
         </a>
-        <a class="admin-card" href="admin/subtests">
+        <a class="admin-card" href="/admin/subtests">
             <h3>Subtests</h3>
             <p>Reusable panel subtests: graded reactions, pick lists, and free text with polarity for logic tables.</p>
         </a>
-        <a class="admin-card" href="admin/tests">
+        <a class="admin-card" href="/admin/tests">
             <h3>Test Definitions</h3>
             <p>Test catalog: result types, panel assignments, interpretation logic, history contribution.</p>
         </a>
-        <a class="admin-card" href="admin/test-groupers">
+        <a class="admin-card" href="/admin/test-groupers">
             <h3>Test Groupers</h3>
             <p>Bundle tests (e.g. Type and Screen) for ordering as expanded member test lines.</p>
         </a>
-        <a class="admin-card" href="admin/test-service-billing">
+        <a class="admin-card" href="/admin/test-service-billing">
             <h3>Test/Service Billing</h3>
             <p>Billing code, optional price, and TestVerified trigger mapped to a test code.</p>
         </a>
     }
     @if (Session.Has(PermissionCodes.AdminUsersManage))
     {
-        <a class="admin-card" href="admin/users">
+        <a class="admin-card" href="/admin/users">
             <h3>Users</h3>
             <p>Accounts, role assignment, activation/lock. Privilege escalation requires a reason.</p>
         </a>

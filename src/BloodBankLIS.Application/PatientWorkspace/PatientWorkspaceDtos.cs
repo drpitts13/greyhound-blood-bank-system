@@ -71,11 +71,12 @@ public sealed record OrderLineDto(
     OrderType OrderType,
     long? ProductTypeId,
     FulfillmentStatus? FulfillmentStatus,
-    ResultStatus? ResultStatus)
+    ResultStatus? ResultStatus,
+    string? Comment = null)
 {
     public static OrderLineDto From(OrderLine line) => new(
         line.Id, line.LineNumber, line.LineCategory, line.LineName, line.TestCode, line.OrderType,
-        line.ProductTypeId, line.FulfillmentStatus, line.ResultStatus);
+        line.ProductTypeId, line.FulfillmentStatus, line.ResultStatus, line.Comment);
 }
 
 public sealed record CreateOrderRequest(
@@ -89,7 +90,8 @@ public sealed record CreateOrderRequest(
     OrderSource Source,
     string? SourceSystem,
     string? OrderedByUser,
-    long? SpecimenId = null);
+    long? SpecimenId = null,
+    string? Comment = null);
 
 public sealed record CancelOrderRequest(string CancellationReason);
 
@@ -102,7 +104,10 @@ public sealed record UpdateOrderRequest(
     OrderPriority Priority,
     long? OrderingProviderId,
     string? OverrideReason = null,
-    string? AuthorizedBy = null);
+    string? AuthorizedBy = null,
+    string? Comment = null);
+
+public sealed record UpdateOrderLineCommentRequest(string? Comment);
 
 public sealed record PatientOrderDto(
     long Id,
@@ -126,6 +131,7 @@ public sealed record PatientOrderDto(
     DateTime OrderedUtc,
     string? CancellationReason,
     IReadOnlyList<OrderLineDto> Lines,
+    string? Comment = null,
     long? CurrentResultId = null,
     string? CurrentResultValue = null,
     ResultSource? CurrentResultSource = null,
@@ -171,7 +177,9 @@ public sealed record PatientProductHistoryRowDto(
     bool HasMissingVisitContext,
     bool IsOpenAssignment,
     string? PatientIdentificationMethod = null,
-    string? Transfusionist = null);
+    string? Transfusionist = null,
+    long? UnitId = null,
+    long? IssueId = null);
 
 public sealed record PatientTestHistoryRowDto(
     long ResultId,

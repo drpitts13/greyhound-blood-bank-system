@@ -1,0 +1,21 @@
+<nav class="workflow-ribbon" aria-label="Patient transfusion workflow">
+    <span class="workflow-ribbon-label">Workflow</span>
+    @foreach (var step in Steps)
+    {
+        <button type="button"
+                class="workflow-step @(step.Complete ? "done" : null) @(step.Current ? "current" : null)"
+                @onclick="() => OnStepSelected.InvokeAsync(step.Key)"
+                title="@step.Detail">
+            <span class="n">@step.Number</span>@step.Label
+        </button>
+        @if (step.Number < 6)
+        {
+            <span class="workflow-arrow" aria-hidden="true">→</span>
+        }
+    }
+</nav>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<PatientWorkflowStep> Steps { get; set; } = [];
+    [Parameter] public EventCallback<string> OnStepSelected { get; set; }
+}

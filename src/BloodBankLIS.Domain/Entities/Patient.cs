@@ -34,6 +34,9 @@ public class Patient : BaseEntity
     /// <summary>Documented pregnancy (or pregnancy in lookback) used for specimen validity.</summary>
     public DateTime? RecentPregnancyUtc { get; set; }
 
+    /// <summary>Free-text patient comment. Coded comments from the Patient catalog may be inserted.</summary>
+    public string? Comment { get; set; }
+
     public ICollection<Specimen> Specimens { get; set; } = new List<Specimen>();
 
     public ICollection<Order> Orders { get; set; } = new List<Order>();

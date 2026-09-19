@@ -63,6 +63,64 @@ a:hover { text-decoration: underline; }
 }
 .bb-nav a:hover { background: rgba(255,255,255,.06); text-decoration: none; color: #fff; }
 .bb-nav a.active { background: var(--bb-primary); color: #fff; }
+.bb-nav details.nav-group { margin: .1rem 0 .25rem; }
+.bb-nav details.nav-group > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: .4rem .75rem .2rem;
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #6b7686;
+    user-select: none;
+}
+.bb-nav details.nav-group > summary::-webkit-details-marker { display: none; }
+.bb-nav details.nav-group > summary::after { content: " ▾"; font-size: .7em; }
+.bb-nav details.nav-group:not([open]) > summary::after { content: " ▸"; }
+.bb-nav details.nav-group a { padding-left: 1.15rem; }
+
+.workflow-ribbon {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem;
+    margin: 0 0 1rem;
+    padding: .65rem .75rem;
+    background: var(--bb-surface);
+    border: 1px solid var(--bb-border);
+    border-radius: 10px;
+    box-shadow: var(--bb-shadow);
+}
+.workflow-ribbon-label {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--bb-muted);
+    margin-right: .25rem;
+}
+.workflow-step {
+    border: 1px solid var(--bb-border);
+    background: #fff;
+    border-radius: 8px;
+    padding: .35rem .65rem;
+    font-size: .78rem;
+    color: var(--bb-ink);
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+.workflow-step.done { border-color: var(--bb-ok); color: var(--bb-ok); }
+.workflow-step.current { border-color: var(--bb-primary); background: #fdecef; color: var(--bb-primary-dark); font-weight: 600; }
+.workflow-step .n { font-weight: 700; margin-right: .3rem; }
+.workflow-arrow { color: var(--bb-muted); font-size: .85rem; }
+.form-step {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--bb-muted);
+    margin: .75rem 0 .35rem;
+}
 .bb-user { padding: .85rem 1rem; border-top: 1px solid rgba(255,255,255,.08); font-size: .82rem; }
 .bb-user .name { color: #fff; font-weight: 600; }
 .bb-user .role { color: #8b95a3; }
@@ -78,6 +136,19 @@ a:hover { text-decoration: underline; }
     position: sticky; top: 0; z-index: 5;
 }
 .bb-topbar .ws { color: var(--bb-muted); font-size: .82rem; }
+.bb-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .2rem .35rem;
+    color: var(--bb-muted);
+    font-size: .82rem;
+    min-width: 0;
+}
+.bb-breadcrumb a { color: var(--bb-muted); }
+.bb-breadcrumb a:hover { color: var(--bb-ink); text-decoration: none; }
+.bb-breadcrumb .current { color: var(--bb-ink); font-weight: 600; }
+.bb-breadcrumb .sep { color: #9aa3af; }
 .bb-content { padding: 1.5rem; max-width: 1280px; width: 100%; }
 
 /* Cards */
@@ -99,6 +170,8 @@ a:hover { text-decoration: underline; }
 @media (max-width: 980px) { .bb-grid.cols-2, .bb-grid.cols-3, .bb-grid.cols-4 { grid-template-columns: 1fr; } }
 
 .stat { background: var(--bb-surface); border: 1px solid var(--bb-border); border-radius: 12px; padding: 1rem 1.1rem; box-shadow: var(--bb-shadow); }
+a.stat { display: block; color: inherit; text-decoration: none; }
+a.stat:hover { border-color: var(--bb-accent, #3b5bdb); }
 .stat .label { color: var(--bb-muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; }
 .stat .value { font-size: 1.7rem; font-weight: 700; margin-top: .2rem; }
 
@@ -120,6 +193,10 @@ table.bb tbody tr:hover { background: #fafbfe; }
     color: var(--bb-ink);
 }
 .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid rgba(31,111,235,.35); border-color: var(--bb-accent); }
+.coded-comment-field textarea { min-height: 4.5rem; resize: vertical; width: 100%; }
+.coded-comment-insert { display: flex; flex-direction: column; gap: .25rem; margin-top: .4rem; }
+.coded-comment-insert label { font-size: .75rem; font-weight: 600; color: var(--bb-muted); }
+.coded-comment-insert select { max-width: 28rem; }
 .bb-combobox { position: relative; width: 100%; }
 .bb-combobox-input {
     width: 100%;

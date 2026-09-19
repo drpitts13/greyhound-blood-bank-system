@@ -1,0 +1,51 @@
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<div class="bb-card" style="margin:0 0 .75rem;">
+    <div class="field" style="margin-bottom:.4rem;">
+        <label>Comment</label>
+        <CodedCommentField Page="CommentPage.Test" @bind-Value="_draft" />
+    </div>
+    @if (Session.Has(PermissionCodes.PatientWrite))
+    {
+        <button type="button" class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="SaveAsync">Save comment</button>
+    }
+    <Outcome Value="_feedback" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public TestWorkItemDto WorkItem { get; set; } = default!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private string? _draft;
+    private bool _busy;
+    private Feedback? _feedback;
+    private long _lineId;
+
+    protected override void OnParametersSet()
+    {
+        if (_lineId == WorkItem.OrderLineId)
+        {
+            return;
+        }
+
+        _lineId = WorkItem.OrderLineId;
+        _draft = WorkItem.Comment;
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        var r = await Api.UpdatePatientOrderLineCommentAsync(
+            WorkItem.PatientId,
+            WorkItem.OrderId,
+            WorkItem.OrderLineId,
+            new UpdateOrderLineCommentRequest(_draft));
+        _busy = false;
+        _feedback = r.ToFeedback("Comment saved.");
+        if (r.Succeeded)
+        {
+            await OnSaved.InvokeAsync();
+        }
+    }
+}

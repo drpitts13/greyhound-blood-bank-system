@@ -286,7 +286,8 @@ public sealed class TestWorklistService
                 openWorkupId > 0 ? openWorkupId : null,
                 current?.EnteredBy,
                 aboRhDeltaHold,
-                aboRhDeltaDetail));
+                aboRhDeltaDetail,
+                line.Comment));
         }
 
         return items;

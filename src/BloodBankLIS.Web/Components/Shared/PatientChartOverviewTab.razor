@@ -1,0 +1,496 @@
+@inject UserSession Session
+
+<div class="bb-grid cols-2">
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Electronic crossmatch eligibility</h3></div>
+        <p class="muted">AABB 5.16 computer XM checklist (SafeTrace / SoftBank). Serologic XM is required when any item fails.</p>
+        @if (Exm is null)
+        {
+            <div class="empty">Eligibility could not be loaded.</div>
+        }
+        else
+        {
+            <p>
+                <span class="badge @(Exm.Eligible ? "badge-green" : "badge-amber")">@(Exm.Eligible ? "Eligible" : "Not eligible")</span>
+                @if (!Exm.Eligible && !string.IsNullOrWhiteSpace(Exm.BlockingReason))
+                {
+                    <span class="muted"> @Exm.BlockingReason</span>
+                }
+                @if (OpenAbidWorkups.Count > 0)
+                {
+                    <div class="alert alert-warning" style="margin-top:.75rem;">
+                        Open antibody-identification workup(s) block electronic XM. Serologic crossmatch remains available and warns (`ABID-XM-OPEN`). Use serologic crossmatch, or
+                        <a href="@AbidHref">open antibody identification</a>.
+                    </div>
+                }
+            </p>
+            <table class="bb">
+                <thead><tr><th>Criterion</th><th>Status</th></tr></thead>
+                <tbody>
+                    @foreach (var c in Exm.Criteria)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@c.Label</strong>
+                                <div class="muted">@c.Detail</div>
+                            </td>
+                            <td>
+                                <span class="badge @(c.Satisfied ? "badge-green" : "badge-red")">@(c.Satisfied ? "Met" : "Not met")</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
+            {
+                <div class="flex gap" style="margin-top:.85rem;">
+                    <a class="btn btn-primary btn-sm" href="@CompatibilityHref">Record crossmatch</a>
+                </div>
+            }
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Blood type history</h3></div>
+        @if (TypeHistory.Count == 0)
+        {
+            <div class="empty">No blood type on record.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Type</th><th>Subgroup</th><th>Source</th><th>Current</th><th>Recorded</th></tr></thead>
+                <tbody>
+                    @foreach (var t in TypeHistory)
+                    {
+                        <tr>
+                            <td><strong>@Ui.BloodType(t.Abo, t.RhD)</strong></td>
+                            <td>@t.AboSubgroup</td>
+                            <td>@t.Source</td>
+                            <td>@(t.IsCurrent ? "Yes" : "")</td>
+                            <td class="nowrap">@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @if (Session.Has(PermissionCodes.ImmunoOverride))
+        {
+            <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+            <h4>Record manual ABO/Rh <span class="badge badge-red">dangerous</span></h4>
+            @if (OpenAbidWorkups.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Open antibody-identification workup(s). Changing ABO/Rh withdraws interpretation and review so they can be repeated against the current type.
+                    This does not identify antibodies.
+                    <a href="@AbidHref">Open antibody identification</a>.
+                </div>
+            }
+            else if (HasCompletedUnscopedAbid)
+            {
+                <div class="alert alert-warning">
+                    A completed unscoped antibody-identification workup is the identification of record. Changing ABO/Rh does not reopen it or retract posted history.
+                    This does not identify antibodies.
+                    <a href="@AbidHref">Open antibody identification</a>.
+                </div>
+            }
+            <Outcome Value="TypeFeedback" />
+            <div class="form-row">
+                <div class="field"><label>ABO</label>
+                    <select @bind="TypeAbo" @bind:after="() => TypeAboChanged.InvokeAsync(TypeAbo)">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>
+                </div>
+                <div class="field"><label>Rh(D)</label>
+                    <select @bind="TypeRh" @bind:after="() => TypeRhChanged.InvokeAsync(TypeRh)">@foreach (var r in Enum.GetValues<RhType>()) { <option value="@r">@r</option> }</select>
+                </div>
+                @if (TypeAbo is AboGroup.A or AboGroup.AB)
+                {
+                    <div class="field"><label>A1/A2 subgroup</label>
+                        <select @bind="TypeSubgroup" @bind:after="() => TypeSubgroupChanged.InvokeAsync(TypeSubgroup)">
+                            <option value="@AboSubgroup.Unknown">Unknown</option>
+                            <option value="@AboSubgroup.A1">A1</option>
+                            <option value="@AboSubgroup.A2">A2</option>
+                        </select>
+                    </div>
+                }
+            </div>
+            <div class="field"><label>Reason (required)</label><input @bind="TypeReason" @bind:after="() => TypeReasonChanged.InvokeAsync(TypeReason)" /></div>
+            <button class="btn btn-danger" disabled="@Busy" @onclick="OnRecordType">Record blood type</button>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Special transfusion requirements</h3></div>
+        <p class="muted">Computer-evaluated at issue. Operators cannot checkbox these away.</p>
+        @if (OpenAbidWorkups.Count > 0)
+        {
+            <div class="alert alert-warning">
+                Open antibody-identification workup(s). Antigen-negative needs may change when the workup completes.
+                Adding or deactivating a special requirement still records. This does not identify antibodies.
+                <a href="@AbidHref">Open antibody identification</a>.
+            </div>
+        }
+        <Outcome Value="SrFeedback" />
+        @if (SpecialRequirements.Count == 0)
+        {
+            <div class="empty">No special requirements on record.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Requirement</th><th>Level</th><th>Antigen</th><th>Reason</th><th>Effective</th><th>End date</th><th>Active</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var r in SpecialRequirements)
+                    {
+                        <tr>
+                            <td>@(r.Name ?? r.Code ?? r.RequirementType.ToString())</td>
+                            <td>@r.Level</td>
+                            <td class="mono">@r.AntigenCode</td>
+                            <td>@r.Reason</td>
+                            <td class="nowrap">@r.EffectiveUtc.ToString("yyyy-MM-dd")</td>
+                            <td class="nowrap">@(r.ExpiresUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
+                            <td>@(r.IsClinicallyActive ? "Yes" : "No")</td>
+                            <td class="right">
+                                @if (r.IsClinicallyActive && Session.Has(PermissionCodes.ImmunoOverride))
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginDeactivateSr.InvokeAsync(r)">End date</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        @if (SrDeactivateId is not null)
+        {
+            <div class="alert alert-warning">
+                <div class="field"><label>Reason to deactivate</label><input @bind="SrDeactivateReason" @bind:after="() => SrDeactivateReasonChanged.InvokeAsync(SrDeactivateReason)" /></div>
+                <button class="btn btn-danger btn-sm" disabled="@Busy" @onclick="OnConfirmSrDeactivate">Confirm</button>
+                <button class="btn btn-secondary btn-sm" @onclick="OnCancelSrDeactivate">Cancel</button>
+            </div>
+        }
+        @if (Session.Has(PermissionCodes.ImmunoRecord))
+        {
+            <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+            <h4>Add requirement</h4>
+            <div class="form-row">
+                <div class="field"><label>Requirement</label>
+                    <select @bind="SrDefinitionId" @bind:after="() => SrDefinitionIdChanged.InvokeAsync(SrDefinitionId)">
+                        @foreach (var d in SrCatalog)
+                        {
+                            <option value="@d.Id">@d.Name (@d.Level)</option>
+                        }
+                    </select>
+                </div>
+                @if (SelectedSrDefinition?.EnforcementKind == SpecialRequirementEnforcementKind.RequireAntigenNegative)
+                {
+                    <div class="field"><label>Antigen code</label><input @bind="SrAntigen" @bind:after="() => SrAntigenChanged.InvokeAsync(SrAntigen)" placeholder="Required for antigen-negative" /></div>
+                }
+                <div class="field"><label>End date (optional)</label><input type="date" @bind="SrEndDate" @bind:after="() => SrEndDateChanged.InvokeAsync(SrEndDate)" /></div>
+                <div class="field" style="grid-column:1/-1;"><label>Reason</label><input @bind="SrReason" @bind:after="() => SrReasonChanged.InvokeAsync(SrReason)" /></div>
+            </div>
+            <button class="btn btn-primary" disabled="@Busy" @onclick="OnAddSr">Add</button>
+        }
+        @if (Session.Has(PermissionCodes.PatientWrite))
+        {
+            <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+            <h4>Recent pregnancy (specimen window)</h4>
+            <p class="muted">When documented, accepted specimens use the 3-day alloimmunization-risk window.</p>
+            <div class="muted">Current: @(RecentPregnancyUtc?.ToString("yyyy-MM-dd") ?? "not documented")</div>
+            <button class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="OnMarkPregnancy">Document pregnancy in last 3 months</button>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title">
+            <h3>Antibodies</h3>
+            @if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
+            {
+                <a class="btn btn-secondary btn-sm" href="@AbidHref">Antibody identification</a>
+            }
+        </div>
+        <Outcome Value="AntibodyFeedback" />
+        @if (OpenAbidWorkups.Count > 0)
+        {
+            <div class="alert alert-warning">
+                <p>
+                    @OpenAbidWorkups.Count open antibody-identification workup(s).
+                    Assistance does not identify antibodies.
+                    An unscoped open workup is the identification of record for this patient.
+                </p>
+                <ul>
+                    @foreach (var w in OpenAbidWorkups)
+                    {
+                        <li>
+                            @AbidNextLabel(w)
+                            ·
+                            @if (string.IsNullOrWhiteSpace(w.SpecimenAccession))
+                            {
+                                <span>Unscoped</span>
+                            }
+                            else
+                            {
+                                <span class="mono">@w.SpecimenAccession</span>
+                            }
+                            @if (w.HasUnusableSpecimen)
+                            {
+                                <span class="badge badge-red">Rejected/cancelled</span>
+                            }
+                            else if (w.HasNotReadySpecimen)
+                            {
+                                <span class="badge badge-red">Not received</span>
+                            }
+                            else if (w.HasUnacceptedSpecimen)
+                            {
+                                <span class="badge badge-blue">Not accepted</span>
+                            }
+                            else if (w.HasExpiredSpecimen)
+                            {
+                                <span class="badge badge-amber">Expired specimen</span>
+                            }
+                            @foreach (var lot in w.InactiveLotNumbers ?? [])
+                            {
+                                <span class="badge badge-red">Inactive @lot</span>
+                            }
+                            @foreach (var lot in w.ExpiredLotNumbers ?? [])
+                            {
+                                <span class="badge badge-amber">Expired @lot</span>
+                            }
+                            @if (w.HasWithdrawnJudgment)
+                            {
+                                <span class="badge badge-amber">Judgment withdrawn</span>
+                            }
+                            @if (w.HasPendingTypeCorrection)
+                            {
+                                <span class="badge badge-red">Pending type correction</span>
+                            }
+                            @if (w.HasReservedOrIssuedUnits)
+                            {
+                                <span class="badge badge-amber">Reserved/issued units</span>
+                            }
+                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{PatientId}/antibody-id/{w.Id}")">Open</a>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+        @if (AntibodyHistory.Count == 0)
+        {
+            <div class="empty">No antibodies on record.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Specificity</th><th>Status</th><th>Active</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var a in AntibodyHistory)
+                    {
+                        <tr>
+                            <td><strong>@a.AntibodySpecificity</strong></td>
+                            <td>@a.Status</td>
+                            <td>@(a.IsActive ? "Yes" : "No")</td>
+                            <td class="right">
+                                @if (a.IsActive && Session.Has(PermissionCodes.ImmunoOverride) && OpenAbidWorkups.Count == 0)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginDeactivateAb.InvokeAsync(a)">Deactivate</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @if (DeactivateId is not null && OpenAbidWorkups.Count == 0)
+        {
+            <div class="alert alert-warning">
+                @if (DeactivatePostedByWorkup)
+                {
+                    <p>This antibody was posted by a completed antibody-identification workup. Deactivating drops antigen-negative selection. Deactivate remains authorized and does not identify antibodies.</p>
+                }
+                <div class="field"><label>Reason to deactivate</label><input @bind="DeactivateReason" @bind:after="() => DeactivateReasonChanged.InvokeAsync(DeactivateReason)" /></div>
+                <button class="btn btn-danger btn-sm" disabled="@Busy" @onclick="OnConfirmDeactivateAb">Confirm</button>
+                <button class="btn btn-secondary btn-sm" @onclick="OnCancelDeactivateAb">Cancel</button>
+            </div>
+        }
+
+        @if (Session.Has(PermissionCodes.ImmunoRecord))
+        {
+            <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+            <h4>Add antibody</h4>
+            <div class="form-row">
+                <div class="field"><label>Catalog antibody</label>
+                    <FilterableComboBox TItem="BloodAttributeListItemDto" TValue="long?"
+                                        Items="BloodAttributeCatalog"
+                                        Value="AbCatalogId"
+                                        ValueChanged="OnAbCatalogChanged"
+                                        DisplayText="@(a => $"{a.AntibodyName} ({a.Code})")"
+                                        ItemValue="@(a => a.Id)"
+                                        Placeholder="Select from catalog" />
+                </div>
+                <div class="field"><label>Status</label>
+                    <select @bind="AbStatus" @bind:after="() => AbStatusChanged.InvokeAsync(AbStatus)">@foreach (var s in Enum.GetValues<AntibodyStatus>()) { <option value="@s">@s</option> }</select>
+                </div>
+            </div>
+            <div class="field"><label>Comment</label><input @bind="AbComment" @bind:after="() => AbCommentChanged.InvokeAsync(AbComment)" /></div>
+            @if (OpenAbidWorkups.Count > 0)
+            {
+                <p>Complete or void the open workup before adding antibody history from this card.</p>
+            }
+            <button class="btn btn-primary" disabled="@(Busy || AbCatalogId is null || OpenAbidWorkups.Count > 0)" @onclick="OnAddAntibody">Add antibody</button>
+        }
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Antigen profile</h3></div>
+        @if (AntigenProfiles.Count == 0)
+        {
+            <div class="empty">No antigen typing on record.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Antigen</th><th>Code</th><th>Result</th><th>Source</th><th>Tested</th></tr></thead>
+                <tbody>
+                    @foreach (var p in AntigenProfiles)
+                    {
+                        <tr>
+                            <td>@p.AntigenName</td>
+                            <td class="mono">@p.AntigenCode</td>
+                            <td>@p.Result</td>
+                            <td>@(p.SourceResultId is null ? "Chart" : "Verified result")</td>
+                            <td class="nowrap">@(p.TestedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        @if (Session.Has(PermissionCodes.ImmunoRecord))
+        {
+            <hr style="margin:1rem 0;border:none;border-top:1px solid var(--bb-border);" />
+            <h4>Record antigen result</h4>
+            @if (OpenAbidWorkups.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Open antibody-identification workup(s). Changing antigen type withdraws interpretation and review so they can be repeated against the current type.
+                    This does not identify antibodies.
+                    <a href="@AbidHref">Open antibody identification</a>.
+                </div>
+            }
+            else if (HasCompletedUnscopedAbid || HasCompletedPostedAbid)
+            {
+                <div class="alert alert-warning">
+                    A completed antibody-identification workup is the identification of record. An antigen-positive type that conflicts with posted history warns and does not reopen or retract that history.
+                    This does not identify antibodies.
+                    <a href="@AbidHref">Open antibody identification</a>.
+                </div>
+            }
+            <Outcome Value="AntigenFeedback" />
+            <div class="form-row">
+                <div class="field"><label>Antigen</label>
+                    <FilterableComboBox TItem="BloodAttributeListItemDto" TValue="long?"
+                                        Items="BloodAttributeCatalog"
+                                        Value="AgCatalogId"
+                                        ValueChanged="OnAgCatalogChanged"
+                                        DisplayText="@(a => $"{a.Name} ({a.Code})")"
+                                        ItemValue="@(a => a.Id)"
+                                        Placeholder="Select antigen" />
+                </div>
+                <div class="field"><label>Result</label>
+                    <select @bind="AgResult" @bind:after="() => AgResultChanged.InvokeAsync(AgResult)">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }</select>
+                </div>
+            </div>
+            <p class="muted">Result-sourced phenotypes stay in place. Changing one requires immuno.override.</p>
+            <button class="btn btn-primary" disabled="@(Busy || AgCatalogId is null)" @onclick="OnSaveAntigen">Save antigen result</button>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public long PatientId { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public ElectronicCrossmatchEligibilityDto? Exm { get; set; }
+    [Parameter] public IReadOnlyList<AntibodyIdWorkupListItemDto> OpenAbidWorkups { get; set; } = [];
+    [Parameter] public IReadOnlyList<BloodTypeDto> TypeHistory { get; set; } = [];
+    [Parameter] public IReadOnlyList<SpecialRequirementDto> SpecialRequirements { get; set; } = [];
+    [Parameter] public IReadOnlyList<SpecialRequirementDefinitionDto> SrCatalog { get; set; } = [];
+    [Parameter] public IReadOnlyList<AntibodyDto> AntibodyHistory { get; set; } = [];
+    [Parameter] public IReadOnlyList<AntigenProfileDto> AntigenProfiles { get; set; } = [];
+    [Parameter] public IReadOnlyList<BloodAttributeListItemDto> BloodAttributeCatalog { get; set; } = [];
+    [Parameter] public string AbidHref { get; set; } = "/antibody-id";
+    [Parameter] public string CompatibilityHref { get; set; } = "/compatibility";
+    [Parameter] public bool HasCompletedUnscopedAbid { get; set; }
+    [Parameter] public bool HasCompletedPostedAbid { get; set; }
+    [Parameter] public Feedback? TypeFeedback { get; set; }
+    [Parameter] public Feedback? SrFeedback { get; set; }
+    [Parameter] public Feedback? AntibodyFeedback { get; set; }
+    [Parameter] public Feedback? AntigenFeedback { get; set; }
+    [Parameter] public AboGroup TypeAbo { get; set; } = AboGroup.O;
+    [Parameter] public EventCallback<AboGroup> TypeAboChanged { get; set; }
+    [Parameter] public RhType TypeRh { get; set; } = RhType.Positive;
+    [Parameter] public EventCallback<RhType> TypeRhChanged { get; set; }
+    [Parameter] public AboSubgroup TypeSubgroup { get; set; } = AboSubgroup.Unknown;
+    [Parameter] public EventCallback<AboSubgroup> TypeSubgroupChanged { get; set; }
+    [Parameter] public string TypeReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> TypeReasonChanged { get; set; }
+    [Parameter] public long? SrDeactivateId { get; set; }
+    [Parameter] public string SrDeactivateReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SrDeactivateReasonChanged { get; set; }
+    [Parameter] public long SrDefinitionId { get; set; }
+    [Parameter] public EventCallback<long> SrDefinitionIdChanged { get; set; }
+    [Parameter] public string? SrAntigen { get; set; }
+    [Parameter] public EventCallback<string?> SrAntigenChanged { get; set; }
+    [Parameter] public DateTime? SrEndDate { get; set; }
+    [Parameter] public EventCallback<DateTime?> SrEndDateChanged { get; set; }
+    [Parameter] public string SrReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SrReasonChanged { get; set; }
+    [Parameter] public DateTime? RecentPregnancyUtc { get; set; }
+    [Parameter] public long? DeactivateId { get; set; }
+    [Parameter] public bool DeactivatePostedByWorkup { get; set; }
+    [Parameter] public string DeactivateReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> DeactivateReasonChanged { get; set; }
+    [Parameter] public long? AbCatalogId { get; set; }
+    [Parameter] public EventCallback<long?> AbCatalogIdChanged { get; set; }
+    [Parameter] public AntibodyStatus AbStatus { get; set; } = AntibodyStatus.Identified;
+    [Parameter] public EventCallback<AntibodyStatus> AbStatusChanged { get; set; }
+    [Parameter] public string? AbComment { get; set; }
+    [Parameter] public EventCallback<string?> AbCommentChanged { get; set; }
+    [Parameter] public long? AgCatalogId { get; set; }
+    [Parameter] public EventCallback<long?> AgCatalogIdChanged { get; set; }
+    [Parameter] public AntigenResult AgResult { get; set; } = AntigenResult.Negative;
+    [Parameter] public EventCallback<AntigenResult> AgResultChanged { get; set; }
+    [Parameter] public EventCallback OnRecordType { get; set; }
+    [Parameter] public EventCallback<SpecialRequirementDto> OnBeginDeactivateSr { get; set; }
+    [Parameter] public EventCallback OnConfirmSrDeactivate { get; set; }
+    [Parameter] public EventCallback OnCancelSrDeactivate { get; set; }
+    [Parameter] public EventCallback OnAddSr { get; set; }
+    [Parameter] public EventCallback OnMarkPregnancy { get; set; }
+    [Parameter] public EventCallback<AntibodyDto> OnBeginDeactivateAb { get; set; }
+    [Parameter] public EventCallback OnConfirmDeactivateAb { get; set; }
+    [Parameter] public EventCallback OnCancelDeactivateAb { get; set; }
+    [Parameter] public EventCallback OnAddAntibody { get; set; }
+    [Parameter] public EventCallback OnSaveAntigen { get; set; }
+
+    private SpecialRequirementDefinitionDto? SelectedSrDefinition =>
+        SrCatalog.FirstOrDefault(d => d.Id == SrDefinitionId);
+
+    private Task OnAbCatalogChanged(long? value)
+    {
+        AbCatalogId = value;
+        return AbCatalogIdChanged.InvokeAsync(value);
+    }
+
+    private Task OnAgCatalogChanged(long? value)
+    {
+        AgCatalogId = value;
+        return AgCatalogIdChanged.InvokeAsync(value);
+    }
+
+    private static string AbidNextLabel(AntibodyIdWorkupListItemDto workup) =>
+        workup.NextAction switch
+        {
+            AntibodyIdWorklistNextAction.Interpret => "Interpret",
+            AntibodyIdWorklistNextAction.Review => "Supervisor review",
+            _ => "Record reactions"
+        };
+}

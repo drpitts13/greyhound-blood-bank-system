@@ -1,4 +1,5 @@
 ﻿@inject UserSession Session
+@inject NavigationManager Nav
 
 <nav class="bb-nav">
     <NavLink href="" Match="NavLinkMatch.All" ActiveClass="active">Dashboard</NavLink>
@@ -14,13 +15,19 @@
         <NavLink href="antibody-id" ActiveClass="active">Antibody ID</NavLink>
     }
     <NavLink href="inventory" ActiveClass="active">Inventory</NavLink>
-    @if (Session.Has(PermissionCodes.InventoryReceive))
+    @if (Session.HasAny(PermissionCodes.InventoryReceive, PermissionCodes.InventoryModify))
     {
-        <NavLink href="inventory/isbt-receive" ActiveClass="active">ISBT Receive</NavLink>
-    }
-    @if (Session.Has(PermissionCodes.InventoryModify))
-    {
-        <NavLink href="inventory/modify" ActiveClass="active">Modify Products</NavLink>
+        <details class="nav-group" open="@InventoryDeskOpen()">
+            <summary>Receive &amp; modify</summary>
+            @if (Session.Has(PermissionCodes.InventoryReceive))
+            {
+                <NavLink href="inventory/isbt-receive" ActiveClass="active">ISBT Receive</NavLink>
+            }
+            @if (Session.Has(PermissionCodes.InventoryModify))
+            {
+                <NavLink href="inventory/modify" ActiveClass="active">Modify Products</NavLink>
+            }
+        </details>
     }
 
     <div class="group-label">Transfusion</div>
@@ -64,50 +71,107 @@
         <NavLink href="admin" Match="NavLinkMatch.All" ActiveClass="active">Admin Home</NavLink>
         @if (Session.Has(PermissionCodes.AdminConfigView))
         {
-            <NavLink href="admin/antibody-panel-lots" ActiveClass="active">Antibody Panel Lots</NavLink>
-            <NavLink href="admin/blood-attributes" ActiveClass="active">Blood Attributes</NavLink>
-            <NavLink href="admin/charge-codes" ActiveClass="active">Charge Codes</NavLink>
-            <NavLink href="admin/charge-rules" ActiveClass="active">Charge Rules</NavLink>
-            <NavLink href="admin/compatibility-rules" ActiveClass="active">Compatibility Tables</NavLink>
+            <details class="nav-group" open="@AdminGroupOpen("catalog")">
+                <summary>Catalog</summary>
+                <NavLink href="admin/antibody-panel-lots" ActiveClass="active">Antibody Panel Lots</NavLink>
+                <NavLink href="admin/blood-attributes" ActiveClass="active">Blood Attributes</NavLink>
+                <NavLink href="admin/charge-codes" ActiveClass="active">Charge Codes</NavLink>
+                <NavLink href="admin/coded-comments" ActiveClass="active">Coded Comments</NavLink>
+                <NavLink href="admin/locations" ActiveClass="active">Ordering Locations</NavLink>
+                <NavLink href="admin/phases" ActiveClass="active">Phases</NavLink>
+                <NavLink href="admin/product-billing" ActiveClass="active">Product Billing</NavLink>
+                <NavLink href="admin/products" ActiveClass="active">Products</NavLink>
+                <NavLink href="admin/providers" ActiveClass="active">Providers</NavLink>
+                <NavLink href="admin/special-requirements" ActiveClass="active">Special Requirements</NavLink>
+                <NavLink href="admin/specimen-types" ActiveClass="active">Specimen Types</NavLink>
+                <NavLink href="admin/subtests" ActiveClass="active">Subtests</NavLink>
+                <NavLink href="admin/test-groupers" ActiveClass="active">Test Groupers</NavLink>
+                <NavLink href="admin/test-service-billing" ActiveClass="active">Test/Service Billing</NavLink>
+                <NavLink href="admin/tests" ActiveClass="active">Tests</NavLink>
+            </details>
+            <details class="nav-group" open="@AdminGroupOpen("rules")">
+                <summary>Rules &amp; safety</summary>
+                <NavLink href="admin/charge-rules" ActiveClass="active">Charge Rules</NavLink>
+                <NavLink href="admin/compatibility-rules" ActiveClass="active">Compatibility Tables</NavLink>
+                <NavLink href="admin/crossmatch-settings" ActiveClass="active">Crossmatch Settings</NavLink>
+                <NavLink href="admin/exceptions" ActiveClass="active">Exceptions</NavLink>
+                <NavLink href="admin/facility-policies" ActiveClass="active">Facility Policy</NavLink>
+                <NavLink href="admin/modification-rules" ActiveClass="active">Modification Rules</NavLink>
+                <NavLink href="admin/rules" ActiveClass="active">Order &amp; Test Rules</NavLink>
+                <NavLink href="admin/reflex-rules" ActiveClass="active">Reflex Rules</NavLink>
+            </details>
+            <details class="nav-group" open="@AdminGroupOpen("inventory")">
+                <summary>Inventory / ISBT</summary>
+                <NavLink href="admin/expiration-codes" ActiveClass="active">Expiration Codes</NavLink>
+                <NavLink href="admin/inventory-locations" ActiveClass="active">Inventory Locations</NavLink>
+                <NavLink href="admin/isbt-product-codes" ActiveClass="active">ISBT Product Codes</NavLink>
+            </details>
+            <details class="nav-group" open="@AdminGroupOpen("interfaces")">
+                <summary>Interfaces</summary>
+                <NavLink href="admin/hl7" ActiveClass="active">Interface Setup</NavLink>
+            </details>
         }
-        @if (Session.Has(PermissionCodes.AdminAuditReview))
+        @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage, PermissionCodes.AdminUsersManage, PermissionCodes.AdminAuditReview))
         {
-            <NavLink href="admin/history" ActiveClass="active">Config History</NavLink>
-        }
-        @if (Session.Has(PermissionCodes.AdminConfigView))
-        {
-            <NavLink href="admin/crossmatch-settings" ActiveClass="active">Crossmatch Settings</NavLink>
-            <NavLink href="admin/exceptions" ActiveClass="active">Exceptions</NavLink>
-            <NavLink href="admin/facility-policies" ActiveClass="active">Facility Policy</NavLink>
-            <NavLink href="admin/expiration-codes" ActiveClass="active">Expiration Codes</NavLink>
-            <NavLink href="admin/hl7" ActiveClass="active">Interface Setup</NavLink>
-            <NavLink href="admin/inventory-locations" ActiveClass="active">Inventory Locations</NavLink>
-            <NavLink href="admin/isbt-product-codes" ActiveClass="active">ISBT Product Codes</NavLink>
-            <NavLink href="admin/locations" ActiveClass="active">Ordering Locations</NavLink>
-            <NavLink href="admin/modification-rules" ActiveClass="active">Modification Rules</NavLink>
-            <NavLink href="admin/rules" ActiveClass="active">Order &amp; Test Rules</NavLink>
-            <NavLink href="admin/phases" ActiveClass="active">Phases</NavLink>
-            <NavLink href="admin/product-billing" ActiveClass="active">Product Billing</NavLink>
-            <NavLink href="admin/products" ActiveClass="active">Products</NavLink>
-            <NavLink href="admin/providers" ActiveClass="active">Providers</NavLink>
-            <NavLink href="admin/reflex-rules" ActiveClass="active">Reflex Rules</NavLink>
-        }
-        @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage))
-        {
-            <NavLink href="admin/roles" ActiveClass="active">Roles</NavLink>
-        }
-        @if (Session.Has(PermissionCodes.AdminConfigView))
-        {
-            <NavLink href="admin/special-requirements" ActiveClass="active">Special Requirements</NavLink>
-            <NavLink href="admin/specimen-types" ActiveClass="active">Specimen Types</NavLink>
-            <NavLink href="admin/subtests" ActiveClass="active">Subtests</NavLink>
-            <NavLink href="admin/test-groupers" ActiveClass="active">Test Groupers</NavLink>
-            <NavLink href="admin/test-service-billing" ActiveClass="active">Test/Service Billing</NavLink>
-            <NavLink href="admin/tests" ActiveClass="active">Tests</NavLink>
-        }
-        @if (Session.Has(PermissionCodes.AdminUsersManage))
-        {
-            <NavLink href="admin/users" ActiveClass="active">Users</NavLink>
+            <details class="nav-group" open="@AdminGroupOpen("directory")">
+                <summary>Directory &amp; audit</summary>
+                @if (Session.Has(PermissionCodes.AdminAuditReview))
+                {
+                    <NavLink href="admin/history" ActiveClass="active">Config History</NavLink>
+                }
+                @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage))
+                {
+                    <NavLink href="admin/roles" ActiveClass="active">Roles</NavLink>
+                }
+                @if (Session.Has(PermissionCodes.AdminUsersManage))
+                {
+                    <NavLink href="admin/users" ActiveClass="active">Users</NavLink>
+                }
+            </details>
         }
     }
 </nav>
+
+@code {
+    private static readonly string[] CatalogPaths =
+    [
+        "admin/antibody-panel-lots", "admin/blood-attributes", "admin/charge-codes", "admin/coded-comments", "admin/locations",
+        "admin/phases", "admin/product-billing", "admin/products", "admin/providers",
+        "admin/special-requirements", "admin/specimen-types", "admin/subtests", "admin/test-groupers",
+        "admin/test-service-billing", "admin/tests"
+    ];
+
+    private static readonly string[] RulesPaths =
+    [
+        "admin/charge-rules", "admin/compatibility-rules", "admin/crossmatch-settings", "admin/exceptions",
+        "admin/facility-policies", "admin/modification-rules", "admin/rules", "admin/reflex-rules"
+    ];
+
+    private static readonly string[] InventoryPaths =
+    [
+        "admin/expiration-codes", "admin/inventory-locations", "admin/isbt-product-codes"
+    ];
+
+    private bool AdminGroupOpen(string group)
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri).TrimStart('/').Split('?', 2)[0];
+        return group switch
+        {
+            "catalog" => CatalogPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)),
+            "rules" => RulesPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)),
+            "inventory" => InventoryPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)),
+            "interfaces" => path.StartsWith("admin/hl7", StringComparison.OrdinalIgnoreCase),
+            "directory" => path.StartsWith("admin/history", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("admin/roles", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("admin/users", StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
+
+    private bool InventoryDeskOpen()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri).TrimStart('/').Split('?', 2)[0];
+        return path.StartsWith("inventory/isbt-receive", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("inventory/modify", StringComparison.OrdinalIgnoreCase);
+    }
+}

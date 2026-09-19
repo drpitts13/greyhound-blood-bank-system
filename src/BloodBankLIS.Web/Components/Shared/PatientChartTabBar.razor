@@ -1,0 +1,25 @@
+<div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
+    @foreach (var tab in Tabs)
+    {
+        <button type="button" class="btn @(Current == tab.Key ? "btn-primary" : "btn-secondary")" @onclick="() => OnSelect.InvokeAsync(tab.Key)">
+            @tab.Label
+        </button>
+    }
+</div>
+
+@code {
+    private static readonly (string Key, string Label)[] Tabs =
+    [
+        ("overview", "Overview"),
+        ("visits", "Visits"),
+        ("orders", "Orders"),
+        ("specimens", "Specimens"),
+        ("tests", "Tests"),
+        ("test-history", "Test History"),
+        ("products", "Products"),
+        ("history", "Product History")
+    ];
+
+    [Parameter] public string Current { get; set; } = "overview";
+    [Parameter] public EventCallback<string> OnSelect { get; set; }
+}

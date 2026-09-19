@@ -1,0 +1,166 @@
+<div class="bb-card">
+    <div class="bb-card-title">
+        <h3>Test results</h3>
+        <button class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="OnRefresh">Refresh</button>
+    </div>
+    <div class="form-row" style="margin-bottom:.75rem;">
+        <div class="field">
+            <label>Status</label>
+            <select value="@EffectiveStatus" @onchange="OnStatusInput">
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="all">Both</option>
+            </select>
+        </div>
+        <div class="field" style="flex:1;">
+            <label>Search</label>
+            <input value="@Search" @oninput="OnSearchInput" placeholder="Test, order #, accession..." />
+        </div>
+    </div>
+    @if (Loading)
+    {
+        <div class="loading">Loading tests...</div>
+    }
+    else if (Items.Count == 0)
+    {
+        <div class="empty">
+            @if (!string.IsNullOrWhiteSpace(Search))
+            {
+                <span>No tests match this search.</span>
+            }
+            else if (EffectiveStatus == "pending")
+            {
+                <p>No pending tests on this chart. Tests reach the teaching view and the bench worklist after an order is linked to an accepted specimen.</p>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="OnAccession">Accession and link on Orders</button>
+            }
+            else
+            {
+                <span>No tests match this filter.</span>
+            }
+        </div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Expires</th><th>eXM</th><th>Status</th><th>Result</th><th>Source</th><th>Priority</th><th>Ordered</th><th>Comment</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var item in Items)
+                {
+                    <tr class="@TestRowClass(item)">
+                        <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span></td>
+                        <td class="mono">@item.OrderNumber</td>
+                        <td class="mono">@(item.AccessionNumber ?? "—")</td>
+                        <td class="nowrap">
+                            @if (item.SpecimenExpiresUtc is DateTime expires)
+                            {
+                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "muted")">@expires.ToString("yyyy-MM-dd HH:mm")</span>
+                            }
+                            else
+                            {
+                                <span class="muted">—</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.ElectronicXmEligible)
+                            {
+                                <span class="badge badge-green">Eligible</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-amber" title="@(item.ElectronicXmClinicalBlockReason ?? item.ElectronicXmBlockReason ?? "Not eligible")">Not eligible</span>
+                            }
+                        </td>
+                        <td>
+                            @if (item.CurrentResultStatus is not null)
+                            {
+                                <span class="@Ui.Badge(item.CurrentResultStatus.Value)">@item.CurrentResultStatus</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-gray">Pending</span>
+                            }
+                        </td>
+                        <td class="mono">
+                            @(item.CurrentResultValue ?? "—")
+                            @if (item.AboRhDeltaHold)
+                            {
+                                <span class="badge badge-amber" title="@(item.AboRhDeltaDetail ?? "ABO/Rh disagrees with history")">Discrepancy</span>
+                            }
+                        </td>
+                        <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
+                        <td>@item.Priority</td>
+                        <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.Comment) ? "—" : item.Comment)</td>
+                        <td class="right">
+                            @if (item.NeedsSpecimenLink)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="OnAccession">Accession</button>
+                            }
+                            @if (item.OffersAntibodyIdHandoff)
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
+                            }
+                            <button class="btn btn-ghost btn-sm" @onclick="() => OnToggleEntry.InvokeAsync(item.OrderLineId)">
+                                @(ExpandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
+                            </button>
+                        </td>
+                    </tr>
+                    @if (ExpandedLineId == item.OrderLineId)
+                    {
+                        <tr><td colspan="12">
+                            <TestLineCommentEditor WorkItem="item" OnSaved="OnResultSaved" />
+                            <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
+                        </td></tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string StatusFilter { get; set; } = "pending";
+    [Parameter] public EventCallback<string> StatusFilterChanged { get; set; }
+    [Parameter] public string Search { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SearchChanged { get; set; }
+    [Parameter] public IReadOnlyList<TestWorkItemDto> Items { get; set; } = [];
+    [Parameter] public long? ExpandedLineId { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+    [Parameter] public EventCallback OnAccession { get; set; }
+    [Parameter] public EventCallback<long> OnToggleEntry { get; set; }
+    [Parameter] public EventCallback OnResultSaved { get; set; }
+
+    private string EffectiveStatus
+    {
+        get
+        {
+            var raw = StatusFilter?.Trim() ?? string.Empty;
+            if (raw.Equals("completed", StringComparison.OrdinalIgnoreCase)) return "completed";
+            if (raw.Equals("all", StringComparison.OrdinalIgnoreCase)
+                || raw.Equals("both", StringComparison.OrdinalIgnoreCase)) return "all";
+            return "pending";
+        }
+    }
+
+    private async Task OnStatusInput(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString()?.Trim() ?? string.Empty;
+        var value = raw.Equals("completed", StringComparison.OrdinalIgnoreCase) ? "completed"
+            : raw.Equals("all", StringComparison.OrdinalIgnoreCase) || raw.Equals("both", StringComparison.OrdinalIgnoreCase) ? "all"
+            : "pending";
+        StatusFilter = value;
+        await StatusFilterChanged.InvokeAsync(value);
+    }
+
+    private Task OnSearchInput(ChangeEventArgs e)
+    {
+        Search = e.Value?.ToString() ?? string.Empty;
+        return SearchChanged.InvokeAsync(Search);
+    }
+
+    private static string TestRowClass(TestWorkItemDto item) =>
+        item.Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease or OrderPriority.MassiveTransfusionProtocol
+            ? "row-urgent" : string.Empty;
+}

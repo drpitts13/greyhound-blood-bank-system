@@ -1,0 +1,166 @@
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<div class="flex-between" style="margin-bottom:1rem;">
+    <div>
+        <h1>@DisplayName(Patient)</h1>
+        <div class="muted">
+            MRN <span class="mono">@Patient.MedicalRecordNumber</span>
+            &middot; DOB @Patient.DateOfBirth.ToString("yyyy-MM-dd")
+            &middot; @Patient.Sex
+            &middot; <span class="badge @(Patient.Status == PatientStatus.Merged ? "badge-amber" : "badge-gray")">@Patient.Status</span>
+            @if (!string.IsNullOrWhiteSpace(Patient.Comment))
+            {
+                <span> &middot; @Patient.Comment</span>
+            }
+        </div>
+    </div>
+    <div class="flex gap">
+        <div class="stat" style="text-align:center;padding:.6rem 1rem;">
+            <div class="label">Blood type</div>
+            <div class="value" style="font-size:1.4rem;">@(CurrentType is null ? "—" : Ui.BloodType(CurrentType.Abo, CurrentType.RhD))</div>
+        </div>
+        @if (Exm is not null)
+        {
+            <div class="stat" style="text-align:center;padding:.6rem 1rem;">
+                <div class="label">Electronic XM</div>
+                <div class="value" style="font-size:1rem;">
+                    <span class="badge @(Exm.Eligible ? "badge-green" : "badge-amber")">@(Exm.Eligible ? "Eligible" : "Not eligible")</span>
+                </div>
+            </div>
+        }
+        @if (CanEditDemographics)
+        {
+            <button class="btn btn-secondary" @onclick="OnToggleEdit">@(EditingDemographics ? "Cancel edit" : "Edit demographics")</button>
+        }
+        @if (CanMergePatients)
+        {
+            <button class="btn btn-secondary" @onclick="OnToggleMerge">@(ShowMerge ? "Cancel merge" : "Merge duplicate")</button>
+        }
+        @if (Session.Has(PermissionCodes.LookbackManage))
+        {
+            <a class="btn btn-secondary" href="@RecipientTraceHref">Recipient traceback</a>
+        }
+        <a class="btn btn-secondary" href="/patients">Back to patients</a>
+    </div>
+</div>
+
+@if (EditingDemographics)
+{
+    <div class="bb-card" style="margin-bottom:1rem;">
+        <div class="bb-card-title"><h3>Edit demographics</h3></div>
+        <Outcome Value="DemoFeedback" />
+        <div class="form-row">
+            <div class="field"><label>MRN</label><input value="@Patient.MedicalRecordNumber" disabled /></div>
+            <div class="field"><label>Last name</label><input @bind="Demo.LastName" /></div>
+            <div class="field"><label>First name</label><input @bind="Demo.FirstName" /></div>
+            <div class="field"><label>Middle name</label><input @bind="Demo.MiddleName" /></div>
+            <div class="field"><label>Date of birth</label><input type="date" @bind="Demo.DateOfBirth" /></div>
+            <div class="field"><label>Sex</label>
+                <select @bind="Demo.Sex">
+                    @foreach (var s in Enum.GetValues<Sex>())
+                    {
+                        <option value="@s">@s</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Status</label>
+                <select @bind="Demo.Status">
+                    <option value="@PatientStatus.Active">Active</option>
+                    <option value="@PatientStatus.Inactive">Inactive</option>
+                </select>
+            </div>
+        </div>
+        <div class="field">
+            <label>Comment</label>
+            <CodedCommentField Page="CommentPage.Patient" @bind-Value="Demo.Comment" />
+        </div>
+        <p class="muted">MRN cannot be changed. Later ADT messages may overwrite name, date of birth, and sex.</p>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@Busy" @onclick="OnSaveDemo">Save</button>
+            <button class="btn btn-secondary" @onclick="OnCancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (Patient.Status == PatientStatus.Merged)
+{
+    <div class="alert alert-danger">
+        <strong>Merged record.</strong>
+        This patient record is merged. Continue testing, allocation, and issue on the surviving patient record.
+        @if (Patient.MergedIntoPatientId is long survivorId)
+        {
+            <button class="btn btn-primary btn-sm" style="margin-left:.75rem;" @onclick="() => OpenSurvivor(survivorId)">Open surviving patient</button>
+        }
+    </div>
+}
+
+@if (ShowMerge && CanMergePatients)
+{
+    <div class="bb-card" style="margin-bottom:1rem;">
+        <div class="bb-card-title"><h3>Merge a duplicate into this patient</h3></div>
+        <p class="muted">The duplicate is marked Merged and is no longer used for testing, allocation, or issue. History and antibody-identification workups are reassigned to this record and are not deleted. Merge HardStops if both records have an open workup.</p>
+        <Outcome Value="MergeFeedback" />
+        <div class="form-row">
+            <div class="field"><label>Duplicate MRN</label><input @bind="MergeMrn" @bind:after="() => MergeMrnChanged.InvokeAsync(MergeMrn)" placeholder="MRN of the losing record" /></div>
+            <div class="field" style="flex:2;"><label>Reason</label><input @bind="MergeReason" @bind:after="() => MergeReasonChanged.InvokeAsync(MergeReason)" placeholder="Why these records are the same person" /></div>
+        </div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@Busy" @onclick="OnMerge">Merge into this patient</button>
+            <button class="btn btn-secondary" @onclick="OnCancelMerge">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (AntibodyHistory.Count > 0)
+{
+    <div class="alert alert-warning">
+        <strong>Antibody history:</strong>
+        @string.Join(", ", AntibodyHistory.Select(a => a.IsActive ? a.AntibodySpecificity : $"{a.AntibodySpecificity} (historical / currently undetectable)"))
+    </div>
+}
+
+@if (ActiveSpecialRequirements.Any())
+{
+    <div class="alert alert-warning">
+        <strong>Special transfusion requirements:</strong>
+        @string.Join(", ", ActiveSpecialRequirements.Select(r => r.AntigenCode is null ? (r.Name ?? r.Code ?? r.RequirementType.ToString()) : $"{r.Name ?? r.Code} {r.AntigenCode}"))
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public PatientDto Patient { get; set; } = default!;
+    [Parameter] public BloodTypeDto? CurrentType { get; set; }
+    [Parameter] public ElectronicCrossmatchEligibilityDto? Exm { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool CanEditDemographics { get; set; }
+    [Parameter] public bool CanMergePatients { get; set; }
+    [Parameter] public bool EditingDemographics { get; set; }
+    [Parameter] public bool ShowMerge { get; set; }
+    [Parameter] public PatientDemoEditModel Demo { get; set; } = new();
+    [Parameter] public Feedback? DemoFeedback { get; set; }
+    [Parameter] public Feedback? MergeFeedback { get; set; }
+    [Parameter] public string MergeMrn { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> MergeMrnChanged { get; set; }
+    [Parameter] public string MergeReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> MergeReasonChanged { get; set; }
+    [Parameter] public IReadOnlyList<AntibodyDto> AntibodyHistory { get; set; } = [];
+    [Parameter] public IEnumerable<SpecialRequirementDto> ActiveSpecialRequirements { get; set; } = [];
+    [Parameter] public EventCallback OnToggleEdit { get; set; }
+    [Parameter] public EventCallback OnToggleMerge { get; set; }
+    [Parameter] public EventCallback OnSaveDemo { get; set; }
+    [Parameter] public EventCallback OnCancelEdit { get; set; }
+    [Parameter] public EventCallback OnMerge { get; set; }
+    [Parameter] public EventCallback OnCancelMerge { get; set; }
+
+    private string RecipientTraceHref =>
+        $"/lookback?mrn={Uri.EscapeDataString(Patient.MedicalRecordNumber)}";
+
+    private void OpenSurvivor(long survivorId) =>
+        Nav.NavigateTo($"/patients/{survivorId}");
+
+    private static string DisplayName(PatientDto p) =>
+        string.IsNullOrWhiteSpace(p.MiddleName)
+            ? $"{p.LastName}, {p.FirstName}"
+            : $"{p.LastName}, {p.FirstName} {p.MiddleName}";
+}

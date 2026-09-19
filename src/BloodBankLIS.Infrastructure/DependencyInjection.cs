@@ -134,6 +134,7 @@ public static class DependencyInjection
         services.AddScoped<TestServiceBillingAdminService>();
         services.AddScoped<ProductBillingAdminService>();
         services.AddScoped<ExceptionDefinitionAdminService>();
+        services.AddScoped<CodedCommentAdminService>();
         services.AddScoped<Hl7ConfigAdminService>();
         services.AddScoped<InterfaceTranslationAdminService>();
         services.AddScoped<UserAdminService>();

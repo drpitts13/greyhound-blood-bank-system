@@ -1,0 +1,80 @@
+<div class="bb-card">
+    <div class="bb-card-title">
+        <h3>Test history</h3>
+        <button class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="OnRefresh">Refresh</button>
+    </div>
+    <p class="muted">Released values including prior versions retained after correction or invalidation.</p>
+    <div class="form-row" style="margin-bottom:.75rem;">
+        <div class="field" style="flex:1;">
+            <label>Search</label>
+            <input value="@Search" @oninput="OnSearchInput" placeholder="Test, accession, order #..." />
+        </div>
+    </div>
+    @if (Loading)
+    {
+        <div class="loading">Loading test history...</div>
+    }
+    else if (Rows.Count == 0)
+    {
+        <div class="empty">@(string.IsNullOrWhiteSpace(Search) ? "No released results." : "No released results match this search.")</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Verified</th><th>Test</th><th>Ver.</th><th>Result</th><th>Status</th><th>Reason</th><th>Accession</th><th>Order</th><th>Verified by</th></tr></thead>
+            <tbody>
+                @foreach (var h in Rows)
+                {
+                    <tr class="@(h.IsCurrent ? null : "row-muted")">
+                        <td class="nowrap">@h.VerifiedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td><strong>@h.TestName</strong> <span class="mono muted">@h.TestCode</span></td>
+                        <td>@h.Version</td>
+                        <td>@DisplayHistoryValue(h)</td>
+                        <td><span class="@Ui.Badge(h.Status)">@h.Status</span>@(h.IsCurrent ? null : " prior")</td>
+                        <td>@(h.Reason ?? "—")</td>
+                        <td class="mono">
+                            @if (!string.IsNullOrWhiteSpace(h.AccessionNumber))
+                            {
+                                <a href="@($"/patients/{PatientId}?tab=specimens")">@h.AccessionNumber</a>
+                            }
+                            else
+                            {
+                                <text>—</text>
+                            }
+                        </td>
+                        <td class="mono">
+                            @if (h.OrderId is long historyOrderId && !string.IsNullOrWhiteSpace(h.OrderNumber))
+                            {
+                                <a href="@($"/patients/{PatientId}?tab=orders")">@h.OrderNumber</a>
+                            }
+                            else
+                            {
+                                @(h.OrderNumber ?? "—")
+                            }
+                        </td>
+                        <td>@(h.VerifiedBy ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter] public long PatientId { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string Search { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SearchChanged { get; set; }
+    [Parameter] public IReadOnlyList<PatientTestHistoryRowDto> Rows { get; set; } = [];
+    [Parameter] public EventCallback OnRefresh { get; set; }
+
+    private Task OnSearchInput(ChangeEventArgs e)
+    {
+        Search = e.Value?.ToString() ?? string.Empty;
+        return SearchChanged.InvokeAsync(Search);
+    }
+
+    private static string DisplayHistoryValue(PatientTestHistoryRowDto r) =>
+        r.TestCode == "ABORH" ? AboRhResultValue.FormatDisplay(r.Value) : (r.Value ?? "—");
+}

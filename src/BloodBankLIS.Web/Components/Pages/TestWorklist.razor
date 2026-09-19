@@ -1,12 +1,11 @@
 @page "/test-worklist"
 @inject BloodBankApiClient Api
 @inject UserSession Session
-@inject NavigationManager Nav
 
 <PageTitle>Test Worklist &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Test Worklist</h1>
-<p class="muted">Pending patient tests and product ABO/Rh retypes. Each row shows current ABO/Rh, antibody history, specimen expiry, electronic-XM eligibility, an open antibody-identification workup, a historical ABO/Rh discrepancy on an entered type, and the posted result so the bench does not open the chart just to check dating, history, eXM holds, or the interface value. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it. The same Verify cue and Result column appear on the patient Tests tab.</p>
+<p class="muted">Pending patient tests live here. Product ABO/Rh retypes are listed on the Retype tab and entered on the Inventory pending-retype board so there is one product-retype desk. Each patient-test row shows current ABO/Rh, antibody history, specimen expiry, electronic-XM eligibility, an open antibody-identification workup, a historical ABO/Rh discrepancy on an entered type, and the posted result so the bench does not open the chart just to check dating, history, eXM holds, or the interface value. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it. The same Verify cue and Result column appear on the patient Tests tab.</p>
 
 <Outcome Value="_fb" />
 
@@ -29,7 +28,10 @@
     }
     else if (_items.Count == 0)
     {
-        <div class="empty">No pending tests in the worklist.</div>
+        <div class="empty">
+            No pending tests on this bench. Orders without a linked accepted specimen do not appear here.
+            Open the patient chart Tests tab to teach the sequence, or Accession and link on Orders.
+        </div>
     }
     else
     {
@@ -50,6 +52,7 @@
                     <th>Source</th>
                     <th>Priority</th>
                     <th>Ordered</th>
+                    <th>Comment</th>
                     <th></th>
                 </tr>
             </thead>
@@ -115,11 +118,16 @@
                         <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
                         <td>@item.Priority</td>
                         <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>@(string.IsNullOrWhiteSpace(item.Comment) ? "—" : item.Comment)</td>
                         <td class="right nowrap">
-                            <button class="btn btn-ghost btn-sm" @onclick='() => Nav.NavigateTo($"/patients/{item.PatientId}?tab=tests")'>Patient</button>
-                            @if (item.HasOpenAntibodyIdWorkup && item.OpenAntibodyIdWorkupId is long workupId)
+                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{item.PatientId}?tab=tests")">Open chart · Tests</a>
+                            @if (item.NeedsSpecimenLink)
                             {
-                                <button class="btn btn-ghost btn-sm" @onclick='() => Nav.NavigateTo($"/patients/{item.PatientId}/antibody-id/{workupId}")'>ABID</button>
+                                <a class="btn btn-ghost btn-sm" href="@item.ChartAccessionHref">Accession</a>
+                            }
+                            @if (item.OffersAntibodyIdHandoff)
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
                             }
                             <button class="btn btn-ghost btn-sm" @onclick="() => ToggleEntry(item.OrderLineId)">
                                 @(_expandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
@@ -128,7 +136,8 @@
                     </tr>
                     @if (_expandedLineId == item.OrderLineId)
                     {
-                        <tr><td colspan="15">
+                        <tr><td colspan="16">
+                            <TestLineCommentEditor WorkItem="item" OnSaved="OnResultSaved" />
                             <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
                         </td></tr>
                     }
@@ -144,8 +153,12 @@
 <div class="bb-card">
     <div class="bb-card-title">
         <h3>Pending product retypes</h3>
-        <button class="btn btn-secondary btn-sm" @onclick="LoadRetypesAsync">Refresh</button>
+        <div class="flex gap">
+            <a class="btn btn-primary btn-sm" href="/inventory?board=retype#pending-retype">Open retype desk</a>
+            <button class="btn btn-secondary btn-sm" @onclick="LoadRetypesAsync">Refresh</button>
+        </div>
     </div>
+    <p class="muted">Same units as Inventory → Pending ABO/Rh retype. Enter there so students and operators use one product-retype desk. This list stays so the bench can see what is waiting without leaving the worklist.</p>
 
     @if (_retypesLoading)
     {
@@ -192,24 +205,9 @@
                         <td class="nowrap">@item.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td><span class="@Ui.Badge(item.Status)">@Ui.StatusLabel(item.Status)</span></td>
                         <td class="right nowrap">
-                            <button class="btn btn-ghost btn-sm" @onclick="() => ToggleRetype(item.UnitId)">
-                                @(_expandedUnitId == item.UnitId ? "Hide" : "Enter")
-                            </button>
+                            <a class="btn btn-primary btn-sm" href="@($"/inventory?board=retype&unitId={item.UnitId}#pending-retype")">Enter on Inventory</a>
                         </td>
                     </tr>
-                    @if (_expandedUnitId == item.UnitId)
-                    {
-                        <tr><td colspan="8">
-                            @if (_retypeDetail?.UnitId == item.UnitId)
-                            {
-                                <ProductRetypeEntryPanel Detail="_retypeDetail" OnSaved="OnRetypeSaved" />
-                            }
-                            else
-                            {
-                                <div class="loading">Loading retype...</div>
-                            }
-                        </td></tr>
-                    }
                 }
             </tbody>
         </table>
@@ -227,10 +225,20 @@
     private List<ProductRetypeWorkItemDto> _retypes = new();
     private bool _retypesLoading;
     private bool _retypesLoaded;
-    private long? _expandedUnitId;
-    private ProductRetypeDetailDto? _retypeDetail;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? TabQuery { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.Equals(TabQuery, "retype", StringComparison.OrdinalIgnoreCase))
+        {
+            _tab = "retype";
+            await LoadRetypesAsync();
+        }
+
+        await LoadAsync();
+    }
 
     private async Task SelectTab(string tab)
     {
@@ -277,32 +285,10 @@
     private void ToggleEntry(long orderLineId) =>
         _expandedLineId = _expandedLineId == orderLineId ? null : orderLineId;
 
-    private async Task ToggleRetype(long unitId)
-    {
-        if (_expandedUnitId == unitId)
-        {
-            _expandedUnitId = null;
-            _retypeDetail = null;
-            return;
-        }
-
-        _expandedUnitId = unitId;
-        var r = await Api.GetUnitRetypeAsync(unitId);
-        _retypeDetail = r.Value;
-        if (!r.Succeeded) _fb = r.ToFeedback();
-    }
-
     private async Task OnResultSaved()
     {
         _expandedLineId = null;
         await LoadAsync();
-    }
-
-    private async Task OnRetypeSaved()
-    {
-        _expandedUnitId = null;
-        _retypeDetail = null;
-        await LoadRetypesAsync();
     }
 
     private static string RowClass(TestWorkItemDto item) =>

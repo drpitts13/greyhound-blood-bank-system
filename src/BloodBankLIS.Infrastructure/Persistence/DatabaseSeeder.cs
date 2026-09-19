@@ -39,6 +39,7 @@ public static partial class DatabaseSeeder
         await EnsureAntibodyIdentificationPoliciesAsync(context, cancellationToken);
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
+        await SeedCodedCommentDefinitionsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
         await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
         await EnsureModificationProductTypesAsync(context, cancellationToken);
@@ -1000,6 +1001,45 @@ public static partial class DatabaseSeeder
                 role.SecurityLevel = level;
                 changed = true;
             }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    private static async Task SeedCodedCommentDefinitionsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var seeds = new (CommentPage Page, string Code, string Text, int Sort)[]
+        {
+            (CommentPage.Patient, "NOTE", "See chart notes.", 10),
+            (CommentPage.Patient, "HX", "See historical immunohematology.", 20),
+            (CommentPage.Order, "CALL", "Call results to the ordering location.", 10),
+            (CommentPage.Order, "STAT", "Requested as STAT.", 20),
+            (CommentPage.Specimen, "HEM", "Specimen hemolyzed.", 10),
+            (CommentPage.Specimen, "QNS", "Quantity not sufficient.", 20),
+            (CommentPage.Test, "RPT", "Results called and reported.", 10),
+            (CommentPage.Test, "SEE", "See attached worksheet.", 20)
+        };
+
+        var changed = false;
+        foreach (var (page, code, text, sort) in seeds)
+        {
+            if (await context.CodedCommentDefinitions.AnyAsync(c => c.Page == page && c.Code == code, ct))
+            {
+                continue;
+            }
+
+            context.CodedCommentDefinitions.Add(new CodedCommentDefinition
+            {
+                Page = page,
+                Code = code,
+                CommentText = text,
+                SortOrder = sort,
+                IsActive = true
+            });
+            changed = true;
         }
 
         if (changed)

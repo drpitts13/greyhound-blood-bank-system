@@ -125,6 +125,14 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<object>> UpdatePatientOrderAsync(long patientId, long orderId, UpdateOrderRequest req, CancellationToken ct = default) =>
         SendAsync<object>(HttpMethod.Put, $"api/patients/{patientId}/orders/{orderId}", req, ct);
 
+    public Task<ApiResult<OrderLineDto>> UpdatePatientOrderLineCommentAsync(
+        long patientId,
+        long orderId,
+        long lineId,
+        UpdateOrderLineCommentRequest req,
+        CancellationToken ct = default) =>
+        SendAsync<OrderLineDto>(HttpMethod.Put, $"api/patients/{patientId}/orders/{orderId}/lines/{lineId}/comment", req, ct);
+
     public Task<ApiResult<PatientOrderDto>> LinkPatientOrderSpecimenAsync(
         long patientId,
         long orderId,
@@ -895,6 +903,35 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<ExceptionDefinitionDto>> SetAdminExceptionActiveAsync(long id, bool active, CancellationToken ct = default) =>
         SendAsync<ExceptionDefinitionDto>(HttpMethod.Post, $"api/admin/exceptions/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    public Task<ApiResult<List<CodedCommentDefinitionDto>>> GetAdminCodedCommentsAsync(
+        bool includeInactive = true, CommentPage? page = null, CancellationToken ct = default)
+    {
+        var url = $"api/admin/coded-comments?includeInactive={includeInactive.ToString().ToLowerInvariant()}";
+        if (page is not null)
+        {
+            url += $"&page={page}";
+        }
+
+        return SendAsync<List<CodedCommentDefinitionDto>>(HttpMethod.Get, url, ct: ct);
+    }
+
+    public Task<ApiResult<CodedCommentDefinitionDto>> CreateAdminCodedCommentAsync(
+        SaveCodedCommentDefinitionRequest req, CancellationToken ct = default) =>
+        SendAsync<CodedCommentDefinitionDto>(HttpMethod.Post, "api/admin/coded-comments", req, ct);
+
+    public Task<ApiResult<CodedCommentDefinitionDto>> UpdateAdminCodedCommentAsync(
+        long id, SaveCodedCommentDefinitionRequest req, CancellationToken ct = default) =>
+        SendAsync<CodedCommentDefinitionDto>(HttpMethod.Put, $"api/admin/coded-comments/{id}", req, ct);
+
+    public Task<ApiResult<CodedCommentDefinitionDto>> SetAdminCodedCommentActiveAsync(
+        long id, bool active, CancellationToken ct = default) =>
+        SendAsync<CodedCommentDefinitionDto>(
+            HttpMethod.Post, $"api/admin/coded-comments/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    public Task<ApiResult<List<CodedCommentRefDto>>> GetReferenceCodedCommentsAsync(
+        CommentPage page, CancellationToken ct = default) =>
+        SendAsync<List<CodedCommentRefDto>>(HttpMethod.Get, $"api/reference/coded-comments?page={page}", ct: ct);
 
     public Task<ApiResult<List<OrderingProviderDto>>> GetAdminProvidersAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<OrderingProviderDto>>(HttpMethod.Get, $"api/admin/providers?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);

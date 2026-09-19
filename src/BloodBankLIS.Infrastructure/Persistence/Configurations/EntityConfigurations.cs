@@ -19,6 +19,7 @@ public sealed class PatientConfiguration : IEntityTypeConfiguration<Patient>
         b.Property(p => p.MiddleName).HasMaxLength(100);
         b.Property(p => p.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(p => p.ModifiedBy).HasMaxLength(100);
+        b.Property(p => p.Comment).HasMaxLength(2000);
 
         b.HasIndex(p => p.MedicalRecordNumber).IsUnique();
         b.HasIndex(p => new { p.LastName, p.FirstName, p.DateOfBirth });
@@ -104,6 +105,7 @@ public sealed class SpecimenConfiguration : IEntityTypeConfiguration<Specimen>
         b.Property(s => s.DrawLocation).HasMaxLength(100);
         b.Property(s => s.Collector).HasMaxLength(100);
         b.Property(s => s.RejectionReason).HasMaxLength(500);
+        b.Property(s => s.Comment).HasMaxLength(2000);
         b.Property(s => s.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(s => s.ModifiedBy).HasMaxLength(100);
 
@@ -135,6 +137,7 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         b.Property(o => o.SourceSystem).HasMaxLength(50);
         b.Property(o => o.OrderedByUser).HasMaxLength(100);
         b.Property(o => o.CancellationReason).HasMaxLength(500);
+        b.Property(o => o.Comment).HasMaxLength(2000);
         b.Property(o => o.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(o => o.ModifiedBy).HasMaxLength(100);
 
@@ -161,6 +164,7 @@ public sealed class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
         b.HasKey(l => l.Id);
         b.Property(l => l.LineName).HasMaxLength(200).IsRequired();
         b.Property(l => l.TestCode).HasMaxLength(50);
+        b.Property(l => l.Comment).HasMaxLength(2000);
         b.Property(l => l.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(l => l.ModifiedBy).HasMaxLength(100);
 
@@ -941,6 +945,22 @@ public sealed class ExceptionDefinitionConfiguration : IEntityTypeConfiguration<
         b.Property(e => e.ModifiedBy).HasMaxLength(100);
 
         b.HasIndex(e => e.RuleCode).IsUnique();
+    }
+}
+
+public sealed class CodedCommentDefinitionConfiguration : IEntityTypeConfiguration<CodedCommentDefinition>
+{
+    public void Configure(EntityTypeBuilder<CodedCommentDefinition> b)
+    {
+        b.ToTable("CodedCommentDefinitions");
+        b.HasKey(c => c.Id);
+        b.Property(c => c.Code).HasMaxLength(20).IsRequired();
+        b.Property(c => c.CommentText).HasMaxLength(500).IsRequired();
+        b.Property(c => c.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(c => c.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(c => new { c.Page, c.Code }).IsUnique();
+        b.HasIndex(c => new { c.Page, c.IsActive, c.SortOrder });
     }
 }
 

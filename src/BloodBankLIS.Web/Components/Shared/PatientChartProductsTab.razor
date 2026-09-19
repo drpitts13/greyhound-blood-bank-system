@@ -1,0 +1,336 @@
+@inject UserSession Session
+
+<div class="bb-card">
+    <div class="bb-card-title flex-between">
+        <h3>Allocated products</h3>
+        @if (Session.Has(PermissionCodes.CompatibilityAllocate))
+        {
+            <button type="button" class="btn btn-primary btn-sm" @onclick="OnToggleAllocate">@(ShowAllocate ? "Cancel" : "Allocate unit")</button>
+        }
+    </div>
+    <Outcome Value="AllocFeedback" />
+    @if (AllocLoading) { <div class="loading">Loading allocations...</div> }
+    else if (Allocations.Count == 0) { <div class="empty">No active product allocations.</div> }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Unit number</th><th>Product code</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var a in Allocations)
+                {
+                    <tr>
+                        <td class="mono">@a.UnitNumber</td>
+                        <td class="mono">@a.ProductCode</td>
+                        <td><span class="@Ui.Badge(a.DisplayStatus)">@DisplayAllocationStatus(a.DisplayStatus)</span></td>
+                        <td>
+                            <div class="flex gap" style="flex-wrap:wrap;">
+                                @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="@CompatibilityHref.Invoke(a.SpecimenId, a.BloodUnitId)">Crossmatch</a>
+                                }
+                                @if (Session.Has(PermissionCodes.IssueCreate))
+                                {
+                                    <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnBeginIssue.InvokeAsync(a)">Issue</button>
+                                }
+                                @if (Session.Has(PermissionCodes.CompatibilityAllocate))
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnBeginRelease.InvokeAsync(a)">Release</button>
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (LastIssue is not null)
+    {
+        <div class="alert alert-success" style="margin-top:1rem;">
+            Issue <strong>#@LastIssue.Id</strong> created for unit @LastIssue.BloodUnitId.
+            <div class="flex gap" style="margin-top:.65rem;flex-wrap:wrap;">
+                @if (Session.Has(PermissionCodes.PrintLabel))
+                {
+                    <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="OnPrintPtag">Print P-tag</button>
+                }
+                <a class="btn btn-secondary btn-sm" href="@($"/printing?issueId={LastIssue.Id}")">Open Printing</a>
+            </div>
+            <Outcome Value="PtagFeedback" />
+        </div>
+    }
+
+    @if (IssuingAllocation is not null)
+    {
+        <div class="bb-card" style="margin-top:1rem;">
+            <div class="bb-card-title"><h3>Issue unit <span class="mono">@IssuingAllocation.UnitNumber</span></h3></div>
+            @if (OpenAbidWorkups.Count > 0)
+            {
+                <div class="alert alert-warning">
+                    Open antibody-identification workup(s). Issue may proceed; antigen-negative needs may change when the workup completes.
+                    This does not identify antibodies.
+                    <a href="@AbidHref">Open antibody identification</a>.
+                </div>
+            }
+            <Outcome Value="IssueFeedback" RequiresSignature="true" />
+            <div class="form-row">
+                <div class="field"><label>Date/time of issue</label>
+                    <input type="datetime-local" @bind="IssueLocalDateTime" @bind:after="() => IssueLocalDateTimeChanged.InvokeAsync(IssueLocalDateTime)" />
+                </div>
+                <div class="field"><label>Location to issue</label>
+                    <input @bind="IssueLocation" @bind:after="() => IssueLocationChanged.InvokeAsync(IssueLocation)" placeholder="Ward / OR / location" />
+                </div>
+                <div class="field"><label>Person issued to</label>
+                    <input @bind="IssueIssuedTo" @bind:after="() => IssueIssuedToChanged.InvokeAsync(IssueIssuedTo)" placeholder="Nurse / courier / recipient" />
+                </div>
+                <div class="field"><label>Patient ID 1 (MRN)</label>
+                    <input @bind="IssueId1" @bind:after="() => IssueId1Changed.InvokeAsync(IssueId1)" />
+                </div>
+                <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label>
+                    <input @bind="IssueId2" @bind:after="() => IssueId2Changed.InvokeAsync(IssueId2)" />
+                </div>
+                <div class="field"><label>Second verifier</label>
+                    <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                        Items="SecondVerifierChoices"
+                        Value="IssueSecondVerifier"
+                        ValueChanged="OnSecondVerifierChanged"
+                        DisplayText="@(u => u.Label)"
+                        ItemValue="@(u => u.UserName)"
+                        SearchText="@(u => u.Label)"
+                        Clearable="true"
+                        Placeholder="Different active user" />
+                </div>
+                <div class="field"><label>User id issuing</label>
+                    <input value="@(Session.UserName ?? "—")" disabled />
+                </div>
+                <div class="field" style="grid-column:1/-1;"><label>Comments (optional)</label>
+                    <textarea rows="2" @bind="IssueComment" @bind:after="() => IssueCommentChanged.InvokeAsync(IssueComment)"></textarea>
+                </div>
+            </div>
+            <div class="field" style="min-width:14rem;"><label>Appearance at issue</label>
+                <select @bind="IssueAppearance" @bind:after="() => IssueAppearanceChanged.InvokeAsync(IssueAppearance)">
+                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
+                </select>
+            </div>
+            <UnitScanVerificationPanel Scan="IssueScan" />
+            @if (AcknowledgmentSpecialRequirements.Any())
+            {
+                <div class="alert alert-warning" style="margin-top:.75rem;">
+                    <strong>Acknowledge special requirements</strong>
+                    @foreach (var req in AcknowledgmentSpecialRequirements)
+                    {
+                        <label class="flex" style="gap:.35rem;margin-top:.35rem;">
+                            <input type="checkbox" checked="@IssueAcks.Contains(req.Code ?? "")" @onchange="e => OnToggleIssueAck.InvokeAsync((req.Code, IsChecked(e)))" />
+                            @(req.Name ?? req.Code) @(string.IsNullOrWhiteSpace(req.Instruction) ? "" : $"— {req.Instruction}")
+                        </label>
+                    }
+                </div>
+            }
+
+            @if (ShowIssueOverride)
+            {
+                <div class="bb-card" style="background:#fff8f0;margin-top:.75rem;border:1px solid #e8c48a;">
+                    <strong>Issue override required</strong>
+                    <p class="muted">The issue gate reported warnings. Provide a reason, authorizer, and electronic signature to proceed.</p>
+                    <div class="form-row">
+                        <div class="field"><label>Override reason</label><input @bind="IssueOverrideReason" @bind:after="() => IssueOverrideReasonChanged.InvokeAsync(IssueOverrideReason)" /></div>
+                        <div class="field"><label>Authorized by</label><input @bind="IssueAuthorizedBy" @bind:after="() => IssueAuthorizedByChanged.InvokeAsync(IssueAuthorizedBy)" placeholder="@Session.UserName" /></div>
+                        <div class="field"><label>Meaning of signature</label><input @bind="IssueSignatureMeaning" @bind:after="() => IssueSignatureMeaningChanged.InvokeAsync(IssueSignatureMeaning)" placeholder="I authorize issue override" /></div>
+                        <div class="field"><label>Password / PIN</label><input type="password" @bind="IssueSignatureSecret" @bind:after="() => IssueSignatureSecretChanged.InvokeAsync(IssueSignatureSecret)" /></div>
+                    </div>
+                    <div class="flex gap" style="margin-top:.5rem;">
+                        <button class="btn btn-danger btn-sm" disabled="@Busy" @onclick="OnIssueOverride">Sign &amp; issue</button>
+                        <button class="btn btn-ghost btn-sm" @onclick="OnCancelIssue">Cancel</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="flex gap" style="margin-top:.75rem;">
+                    <button class="btn btn-primary" disabled="@Busy" @onclick="OnConfirmIssue">Confirm issue</button>
+                    <button class="btn btn-ghost" @onclick="OnCancelIssue">Cancel</button>
+                </div>
+            }
+        </div>
+    }
+
+    @if (ReleasingAllocationId is not null)
+    {
+        <div class="bb-card" style="margin-top:1rem;background:#fff8f0;">
+            <div class="field"><label>Release reason</label><input @bind="ReleaseReason" @bind:after="() => ReleaseReasonChanged.InvokeAsync(ReleaseReason)" placeholder="Reason for releasing allocation" /></div>
+            <div class="flex gap" style="margin-top:.5rem;">
+                <button class="btn btn-danger btn-sm" disabled="@Busy" @onclick="OnConfirmRelease">Confirm release</button>
+                <button class="btn btn-ghost btn-sm" @onclick="OnCancelRelease">Cancel</button>
+            </div>
+        </div>
+    }
+</div>
+
+@if (ShowAllocate && Session.Has(PermissionCodes.CompatibilityAllocate))
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title"><h3>Allocate unit</h3></div>
+        <p class="muted">Select an ABO/Rh-compatible Available unit. Crossmatch-required products will order the selected XM/CXM test.</p>
+        @if (OpenAbidWorkups.Count > 0)
+        {
+            <div class="alert alert-warning">
+                Open antibody-identification workup(s). Allocation may proceed for serologic crossmatch; antigen-negative needs may change when the workup completes.
+                Serologic XM warns (`ABID-XM-OPEN`) and still records. Electronic XM is blocked.
+                <a href="@AbidHref">Open antibody identification</a>.
+            </div>
+        }
+        <div class="form-row">
+            <div class="field"><label>Visit</label>
+                <select @bind="AllocEncounterId" @bind:after="() => AllocEncounterIdChanged.InvokeAsync(AllocEncounterId)">
+                    <option value="0">— Active visit (auto) —</option>
+                    @foreach (var v in Encounters.Where(e => e.Status == EncounterStatus.Active))
+                    {
+                        <option value="@v.Id">@v.VisitNumber</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Specimen (optional)</label>
+                <select @bind="AllocSpecimenId" @bind:after="() => AllocSpecimenIdChanged.InvokeAsync(AllocSpecimenId)">
+                    <option value="0">— None —</option>
+                    @foreach (var s in LinkableSpecimens)
+                    {
+                        <option value="@s.Id">@s.AccessionNumber</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        @if (CompatUnitsLoading) { <div class="loading">Loading compatible units...</div> }
+        else if (!string.IsNullOrWhiteSpace(CompatUnitsError)) { <div class="alert alert-warning">@CompatUnitsError</div> }
+        else if (CompatibleUnits.Count == 0) { <div class="empty">No ABO/Rh-compatible Available units.</div> }
+        else
+        {
+            <div class="field" style="margin-top:.75rem;">
+                <label>Unit number</label>
+                <FilterableComboBox TItem="CompatibleUnitDto" TValue="long?"
+                    Items="CompatibleUnits"
+                    Value="SelectedUnitId"
+                    ValueChanged="OnAllocUnitChanged"
+                    DisplayText="@(u => $"{u.UnitNumber} · {u.BloodType} · {u.ProductCode} · expires {u.ExpiresUtc:yyyy-MM-dd}")"
+                    ItemValue="@(u => u.BloodUnitId)"
+                    SearchText="@(u => $"{u.UnitNumber} {u.ProductCode} {u.BloodType} {u.BloodUnitId}")"
+                    Clearable="true"
+                    Placeholder="Type unit number" />
+            </div>
+            @if (SelectedUnit is not null)
+            {
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Product</label><div class="mono">@SelectedUnit.ProductCode — @SelectedUnit.ProductName</div></div>
+                    <div class="field"><label>ABO/Rh</label><div>@SelectedUnit.BloodType</div></div>
+                    <div class="field"><label>Expires</label><div class="nowrap">@SelectedUnit.ExpiresUtc.ToString("yyyy-MM-dd")</div></div>
+                    <div class="field"><label>Crossmatch required</label><div>@(SelectedUnit.RequiresCrossmatch ? "Yes" : "No")</div></div>
+                </div>
+            }
+        }
+
+        @if (SelectedUnit is not null && SelectedUnit.RequiresCrossmatch)
+        {
+            <p class="muted" style="margin-top:.75rem;">
+                @if (ExmEligible)
+                {
+                    <text>This patient is eligible for electronic crossmatch. Selecting a unit will add and result EXM on the open product order.</text>
+                }
+                else
+                {
+                    <text>Crossmatch tests attach to the open product order after the current antibody screen is completed. Change XM vs CXM on the order; downgrading to simple XM requires an exception.</text>
+                }
+            </p>
+        }
+
+        <div class="flex gap" style="margin-top:1rem;">
+            <button class="btn btn-primary" disabled="@(Busy || SelectedUnitId is null)" @onclick="OnReserve">Reserve unit</button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool ShowAllocate { get; set; }
+    [Parameter] public Feedback? AllocFeedback { get; set; }
+    [Parameter] public bool AllocLoading { get; set; }
+    [Parameter] public IReadOnlyList<PatientAllocationRowDto> Allocations { get; set; } = [];
+    [Parameter] public IssueDto? LastIssue { get; set; }
+    [Parameter] public Feedback? PtagFeedback { get; set; }
+    [Parameter] public PatientAllocationRowDto? IssuingAllocation { get; set; }
+    [Parameter] public Feedback? IssueFeedback { get; set; }
+    [Parameter] public DateTime IssueLocalDateTime { get; set; }
+    [Parameter] public EventCallback<DateTime> IssueLocalDateTimeChanged { get; set; }
+    [Parameter] public string IssueLocation { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> IssueLocationChanged { get; set; }
+    [Parameter] public string IssueIssuedTo { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> IssueIssuedToChanged { get; set; }
+    [Parameter] public string IssueId1 { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> IssueId1Changed { get; set; }
+    [Parameter] public string IssueId2 { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> IssueId2Changed { get; set; }
+    [Parameter] public string? IssueSecondVerifier { get; set; }
+    [Parameter] public EventCallback<string?> IssueSecondVerifierChanged { get; set; }
+    [Parameter] public string IssueComment { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> IssueCommentChanged { get; set; }
+    [Parameter] public UnitAppearance IssueAppearance { get; set; } = UnitAppearance.Acceptable;
+    [Parameter] public EventCallback<UnitAppearance> IssueAppearanceChanged { get; set; }
+    [Parameter] public UnitScanModel IssueScan { get; set; } = new();
+    [Parameter] public IReadOnlyCollection<string> IssueAcks { get; set; } = new HashSet<string>();
+    [Parameter] public bool ShowIssueOverride { get; set; }
+    [Parameter] public string IssueOverrideReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> IssueOverrideReasonChanged { get; set; }
+    [Parameter] public string IssueAuthorizedBy { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> IssueAuthorizedByChanged { get; set; }
+    [Parameter] public string IssueSignatureMeaning { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> IssueSignatureMeaningChanged { get; set; }
+    [Parameter] public string IssueSignatureSecret { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> IssueSignatureSecretChanged { get; set; }
+    [Parameter] public long? ReleasingAllocationId { get; set; }
+    [Parameter] public string ReleaseReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ReleaseReasonChanged { get; set; }
+    [Parameter] public IReadOnlyList<AntibodyIdWorkupListItemDto> OpenAbidWorkups { get; set; } = [];
+    [Parameter] public string AbidHref { get; set; } = "/antibody-id";
+    [Parameter] public Func<long?, long?, string> CompatibilityHref { get; set; } = (_, _) => "/compatibility";
+    [Parameter] public IEnumerable<DirectoryUserDto> SecondVerifierChoices { get; set; } = [];
+    [Parameter] public IEnumerable<SpecialRequirementDto> AcknowledgmentSpecialRequirements { get; set; } = [];
+    [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];
+    [Parameter] public IEnumerable<SpecimenDto> LinkableSpecimens { get; set; } = [];
+    [Parameter] public bool CompatUnitsLoading { get; set; }
+    [Parameter] public string? CompatUnitsError { get; set; }
+    [Parameter] public IReadOnlyList<CompatibleUnitDto> CompatibleUnits { get; set; } = [];
+    [Parameter] public long? SelectedUnitId { get; set; }
+    [Parameter] public CompatibleUnitDto? SelectedUnit { get; set; }
+    [Parameter] public bool ExmEligible { get; set; }
+    [Parameter] public long AllocEncounterId { get; set; }
+    [Parameter] public EventCallback<long> AllocEncounterIdChanged { get; set; }
+    [Parameter] public long AllocSpecimenId { get; set; }
+    [Parameter] public EventCallback<long> AllocSpecimenIdChanged { get; set; }
+    [Parameter] public EventCallback OnToggleAllocate { get; set; }
+    [Parameter] public EventCallback<PatientAllocationRowDto> OnBeginIssue { get; set; }
+    [Parameter] public EventCallback<PatientAllocationRowDto> OnBeginRelease { get; set; }
+    [Parameter] public EventCallback OnPrintPtag { get; set; }
+    [Parameter] public EventCallback<(string? Code, bool On)> OnToggleIssueAck { get; set; }
+    [Parameter] public EventCallback OnConfirmIssue { get; set; }
+    [Parameter] public EventCallback OnIssueOverride { get; set; }
+    [Parameter] public EventCallback OnCancelIssue { get; set; }
+    [Parameter] public EventCallback OnConfirmRelease { get; set; }
+    [Parameter] public EventCallback OnCancelRelease { get; set; }
+    [Parameter] public EventCallback<long?> OnAllocUnitChanged { get; set; }
+    [Parameter] public EventCallback OnReserve { get; set; }
+
+    private Task OnSecondVerifierChanged(string? value)
+    {
+        IssueSecondVerifier = value;
+        return IssueSecondVerifierChanged.InvokeAsync(value);
+    }
+
+    private static bool IsChecked(ChangeEventArgs e) =>
+        e.Value is true || string.Equals(Convert.ToString(e.Value), "true", StringComparison.OrdinalIgnoreCase);
+
+    private static string DisplayAllocationStatus(ProductAllocationDisplayStatus status) => status switch
+    {
+        ProductAllocationDisplayStatus.ReadyForIssue => "Ready for Issue",
+        ProductAllocationDisplayStatus.Exception => "Exception",
+        ProductAllocationDisplayStatus.Reserved => "Reserved",
+        _ => status.ToString()
+    };
+}

@@ -31,6 +31,7 @@ public sealed class SqliteToSqlServerMigrator
         "OrderingLocations",
         "OrderingProviders",
         "ExceptionDefinitions",
+        "CodedCommentDefinitions",
         "ChargeCodes",
         "TestServiceBillings",
         "ProductBillings",

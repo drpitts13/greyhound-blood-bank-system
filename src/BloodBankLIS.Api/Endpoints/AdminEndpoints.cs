@@ -39,6 +39,7 @@ public static class AdminEndpoints
         MapTestServiceBillings(app);
         MapProductBillings(app);
         MapExceptions(app);
+        MapCodedComments(app);
         MapCompatibilityRules(app);
         MapHl7(app);
         MapUsersAndRoles(app);
@@ -596,6 +597,37 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
         group.MapPost("/{id:long}/deactivate", async (long id, ExceptionDefinitionAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapCodedComments(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/coded-comments").WithTags("Admin: Coded Comments").RequireAuthenticatedUser();
+
+        group.MapGet("", async (CodedCommentAdminService svc, bool? includeInactive, CommentPage? page, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, page, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, CodedCommentAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Coded comment not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveCodedCommentDefinitionRequest req, CodedCommentAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveCodedCommentDefinitionRequest req, CodedCommentAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, CodedCommentAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, CodedCommentAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }
