@@ -31,6 +31,8 @@ public sealed class SpecimenService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<AntibodyIdentificationWorkup>? _antibodyWorkups;
     private readonly IRepository<AntibodyIdentificationFinding>? _antibodyFindings;
+    private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
+    private readonly IRepository<Override>? _overrides;
 
     public SpecimenService(
         IRepository<Specimen> specimens,
@@ -44,7 +46,9 @@ public sealed class SpecimenService
         ICurrentUser? currentUser = null,
         IPermissionEvaluator? permissions = null,
         IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null,
-        IRepository<AntibodyIdentificationFinding>? antibodyFindings = null)
+        IRepository<AntibodyIdentificationFinding>? antibodyFindings = null,
+        IRepository<ExceptionDefinition>? exceptionDefinitions = null,
+        IRepository<Override>? overrides = null)
     {
         _specimens = specimens;
         _patients = patients;
@@ -58,6 +62,8 @@ public sealed class SpecimenService
         _permissions = permissions;
         _antibodyWorkups = antibodyWorkups;
         _antibodyFindings = antibodyFindings;
+        _exceptionDefinitions = exceptionDefinitions;
+        _overrides = overrides;
     }
 
     public async Task<SpecimenDto?> GetAsync(long id, CancellationToken ct = default)
@@ -213,6 +219,26 @@ public sealed class SpecimenService
                 ? (int)Math.Round((specimen.ExpiresUtc.Value - specimen.CollectedUtc).TotalHours)
                 : await ResolveValidityHoursForSpecimenAsync(specimen, ct));
 
+        var policyExpires = request.CollectedUtc.AddHours(hours);
+        var nextExpires = request.ExpiresUtc ?? policyExpires;
+        if (nextExpires < request.CollectedUtc)
+        {
+            return OperationResult<Specimen>.Fail("Expiration cannot be before collection.");
+        }
+
+        var expirationRule = request.ExpiresUtc is null
+            ? RuleResult.Pass(SpecimenExpirationOverrideRule.Code)
+            : SpecimenExpirationOverrideRule.Evaluate(policyExpires, request.ExpiresUtc.Value, overrideAuthorized: false);
+        var overrideNeeded = expirationRule.Severity == RuleSeverity.Warning;
+        if (overrideNeeded)
+        {
+            var blocked = await EvaluateExpirationOverrideAccessAsync(request, expirationRule, ct);
+            if (blocked is not null)
+            {
+                return blocked;
+            }
+        }
+
         var previous = new
         {
             specimen.CollectedUtc,
@@ -223,7 +249,6 @@ public sealed class SpecimenService
             specimen.Comment
         };
 
-        var nextExpires = request.CollectedUtc.AddHours(hours);
         var validityChanged = specimen.CollectedUtc != request.CollectedUtc
             || specimen.ExpiresUtc != nextExpires;
 
@@ -233,6 +258,20 @@ public sealed class SpecimenService
         specimen.Collector = string.IsNullOrWhiteSpace(request.Collector) ? null : request.Collector.Trim();
         specimen.ExpiresUtc = nextExpires;
         specimen.Comment = NormalizeComment(request.Comment);
+
+        if (overrideNeeded && _overrides is not null)
+        {
+            await _overrides.AddAsync(new Override
+            {
+                Action = OverrideAction.WarningOverride,
+                ContextType = nameof(Specimen),
+                ContextId = specimen.Id,
+                RuleCode = SpecimenExpirationOverrideRule.Code,
+                Reason = request.OverrideReason!.Trim(),
+                AuthorizedBy = request.AuthorizedBy!.Trim(),
+                OverriddenUtc = _clock.UtcNow
+            }, ct);
+        }
 
         _specimens.Update(specimen);
         _audit?.Record(
@@ -247,9 +286,13 @@ public sealed class SpecimenService
                 specimen.DrawLocation,
                 specimen.Collector,
                 specimen.ExpiresUtc,
-                specimen.Comment
+                specimen.Comment,
+                RuleCode = overrideNeeded ? SpecimenExpirationOverrideRule.Code : null,
+                OverrideReason = overrideNeeded ? request.OverrideReason : null
             },
-            reason: "Specimen metadata updated.");
+            reason: overrideNeeded
+                ? $"Specimen metadata updated with {SpecimenExpirationOverrideRule.Code}."
+                : "Specimen metadata updated.");
         await _unitOfWork.SaveChangesAsync(ct);
 
         var warnings = new List<RuleResult>();
@@ -327,8 +370,23 @@ public sealed class SpecimenService
         var specimens = await _specimens.ListAsync(
             s => s.PatientId == patientId && s.Status == SpecimenStatus.Accepted, ct);
         var changedIds = new List<long>();
+        HashSet<long> overriddenIds = [];
+        if (_overrides is not null)
+        {
+            var overrides = await _overrides.ListAsync(
+                o => o.ContextType == nameof(Specimen)
+                    && o.RuleCode == SpecimenExpirationOverrideRule.Code,
+                ct);
+            overriddenIds = overrides.Select(o => o.ContextId).ToHashSet();
+        }
+
         foreach (var specimen in specimens)
         {
+            if (overriddenIds.Contains(specimen.Id))
+            {
+                continue;
+            }
+
             var next = specimen.CollectedUtc.AddHours(hours);
             if (specimen.ExpiresUtc == next)
             {
@@ -337,6 +395,7 @@ public sealed class SpecimenService
 
             var previous = specimen.ExpiresUtc;
             specimen.ExpiresUtc = next;
+            _specimens.Update(specimen);
             changedIds.Add(specimen.Id);
             _audit?.Record(
                 AuditEventType.Specimen,
@@ -446,6 +505,36 @@ public sealed class SpecimenService
 
     private static string? NormalizeComment(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private async Task<OperationResult<Specimen>?> EvaluateExpirationOverrideAccessAsync(
+        UpdateSpecimenRequest request,
+        RuleResult warning,
+        CancellationToken ct)
+    {
+        var overrideAttempted = !string.IsNullOrWhiteSpace(request.OverrideReason)
+            && !string.IsNullOrWhiteSpace(request.AuthorizedBy);
+        if (!overrideAttempted)
+        {
+            return OperationResult<Specimen>.Fail(warning.Message);
+        }
+
+        if (_exceptionDefinitions is null || _permissions is null || _currentUser is null)
+        {
+            return OperationResult<Specimen>.Fail(warning.Message);
+        }
+
+        var definition = await _exceptionDefinitions.FirstOrDefaultAsync(
+            e => e.RuleCode == SpecimenExpirationOverrideRule.Code && e.IsActive, ct);
+        var userLevel = await _permissions.GetMaxSecurityLevelAsync(_currentUser.UserName, ct);
+        var access = ExceptionOverridePolicy.EvaluateAccess(
+            userLevel, definition, SpecimenExpirationOverrideRule.Code);
+        if (access.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(access.Message);
+        }
+
+        return null;
+    }
 
     private async Task<OperationResult<Specimen>?> RejectUnauthorizedAsync(
         string permissionCode,

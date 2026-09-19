@@ -101,16 +101,34 @@
                                 <div class="form-row">
                                     <div class="field"><label>Accession #</label><input value="@s.AccessionNumber" disabled /></div>
                                     <div class="field"><label>Specimen type</label><input value="@(s.SpecimenTypeDescription ?? s.SpecimenType)" disabled /></div>
-                                    <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Edit.CollectedLocal" /></div>
+                                    <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Edit.CollectedLocal" @bind:after="OnCollectedChanged" /></div>
                                     <div class="field"><label>Barcode</label><input @bind="Edit.Barcode" /></div>
                                     <div class="field"><label>Draw location</label><input @bind="Edit.DrawLocation" /></div>
                                     <div class="field"><label>Collector</label><input @bind="Edit.Collector" /></div>
-                                    <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="Edit.ValidityHours" /></div>
+                                    <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="Edit.ExpiresLocal" @bind:after="OnExpiresChanged" /></div>
                                 </div>
                                 <div class="field">
                                     <label>Comment</label>
                                     <CodedCommentField Page="CommentPage.Specimen" @bind-Value="Edit.Comment" />
                                 </div>
+                                @if (NeedsExpirationOverride)
+                                {
+                                    <div class="bb-card" style="background:#fff8f0;margin-top:.75rem;border:1px solid #e8c48a;">
+                                        <strong>Exception: specimen expiration override</strong>
+                                        <p class="muted">Changing expiration away from the policy-computed window requires an authorized override. The exception is recorded and cannot be removed.</p>
+                                        @if (Session.SecurityLevel < ExceptionMinLevel)
+                                        {
+                                            <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum (@ExceptionMinLevel) required to override.</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="form-row">
+                                                <div class="field"><label>Authorized by</label><input @bind="Edit.AuthorizedBy" placeholder="@Session.UserName" /></div>
+                                                <div class="field" style="grid-column:1/-1;"><label>Override comment</label><input @bind="Edit.OverrideReason" /></div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
                                 <div class="flex gap">
                                     <button class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnSaveEdit.InvokeAsync(s.Id)">Save</button>
                                     <button class="btn btn-secondary btn-sm" @onclick="OnCancelEdit">Cancel</button>
@@ -203,4 +221,21 @@
     [Parameter] public EventCallback<long> OnReject { get; set; }
     [Parameter] public EventCallback OnCancelReject { get; set; }
     [Parameter] public EventCallback OnOpenOrders { get; set; }
+    [Parameter] public int ExceptionMinLevel { get; set; } = 2;
+
+    private bool NeedsExpirationOverride =>
+        SpecimenExpirationOverrideRule.Evaluate(
+            Edit.CollectedLocal.AddHours(Edit.PolicyHours),
+            Edit.ExpiresLocal,
+            overrideAuthorized: false).Severity == RuleSeverity.Warning;
+
+    private void OnCollectedChanged()
+    {
+        if (!Edit.ExpiryTouched)
+        {
+            Edit.ExpiresLocal = Edit.CollectedLocal.AddHours(Edit.PolicyHours);
+        }
+    }
+
+    private void OnExpiresChanged() => Edit.ExpiryTouched = true;
 }

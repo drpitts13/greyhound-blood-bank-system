@@ -22,7 +22,9 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     private SpecimenService Specimens(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
         new(new EfRepository<Specimen>(c), new EfRepository<Patient>(c), new EfRepository<SpecimenTypeDefinition>(c),
             c, _factory.Clock, audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            currentUser: _factory.CurrentUser, permissions: permissions);
+            currentUser: _factory.CurrentUser, permissions: permissions,
+            exceptionDefinitions: new EfRepository<ExceptionDefinition>(c),
+            overrides: new EfRepository<Override>(c));
 
     private static ICurrentUser Verifier => new TestCurrentUser("tech-verify", "WORKSTATION-2");
 
@@ -326,6 +328,167 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         Assert.True(updated.Succeeded);
         Assert.Equal(collected.AddHours(48), updated.Value!.ExpiresUtc);
+    }
+
+    [Fact]
+    public async Task Update_ExpiresMatchingPolicy_DoesNotRequireOverride()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-POL");
+        var specimenId = await AccessionAsync("ACC-EDIT-POL", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-4);
+        var policyExpires = collected.AddHours(SpecimenValidityPolicy.DefaultStandardHours);
+
+        await using var context = _factory.Create();
+        var updated = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
+            collected, Barcode: "BC-POL", ExpiresUtc: policyExpires));
+
+        Assert.True(updated.Succeeded, updated.Error);
+        Assert.Equal(policyExpires, updated.Value!.ExpiresUtc);
+        Assert.Equal("BC-POL", updated.Value.Barcode);
+        Assert.False(await context.Overrides.AnyAsync(o =>
+            o.ContextType == nameof(Specimen)
+            && o.ContextId == specimenId
+            && o.RuleCode == SpecimenExpirationOverrideRule.Code));
+    }
+
+    [Fact]
+    public async Task Update_ExpiresBeforeCollection_Fails()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-BEF");
+        var specimenId = await AccessionAsync("ACC-EDIT-BEF", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+
+        await using var context = _factory.Create();
+        var result = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
+            collected, ExpiresUtc: collected.AddMinutes(-1)));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("before collection", result.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Update_ExpiryChange_WithoutReason_IsBlocked()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-NOREASON");
+        var specimenId = await AccessionAsync("ACC-EDIT-NOREASON", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+
+        await using var context = _factory.Create();
+        await EnsureExpirationOverrideExceptionAsync(context);
+        var denied = await Specimens(context, new FixedPermissionEvaluator(2)).UpdateAsync(
+            specimenId,
+            new UpdateSpecimenRequest(collected, ExpiresUtc: collected.AddHours(24)));
+
+        Assert.False(denied.Succeeded);
+        Assert.Contains("authorized override", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.False(await context.Overrides.AnyAsync(o => o.ContextId == specimenId));
+    }
+
+    [Fact]
+    public async Task Update_ExpiryChange_TechLevel1_IsBlocked()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-TECH");
+        var specimenId = await AccessionAsync("ACC-EDIT-TECH", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+
+        await using var context = _factory.Create();
+        await EnsureExpirationOverrideExceptionAsync(context);
+        var denied = await Specimens(context, new FixedPermissionEvaluator(1)).UpdateAsync(
+            specimenId,
+            new UpdateSpecimenRequest(
+                collected,
+                ExpiresUtc: collected.AddHours(24),
+                OverrideReason: "Need extra time",
+                AuthorizedBy: "tech1"));
+
+        Assert.False(denied.Succeeded);
+        Assert.Contains("below the minimum", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.False(await context.Overrides.AnyAsync(o => o.ContextId == specimenId));
+    }
+
+    [Fact]
+    public async Task Update_ExpiryChange_SupervisorWithReason_WritesOverride()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-SUP");
+        var specimenId = await AccessionAsync("ACC-EDIT-SUP", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+        var requested = collected.AddHours(240);
+
+        await using var context = _factory.Create();
+        await EnsureExpirationOverrideExceptionAsync(context);
+        var updated = await Specimens(context, new FixedPermissionEvaluator(2)).UpdateAsync(
+            specimenId,
+            new UpdateSpecimenRequest(
+                collected,
+                ExpiresUtc: requested,
+                OverrideReason: "Extended for delayed XM",
+                AuthorizedBy: "supervisor"));
+
+        Assert.True(updated.Succeeded, updated.Error);
+        Assert.Equal(requested, updated.Value!.ExpiresUtc);
+        var recorded = await context.Overrides.SingleAsync(o =>
+            o.ContextType == nameof(Specimen)
+            && o.ContextId == specimenId
+            && o.RuleCode == SpecimenExpirationOverrideRule.Code);
+        Assert.Equal("Extended for delayed XM", recorded.Reason);
+        Assert.Equal("supervisor", recorded.AuthorizedBy);
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EventType == AuditEventType.Specimen
+            && a.EntityId == specimenId
+            && a.Reason != null
+            && a.Reason.Contains(SpecimenExpirationOverrideRule.Code)));
+    }
+
+    [Fact]
+    public async Task RecomputeValidity_LeavesOverriddenExpiryAlone()
+    {
+        var patientId = await EnsurePatientAsync("MRN-RECOMP-OVR");
+        var specimenId = await AccessionAsync("ACC-RECOMP-OVR", patientId);
+        var siblingId = await AccessionAsync("ACC-RECOMP-SIB", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+        var overridden = collected.AddHours(240);
+
+        await using var context = _factory.Create();
+        await EnsureExpirationOverrideExceptionAsync(context);
+        var saved = await Specimens(context, new FixedPermissionEvaluator(2)).UpdateAsync(
+            specimenId,
+            new UpdateSpecimenRequest(
+                collected,
+                ExpiresUtc: overridden,
+                OverrideReason: "Keep this window",
+                AuthorizedBy: "supervisor"));
+        Assert.True(saved.Succeeded, saved.Error);
+
+        var sibling = await context.Specimens.FindAsync(siblingId);
+        sibling!.ExpiresUtc = sibling.CollectedUtc.AddHours(24);
+        await context.SaveChangesAsync();
+        var siblingCollected = sibling.CollectedUtc;
+
+        await using var recompute = _factory.Create();
+        await Specimens(recompute).RecomputeValidityForPatientAsync(patientId);
+
+        Assert.Equal(overridden, (await recompute.Specimens.FindAsync(specimenId))!.ExpiresUtc);
+        Assert.Equal(
+            siblingCollected.AddHours(SpecimenValidityPolicy.DefaultStandardHours),
+            (await recompute.Specimens.FindAsync(siblingId))!.ExpiresUtc);
+    }
+
+    private static async Task EnsureExpirationOverrideExceptionAsync(BloodBankDbContext c)
+    {
+        if (await c.ExceptionDefinitions.AnyAsync(e => e.RuleCode == SpecimenExpirationOverrideRule.Code))
+        {
+            return;
+        }
+
+        c.ExceptionDefinitions.Add(new ExceptionDefinition
+        {
+            RuleCode = SpecimenExpirationOverrideRule.Code,
+            Name = "Specimen expiration override",
+            MinSecurityLevel = 2,
+            IsOverridable = true,
+            IsActive = true
+        });
+        await c.SaveChangesAsync();
     }
 
     [Fact]

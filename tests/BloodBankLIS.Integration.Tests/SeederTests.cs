@@ -97,6 +97,11 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
                 && e.MinSecurityLevel == 2));
             Assert.True(await verify.ExceptionDefinitions.AnyAsync(e => e.RuleCode == CrossmatchValidityRule.Code && !e.IsOverridable));
             Assert.True(await verify.ExceptionDefinitions.AnyAsync(e => e.RuleCode == AntibodyHistoryCrossmatchRule.RuleCode && e.IsOverridable));
+            Assert.True(await verify.ExceptionDefinitions.AnyAsync(e =>
+                e.RuleCode == SpecimenExpirationOverrideRule.Code
+                && e.IsOverridable
+                && e.MinSecurityLevel == 2
+                && e.Name == "Specimen expiration override"));
 
             // Seeding clinical/reference rows also produced audit events.
             Assert.True(await verify.AuditEvents.AnyAsync());

@@ -16,11 +16,15 @@ public sealed class PatientAccessionForm
 public sealed class PatientSpecimenEditForm
 {
     public DateTime CollectedLocal { get; set; } = DateTime.UtcNow;
+    public DateTime ExpiresLocal { get; set; } = DateTime.UtcNow;
     public string? Barcode { get; set; }
     public string? DrawLocation { get; set; }
     public string? Collector { get; set; }
-    public int? ValidityHours { get; set; }
+    public int PolicyHours { get; set; } = 168;
+    public bool ExpiryTouched { get; set; }
     public string? Comment { get; set; }
+    public string OverrideReason { get; set; } = string.Empty;
+    public string AuthorizedBy { get; set; } = string.Empty;
 }
 
 public sealed class PatientDemoEditModel

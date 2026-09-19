@@ -214,7 +214,8 @@ else
             OnCancelEdit="() => _editId = null"
             OnReject="RejectAsync"
             OnCancelReject="() => _rejectId = null"
-            OnOpenOrders="OpenAddOrderWithAccessionAsync" />
+            OnOpenOrders="OpenAddOrderWithAccessionAsync"
+            ExceptionMinLevel="_specimenExpMinLevel" />
     }
 
     @if (_tab == "tests")
@@ -456,6 +457,7 @@ else
     private long? _editId;
     private PatientSpecimenEditForm _edit = new();
     private Feedback? _editFb;
+    private int _specimenExpMinLevel = 2;
 
     // results
     private SpecimenDto? _selectedSpecimen;
@@ -1736,7 +1738,7 @@ else
         _rejectReason = string.Empty;
     }
 
-    private void BeginEdit(SpecimenDto s)
+    private async Task BeginEdit(SpecimenDto s)
     {
         if (_editId == s.Id)
         {
@@ -1744,29 +1746,66 @@ else
             return;
         }
 
+        var hours = s.ExpiresUtc.HasValue
+            ? (int)Math.Round((s.ExpiresUtc.Value - s.CollectedUtc).TotalHours)
+            : SpecimenValidityPolicy.DefaultStandardHours;
+
         _rejectId = null;
         _editId = s.Id;
         _editFb = null;
         _edit = new PatientSpecimenEditForm
         {
             CollectedLocal = s.CollectedUtc,
+            ExpiresLocal = s.ExpiresUtc ?? s.CollectedUtc.AddHours(hours),
+            PolicyHours = hours,
             Barcode = s.Barcode,
             DrawLocation = s.DrawLocation,
             Collector = s.Collector,
-            Comment = s.Comment
+            Comment = s.Comment,
+            AuthorizedBy = Session.UserName
         };
+
+        var exc = await Api.GetAdminExceptionByCodeAsync(SpecimenExpirationOverrideRule.Code);
+        if (exc.Succeeded && exc.Value is not null) _specimenExpMinLevel = exc.Value.MinSecurityLevel;
     }
+
+    private bool NeedsSpecimenExpiryOverride =>
+        _editId is not null
+        && SpecimenExpirationOverrideRule.Evaluate(
+            _edit.CollectedLocal.AddHours(_edit.PolicyHours),
+            _edit.ExpiresLocal,
+            overrideAuthorized: false).Severity == RuleSeverity.Warning;
 
     private async Task SaveEditAsync(long specimenId)
     {
+        if (NeedsSpecimenExpiryOverride)
+        {
+            if (Session.SecurityLevel < _specimenExpMinLevel)
+            {
+                _editFb = Feedback.Fail("Security level is insufficient to override specimen expiration.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_edit.OverrideReason))
+            {
+                _editFb = Feedback.Fail("An override comment is required when changing specimen expiration from the policy-computed value.");
+                return;
+            }
+        }
+
         _busy = true;
         var r = await Api.UpdateSpecimenAsync(specimenId, new UpdateSpecimenRequest(
             DateTime.SpecifyKind(_edit.CollectedLocal, DateTimeKind.Utc),
             string.IsNullOrWhiteSpace(_edit.Barcode) ? null : _edit.Barcode,
             string.IsNullOrWhiteSpace(_edit.DrawLocation) ? null : _edit.DrawLocation,
             string.IsNullOrWhiteSpace(_edit.Collector) ? null : _edit.Collector,
-            _edit.ValidityHours,
-            string.IsNullOrWhiteSpace(_edit.Comment) ? null : _edit.Comment));
+            ValidityHours: null,
+            string.IsNullOrWhiteSpace(_edit.Comment) ? null : _edit.Comment,
+            DateTime.SpecifyKind(_edit.ExpiresLocal, DateTimeKind.Utc),
+            NeedsSpecimenExpiryOverride ? _edit.OverrideReason.Trim() : null,
+            NeedsSpecimenExpiryOverride
+                ? (string.IsNullOrWhiteSpace(_edit.AuthorizedBy) ? Session.UserName : _edit.AuthorizedBy.Trim())
+                : null));
         _busy = false;
         _editFb = r.ToFeedback("Specimen updated.");
         if (r.Succeeded)

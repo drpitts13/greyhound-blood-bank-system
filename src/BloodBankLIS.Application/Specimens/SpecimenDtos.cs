@@ -24,7 +24,10 @@ public sealed record UpdateSpecimenRequest(
     string? DrawLocation = null,
     string? Collector = null,
     int? ValidityHours = null,
-    string? Comment = null);
+    string? Comment = null,
+    DateTime? ExpiresUtc = null,
+    string? OverrideReason = null,
+    string? AuthorizedBy = null);
 
 public sealed record SpecimenDto(
     long Id,

@@ -1118,6 +1118,15 @@ public static partial class DatabaseSeeder
             isOverridable: false,
             ct);
 
+        changed |= await EnsureExceptionDefinitionAsync(
+            context,
+            SpecimenExpirationOverrideRule.Code,
+            "Specimen expiration override",
+            "Changing a specimen expiration away from the policy-computed collection window requires an authorized override by supervisor or higher.",
+            minSecurityLevel: 2,
+            isOverridable: true,
+            ct);
+
         if (changed)
         {
             await context.SaveChangesAsync(ct);
