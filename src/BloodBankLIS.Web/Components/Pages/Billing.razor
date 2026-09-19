@@ -30,16 +30,46 @@
                 @foreach (var c in _charges)
                 {
                     <tr>
-                        <td>@(c.PatientDisplayName ?? "—")</td>
+                        <td>
+                            @if (c.PatientId is long billingPatientId)
+                            {
+                                <a href="@($"/patients/{billingPatientId}")">@(c.PatientDisplayName ?? $"Patient #{billingPatientId}")</a>
+                            }
+                            else
+                            {
+                                @(c.PatientDisplayName ?? "—")
+                            }
+                        </td>
                         <td class="mono">@(c.MedicalRecordNumber ?? "—")</td>
                         <td class="mono">@c.BillingCode</td>
-                        <td class="mono">@(c.ClinicalLabel ?? "—")</td>
+                        <td class="mono">
+                            @if (ClinicalHref(c) is string clinicalHref)
+                            {
+                                <a href="@clinicalHref">@(c.ClinicalLabel ?? ClinicalHopLabel(c))</a>
+                            }
+                            else
+                            {
+                                @(c.ClinicalLabel ?? "—")
+                            }
+                        </td>
                         <td>@c.TriggerType</td>
                         <td class="mono">@(c.DftControlId ?? "—")</td>
                         <td class="nowrap">@c.ServiceDateUtc.ToString("yyyy-MM-dd")</td>
                         <td class="right">@(c.Amount?.ToString("C") ?? "—")</td>
                         <td><span class="@Ui.Badge(c.Status)">@c.Status</span></td>
                         <td class="right nowrap">
+                            @if (c.PatientId is long billingChartId)
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@($"/patients/{billingChartId}")">Open chart</a>
+                            }
+                            @if (ClinicalHref(c) is string clinicalHop)
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@clinicalHop">@ClinicalHopLabel(c)</a>
+                            }
+                            @if (c.Hl7MessageId is > 0)
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@($"/hl7?messageId={c.Hl7MessageId}")">Open HL7</a>
+                            }
                             @if (c.Status == BillingEventStatus.Pending)
                             {
                                 <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReviewAsync(c.Id)">Review</button>
@@ -106,6 +136,24 @@
         _fb = r.ToFeedback("Charge exported.");
         if (r.Succeeded) await LoadAsync();
     }
+
+    private static string? ClinicalHref(BillingEventDto c)
+    {
+        if (c.PatientId is not long patientId)
+        {
+            return null;
+        }
+
+        return c.TriggerEntityType switch
+        {
+            "TestResult" => $"/patients/{patientId}?tab=tests",
+            "Issue" or "TransfusionEvent" => $"/patients/{patientId}?tab=history",
+            _ => null
+        };
+    }
+
+    private static string ClinicalHopLabel(BillingEventDto c) =>
+        c.TriggerEntityType == "TestResult" ? "Open Tests" : "Open Product History";
 
     private void BeginCancel(long id) { _cancelId = id; _cancelReason = string.Empty; }
 

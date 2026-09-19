@@ -6,10 +6,15 @@
 
 <div class="flex-between">
     <h1>Modification Rules</h1>
-    @if (CanManage)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New rule</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/expiration-codes">Open Expiration Codes</a>
+        <a class="btn btn-ghost" href="/admin/products">Open Products</a>
+        <a class="btn btn-ghost" href="/inventory/modify">Open Modify</a>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New rule</button>
+        }
+    </div>
 </div>
 
 <p class="muted">

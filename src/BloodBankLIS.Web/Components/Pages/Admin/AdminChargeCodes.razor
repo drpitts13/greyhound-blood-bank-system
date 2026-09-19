@@ -8,10 +8,15 @@
 
 <div class="flex-between">
     <h1>Charge Codes</h1>
-    @if (CanEdit)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New charge code</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/charge-rules">Open Charge Rules</a>
+        <a class="btn btn-ghost" href="/admin/product-billing">Open Product Billing</a>
+        <a class="btn btn-ghost" href="/admin/test-service-billing">Open Test/Service Billing</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New charge code</button>
+        }
+    </div>
 </div>
 <p class="muted">Charge master used by charge rules and outbound DFT^P03. CPT/HCPCS maps to FT1-25, revenue code to FT1-13, and modifier to FT1-26.</p>
 

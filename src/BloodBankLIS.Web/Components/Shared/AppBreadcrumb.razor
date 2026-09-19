@@ -1,0 +1,29 @@
+@inject NavigationManager Nav
+@implements IDisposable
+
+<nav class="bb-breadcrumb" aria-label="Breadcrumb">
+    @foreach (var (crumb, index) in AppBreadcrumbTrail.FromRelative(Nav.ToBaseRelativePath(Nav.Uri)).Select((c, i) => (c, i)))
+    {
+        @if (index > 0)
+        {
+            <span class="sep" aria-hidden="true">/</span>
+        }
+        @if (!string.IsNullOrEmpty(crumb.Href))
+        {
+            <a href="@crumb.Href">@crumb.Label</a>
+        }
+        else
+        {
+            <span class="current" aria-current="page">@crumb.Label</span>
+        }
+    }
+</nav>
+
+@code {
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) =>
+        InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}

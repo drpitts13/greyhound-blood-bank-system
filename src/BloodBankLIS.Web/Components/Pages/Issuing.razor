@@ -6,6 +6,13 @@
 <PageTitle>Issue &amp; Transfuse &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Issue &amp; Transfuse</h1>
+@if (QueryPatientId is long chartPatientId)
+{
+    <p>
+        <a href="@($"/patients/{chartPatientId}?tab=products")">Open chart · Products</a>
+        <span class="muted"> · Patient and unit stay prefilled on this desk.</span>
+    </p>
+}
 <p class="muted">The issue gate runs all safety checks, including storage-location policy and electronic / remote issue eligibility (AABB 5.16). Overrides require a reason and an electronic signature. Reserved units appear on Ready to issue so the desk does not re-key patient and unit after allocate.</p>
 
 @if (Session.Has(PermissionCodes.IssueCreate))
@@ -32,7 +39,7 @@
                     @foreach (var row in _secondAboItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">@row.DisplayName</a></td>
+                            <td><a href="@($"/patients/{row.PatientId}?tab=tests")">@row.DisplayName</a></td>
                             <td class="mono">@row.MedicalRecordNumber</td>
                             <td class="mono">@row.CurrentAboRh</td>
                             <td>@row.ReservedUnitCount</td>
@@ -70,7 +77,7 @@
                     @foreach (var row in _readyItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? "—")</a></td>
+                            <td><a href="@($"/patients/{row.PatientId}?tab=products")">@(row.PatientDisplayName ?? "—")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
                             <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
                             <td><strong>@(row.CurrentBloodType ?? "—")</strong></td>
@@ -368,6 +375,15 @@
         {
             <div class="alert alert-success" style="margin-top:1rem;">
                 Issue <strong>#@_lastIssue.Id</strong> created for unit @_lastIssue.BloodUnitId &middot; <span class="badge badge-amber">@_lastIssue.Status</span>
+                <div class="flex gap" style="margin-top:.65rem;flex-wrap:wrap;">
+                    @if (Session.Has(PermissionCodes.PrintLabel))
+                    {
+                        <button type="button" class="btn btn-primary btn-sm" disabled="@_busy" @onclick="PrintLastIssuePtagAsync">Print P-tag</button>
+                    }
+                    <a class="btn btn-secondary btn-sm" href="@($"/printing?issueId={_lastIssue.Id}")">Open Printing</a>
+                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{_lastIssue.PatientId}?tab=products")">Open chart · Products</a>
+                </div>
+                <Outcome Value="_ptagFb" />
             </div>
         }
     }
@@ -411,6 +427,10 @@
                 {
                     <span> · awaiting ward receipt</span>
                 }
+                <span> · </span>
+                <a href="@($"/patients/{_wardIssue.PatientId}?tab=products")">Open chart · Products</a>
+                <span> · </span>
+                <a href="@($"/inventory?unitId={_wardIssue.BloodUnitId}")">Open Inventory</a>
             </p>
         }
     }
@@ -436,6 +456,18 @@
             </div>
             <p class="muted">Reissue eligibility is computed from temperature, seal, visual inspection, and time out of storage.</p>
             <button class="btn btn-secondary" disabled="@_busy" @onclick="ReturnAsync">Return unit</button>
+            @if (_lastReturn is not null)
+            {
+                <p class="muted" style="margin-top:.75rem;">
+                    Return #@_lastReturn.Id recorded@( _lastReturn.ReissueEligible ? " · eligible for reissue" : " · not eligible for reissue").
+                    <a href="@($"/inventory?unitId={_lastReturn.BloodUnitId}")">Open Inventory</a>
+                    @if (_returnPatientId is long returnedPatientId)
+                    {
+                        <span> · </span>
+                        <a href="@($"/patients/{returnedPatientId}?tab=products")">Open chart · Products</a>
+                    }
+                </p>
+            }
         }
     </div>
 
@@ -476,6 +508,13 @@
             <div style="margin-top:.75rem;">
                 <button class="btn btn-secondary" disabled="@_busy" @onclick="DocumentTransfusionAsync">Document</button>
             </div>
+            @if (_lastTransfusion is not null)
+            {
+                <p class="muted" style="margin-top:.75rem;">
+                    Transfusion #@_lastTransfusion.Id documented for issue #@_lastTransfusion.IssueId.
+                    <a href="@($"/patients/{_lastTransfusion.PatientId}?tab=products")">Open chart · Products</a>
+                </p>
+            }
             @if (_openedReactionId is long reactionId)
             {
                 <div class="alert alert-warning" style="margin-top:.75rem;">
@@ -499,6 +538,7 @@
     private List<SpecialRequirementDto> _issueAckRequirements = new();
     private HashSet<string> _issueAcks = new(StringComparer.OrdinalIgnoreCase);
     private Feedback? _issueFb;
+    private Feedback? _ptagFb;
     private IssueDto? _lastIssue;
 
     private bool _overrideOn;
@@ -526,6 +566,7 @@
     private string? _txPatientIdentifier1;
     private string? _txPatientIdentifier2;
     private Feedback? _txFb;
+    private TransfusionEventDto? _lastTransfusion;
     private long? _openedReactionId;
     private readonly UnitScanModel _issueScan = new();
     private readonly UnitScanModel _txScan = new();
@@ -542,6 +583,8 @@
     [SupplyParameterFromQuery(Name = "bloodUnitId")] public long? QueryBloodUnitId { get; set; }
     private string? _returnUnitNumber;
     private string? _returnPatientName;
+    private long? _returnPatientId;
+    private ReturnDto? _lastReturn;
 
     private long? IssuePatientId
     {
@@ -598,7 +641,7 @@
 
     private static string RetroXmHref(RetrospectiveCrossmatchWorkItemDto row)
     {
-        var href = $"/compatibility?patientId={row.PatientId}&bloodUnitId={row.BloodUnitId}";
+        var href = $"/compatibility?patientId={row.PatientId}&bloodUnitId={row.BloodUnitId}&from=retro";
         if (row.SpecimenId is long specimenId)
         {
             href += $"&specimenId={specimenId}";
@@ -617,6 +660,7 @@
         _returnIssueId = row.IssueId;
         _returnUnitNumber = row.UnitNumber;
         _returnPatientName = row.PatientDisplayName;
+        _returnPatientId = row.PatientId;
     }
 
     private void SelectTransfusionIssue(OutstandingIssueWorkItemDto row)
@@ -747,8 +791,20 @@
             _txIssueId = r.Value.Id;
             _returnIssueId = r.Value.Id;
             await LoadWorklistsAsync();
+            _ptagFb = null;
         }
         _busy = false;
+    }
+
+    private async Task PrintLastIssuePtagAsync()
+    {
+        if (_lastIssue is null || !Session.Has(PermissionCodes.PrintLabel)) return;
+        _busy = true;
+        var r = await Api.PrintCompatibilityTagAsync(_lastIssue.Id, new PrintRequestVm(LabelFormat.Preview));
+        _busy = false;
+        _ptagFb = r.Succeeded
+            ? r.ToFeedback($"P-tag queued as job #{r.Value!.Id}. Reprints stay on Printing.")
+            : r.ToFeedback();
     }
 
     private async Task IssueWithOverrideAsync()
@@ -780,6 +836,7 @@
             _returnIssueId = r.Value.Id;
             _overrideOn = false;
             await LoadWorklistsAsync();
+            _ptagFb = null;
         }
         _busy = false;
     }
@@ -818,6 +875,7 @@
         _returnFb = r.ToFeedback("Unit returned.");
         if (r.Succeeded)
         {
+            _lastReturn = r.Value;
             _returnUnitNumber = null;
             _returnPatientName = null;
             await LoadWorklistsAsync();
@@ -841,6 +899,7 @@
         _openedReactionId = null;
         if (r.Succeeded)
         {
+            _lastTransfusion = r.Value;
             await LoadWorklistsAsync();
         }
         if (_txReaction && r.Succeeded && r.Value is not null)

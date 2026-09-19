@@ -15,9 +15,16 @@
             <span> · Specimen expires <span class="@(WorkItem.SpecimenExpired ? "badge badge-red" : "mono")">@expires.ToString("yyyy-MM-dd HH:mm")</span></span>
         }
         · eXM @(WorkItem.ElectronicXmEligible ? "eligible" : (WorkItem.ElectronicXmClinicalBlockReason ?? WorkItem.ElectronicXmBlockReason ?? "not eligible"))
-        @if (WorkItem.HasOpenAntibodyIdWorkup)
+        @if (WorkItem.OffersAntibodyIdHandoff)
         {
-            <span> · Open antibody-identification workup</span>
+            <span>
+                ·
+                <a href="@WorkItem.AntibodyIdHref">
+                    @(WorkItem.HasOpenAntibodyIdWorkup
+                        ? "Open antibody identification"
+                        : "Start antibody identification for this specimen")
+                </a>
+            </span>
         }
     </div>
 
@@ -48,7 +55,15 @@
 
     @if (!WorkItem.CanEnterResults)
     {
-        <div class="alert alert-warning">@WorkItem.BlockReason</div>
+        <div class="alert alert-warning">
+            @WorkItem.BlockReason
+            @if (WorkItem.NeedsSpecimenLink)
+            {
+                <div style="margin-top:.5rem;">
+                    <a class="btn btn-secondary btn-sm" href="@WorkItem.ChartAccessionHref">Accession and link on Orders</a>
+                </div>
+            }
+        </div>
     }
     else if (Session.Has(PermissionCodes.ResultEnter))
     {

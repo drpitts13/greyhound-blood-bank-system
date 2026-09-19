@@ -4,7 +4,7 @@
 <PageTitle>Configuration History &middot; Admin</PageTitle>
 
 <h1>Configuration History</h1>
-<p class="muted">Every configuration change, with environment and dev-mode context. Compare any version's before/after snapshot.</p>
+<p class="muted">Every configuration change, with environment and dev-mode context. Compare any version's before/after snapshot. Filter matches the Admin Home cards.</p>
 
 <Outcome Value="_feedback" />
 
@@ -12,11 +12,36 @@
     <div class="flex gap" style="margin-bottom:.6rem;flex-wrap:wrap;">
         <select @bind="_entityType" @bind:after="LoadAsync">
             <option value="">All types</option>
-            <option value="TestDefinition">Test definitions</option>
-            <option value="ProductType">Products</option>
+            <option value="AntibodyPanelLot">Antibody panel lots</option>
+            <option value="AntibodyPanelManufacturer">Antibody panel manufacturers</option>
+            <option value="BloodAttributeDefinition">Blood attributes</option>
+            <option value="ChargeCode">Charge codes</option>
+            <option value="ChargeRule">Charge rules</option>
+            <option value="CompatibilityRule">Compatibility rules</option>
+            <option value="CompatibilityRuleVersion">Compatibility tables</option>
+            <option value="CrossmatchSettings">Crossmatch settings</option>
+            <option value="ExceptionDefinition">Exceptions</option>
+            <option value="ExpirationModificationCode">Expiration codes</option>
+            <option value="SystemSetting">Facility policy</option>
             <option value="InterfaceEndpoint">HL7 endpoints</option>
-            <option value="User">Users</option>
+            <option value="InterfaceValueTranslation">HL7 translations</option>
+            <option value="InventoryLocation">Inventory locations</option>
+            <option value="ModificationRule">Modification rules</option>
+            <option value="OrderingLocation">Ordering locations</option>
+            <option value="OrderingProvider">Ordering providers</option>
+            <option value="RuleDefinition">Order and test rules</option>
+            <option value="PhaseDefinition">Phases</option>
+            <option value="ProductBilling">Product billing</option>
+            <option value="ProductType">Products</option>
+            <option value="ReflexRule">Reflex rules</option>
             <option value="Role">Roles</option>
+            <option value="SpecialRequirementDefinition">Special requirements</option>
+            <option value="SpecimenTypeDefinition">Specimen types</option>
+            <option value="SubtestDefinition">Subtests</option>
+            <option value="TestDefinition">Test definitions</option>
+            <option value="TestGrouper">Test groupers</option>
+            <option value="TestServiceBilling">Test/service billing</option>
+            <option value="User">Users</option>
         </select>
     </div>
 </div>
@@ -31,15 +56,36 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "entityType")]
+    public string? EntityTypeQuery { get; set; }
+
     private List<ConfigHistoryDto> _rows = new();
     private bool _loading = true;
     private string _entityType = string.Empty;
     private Feedback? _feedback;
+    private string? _loadedKey;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(EntityTypeQuery)
+            && !string.Equals(_entityType, EntityTypeQuery.Trim(), StringComparison.Ordinal))
+        {
+            _entityType = EntityTypeQuery.Trim();
+        }
+
+        var key = _entityType;
+        if (_loadedKey == key)
+        {
+            return Task.CompletedTask;
+        }
+
+        _loadedKey = key;
+        return LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
+        _loadedKey = _entityType;
         _loading = true;
         var r = await Api.GetConfigHistoryAsync(string.IsNullOrWhiteSpace(_entityType) ? null : _entityType, max: 200);
         _rows = r.Value ?? new();

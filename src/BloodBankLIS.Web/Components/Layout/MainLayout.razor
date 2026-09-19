@@ -4,6 +4,7 @@
 @inject NavigationManager Nav
 @inject DevModeState Dev
 @inject BloodBankApiClient Api
+@inject DesktopHostLifetime DesktopHost
 
 @if (Session.IsSignedIn)
 {
@@ -18,6 +19,10 @@
                 {
                     <button class="btn btn-ghost btn-sm" style="padding-left:0;" @onclick="SignOut">Sign out</button>
                 }
+                @if (DesktopHost.ShutdownOnExit)
+                {
+                    <button class="btn btn-ghost btn-sm" style="padding-left:0;" @onclick="ExitApplication">Exit</button>
+                }
             </div>
         </aside>
         <div class="bb-main">
@@ -28,7 +33,7 @@
                 </div>
             }
             <header class="bb-topbar">
-                <div class="ws">@_pageTitle</div>
+                <AppBreadcrumb />
                 <div class="flex">
                     <span class="badge badge-gray">@Session.Workstation</span>
                 </div>
@@ -47,7 +52,6 @@
 </div>
 
 @code {
-    private string _pageTitle = "Transfusion Service";
     private DateTime _lastProfileRefreshUtc;
 
     protected override void OnInitialized()
@@ -120,6 +124,8 @@
         Session.SignOut();
         Nav.NavigateTo("/login");
     }
+
+    private void ExitApplication() => DesktopHost.RequestImmediateStop();
 
     public void Dispose() => Session.Changed -= OnSessionChanged;
 }

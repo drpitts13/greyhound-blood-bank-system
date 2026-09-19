@@ -8,11 +8,16 @@
 
 <div class="flex-between">
     <h1>Subtest Definitions</h1>
-    @if (CanManage)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New subtest</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/phases">Open Phases</a>
+        <a class="btn btn-ghost" href="/admin/tests">Open Tests</a>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New subtest</button>
+        }
+    </div>
 </div>
+<p class="muted">Reusable panel subtests: graded reactions, pick lists, and free text with polarity for logic tables. Phases (IS, 37°C, AHG) are assigned here and used on Tests.</p>
 
 <Outcome Value="_feedback" />
 

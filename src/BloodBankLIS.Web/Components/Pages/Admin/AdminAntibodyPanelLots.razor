@@ -1,13 +1,14 @@
 @page "/admin/antibody-panel-lots"
 @inject UserSession Session
 @inject BloodBankApiClient Api
-@inject NavigationManager Nav
 
 <PageTitle>Antibody Panel Lots &middot; Admin</PageTitle>
 
 <div class="flex-between">
     <h1>Antibody panel lots</h1>
     <div class="flex gap">
+        <a class="btn btn-ghost" href="/antibody-id">Open Antibody ID</a>
+        <a class="btn btn-ghost" href="/admin/blood-attributes">Open Blood Attributes</a>
         @if (CanEdit)
         {
             <button class="btn btn-secondary" type="button" @onclick="BeginCreateManufacturer">New manufacturer</button>
@@ -64,7 +65,7 @@
                         </td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ViewManufacturerAsync(m.Id)">View workups</button>
-                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenManufacturerWorklist(m)">Worklist</button>
+                            <a class="btn btn-ghost btn-sm" href="@ManufacturerWorklistHref(m)">Worklist</a>
                             @if (CanActivate)
                             {
                                 @if (m.IsActive)
@@ -112,7 +113,7 @@
                                 <td class="mono">@(w.LotNumber ?? "—")</td>
                                 <td>@OpenWorkupNextLabel(w.NextAction)</td>
                                 <td class="right">
-                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                    <a class="btn btn-ghost btn-sm" href="@PatientWorkupHref(w)">Open workup</a>
                                 </td>
                             </tr>
                         }
@@ -135,7 +136,7 @@
                                 <td>Completed</td>
                                 <td>@PostedHistoryLabel(w)</td>
                                 <td class="right">
-                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                    <a class="btn btn-ghost btn-sm" href="@PatientWorkupHref(w)">Open workup</a>
                                 </td>
                             </tr>
                         }
@@ -193,7 +194,7 @@
                                 <td class="mono">@(w.LotNumber ?? "—")</td>
                                 <td>@OpenWorkupNextLabel(w.NextAction)</td>
                                 <td class="right">
-                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                    <a class="btn btn-ghost btn-sm" href="@PatientWorkupHref(w)">Open workup</a>
                                 </td>
                             </tr>
                         }
@@ -215,7 +216,7 @@
                                 <td>Completed</td>
                                 <td>@PostedHistoryLabel(w)</td>
                                 <td class="right">
-                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                    <a class="btn btn-ghost btn-sm" href="@PatientWorkupHref(w)">Open workup</a>
                                 </td>
                             </tr>
                         }
@@ -301,7 +302,7 @@
                         </td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" type="button" @onclick="() => ViewLotAsync(lot.Id)">View cells</button>
-                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenLotWorklist(lot.LotNumber)">Worklist</button>
+                            <a class="btn btn-ghost btn-sm" href="@LotWorklistHref(lot.LotNumber)">Worklist</a>
                             @if (CanActivate)
                             {
                                 @if (lot.IsActive)
@@ -387,7 +388,7 @@
                             <td class="mono">@(w.PatientMrn ?? "—")</td>
                             <td>@OpenWorkupNextLabel(w.NextAction)</td>
                             <td class="right">
-                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                <a class="btn btn-ghost btn-sm" href="@PatientWorkupHref(w)">Open workup</a>
                             </td>
                         </tr>
                     }
@@ -409,7 +410,7 @@
                             <td>Completed</td>
                             <td>@PostedHistoryLabel(w)</td>
                             <td class="right">
-                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                <a class="btn btn-ghost btn-sm" href="@PatientWorkupHref(w)">Open workup</a>
                             </td>
                         </tr>
                     }
@@ -536,7 +537,7 @@
                                 <td class="mono">@(w.PatientMrn ?? "—")</td>
                                 <td>@OpenWorkupNextLabel(w.NextAction)</td>
                                 <td class="right">
-                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                    <a class="btn btn-ghost btn-sm" href="@PatientWorkupHref(w)">Open workup</a>
                                 </td>
                             </tr>
                         }
@@ -557,7 +558,7 @@
                                 <td>Completed</td>
                                 <td>@PostedHistoryLabel(w)</td>
                                 <td class="right">
-                                    <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatientWorkup(w)">Open</button>
+                                    <a class="btn btn-ghost btn-sm" href="@PatientWorkupHref(w)">Open workup</a>
                                 </td>
                             </tr>
                         }
@@ -905,14 +906,14 @@
             ? $"{workup.PostedHistoryCount} posted"
             : "None posted";
 
-    private void OpenLotWorklist(string lotNumber) =>
-        Nav.NavigateTo($"/antibody-id?lot={Uri.EscapeDataString(lotNumber)}");
+    private static string LotWorklistHref(string lotNumber) =>
+        $"/antibody-id?lot={Uri.EscapeDataString(lotNumber)}";
 
-    private void OpenManufacturerWorklist(AntibodyPanelManufacturerListItemDto manufacturer) =>
-        Nav.NavigateTo($"/antibody-id?manufacturer={Uri.EscapeDataString(manufacturer.Code)}");
+    private static string ManufacturerWorklistHref(AntibodyPanelManufacturerListItemDto manufacturer) =>
+        $"/antibody-id?manufacturer={Uri.EscapeDataString(manufacturer.Code)}";
 
-    private void OpenPatientWorkup(AntibodyPanelLotOpenWorkupDto workup) =>
-        Nav.NavigateTo($"/patients/{workup.PatientId}/antibody-id/{workup.WorkupId}");
+    private static string PatientWorkupHref(AntibodyPanelLotOpenWorkupDto workup) =>
+        $"/patients/{workup.PatientId}/antibody-id/{workup.WorkupId}";
 
     private async Task ActivateAsync(AntibodyPanelLotListItemDto lot)
     {

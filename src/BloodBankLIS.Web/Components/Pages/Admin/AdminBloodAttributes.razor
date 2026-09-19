@@ -7,10 +7,15 @@
 
 <div class="flex-between">
     <h1>Blood Attributes</h1>
-    @if (CanEdit)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New attribute</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/special-requirements">Open Special Requirements</a>
+        <a class="btn btn-ghost" href="/admin/compatibility-rules">Open Compatibility Tables</a>
+        <a class="btn btn-ghost" href="/admin/antibody-panel-lots">Open Antibody Panel Lots</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New attribute</button>
+        }
+    </div>
 </div>
 <p class="muted">Antigen catalog with paired antibody names. Clinically significant attributes drive compatibility rules for patients and units.</p>
 

@@ -6,8 +6,12 @@
 
 <div class="flex-between">
     <h1>Users</h1>
-    <button class="btn btn-primary" @onclick="NewUser">New user</button>
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/roles">Open Roles</a>
+        <button class="btn btn-primary" @onclick="NewUser">New user</button>
+    </div>
 </div>
+<p class="muted">Role definitions live on Roles &amp; Permissions. Privilege escalation here still requires a reason.</p>
 
 <Outcome Value="_feedback" />
 

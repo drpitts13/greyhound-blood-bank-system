@@ -8,10 +8,14 @@
 
 <div class="flex-between">
     <h1>Inventory Locations</h1>
-    @if (CanEdit)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New storage location</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/inventory">Open Inventory</a>
+        <a class="btn btn-ghost" href="/admin/facility-policies">Open Facility Policy</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New storage location</button>
+        }
+    </div>
 </div>
 <p class="muted">SafeTrace / SoftBank storage sites: refrigerator, freezer, platelet incubator, satellite fridge, and issue window. Storage class, remote/electronic issue, and second-verifier policy are enforced at transfer and issue (AABB 5.1.8, 5.11, 5.16; 21 CFR 606.160).</p>
 

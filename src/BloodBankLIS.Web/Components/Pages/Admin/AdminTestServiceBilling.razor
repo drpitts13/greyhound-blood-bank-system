@@ -6,10 +6,15 @@
 
 <div class="flex-between">
     <h1>Test/Service Billing</h1>
-    @if (CanEdit)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New row</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/charge-codes">Open Charge Codes</a>
+        <a class="btn btn-ghost" href="/admin/tests">Open Tests</a>
+        <a class="btn btn-ghost" href="/billing">Open Billing</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New row</button>
+        }
+    </div>
 </div>
 <p class="muted">When a test is verified and the test code matches, a charge drops and a DFT is queued. Amount comes from the selected charge code.</p>
 

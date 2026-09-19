@@ -5,6 +5,7 @@
 
 <PageTitle>Modify Products &middot; Greyhound Blood Bank LIS</PageTitle>
 
+<InventoryDeskRibbon Current="InventoryDeskRibbon.Desk.Modify" />
 <h1>Modify Blood Products</h1>
 <p class="muted">
     Divide, pool, irradiate, thaw, volume-reduce, or leukoreduce a unit into a new product under an
@@ -159,7 +160,7 @@
     <div class="bb-card">
         <div class="bb-card-title"><h3>Result</h3></div>
         <table class="bb">
-            <thead><tr><th>New unit #</th><th>Product code</th><th>Volume</th><th>ABO/Rh</th><th>Status</th><th>Expires</th></tr></thead>
+            <thead><tr><th>New unit #</th><th>Product code</th><th>Volume</th><th>ABO/Rh</th><th>Status</th><th>Expires</th><th></th></tr></thead>
             <tbody>
                 @foreach (var u in _lastResult.ResultUnits)
                 {
@@ -170,6 +171,17 @@
                         <td>@Ui.BloodType(u.Abo, u.RhD)</td>
                         <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
                         <td class="nowrap">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="right nowrap">
+                            <a class="btn btn-secondary btn-sm" href="@($"/inventory?unitId={u.Id}")">Open Inventory</a>
+                            @if (u.Status == UnitStatus.Received)
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@($"/inventory?board=retype&unitId={u.Id}#pending-retype")">Open retype desk</a>
+                            }
+                            @if (Session.Has(PermissionCodes.PrintLabel))
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@($"/printing?unitId={u.Id}")">Open Printing</a>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -231,6 +243,31 @@
     private ModificationResultVm? _lastResult;
 
     private List<UnitModificationDto> _history = new();
+
+    [SupplyParameterFromQuery]
+    public long? UnitId { get; set; }
+
+    private bool _unitQueryApplied;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_unitQueryApplied || UnitId is not long unitId)
+        {
+            return;
+        }
+
+        _unitQueryApplied = true;
+        _sourceUnitId = unitId;
+        var r = await Api.GetUnitAsync(unitId);
+        if (r.Succeeded && r.Value is not null)
+        {
+            await SelectUnitAsync(r.Value);
+        }
+        else
+        {
+            _searchFb = r.ToFeedback();
+        }
+    }
 
     private static string RelativeLabel(ExpirationRelativeTo relativeTo) =>
         relativeTo == ExpirationRelativeTo.CollectionDateTime ? "collection" : "modification";

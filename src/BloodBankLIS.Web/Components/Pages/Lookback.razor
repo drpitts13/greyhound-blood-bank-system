@@ -38,7 +38,7 @@ else
             <div class="bb-card">
                 <div class="bb-card-title"><h3>Components for <span class="mono">@_report.Din</span></h3></div>
                 <table class="bb">
-                    <thead><tr><th>Unit</th><th>DIN</th><th>Status</th><th>Derived</th></tr></thead>
+                    <thead><tr><th>Unit</th><th>DIN</th><th>Status</th><th>Derived</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var u in _report.Units)
                         {
@@ -47,6 +47,9 @@ else
                                 <td class="mono">@u.Din</td>
                                 <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
                                 <td>@(u.IsDerivedComponent ? "Yes" : "")</td>
+                                <td class="right nowrap">
+                                    <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={u.BloodProductId}")">Open Inventory</a>
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -67,14 +70,28 @@ else
                             @foreach (var r in _report.Recipients)
                             {
                                 <tr>
-                                    <td>@(r.PatientName ?? r.PatientId?.ToString() ?? "—")</td>
+                                    <td>
+                                        @if (r.PatientId is long recipientPatientId)
+                                        {
+                                            <a href="@($"/patients/{recipientPatientId}")">@(r.PatientName ?? $"Patient #{recipientPatientId}")</a>
+                                        }
+                                        else
+                                        {
+                                            @(r.PatientName ?? "—")
+                                        }
+                                    </td>
                                     <td class="mono">@(r.MedicalRecordNumber ?? "—")</td>
                                     <td class="mono">@(r.UnitNumber ?? r.BloodProductId.ToString())</td>
                                     <td>@(r.IssueId?.ToString() ?? "—")</td>
                                     <td>@(r.TransfusionEventId?.ToString() ?? "—")</td>
                                     <td>@r.IssuedToLocation</td>
                                     <td class="nowrap">@(r.IssuedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
-                                    <td class="right">
+                                    <td class="right nowrap">
+                                        @if (r.PatientId is long chartPatientId)
+                                        {
+                                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{chartPatientId}")">Open chart</a>
+                                        }
+                                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={r.BloodProductId}")">Open Inventory</a>
                                         @if (!string.IsNullOrWhiteSpace(r.MedicalRecordNumber))
                                         {
                                             <button class="btn btn-ghost btn-sm" @onclick="() => TraceRecipient(r.MedicalRecordNumber!)">Trace recipient</button>
@@ -102,11 +119,24 @@ else
                             {
                                 <tr>
                                     <td>@n.Id</td>
-                                    <td>@(n.PatientId?.ToString() ?? "—")</td>
+                                    <td>
+                                        @if (n.PatientId is long notePatientId)
+                                        {
+                                            <a href="@($"/patients/{notePatientId}")">#@notePatientId</a>
+                                        }
+                                        else
+                                        {
+                                            <span>—</span>
+                                        }
+                                    </td>
                                     <td>@n.Status</td>
                                     <td>@n.PhysicianOfRecord</td>
                                     <td class="nowrap">@(n.AttemptedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
-                                    <td class="right">
+                                    <td class="right nowrap">
+                                        @if (n.PatientId is long noteChartId)
+                                        {
+                                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{noteChartId}")">Open chart</a>
+                                        }
                                         <button class="btn btn-ghost btn-sm" @onclick="() => BeginAttempt(n)">Record attempt</button>
                                     </td>
                                 </tr>
@@ -147,7 +177,10 @@ else
         @if (_trace is not null)
         {
             <div class="bb-card">
-                <div class="bb-card-title"><h3>@_trace.Patient.LastName, @_trace.Patient.FirstName</h3></div>
+                <div class="bb-card-title">
+                    <h3>@_trace.Patient.LastName, @_trace.Patient.FirstName</h3>
+                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{_trace.Patient.PatientId}")">Open chart</a>
+                </div>
                 <p class="muted">
                     MRN <span class="mono">@_trace.Patient.MedicalRecordNumber</span>
                     &middot; DOB @_trace.Patient.DateOfBirth.ToString("yyyy-MM-dd")
@@ -167,7 +200,7 @@ else
                 else
                 {
                     <table class="bb">
-                        <thead><tr><th>Unit</th><th>DIN</th><th>Status</th><th>Issue</th><th>Location</th><th>Issued</th><th>Transfusion</th></tr></thead>
+                        <thead><tr><th>Unit</th><th>DIN</th><th>Status</th><th>Issue</th><th>Location</th><th>Issued</th><th>Transfusion</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var u in _trace.Units)
                             {
@@ -197,6 +230,9 @@ else
                                             <span>@u.TransfusionDisposition@(u.ReactionSuspected ? " (reaction)" : "")</span>
                                         }
                                     </td>
+                                    <td class="right nowrap">
+                                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={u.BloodProductId}")">Open Inventory</a>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -213,7 +249,7 @@ else
                 else
                 {
                     <table class="bb">
-                        <thead><tr><th>DIN</th><th>Unit</th><th>Status</th></tr></thead>
+                        <thead><tr><th>DIN</th><th>Unit</th><th>Status</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var r in _trace.RelatedComponents)
                             {
@@ -223,6 +259,9 @@ else
                                     </td>
                                     <td class="mono">@r.UnitNumber (#@r.BloodProductId)</td>
                                     <td><span class="@Ui.Badge(r.Status)">@r.Status</span></td>
+                                    <td class="right nowrap">
+                                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={r.BloodProductId}")">Open Inventory</a>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -244,12 +283,14 @@ else
                             @foreach (var r in _trace.CoRecipients)
                             {
                                 <tr>
-                                    <td>@r.PatientName</td>
+                                    <td><a href="@($"/patients/{r.PatientId}")">@r.PatientName</a></td>
                                     <td class="mono">@r.MedicalRecordNumber</td>
                                     <td class="mono">@r.Din</td>
                                     <td class="mono">@r.UnitNumber</td>
                                     <td class="nowrap">@r.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                                    <td class="right">
+                                    <td class="right nowrap">
+                                        <a class="btn btn-ghost btn-sm" href="@($"/patients/{r.PatientId}")">Open chart</a>
+                                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={r.BloodProductId}")">Open Inventory</a>
                                         <button class="btn btn-ghost btn-sm" @onclick="() => TraceRecipient(r.MedicalRecordNumber)">Trace</button>
                                     </td>
                                 </tr>

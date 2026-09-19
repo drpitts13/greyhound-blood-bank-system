@@ -1,6 +1,8 @@
 using BloodBankLIS.Web.Components;
+using BloodBankLIS.Web.Hosting;
 using BloodBankLIS.Web.Security;
 using BloodBankLIS.Web.Services;
+using Microsoft.AspNetCore.Components.Server.Circuits;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +27,12 @@ var devMode = new DevModeState
 builder.Services.AddSingleton(devMode);
 
 // Per-circuit operator identity, and a handler that forwards it to the API.
+var desktopHost = builder.Configuration.GetSection(DesktopHostOptions.SectionName).Get<DesktopHostOptions>()
+    ?? new DesktopHostOptions();
+builder.Services.AddSingleton(desktopHost);
+builder.Services.AddSingleton<DesktopHostLifetime>();
+builder.Services.AddSingleton<CircuitHandler, DesktopShutdownCircuitHandler>();
+
 builder.Services.AddScoped<UserSession>();
 builder.Services.AddScoped<IdentityHeaderHandler>();
 

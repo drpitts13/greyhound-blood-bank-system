@@ -70,13 +70,13 @@ public static class ComplianceEndpoints
         });
 
         group.MapPut("/{id:long}", async (long id, UpdateReactionInvestigationRequest request, ReactionInvestigationService service, CancellationToken ct) =>
-            EndpointResults.From(await service.UpdateAsync(id, request, ct), ReactionInvestigationDto.From));
+            EndpointResults.From(await service.UpdateAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
 
         group.MapPost("/{id:long}/cber-notified", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
-            EndpointResults.From(await service.RecordCberNotificationAsync(id, ct), ReactionInvestigationDto.From));
+            EndpointResults.From(await service.RecordCberNotificationAsync(id, ct), r => ReactionInvestigationDto.From(r)));
 
         group.MapPost("/{id:long}/written-report", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
-            EndpointResults.From(await service.RecordWrittenReportAsync(id, ct), ReactionInvestigationDto.From));
+            EndpointResults.From(await service.RecordWrittenReportAsync(id, ct), r => ReactionInvestigationDto.From(r)));
     }
 
     private static void MapDeviations(WebApplication app)

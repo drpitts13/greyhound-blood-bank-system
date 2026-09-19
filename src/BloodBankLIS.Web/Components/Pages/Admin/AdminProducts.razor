@@ -6,11 +6,16 @@
 
 <div class="flex-between">
     <h1>Product Definitions</h1>
-    @if (CanManage)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New product</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/isbt-product-codes">Open ISBT Product Codes</a>
+        <a class="btn btn-ghost" href="/admin/product-billing">Open Product Billing</a>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New product</button>
+        }
+    </div>
 </div>
+<p class="muted">Product types, attributes, and issue/return rules. Intake product codes live on ISBT Product Codes; issue charges live on Product Billing.</p>
 
 <Outcome Value="_feedback" />
 

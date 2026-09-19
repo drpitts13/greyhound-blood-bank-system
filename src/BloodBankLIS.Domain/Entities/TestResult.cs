@@ -4,9 +4,8 @@ using BloodBankLIS.Domain.Enums;
 namespace BloodBankLIS.Domain.Entities;
 
 /// <summary>
-/// A versioned test result. Verified results are immutable: corrections create a
-/// new version and mark the prior row superseded; originals are preserved
-/// (see docs/safety-rules.md sections 6-7). Full Tests catalog arrives in a later phase.
+/// A versioned test result for a specimen (and optional order). Corrections and
+/// invalidations insert a new row and supersede the prior version.
 /// </summary>
 public class TestResult : BaseEntity
 {
@@ -24,7 +23,6 @@ public class TestResult : BaseEntity
 
     public long? SupersededByResultId { get; set; }
 
-    /// <summary>The newer version that supersedes this result, when corrected.</summary>
     public TestResult? SupersededByResult { get; set; }
 
     public string? Value { get; set; }
@@ -33,11 +31,10 @@ public class TestResult : BaseEntity
 
     public string? Interpretation { get; set; }
 
-    public ResultStatus Status { get; set; } = ResultStatus.Pending;
+    public ResultStatus Status { get; set; } = ResultStatus.Entered;
 
     public ResultSource Source { get; set; } = ResultSource.Manual;
 
-    /// <summary>Instrument identifier, HL7 control id, or calculation rule key.</summary>
     public string? SourceReference { get; set; }
 
     public string? EnteredBy { get; set; }

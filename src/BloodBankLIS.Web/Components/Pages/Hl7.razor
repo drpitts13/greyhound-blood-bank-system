@@ -74,6 +74,10 @@
                             <td>@e.ErrorDetail</td>
                             <td>@e.RetryCount</td>
                             <td class="right nowrap">
+                                @if (e.PatientId is long errorChartId)
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{errorChartId}")">Open chart</a>
+                                }
                                 <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(e.Hl7MessageId)">View</button>
                                 @if (e.Direction is null or Hl7Direction.Inbound)
                                 {
@@ -136,6 +140,10 @@
                         <td><span class="@Ui.Badge(m.Status)">@m.Status</span></td>
                         <td class="mono">@m.AckCode</td>
                         <td class="right nowrap">
+                            @if (m.PatientId is long logChartId)
+                            {
+                                <a class="btn btn-ghost btn-sm" href="@($"/patients/{logChartId}")">Open chart</a>
+                            }
                             <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(m.Id)">View</button>
                             @if (m.Direction == Hl7Direction.Inbound)
                             {
@@ -175,7 +183,18 @@
     private long? _viewId;
     private Hl7MessageDetailVm? _detail;
 
+    [SupplyParameterFromQuery]
+    public long? MessageId { get; set; }
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (MessageId is long id && _viewId != id)
+        {
+            await ViewAsync(id);
+        }
+    }
 
     private async Task LoadAsync()
     {

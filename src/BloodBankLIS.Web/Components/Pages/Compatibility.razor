@@ -5,6 +5,13 @@
 <PageTitle>Compatibility &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Compatibility Testing</h1>
+@if (PatientId is long chartPatientId)
+{
+    <p>
+        <a href="@($"/patients/{chartPatientId}")">Open chart</a>
+        <span class="muted"> · Prefill stays on this desk so you do not re-search MRN.</span>
+    </p>
+}
 <p class="muted">Record crossmatches and reserve units for a patient identified by MRN and name, not an internal id. ABO/Rh incompatibility is a hard stop. Electronic XM HardStops while an antibody-identification workup is open. Serologic XM warns (`ABID-XM-OPEN`) and still records. Allocation warns (`ABID-ALLOC-OPEN`) but still reserves so serologic XM can proceed.</p>
 
 <div class="bb-grid cols-2">
@@ -58,6 +65,14 @@
             </div>
             <div class="field"><label>Comment</label><input @bind="_xm.Comment" /></div>
             <button class="btn btn-primary" disabled="@(_busy || _xm.BloodUnitId is null || _xm.PatientId == 0 || _xm.SpecimenId == 0)" @onclick="RecordCrossmatchAsync">Record crossmatch</button>
+            @if (_lastCrossmatch is not null)
+            {
+                <p class="muted" style="margin-top:.75rem;">
+                    Crossmatch #@_lastCrossmatch.Id recorded. Allocate below is prefilled with the same unit, patient, and specimen.
+                    <a href="@($"/patients/{_lastCrossmatch.PatientId}?tab=products")">Open chart · Products</a>
+                    · <a href="@($"/inventory?unitId={_lastCrossmatch.BloodUnitId}")">Open Inventory</a>
+                </p>
+            }
         }
     </div>
 
@@ -109,6 +124,8 @@
                         {
                             <a class="btn btn-primary btn-sm" href="@($"/issuing?patientId={_lastAllocation.PatientId}&bloodUnitId={_lastAllocation.BloodUnitId}")">Issue</a>
                         }
+                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={_lastAllocation.BloodUnitId}")">Open Inventory</a>
+                        <a class="btn btn-ghost btn-sm" href="@($"/patients/{_lastAllocation.PatientId}?tab=products")">Open chart · Products</a>
                     </div>
                 </div>
             }
@@ -170,6 +187,7 @@
     private AllocModel _alloc = new();
     private Feedback? _allocFb;
     private AllocationDto? _lastAllocation;
+    private CrossmatchDto? _lastCrossmatch;
     private string _releaseReason = string.Empty;
 
     [SupplyParameterFromQuery]
@@ -180,6 +198,9 @@
 
     [SupplyParameterFromQuery]
     public long? SpecimenId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "from")]
+    public string? From { get; set; }
 
     private bool _fromRetro;
 
@@ -192,24 +213,42 @@
             _xmFb = patients.ToFeedback();
         }
 
+        _fromRetro = string.Equals(From, "retro", StringComparison.OrdinalIgnoreCase);
+
         if (PatientId is long patientId)
         {
             _xm.PatientId = patientId;
+            _alloc.PatientId = patientId;
             await LoadXmSpecimensAsync();
-            _fromRetro = true;
+            await LoadAllocSpecimensAsync();
+            if (SpecimenId is not > 0)
+            {
+                PreferCurrentSpecimen();
+            }
         }
 
         if (BloodUnitId is long bloodUnitId)
         {
             _xm.BloodUnitId = bloodUnitId;
-            _fromRetro = true;
+            _alloc.BloodUnitId = bloodUnitId;
         }
 
         if (SpecimenId is long specimenId)
         {
             _xm.SpecimenId = specimenId;
-            _fromRetro = true;
+            _alloc.SpecimenId = specimenId;
         }
+    }
+
+    private void PreferCurrentSpecimen()
+    {
+        var preferred = _xmSpecimens.FirstOrDefault(s =>
+            s.Status == SpecimenStatus.Accepted
+            && (s.ExpiresUtc is null || s.ExpiresUtc > DateTime.UtcNow))
+            ?? _xmSpecimens.FirstOrDefault();
+        if (preferred is null) return;
+        if (_xm.SpecimenId == 0) _xm.SpecimenId = preferred.Id;
+        if (_alloc.SpecimenId == 0) _alloc.SpecimenId = preferred.Id;
     }
 
     private async Task LoadXmSpecimensAsync()
@@ -257,9 +296,23 @@
             string.IsNullOrWhiteSpace(_xm.Comment) ? null : _xm.Comment);
         var r = await Api.RecordCrossmatchAsync(req);
         _busy = false;
-        _xmFb = r.Succeeded && r.Value is not null
-            ? r.ToFeedback(CrossmatchEntryCopy.Recorded(r.Value.Method, r.Value.Result, r.Value.Id))
-            : r.ToFeedback();
+        if (r.Succeeded && r.Value is not null)
+        {
+            _lastCrossmatch = r.Value;
+            _alloc.BloodUnitId = _xm.BloodUnitId;
+            _alloc.PatientId = _xm.PatientId;
+            if (_xm.SpecimenId != 0)
+            {
+                _alloc.SpecimenId = _xm.SpecimenId;
+            }
+
+            await LoadAllocSpecimensAsync();
+            _xmFb = r.ToFeedback(CrossmatchEntryCopy.Recorded(r.Value.Method, r.Value.Result, r.Value.Id));
+        }
+        else
+        {
+            _xmFb = r.ToFeedback();
+        }
     }
 
     private async Task AllocateAsync()

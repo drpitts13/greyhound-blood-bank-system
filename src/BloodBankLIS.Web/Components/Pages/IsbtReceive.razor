@@ -9,6 +9,7 @@
 <PageTitle>ISBT 128 Receive · Greyhound Blood Bank LIS</PageTitle>
 
 <section class="page">
+    <InventoryDeskRibbon Current="InventoryDeskRibbon.Desk.Isbt" />
     <h1>ISBT 128 component receive</h1>
     <p class="muted">
         Manual structured entry and scanner session intake normalize to one canonical component.
@@ -18,6 +19,24 @@
     @if (!string.IsNullOrEmpty(_message))
     {
         <div class="alert">@_message</div>
+    }
+    @if (_lastUnit is not null)
+    {
+        <p class="flex gap" style="flex-wrap:wrap;">
+            <a class="btn btn-secondary btn-sm" href="@($"/inventory?unitId={_lastUnit.Id}")">Open Inventory</a>
+            @if (_lastUnit.Status == UnitStatus.Received)
+            {
+                <a class="btn btn-secondary btn-sm" href="@($"/inventory?board=retype&unitId={_lastUnit.Id}#pending-retype")">Open retype desk</a>
+            }
+            @if (Session.Has(PermissionCodes.PrintLabel))
+            {
+                <a class="btn btn-ghost btn-sm" href="@($"/printing?unitId={_lastUnit.Id}")">Open Printing</a>
+            }
+            @if (_lastUnit.ReservedPatientId is long reservedPatientId)
+            {
+                <a class="btn btn-ghost btn-sm" href="@($"/patients/{reservedPatientId}")">Open chart</a>
+            }
+        </p>
     }
 
     <div class="grid-2">
@@ -126,6 +145,7 @@ Valid: @_session.Validation?.Valid</pre>
     private IEnumerable<DirectoryUserDto> ReceiveVerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
     private string? _message;
+    private BloodUnitDto? _lastUnit;
     private Guid? _sessionKey;
     private string _scanValue = "";
     private ScanSessionDto? _session;
@@ -156,9 +176,16 @@ Valid: @_session.Validation?.Valid</pre>
             DonationRestriction: _donationRestriction,
             ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId);
         var result = await Api.CreateIsbtManualAsync(req);
-        _message = result.Succeeded
-            ? $"Created {result.Value!.ComponentIdentity} (status {result.Value.Status})"
-            : result.Error;
+        if (result.Succeeded)
+        {
+            _lastUnit = result.Value;
+            _message = $"Created {result.Value!.ComponentIdentity} (status {result.Value.Status})";
+        }
+        else
+        {
+            _lastUnit = null;
+            _message = result.Error;
+        }
     }
 
     private async Task StartSession()
@@ -198,8 +225,15 @@ Valid: @_session.Validation?.Valid</pre>
             ReceiveTemperatureCelsius: _receiveTemperature,
             DonationRestriction: _donationRestriction,
             ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId));
-        _message = result.Succeeded
-            ? $"Received {result.Value!.ComponentIdentity}"
-            : result.Error;
+        if (result.Succeeded)
+        {
+            _lastUnit = result.Value;
+            _message = $"Received {result.Value!.ComponentIdentity}";
+        }
+        else
+        {
+            _lastUnit = null;
+            _message = result.Error;
+        }
     }
 }

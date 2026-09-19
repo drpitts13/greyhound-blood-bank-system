@@ -17,26 +17,26 @@ public static class BillingEndpoints
         }).RequirePermission(PermissionCodes.BillingReview);
 
         group.MapPost("/charges/{id:long}/review", async (long id, BillingService service, CancellationToken ct) =>
-            EndpointResults.From(await service.ReviewAsync(id, ct), BillingEventDto.From))
+            EndpointResults.From(await service.ReviewAsync(id, ct), e => BillingEventDto.From(e)))
             .RequirePermission(PermissionCodes.BillingReview);
 
         group.MapPost("/charges/{id:long}/cancel", async (long id, CancelChargeRequest request, BillingService service, CancellationToken ct) =>
-            EndpointResults.From(await service.CancelAsync(id, request.Reason, ct), BillingEventDto.From))
+            EndpointResults.From(await service.CancelAsync(id, request.Reason, ct), e => BillingEventDto.From(e)))
             .RequirePermission(PermissionCodes.BillingCancel);
 
         group.MapPost("/charges/{id:long}/export", async (long id, BillingService service, CancellationToken ct) =>
-            EndpointResults.From(await service.ExportAsync(id, ct), BillingEventDto.From))
+            EndpointResults.From(await service.ExportAsync(id, ct), e => BillingEventDto.From(e)))
             .RequirePermission(PermissionCodes.BillingExport);
 
         // Manual (re)capture entry points; capture is idempotent on the dedupe key.
         group.MapPost("/capture/result/{resultId:long}", async (long resultId, BillingService service, CancellationToken ct) =>
             EndpointResults.From(await service.CaptureForResultAsync(resultId, ct),
-                events => events.Select(BillingEventDto.From)))
+                events => events.Select(e => BillingEventDto.From(e))))
             .RequirePermission(PermissionCodes.BillingReview);
 
         group.MapPost("/capture/issue/{issueId:long}", async (long issueId, BillingService service, CancellationToken ct) =>
             EndpointResults.From(await service.CaptureForIssueAsync(issueId, ct),
-                events => events.Select(BillingEventDto.From)))
+                events => events.Select(e => BillingEventDto.From(e))))
             .RequirePermission(PermissionCodes.BillingReview);
     }
 }

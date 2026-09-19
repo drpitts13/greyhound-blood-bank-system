@@ -1,0 +1,24 @@
+@inject UserSession Session
+
+<nav class="workflow-ribbon" aria-label="Inventory desk">
+    <span class="workflow-ribbon-label">Desk</span>
+    <a class="workflow-step @(Current == Desk.Inventory ? "current" : null)" href="/inventory">Inventory</a>
+    <span class="workflow-arrow" aria-hidden="true">→</span>
+    @if (Session.Has(PermissionCodes.InventoryReceive))
+    {
+        <a class="workflow-step @(Current == Desk.Isbt ? "current" : null)" href="/inventory/isbt-receive">ISBT Receive</a>
+        <span class="workflow-arrow" aria-hidden="true">→</span>
+    }
+    @if (Session.Has(PermissionCodes.InventoryModify))
+    {
+        <a class="workflow-step @(Current == Desk.Modify ? "current" : null)" href="/inventory/modify">Modify</a>
+        <span class="workflow-arrow" aria-hidden="true">→</span>
+    }
+    <a class="workflow-step @(Current == Desk.Retype ? "current" : null)" href="/inventory?board=retype">Retype</a>
+</nav>
+
+@code {
+    public enum Desk { Inventory, Isbt, Modify, Retype }
+
+    [Parameter] public Desk Current { get; set; } = Desk.Inventory;
+}

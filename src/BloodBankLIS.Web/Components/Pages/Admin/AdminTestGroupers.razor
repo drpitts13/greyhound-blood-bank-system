@@ -8,11 +8,16 @@
 
 <div class="flex-between">
     <h1>Test Groupers</h1>
-    @if (CanManage)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New grouper</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/tests">Open Tests</a>
+        <a class="btn btn-ghost" href="/admin/reflex-rules">Open Reflex Rules</a>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New grouper</button>
+        }
+    </div>
 </div>
+<p class="muted">Bundle tests (for example Type and Screen) so an order expands into member test lines. Members are Test Definitions.</p>
 
 <Outcome Value="_feedback" />
 

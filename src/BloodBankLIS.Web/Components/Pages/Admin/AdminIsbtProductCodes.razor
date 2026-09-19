@@ -7,10 +7,15 @@
 
 <div class="flex-between">
     <h1>ISBT Product Description Codes</h1>
-    @if (CanImport)
-    {
-        <button class="btn btn-primary" type="button" @onclick="OpenImport">Import licensed extract…</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/products">Open Products</a>
+        <a class="btn btn-ghost" href="/admin/product-billing">Open Product Billing</a>
+        <a class="btn btn-ghost" href="/inventory/isbt-receive">Open ISBT Receive</a>
+        @if (CanImport)
+        {
+            <button class="btn btn-primary" type="button" @onclick="OpenImport">Import licensed extract…</button>
+        }
+    </div>
 </div>
 <p class="muted">
     Supplier product codes permitted for inventory intake. Units must match one of these codes.

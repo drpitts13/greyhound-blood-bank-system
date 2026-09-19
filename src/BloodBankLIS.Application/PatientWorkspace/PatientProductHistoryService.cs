@@ -82,7 +82,8 @@ public sealed class PatientProductHistoryService
                 a.AllocatedUtc, unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, visit, orderNum, ResolveAccession(a.SpecimenId, specimens),
                 null, a.AllocatedBy, null, null, null, null, null, null,
-                false, missing, a.Status == AllocationStatus.Reserved));
+                false, missing, a.Status == AllocationStatus.Reserved,
+                UnitId: unit?.Id));
         }
 
         foreach (var c in await _crossmatches.ListAsync(x => x.PatientId == patientId, ct))
@@ -92,7 +93,8 @@ public sealed class PatientProductHistoryService
                 c.Id, nameof(Crossmatch), PatientProductHistoryEventType.Crossmatched, c.PerformedUtc,
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, null, null, specimens.GetValueOrDefault(c.SpecimenId)?.AccessionNumber,
-                c.Result.ToString(), c.PerformedBy, null, null, null, null, null, null, false, true, false));
+                c.Result.ToString(), c.PerformedBy, null, null, null, null, null, null, false, true, false,
+                UnitId: unit?.Id));
         }
 
         var issues = await _issues.ListAsync(x => x.PatientId == patientId, ct);
@@ -123,7 +125,8 @@ public sealed class PatientProductHistoryService
                 i.Id, nameof(Issue), PatientProductHistoryEventType.Issued, i.IssuedUtc,
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, visit, orderNum, null, null, i.IssuedBy, i.IssuedToLocation,
-                null, null, null, null, i.Status.ToString(), false, missing, isOpen));
+                null, null, null, null, i.Status.ToString(), false, missing, isOpen,
+                UnitId: unit?.Id, IssueId: i.Id));
         }
 
         foreach (var r in await _returns.ListAsync(ct))
@@ -145,7 +148,8 @@ public sealed class PatientProductHistoryService
                 r.Id, nameof(Return), PatientProductHistoryEventType.Returned, r.ReturnedUtc,
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, visit, orderNum, null, null, null, null, r.ReturnedBy,
-                null, null, null, null, false, missing, false));
+                null, null, null, null, false, missing, false,
+                UnitId: unit?.Id, IssueId: r.IssueId));
         }
 
         foreach (var t in await _transfusions.ListAsync(x => x.PatientId == patientId, ct))
@@ -174,7 +178,7 @@ public sealed class PatientProductHistoryService
                 t.Location ?? issue.IssuedToLocation,
                 null, t.StartUtc, t.StopUtc, t.VolumeTransfused, t.FinalDisposition.ToString(),
                 t.ReactionSuspected, missing, false, t.PatientIdentificationMethod,
-                t.Transfusionist));
+                t.Transfusionist, unit?.Id, t.IssueId));
         }
 
         return rows.OrderByDescending(r => r.EventUtc).ToList();

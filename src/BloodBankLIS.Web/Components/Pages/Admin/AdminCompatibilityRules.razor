@@ -7,10 +7,14 @@
 
 <div class="flex-between">
     <h1>Compatibility Tables</h1>
-    @if (CanEdit)
-    {
-        <button class="btn btn-primary" @onclick="NewVersion">New version</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/crossmatch-settings">Open Crossmatch Settings</a>
+        <a class="btn btn-ghost" href="/admin/facility-policies">Open Facility Policy</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewVersion">New version</button>
+        }
+    </div>
 </div>
 <p class="muted">SafeTrace / SoftBank compatibility dictionaries: versioned ABO, Rh, antigen, and electronic XM rules by component class. Activate one table at a time. Issue still enforces domain rules; these rows are the audited facility catalog (AABB 5.14 / 5.16, 21 CFR 11.10).</p>
 

@@ -1,7 +1,6 @@
 @page "/"
 @inject BloodBankApiClient Api
 @inject UserSession Session
-@inject NavigationManager Nav
 
 <PageTitle>Dashboard &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -11,22 +10,22 @@
 </div>
 
 <div class="bb-grid cols-4">
-    <div class="stat">
+    <a class="stat" href="/patients">
         <div class="label">Patients</div>
         <div class="value">@(_patients?.ToString() ?? "?")</div>
-    </div>
-    <div class="stat">
+    </a>
+    <a class="stat" href="/inventory">
         <div class="label">Available units</div>
         <div class="value">@(_available?.ToString() ?? "?")</div>
-    </div>
-    <div class="stat">
+    </a>
+    <a class="stat" href="/inventory#quality-quarantine">
         <div class="label">In quarantine</div>
         <div class="value">@(_quarantine?.ToString() ?? "?")</div>
-    </div>
-    <div class="stat">
+    </a>
+    <a class="stat" href="/billing">
         <div class="label">Charges to review</div>
         <div class="value">@(_pendingCharges?.ToString() ?? "?")</div>
-    </div>
+    </a>
 </div>
 
 @if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
@@ -34,7 +33,7 @@
     <div class="bb-card" style="margin-top:1.25rem;">
         <div class="bb-card-title">
             <h3>Open antibody identification</h3>
-            <button class="btn btn-secondary btn-sm" type="button" @onclick='() => Nav.NavigateTo("/antibody-id")'>Worklist</button>
+            <a class="btn btn-secondary btn-sm" href="/antibody-id">Worklist</a>
         </div>
         @if (_abid is null)
         {
@@ -50,74 +49,74 @@
                 <strong>@_abid.OpenCount</strong> open.
                 @if (_abid.RecordReactionsCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenReactionsWorklist">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?action=reactions">
                         @_abid.RecordReactionsCount need reactions.
-                    </button>
+                    </a>
                 }
                 @if (_abid.InterpretCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenInterpretWorklist">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?action=interpret">
                         @_abid.InterpretCount need interpretation.
-                    </button>
+                    </a>
                 }
                 @if (_abid.ReviewCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenReviewWorklist">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?action=review">
                         @_abid.ReviewCount need supervisor review.
-                    </button>
+                    </a>
                 }
                 @if (_abid.WithdrawnJudgmentCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenWithdrawnWorklist">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?withdrawn=1">
                         @_abid.WithdrawnJudgmentCount have withdrawn judgment.
-                    </button>
+                    </a>
                 }
                 @if (_abid.PendingTypeCorrectionCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenPendingTypeWorklist">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?typePending=1">
                         @_abid.PendingTypeCorrectionCount have a pending type correction.
-                    </button>
+                    </a>
                 }
                 @if (_abid.ReservedOrIssuedUnitCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenProductsWorklist">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?products=1">
                         @_abid.ReservedOrIssuedUnitCount have reserved or issued units.
-                    </button>
+                    </a>
                 }
             </p>
             @if (_abid.UnusableSpecimenCount > 0)
             {
                 <p>
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenUnusableWorklist">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?unusable=1">
                         <span class="badge badge-red">@_abid.UnusableSpecimenCount rejected/cancelled specimen</span>
-                    </button>
+                    </a>
                 </p>
                 <p class="muted">Open the worklist filtered to those workups. Void or re-link them. They remain the identification of record for the patient. This does not identify antibodies.</p>
             }
             @if (_abid.NotReadySpecimenCount > 0)
             {
                 <p>
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenNotReadyWorklist">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?notready=1">
                         <span class="badge badge-red">@_abid.NotReadySpecimenCount not-yet-received specimen</span>
-                    </button>
+                    </a>
                 </p>
                 <p class="muted">Open the worklist filtered to those workups. Receive the specimen, void, or re-link. Complete HardStops. They remain the identification of record for the patient. This does not identify antibodies.</p>
             }
             @if (_abid.ExpiredSpecimenCount > 0)
             {
                 <p>
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenExpiredWorklist">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?expired=1">
                         <span class="badge badge-amber">@_abid.ExpiredSpecimenCount expired specimen</span>
-                    </button>
+                    </a>
                 </p>
                 <p class="muted">Open the worklist filtered to those workups. Complete with acknowledgment, void, or re-link. They remain the identification of record for the patient. This does not identify antibodies.</p>
             }
             @if (_abid.UnacceptedSpecimenCount > 0)
             {
                 <p>
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenUnacceptedWorklist">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?unaccepted=1">
                         <span class="badge badge-blue">@_abid.UnacceptedSpecimenCount not-yet-accepted specimen</span>
-                    </button>
+                    </a>
                 </p>
                 <p class="muted">Open the worklist filtered to those workups. Accept the specimen, complete with acknowledgment, void, or re-link. They remain the identification of record for the patient. This does not identify antibodies.</p>
             }
@@ -126,30 +125,30 @@
                 <p>
                     @if (_abid.InactiveLotCount > 0)
                     {
-                        <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenLotAttentionWorklist">
+                        <a class="btn btn-ghost btn-sm" href="/antibody-id?lotAttention=1">
                             <span class="badge badge-red">@_abid.InactiveLotCount inactive lot</span>
-                        </button>
+                        </a>
                     }
                     @if (_abid.ExpiredLotCount > 0)
                     {
-                        <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenLotAttentionWorklist">
+                        <a class="btn btn-ghost btn-sm" href="/antibody-id?lotAttention=1">
                             <span class="badge badge-amber">@_abid.ExpiredLotCount expired lot</span>
-                        </button>
+                        </a>
                     }
                 </p>
                 <p class="muted">Count badges open every workup with a withdrawn or expired lot. Named lots open that reagent only. This does not identify antibodies.</p>
                 <div class="flex gap" style="flex-wrap:wrap;">
                     @foreach (var lot in _abid.InactiveLotNumbers ?? [])
                     {
-                        <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenLotWorklist(lot)">
+                        <a class="btn btn-ghost btn-sm" href="@LotWorklistHref(lot)">
                             <span class="badge badge-red">Inactive @lot</span>
-                        </button>
+                        </a>
                     }
                     @foreach (var lot in _abid.ExpiredLotNumbers ?? [])
                     {
-                        <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenLotWorklist(lot)">
+                        <a class="btn btn-ghost btn-sm" href="@LotWorklistHref(lot)">
                             <span class="badge badge-amber">Expired @lot</span>
-                        </button>
+                        </a>
                     }
                 </div>
             }
@@ -160,21 +159,21 @@
 <div class="bb-card" style="margin-top:1.25rem;">
     <div class="bb-card-title"><h3>Quick actions</h3></div>
     <div class="flex gap" style="flex-wrap:wrap;">
-        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/patients")'>Find a patient</button>
-        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/inventory")'>Search inventory</button>
+        <a class="btn btn-secondary" href="/patients">Find a patient</a>
+        <a class="btn btn-secondary" href="/inventory">Search inventory</a>
         @if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
         {
-            <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/antibody-id")'>Antibody identification</button>
+            <a class="btn btn-secondary" href="/antibody-id">Antibody identification</a>
         }
-        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/compatibility")'>Crossmatch &amp; allocate</button>
-        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/issuing")'>Issue a unit</button>
+        <a class="btn btn-secondary" href="/compatibility">Crossmatch &amp; allocate</a>
+        <a class="btn btn-secondary" href="/issuing">Issue a unit</a>
         @if (Session.Has(PermissionCodes.LookbackManage))
         {
-            <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/lookback")'>Lookback / traceback</button>
+            <a class="btn btn-secondary" href="/lookback">Lookback / traceback</a>
         }
         @if (Session.Has(PermissionCodes.Hl7Manage))
         {
-            <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/hl7")'>HL7 interface</button>
+            <a class="btn btn-secondary" href="/hl7">HL7 interface</a>
         }
     </div>
 </div>
@@ -228,39 +227,6 @@
         }
     }
 
-    private void OpenLotWorklist(string lotNumber) =>
-        Nav.NavigateTo($"/antibody-id?lot={Uri.EscapeDataString(lotNumber)}");
-
-    private void OpenLotAttentionWorklist() =>
-        Nav.NavigateTo("/antibody-id?lotAttention=1");
-
-    private void OpenUnusableWorklist() =>
-        Nav.NavigateTo("/antibody-id?unusable=1");
-
-    private void OpenNotReadyWorklist() =>
-        Nav.NavigateTo("/antibody-id?notready=1");
-
-    private void OpenExpiredWorklist() =>
-        Nav.NavigateTo("/antibody-id?expired=1");
-
-    private void OpenUnacceptedWorklist() =>
-        Nav.NavigateTo("/antibody-id?unaccepted=1");
-
-    private void OpenReactionsWorklist() =>
-        Nav.NavigateTo("/antibody-id?action=reactions");
-
-    private void OpenInterpretWorklist() =>
-        Nav.NavigateTo("/antibody-id?action=interpret");
-
-    private void OpenReviewWorklist() =>
-        Nav.NavigateTo("/antibody-id?action=review");
-
-    private void OpenWithdrawnWorklist() =>
-        Nav.NavigateTo("/antibody-id?withdrawn=1");
-
-    private void OpenPendingTypeWorklist() =>
-        Nav.NavigateTo("/antibody-id?typePending=1");
-
-    private void OpenProductsWorklist() =>
-        Nav.NavigateTo("/antibody-id?products=1");
+    private static string LotWorklistHref(string lotNumber) =>
+        $"/antibody-id?lot={Uri.EscapeDataString(lotNumber)}";
 }

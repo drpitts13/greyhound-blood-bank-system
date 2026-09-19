@@ -5,7 +5,7 @@
 <PageTitle>Printing &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Label &amp; Tag Printing</h1>
-<p class="muted">Print specimen labels, ISBT component labels, and compatibility tags. Reprints require a reason and are audited.</p>
+<p class="muted">Print specimen labels, ISBT component labels, and compatibility tags. After issue, print the P-tag from Issue &amp; Transfuse or the patient Products tab — this page is for other labels and audited reprints.</p>
 
 <div class="bb-grid cols-3">
     <div class="bb-card">
@@ -81,7 +81,16 @@
                         <td>@j.JobType @(j.IsReprint ? "(reprint)" : "")</td>
                         <td class="mono">@j.TemplateCode</td>
                         <td>@j.Format</td>
-                        <td class="muted">@j.ContextType @(j.ContextId is null ? "" : $"#{j.ContextId}")</td>
+                        <td class="muted">
+                            @if (ContextHref(j) is { } href)
+                            {
+                                <a href="@href">@j.ContextType @(j.ContextId is null ? "" : $"#{j.ContextId}")</a>
+                            }
+                            else
+                            {
+                                @j.ContextType @(j.ContextId is null ? "" : $"#{j.ContextId}")
+                            }
+                        </td>
                         <td><span class="@Ui.Badge(j.Status)">@j.Status</span></td>
                         <td>@j.PrintedBy</td>
                         <td class="right nowrap">
@@ -117,6 +126,15 @@
     private LabelFormat _tagFormat = LabelFormat.Preview;
     private Feedback? _tagFb;
 
+    [SupplyParameterFromQuery]
+    public long? IssueId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public long? SpecimenId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public long? UnitId { get; set; }
+
     private long? _unitId;
     private LabelFormat _compFormat = LabelFormat.Preview;
     private Feedback? _compFb;
@@ -128,7 +146,25 @@
     private long? _reprintId;
     private string _reprintReason = string.Empty;
 
-    protected override async Task OnInitializedAsync() => await LoadJobsAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        if (IssueId is long issueId)
+        {
+            _issueId = issueId;
+        }
+
+        if (SpecimenId is long specimenId)
+        {
+            _specimenId = specimenId;
+        }
+
+        if (UnitId is long unitId)
+        {
+            _unitId = unitId;
+        }
+
+        await LoadJobsAsync();
+    }
 
     private async Task LoadJobsAsync()
     {
@@ -169,6 +205,23 @@
     {
         var r = await Api.GetPrintJobAsync(id);
         if (r.Succeeded) _lastJob = r.Value;
+    }
+
+    private static string? ContextHref(PrintJobVm j)
+    {
+        if (j.ContextId is not long id)
+        {
+            return null;
+        }
+
+        return j.ContextType switch
+        {
+            "Patient" => $"/patients/{id}",
+            "BloodUnit" or "Unit" => $"/inventory?unitId={id}",
+            "Issue" => "/issuing",
+            "Specimen" => null,
+            _ => null
+        };
     }
 
     private void BeginReprint(long id) { _reprintId = id; _reprintReason = string.Empty; }

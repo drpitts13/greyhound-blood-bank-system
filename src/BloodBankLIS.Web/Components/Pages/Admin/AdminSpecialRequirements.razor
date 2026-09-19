@@ -7,10 +7,14 @@
 
 <div class="flex-between">
     <h1>Special Requirements</h1>
-    @if (CanEdit)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New requirement</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/blood-attributes">Open Blood Attributes</a>
+        <a class="btn btn-ghost" href="/admin/compatibility-rules">Open Compatibility Tables</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New requirement</button>
+        }
+    </div>
 </div>
 <p class="muted">Catalog of unit, issuing, and patient special transfusion requirements. Assignments on the patient chart are enforced while they are clinically active (not end-dated).</p>
 

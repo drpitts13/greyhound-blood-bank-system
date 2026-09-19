@@ -8,10 +8,15 @@
 
 <div class="flex-between">
     <h1>Charge Rules</h1>
-    @if (CanEdit)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New charge rule</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/charge-codes">Open Charge Codes</a>
+        <a class="btn btn-ghost" href="/admin/product-billing">Open Product Billing</a>
+        <a class="btn btn-ghost" href="/admin/test-service-billing">Open Test/Service Billing</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New charge rule</button>
+        }
+    </div>
 </div>
 <p class="muted">Map a billing trigger to a charge code. Leave the trigger key blank to apply to every event of that type; otherwise match a test code (result verified) or product code (unit issued).</p>
 

@@ -6,11 +6,15 @@
 
 <div class="flex-between">
     <h1>Roles &amp; Permissions</h1>
-    @if (CanManage)
-    {
-        <button class="btn btn-primary" @onclick="NewRole">New role</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/users">Open Users</a>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary" @onclick="NewRole">New role</button>
+        }
+    </div>
 </div>
+<p class="muted">Roles are assigned on Users. A privilege change there still requires a reason.</p>
 
 <Outcome Value="_feedback" />
 

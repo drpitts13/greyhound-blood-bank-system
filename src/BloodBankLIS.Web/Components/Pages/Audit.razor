@@ -53,7 +53,16 @@
                     <tr>
                         <td class="nowrap">@e.OccurredUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
                         <td><span class="badge badge-blue">@e.EventType</span></td>
-                        <td>@e.EntityType @(e.EntityId is null ? "" : $"#{e.EntityId}")</td>
+                        <td>
+                            @if (EntityHref(e) is { } href)
+                            {
+                                <a href="@href">@e.EntityType @(e.EntityId is null ? "" : $"#{e.EntityId}")</a>
+                            }
+                            else
+                            {
+                                @e.EntityType @(e.EntityId is null ? "" : $"#{e.EntityId}")
+                            }
+                        </td>
                         <td>@e.UserName</td>
                         <td class="muted">@e.Workstation</td>
                         <td>@e.Reason</td>
@@ -110,6 +119,23 @@
 
     private static bool HasValues(AuditEventVm e) =>
         !string.IsNullOrWhiteSpace(e.OldValueJson) || !string.IsNullOrWhiteSpace(e.NewValueJson);
+
+    private static string? EntityHref(AuditEventVm e)
+    {
+        if (e.EntityId is not long id)
+        {
+            return null;
+        }
+
+        return e.EntityType switch
+        {
+            "Patient" => $"/patients/{id}",
+            "BloodUnit" => $"/inventory?unitId={id}",
+            "Issue" => $"/printing?issueId={id}",
+            "Specimen" => $"/printing?specimenId={id}",
+            _ => null
+        };
+    }
 
     private async Task LoadAsync(int skip)
     {

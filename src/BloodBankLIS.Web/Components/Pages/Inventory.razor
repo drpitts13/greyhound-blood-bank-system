@@ -6,10 +6,11 @@
 
 <PageTitle>Inventory &middot; Greyhound Blood Bank LIS</PageTitle>
 
+<InventoryDeskRibbon Current="@(string.Equals(Board, "retype", StringComparison.OrdinalIgnoreCase) ? InventoryDeskRibbon.Desk.Retype : InventoryDeskRibbon.Desk.Inventory)" />
+
 <div class="flex-between" style="margin-bottom:1rem;">
     <h1>Blood Product Inventory</h1>
     <div class="flex gap">
-        <a class="btn btn-secondary" href="inventory/isbt-receive">ISBT 128 receive</a>
         @if (Session.Has(PermissionCodes.InventoryReceive))
         {
             <button class="btn btn-primary" @onclick="ToggleReceive">@(_showReceive ? "Cancel" : "Receive unit")</button>
@@ -119,12 +120,12 @@
 
 @if (_retypeItems.Count > 0 || Session.Has(PermissionCodes.ResultEnter))
 {
-    <div class="bb-card">
+    <div id="pending-retype" class="bb-card">
         <div class="bb-card-title">
             <h3>Pending ABO/Rh retype</h3>
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadRetypesAsync">Refresh</button>
         </div>
-        <p class="muted">Received units that still need a front-type confirmation before they become Available. Enter from the row — the same panel as the test-worklist Retype tab and the Manage drawer. A match releases the unit; a mismatch quarantines it.</p>
+        <p class="muted">This is the product-retype desk. Received units need a front-type confirmation before they become Available. A match releases the unit; a mismatch quarantines it. The test worklist lists the same units and opens this board. The Manage drawer can still record a retype while you are already on the unit.</p>
         @if (_retypesLoading)
         {
             <div class="loading">Loading retypes...</div>
@@ -240,7 +241,7 @@
 
 @if (_quarantineItems.Count > 0 || Session.Has(PermissionCodes.InventoryRelease))
 {
-    <div class="bb-card">
+    <div class="bb-card" id="quality-quarantine">
         <div class="bb-card-title"><h3>Quality quarantine</h3></div>
         <p class="muted">Units held for quality disposition with a coded reason (SoftBank/SafeTrace). The board shows product and any ABO/Rh retype mismatch. Release from the row with the same second-verifier gate as Manage.</p>
         @if (_quarantineItems.Count == 0)
@@ -703,6 +704,43 @@
         await LoadDiscrepancyAsync();
         await LoadOnHoldAsync();
         await LoadRetypesAsync();
+        await ApplyBoardQueryAsync();
+    }
+
+    [SupplyParameterFromQuery]
+    public string? Board { get; set; }
+
+    [SupplyParameterFromQuery]
+    public long? UnitId { get; set; }
+
+    private bool _boardQueryApplied;
+
+    private static string RetypeBoardHref(long unitId) =>
+        $"/inventory?board=retype&unitId={unitId}#pending-retype";
+
+    private async Task ApplyBoardQueryAsync()
+    {
+        if (_boardQueryApplied) return;
+        if (string.Equals(Board, "retype", StringComparison.OrdinalIgnoreCase))
+        {
+            _boardQueryApplied = true;
+            if (UnitId is long unitId)
+            {
+                await ToggleBoardRetype(unitId);
+            }
+
+            return;
+        }
+
+        if (UnitId is long manageId)
+        {
+            _boardQueryApplied = true;
+            var unit = _units.FirstOrDefault(u => u.Id == manageId);
+            if (unit is not null)
+            {
+                await Select(unit);
+            }
+        }
     }
 
     private string ProductCode(BloodUnitDto u)
@@ -1139,7 +1177,7 @@
             ReceiveTemperatureCelsius: _arrivalTemperatureCelsius));
         _busy = false;
         _actionFb = r.ToFeedback(r.Value?.Status == UnitStatus.Received
-            ? "Arrival confirmed. Pending retype until results are entered and verified."
+            ? "Arrival confirmed. Pending retype until results are entered and verified. Use Open retype desk."
             : "Arrival confirmed into quarantine.");
         if (r.Succeeded)
         {
@@ -1149,6 +1187,7 @@
             _arrivalSecondVerifier = null;
             _arrivalTemperatureCelsius = null;
             _confirmingExpectedId = null;
+            _unitTab = "retype";
             _topFb = _actionFb;
             await RefreshSelected(id);
         }
@@ -1200,7 +1239,7 @@
         _busy = true;
         var r = await Api.PrintComponentLabelAsync(id, new PrintRequestVm(LabelFormat.Preview));
         _busy = false;
-        _actionFb = r.ToFeedback("Component label queued. Open Printing to view or reprint.");
+        _actionFb = r.ToFeedback("Component label queued. Use Open Printing to view or reprint.");
         if (r.Succeeded) await RefreshSelected(id);
     }
 
@@ -1305,6 +1344,15 @@
                     @if (Session.Has(PermissionCodes.PrintLabel))
                     {
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => PrintComponentLabelAsync(u.Id)">Print component label</button>
+                        <a class="btn btn-ghost btn-sm" href="@($"/printing?unitId={u.Id}")">Open Printing</a>
+                    }
+                    @if (u.Status is UnitStatus.Received or UnitStatus.Quarantine)
+                    {
+                        <a class="btn btn-ghost btn-sm" href="@RetypeBoardHref(u.Id)">Open retype desk</a>
+                    }
+                    @if (Session.Has(PermissionCodes.InventoryModify))
+                    {
+                        <a class="btn btn-ghost btn-sm" href="@($"/inventory/modify?unitId={u.Id}")">Modify</a>
                     }
                 </div>
 
@@ -1454,6 +1502,11 @@
 
             @if (_unitTab == "retype")
             {
+                <p class="muted" style="margin:0 0 .5rem;">
+                    The pending retype board is the product-retype desk.
+                    <a href="@RetypeBoardHref(u.Id)">Open this unit on the board</a>
+                    if you want the worklist context. Recording here still uses the same panel and gates.
+                </p>
                 @if (_retypeDetail is null)
                 {
                     <div class="muted">Unable to load retype details for this unit.</div>

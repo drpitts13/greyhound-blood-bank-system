@@ -8,12 +8,15 @@
 
 <div class="flex-between">
     <h1>Ordering Providers</h1>
-    @if (CanEdit)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New provider</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/locations">Open Ordering Locations</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New provider</button>
+        }
+    </div>
 </div>
-<p class="muted">Provider id and name are required. Specialty and location are optional. Used on visits and orders; HL7 ADT/ORM can also add providers.</p>
+<p class="muted">Provider id and name are required. Specialty and location are optional. Location picks from the Ordering Locations catalog. Used on visits and orders; HL7 ADT/ORM can also add providers.</p>
 
 <Outcome Value="_feedback" />
 

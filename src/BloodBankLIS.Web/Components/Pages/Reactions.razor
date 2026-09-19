@@ -113,7 +113,11 @@ else
                             <td>@r.Status</td>
                             <td>@(r.IsFatality ? r.FatalityNotificationStatus.ToString() : "")</td>
                             <td class="nowrap">@(r.WrittenReportDueUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
-                            <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => Select(r)">Open</button></td>
+                            <td class="right nowrap">
+                                <a class="btn btn-ghost btn-sm" href="@($"/patients/{r.PatientId}")">Open chart</a>
+                                <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={r.BloodProductId}")">Open Inventory</a>
+                                <a class="btn btn-ghost btn-sm" href="@($"/reactions?id={r.Id}")">Open investigation</a>
+                            </td>
                         </tr>
                     }
                 </tbody>
@@ -124,7 +128,11 @@ else
     @if (_selected is not null)
     {
         <div class="bb-card">
-            <div class="bb-card-title"><h3>Investigation #@_selected.Id</h3></div>
+            <div class="bb-card-title">
+                <h3>Investigation #@_selected.Id</h3>
+                <a class="btn btn-ghost btn-sm" href="@($"/patients/{_selected.PatientId}")">Open chart</a>
+                <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={_selected.BloodProductId}")">Open Inventory</a>
+            </div>
             <div class="form-row">
                 <div class="field"><label>Type</label><input @bind="_type" /></div>
                 <div class="field"><label>Severity</label>
@@ -218,6 +226,14 @@ else
     private string _closeSecret = string.Empty;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override void OnParametersSet()
+    {
+        if (_rows.Count > 0)
+        {
+            ApplyQuerySelection();
+        }
+    }
 
     private async Task LoadAsync()
     {

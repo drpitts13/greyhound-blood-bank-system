@@ -8,11 +8,16 @@
 
 <div class="flex-between">
     <h1>Reflex Rules</h1>
-    @if (CanManage)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New reflex rule</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/tests">Open Tests</a>
+        <a class="btn btn-ghost" href="/admin/test-groupers">Open Test Groupers</a>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New reflex rule</button>
+        }
+    </div>
 </div>
+<p class="muted">When a verified result matches a trigger value, add the reflex test onto the same order and specimen. Trigger and reflex tests come from Test Definitions.</p>
 
 <Outcome Value="_feedback" />
 

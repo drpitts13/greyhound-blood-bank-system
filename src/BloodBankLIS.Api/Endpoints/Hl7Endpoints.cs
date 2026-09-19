@@ -155,7 +155,7 @@ public static class Hl7Endpoints
                 m => ($"/api/hl7/messages/{m.Id}", (object)Hl7MessageDto.From(m))));
 
         group.MapPost("/messages/{id:long}/send", async (long id, Hl7OutboundSender sender, CancellationToken ct) =>
-            EndpointResults.From(await sender.SendOneAsync(id, ct), Hl7MessageDto.From));
+            EndpointResults.From(await sender.SendOneAsync(id, ct), m => Hl7MessageDto.From(m)));
 
         group.MapPost("/outbound/flush", async (Hl7OutboundSender sender, CancellationToken ct) =>
         {

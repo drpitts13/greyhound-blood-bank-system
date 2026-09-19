@@ -41,7 +41,7 @@ else
             else
             {
                 <table class="bb">
-                    <thead><tr><th>Id</th><th>Title</th><th>Severity</th><th>Status</th><th></th></tr></thead>
+                    <thead><tr><th>Id</th><th>Title</th><th>Severity</th><th>Status</th><th>Context</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var d in _rows)
                         {
@@ -50,6 +50,27 @@ else
                                 <td>@d.Title</td>
                                 <td>@d.Severity</td>
                                 <td>@d.Status</td>
+                                <td class="mono">
+                                    @if (string.IsNullOrWhiteSpace(d.ContextType) && d.ContextId is null)
+                                    {
+                                        <span class="muted">—</span>
+                                    }
+                                    else
+                                    {
+                                        @if (ContextHref(d) is { } href)
+                                        {
+                                            <a href="@href">@(d.ContextType ?? "—")@(d.ContextId is long linkedId ? $" #{linkedId}" : "")</a>
+                                        }
+                                        else
+                                        {
+                                            @(d.ContextType ?? "—")
+                                            @if (d.ContextId is long contextId)
+                                            {
+                                                <span> #@contextId</span>
+                                            }
+                                        }
+                                    }
+                                </td>
                                 <td class="right">
                                     <button class="btn btn-ghost btn-sm" @onclick="() => BeginStatus(d)">Update</button>
                                 </td>
@@ -110,6 +131,24 @@ else
             _title = _description = string.Empty;
             await LoadAsync();
         }
+    }
+
+    private static string? ContextHref(DeviationDto d)
+    {
+        if (d.ContextId is not long id)
+        {
+            return null;
+        }
+
+        return d.ContextType switch
+        {
+            "Patient" => $"/patients/{id}",
+            "BloodUnit" or "Unit" => $"/inventory?unitId={id}",
+            "Issue" => $"/printing?issueId={id}",
+            "Specimen" => $"/printing?specimenId={id}",
+            "Hl7" or "Hl7Message" => "/hl7",
+            _ => null
+        };
     }
 
     private void BeginStatus(DeviationDto d)

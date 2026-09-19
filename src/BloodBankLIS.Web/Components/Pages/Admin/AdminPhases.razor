@@ -7,11 +7,16 @@
 
 <div class="flex-between">
     <h1>Phase Definitions</h1>
-    @if (CanManage)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New phase</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/subtests">Open Subtests</a>
+        <a class="btn btn-ghost" href="/admin/tests">Open Tests</a>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New phase</button>
+        }
+    </div>
 </div>
+<p class="muted">Reaction phases (IS, 37°C, AHG, check cells) assigned to panel subtests and interpretation tables.</p>
 
 <Outcome Value="_feedback" />
 

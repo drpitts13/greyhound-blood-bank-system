@@ -3,6 +3,7 @@
 @inject UserSession Session
 @inject BloodBankApiClient Api
 @inject NavigationManager Nav
+@inject DesktopHostLifetime DesktopHost
 
 <PageTitle>Sign in &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -42,6 +43,10 @@
                 }
             </div>
         </div>
+        @if (DesktopHost.ShutdownOnExit)
+        {
+            <button class="btn btn-ghost btn-sm" style="margin-top:1rem;" @onclick="ExitApplication">Exit</button>
+        }
     </div>
 </div>
 
@@ -101,4 +106,6 @@
             login.Value.SessionToken);
         Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
     }
+
+    private void ExitApplication() => DesktopHost.RequestImmediateStop();
 }

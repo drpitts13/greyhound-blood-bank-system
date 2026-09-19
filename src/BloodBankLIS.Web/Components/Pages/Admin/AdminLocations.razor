@@ -7,12 +7,15 @@
 
 <div class="flex-between">
     <h1>Ordering Locations</h1>
-    @if (CanEdit)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New location</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/providers">Open Ordering Providers</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New location</button>
+        }
+    </div>
 </div>
-<p class="muted">Location code is required. Name, department, and HL7 mapping code are optional descriptions; name defaults to code when blank.</p>
+<p class="muted">Location code is required. Name, department, and HL7 mapping code are optional descriptions; name defaults to code when blank. Providers pick these locations on visits and orders.</p>
 
 <Outcome Value="_feedback" />
 

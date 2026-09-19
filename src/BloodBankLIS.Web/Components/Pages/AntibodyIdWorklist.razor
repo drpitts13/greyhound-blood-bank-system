@@ -1,7 +1,6 @@
 @page "/antibody-id"
 @inject BloodBankApiClient Api
 @inject UserSession Session
-@inject NavigationManager Nav
 
 <PageTitle>Antibody identification worklist &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -72,76 +71,76 @@ else
                     {
                         <span> Showing workups for patients who have reserved or issued units. Completing requires acknowledgment and does not release those units.</span>
                     }
-                    <button class="btn btn-secondary btn-sm" type="button" @onclick="ClearWorklistFilters">Show all open</button>
+                    <a class="btn btn-secondary btn-sm" href="/antibody-id">Show all open</a>
                 </div>
             }
             <p class="muted">
                 @_items.Count open.
                 @if (RecordReactionsCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenReactionsFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?action=reactions">
                         @RecordReactionsCount need reactions.
-                    </button>
+                    </a>
                 }
                 @if (InterpretCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenInterpretFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?action=interpret">
                         @InterpretCount need interpretation.
-                    </button>
+                    </a>
                 }
                 @if (WithdrawnJudgmentCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenWithdrawnFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?withdrawn=1">
                         @WithdrawnJudgmentCount have withdrawn judgment.
-                    </button>
+                    </a>
                 }
                 @if (PendingTypeCorrectionCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenPendingTypeFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?typePending=1">
                         @PendingTypeCorrectionCount have a pending type correction.
-                    </button>
+                    </a>
                 }
                 @if (ReservedOrIssuedUnitCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenProductsFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?products=1">
                         @ReservedOrIssuedUnitCount have reserved or issued units.
-                    </button>
+                    </a>
                 }
                 @if (ReviewCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenReviewFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?action=review">
                         @ReviewCount need supervisor review.
-                    </button>
+                    </a>
                 }
                 @if (UnusableSpecimenCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenUnusableFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?unusable=1">
                         @UnusableSpecimenCount have a rejected or cancelled specimen.
-                    </button>
+                    </a>
                 }
                 @if (NotReadySpecimenCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenNotReadyFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?notready=1">
                         @NotReadySpecimenCount have a not-yet-received specimen.
-                    </button>
+                    </a>
                 }
                 @if (ExpiredSpecimenCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenExpiredFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?expired=1">
                         @ExpiredSpecimenCount have an expired specimen.
-                    </button>
+                    </a>
                 }
                 @if (UnacceptedSpecimenCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenUnacceptedFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?unaccepted=1">
                         @UnacceptedSpecimenCount have a not-yet-accepted specimen.
-                    </button>
+                    </a>
                 }
                 @if (LotAttentionCount > 0)
                 {
-                    <button class="btn btn-ghost btn-sm" type="button" @onclick="OpenLotAttentionFilter">
+                    <a class="btn btn-ghost btn-sm" href="/antibody-id?lotAttention=1">
                         @LotAttentionCount have a withdrawn or expired lot.
-                    </button>
+                    </a>
                 }
             </p>
         }
@@ -151,7 +150,7 @@ else
         }
         else if (_items.Count == 0)
         {
-            <div class="empty">No open antibody-identification workups. Open a workup from a patient's Antibodies card.</div>
+            <div class="empty">No open antibody-identification workups. Start one from a patient's Antibodies card or a Tests / Test Worklist Start ABID link so the specimen stays attached.</div>
         }
         else if (!Visible.Any())
         {
@@ -235,8 +234,12 @@ else
                             </td>
                             <td class="nowrap">@w.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="right nowrap">
-                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => OpenPatient(w.PatientId)">Patient</button>
-                                <button class="btn btn-primary btn-sm" type="button" @onclick="() => OpenWorkup(w)">Open</button>
+                                <a class="btn btn-ghost btn-sm" href="@($"/patients/{w.PatientId}")">Open Chart</a>
+                                @if (w.SpecimenId is not null)
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{w.PatientId}?tab=specimens")">Open Specimens</a>
+                                }
+                                <a class="btn btn-primary btn-sm" href="@($"/patients/{w.PatientId}/antibody-id/{w.Id}")">Open workup</a>
                             </td>
                         </tr>
                     }
@@ -446,43 +449,4 @@ else
         && !string.Equals(value, "0", StringComparison.Ordinal)
         && !string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
 
-    private void OpenUnusableFilter() =>
-        Nav.NavigateTo("/antibody-id?unusable=1");
-
-    private void OpenExpiredFilter() =>
-        Nav.NavigateTo("/antibody-id?expired=1");
-
-    private void OpenUnacceptedFilter() =>
-        Nav.NavigateTo("/antibody-id?unaccepted=1");
-
-    private void OpenNotReadyFilter() =>
-        Nav.NavigateTo("/antibody-id?notready=1");
-
-    private void OpenReactionsFilter() =>
-        Nav.NavigateTo("/antibody-id?action=reactions");
-
-    private void OpenInterpretFilter() =>
-        Nav.NavigateTo("/antibody-id?action=interpret");
-
-    private void OpenReviewFilter() =>
-        Nav.NavigateTo("/antibody-id?action=review");
-
-    private void OpenLotAttentionFilter() =>
-        Nav.NavigateTo("/antibody-id?lotAttention=1");
-
-    private void OpenWithdrawnFilter() =>
-        Nav.NavigateTo("/antibody-id?withdrawn=1");
-
-    private void OpenPendingTypeFilter() =>
-        Nav.NavigateTo("/antibody-id?typePending=1");
-
-    private void OpenProductsFilter() =>
-        Nav.NavigateTo("/antibody-id?products=1");
-
-    private void ClearWorklistFilters() => Nav.NavigateTo("/antibody-id");
-
-    private void OpenPatient(long patientId) => Nav.NavigateTo($"/patients/{patientId}");
-
-    private void OpenWorkup(AntibodyIdWorkupListItemDto workup) =>
-        Nav.NavigateTo($"/patients/{workup.PatientId}/antibody-id/{workup.Id}");
 }

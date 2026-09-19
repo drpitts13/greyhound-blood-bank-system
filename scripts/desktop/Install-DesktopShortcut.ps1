@@ -20,7 +20,7 @@ $shortcut.TargetPath = if ($pwsh) { $pwsh.Source } else { (Get-Command powershel
 $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$Launcher`""
 $shortcut.WorkingDirectory = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $shortcut.IconLocation = "$IconPath,0"
-$shortcut.Description = "Start Greyhound Blood Bank LIS (API + Web)"
+$shortcut.Description = "Start Greyhound Blood Bank LIS (API + Web). Closing the app stops the API."
 $shortcut.Save()
 
 Write-Host "Desktop shortcut created:"

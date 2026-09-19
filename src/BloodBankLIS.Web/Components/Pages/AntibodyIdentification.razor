@@ -11,7 +11,15 @@
     Record panel reactions, run assistance, then interpret. Assistance may suggest rule-outs and possible antibodies.
     It does not identify antibodies. A technologist interpretation is required; supervisor review is required before history is posted.
 </p>
-
+@if (_patient is not null)
+{
+    <p>
+        <strong>@_patient.LastName, @_patient.FirstName</strong>
+        <span class="muted"> · MRN <span class="mono">@_patient.MedicalRecordNumber</span></span>
+        <span class="muted"> · </span>
+        <a href="@($"/patients/{PatientId}")">Open chart</a>
+    </p>
+}
 <p><a href="@($"/patients/{PatientId}")">Back to patient</a> · <a href="/antibody-id">Open antibody ID worklist</a></p>
 
 <Outcome Value="_fb" />
@@ -91,7 +99,7 @@ else if (_workup is null)
                                     <span class="badge badge-amber">Reserved/issued units</span>
                                 }
                             </td>
-                            <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => Open(w.Id)">Open</button></td>
+                            <td class="right"><a class="btn btn-ghost btn-sm" href="@($"/patients/{PatientId}/antibody-id/{w.Id}")">Open workup</a></td>
                         </tr>
                     }
                 </tbody>
@@ -106,7 +114,7 @@ else if (_workup is null)
                 <div class="field"><label>Specimen</label>
                     <select @bind="_newSpecimenId">
                         <option value="">None — applies to the whole patient (not recommended)</option>
-                        @foreach (var s in LinkableSpecimens)
+                        @foreach (var s in NewWorkupSpecimens)
                         {
                             <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType (@s.Status)</option>
                         }
@@ -131,11 +139,28 @@ else if (_workup is null)
                     </select>
                 </div>
             </div>
+            @if (SpecimenId is > 0 && _newSpecimenId == SpecimenId)
+            {
+                @if (NewSpecimenUsable)
+                {
+                    <p class="muted">Specimen prefilled from the test or chart you opened. Change it only if this workup belongs on a different accession.</p>
+                }
+                else
+                {
+                    <div class="alert alert-warning">
+                        The specimen you opened is not usable for a new workup
+                        (@PrefillSpecimenStatus).
+                        Accession a current specimen on the
+                        <a href="@($"/patients/{PatientId}?tab=orders&panel=accession")">patient chart</a>,
+                        or pick another accession. This does not identify antibodies.
+                    </div>
+                }
+            }
             @if (_newSpecimenId is null)
             {
                 <div class="alert alert-warning">Without a specimen this workup is the identification of record for the whole patient and will block free-text ABID verify until completed or voided.</div>
             }
-            <button class="btn btn-primary" disabled="@(_busy || _newLotId is null)" @onclick="CreateAsync">Open workup</button>
+            <button class="btn btn-primary" disabled="@(_busy || _newLotId is null || !NewSpecimenUsable)" @onclick="CreateAsync">Open workup</button>
         }
     </div>
 }
@@ -146,10 +171,26 @@ else
         It must not replace technologist judgment. Identified antibodies post to history only after supervisor acceptance.
     </div>
 
-    <div class="bb-card">
+    <nav class="workflow-ribbon" aria-label="Antibody identification stages">
+        <span class="workflow-ribbon-label">Workup</span>
+        @foreach (var step in WorkupStages)
+        {
+            <a class="workflow-step @(step.Complete ? "done" : null) @(step.Current ? "current" : null)"
+               href="@step.Href"
+               title="@step.Detail">
+                <span class="n">@step.Number</span>@step.Label
+            </a>
+            @if (step.Number < 5)
+            {
+                <span class="workflow-arrow" aria-hidden="true">→</span>
+            }
+        }
+    </nav>
+
+    <div class="bb-card" id="abid-scope">
         <div class="bb-card-title">
             <h3>Workup #@_workup.Id — @_workup.Status</h3>
-            <button class="btn btn-secondary btn-sm" @onclick="BackToList">All workups</button>
+            <a class="btn btn-secondary btn-sm" href="@($"/patients/{PatientId}/antibody-id")">All workups</a>
         </div>
         <div class="muted">
             Specimen: @SpecimenLabel(_workup.SpecimenId)
@@ -214,7 +255,8 @@ else
         @if (JudgmentStale)
         {
             <div class="alert alert-warning">
-                @_workup.JudgmentWithdrawnReason
+                <strong>Judgment withdrawn.</strong> @_workup.JudgmentWithdrawnReason
+                Re-record interpretation against the current panel, specimen, and type before review or complete.
             </div>
         }
         @if (_workup.Status == AntibodyWorkupStatus.Voided)
@@ -308,7 +350,7 @@ else
         }
     </div>
 
-    <div class="bb-card">
+    <div class="bb-card" id="abid-antigram">
         <div class="bb-card-title"><h3>Antigram</h3></div>
         <div style="overflow:auto;">
             <table class="bb">
@@ -398,7 +440,7 @@ else
         }
     </div>
 
-    <div class="bb-card">
+    <div class="bb-card" id="abid-findings">
         <div class="bb-card-title"><h3>Findings</h3></div>
         <p class="muted">Assistance refreshes when reactions, lots, DAT, or specimen change. It is not an identification and is never posted.</p>
         @if (_workup.Findings.Count == 0)
@@ -425,18 +467,25 @@ else
         }
     </div>
 
+    @if (SafetyContextItems.Count > 0)
+    {
+        <div class="bb-card" id="abid-safety">
+            <div class="bb-card-title"><h3>Safety context</h3></div>
+            <p class="muted">Shown once for this workup. Review and complete still require acknowledgment when these apply. None of these identify antibodies.</p>
+            <ul>
+                @foreach (var item in SafetyContextItems)
+                {
+                    <li>@item</li>
+                }
+            </ul>
+        </div>
+    }
+
     @if (CanEdit && Session.Has(PermissionCodes.ImmunoRecord))
     {
-        <div class="bb-card">
+        <div class="bb-card" id="abid-interpret">
             <div class="bb-card-title"><h3>Technologist interpretation</h3></div>
-            <p class="muted">Record identified, possible, and excluded antibodies. Prefer the catalog so identified antibodies drive antigen-negative selection. Assistance rows are not identifications.</p>
-            @if (UnexcludedAssist.Count > 0)
-            {
-                <div class="alert alert-warning">
-                    Assistance cannot exclude @string.Join(", ", UnexcludedAssist.Select(f => f.Specificity)).
-                    Recording Identified does not identify those leftover specificities.
-                </div>
-            }
+            <p class="muted">Record identified, possible, and excluded antibodies. Prefer the catalog so identified antibodies drive antigen-negative selection. Assistance rows are not identifications. Shared history and leftover-rule-out warnings are listed once under Safety context.</p>
             @if (IdentifiedDespiteExclusion.Count > 0 || QueuedIdentifiedDespiteExclusion.Count > 0)
             {
                 <div class="alert alert-warning">
@@ -445,13 +494,6 @@ else
                             .Concat(QueuedIdentifiedDespiteExclusion.Select(f => f.Specificity))
                             .Distinct())
                     on the reactions entered. Confirm the identification and record a rationale.
-                </div>
-            }
-            @if (ActiveAntibodyHistory.Count > 0)
-            {
-                <div class="alert alert-warning">
-                    Existing antibody history remains: @string.Join(", ", ActiveAntibodyHistory.Select(a => a.AntibodySpecificity)).
-                    Interpretation does not remove it.
                 </div>
             }
             @if (IncompletePanelCells.Count > 0 && _interpItems.Any(i => i.Classification == AntibodyIdClassification.Identified))
@@ -501,27 +543,11 @@ else
 
     @if (Session.Has(PermissionCodes.ImmunoOverride) && !JudgmentStale && _workup.Status != AntibodyWorkupStatus.Completed && _workup.Status != AntibodyWorkupStatus.Voided)
     {
-        <div class="bb-card">
+        <div class="bb-card" id="abid-review">
             <div class="bb-card-title"><h3>Supervisor review</h3></div>
             @if (IncompleteBlocksComplete)
             {
                 <div class="alert alert-warning">Identified antibodies cannot be accepted while panel or selected cells are missing interpretive-phase reactions.</div>
-            }
-            @if (UnexcludedAssist.Count > 0)
-            {
-                <div class="alert alert-warning">Assistance cannot exclude @string.Join(", ", UnexcludedAssist.Select(f => f.Specificity)). Acceptance does not identify those specificities.</div>
-            }
-            @if (IdentifiedDespiteExclusion.Count > 0)
-            {
-                <div class="alert alert-warning">Assistance would exclude @string.Join(", ", IdentifiedDespiteExclusion.Select(f => f.Specificity)). Confirm before accept.</div>
-            }
-            @if (ActiveAntibodyHistory.Count > 0)
-            {
-                <div class="alert alert-warning">Existing antibody history remains: @string.Join(", ", ActiveAntibodyHistory.Select(a => a.AntibodySpecificity)).</div>
-            }
-            @if (_workup.HasReservedOrIssuedUnits)
-            {
-                <div class="alert alert-warning">This patient has reserved or issued units. Completing may post antibodies that were not applied at allocation or issue. Acknowledgment does not identify antibodies.</div>
             }
             @if (NeedsCompleteAck)
             {
@@ -541,44 +567,14 @@ else
 
     @if (CanEdit && Session.Has(PermissionCodes.ImmunoRecord))
     {
-        <div class="bb-card">
+        <div class="bb-card" id="abid-complete">
             <div class="bb-card-title"><h3>Complete workup</h3></div>
-            @if (IncompletePanelCells.Count > 0)
+            @if (IncompleteBlocksComplete)
             {
                 <div class="alert alert-warning">
                     Cells missing an interpretive-phase reaction: @string.Join(", ", IncompletePanelCells.Select(c => c.CellNumber)).
-                    A blank cell is not an exclusion.
-                    @if (IdentifiedToPost.Count > 0)
-                    {
-                        <span> Identified antibodies cannot post until those reactions are entered.</span>
-                    }
+                    Identified antibodies cannot post until those reactions are entered.
                 </div>
-            }
-            @if (IdentifiedDespiteExclusion.Count > 0)
-            {
-                <div class="alert alert-warning">
-                    Assistance would exclude @string.Join(", ", IdentifiedDespiteExclusion.Select(f => f.Specificity))
-                    on the reactions entered. Confirm before complete. Assistance does not identify or block.
-                </div>
-            }
-            @if (UnexcludedAssist.Count > 0)
-            {
-                <div class="alert alert-warning">
-                    Assistance cannot exclude @string.Join(", ", UnexcludedAssist.Select(f => f.Specificity)).
-                    Completing will not identify those specificities. Attach selected cells when a homozygous exclusion is needed.
-                </div>
-            }
-            @if (ActiveAntibodyHistory.Count > 0)
-            {
-                <div class="alert alert-warning">
-                    Existing antibody history remains on the record and still drives antigen-negative selection:
-                    @string.Join(", ", ActiveAntibodyHistory.Select(a => a.AntibodySpecificity)).
-                    Completing does not remove it.
-                </div>
-            }
-            @if (_workup.HasReservedOrIssuedUnits)
-            {
-                <div class="alert alert-warning">This patient has reserved or issued units. Completing may post antibodies that were not applied at allocation or issue. Acknowledgment does not identify antibodies.</div>
             }
             @if (IdentifiedToPost.Count == 0)
             {
@@ -622,8 +618,12 @@ else
     [Parameter] public long PatientId { get; set; }
     [Parameter] public long? WorkupId { get; set; }
 
+    [SupplyParameterFromQuery]
+    public long? SpecimenId { get; set; }
+
     private Feedback? _fb;
     private bool _busy;
+    private PatientDto? _patient;
     private List<AntibodyIdWorkupListItemDto> _workups = new();
     private List<AntibodyPanelLotListItemDto> _lots = new();
     private AntibodyIdWorkupDetailDto? _workup;
@@ -666,6 +666,46 @@ else
             .Where(s => IsUsableForWorkup(s))
             .OrderByDescending(s => s.CollectedUtc)
             .ToList();
+
+    private IReadOnlyList<SpecimenDto> NewWorkupSpecimens
+    {
+        get
+        {
+            var list = LinkableSpecimens.ToList();
+            if (SpecimenId is long sid)
+            {
+                var extra = _specimens.FirstOrDefault(s => s.Id == sid);
+                if (extra is not null && list.All(s => s.Id != extra.Id))
+                {
+                    list.Insert(0, extra);
+                }
+            }
+
+            return list;
+        }
+    }
+
+    private bool NewSpecimenUsable =>
+        _newSpecimenId is not > 0 || LinkableSpecimens.Any(s => s.Id == _newSpecimenId);
+
+    private string PrefillSpecimenStatus
+    {
+        get
+        {
+            var specimen = _specimens.FirstOrDefault(s => s.Id == SpecimenId);
+            if (specimen is null)
+            {
+                return "unavailable";
+            }
+
+            if (specimen.ExpiresUtc is DateTime expires && expires <= DateTime.UtcNow)
+            {
+                return "Expired";
+            }
+
+            return specimen.Status.ToString();
+        }
+    }
 
     private bool IsUsableForWorkup(SpecimenDto s) =>
         s.Status is not SpecimenStatus.Rejected
@@ -826,16 +866,88 @@ else
             .ToList()
         ?? [];
 
+    private IReadOnlyList<string> SafetyContextItems
+    {
+        get
+        {
+            var items = new List<string>();
+            if (UnexcludedAssist.Count > 0)
+            {
+                items.Add($"Assistance cannot exclude {string.Join(", ", UnexcludedAssist.Select(f => f.Specificity))}. Completing will not identify those leftover specificities.");
+            }
+
+            if (IdentifiedDespiteExclusion.Count > 0)
+            {
+                items.Add($"Assistance would exclude {string.Join(", ", IdentifiedDespiteExclusion.Select(f => f.Specificity))} on the reactions entered. Confirm before review or complete.");
+            }
+
+            if (ActiveAntibodyHistory.Count > 0)
+            {
+                items.Add($"Existing antibody history remains and still drives antigen-negative selection: {string.Join(", ", ActiveAntibodyHistory.Select(a => a.AntibodySpecificity))}.");
+            }
+
+            if (_workup?.HasReservedOrIssuedUnits == true)
+            {
+                items.Add("This patient has reserved or issued units. Completing may post antibodies that were not applied at allocation or issue.");
+            }
+
+            if (IncompletePanelCells.Count > 0)
+            {
+                items.Add($"Cells missing an interpretive-phase reaction: {string.Join(", ", IncompletePanelCells.Select(c => c.CellNumber))}. A blank cell is not an exclusion.");
+            }
+
+            if (_dat == AntibodyIdDatResult.NotPerformed && AutocontrolLooksPositive)
+            {
+                items.Add("Autocontrol looks positive and DAT is not performed. Acknowledgment is required before complete.");
+            }
+
+            return items;
+        }
+    }
+
+    private IReadOnlyList<WorkupStage> WorkupStages
+    {
+        get
+        {
+            if (_workup is null)
+            {
+                return [];
+            }
+
+            var scoped = _workup.SpecimenId is not null;
+            var reactions = (_workup.Cells ?? []).Any(CellHasInterpretiveReaction);
+            var assist = (_workup.Findings ?? []).Any(f => f.Source == AntibodyIdSource.Assist);
+            var interpreted = _workup.InterpretedUtc is not null && !JudgmentStale;
+            var reviewed = _workup.ReviewedUtc is not null && _workup.SupervisorAccepted && !JudgmentStale;
+            var states = new[] { scoped, reactions, assist, interpreted, reviewed };
+            var current = Array.FindIndex(states, s => !s);
+            if (current < 0) current = 4;
+
+            return
+            [
+                new("scope", 1, "Specimen / lot", scoped, current == 0, scoped ? SpecimenLabel(_workup.SpecimenId) : "Link a specimen", "#abid-scope"),
+                new("reactions", 2, "Reactions", reactions, current == 1, reactions ? "Interpretive phases recorded" : "Record panel reactions", "#abid-antigram"),
+                new("assist", 3, "Assistance", assist, current == 2, assist ? "Advisory findings on file" : "Run assistance", "#abid-findings"),
+                new("interpret", 4, "Interpret", interpreted, current == 3, interpreted ? "Technologist interpretation recorded" : (JudgmentStale ? "Re-record interpretation" : "Record interpretation"), "#abid-interpret"),
+                new("review", 5, "Review / complete", reviewed, current == 4, reviewed ? "Supervisor accepted" : "Supervisor review then complete", "#abid-review")
+            ];
+        }
+    }
+
+    private readonly record struct WorkupStage(string Key, int Number, string Label, bool Complete, bool Current, string Detail, string Href);
+
     protected override async Task OnParametersSetAsync() => await LoadAsync();
 
     private async Task LoadAsync()
     {
+        _patient = (await Api.GetPatientAsync(PatientId)).Value;
         _lots = (await Api.GetAntibodyIdLotsAsync(true)).Value ?? new();
         _workups = (await Api.GetAntibodyIdWorkupsAsync(PatientId)).Value ?? new();
         _specimens = (await Api.GetPatientSpecimensAsync(PatientId)).Value ?? new();
         _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
         _antigenProfiles = (await Api.GetAntigenProfilesAsync(PatientId)).Value ?? new();
         _antibodyHistory = (await Api.GetAntibodyHistoryAsync(PatientId)).Value ?? new();
+        ApplySpecimenPrefill();
         if (WorkupId is long id)
         {
             var r = await Api.GetAntibodyIdWorkupAsync(id);
@@ -847,10 +959,32 @@ else
             }
 
             ApplyWorkup(r.Value);
+            return;
         }
-        else
+
+        _workup = null;
+        if (SpecimenId is long sid)
         {
-            _workup = null;
+            var open = _workups.FirstOrDefault(w =>
+                w.SpecimenId == sid
+                && w.Status is not AntibodyWorkupStatus.Completed and not AntibodyWorkupStatus.Voided);
+            if (open is not null)
+            {
+                Nav.NavigateTo($"/patients/{PatientId}/antibody-id/{open.Id}", replace: true);
+            }
+        }
+    }
+
+    private void ApplySpecimenPrefill()
+    {
+        if (_newSpecimenId is not null)
+        {
+            return;
+        }
+
+        if (SpecimenId is long sid && _specimens.Any(s => s.Id == sid))
+        {
+            _newSpecimenId = sid;
         }
     }
 
@@ -872,8 +1006,6 @@ else
         }
     }
 
-    private void Open(long id) => Nav.NavigateTo($"/patients/{PatientId}/antibody-id/{id}");
-    private void BackToList() => Nav.NavigateTo($"/patients/{PatientId}/antibody-id");
 
     private async Task CreateAsync()
     {
