@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -17,10 +18,17 @@ internal static class TestCatalogSeeder
             return;
         }
 
-        SpecimenTypeDefinition Type(string code, string description, int sort, params string[] excludedTests) => new()
+        SpecimenTypeDefinition Type(
+            string code,
+            string description,
+            string expirationCode,
+            int sort,
+            params string[] excludedTests) => new()
         {
             Code = code,
             Description = description,
+            ExpirationCode = expirationCode,
+            ExpirationMode = SpecimenExpirationMode.ExactTime,
             ExcludedTestCodesJson = SpecimenTypeExcludedTests.Serialize(excludedTests),
             SortOrder = sort,
             IsActive = true,
@@ -30,8 +38,8 @@ internal static class TestCatalogSeeder
         };
 
         context.SpecimenTypeDefinitions.AddRange(
-            Type("EDTA", "EDTA Whole Blood", 1),
-            Type("SERUM", "Serum", 2, "XM"));
+            Type("EDTA", "EDTA Whole Blood", "7D", 1),
+            Type("SERUM", "Serum", "3D", 2, "XM"));
 
         await context.SaveChangesAsync(ct);
     }

@@ -154,6 +154,57 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Accession_UsesSpecimenTypeExpiration_ForSerum()
+    {
+        var patientId = await EnsurePatientAsync("MRN-SERUM-EXP");
+        await using var context = _factory.Create();
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+
+        var result = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest("ACC-SERUM-EXP", patientId, "SERUM", collected));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(collected.AddDays(3), result.Value!.ExpiresUtc);
+    }
+
+    [Fact]
+    public async Task Accession_EndOfDayType_ExpiresAt2359()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EOD");
+        await using var context = _factory.Create();
+        var type = await context.SpecimenTypeDefinitions.SingleAsync(t => t.Code == "SERUM");
+        type.ExpirationMode = SpecimenExpirationMode.EndOfDay;
+        await context.SaveChangesAsync();
+
+        var collected = new DateTime(2026, 5, 20, 11, 56, 0, DateTimeKind.Utc);
+        var result = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest("ACC-EOD", patientId, "SERUM", collected));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(new DateTime(2026, 5, 23, 23, 59, 0, DateTimeKind.Utc), result.Value!.ExpiresUtc);
+    }
+
+    [Fact]
+    public async Task Accession_ValidityHoursOverride_IsStillCappedByAlloWindow()
+    {
+        var patientId = await EnsurePatientAsync("MRN-OVR-ALLO");
+        await using (var setup = _factory.Create())
+        {
+            var patient = await setup.Patients.FindAsync(patientId);
+            patient!.RecentPregnancyUtc = _factory.Clock.UtcNow.AddDays(-10);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+        var result = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest("ACC-OVR-ALLO", patientId, "EDTA", collected, ValidityHours: 168));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(collected.AddHours(SpecimenValidityPolicy.DefaultAlloimmunizationRiskHours), result.Value!.ExpiresUtc);
+    }
+
+    [Fact]
     public async Task Accession_FutureCollection_Fails()
     {
         var patientId = await EnsurePatientAsync("MRN-FUT");

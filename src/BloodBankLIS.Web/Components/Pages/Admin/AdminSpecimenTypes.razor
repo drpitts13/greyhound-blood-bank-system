@@ -1,5 +1,7 @@
 @page "/admin/specimen-types"
 @using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Domain.Enums
+@using BloodBankLIS.Domain.ValueObjects
 @inject UserSession Session
 @inject BloodBankApiClient Api
 
@@ -7,12 +9,15 @@
 
 <div class="flex-between">
     <h1>Specimen Types</h1>
-    @if (CanEdit)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New specimen type</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/tests">Open Tests</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New specimen type</button>
+        }
+    </div>
 </div>
-<p class="muted">Catalog of specimen types for accessioning. Each type defines tests that cannot be performed on that specimen.</p>
+<p class="muted">Catalog of specimen types for accessioning. Each type defines expiration relative to collection and tests that cannot be performed on that specimen.</p>
 
 <Outcome Value="_feedback" />
 
@@ -33,13 +38,14 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Code</th><th>Description</th><th>Excluded tests</th><th>Sort</th><th>Ver</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Code</th><th>Description</th><th>Expiration</th><th>Excluded tests</th><th>Sort</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
                 @foreach (var d in Filtered)
                 {
                     <tr>
                         <td class="mono">@d.Code</td>
                         <td>@d.Description</td>
+                        <td class="mono">@d.ExpirationCode @ExpirationModeLabel(d.ExpirationMode)</td>
                         <td>@(d.ExcludedTestCodes.Count == 0 ? "—" : string.Join(", ", d.ExcludedTestCodes))</td>
                         <td>@d.SortOrder</td>
                         <td>@d.Version</td>
@@ -64,6 +70,27 @@
             <div class="field"><label>Description</label><input @bind="_editing.Description" placeholder="EDTA Whole Blood" /></div>
             <div class="field"><label>Sort order</label><input type="number" @bind="_editing.SortOrder" /></div>
         </div>
+        <div class="form-row" style="margin-top:.5rem;">
+            <div class="field"><label>Expiration amount</label><input type="number" min="1" @bind="_editing.ExpirationAmount" @bind:after="OnExpirationUnitChanged" /></div>
+            <div class="field"><label>Expiration unit</label>
+                <select @bind="_editing.ExpirationUnit" @bind:after="OnExpirationUnitChanged">
+                    <option value="H">Hours (H)</option>
+                    <option value="D">Days (D)</option>
+                    <option value="W">Weeks (W)</option>
+                    <option value="M">Months (M)</option>
+                </select>
+            </div>
+            <div class="field"><label>Expiration timing</label>
+                <select @bind="_editing.ExpirationMode" disabled="@_editing.IsHourUnit">
+                    <option value="@SpecimenExpirationMode.ExactTime">Exact time (collection clock time)</option>
+                    @if (!_editing.IsHourUnit)
+                    {
+                        <option value="@SpecimenExpirationMode.EndOfDay">End of day (23:59 on the final day)</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <p class="muted" style="margin:.35rem 0 0;font-size:.85rem;">Expiration is relative to collection date/time. Example: 3D collected 7/4/26 11:56 expires 7/7/26 11:56 (exact) or 7/7/26 23:59 (end of day). Hours always use exact time.</p>
         <div class="field" style="margin-top:.5rem;">
             <label><strong>Tests that cannot be run on this specimen type</strong></label>
             <div class="flex gap" style="flex-wrap:wrap;margin-top:.4rem;">
@@ -161,6 +188,18 @@
 
     private void CancelEdit() { _editing = null; _editId = null; _changeReason = null; }
 
+    private void OnExpirationUnitChanged()
+    {
+        if (_editing is null) return;
+        if (_editing.IsHourUnit)
+        {
+            _editing.ExpirationMode = SpecimenExpirationMode.ExactTime;
+        }
+    }
+
+    private static string ExpirationModeLabel(SpecimenExpirationMode mode) =>
+        mode == SpecimenExpirationMode.EndOfDay ? "end of day" : "exact";
+
     private void ToggleExcludedTest(string code, bool selected)
     {
         if (_editing is null) return;
@@ -222,20 +261,45 @@
     {
         public string Code { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
+        public int ExpirationAmount { get; set; } = 7;
+        public string ExpirationUnit { get; set; } = "D";
+        public SpecimenExpirationMode ExpirationMode { get; set; } = SpecimenExpirationMode.ExactTime;
         public List<string> ExcludedTestCodes { get; set; } = new();
         public int SortOrder { get; set; }
         public bool IsActive { get; set; }
 
-        public static EditModel From(SpecimenTypeDefinitionDto dto) => new()
+        public bool IsHourUnit => string.Equals(ExpirationUnit, "H", StringComparison.OrdinalIgnoreCase);
+
+        public static EditModel From(SpecimenTypeDefinitionDto dto)
         {
-            Code = dto.Code,
-            Description = dto.Description,
-            ExcludedTestCodes = dto.ExcludedTestCodes.ToList(),
-            SortOrder = dto.SortOrder,
-            IsActive = dto.IsActive
-        };
+            var amount = 7;
+            var unit = "D";
+            if (SpecimenExpirationCode.TryParse(dto.ExpirationCode, out var parsed))
+            {
+                amount = parsed.Amount;
+                unit = parsed.Unit switch
+                {
+                    SpecimenExpirationUnit.Hours => "H",
+                    SpecimenExpirationUnit.Weeks => "W",
+                    SpecimenExpirationUnit.Months => "M",
+                    _ => "D"
+                };
+            }
+
+            return new EditModel
+            {
+                Code = dto.Code,
+                Description = dto.Description,
+                ExpirationAmount = amount,
+                ExpirationUnit = unit,
+                ExpirationMode = dto.ExpirationMode,
+                ExcludedTestCodes = dto.ExcludedTestCodes.ToList(),
+                SortOrder = dto.SortOrder,
+                IsActive = dto.IsActive
+            };
+        }
 
         public SaveSpecimenTypeDefinitionRequest ToRequest(string? changeReason) =>
-            new(Code, Description, ExcludedTestCodes, SortOrder, changeReason);
+            new(Code, Description, $"{ExpirationAmount}{ExpirationUnit}", ExpirationMode, ExcludedTestCodes, SortOrder, changeReason);
     }
 }

@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Admin;
 
@@ -6,6 +7,8 @@ public sealed record SpecimenTypeDefinitionDto(
     long Id,
     string Code,
     string Description,
+    string ExpirationCode,
+    SpecimenExpirationMode ExpirationMode,
     IReadOnlyList<string> ExcludedTestCodes,
     int SortOrder,
     int Version,
@@ -18,11 +21,18 @@ public sealed record SpecimenTypeDefinitionDto(
 public sealed record SaveSpecimenTypeDefinitionRequest(
     string Code,
     string Description,
+    string ExpirationCode,
+    SpecimenExpirationMode ExpirationMode,
     IReadOnlyList<string>? ExcludedTestCodes,
     int SortOrder,
     string? ChangeReason);
 
-public sealed record SpecimenTypeListItemDto(string Code, string Description, int SortOrder);
+public sealed record SpecimenTypeListItemDto(
+    string Code,
+    string Description,
+    int SortOrder,
+    string ExpirationCode,
+    SpecimenExpirationMode ExpirationMode);
 
 public static class SpecimenTypeDefinitionDtoMapping
 {
@@ -30,6 +40,8 @@ public static class SpecimenTypeDefinitionDtoMapping
         d.Id,
         d.Code,
         d.Description,
+        d.ExpirationCode,
+        d.ExpirationMode,
         Domain.ValueObjects.SpecimenTypeExcludedTests.Parse(d.ExcludedTestCodesJson),
         d.SortOrder,
         d.Version,

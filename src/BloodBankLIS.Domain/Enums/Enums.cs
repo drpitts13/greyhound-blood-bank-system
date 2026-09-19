@@ -645,6 +645,16 @@ public enum ExpirationRelativeTo
 }
 
 /// <summary>
+/// Whether a specimen-type expiration lands at the same clock time as collection
+/// or at 23:59 UTC on the final calendar day. Hours always use exact time.
+/// </summary>
+public enum SpecimenExpirationMode
+{
+    ExactTime = 0,
+    EndOfDay = 1
+}
+
+/// <summary>
 /// Action recorded against a versioned configuration record in
 /// <c>ConfigurationChangeHistory</c>. Mirrors the admin lifecycle.
 /// </summary>

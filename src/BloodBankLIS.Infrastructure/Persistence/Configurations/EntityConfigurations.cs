@@ -1096,6 +1096,8 @@ public sealed class SpecimenTypeDefinitionConfiguration : IEntityTypeConfigurati
         b.HasKey(d => d.Id);
         b.Property(d => d.Code).HasMaxLength(50).IsRequired();
         b.Property(d => d.Description).HasMaxLength(200).IsRequired();
+        b.Property(d => d.ExpirationCode).HasMaxLength(10).IsRequired();
+        b.Property(d => d.ExpirationMode).IsRequired();
         b.Property(d => d.ExcludedTestCodesJson).HasMaxLength(4000);
         b.Property(d => d.ChangeReason).HasMaxLength(1000);
         b.Property(d => d.ApprovedBy).HasMaxLength(100);

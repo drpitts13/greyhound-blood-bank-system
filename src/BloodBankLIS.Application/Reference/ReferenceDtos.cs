@@ -53,9 +53,10 @@ public sealed record OrderingProviderRefDto(long Id, string ProviderId, string N
         p.Id, p.ProviderId, p.Name, p.Specialty, p.Location);
 }
 
-public sealed record TestDefinitionListItemDto(string Code, string Name, TestCategory Category)
+public sealed record TestDefinitionListItemDto(string Code, string Name, TestCategory Category, string? RequiredSpecimenType = null)
 {
-    public static TestDefinitionListItemDto From(TestDefinition t) => new(t.Code, t.Name, t.Category);
+    public static TestDefinitionListItemDto From(TestDefinition t) =>
+        new(t.Code, t.Name, t.Category, t.RequiredSpecimenType);
 }
 
 public sealed record DirectoryUserDto(string UserName, string DisplayName)

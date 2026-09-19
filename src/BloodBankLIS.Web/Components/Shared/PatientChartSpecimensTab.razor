@@ -41,6 +41,12 @@
                     </select>
                 </div>
                 <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Accession.CollectedLocal" /></div>
+                @if (AccessionPreviewExpires is { } preview)
+                {
+                    <div class="field"><label>Expires (preview)</label>
+                        <input value="@preview.ToString("yyyy-MM-dd HH:mm")" disabled />
+                    </div>
+                }
                 <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="Accession.ValidityHours" /></div>
                 <div class="field"><label>Identifier 1 (MRN)</label><input @bind="Accession.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
                 <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="Accession.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
@@ -223,17 +229,23 @@
     [Parameter] public EventCallback OnOpenOrders { get; set; }
     [Parameter] public int ExceptionMinLevel { get; set; } = 2;
 
+    private DateTime? AccessionPreviewExpires =>
+        SpecimenTypeOrderHint.PreviewExpiresUtc(Accession.CollectedLocal, Accession.SpecimenType, SpecimenTypes);
+
     private bool NeedsExpirationOverride =>
         SpecimenExpirationOverrideRule.Evaluate(
-            Edit.CollectedLocal.AddHours(Edit.PolicyHours),
+            Edit.PolicyExpires,
             Edit.ExpiresLocal,
             overrideAuthorized: false).Severity == RuleSeverity.Warning;
 
     private void OnCollectedChanged()
     {
+        var preview = SpecimenTypeOrderHint.PreviewExpiresUtc(Edit.CollectedLocal, Edit.SpecimenType, SpecimenTypes)
+            ?? Edit.CollectedLocal.AddHours(Edit.PolicyHours);
+        Edit.PolicyExpires = preview;
         if (!Edit.ExpiryTouched)
         {
-            Edit.ExpiresLocal = Edit.CollectedLocal.AddHours(Edit.PolicyHours);
+            Edit.ExpiresLocal = preview;
         }
     }
 

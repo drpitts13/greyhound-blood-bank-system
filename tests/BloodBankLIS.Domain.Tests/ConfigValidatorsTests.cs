@@ -766,4 +766,60 @@ public class ConfigValidatorsTests
 
         Assert.True(eval.IsAllowed);
     }
+
+    [Fact]
+    public void SpecimenType_ValidExpiration_Passes()
+    {
+        var def = ValidSpecimenType();
+
+        var eval = SpecimenTypeDefinitionValidator.Validate(def, duplicateActiveCode: false);
+
+        Assert.False(eval.IsHardStopped);
+        Assert.True(eval.IsAllowed);
+    }
+
+    [Fact]
+    public void SpecimenType_MissingExpiration_HardStops()
+    {
+        var def = ValidSpecimenType();
+        def.ExpirationCode = "";
+
+        var eval = SpecimenTypeDefinitionValidator.Validate(def, duplicateActiveCode: false);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "SPECTYPE.EXP.REQUIRED");
+    }
+
+    [Fact]
+    public void SpecimenType_InvalidExpiration_HardStops()
+    {
+        var def = ValidSpecimenType();
+        def.ExpirationCode = "3Y";
+
+        var eval = SpecimenTypeDefinitionValidator.Validate(def, duplicateActiveCode: false);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "SPECTYPE.EXP.INVALID");
+    }
+
+    [Fact]
+    public void SpecimenType_HoursWithEndOfDay_HardStops()
+    {
+        var def = ValidSpecimenType();
+        def.ExpirationCode = "72H";
+        def.ExpirationMode = SpecimenExpirationMode.EndOfDay;
+
+        var eval = SpecimenTypeDefinitionValidator.Validate(def, duplicateActiveCode: false);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == "SPECTYPE.EXP.HOUR.ENDOFDAY");
+    }
+
+    private static SpecimenTypeDefinition ValidSpecimenType() => new()
+    {
+        Code = "EDTA",
+        Description = "EDTA Whole Blood",
+        ExpirationCode = "7D",
+        ExpirationMode = SpecimenExpirationMode.ExactTime
+    };
 }

@@ -120,6 +120,12 @@
                             </select>
                         </div>
                         <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="OrderAcc.CollectedLocal" /></div>
+                        @if (AccessionPreviewExpires is { } preview)
+                        {
+                            <div class="field"><label>Expires (preview)</label>
+                                <input value="@preview.ToString("yyyy-MM-dd HH:mm")" disabled />
+                            </div>
+                        }
                         <div class="field"><label>Validity hours (optional)</label><input type="number" @bind="OrderAcc.ValidityHours" /></div>
                         <div class="field"><label>Identifier 1 (MRN)</label><input @bind="OrderAcc.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
                         <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="OrderAcc.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
@@ -128,6 +134,10 @@
                         <label>Specimen comment</label>
                         <CodedCommentField Page="CommentPage.Specimen" @bind-Value="OrderAcc.Comment" />
                     </div>
+                    @if (AccessionMismatch is not null)
+                    {
+                        <div class="alert alert-warning" style="margin:.5rem 0 0;">@AccessionMismatch</div>
+                    }
                     <p class="muted" style="margin:.5rem 0 0;font-size:.85rem;">Save creates the specimen, the order, and the link so tests appear on the worklist. The Specimens tab still has reject, edit, and results.</p>
                 }
                 else
@@ -142,6 +152,10 @@
                             }
                         </select>
                     </div>
+                    @if (LinkExistingMismatch is not null)
+                    {
+                        <div class="alert alert-warning" style="margin:.5rem 0 0;">@LinkExistingMismatch</div>
+                    }
                     <p class="muted" style="margin:.5rem 0 0;font-size:.85rem;">Link a specimen to inherit this order's tests on the worklist. Leave auto-link to use the most recent accepted specimen, or pick one explicitly.</p>
                 }
                 <div class="field" style="margin-top:.75rem;">
@@ -257,6 +271,10 @@
                                         </div>
                                         <button type="button" class="btn btn-primary btn-sm" disabled="@(Busy || LinkSpecimenId <= 0)" @onclick="() => OnLink.InvokeAsync(o.Id)">Link specimen</button>
                                     </div>
+                                    @if (LinkRowMismatch(o) is { } linkWarn)
+                                    {
+                                        <div class="alert alert-warning" style="margin:.5rem 0 0;">@linkWarn</div>
+                                    }
                                     @if (!LinkableSpecimens.Any())
                                     {
                                         <p class="muted" style="margin:.5rem 0 0;">No accepted, non-expired specimens are available. Accession a specimen first.</p>
@@ -499,6 +517,37 @@
     {
         if (o.Status == OrderStatus.Cancelled || o.Status == OrderStatus.Completed) return "row-muted";
         return o.IsUrgentPriority ? "row-urgent" : string.Empty;
+    }
+
+    private DateTime? AccessionPreviewExpires =>
+        SpecimenTypeOrderHint.PreviewExpiresUtc(OrderAcc.CollectedLocal, OrderAcc.SpecimenType, SpecimenTypes);
+
+    private string? AccessionMismatch =>
+        SpecimenTypeOrderHint.MismatchWarning(TestDefs, NewOrderTestCodes, OrderAcc.SpecimenType);
+
+    private string? LinkExistingMismatch =>
+        SpecimenTypeOrderHint.MismatchWarning(TestDefs, NewOrderTestCodes, SelectedOrLatestSpecimenType);
+
+    private string? SelectedOrLatestSpecimenType
+    {
+        get
+        {
+            if (NewOrderSpecimenId > 0)
+            {
+                return LinkableSpecimens.FirstOrDefault(s => s.Id == NewOrderSpecimenId)?.SpecimenType;
+            }
+
+            return LinkableSpecimens.FirstOrDefault()?.SpecimenType;
+        }
+    }
+
+    private string? LinkRowMismatch(PatientOrderDto order)
+    {
+        var specimen = LinkableSpecimens.FirstOrDefault(s => s.Id == LinkSpecimenId);
+        var codes = order.Lines
+            .Where(l => l.LineCategory == OrderCategory.Test && !string.IsNullOrWhiteSpace(l.TestCode))
+            .Select(l => l.TestCode!);
+        return SpecimenTypeOrderHint.MismatchWarning(TestDefs, codes, specimen?.SpecimenType);
     }
 
     private static string FormatProvider(OrderingProviderRefDto p) => $"{p.Name} ({p.ProviderId})";

@@ -359,6 +359,22 @@ public static class SpecimenTypeDefinitionValidator
                 $"Another active specimen type already uses code '{d.Code}'."));
         }
 
+        if (string.IsNullOrWhiteSpace(d.ExpirationCode))
+        {
+            results.Add(RuleResult.HardStop("SPECTYPE.EXP.REQUIRED", "Specimen type expiration code is required."));
+        }
+        else if (!SpecimenExpirationCode.TryParse(d.ExpirationCode, out var expiration))
+        {
+            results.Add(RuleResult.HardStop("SPECTYPE.EXP.INVALID",
+                "Expiration code must be a positive number followed by H, D, W, or M (for example 72H or 3D)."));
+        }
+        else if (expiration.Unit == SpecimenExpirationUnit.Hours
+            && d.ExpirationMode == SpecimenExpirationMode.EndOfDay)
+        {
+            results.Add(RuleResult.HardStop("SPECTYPE.EXP.HOUR.ENDOFDAY",
+                "End-of-day expiration does not apply to hour offsets. Use exact time, or switch to D, W, or M."));
+        }
+
         if (activeTestCodes is not null)
         {
             foreach (var code in SpecimenTypeExcludedTests.Parse(d.ExcludedTestCodesJson))

@@ -144,6 +144,8 @@ public static class DevelopmentSqliteBootstrap
         ("TestResults", "InvalidatedBy", """ALTER TABLE "TestResults" ADD COLUMN "InvalidatedBy" TEXT NULL"""),
         ("TestResults", "InvalidatedUtc", """ALTER TABLE "TestResults" ADD COLUMN "InvalidatedUtc" TEXT NULL"""),
         ("TestResults", "InvalidationReason", """ALTER TABLE "TestResults" ADD COLUMN "InvalidationReason" TEXT NULL"""),
+        ("SpecimenTypeDefinitions", "ExpirationCode", """ALTER TABLE "SpecimenTypeDefinitions" ADD COLUMN "ExpirationCode" TEXT NOT NULL DEFAULT '7D'"""),
+        ("SpecimenTypeDefinitions", "ExpirationMode", """ALTER TABLE "SpecimenTypeDefinitions" ADD COLUMN "ExpirationMode" INTEGER NOT NULL DEFAULT 0"""),
         ("SpecialTransfusionRequirements", "RequirementDefinitionId", """ALTER TABLE "SpecialTransfusionRequirements" ADD COLUMN "RequirementDefinitionId" INTEGER NULL"""),
         ("PatientBloodTypeHistory", "AboSubgroup", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "AboSubgroup" INTEGER NOT NULL DEFAULT 0"""),
         ("Issues", "AcknowledgedSpecialRequirementCodes", """ALTER TABLE "Issues" ADD COLUMN "AcknowledgedSpecialRequirementCodes" TEXT NULL""")

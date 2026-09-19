@@ -9,11 +9,19 @@
 
 <div class="flex-between">
     <h1>Test Definitions</h1>
-    @if (CanManage)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New test</button>
-    }
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/specimen-types">Open Specimen Types</a>
+        <a class="btn btn-ghost" href="/admin/test-groupers">Open Test Groupers</a>
+        <a class="btn btn-ghost" href="/admin/reflex-rules">Open Reflex Rules</a>
+        <a class="btn btn-ghost" href="/admin/test-service-billing">Open Test/Service Billing</a>
+        <a class="btn btn-ghost" href="/admin/charge-rules">Open Charge Rules</a>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New test</button>
+        }
+    </div>
 </div>
+<p class="muted">Test catalog: result types, panel assignments, interpretation logic, history contribution. Verified-result charges are mapped on Test/Service Billing.</p>
 
 <Outcome Value="_feedback" />
 
@@ -288,7 +296,7 @@
                 <textarea rows="3" @bind="_editing.AllowedResultValues"></textarea>
             </div>
             }
-            <div class="field"><label>Required specimen type</label>
+            <div class="field"><label>Default / required specimen type</label>
                 <select @bind="_editing.RequiredSpecimenType">
                     <option value="">— Any —</option>
                     @foreach (var t in _catalogSpecimenTypes)
@@ -296,6 +304,7 @@
                         <option value="@t.Code">@t.Code — @t.Description</option>
                     }
                 </select>
+                <p class="muted" style="margin:.25rem 0 0;font-size:.85rem;">Prefills accession. Result entry is blocked if the specimen type does not match.</p>
             </div>
             <div class="field"><label>Testing method</label><input @bind="_editing.TestingMethod" /></div>
             <div class="field"><label>Performing department</label><input @bind="_editing.PerformingDepartment" /></div>

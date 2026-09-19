@@ -1548,7 +1548,8 @@ public static partial class DatabaseSeeder
     /// </summary>
     private static async Task SeedIsbtScenarioAsync(BloodBankDbContext context, CancellationToken ct)
     {
-        if (await context.BloodComponentScanSessions.AnyAsync(ct))
+        if (await context.BloodComponentScanSessions.AnyAsync(ct)
+            || await context.BloodUnits.AnyAsync(u => u.UnitNumber == "W123422123456", ct))
         {
             return;
         }

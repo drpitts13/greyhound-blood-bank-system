@@ -733,7 +733,41 @@ else
         {
             _newOrderSpecimenId = 0;
             _orderAcc = new();
+            ApplyOrderAccessionDefaultType();
         }
+    }
+
+    private void ApplyOrderAccessionDefaultType()
+    {
+        var required = SpecimenTypeOrderHint.FirstRequiredType(_testDefs, _newOrderTestCodes);
+        if (!string.IsNullOrWhiteSpace(required))
+        {
+            _orderAcc.SpecimenType = required;
+        }
+    }
+
+    private string? ResolveOrderSpecimenType(long? specimenId)
+    {
+        if (specimenId is > 0)
+        {
+            return _specimens.FirstOrDefault(s => s.Id == specimenId)?.SpecimenType;
+        }
+
+        return LinkableSpecimens.FirstOrDefault()?.SpecimenType;
+    }
+
+    private Feedback WithSpecimenTypeWarning(Feedback feedback, IEnumerable<string> testCodes, string? specimenType)
+    {
+        var warning = SpecimenTypeOrderHint.MismatchWarning(_testDefs, testCodes, specimenType);
+        if (warning is null)
+        {
+            return feedback;
+        }
+
+        return feedback with
+        {
+            Warnings = feedback.Warnings.Append(new RuleMessage("SPECIMEN.TYPE.DEFAULT.MISMATCH", warning)).ToList()
+        };
     }
 
     private async Task SelectTab(string tab)
@@ -1175,6 +1209,7 @@ else
     {
         if (IsChecked(e)) _newOrderTestCodes.Add(code);
         else _newOrderTestCodes.Remove(code);
+        ApplyOrderAccessionDefaultType();
     }
 
     private void ToggleNewOrderGrouper(TestGrouperListItemDto grouper, ChangeEventArgs e)
@@ -1188,6 +1223,7 @@ else
         {
             _newOrderGrouperCodes.Remove(grouper.Code);
         }
+        ApplyOrderAccessionDefaultType();
     }
 
     private void ToggleEditOrderGrouper(TestGrouperListItemDto grouper, ChangeEventArgs e)
@@ -1295,9 +1331,15 @@ else
         var r = await Api.CreatePatientOrderAsync(Id, req);
         _busy = false;
         if (!r.Succeeded) { _orderFb = r.ToFeedback(); return; }
-        _orderFb = r.ToFeedback(specimenId is > 0
-            ? $"Order {orderNumber} created and linked to the specimen."
-            : $"Order {orderNumber} created.");
+        var chosenType = _newOrderAccessionNow
+            ? (string.IsNullOrWhiteSpace(_orderAcc.SpecimenType) ? "EDTA" : _orderAcc.SpecimenType)
+            : ResolveOrderSpecimenType(specimenId);
+        _orderFb = WithSpecimenTypeWarning(
+            r.ToFeedback(specimenId is > 0
+                ? $"Order {orderNumber} created and linked to the specimen."
+                : $"Order {orderNumber} created."),
+            _newOrderTestCodes,
+            chosenType);
         _showAddOrder = false;
         _newOrderTestCodes.Clear();
         _newOrderGrouperCodes.Clear();
@@ -1333,7 +1375,13 @@ else
         _busy = true;
         var r = await Api.LinkPatientOrderSpecimenAsync(Id, orderId, new LinkOrderSpecimenRequest(_linkSpecimenId));
         _busy = false;
-        _orderFb = r.ToFeedback("Specimen linked to order.");
+        var order = _orders.FirstOrDefault(o => o.Id == orderId);
+        var testCodes = order?.Lines
+            .Where(l => l.LineCategory == OrderCategory.Test && !string.IsNullOrWhiteSpace(l.TestCode))
+            .Select(l => l.TestCode!)
+            .ToList() ?? [];
+        var linkedType = _specimens.FirstOrDefault(s => s.Id == _linkSpecimenId)?.SpecimenType;
+        _orderFb = WithSpecimenTypeWarning(r.ToFeedback("Specimen linked to order."), testCodes, linkedType);
         if (r.Succeeded)
         {
             _linkingOrderId = null;
@@ -1746,9 +1794,10 @@ else
             return;
         }
 
-        var hours = s.ExpiresUtc.HasValue
-            ? (int)Math.Round((s.ExpiresUtc.Value - s.CollectedUtc).TotalHours)
-            : SpecimenValidityPolicy.DefaultStandardHours;
+        var policyExpires = SpecimenTypeOrderHint.PreviewExpiresUtc(s.CollectedUtc, s.SpecimenType, _specimenTypes)
+            ?? s.ExpiresUtc
+            ?? s.CollectedUtc.AddHours(SpecimenValidityPolicy.DefaultStandardHours);
+        var hours = Math.Max(1, (int)Math.Round((policyExpires - s.CollectedUtc).TotalHours));
 
         _rejectId = null;
         _editId = s.Id;
@@ -1756,8 +1805,10 @@ else
         _edit = new PatientSpecimenEditForm
         {
             CollectedLocal = s.CollectedUtc,
-            ExpiresLocal = s.ExpiresUtc ?? s.CollectedUtc.AddHours(hours),
+            ExpiresLocal = s.ExpiresUtc ?? policyExpires,
+            SpecimenType = s.SpecimenType,
             PolicyHours = hours,
+            PolicyExpires = policyExpires,
             Barcode = s.Barcode,
             DrawLocation = s.DrawLocation,
             Collector = s.Collector,
@@ -1772,7 +1823,7 @@ else
     private bool NeedsSpecimenExpiryOverride =>
         _editId is not null
         && SpecimenExpirationOverrideRule.Evaluate(
-            _edit.CollectedLocal.AddHours(_edit.PolicyHours),
+            _edit.PolicyExpires,
             _edit.ExpiresLocal,
             overrideAuthorized: false).Severity == RuleSeverity.Warning;
 

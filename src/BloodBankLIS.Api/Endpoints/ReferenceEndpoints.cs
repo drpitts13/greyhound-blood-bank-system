@@ -108,7 +108,8 @@ public static class ReferenceEndpoints
                 .OrderBy(t => t.SortOrder)
                 .ThenBy(t => t.Code)
                 .ToListAsync(ct);
-            return Results.Ok(types.Select(t => new SpecimenTypeListItemDto(t.Code, t.Description, t.SortOrder)));
+            return Results.Ok(types.Select(t => new SpecimenTypeListItemDto(
+                t.Code, t.Description, t.SortOrder, t.ExpirationCode, t.ExpirationMode)));
         });
 
         group.MapGet("/subtests", async (BloodBankDbContext context, CancellationToken ct) =>

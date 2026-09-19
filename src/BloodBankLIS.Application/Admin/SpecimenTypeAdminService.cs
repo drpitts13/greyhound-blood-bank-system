@@ -208,6 +208,10 @@ public sealed class SpecimenTypeAdminService : ConfigAdminServiceBase
     {
         e.Code = (req.Code ?? string.Empty).Trim().ToUpperInvariant();
         e.Description = req.Description?.Trim() ?? string.Empty;
+        e.ExpirationCode = SpecimenExpirationCode.TryParse(req.ExpirationCode, out var parsed)
+            ? parsed.ToString()
+            : (req.ExpirationCode ?? string.Empty).Trim().ToUpperInvariant();
+        e.ExpirationMode = req.ExpirationMode;
         e.ExcludedTestCodesJson = SpecimenTypeExcludedTests.Serialize(req.ExcludedTestCodes ?? []);
         e.SortOrder = req.SortOrder;
         e.ChangeReason = req.ChangeReason;

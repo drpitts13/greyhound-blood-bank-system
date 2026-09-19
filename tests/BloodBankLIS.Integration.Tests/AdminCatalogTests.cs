@@ -158,7 +158,7 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
 
         var svc = CreateSpecimenTypeService(c);
         var created = await svc.CreateAsync(new SaveSpecimenTypeDefinitionRequest(
-            "PLASMA", "Plasma", ["ABSC"], 3, null));
+            "PLASMA", "Plasma", "7D", SpecimenExpirationMode.ExactTime, ["ABSC"], 3, null));
         Assert.True(created.Succeeded);
         Assert.True(await c.AuditEvents.AnyAsync(a =>
             a.EntityType == nameof(SpecimenTypeDefinition)
@@ -191,17 +191,54 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
         var svc = CreateSpecimenTypeService(c);
         var code = "ST-RA13-" + Guid.NewGuid().ToString("N")[..8];
         var created = await svc.CreateAsync(new SaveSpecimenTypeDefinitionRequest(
-            code, "Result-audit specimen type", [testCode], 90, "draft type"));
+            code, "Result-audit specimen type", "7D", SpecimenExpirationMode.ExactTime, [testCode], 90, "draft type"));
         Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
 
         var updated = await svc.UpdateAsync(created.Value!.Id, new SaveSpecimenTypeDefinitionRequest(
-            code, "Result-audit specimen type renamed", [testCode], 91, "rename type"));
+            code, "Result-audit specimen type renamed", "7D", SpecimenExpirationMode.ExactTime, [testCode], 91, "rename type"));
         Assert.True(updated.Succeeded);
 
         var events = await c.AuditEvents
             .Where(a => a.EntityType == nameof(SpecimenTypeDefinition) && a.EntityId == created.Value.Id)
             .ToListAsync();
         Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.TestChange));
+    }
+
+    [Fact]
+    public async Task SpecimenType_MissingExpiration_IsBlocked()
+    {
+        await using var c = _factory.Create();
+        var svc = CreateSpecimenTypeService(c);
+        var created = await svc.CreateAsync(new SaveSpecimenTypeDefinitionRequest(
+            "NOEXP", "No expiration", "", SpecimenExpirationMode.ExactTime, [], 1, null));
+
+        Assert.False(created.Succeeded);
+        Assert.Contains(created.Evaluation!.HardStops, r => r.Code == "SPECTYPE.EXP.REQUIRED");
+    }
+
+    [Fact]
+    public async Task SpecimenType_HoursWithEndOfDay_IsBlocked()
+    {
+        await using var c = _factory.Create();
+        var svc = CreateSpecimenTypeService(c);
+        var created = await svc.CreateAsync(new SaveSpecimenTypeDefinitionRequest(
+            "HREOD", "Hours end of day", "72H", SpecimenExpirationMode.EndOfDay, [], 1, null));
+
+        Assert.False(created.Succeeded);
+        Assert.Contains(created.Evaluation!.HardStops, r => r.Code == "SPECTYPE.EXP.HOUR.ENDOFDAY");
+    }
+
+    [Fact]
+    public async Task SpecimenType_ValidExpiration_PersistsCanonicalCode()
+    {
+        await using var c = _factory.Create();
+        var svc = CreateSpecimenTypeService(c);
+        var created = await svc.CreateAsync(new SaveSpecimenTypeDefinitionRequest(
+            "CLOT", "Clotted", "3d", SpecimenExpirationMode.EndOfDay, [], 4, null));
+
+        Assert.True(created.Succeeded, created.Error ?? created.Evaluation?.HardStops.FirstOrDefault()?.Message);
+        Assert.Equal("3D", created.Value!.ExpirationCode);
+        Assert.Equal(SpecimenExpirationMode.EndOfDay, created.Value.ExpirationMode);
     }
 
     [Fact]

@@ -2112,6 +2112,14 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("EffectiveUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("ExpirationCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<int>("ExpirationMode")
+                        .HasColumnType("int");
+
                     b.Property<string>("ExcludedTestCodesJson")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");

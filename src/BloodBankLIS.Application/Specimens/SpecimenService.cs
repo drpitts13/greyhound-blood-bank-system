@@ -6,13 +6,14 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Specimens;
 
 /// <summary>
-/// Specimen accessioning, metadata edit, and rejection. Expiration is computed at accessioning from
-/// a policy window (defaulted here; intended to move to SystemConfiguration) and is
-/// enforced on the issue path in a later phase (see docs/workflows.md section 2).
+/// Specimen accessioning, metadata edit, and rejection. Expiration is computed from the
+/// specimen-type catalog offset, then shortened to the 72-hour alloimmunization window
+/// when recent transfusion or pregnancy risk applies.
 /// </summary>
 public sealed class SpecimenService
 {
@@ -151,7 +152,8 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail(identity.Message);
         }
 
-        var validityHours = request.ValidityHours ?? await ResolveValidityHoursForPatientAsync(patient, ct);
+        var expiresUtc = await ComputeExpiresUtcAsync(
+            request.CollectedUtc, typeDef, patient, request.ValidityHours, ct);
         var specimen = new Specimen
         {
             AccessionNumber = request.AccessionNumber,
@@ -160,7 +162,7 @@ public sealed class SpecimenService
             Barcode = request.Barcode,
             CollectedUtc = request.CollectedUtc,
             ReceivedUtc = _clock.UtcNow,
-            ExpiresUtc = request.CollectedUtc.AddHours(validityHours),
+            ExpiresUtc = expiresUtc,
             DrawLocation = request.DrawLocation,
             Collector = request.Collector,
             Identifier1Type = id1Type,
@@ -214,12 +216,11 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail("Collection date/time cannot be in the future.");
         }
 
-        var hours = request.ValidityHours
-            ?? (specimen.ExpiresUtc.HasValue
-                ? (int)Math.Round((specimen.ExpiresUtc.Value - specimen.CollectedUtc).TotalHours)
-                : await ResolveValidityHoursForSpecimenAsync(specimen, ct));
-
-        var policyExpires = request.CollectedUtc.AddHours(hours);
+        var patient = await _patients.GetByIdAsync(specimen.PatientId, ct);
+        var typeDef = await _specimenTypes.FirstOrDefaultAsync(
+            t => t.IsActive && !t.IsDraft && t.Code == specimen.SpecimenType, ct);
+        var policyExpires = await ComputeExpiresUtcAsync(
+            request.CollectedUtc, typeDef, patient, request.ValidityHours, ct);
         var nextExpires = request.ExpiresUtc ?? policyExpires;
         if (nextExpires < request.CollectedUtc)
         {
@@ -366,7 +367,8 @@ public sealed class SpecimenService
             return;
         }
 
-        var hours = await ResolveValidityHoursForPatientAsync(patient, ct);
+        var types = await _specimenTypes.ListAsync(t => t.IsActive && !t.IsDraft, ct);
+        var typesByCode = types.ToDictionary(t => t.Code, StringComparer.OrdinalIgnoreCase);
         var specimens = await _specimens.ListAsync(
             s => s.PatientId == patientId && s.Status == SpecimenStatus.Accepted, ct);
         var changedIds = new List<long>();
@@ -387,7 +389,8 @@ public sealed class SpecimenService
                 continue;
             }
 
-            var next = specimen.CollectedUtc.AddHours(hours);
+            typesByCode.TryGetValue(specimen.SpecimenType, out var typeDef);
+            var next = await ComputeExpiresUtcAsync(specimen.CollectedUtc, typeDef, patient, validityHoursOverride: null, ct);
             if (specimen.ExpiresUtc == next)
             {
                 continue;
@@ -453,22 +456,48 @@ public sealed class SpecimenService
         return warnings;
     }
 
-    private async Task<int> ResolveValidityHoursForSpecimenAsync(Specimen specimen, CancellationToken ct)
+    private async Task<DateTime> ComputeExpiresUtcAsync(
+        DateTime collectedUtc,
+        SpecimenTypeDefinition? typeDef,
+        Patient? patient,
+        int? validityHoursOverride,
+        CancellationToken ct)
     {
-        var patient = await _patients.GetByIdAsync(specimen.PatientId, ct);
-        return patient is null
-            ? DefaultValidityHours
-            : await ResolveValidityHoursForPatientAsync(patient, ct);
+        DateTime catalogExpires;
+        if (validityHoursOverride is > 0)
+        {
+            catalogExpires = collectedUtc.AddHours(validityHoursOverride.Value);
+        }
+        else if (typeDef is not null && SpecimenExpirationCode.TryParse(typeDef.ExpirationCode, out var code))
+        {
+            catalogExpires = SpecimenExpirationCalculator.ComputeExpiresUtc(
+                collectedUtc, code, typeDef.ExpirationMode);
+        }
+        else
+        {
+            catalogExpires = collectedUtc.AddHours(DefaultValidityHours);
+        }
+
+        if (patient is null)
+        {
+            return catalogExpires;
+        }
+
+        var (hasRisk, alloHours) = await ResolveAlloRiskAsync(patient, ct);
+        if (!hasRisk)
+        {
+            return catalogExpires;
+        }
+
+        var alloExpires = collectedUtc.AddHours(alloHours);
+        return catalogExpires <= alloExpires ? catalogExpires : alloExpires;
     }
 
-    private async Task<int> ResolveValidityHoursForPatientAsync(Patient patient, CancellationToken ct)
+    private async Task<(bool HasRisk, int AlloHours)> ResolveAlloRiskAsync(Patient patient, CancellationToken ct)
     {
         var alloHours = _policy is null
             ? SpecimenValidityPolicy.DefaultAlloimmunizationRiskHours
             : await _policy.GetSpecimenAlloHoursAsync(ct);
-        var standardHours = _policy is null
-            ? SpecimenValidityPolicy.DefaultStandardHours
-            : await _policy.GetSpecimenStandardHoursAsync(ct);
         var lookbackDays = _policy is null
             ? SpecimenValidityPolicy.DefaultLookbackDays
             : await _policy.GetSpecimenLookbackDaysAsync(ct);
@@ -485,7 +514,7 @@ public sealed class SpecimenService
 
         var risk = SpecimenValidityPolicy.HasAlloimmunizationRisk(
             _clock.UtcNow, lastTransfusion, patient.RecentPregnancyUtc, lookbackDays);
-        return risk ? alloHours : standardHours;
+        return (risk, alloHours);
     }
 
     private async Task<SpecimenDto> MapAsync(Specimen specimen, CancellationToken ct)

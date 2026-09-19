@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Common;
@@ -30,7 +31,7 @@ public class SpecimenTypeAuthorizationTests : IClassFixture<SqliteContextFactory
     }
 
     private static SaveSpecimenTypeDefinitionRequest Request(string code) =>
-        new(code, "Temp specimen type", [], 90, "Catalog.");
+        new(code, "Temp specimen type", "7D", SpecimenExpirationMode.ExactTime, [], 90, "Catalog.");
 
     [Fact]
     public async Task Create_WithoutAdminConfigEdit_IsRejected()
