@@ -972,3 +972,28 @@ public enum AntibodyIdDatResult
     PositiveBoth = 4,
     Pending = 5
 }
+
+/// <summary>Whether an instrument test mapping is an assay battery or an analyte/subtest.</summary>
+public enum InstrumentMappingKind
+{
+    Assay = 0,
+    Analyte = 1
+}
+
+/// <summary>Processing state of a persisted ASTM instrument message.</summary>
+public enum InstrumentMessageStatus
+{
+    Received = 0,
+    Processed = 1,
+    Failed = 2,
+    Replayed = 3
+}
+
+/// <summary>High-level ASTM message kind derived from record types.</summary>
+public enum InstrumentMessageKind
+{
+    Result = 0,
+    Query = 1,
+    Order = 2,
+    Unknown = 3
+}

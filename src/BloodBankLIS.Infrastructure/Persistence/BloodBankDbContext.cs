@@ -132,6 +132,13 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<BloodComponentException> BloodComponentExceptions => Set<BloodComponentException>();
     public DbSet<CompatibilityRuleVersion> CompatibilityRuleVersions => Set<CompatibilityRuleVersion>();
     public DbSet<CompatibilityRule> CompatibilityRules => Set<CompatibilityRule>();
+    public DbSet<InstrumentInterface> InstrumentInterfaces => Set<InstrumentInterface>();
+    public DbSet<InstrumentConnection> InstrumentConnections => Set<InstrumentConnection>();
+    public DbSet<InstrumentFieldMapping> InstrumentFieldMappings => Set<InstrumentFieldMapping>();
+    public DbSet<InstrumentTestMapping> InstrumentTestMappings => Set<InstrumentTestMapping>();
+    public DbSet<InstrumentInterfaceRule> InstrumentInterfaceRules => Set<InstrumentInterfaceRule>();
+    public DbSet<InstrumentMessageLog> InstrumentMessages => Set<InstrumentMessageLog>();
+    public DbSet<InstrumentInterfaceLog> InstrumentInterfaceLogs => Set<InstrumentInterfaceLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -81,6 +81,7 @@ public static partial class DatabaseSeeder
         await EnsureEmergencyReleasePermissionGrantAsync(context, cancellationToken);
         await SeedIsbt128LookupsAsync(context, cancellationToken);
         await EnsureCompatibilityRuleCatalogAsync(context, cancellationToken);
+        await SeedInstrumentInterfacesAsync(context, cancellationToken);
         await SeedExtendedDemoScenariosAsync(context, cancellationToken);
 
         if (seedDevAdmin)
@@ -891,7 +892,7 @@ public static partial class DatabaseSeeder
             PermissionCodes.IssueCreate, PermissionCodes.IssueReturn, PermissionCodes.TransfusionDocument,
             PermissionCodes.PrintLabel,
             PermissionCodes.BillingReview,
-            PermissionCodes.Hl7Manage,
+            PermissionCodes.Hl7Manage, PermissionCodes.InstrumentManage,
             PermissionCodes.AuditRead
         };
 
@@ -914,9 +915,9 @@ public static partial class DatabaseSeeder
         // edit/activate on its own area (least privilege).
         var interfaceAnalystCodes = new[]
         {
-            PermissionCodes.Hl7Manage, PermissionCodes.AuditRead,
+            PermissionCodes.Hl7Manage, PermissionCodes.InstrumentManage, PermissionCodes.AuditRead,
             PermissionCodes.AdminConfigView, PermissionCodes.AdminConfigEdit, PermissionCodes.AdminConfigActivate,
-            PermissionCodes.AdminHl7Manage, PermissionCodes.AdminAuditReview
+            PermissionCodes.AdminHl7Manage, PermissionCodes.AdminInstrumentsManage, PermissionCodes.AdminAuditReview
         };
         var inventoryManagerCodes = new[]
         {
@@ -935,7 +936,7 @@ public static partial class DatabaseSeeder
             PermissionCodes.AuditRead, PermissionCodes.AdminConfigView, PermissionCodes.AdminAuditReview
         };
         // Non-interactive interface engine / system integrations.
-        var serviceAccountCodes = new[] { PermissionCodes.Hl7Manage };
+        var serviceAccountCodes = new[] { PermissionCodes.Hl7Manage, PermissionCodes.InstrumentManage };
 
         var administrator = AddRole(context, "Administrator", "Full system access", byCode, 3, PermissionCodes.All.ToArray());
         var supervisor = AddRole(context, "Supervisor", "Bench work plus overrides and dangerous actions", byCode, 2, supervisorCodes);

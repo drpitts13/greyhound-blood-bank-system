@@ -4,6 +4,7 @@ using BloodBankLIS.Api.Hosting;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Identity;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Astm;
 using BloodBankLIS.HL7;
 using BloodBankLIS.Infrastructure;
 using BloodBankLIS.Infrastructure.Common;
@@ -46,11 +47,14 @@ builder.Services.AddSingleton<IIccbbaExtractDirectory>(
     IccbbaExtractDirectory.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath));
 
 builder.Services.AddHl7Interfaces();
+builder.Services.AddAstmInterfaces();
 builder.Services.AddPrinting();
 builder.Services.AddSecurity();
 builder.Services.AddHostedService<MllpListenerService>();
 builder.Services.AddHostedService<MllpSenderService>();
 builder.Services.AddHostedService<Hl7FileDropService>();
+builder.Services.AddHostedService<AstmListenerService>();
+builder.Services.AddHostedService<AstmClientService>();
 
 // Real environment descriptor for audit stamping (overrides the infrastructure default).
 builder.Services.AddSingleton<IEnvironmentInfo>(
@@ -158,6 +162,7 @@ app.MapAntibodyIdentificationEndpoints();
 app.MapCompatibilityEndpoints();
 app.MapIssuingEndpoints();
 app.MapHl7Endpoints();
+app.MapInstrumentEndpoints();
 app.MapPrintEndpoints();
 app.MapBillingEndpoints();
 app.MapSignatureEndpoints();

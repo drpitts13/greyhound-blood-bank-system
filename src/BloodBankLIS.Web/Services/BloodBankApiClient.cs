@@ -1248,6 +1248,49 @@ public sealed class BloodBankApiClient
             req,
             ct);
 
+    // ---- Admin: Instrument interfaces ----
+    public Task<ApiResult<List<InstrumentDataItemDto>>> GetAdminInstrumentDataItemsAsync(CancellationToken ct = default) =>
+        SendAsync<List<InstrumentDataItemDto>>(HttpMethod.Get, "api/admin/instruments/data-items", ct: ct);
+
+    public Task<ApiResult<List<InstrumentInterfaceDto>>> GetAdminInstrumentInterfacesAsync(CancellationToken ct = default) =>
+        SendAsync<List<InstrumentInterfaceDto>>(HttpMethod.Get, "api/admin/instruments", ct: ct);
+
+    public Task<ApiResult<InstrumentInterfaceDto>> GetAdminInstrumentInterfaceAsync(long id, CancellationToken ct = default) =>
+        SendAsync<InstrumentInterfaceDto>(HttpMethod.Get, $"api/admin/instruments/{id}", ct: ct);
+
+    public Task<ApiResult<InstrumentInterfaceDto>> CreateAdminInstrumentInterfaceAsync(SaveInstrumentInterfaceRequest req, CancellationToken ct = default) =>
+        SendAsync<InstrumentInterfaceDto>(HttpMethod.Post, "api/admin/instruments", req, ct);
+
+    public Task<ApiResult<InstrumentInterfaceDto>> UpdateAdminInstrumentInterfaceAsync(long id, SaveInstrumentInterfaceRequest req, CancellationToken ct = default) =>
+        SendAsync<InstrumentInterfaceDto>(HttpMethod.Put, $"api/admin/instruments/{id}", req, ct);
+
+    public Task<ApiResult<InstrumentInterfaceDto>> SetInstrumentInterfaceEnabledAsync(long id, bool enabled, string? reason, CancellationToken ct = default) =>
+        SendAsync<InstrumentInterfaceDto>(HttpMethod.Post, $"api/admin/instruments/{id}/{(enabled ? "enable" : "disable")}", new ReasonOnlyRequest(reason), ct);
+
+    public Task<ApiResult<List<InstrumentStatusDto>>> GetInstrumentStatusAsync(CancellationToken ct = default) =>
+        SendAsync<List<InstrumentStatusDto>>(HttpMethod.Get, "api/instruments/status", ct: ct);
+
+    public Task<ApiResult<List<InstrumentLogDto>>> GetInstrumentLogsAsync(long? interfaceId = null, CancellationToken ct = default) =>
+        SendAsync<List<InstrumentLogDto>>(HttpMethod.Get, interfaceId is long id ? $"api/instruments/logs?interfaceId={id}" : "api/instruments/logs", ct: ct);
+
+    public Task<ApiResult<List<InstrumentMessageSummaryDto>>> GetInstrumentMessagesAsync(long? interfaceId = null, CancellationToken ct = default) =>
+        SendAsync<List<InstrumentMessageSummaryDto>>(HttpMethod.Get, interfaceId is long id ? $"api/instruments/messages?interfaceId={id}" : "api/instruments/messages", ct: ct);
+
+    public Task<ApiResult<InstrumentMessageDetailDto>> GetInstrumentMessageAsync(long id, CancellationToken ct = default) =>
+        SendAsync<InstrumentMessageDetailDto>(HttpMethod.Get, $"api/instruments/messages/{id}", ct: ct);
+
+    public Task<ApiResult<object>> ReplayInstrumentMessageAsync(long id, CancellationToken ct = default) =>
+        SendAsync<object>(HttpMethod.Post, $"api/instruments/messages/{id}/replay", ct: ct);
+
+    public Task<ApiResult<List<string>>> GetInstrumentSimulatorAssaysAsync(CancellationToken ct = default) =>
+        SendAsync<List<string>>(HttpMethod.Get, "api/instruments/simulator/assays", ct: ct);
+
+    public Task<ApiResult<EchoSimulatorPreviewDto>> PreviewInstrumentSimulatorAsync(EchoSimulatorPreviewRequest req, CancellationToken ct = default) =>
+        SendAsync<EchoSimulatorPreviewDto>(HttpMethod.Post, "api/instruments/simulator/preview", req, ct);
+
+    public Task<ApiResult<EchoSimulatorSendResultDto>> SendInstrumentSimulatorAsync(EchoSimulatorSendRequest req, CancellationToken ct = default) =>
+        SendAsync<EchoSimulatorSendResultDto>(HttpMethod.Post, "api/instruments/simulator/send", req, ct);
+
     // ---- Admin: Users & roles ----
     public Task<ApiResult<List<AdminUserDto>>> GetAdminUsersAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<AdminUserDto>>(HttpMethod.Get, $"api/admin/users?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);

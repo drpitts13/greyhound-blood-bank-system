@@ -1,0 +1,162 @@
+@page "/instruments"
+@inject BloodBankApiClient Api
+
+<PageTitle>Instrument Interfaces · Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Instrument Interfaces</h1>
+<p class="muted">Connection status, session logs, and ASTM messages with parse, mapping, and rule traces.</p>
+<div class="flex gap" style="margin:.6rem 0 1rem;flex-wrap:wrap;">
+    <a class="btn btn-secondary" href="/instruments">Status &amp; logs</a>
+    <a class="btn btn-ghost" href="/instruments/simulator">Simulator</a>
+    <a class="btn btn-ghost" href="/admin/instruments">Admin setup</a>
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Status</h3>
+        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+    </div>
+    @if (_status.Count == 0)
+    {
+        <div class="empty">No instrument interfaces.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Name</th><th>Mode</th><th>Endpoint</th><th>State</th><th>Detail</th></tr></thead>
+            <tbody>
+                @foreach (var row in _status)
+                {
+                    <tr>
+                        <td>@row.Name</td>
+                        <td>@(row.IsServer ? "Server" : "Client")</td>
+                        <td class="mono">@(row.IsServer ? $":{row.Port}" : $"{row.IpAddress}:{row.Port}")</td>
+                        <td>@row.State</td>
+                        <td class="muted">@row.Detail</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+<div class="bb-grid cols-2" style="margin-top:1rem;">
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Session logs</h3></div>
+        @if (_logs.Count == 0)
+        {
+            <div class="empty">No log entries.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>When</th><th>Level</th><th>Event</th><th>Message</th></tr></thead>
+                <tbody>
+                    @foreach (var log in _logs.Take(50))
+                    {
+                        <tr>
+                            <td class="nowrap">@log.OccurredUtc.ToString("HH:mm:ss")</td>
+                            <td>@log.Level</td>
+                            <td class="mono">@log.EventType</td>
+                            <td>@log.Message</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Messages</h3></div>
+        @if (_messages.Count == 0)
+        {
+            <div class="empty">No messages.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>When</th><th>Kind</th><th>Status</th><th>Specimen</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var msg in _messages)
+                    {
+                        <tr>
+                            <td class="nowrap">@msg.ReceivedUtc.ToString("HH:mm:ss")</td>
+                            <td>@msg.MessageKind</td>
+                            <td>@msg.Status</td>
+                            <td class="mono">@msg.SpecimenId</td>
+                            <td><button class="btn btn-ghost btn-sm" @onclick="() => OpenAsync(msg.Id)">View</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@if (_detail is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <div class="bb-card-title"><h3>Message @_detail.Message.Id</h3>
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ReplayAsync">Replay</button>
+            <button class="btn btn-ghost btn-sm" @onclick="() => _detail = null">Close</button>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_detail.Message.ErrorDetail))
+        {
+            <div class="alert alert-error">@_detail.Message.ErrorDetail</div>
+        }
+        <h4>Raw ASTM</h4>
+        <pre class="mono">@_detail.RawMessage</pre>
+        <h4>Parsed</h4>
+        <pre class="mono">@_detail.ParsedJson</pre>
+        <h4>Mapped</h4>
+        <pre class="mono">@_detail.MappedJson</pre>
+        <h4>Rules</h4>
+        <pre class="mono">@_detail.RuleTraceJson</pre>
+    </div>
+}
+
+@code {
+    private List<InstrumentStatusDto> _status = new();
+    private List<InstrumentLogDto> _logs = new();
+    private List<InstrumentMessageSummaryDto> _messages = new();
+    private InstrumentMessageDetailDto? _detail;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _busy = true;
+        var status = await Api.GetInstrumentStatusAsync();
+        var logs = await Api.GetInstrumentLogsAsync();
+        var messages = await Api.GetInstrumentMessagesAsync();
+        _status = status.Value ?? new();
+        _logs = logs.Value ?? new();
+        _messages = messages.Value ?? new();
+        if (!status.Succeeded) _feedback = status.ToFeedback();
+        _busy = false;
+    }
+
+    private async Task OpenAsync(long id)
+    {
+        var result = await Api.GetInstrumentMessageAsync(id);
+        if (!result.Succeeded)
+        {
+            _feedback = result.ToFeedback();
+            return;
+        }
+
+        _detail = result.Value;
+    }
+
+    private async Task ReplayAsync()
+    {
+        if (_detail is null) return;
+        _busy = true;
+        var result = await Api.ReplayInstrumentMessageAsync(_detail.Message.Id);
+        _feedback = result.ToFeedback();
+        await LoadAsync();
+        _busy = false;
+    }
+}

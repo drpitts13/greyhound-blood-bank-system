@@ -137,6 +137,9 @@ public static class DependencyInjection
         services.AddScoped<CodedCommentAdminService>();
         services.AddScoped<Hl7ConfigAdminService>();
         services.AddScoped<InterfaceTranslationAdminService>();
+        services.AddScoped<IInstrumentInterfaceRepository, InstrumentInterfaceRepository>();
+        services.AddScoped<InstrumentInterfaceAdminService>();
+        services.AddSingleton<IInstrumentRuntimeStatus, BloodBankLIS.Infrastructure.Instruments.InstrumentRuntimeStatus>();
         services.AddScoped<UserAdminService>();
         services.TryAddSingleton(new AuthSessionOptions());
         services.AddScoped<IAuthSessionService, AuthSessionService>();

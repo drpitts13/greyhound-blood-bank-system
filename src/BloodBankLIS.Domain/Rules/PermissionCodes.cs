@@ -56,6 +56,9 @@ public static class PermissionCodes
 
     public const string Hl7Manage = "hl7.manage";
 
+    /// <summary>Operational instrument interface console, message log, and simulator.</summary>
+    public const string InstrumentManage = "instrument.manage";
+
     public const string AuditRead = "audit.read";
     public const string LookbackManage = "lookback.manage";
     public const string ReactionInvestigate = "reaction.investigate";
@@ -76,6 +79,7 @@ public static class PermissionCodes
     public const string AdminProductsManage = "admin.products.manage";
     public const string AdminModificationRulesManage = "admin.modification-rules.manage";
     public const string AdminHl7Manage = "admin.hl7.manage";
+    public const string AdminInstrumentsManage = "admin.instruments.manage";
     public const string AdminUsersManage = "admin.users.manage";
     public const string AdminRolesManage = "admin.roles.manage";
 
@@ -96,10 +100,11 @@ public static class PermissionCodes
         TransfusionDocument, TransfusionStart, TransfusionComplete, OverrideApprove,
         PrintLabel, PrintReprint,
         BillingReview, BillingCancel, BillingExport,
-        Hl7Manage,
+        Hl7Manage, InstrumentManage,
         AuditRead, LookbackManage, ReactionInvestigate, DeviationManage,
         AdminConfigView, AdminConfigEdit, AdminConfigActivate,
         AdminTestsManage, AdminProductsManage, AdminModificationRulesManage, AdminHl7Manage,
+        AdminInstrumentsManage,
         AdminUsersManage, AdminRolesManage, AdminAuditReview
     };
 
@@ -108,6 +113,7 @@ public static class PermissionCodes
     {
         AdminConfigView, AdminConfigEdit, AdminConfigActivate,
         AdminTestsManage, AdminProductsManage, AdminModificationRulesManage, AdminHl7Manage,
+        AdminInstrumentsManage,
         AdminUsersManage, AdminRolesManage, AdminAuditReview
     };
 }

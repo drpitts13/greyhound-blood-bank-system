@@ -28,6 +28,7 @@
     <ProjectReference Include="..\..\src\BloodBankLIS.Application\BloodBankLIS.Application.csproj" />
     <ProjectReference Include="..\..\src\BloodBankLIS.Domain\BloodBankLIS.Domain.csproj" />
     <ProjectReference Include="..\..\src\BloodBankLIS.HL7\BloodBankLIS.HL7.csproj" />
+    <ProjectReference Include="..\..\src\BloodBankLIS.Astm\BloodBankLIS.Astm.csproj" />
     <ProjectReference Include="..\..\src\BloodBankLIS.Printing\BloodBankLIS.Printing.csproj" />
     <ProjectReference Include="..\..\src\BloodBankLIS.Security\BloodBankLIS.Security.csproj" />
   </ItemGroup>

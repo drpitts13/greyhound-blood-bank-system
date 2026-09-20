@@ -286,7 +286,7 @@ public sealed class ResultService
     /// Posts an instrument/interface observation. Never verifies. Verified rows are
     /// not overwritten; the sender must use the correction workflow.
     /// </summary>
-    public async Task<OperationResult<TestResult>> EnterFromInterfaceAsync(
+    public Task<OperationResult<TestResult>> EnterFromInterfaceAsync(
         long specimenId,
         long orderId,
         string testCode,
@@ -294,7 +294,34 @@ public sealed class ResultService
         string? units,
         string? interpretation,
         string? sourceReference,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        EnterFromExternalAsync(
+            specimenId, orderId, testCode, value, units, interpretation, sourceReference,
+            ResultSource.Interface, ct);
+
+    public Task<OperationResult<TestResult>> EnterFromInstrumentAsync(
+        long specimenId,
+        long orderId,
+        string testCode,
+        string value,
+        string? units,
+        string? interpretation,
+        string? sourceReference,
+        CancellationToken ct = default) =>
+        EnterFromExternalAsync(
+            specimenId, orderId, testCode, value, units, interpretation, sourceReference,
+            ResultSource.Instrument, ct);
+
+    private async Task<OperationResult<TestResult>> EnterFromExternalAsync(
+        long specimenId,
+        long orderId,
+        string testCode,
+        string value,
+        string? units,
+        string? interpretation,
+        string? sourceReference,
+        ResultSource source,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(testCode))
         {
@@ -314,7 +341,7 @@ public sealed class ResultService
         {
             saved = await EnterInternalAsync(
                 specimenId, orderId, normalized, value.Trim(), units, interpretation, ct,
-                source: ResultSource.Interface, sourceReference: sourceReference, skipEnterAuthorization: true);
+                source: source, sourceReference: sourceReference, skipEnterAuthorization: true);
         }
         else if (current.Status == ResultStatus.Verified)
         {
@@ -324,20 +351,20 @@ public sealed class ResultService
         else if (ResultLifecycleRule.CanUpdateInPlace(current.Status))
         {
             saved = await UpdateResultInPlaceAsync(
-                current, value.Trim(), units, interpretation, ct, ResultSource.Interface, sourceReference,
+                current, value.Trim(), units, interpretation, ct, source, sourceReference,
                 skipEnterAuthorization: true);
         }
         else if (current.Status == ResultStatus.Invalidated)
         {
             saved = await EnterReplacementAfterInvalidateAsync(
-                current, value.Trim(), units, interpretation, ResultSource.Interface, sourceReference, ct,
+                current, value.Trim(), units, interpretation, source, sourceReference, ct,
                 skipEnterAuthorization: true);
         }
         else
         {
             saved = await EnterInternalAsync(
                 specimenId, orderId, normalized, value.Trim(), units, interpretation, ct,
-                source: ResultSource.Interface, sourceReference: sourceReference, skipEnterAuthorization: true);
+                source: source, sourceReference: sourceReference, skipEnterAuthorization: true);
         }
 
         if (!saved.Succeeded || saved.Value is null)
@@ -351,7 +378,9 @@ public sealed class ResultService
             saved.Value.Id,
             oldValue: current is null ? null : new { current.Status, current.Value, current.Source },
             newValue: new { saved.Value.Status, saved.Value.Value, saved.Value.Source, saved.Value.SourceReference },
-            reason: "Inbound interface result posted; pending verification.");
+            reason: source == ResultSource.Instrument
+                ? "Inbound instrument result posted; pending verification."
+                : "Inbound interface result posted; pending verification.");
 
         if (_orderLines is not null)
         {

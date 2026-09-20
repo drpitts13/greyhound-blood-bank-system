@@ -1,0 +1,110 @@
+@page "/instruments/simulator"
+@inject BloodBankApiClient Api
+
+<PageTitle>Instrument Simulator · Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Instrument simulator</h1>
+<p class="muted">Generate randomized ImmuLINK Echo ASTM result messages and send them as an instrument client (ENQ / framed records / EOT).</p>
+<div class="flex gap" style="margin:.6rem 0 1rem;flex-wrap:wrap;">
+    <a class="btn btn-ghost" href="/instruments">Status &amp; logs</a>
+    <a class="btn btn-primary" href="/instruments/simulator">Simulator</a>
+</div>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card">
+    <div class="form-row">
+        <div class="field">
+            <label>Interface</label>
+            <select @bind="_interfaceId">
+                @foreach (var item in _interfaces)
+                {
+                    <option value="@item.Id">@item.Name</option>
+                }
+            </select>
+        </div>
+        <div class="field">
+            <label>Assay</label>
+            <select @bind="_assay">
+                @foreach (var assay in _assays)
+                {
+                    <option value="@assay">@assay</option>
+                }
+            </select>
+        </div>
+        <div class="field"><label>Specimen ID</label><input @bind="_specimenId" /></div>
+        <div class="field"><label>Patient ID</label><input @bind="_patientId" /></div>
+    </div>
+    <div class="flex gap" style="margin-top:1rem;">
+        <button class="btn btn-secondary" disabled="@_busy" @onclick="PreviewAsync">Preview</button>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="SendAsync">Send</button>
+    </div>
+</div>
+
+@if (_preview is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h3>Preview — @_preview.Assay</h3>
+        <pre class="mono">@_preview.RawMessage</pre>
+    </div>
+}
+
+@if (_send is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h3>@( _send.Sent ? "Sent" : "Not sent" )</h3>
+        @if (!string.IsNullOrWhiteSpace(_send.Error))
+        {
+            <p class="muted">@_send.Error</p>
+        }
+        @if (_send.MessageLogId is long id)
+        {
+            <p>Message log #@id</p>
+        }
+    </div>
+}
+
+@code {
+    private List<InstrumentInterfaceDto> _interfaces = new();
+    private List<string> _assays = new();
+    private long _interfaceId;
+    private string _assay = "GroupScreen";
+    private string _specimenId = "0651439A";
+    private string _patientId = "1171984";
+    private EchoSimulatorPreviewDto? _preview;
+    private EchoSimulatorSendResultDto? _send;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var interfaces = await Api.GetAdminInstrumentInterfacesAsync();
+        var assays = await Api.GetInstrumentSimulatorAssaysAsync();
+        _interfaces = interfaces.Value ?? new();
+        _assays = assays.Value ?? new();
+        if (_interfaces.Count > 0) _interfaceId = _interfaces[0].Id;
+        if (_assays.Count > 0) _assay = _assays[0];
+    }
+
+    private EchoSimulatorPreviewRequest Request() =>
+        new(_assay, _specimenId, _patientId, "Patient", "Test", "19590422", "M", null);
+
+    private async Task PreviewAsync()
+    {
+        _busy = true;
+        var result = await Api.PreviewInstrumentSimulatorAsync(Request());
+        _preview = result.Value;
+        if (!result.Succeeded) _feedback = result.ToFeedback();
+        _busy = false;
+    }
+
+    private async Task SendAsync()
+    {
+        _busy = true;
+        var result = await Api.SendInstrumentSimulatorAsync(new EchoSimulatorSendRequest(_interfaceId, Request()));
+        _send = result.Value;
+        _preview = result.Value is null ? _preview : new EchoSimulatorPreviewDto(_assay, result.Value.RawMessage, []);
+        if (!result.Succeeded) _feedback = result.ToFeedback();
+        _busy = false;
+    }
+}

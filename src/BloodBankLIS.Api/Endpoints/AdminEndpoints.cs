@@ -42,6 +42,7 @@ public static class AdminEndpoints
         MapCodedComments(app);
         MapCompatibilityRules(app);
         MapHl7(app);
+        MapInstruments(app);
         MapUsersAndRoles(app);
         MapHistory(app);
     }
@@ -969,6 +970,40 @@ public static class AdminEndpoints
         translations.MapPut("/{dataItemKey}", async (string dataItemKey, SaveInterfaceTranslationsRequest req, InterfaceTranslationAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.ReplaceAsync(dataItemKey, req, ct), d => d))
             .RequirePermission(PermissionCodes.AdminHl7Manage);
+    }
+
+    private static void MapInstruments(WebApplication app)
+    {
+        var meta = app.MapGroup("/api/admin/instruments").WithTags("Admin: Instruments").RequireAuthenticatedUser();
+
+        meta.MapGet("/data-items", () => Results.Ok(InstrumentInterfaceAdminService.DataItems()))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        meta.MapGet("", async (InstrumentInterfaceAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        meta.MapGet("/{id:long}", async (long id, InstrumentInterfaceAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Instrument interface not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        meta.MapPost("", async (SaveInstrumentInterfaceRequest req, InstrumentInterfaceAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminInstrumentsManage);
+
+        meta.MapPut("/{id:long}", async (long id, SaveInstrumentInterfaceRequest req, InstrumentInterfaceAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminInstrumentsManage);
+
+        meta.MapPost("/{id:long}/enable", async (long id, ReasonOnlyRequest? req, InstrumentInterfaceAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetEnabledAsync(id, true, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminInstrumentsManage);
+
+        meta.MapPost("/{id:long}/disable", async (long id, ReasonOnlyRequest? req, InstrumentInterfaceAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetEnabledAsync(id, false, req?.Reason, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminInstrumentsManage);
     }
 
     private static void MapUsersAndRoles(WebApplication app)

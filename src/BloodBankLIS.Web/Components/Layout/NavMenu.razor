@@ -59,6 +59,14 @@
     {
         <NavLink href="hl7" ActiveClass="active">HL7 Interface</NavLink>
     }
+    @if (Session.Has(PermissionCodes.InstrumentManage))
+    {
+        <details class="nav-group" open="@InstrumentGroupOpen()">
+            <summary>Instrument Interfaces</summary>
+            <NavLink href="instruments" ActiveClass="active">Status &amp; logs</NavLink>
+            <NavLink href="instruments/simulator" ActiveClass="active">Simulator</NavLink>
+        </details>
+    }
     @if (Session.Has(PermissionCodes.AuditRead))
     {
         <NavLink href="audit" ActiveClass="active">Audit Trail</NavLink>
@@ -108,7 +116,8 @@
             </details>
             <details class="nav-group" open="@AdminGroupOpen("interfaces")">
                 <summary>Interfaces</summary>
-                <NavLink href="admin/hl7" ActiveClass="active">Interface Setup</NavLink>
+                <NavLink href="admin/hl7" ActiveClass="active">HL7 Interface Setup</NavLink>
+                <NavLink href="admin/instruments" ActiveClass="active">Instrument Interfaces</NavLink>
             </details>
         }
         @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage, PermissionCodes.AdminUsersManage, PermissionCodes.AdminAuditReview))
@@ -160,12 +169,19 @@
             "catalog" => CatalogPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)),
             "rules" => RulesPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)),
             "inventory" => InventoryPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)),
-            "interfaces" => path.StartsWith("admin/hl7", StringComparison.OrdinalIgnoreCase),
+            "interfaces" => path.StartsWith("admin/hl7", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("admin/instruments", StringComparison.OrdinalIgnoreCase),
             "directory" => path.StartsWith("admin/history", StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith("admin/roles", StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith("admin/users", StringComparison.OrdinalIgnoreCase),
             _ => false
         };
+    }
+
+    private bool InstrumentGroupOpen()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri).TrimStart('/').Split('?', 2)[0];
+        return path.StartsWith("instruments", StringComparison.OrdinalIgnoreCase);
     }
 
     private bool InventoryDeskOpen()

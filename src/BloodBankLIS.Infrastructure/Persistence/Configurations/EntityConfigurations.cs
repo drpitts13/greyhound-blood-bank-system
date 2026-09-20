@@ -1615,3 +1615,113 @@ public sealed class SystemSettingConfiguration : IEntityTypeConfiguration<System
         b.HasIndex(x => x.Key).IsUnique();
     }
 }
+
+public sealed class InstrumentInterfaceConfiguration : IEntityTypeConfiguration<InstrumentInterface>
+{
+    public void Configure(EntityTypeBuilder<InstrumentInterface> b)
+    {
+        b.ToTable("InstrumentInterfaces");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.Name).HasMaxLength(100).IsRequired();
+        b.Property(e => e.Environment).HasMaxLength(50);
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => e.Name).IsUnique();
+        b.HasOne(e => e.Connection).WithOne(c => c.Interface!).HasForeignKey<InstrumentConnection>(c => c.InterfaceId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(e => e.FieldMappings).WithOne(m => m.Interface!).HasForeignKey(m => m.InterfaceId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(e => e.TestMappings).WithOne(m => m.Interface!).HasForeignKey(m => m.InterfaceId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.HasMany(e => e.Rules).WithOne(m => m.Interface!).HasForeignKey(m => m.InterfaceId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public sealed class InstrumentConnectionConfiguration : IEntityTypeConfiguration<InstrumentConnection>
+{
+    public void Configure(EntityTypeBuilder<InstrumentConnection> b)
+    {
+        b.ToTable("InstrumentConnections");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.IpAddress).HasMaxLength(45);
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => e.InterfaceId).IsUnique();
+    }
+}
+
+public sealed class InstrumentFieldMappingConfiguration : IEntityTypeConfiguration<InstrumentFieldMapping>
+{
+    public void Configure(EntityTypeBuilder<InstrumentFieldMapping> b)
+    {
+        b.ToTable("InstrumentFieldMappings");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.DataItemKey).HasMaxLength(80).IsRequired();
+        b.Property(e => e.AstmPath).HasMaxLength(20).IsRequired();
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => new { e.InterfaceId, e.DataItemKey }).IsUnique();
+    }
+}
+
+public sealed class InstrumentTestMappingConfiguration : IEntityTypeConfiguration<InstrumentTestMapping>
+{
+    public void Configure(EntityTypeBuilder<InstrumentTestMapping> b)
+    {
+        b.ToTable("InstrumentTestMappings");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.InstrumentCode).HasMaxLength(80).IsRequired();
+        b.Property(e => e.ApplicationCode).HasMaxLength(80).IsRequired();
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => new { e.InterfaceId, e.Kind, e.InstrumentCode, e.ApplicationCode, e.Direction });
+    }
+}
+
+public sealed class InstrumentInterfaceRuleConfiguration : IEntityTypeConfiguration<InstrumentInterfaceRule>
+{
+    public void Configure(EntityTypeBuilder<InstrumentInterfaceRule> b)
+    {
+        b.ToTable("InstrumentInterfaceRules");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.Name).HasMaxLength(120).IsRequired();
+        b.Property(e => e.ConditionExpression).HasMaxLength(2000).IsRequired();
+        b.Property(e => e.ActionExpression).HasMaxLength(2000).IsRequired();
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => new { e.InterfaceId, e.SortOrder });
+    }
+}
+
+public sealed class InstrumentMessageLogConfiguration : IEntityTypeConfiguration<InstrumentMessageLog>
+{
+    public void Configure(EntityTypeBuilder<InstrumentMessageLog> b)
+    {
+        b.ToTable("InstrumentMessages");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.SpecimenId).HasMaxLength(80);
+        b.Property(e => e.PatientId).HasMaxLength(80);
+        b.Property(e => e.ErrorDetail).HasMaxLength(2000);
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => e.InterfaceId);
+        b.HasIndex(e => e.ReceivedUtc);
+        b.HasIndex(e => e.Status);
+    }
+}
+
+public sealed class InstrumentInterfaceLogConfiguration : IEntityTypeConfiguration<InstrumentInterfaceLog>
+{
+    public void Configure(EntityTypeBuilder<InstrumentInterfaceLog> b)
+    {
+        b.ToTable("InstrumentInterfaceLogs");
+        b.HasKey(e => e.Id);
+        b.Property(e => e.Level).HasMaxLength(20).IsRequired();
+        b.Property(e => e.EventType).HasMaxLength(80).IsRequired();
+        b.Property(e => e.Message).HasMaxLength(2000).IsRequired();
+        b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(e => e.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(e => new { e.InterfaceId, e.OccurredUtc });
+    }
+}

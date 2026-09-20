@@ -19,6 +19,7 @@ public static class AppBreadcrumbTrail
         ["printing"] = "Printing",
         ["billing"] = "Billing",
         ["hl7"] = "HL7 Interface",
+        ["instruments"] = "Instrument Interfaces",
         ["audit"] = "Audit Trail",
         ["downtime"] = "Downtime Snapshot",
         ["admin"] = "Administration"
@@ -52,6 +53,7 @@ public static class AppBreadcrumbTrail
         ["inventory-locations"] = "Inventory Locations",
         ["isbt-product-codes"] = "ISBT Product Codes",
         ["hl7"] = "Interface Setup",
+        ["instruments"] = "Instrument Interfaces",
         ["translations"] = "Translations",
         ["history"] = "Config History",
         ["roles"] = "Roles",
@@ -162,7 +164,14 @@ public static class AppBreadcrumbTrail
                 crumbs.Add(new("Chart", $"/patients/{patientId}"));
             }
 
-            crumbs.Add(new(exact, null));
+            crumbs.Add(new(exact, parts.Length > 1 ? $"/{parts[0]}" : null));
+            if (parts[0].Equals("instruments", StringComparison.OrdinalIgnoreCase)
+                && parts.Length >= 2 && parts[1].Equals("simulator", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new("Simulator", null));
+                return Finalize(crumbs);
+            }
+
             if (parts[0].Equals("compatibility", StringComparison.OrdinalIgnoreCase)
                 && qs.TryGetValue("from", out var from)
                 && from.Equals("retro", StringComparison.OrdinalIgnoreCase))

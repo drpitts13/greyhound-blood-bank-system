@@ -1,0 +1,357 @@
+@page "/admin/instruments"
+@using BloodBankLIS.Domain.Enums
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Instrument Interfaces · Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Instrument Interfaces</h1>
+    @if (CanManage)
+    {
+        <button class="btn btn-primary" @onclick="NewDraft">New interface</button>
+    }
+</div>
+<div class="flex gap" style="margin:.6rem 0 1rem;flex-wrap:wrap;">
+    <a class="btn btn-ghost" href="/instruments">Open status</a>
+    <a class="btn btn-ghost" href="/instruments/simulator">Simulator</a>
+</div>
+<p class="muted">Define ASTM instrument connections (TCP/IP), field maps, test mappings, and if/then rules. Leave IP blank to listen as the server. Restart the API after changing a listen port.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="empty">No instrument interfaces configured.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Name</th><th>Connection</th><th>Maps</th><th>Rules</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var item in _items)
+                {
+                    <tr>
+                        <td>@item.Name</td>
+                        <td class="mono">@(item.Connection.IsServer ? $"listen :{item.Connection.Port}" : $"{item.Connection.IpAddress}:{item.Connection.Port}")</td>
+                        <td>@item.FieldMappings.Count / @item.TestMappings.Count</td>
+                        <td>@item.Rules.Count</td>
+                        <td>
+                            @if (item.IsEnabled) { <span class="badge badge-green">Enabled</span> }
+                            else { <span class="badge badge-gray">Disabled</span> }
+                        </td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(item.Id)">Edit</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(item.Id)">History</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New interface" : $"Edit: {_editing.Name}")</h2>
+        <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
+            <button type="button" class="btn @TabClass("connection")" @onclick='() => _tab = "connection"'>Connection</button>
+            <button type="button" class="btn @TabClass("configuration")" @onclick='() => _tab = "configuration"'>Configuration</button>
+            <button type="button" class="btn @TabClass("mapping")" @onclick='() => _tab = "mapping"'>Mapping</button>
+            <button type="button" class="btn @TabClass("rules")" @onclick='() => _tab = "rules"'>Interface rules</button>
+        </div>
+
+        @if (_tab == "connection")
+        {
+            <div class="form-row">
+                <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
+                <div class="field"><label>Environment</label><input @bind="_editing.Environment" /></div>
+                <div class="field"><label>IP address</label><input @bind="_editing.IpAddress" placeholder="blank = listen (server)" /></div>
+                <div class="field"><label>Port</label><input type="number" @bind="_editing.Port" /></div>
+            </div>
+            <p class="muted">When IP is empty the application listens on the port. When IP is set, the application connects as the client.</p>
+        }
+        else if (_tab == "configuration")
+        {
+            <table class="bb">
+                <thead><tr><th>Data item</th><th>ASTM path</th><th>Required</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _editing.FieldMappings)
+                    {
+                        <tr>
+                            <td class="mono">@row.DataItemKey</td>
+                            <td><input class="mono" @bind="row.AstmPath" /></td>
+                            <td><input type="checkbox" @bind="row.IsRequired" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        else if (_tab == "mapping")
+        {
+            <table class="bb">
+                <thead><tr><th>Instrument</th><th>Application</th><th>Kind</th><th>Direction</th><th>Order</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var row in _editing.TestMappings)
+                    {
+                        <tr>
+                            <td><input class="mono" @bind="row.InstrumentCode" /></td>
+                            <td><input class="mono" @bind="row.ApplicationCode" /></td>
+                            <td>
+                                <select @bind="row.Kind">
+                                    @foreach (var k in Enum.GetValues<InstrumentMappingKind>()) { <option value="@k">@k</option> }
+                                </select>
+                            </td>
+                            <td>
+                                <select @bind="row.Direction">
+                                    @foreach (var d in Enum.GetValues<InterfaceTranslationDirection>()) { <option value="@d">@d</option> }
+                                </select>
+                            </td>
+                            <td><input type="number" @bind="row.SortOrder" /></td>
+                            <td><button class="btn btn-ghost btn-sm" @onclick="() => _editing.TestMappings.Remove(row)">Remove</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (CanManage)
+            {
+                <button class="btn btn-secondary" style="margin-top:.6rem;" @onclick="AddMapping">Add mapping</button>
+            }
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Name</th><th>If</th><th>Then</th><th>Order</th><th>On</th><th>Stop</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var row in _editing.Rules)
+                    {
+                        <tr>
+                            <td><input @bind="row.Name" /></td>
+                            <td><textarea class="mono" rows="2" @bind="row.ConditionExpression"></textarea></td>
+                            <td><textarea class="mono" rows="2" @bind="row.ActionExpression"></textarea></td>
+                            <td><input type="number" @bind="row.SortOrder" /></td>
+                            <td><input type="checkbox" @bind="row.IsEnabled" /></td>
+                            <td><input type="checkbox" @bind="row.StopOnMatch" /></td>
+                            <td><button class="btn btn-ghost btn-sm" @onclick="() => _editing.Rules.Remove(row)">Remove</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            @if (CanManage)
+            {
+                <button class="btn btn-secondary" style="margin-top:.6rem;" @onclick="AddRule">Add rule</button>
+            }
+            <p class="muted" style="margin-top:.6rem;">Conditions use the order/test expression language. Actions are <span class="mono">set('subtest_result','4+')</span>.</p>
+        }
+
+        <div class="form-row" style="margin-top:1rem;">
+            <div class="field"><label>Change reason</label><input @bind="_changeReason" /></div>
+        </div>
+        <div class="flex gap" style="margin-top:1rem;">
+            @if (CanManage)
+            {
+                <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+                @if (_editId is not null)
+                {
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="() => ToggleEnabledAsync(!_editing.IsEnabled)">
+                        @(_editing.IsEnabled ? "Disable" : "Enable")
+                    </button>
+                }
+            }
+            <button class="btn btn-ghost" @onclick="Cancel">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_historyId is long historyId)
+{
+    <ConfigHistoryPanel Title="Instrument interface history" EntityTypeName="InstrumentInterface" EntityId="historyId" OnClose="() => _historyId = null" />
+}
+
+@code {
+    private readonly List<InstrumentInterfaceDto> _items = new();
+    private List<InstrumentDataItemDto> _catalog = new();
+    private EditModel? _editing;
+    private long? _editId;
+    private long? _historyId;
+    private string _tab = "connection";
+    private string? _changeReason;
+    private Feedback? _feedback;
+    private bool _loading = true;
+    private bool _busy;
+    private bool CanManage => Session.Has(PermissionCodes.AdminInstrumentsManage);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var catalog = await Api.GetAdminInstrumentDataItemsAsync();
+        _catalog = catalog.Value ?? new();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var result = await Api.GetAdminInstrumentInterfacesAsync();
+        _items.Clear();
+        if (result.Value is not null) _items.AddRange(result.Value);
+        if (!result.Succeeded) _feedback = result.ToFeedback();
+        _loading = false;
+    }
+
+    private async Task NewDraft()
+    {
+        _editId = null;
+        _tab = "connection";
+        _changeReason = null;
+        _editing = new EditModel
+        {
+            Name = "",
+            Environment = "Development",
+            Port = 2576,
+            FieldMappings = _catalog.Select(i => new FieldRow { DataItemKey = i.Key, AstmPath = i.DefaultAstmPath, IsRequired = i.Required }).ToList()
+        };
+        await Task.CompletedTask;
+    }
+
+    private async Task EditAsync(long id)
+    {
+        var result = await Api.GetAdminInstrumentInterfaceAsync(id);
+        if (!result.Succeeded || result.Value is null)
+        {
+            _feedback = result.ToFeedback();
+            return;
+        }
+
+        _editId = id;
+        _tab = "connection";
+        _changeReason = null;
+        _editing = EditModel.From(result.Value);
+    }
+
+    private void Cancel()
+    {
+        _editing = null;
+        _editId = null;
+    }
+
+    private void AddMapping() => _editing?.TestMappings.Add(new MapRow());
+    private void AddRule() => _editing?.Rules.Add(new RuleRow { IsEnabled = true });
+
+    private async Task SaveAsync()
+    {
+        if (_editing is null) return;
+        _busy = true;
+        var req = _editing.ToRequest(_changeReason);
+        var result = _editId is long id
+            ? await Api.UpdateAdminInstrumentInterfaceAsync(id, req)
+            : await Api.CreateAdminInstrumentInterfaceAsync(req);
+        _feedback = result.ToFeedback();
+        if (result.Succeeded && result.Value is not null)
+        {
+            _editId = result.Value.Id;
+            _editing = EditModel.From(result.Value);
+            await LoadAsync();
+        }
+        _busy = false;
+    }
+
+    private async Task ToggleEnabledAsync(bool enabled)
+    {
+        if (_editId is not long id) return;
+        _busy = true;
+        var result = await Api.SetInstrumentInterfaceEnabledAsync(id, enabled, _changeReason);
+        _feedback = result.ToFeedback();
+        if (result.Succeeded && result.Value is not null)
+        {
+            _editing = EditModel.From(result.Value);
+            await LoadAsync();
+        }
+        _busy = false;
+    }
+
+    private Task ShowHistoryAsync(long id)
+    {
+        _historyId = id;
+        return Task.CompletedTask;
+    }
+
+    private string TabClass(string tab) => _tab == tab ? "btn-primary" : "btn-secondary";
+
+    private sealed class EditModel
+    {
+        public string Name { get; set; } = "";
+        public string? Environment { get; set; }
+        public bool IsEnabled { get; set; }
+        public string? IpAddress { get; set; }
+        public int Port { get; set; } = 2576;
+        public List<FieldRow> FieldMappings { get; set; } = new();
+        public List<MapRow> TestMappings { get; set; } = new();
+        public List<RuleRow> Rules { get; set; } = new();
+
+        public static EditModel From(InstrumentInterfaceDto dto) => new()
+        {
+            Name = dto.Name,
+            Environment = dto.Environment,
+            IsEnabled = dto.IsEnabled,
+            IpAddress = dto.Connection.IpAddress,
+            Port = dto.Connection.Port,
+            FieldMappings = dto.FieldMappings.Select(m => new FieldRow { DataItemKey = m.DataItemKey, AstmPath = m.AstmPath, IsRequired = m.IsRequired }).ToList(),
+            TestMappings = dto.TestMappings.Select(m => new MapRow
+            {
+                InstrumentCode = m.InstrumentCode,
+                ApplicationCode = m.ApplicationCode,
+                Kind = m.Kind,
+                Direction = m.Direction,
+                SortOrder = m.SortOrder
+            }).ToList(),
+            Rules = dto.Rules.Select(r => new RuleRow
+            {
+                Name = r.Name,
+                ConditionExpression = r.ConditionExpression,
+                ActionExpression = r.ActionExpression,
+                SortOrder = r.SortOrder,
+                IsEnabled = r.IsEnabled,
+                StopOnMatch = r.StopOnMatch
+            }).ToList()
+        };
+
+        public SaveInstrumentInterfaceRequest ToRequest(string? reason) =>
+            new(Name, Environment, reason,
+                new InstrumentConnectionDto(IpAddress, Port, string.IsNullOrWhiteSpace(IpAddress)),
+                FieldMappings.Select(m => new InstrumentFieldMappingDto(m.DataItemKey, m.AstmPath, m.IsRequired)).ToList(),
+                TestMappings.Select(m => new InstrumentTestMappingDto(m.InstrumentCode, m.ApplicationCode, m.Kind, m.Direction, m.SortOrder)).ToList(),
+                Rules.Select(r => new InstrumentRuleDto(r.Name, r.ConditionExpression, r.ActionExpression, r.SortOrder, r.IsEnabled, r.StopOnMatch)).ToList());
+    }
+
+    private sealed class FieldRow
+    {
+        public string DataItemKey { get; set; } = "";
+        public string AstmPath { get; set; } = "";
+        public bool IsRequired { get; set; }
+    }
+
+    private sealed class MapRow
+    {
+        public string InstrumentCode { get; set; } = "";
+        public string ApplicationCode { get; set; } = "";
+        public InstrumentMappingKind Kind { get; set; } = InstrumentMappingKind.Assay;
+        public InterfaceTranslationDirection Direction { get; set; } = InterfaceTranslationDirection.Both;
+        public int SortOrder { get; set; }
+    }
+
+    private sealed class RuleRow
+    {
+        public string Name { get; set; } = "";
+        public string ConditionExpression { get; set; } = "";
+        public string ActionExpression { get; set; } = "";
+        public int SortOrder { get; set; }
+        public bool IsEnabled { get; set; } = true;
+        public bool StopOnMatch { get; set; }
+    }
+}
