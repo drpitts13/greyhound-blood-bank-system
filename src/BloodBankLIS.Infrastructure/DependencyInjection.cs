@@ -133,6 +133,8 @@ public static class DependencyInjection
         services.AddScoped<ChargeRuleAdminService>();
         services.AddScoped<TestServiceBillingAdminService>();
         services.AddScoped<ProductBillingAdminService>();
+        services.AddScoped<ActionDefinitionAdminService>();
+        services.AddScoped<ActionBillingAdminService>();
         services.AddScoped<ExceptionDefinitionAdminService>();
         services.AddScoped<CodedCommentAdminService>();
         services.AddScoped<Hl7ConfigAdminService>();

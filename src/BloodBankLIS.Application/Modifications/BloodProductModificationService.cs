@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -29,6 +30,13 @@ public sealed class BloodProductModificationService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<OrderAction>? _orderActions;
+    private readonly IRepository<ActionDefinition>? _actionDefinitions;
+    private readonly IRepository<Order>? _orders;
+    private readonly IRepository<OrderLine>? _orderLines;
+    private readonly IRepository<Allocation>? _allocations;
+    private readonly IRepository<Crossmatch>? _crossmatches;
+    private readonly BillingService? _billing;
 
     public BloodProductModificationService(
         IInventoryRepository inventory,
@@ -41,7 +49,14 @@ public sealed class BloodProductModificationService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<OrderAction>? orderActions = null,
+        IRepository<ActionDefinition>? actionDefinitions = null,
+        IRepository<Order>? orders = null,
+        IRepository<OrderLine>? orderLines = null,
+        IRepository<Allocation>? allocations = null,
+        IRepository<Crossmatch>? crossmatches = null,
+        BillingService? billing = null)
     {
         _inventory = inventory;
         _rules = rules;
@@ -54,6 +69,13 @@ public sealed class BloodProductModificationService
         _currentUser = currentUser;
         _audit = audit;
         _permissions = permissions;
+        _orderActions = orderActions;
+        _actionDefinitions = actionDefinitions;
+        _orders = orders;
+        _orderLines = orderLines;
+        _allocations = allocations;
+        _crossmatches = crossmatches;
+        _billing = billing;
     }
 
     /// <summary>Active modification rules whose source product matches the unit's current product type.</summary>
@@ -293,22 +315,86 @@ public sealed class BloodProductModificationService
             return ModificationActionResult.Fail("Source unit not found.");
         }
 
-        var sourceEval = UnitModificationEligibilityRule.EvaluateSource(ToSnapshot(source), rule.SourceProductTypeId, _clock.UtcNow);
+        var orderLink = await ResolveOrderLinkAsync(source, rule, request.OrderActionId, ct);
+        if (orderLink.Error is not null)
+        {
+            return ModificationActionResult.Fail(orderLink.Error);
+        }
+
+        var sourceEval = UnitModificationEligibilityRule.EvaluateSource(
+            ToSnapshot(source),
+            rule.SourceProductTypeId,
+            _clock.UtcNow,
+            allowAssigned: orderLink.Context is not null);
         if (sourceEval.IsHardStopped)
         {
             return ModificationActionResult.Blocked(sourceEval);
         }
 
         var specs = new List<(string? Suffix, decimal? Volume)> { (null, request.ResultVolume ?? source.Volume) };
-        return await ExecuteAsync(new[] { source }, rule, specs, request.Reason, ct);
+        return await ExecuteAsync(new[] { source }, rule, specs, request.Reason, ct, orderLink.Context);
     }
+
+    private async Task<(OrderLinkedContext? Context, string? Error)> ResolveOrderLinkAsync(
+        BloodUnit source,
+        ModificationRule rule,
+        long? orderActionId,
+        CancellationToken ct)
+    {
+        if (orderActionId is not > 0)
+        {
+            return (null, null);
+        }
+
+        if (_orderActions is null || _actionDefinitions is null || _orders is null || _allocations is null)
+        {
+            return (null, "Order-linked modification is not configured.");
+        }
+
+        var action = await _orderActions.GetByIdAsync(orderActionId.Value, ct);
+        if (action is null || action.Status != OrderActionStatus.Pending)
+        {
+            return (null, "Pending order action was not found.");
+        }
+
+        var definition = await _actionDefinitions.GetByIdAsync(action.ActionDefinitionId, ct);
+        if (definition is null || definition.ModificationType != rule.ModificationType)
+        {
+            return (null, "The selected modification does not match the order action.");
+        }
+
+        var order = await _orders.GetByIdAsync(action.OrderId, ct);
+        if (order is null)
+        {
+            return (null, "The order for this action was not found.");
+        }
+
+        var allocation = await _allocations.FirstOrDefaultAsync(
+            a => a.BloodProductId == source.Id
+                 && a.OrderId == order.Id
+                 && a.Status == AllocationStatus.Reserved,
+            ct);
+        if (allocation is null)
+        {
+            return (null, "Allocate the unit to this product order before completing the modification action.");
+        }
+
+        return (new OrderLinkedContext(action, definition, order, allocation), null);
+    }
+
+    private sealed record OrderLinkedContext(
+        OrderAction Action,
+        ActionDefinition Definition,
+        Order Order,
+        Allocation Allocation);
 
     private async Task<ModificationActionResult> ExecuteAsync(
         IReadOnlyList<BloodUnit> sources,
         ModificationRule rule,
         IReadOnlyList<(string? Suffix, decimal? Volume)> resultSpecs,
         string reason,
-        CancellationToken ct)
+        CancellationToken ct,
+        OrderLinkedContext? orderLink = null)
     {
         var expCode = await _expirationCodes.GetByIdAsync(rule.ExpirationModificationCodeId, ct);
         if (expCode is null)
@@ -443,15 +529,17 @@ public sealed class BloodProductModificationService
                 ExpiresUtc = resultExpiresUtc,
                 CurrentLocationId = primarySource.CurrentLocationId,
                 Volume = spec.Volume,
-                Status = UnitStatus.Quarantine,
+                Status = orderLink is null ? UnitStatus.Quarantine : UnitStatus.Assigned,
                 Source = ComponentEntrySource.Manual,
                 CollectionFacility = primarySource.CollectionFacility,
                 Supplier = primarySource.Supplier,
                 CollectedUtc = primarySource.CollectedUtc,
                 CollectionDateTime = primarySource.CollectionDateTime,
                 DerivedFromModification = header,
-                QuarantineReasonCode = UnitQuarantineReason.PendingRelease,
-                QuarantineReason = $"Created by {rule.ModificationType} modification"
+                QuarantineReasonCode = orderLink is null ? UnitQuarantineReason.PendingRelease : UnitQuarantineReason.Unspecified,
+                QuarantineReason = orderLink is null
+                    ? $"Created by {rule.ModificationType} modification"
+                    : null
             };
 
             if (singleSource)
@@ -471,9 +559,11 @@ public sealed class BloodProductModificationService
             {
                 Unit = result,
                 FromStatus = null,
-                ToStatus = UnitStatus.Quarantine,
+                ToStatus = result.Status,
                 ToLocationId = result.CurrentLocationId,
-                Reason = $"Created by {rule.ModificationType} modification",
+                Reason = orderLink is null
+                    ? $"Created by {rule.ModificationType} modification"
+                    : $"Created by order-linked {rule.ModificationType} modification",
                 ChangedBy = _currentUser.UserName,
                 ChangedUtc = now,
                 RelatedEntityType = nameof(UnitModification)
@@ -514,7 +604,117 @@ public sealed class BloodProductModificationService
 
         await _unitOfWork.SaveChangesAsync(ct);
 
+        if (orderLink is not null)
+        {
+            var completed = await CompleteOrderLinkAsync(orderLink, header, sources[0], resultUnits, rule, ct);
+            if (completed is not null)
+            {
+                return completed;
+            }
+        }
+
         return ModificationActionResult.Ok(header, resultUnits);
+    }
+
+    private async Task<ModificationActionResult?> CompleteOrderLinkAsync(
+        OrderLinkedContext orderLink,
+        UnitModification header,
+        BloodUnit source,
+        IReadOnlyList<BloodUnit> resultUnits,
+        ModificationRule rule,
+        CancellationToken ct)
+    {
+        if (resultUnits.Count != 1)
+        {
+            return ModificationActionResult.Fail("Order-linked modifications must produce one result unit.");
+        }
+
+        var result = resultUnits[0];
+        orderLink.Allocation.BloodProductId = result.Id;
+        _allocations!.Update(orderLink.Allocation);
+
+        if (_crossmatches is not null)
+        {
+            var sourceXm = (await _crossmatches.ListAsync(
+                    x => x.BloodProductId == source.Id && x.PatientId == orderLink.Order.PatientId, ct))
+                .OrderByDescending(x => x.PerformedUtc)
+                .FirstOrDefault();
+            if (sourceXm is not null)
+            {
+                await _crossmatches.AddAsync(new Crossmatch
+                {
+                    BloodProductId = result.Id,
+                    PatientId = sourceXm.PatientId,
+                    SpecimenId = sourceXm.SpecimenId,
+                    Method = sourceXm.Method,
+                    Result = sourceXm.Result,
+                    PerformedUtc = sourceXm.PerformedUtc,
+                    PerformedBy = sourceXm.PerformedBy,
+                    ExpiresUtc = sourceXm.ExpiresUtc,
+                    Comment = sourceXm.Comment,
+                    Phase = sourceXm.Phase,
+                    Interpretation = sourceXm.Interpretation,
+                    ObservedResultsJson = sourceXm.ObservedResultsJson,
+                    ClinicalStatus = sourceXm.ClinicalStatus,
+                    RulesVersion = sourceXm.RulesVersion,
+                    PolicyVersion = sourceXm.PolicyVersion,
+                    EncounterId = sourceXm.EncounterId,
+                    OrderId = sourceXm.OrderId
+                }, ct);
+            }
+        }
+
+        var targetProduct = await _products.GetByIdAsync(rule.TargetProductTypeId, ct);
+        if (_orderLines is not null)
+        {
+            OrderLine? productLine = null;
+            if (orderLink.Action.OrderLineId is long lineId)
+            {
+                productLine = await _orderLines.FirstOrDefaultAsync(l => l.Id == lineId && l.IsActive, ct);
+            }
+
+            productLine ??= await _orderLines.FirstOrDefaultAsync(
+                l => l.OrderId == orderLink.Order.Id
+                     && l.IsActive
+                     && l.LineCategory == OrderCategory.Product
+                     && l.ProductTypeId == source.ProductTypeId,
+                ct);
+            productLine ??= await _orderLines.FirstOrDefaultAsync(
+                l => l.OrderId == orderLink.Order.Id && l.IsActive && l.LineCategory == OrderCategory.Product,
+                ct);
+
+            if (productLine is not null)
+            {
+                productLine.ProductTypeId = rule.TargetProductTypeId;
+                if (targetProduct is not null)
+                {
+                    productLine.LineName = targetProduct.Name;
+                }
+            }
+        }
+
+        orderLink.Order.ProductTypeId = rule.TargetProductTypeId;
+        if (targetProduct is not null)
+        {
+            orderLink.Order.OrderName = targetProduct.Name;
+        }
+
+        orderLink.Action.Status = OrderActionStatus.Completed;
+        orderLink.Action.SourceBloodUnitId = source.Id;
+        orderLink.Action.ResultBloodUnitId = result.Id;
+        orderLink.Action.UnitModificationId = header.Id;
+        orderLink.Action.CompletedUtc = _clock.UtcNow;
+        orderLink.Action.CompletedBy = _currentUser.UserName;
+        _orderActions!.Update(orderLink.Action);
+
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        if (_billing is not null)
+        {
+            await _billing.CaptureForActionAsync(orderLink.Action.Id, ct);
+        }
+
+        return null;
     }
 
     private async Task<DivideCodePlan> PlanDivideCodesAsync(

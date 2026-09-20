@@ -2,6 +2,7 @@
 @using BloodBankLIS.Domain.Isbt128
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@inject NavigationManager Nav
 
 <PageTitle>Modify Products &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -9,9 +10,15 @@
 <h1>Modify Blood Products</h1>
 <p class="muted">
     Divide, pool, irradiate, thaw, volume-reduce, or leukoreduce a unit into a new product under an
-    admin-configured modification rule. The source unit(s) are retired and new result unit(s) are created
-    in Quarantine with the rule's target product code and a recalculated expiration.
+    admin-configured modification rule. Standalone modifications retire the source into Quarantine.
+    An order-linked 1:1 modification keeps the reservation on the new unit so issue can continue.
 </p>
+@if (OrderActionId is > 0)
+{
+    <div class="alert alert-info">
+        Completing this modification will update the product order and return you to the patient chart.
+    </div>
+}
 
 <div class="bb-card">
     <div class="bb-card-title"><h3>1. Find the source unit</h3></div>
@@ -247,6 +254,15 @@
     [SupplyParameterFromQuery]
     public long? UnitId { get; set; }
 
+    [SupplyParameterFromQuery]
+    public long? OrderActionId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "modificationType")]
+    public string? ActionModificationType { get; set; }
+
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
     private bool _unitQueryApplied;
 
     protected override async Task OnParametersSetAsync()
@@ -351,6 +367,16 @@
 
         var eligible = await Api.GetEligibleModificationsAsync(u.Id);
         _eligible = eligible.Value ?? new();
+        if (OrderActionId is > 0
+            && Enum.TryParse<ModificationType>(ActionModificationType, true, out var requiredType))
+        {
+            _eligible = _eligible.Where(e => e.ModificationType == requiredType).ToList();
+            if (_eligible.Count == 1)
+            {
+                _selectedRuleId = _eligible[0].RuleId;
+                _selectedRule = _eligible[0];
+            }
+        }
 
         var history = await Api.GetUnitModificationHistoryAsync(u.Id);
         _history = history.Value ?? new();
@@ -436,7 +462,9 @@
         }
         else
         {
-            r = await Api.ApplyModificationAsync(_unit.Id, new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason));
+            r = await Api.ApplyModificationAsync(
+                _unit.Id,
+                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId));
         }
 
         _busy = false;
@@ -448,6 +476,10 @@
             _poolUnits.Clear();
             var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
             _history = history.Value ?? new();
+            if (!string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith("/", StringComparison.Ordinal))
+            {
+                Nav.NavigateTo(ReturnUrl);
+            }
         }
     }
 

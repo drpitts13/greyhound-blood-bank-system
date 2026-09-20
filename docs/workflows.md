@@ -234,6 +234,28 @@ flowchart TD
 
 ---
 
+## 8b. Order-linked modification action
+
+```mermaid
+flowchart TD
+  place[Place normal RBC/plasma/platelet order] --> addAction[Add modification action to order]
+  addAction --> allocate[Allocate unmodified unit]
+  allocate --> clickAction[Click pending action on Products tab]
+  clickAction --> modify[Modify Products: unit and rule prefilled]
+  modify --> complete[Complete 1:1 modification]
+  complete --> update[Transfer reservation; result Assigned; bill action]
+  update --> returnNav[Return to patient Products tab]
+  returnNav --> issue[Issue modified unit]
+```
+
+- Attachable types: Irradiate, Wash, Thaw, VolumeReduction, Leukoreduction. Divide and Pool stay inventory-only (section 8a).
+- Staff attach a catalog `ActionDefinition` to a product order (`POST /api/patients/{id}/orders/{orderId}/actions`, permission `patient.write`). The Products tab lists each pending action on the reserved unit and deep-links to `/inventory/modify?unitId=&orderActionId=&returnUrl=`.
+- When `ApplySingleAsync` receives a pending `OrderActionId`: the source may be `Assigned`; the rule type must match the action; a reserved allocation on that order is required. The result unit is created **Assigned** (FRS-BB-062 quarantine does **not** apply on this path). The reserved allocation moves to the result unit, a compatible crossmatch is cloned onto the result, and the order/line product type updates to the rule target so issue can proceed.
+- Completing the action captures `BillingTriggerType.ActionCompleted` from `ActionBillings` and queues DFT^P03. Product issue/transfuse charges stay separate.
+- Issue is blocked while the order still has a pending modification action. Standalone inventory modify (no `OrderActionId`) is unchanged: `Available` only, result `Quarantine`, no action billing.
+
+---
+
 ## 9. Reaction investigation
 
 ```mermaid

@@ -18,6 +18,7 @@ using BloodBankLIS.Application.Results;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Web.Services;
 
@@ -30,7 +31,7 @@ public sealed class BloodBankApiClient
 {
     private readonly HttpClient _http;
 
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions Json = ClinicalJson.WebOptions;
 
     public BloodBankApiClient(HttpClient http)
     {
@@ -121,6 +122,20 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<object>> CreatePatientOrderAsync(long patientId, CreateOrderRequest req, CancellationToken ct = default) =>
         SendAsync<object>(HttpMethod.Post, $"api/patients/{patientId}/orders", req, ct);
+
+    public Task<ApiResult<OrderActionDto>> AddPatientOrderActionAsync(
+        long patientId,
+        long orderId,
+        AddOrderActionRequest req,
+        CancellationToken ct = default) =>
+        SendAsync<OrderActionDto>(HttpMethod.Post, $"api/patients/{patientId}/orders/{orderId}/actions", req, ct);
+
+    public Task<ApiResult<object>> RemovePatientOrderActionAsync(
+        long patientId,
+        long orderId,
+        long orderActionId,
+        CancellationToken ct = default) =>
+        SendAsync<object>(HttpMethod.Delete, $"api/patients/{patientId}/orders/{orderId}/actions/{orderActionId}", ct: ct);
 
     public Task<ApiResult<object>> UpdatePatientOrderAsync(long patientId, long orderId, UpdateOrderRequest req, CancellationToken ct = default) =>
         SendAsync<object>(HttpMethod.Put, $"api/patients/{patientId}/orders/{orderId}", req, ct);
@@ -549,6 +564,9 @@ public sealed class BloodBankApiClient
     // ---- Reference ----
     public Task<ApiResult<List<ProductTypeDto>>> GetProductTypesAsync(CancellationToken ct = default) =>
         SendAsync<List<ProductTypeDto>>(HttpMethod.Get, "api/reference/product-types", ct: ct);
+
+    public Task<ApiResult<List<ActionDefinitionDto>>> GetReferenceActionsAsync(CancellationToken ct = default) =>
+        SendAsync<List<ActionDefinitionDto>>(HttpMethod.Get, "api/reference/actions", ct: ct);
 
     public Task<ApiResult<List<InventoryLocationDto>>> GetLocationsAsync(CancellationToken ct = default) =>
         SendAsync<List<InventoryLocationDto>>(HttpMethod.Get, "api/reference/locations", ct: ct);
@@ -1029,6 +1047,30 @@ public sealed class BloodBankApiClient
         SendAsync<TestServiceBillingDto>(HttpMethod.Post, $"api/admin/test-service-billings/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
 
     // ---- Admin: Product billing ----
+    public Task<ApiResult<List<ActionDefinitionDto>>> GetAdminActionsAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<ActionDefinitionDto>>(HttpMethod.Get, $"api/admin/actions?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<ActionDefinitionDto>> CreateAdminActionAsync(SaveActionDefinitionRequest req, CancellationToken ct = default) =>
+        SendAsync<ActionDefinitionDto>(HttpMethod.Post, "api/admin/actions", req, ct);
+
+    public Task<ApiResult<ActionDefinitionDto>> UpdateAdminActionAsync(long id, SaveActionDefinitionRequest req, CancellationToken ct = default) =>
+        SendAsync<ActionDefinitionDto>(HttpMethod.Put, $"api/admin/actions/{id}", req, ct);
+
+    public Task<ApiResult<ActionDefinitionDto>> SetAdminActionActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<ActionDefinitionDto>(HttpMethod.Post, $"api/admin/actions/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    public Task<ApiResult<List<ActionBillingDto>>> GetAdminActionBillingsAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<ActionBillingDto>>(HttpMethod.Get, $"api/admin/action-billings?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<ActionBillingDto>> CreateAdminActionBillingAsync(SaveActionBillingRequest req, CancellationToken ct = default) =>
+        SendAsync<ActionBillingDto>(HttpMethod.Post, "api/admin/action-billings", req, ct);
+
+    public Task<ApiResult<ActionBillingDto>> UpdateAdminActionBillingAsync(long id, SaveActionBillingRequest req, CancellationToken ct = default) =>
+        SendAsync<ActionBillingDto>(HttpMethod.Put, $"api/admin/action-billings/{id}", req, ct);
+
+    public Task<ApiResult<ActionBillingDto>> SetAdminActionBillingActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<ActionBillingDto>(HttpMethod.Post, $"api/admin/action-billings/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
     public Task<ApiResult<List<ProductBillingDto>>> GetAdminProductBillingsAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<ProductBillingDto>>(HttpMethod.Get, $"api/admin/product-billings?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
 

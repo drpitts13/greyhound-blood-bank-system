@@ -39,6 +39,18 @@ public class UnitModificationEligibilityRuleTests
     }
 
     [Fact]
+    public void EvaluateSource_Assigned_HardStops_UnlessAllowed()
+    {
+        var unit = MakeUnit(status: UnitStatus.Assigned);
+
+        var denied = UnitModificationEligibilityRule.EvaluateSource(unit, ruleSourceProductTypeId: 100, NowUtc);
+        Assert.True(denied.IsHardStopped);
+
+        var allowed = UnitModificationEligibilityRule.EvaluateSource(unit, ruleSourceProductTypeId: 100, NowUtc, allowAssigned: true);
+        Assert.False(allowed.IsHardStopped);
+    }
+
+    [Fact]
     public void EvaluateSource_Expired_HardStops()
     {
         var unit = MakeUnit(expiresUtc: NowUtc.AddDays(-1));

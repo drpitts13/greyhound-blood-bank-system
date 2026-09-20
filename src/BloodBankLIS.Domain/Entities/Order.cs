@@ -128,5 +128,7 @@ public class Order : BaseEntity
 
     public ICollection<OrderLine> Lines { get; set; } = new List<OrderLine>();
 
+    public ICollection<OrderAction> Actions { get; set; } = new List<OrderAction>();
+
 }
 

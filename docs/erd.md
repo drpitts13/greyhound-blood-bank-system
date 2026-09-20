@@ -46,11 +46,16 @@ erDiagram
     Issues ||--o{ Returns : mayBe
     Issues ||--o{ TransfusionEvents : documentedBy
     TransfusionEvents ||--o{ ReactionInvestigations : mayTrigger
+    Orders ||--o{ OrderActions : has
+    ActionDefinitions ||--o{ OrderActions : defines
+    ActionDefinitions ||--o{ ActionBillings : pricedAs
     ChargeCodes ||--o{ BillingEvents : classifies
     ChargeCodes ||--o{ TestServiceBillings : pricedAs
     ChargeCodes ||--o{ ProductBillings : pricedAs
+    ChargeCodes ||--o{ ActionBillings : pricedAs
     TestServiceBillings ||--o{ BillingEvents : canDrop
     ProductBillings ||--o{ BillingEvents : canDrop
+    ActionBillings ||--o{ BillingEvents : canDrop
 ```
 
 ---
@@ -155,6 +160,14 @@ Indexes: unique(`AccessionNumber`), (`PatientId`), (`Barcode`), (`ExpiresUtc`), 
 `Id`, `OrderId` (preserved source/placer id, unique), `PatientId` (FK Patients), `EncounterId NULL` (FK Encounters), `OrderType` (TypeAndScreen/Crossmatch/AntibodyId/...), `OrderingProvider NULL`, `Priority` (Routine/STAT), `Status` (New/InProcess/Completed/Cancelled), `OrderedUtc`, `Source` (HL7/Manual), audit metadata.
 Indexes: unique(`OrderId`), (`PatientId`), (`Status`).
 
+### ActionDefinitions (admin catalog)
+`Id`, `Code` (unique when active), `Name`, `Category` (`Modification`), `ModificationType` NULL (required 1:1 type for Modification: Irradiate/Wash/Thaw/VolumeReduction/Leukoreduction), `Description NULL`, `IsActive`, `Version`, audit metadata.
+Indexes: (`Code`), (`IsActive`).
+
+### OrderActions
+`Id`, `OrderId` (FK Orders), `OrderLineId NULL` (FK OrderLines), `ActionDefinitionId` (FK ActionDefinitions), `Status` (Pending/Completed/Cancelled), `SourceBloodUnitId NULL`, `ResultBloodUnitId NULL`, `UnitModificationId NULL`, `CompletedUtc NULL`, `CompletedBy NULL`, audit metadata.
+Indexes: (`OrderId`, `Status`), (`ActionDefinitionId`). A product order may have at most one **pending** row per action code.
+
 ### OrderSpecimens
 `Id`, `OrderId` (FK Orders), `SpecimenId` (FK Specimens). Unique (`OrderId`,`SpecimenId`).
 
@@ -198,7 +211,7 @@ Index: (`BloodProductId`,`ChangedUtc`).
 
 ### Product modification (implemented)
 
-Every modification (Divide, Pool, Irradiate, Thaw, Volume Reduction, Leukoreduction) is executed under an admin-configured `ModificationRules` row, retires its source unit(s) into the terminal `Modified` status, and produces new result unit(s) in `Quarantine`. See `docs/workflows.md` §"Product modification" and `docs/safety-rules.md`.
+Every modification (Divide, Pool, Irradiate, Thaw, Volume Reduction, Leukoreduction) is executed under an admin-configured `ModificationRules` row and retires its source unit(s) into the terminal `Modified` status. Standalone inventory modify creates result unit(s) in `Quarantine`. An order-linked 1:1 modification (`OrderActions` + `ApplySingleAsync` with `OrderActionId`) creates the result as `Assigned`, transfers the reserved allocation, and clones a compatible crossmatch onto the result unit. See `docs/workflows.md` §8a and §8b.
 
 #### ExpirationModificationCodes (admin config)
 `Id`, `Code` (unique, e.g. `24H`, `28D`, `42D`), `OffsetAmount`, `OffsetUnit` (Hours/Days), `RelativeTo` (`ModificationDateTime` / `CollectionDateTime`), `Description NULL`, `IsActive`, `Version`, audit metadata.
@@ -266,8 +279,11 @@ Indexes: (`BloodProductId`,`Status`), (`PatientId`).
 ### ProductBillings
 `Id`, `ChargeCodeId` (FK ChargeCodes), `Description NULL`, `Trigger` (UnitIssued), `IsbtProductCode` (ISBT PDC), `IsActive`. Unique (`Trigger`, `IsbtProductCode`, `ChargeCodeId`).
 
+### ActionBillings
+`Id`, `ActionDefinitionId` (FK ActionDefinitions), `ChargeCodeId` (FK ChargeCodes), `Description NULL`, `Trigger` (`ActionCompleted`), `IsActive`. Unique (`Trigger`, `ActionDefinitionId`, `ChargeCodeId`) among active rows.
+
 ### BillingEvents
-`Id`, `ChargeCodeId NULL` (FK ChargeCodes), `BillingCode`, `PatientId` (FK Patients), `TriggerType` (TestVerified/UnitIssued/Procedure/...), `TriggerEntityType`, `TriggerEntityId`, `SourceKind` (ChargeRule/TestService/Product), `SourceId`, `Hl7MessageId NULL`, `DedupeKey` (unique), `Amount DECIMAL NULL`, `Status` (Pending/Reviewed/Exported/Cancelled), `CreatedBy`, `CancelReason NULL`, audit metadata.
+`Id`, `ChargeCodeId NULL` (FK ChargeCodes), `BillingCode`, `PatientId` (FK Patients), `TriggerType` (TestVerified/UnitIssued/Procedure/ActionCompleted/...), `TriggerEntityType`, `TriggerEntityId`, `SourceKind` (ChargeRule/TestService/Product/Action), `SourceId`, `Hl7MessageId NULL`, `DedupeKey` (unique), `Amount DECIMAL NULL`, `Status` (Pending/Reviewed/Exported/Cancelled), `CreatedBy`, `CancelReason NULL`, audit metadata.
 Indexes: unique(`DedupeKey`), (`Status`), (`PatientId`), (`SourceKind`, `SourceId`).
 
 ---

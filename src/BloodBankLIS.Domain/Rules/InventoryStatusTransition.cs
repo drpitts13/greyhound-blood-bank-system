@@ -54,7 +54,8 @@ public static class InventoryStatusTransition
             [
                 UnitStatus.Crossmatched, UnitStatus.Issued, UnitStatus.Available, UnitStatus.CancelledAssignment,
                 UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Discarded, UnitStatus.Expired,
-                UnitStatus.Allocated, UnitStatus.Missing, UnitStatus.Damaged, UnitStatus.Recalled
+                UnitStatus.Allocated, UnitStatus.Missing, UnitStatus.Damaged, UnitStatus.Recalled,
+                UnitStatus.Modified
             ],
             // Legacy synonym for Assigned during transition period.
             [UnitStatus.Allocated] =
@@ -62,13 +63,13 @@ public static class InventoryStatusTransition
                 UnitStatus.Issued, UnitStatus.Available, UnitStatus.Assigned, UnitStatus.Crossmatched,
                 UnitStatus.CancelledAssignment, UnitStatus.Discarded, UnitStatus.Expired,
                 UnitStatus.Quarantine, UnitStatus.OnHold, UnitStatus.Missing, UnitStatus.Damaged,
-                UnitStatus.Recalled
+                UnitStatus.Recalled, UnitStatus.Modified
             ],
             [UnitStatus.Crossmatched] =
             [
                 UnitStatus.Issued, UnitStatus.Available, UnitStatus.CancelledAssignment, UnitStatus.Assigned,
                 UnitStatus.Discarded, UnitStatus.Expired, UnitStatus.Quarantine, UnitStatus.OnHold,
-                UnitStatus.Missing, UnitStatus.Damaged, UnitStatus.Recalled
+                UnitStatus.Missing, UnitStatus.Damaged, UnitStatus.Recalled, UnitStatus.Modified
             ],
             [UnitStatus.Issued] =
             [

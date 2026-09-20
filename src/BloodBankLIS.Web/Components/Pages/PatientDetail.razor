@@ -135,6 +135,8 @@ else
             TestGroupers="_testGroupers"
             TestDefs="_testDefs"
             ProductTypes="_productTypes"
+            ActionDefinitions="_actionDefinitions"
+            NewOrderActionIds="_newOrderActionIds"
             SpecimenTypes="_specimenTypes"
             LinkableSpecimens="LinkableSpecimens"
             Orders="_orders"
@@ -176,6 +178,12 @@ else
             OnToggleNewOrderGrouper="OnOrdersToggleNewGrouper"
             OnToggleNewOrderTest="OnOrdersToggleNewTest"
             OnToggleNewOrderProduct="OnOrdersToggleNewProduct"
+            OnToggleNewOrderAction="OnOrdersToggleNewAction"
+            AddingActionOrderId="_addingActionOrderId"
+            @bind-AddActionDefinitionId="_addActionDefinitionId"
+            OnBeginAddAction="BeginAddOrderAction"
+            OnAddAction="AddOrderActionAsync"
+            OnRemoveAction="RemoveOrderActionAsync"
             OnToggleEditOrderGrouper="OnOrdersToggleEditGrouper"
             OnToggleEditOrderTest="OnOrdersToggleEditTest"
             OnToggleEditOrderProduct="OnOrdersToggleEditProduct"
@@ -249,6 +257,7 @@ else
     @if (_tab == "products")
     {
         <PatientChartProductsTab
+            PatientId="Id"
             Busy="_busy"
             ShowAllocate="_showAllocate"
             AllocFeedback="_allocFb"
@@ -405,6 +414,10 @@ else
     private HashSet<string> _editOrderGrouperCodes = new(StringComparer.OrdinalIgnoreCase);
     private List<TestGrouperListItemDto> _testGroupers = new();
     private HashSet<long> _newOrderProductTypeIds = new();
+    private List<ActionDefinitionDto> _actionDefinitions = new();
+    private HashSet<long> _newOrderActionIds = new();
+    private long? _addingActionOrderId;
+    private long _addActionDefinitionId;
     private OrderPriority _newOrderPriority = OrderPriority.Routine;
     private long _newOrderLocationId;
     private long? _newOrderProviderId;
@@ -1133,6 +1146,7 @@ else
         if (_testDefs.Count == 0) _testDefs = (await Api.GetTestDefinitionsListAsync()).Value ?? new();
         if (_testGroupers.Count == 0) _testGroupers = (await Api.GetReferenceTestGroupersAsync()).Value ?? new();
         if (_productTypes.Count == 0) _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
+        if (_actionDefinitions.Count == 0) _actionDefinitions = (await Api.GetReferenceActionsAsync()).Value ?? new();
     }
 
     private void ToggleAddVisit() => _showAddVisit = !_showAddVisit;
@@ -1195,6 +1209,60 @@ else
 
     private void OnOrdersToggleNewProduct((long Id, ChangeEventArgs Event) args) =>
         ToggleNewOrderProduct(args.Id, args.Event);
+
+    private void OnOrdersToggleNewAction((long Id, ChangeEventArgs Event) args)
+    {
+        if (IsChecked(args.Event)) _newOrderActionIds.Add(args.Id);
+        else _newOrderActionIds.Remove(args.Id);
+    }
+
+    private void BeginAddOrderAction(PatientOrderDto order)
+    {
+        if (_addingActionOrderId == order.Id)
+        {
+            _addingActionOrderId = null;
+            _addActionDefinitionId = 0;
+            return;
+        }
+
+        _addingActionOrderId = order.Id;
+        _addActionDefinitionId = 0;
+    }
+
+    private async Task AddOrderActionAsync(long orderId)
+    {
+        if (_addActionDefinitionId <= 0) return;
+        _busy = true;
+        var r = await Api.AddPatientOrderActionAsync(Id, orderId, new AddOrderActionRequest(_addActionDefinitionId));
+        _busy = false;
+        if (!r.Succeeded)
+        {
+            _orderFb = r.ToFeedback();
+            return;
+        }
+
+        _orderFb = r.ToFeedback("Modification action added.");
+        _addingActionOrderId = null;
+        _addActionDefinitionId = 0;
+        _ordersLoaded = false;
+        await LoadOrdersAsync();
+    }
+
+    private async Task RemoveOrderActionAsync((long OrderId, long ActionId) args)
+    {
+        _busy = true;
+        var r = await Api.RemovePatientOrderActionAsync(Id, args.OrderId, args.ActionId);
+        _busy = false;
+        if (!r.Succeeded)
+        {
+            _orderFb = r.ToFeedback();
+            return;
+        }
+
+        _orderFb = r.ToFeedback("Pending action removed.");
+        _ordersLoaded = false;
+        await LoadOrdersAsync();
+    }
 
     private void OnOrdersToggleEditTest((string Code, ChangeEventArgs Event) args) =>
         ToggleEditOrderTest(args.Code, args.Event);
@@ -1327,7 +1395,8 @@ else
             "Manual",
             null,
             specimenId,
-            string.IsNullOrWhiteSpace(_newOrderComment) ? null : _newOrderComment);
+            string.IsNullOrWhiteSpace(_newOrderComment) ? null : _newOrderComment,
+            _newOrderActionIds.Count == 0 ? null : _newOrderActionIds.ToList());
         var r = await Api.CreatePatientOrderAsync(Id, req);
         _busy = false;
         if (!r.Succeeded) { _orderFb = r.ToFeedback(); return; }
@@ -1344,6 +1413,7 @@ else
         _newOrderTestCodes.Clear();
         _newOrderGrouperCodes.Clear();
         _newOrderProductTypeIds.Clear();
+        _newOrderActionIds.Clear();
         _newOrderSpecimenId = 0;
         _newOrderAccessionNow = false;
         _newOrderComment = null;

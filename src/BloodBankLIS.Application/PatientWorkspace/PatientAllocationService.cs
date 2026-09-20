@@ -27,6 +27,8 @@ public sealed class PatientAllocationService
     private readonly IRepository<ExceptionDefinition> _exceptionDefinitions;
     private readonly IRepository<Override> _overrides;
     private readonly IRepository<OrderLine>? _orderLines;
+    private readonly IRepository<OrderAction>? _orderActions;
+    private readonly IRepository<ActionDefinition>? _actionDefinitions;
     private readonly BloodAttributeCompatLoader _bloodAttributeCompat;
     private readonly AntibodyScreenCompatLoader _antibodyScreenCompat;
     private readonly IPermissionEvaluator _permissions;
@@ -59,7 +61,9 @@ public sealed class PatientAllocationService
         IUnitOfWork unitOfWork,
         CrossmatchAttachmentService? crossmatchAttachment = null,
         ElectronicCrossmatchEligibilityService? exmEligibility = null,
-        IRepository<OrderLine>? orderLines = null)
+        IRepository<OrderLine>? orderLines = null,
+        IRepository<OrderAction>? orderActions = null,
+        IRepository<ActionDefinition>? actionDefinitions = null)
     {
         _compatibility = compatibility;
         _orders = orders;
@@ -76,6 +80,8 @@ public sealed class PatientAllocationService
         _exceptionDefinitions = exceptionDefinitions;
         _overrides = overrides;
         _orderLines = orderLines;
+        _orderActions = orderActions;
+        _actionDefinitions = actionDefinitions;
         _bloodAttributeCompat = bloodAttributeCompat;
         _antibodyScreenCompat = antibodyScreenCompat;
         _permissions = permissions;
@@ -115,6 +121,9 @@ public sealed class PatientAllocationService
             .GroupBy(x => x.BloodProductId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.PerformedUtc).First());
 
+        var orderIds = allocations.Where(a => a.OrderId.HasValue).Select(a => a.OrderId!.Value).Distinct().ToList();
+        var pendingByOrder = await LoadPendingActionsAsync(orderIds, ct);
+
         var rows = new List<PatientAllocationRowDto>();
         foreach (var allocation in allocations.OrderByDescending(a => a.AllocatedUtc))
         {
@@ -149,10 +158,42 @@ public sealed class PatientAllocationService
                 allocation.SpecimenId,
                 allocation.AllocatedUtc,
                 allocation.AllocatedBy,
-                allocation.ExpiresUtc));
+                allocation.ExpiresUtc,
+                allocation.OrderId is long oid ? pendingByOrder.GetValueOrDefault(oid) : null));
         }
 
         return rows;
+    }
+
+    private async Task<Dictionary<long, IReadOnlyList<OrderActionDto>>> LoadPendingActionsAsync(
+        IReadOnlyList<long> orderIds,
+        CancellationToken ct)
+    {
+        if (_orderActions is null || orderIds.Count == 0)
+        {
+            return new Dictionary<long, IReadOnlyList<OrderActionDto>>();
+        }
+
+        var actions = await _orderActions.ListAsync(
+            a => orderIds.Contains(a.OrderId) && a.Status == OrderActionStatus.Pending, ct);
+        if (actions.Count == 0)
+        {
+            return new Dictionary<long, IReadOnlyList<OrderActionDto>>();
+        }
+
+        var defIds = actions.Select(a => a.ActionDefinitionId).Distinct().ToList();
+        var defs = _actionDefinitions is null
+            ? new Dictionary<long, ActionDefinition>()
+            : (await _actionDefinitions.ListAsync(d => defIds.Contains(d.Id), ct)).ToDictionary(d => d.Id);
+
+        return actions
+            .GroupBy(a => a.OrderId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<OrderActionDto>)g
+                    .OrderBy(a => a.Id)
+                    .Select(a => OrderActionDto.From(a, defs.GetValueOrDefault(a.ActionDefinitionId)))
+                    .ToList());
     }
 
     public async Task<OperationResult<IReadOnlyList<CompatibleUnitDto>>> ListCompatibleUnitsAsync(

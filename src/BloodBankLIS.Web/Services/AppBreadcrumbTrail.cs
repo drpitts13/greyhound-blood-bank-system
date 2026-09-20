@@ -29,6 +29,8 @@ public static class AppBreadcrumbTrail
     {
         ["antibody-panel-lots"] = "Antibody Panel Lots",
         ["blood-attributes"] = "Blood Attributes",
+        ["action-billing"] = "Action Billing",
+        ["actions"] = "Actions",
         ["charge-codes"] = "Charge Codes",
         ["locations"] = "Ordering Locations",
         ["phases"] = "Phases",

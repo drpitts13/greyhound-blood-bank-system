@@ -18,7 +18,8 @@ public sealed record PatientAllocationRowDto(
     long? SpecimenId,
     DateTime AllocatedUtc,
     string AllocatedBy,
-    DateTime? ExpiresUtc);
+    DateTime? ExpiresUtc,
+    IReadOnlyList<OrderActionDto>? PendingActions = null);
 
 public sealed record CompatibleUnitDto(
     long BloodUnitId,

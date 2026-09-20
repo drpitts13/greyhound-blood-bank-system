@@ -88,6 +88,9 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<BillingEvent> BillingEvents => Set<BillingEvent>();
     public DbSet<TestServiceBilling> TestServiceBillings => Set<TestServiceBilling>();
     public DbSet<ProductBilling> ProductBillings => Set<ProductBilling>();
+    public DbSet<ActionDefinition> ActionDefinitions => Set<ActionDefinition>();
+    public DbSet<ActionBilling> ActionBillings => Set<ActionBilling>();
+    public DbSet<OrderAction> OrderActions => Set<OrderAction>();
     public DbSet<User> Users => Set<User>();
     public DbSet<AuthSession> AuthSessions => Set<AuthSession>();
     public DbSet<Role> Roles => Set<Role>();

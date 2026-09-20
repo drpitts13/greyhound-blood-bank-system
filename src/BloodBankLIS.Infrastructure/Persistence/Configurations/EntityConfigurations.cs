@@ -1726,3 +1726,58 @@ public sealed class InstrumentInterfaceLogConfiguration : IEntityTypeConfigurati
         b.HasIndex(e => new { e.InterfaceId, e.OccurredUtc });
     }
 }
+
+public sealed class ActionDefinitionConfiguration : IEntityTypeConfiguration<ActionDefinition>
+{
+    public void Configure(EntityTypeBuilder<ActionDefinition> b)
+    {
+        b.ToTable("ActionDefinitions");
+        b.HasKey(a => a.Id);
+        b.Property(a => a.Code).HasMaxLength(50).IsRequired();
+        b.Property(a => a.Name).HasMaxLength(200).IsRequired();
+        b.Property(a => a.Description).HasMaxLength(500);
+        b.Property(a => a.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(a => a.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(a => a.Code).IsUnique();
+    }
+}
+
+public sealed class ActionBillingConfiguration : IEntityTypeConfiguration<ActionBilling>
+{
+    public void Configure(EntityTypeBuilder<ActionBilling> b)
+    {
+        b.ToTable("ActionBillings");
+        b.HasKey(t => t.Id);
+        b.Property(t => t.Description).HasMaxLength(300);
+        b.Property(t => t.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(t => t.ModifiedBy).HasMaxLength(100);
+
+        b.HasOne(t => t.ActionDefinition).WithMany().HasForeignKey(t => t.ActionDefinitionId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(t => t.ChargeCode).WithMany().HasForeignKey(t => t.ChargeCodeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(t => new { t.Trigger, t.ActionDefinitionId, t.ChargeCodeId }).IsUnique();
+        b.HasIndex(t => new { t.Trigger, t.ActionDefinitionId });
+    }
+}
+
+public sealed class OrderActionConfiguration : IEntityTypeConfiguration<OrderAction>
+{
+    public void Configure(EntityTypeBuilder<OrderAction> b)
+    {
+        b.ToTable("OrderActions");
+        b.HasKey(a => a.Id);
+        b.Property(a => a.CompletedBy).HasMaxLength(100);
+        b.Property(a => a.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(a => a.ModifiedBy).HasMaxLength(100);
+
+        b.HasOne(a => a.Order).WithMany(o => o.Actions).HasForeignKey(a => a.OrderId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(a => a.OrderLine).WithMany().HasForeignKey(a => a.OrderLineId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(a => a.ActionDefinition).WithMany().HasForeignKey(a => a.ActionDefinitionId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(a => a.SourceBloodUnit).WithMany().HasForeignKey(a => a.SourceBloodUnitId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(a => a.ResultBloodUnit).WithMany().HasForeignKey(a => a.ResultBloodUnitId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(a => a.UnitModification).WithMany().HasForeignKey(a => a.UnitModificationId).OnDelete(DeleteBehavior.Restrict);
+
+        b.HasIndex(a => a.OrderId);
+        b.HasIndex(a => new { a.OrderId, a.Status });
+        b.HasIndex(a => a.ActionDefinitionId);
+    }
+}

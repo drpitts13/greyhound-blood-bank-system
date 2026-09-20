@@ -28,9 +28,13 @@
                                 {
                                     <a class="btn btn-ghost btn-sm" href="@CompatibilityHref.Invoke(a.SpecimenId, a.BloodUnitId)">Crossmatch</a>
                                 }
+                                @foreach (var action in a.PendingActions ?? [])
+                                {
+                                    <a class="btn btn-secondary btn-sm" href="@ModifyActionHref(a, action)">@action.ActionName</a>
+                                }
                                 @if (Session.Has(PermissionCodes.IssueCreate))
                                 {
-                                    <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnBeginIssue.InvokeAsync(a)">Issue</button>
+                                    <button type="button" class="btn btn-primary btn-sm" disabled="@(Busy || HasPendingActions(a))" @onclick="() => OnBeginIssue.InvokeAsync(a)">Issue</button>
                                 }
                                 @if (Session.Has(PermissionCodes.CompatibilityAllocate))
                                 {
@@ -316,6 +320,7 @@
     [Parameter] public EventCallback OnCancelRelease { get; set; }
     [Parameter] public EventCallback<long?> OnAllocUnitChanged { get; set; }
     [Parameter] public EventCallback OnReserve { get; set; }
+    [Parameter] public long PatientId { get; set; }
 
     private Task OnSecondVerifierChanged(string? value)
     {
@@ -325,6 +330,16 @@
 
     private static bool IsChecked(ChangeEventArgs e) =>
         e.Value is true || string.Equals(Convert.ToString(e.Value), "true", StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasPendingActions(PatientAllocationRowDto allocation) =>
+        allocation.PendingActions is { Count: > 0 };
+
+    private string ModifyActionHref(PatientAllocationRowDto allocation, OrderActionDto action)
+    {
+        var returnUrl = Uri.EscapeDataString($"/patients/{PatientId}?tab=products");
+        var type = action.ModificationType?.ToString() ?? string.Empty;
+        return $"/inventory/modify?unitId={allocation.BloodUnitId}&orderActionId={action.Id}&modificationType={type}&returnUrl={returnUrl}";
+    }
 
     private static string DisplayAllocationStatus(ProductAllocationDisplayStatus status) => status switch
     {

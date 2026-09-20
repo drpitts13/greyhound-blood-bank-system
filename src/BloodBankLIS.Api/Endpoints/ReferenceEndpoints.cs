@@ -19,6 +19,9 @@ public static class ReferenceEndpoints
     {
         var group = app.MapGroup("/api/reference").WithTags("Reference").RequireAuthenticatedUser();
 
+        group.MapGet("/actions", async (ActionDefinitionAdminService service, CancellationToken ct) =>
+            Results.Ok(await service.ListAsync(includeInactive: false, ct)));
+
         group.MapGet("/product-types", async (BloodBankDbContext context, CancellationToken ct) =>
         {
             var types = await context.ProductTypes.AsNoTracking()

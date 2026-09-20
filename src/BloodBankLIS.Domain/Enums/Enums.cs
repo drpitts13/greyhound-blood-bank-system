@@ -449,7 +449,8 @@ public enum BillingTriggerType
     TestVerified = 0,
     UnitIssued = 1,
     Procedure = 2,
-    UnitTransfused = 3
+    UnitTransfused = 3,
+    ActionCompleted = 4
 }
 
 /// <summary>Which catalog produced a captured billing event.</summary>
@@ -457,7 +458,8 @@ public enum BillingChargeSourceKind
 {
     ChargeRule = 0,
     TestService = 1,
-    Product = 2
+    Product = 2,
+    Action = 3
 }
 
 public enum BillingEventStatus
@@ -625,6 +627,20 @@ public enum ModificationType
 
     /// <summary>Saline washing to remove plasma proteins, for example for IgA deficient recipients.</summary>
     Wash = 6
+}
+
+/// <summary>Catalog category for a clinical <c>ActionDefinition</c>.</summary>
+public enum ActionCategory
+{
+    Modification = 0
+}
+
+/// <summary>Lifecycle of an <c>OrderAction</c> attached to a product order.</summary>
+public enum OrderActionStatus
+{
+    Pending = 0,
+    Completed = 1,
+    Cancelled = 2
 }
 
 /// <summary>Whether a unit participated in a <c>UnitModification</c> as an input or an output.</summary>

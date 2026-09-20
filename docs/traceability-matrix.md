@@ -264,6 +264,9 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-189 / FRS-BB-223 | Electronic XM off until Facility Policy | `FacilityPolicyService`; `ElectronicCrossmatchEligibilityService` | TEST-BB-074; TEST-BB-046 | I | OCD-006 closed |
 | URS-BB-190 / FRS-BB-224 | Result-sourced antigen stays unless immuno.override | `ImmunoAuthorizationRule`; `ImmunohematologyService` | TEST-BB-075; TEST-BB-076 | D,I | OCD-022 closed |
 | URS-BB-191 / FRS-BB-225 | Second-verifier flags remain optional | `FacilityPolicyCatalog`; `DualIdentificationRule` | TEST-BB-012; TEST-BB-077 | D,I | OCD-008 closed |
+| URS-BB-192 / FRS-BB-226 | Attach modification actions to a product order | `OrderService`; `OrderActionValidator` | TEST-BB-078; TEST-BB-080 | D,I | |
+| URS-BB-193 / FRS-BB-227 / FRS-BB-229 | Order-linked 1:1 result is Assigned; issue blocked while pending | `BloodProductModificationService`; `IssuingService` | TEST-BB-081; TEST-BB-082; TEST-BB-084 | D,I | Exception to FRS-BB-062 quarantine |
+| URS-BB-194 / FRS-BB-228 | Action completion captures action billing and DFT | `BillingService`; `ActionBilling` | TEST-BB-081; TEST-BB-083 | D,I | |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

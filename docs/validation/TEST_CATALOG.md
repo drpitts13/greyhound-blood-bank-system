@@ -5,7 +5,7 @@ software is AABB-accredited or FDA-cleared. Remaining automated tests stay
 citable by class or method name until an ID is assigned.
 
 Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
-**TEST-BB-078**.
+**TEST-BB-085**.
 
 | ID | Layer | Test | Traces to |
 |---|---|---|---|
@@ -86,5 +86,12 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-075 | I | `Phase3ServicesTests.ResultSourcedAntigen_ChangeWithoutOverride_IsRejected` | URS-BB-190 / FRS-BB-224 / RISK-BB-296 |
 | TEST-BB-076 | D | `ImmunoAuthorizationRuleTests.ResultSourcedAntigenChange_WithoutOverride_IsHardStop` | URS-BB-190 / FRS-BB-224 / RISK-BB-296 |
 | TEST-BB-077 | D | `FacilityPolicyValidatorTests.SecondVerifierFlags_RemainOptional` | URS-BB-191 / FRS-BB-225 / RISK-BB-297 |
+| TEST-BB-078 | D | `ActionCatalogValidatorTests` | URS-BB-192 / FRS-BB-226 |
+| TEST-BB-079 | D | `ActionDefinitionAuthorizationRuleTests`; `ActionBillingAuthorizationRuleTests` | URS-BB-194 / FRS-BB-228 |
+| TEST-BB-080 | I | `OrderActionTests.AddAction_ToProductOrder_ListsPendingAction` | URS-BB-192 / FRS-BB-226 |
+| TEST-BB-081 | I | `OrderActionTests.OrderLinkedIrradiate_TransfersAllocation_BillsAction_AndLeavesResultAssigned` | URS-BB-193 / URS-BB-194 / FRS-BB-227 / FRS-BB-228 |
+| TEST-BB-082 | I | `OrderActionTests.StandaloneModify_StillQuarantines_AndDoesNotBill` | URS-BB-193 / FRS-BB-062 / FRS-BB-227 |
+| TEST-BB-083 | I | `ActionDefinitionAuthorizationTests`; `ActionBillingAuthorizationTests` | URS-BB-194 / FRS-BB-228 |
+| TEST-BB-084 | I | `OrderActionTests.Issue_BlockedWhileActionPending_AndAllowedAfterComplete` | URS-BB-193 / FRS-BB-229 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -24,7 +24,11 @@ public sealed record PerformDivideRequest(long RuleId, IReadOnlyList<DivideChild
 public sealed record PerformPoolRequest(IReadOnlyList<long> SourceUnitIds, long RuleId, string Reason);
 
 /// <summary>Covers the 1-source/1-result modification types: Irradiate, Thaw, Volume Reduction, Leukoreduction.</summary>
-public sealed record PerformSingleModificationRequest(long RuleId, decimal? ResultVolume, string Reason);
+public sealed record PerformSingleModificationRequest(
+    long RuleId,
+    decimal? ResultVolume,
+    string Reason,
+    long? OrderActionId = null);
 
 public sealed record ModificationUnitSummaryDto(
     long UnitId,

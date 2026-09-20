@@ -36,6 +36,10 @@ public sealed class BillingService
     private readonly IRepository<ChargeCode> _codes;
     private readonly IRepository<TestServiceBilling> _testBillings;
     private readonly IRepository<ProductBilling> _productBillings;
+    private readonly IRepository<ActionBilling>? _actionBillings;
+    private readonly IRepository<OrderAction>? _orderActions;
+    private readonly IRepository<ActionDefinition>? _actionDefinitions;
+    private readonly IRepository<Order>? _orders;
     private readonly IRepository<TestResult> _results;
     private readonly IRepository<Issue> _issues;
     private readonly IRepository<BloodUnit> _units;
@@ -66,13 +70,21 @@ public sealed class BillingService
         IBillingInterfacePublisher publisher,
         IPermissionEvaluator? permissionEvaluator = null,
         IRepository<Patient>? patients = null,
-        IRepository<Hl7MessageLog>? messages = null)
+        IRepository<Hl7MessageLog>? messages = null,
+        IRepository<ActionBilling>? actionBillings = null,
+        IRepository<OrderAction>? orderActions = null,
+        IRepository<ActionDefinition>? actionDefinitions = null,
+        IRepository<Order>? orders = null)
     {
         _events = events;
         _rules = rules;
         _codes = codes;
         _testBillings = testBillings;
         _productBillings = productBillings;
+        _actionBillings = actionBillings;
+        _orderActions = orderActions;
+        _actionDefinitions = actionDefinitions;
+        _orders = orders;
         _results = results;
         _issues = issues;
         _units = units;
@@ -167,12 +179,52 @@ public sealed class BillingService
         return await CaptureAsync(context, ct);
     }
 
+    /// <summary>Captures charges when an order action is completed. Safe to call repeatedly (idempotent).</summary>
+    public async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForActionAsync(
+        long orderActionId, CancellationToken ct = default)
+    {
+        if (_orderActions is null || _actionDefinitions is null)
+        {
+            return OperationResult<IReadOnlyList<BillingEvent>>.Ok(Array.Empty<BillingEvent>());
+        }
+
+        var action = await _orderActions.GetByIdAsync(orderActionId, ct);
+        if (action is null)
+        {
+            return OperationResult<IReadOnlyList<BillingEvent>>.Fail($"Order action {orderActionId} not found.");
+        }
+
+        if (action.Status != OrderActionStatus.Completed)
+        {
+            return OperationResult<IReadOnlyList<BillingEvent>>.Fail("Charges are only captured for completed actions.");
+        }
+
+        var definition = await _actionDefinitions.GetByIdAsync(action.ActionDefinitionId, ct);
+        long? patientId = null;
+        if (_orders is not null)
+        {
+            var order = await _orders.GetByIdAsync(action.OrderId, ct);
+            patientId = order?.PatientId;
+        }
+
+        var context = new BillingTriggerContext(
+            BillingTriggerType.ActionCompleted,
+            nameof(OrderAction),
+            action.Id,
+            action.CompletedUtc ?? _clock.UtcNow,
+            patientId,
+            NormalizeKey(definition?.Code));
+
+        return await CaptureAsync(context, ct);
+    }
+
     public async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureAsync(BillingTriggerContext context, CancellationToken ct = default)
     {
         var created = new List<BillingEvent>();
 
         await CaptureFromTestServiceCatalogAsync(context, created, ct);
         await CaptureFromProductCatalogAsync(context, created, ct);
+        await CaptureFromActionCatalogAsync(context, created, ct);
         if (!await HasActiveCatalogMatchAsync(context, ct))
         {
             await CaptureFromChargeRulesAsync(context, created, ct);
@@ -442,6 +494,17 @@ public sealed class BillingService
                 r => r.IsActive && r.Trigger == context.TriggerType && r.IsbtProductCode == context.IsbtProductCode, ct);
         }
 
+        if (context.TriggerType == BillingTriggerType.ActionCompleted
+            && _actionBillings is not null
+            && _actionDefinitions is not null
+            && !string.IsNullOrWhiteSpace(context.Key))
+        {
+            var definition = await _actionDefinitions.FirstOrDefaultAsync(a => a.Code == context.Key, ct);
+            return definition is not null
+                && await _actionBillings.AnyAsync(
+                    r => r.IsActive && r.Trigger == context.TriggerType && r.ActionDefinitionId == definition.Id, ct);
+        }
+
         return false;
     }
 
@@ -501,6 +564,46 @@ public sealed class BillingService
             await TryAddEventAsync(
                 context,
                 BillingChargeSourceKind.Product,
+                row.Id,
+                code,
+                created,
+                ct);
+        }
+    }
+
+    private async Task CaptureFromActionCatalogAsync(
+        BillingTriggerContext context,
+        List<BillingEvent> created,
+        CancellationToken ct)
+    {
+        if (context.TriggerType != BillingTriggerType.ActionCompleted
+            || _actionBillings is null
+            || _actionDefinitions is null
+            || string.IsNullOrWhiteSpace(context.Key))
+        {
+            return;
+        }
+
+        var definition = await _actionDefinitions.FirstOrDefaultAsync(a => a.Code == context.Key, ct);
+        if (definition is null)
+        {
+            return;
+        }
+
+        var rows = await _actionBillings.ListAsync(
+            r => r.IsActive && r.Trigger == context.TriggerType && r.ActionDefinitionId == definition.Id, ct);
+
+        foreach (var row in rows)
+        {
+            var code = await _codes.GetByIdAsync(row.ChargeCodeId, ct);
+            if (code is null || !code.IsActive)
+            {
+                continue;
+            }
+
+            await TryAddEventAsync(
+                context,
+                BillingChargeSourceKind.Action,
                 row.Id,
                 code,
                 created,

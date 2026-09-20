@@ -1,0 +1,230 @@
+@page "/admin/action-billing"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Action Billing &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Action Billing</h1>
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/actions">Open Actions</a>
+        <a class="btn btn-ghost" href="/admin/charge-codes">Open Charge Codes</a>
+        <a class="btn btn-ghost" href="/billing">Open Billing</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New row</button>
+        }
+    </div>
+</div>
+<p class="muted">When an order action is completed and the action code matches, a charge drops and a DFT is queued. Amount comes from the selected charge code.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by action or charge code" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No action billing rows.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Action</th><th>Charge code</th><th>Trigger</th><th class="right">Amount</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var row in Filtered)
+                {
+                    <tr>
+                        <td>
+                            <span class="mono">@row.ActionCode</span>
+                            <span class="muted"> — @row.ActionName</span>
+                        </td>
+                        <td>
+                            <span class="mono">@row.ChargeCode</span>
+                            @if (!string.IsNullOrWhiteSpace(row.ChargeCodeDescription))
+                            {
+                                <span class="muted"> — @row.ChargeCodeDescription</span>
+                            }
+                        </td>
+                        <td>@row.Trigger</td>
+                        <td class="right">@(row.ChargeCodeAmount?.ToString("C") ?? "—")</td>
+                        <td>@(row.Description ?? "—")</td>
+                        <td>@(row.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => Edit(row)">Edit</button>
+                                @if (row.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(row.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(row.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_draft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New action billing" : $"Edit: {_draft.ActionLabel}")</h2>
+        <div class="form-row">
+            <div class="field">
+                <label>Action</label>
+                <select @bind="_draft.ActionDefinitionId">
+                    <option value="0">Select action...</option>
+                    @foreach (var a in _actions)
+                    {
+                        <option value="@a.Id">@a.Code — @a.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>Charge code</label>
+                <select @bind="_draft.ChargeCodeId">
+                    <option value="0">Select charge code...</option>
+                    @foreach (var c in _chargeCodes)
+                    {
+                        <option value="@c.Id">@c.Code — @c.Description</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Trigger</label>
+                <select @bind="_draft.Trigger">
+                    <option value="@BillingTriggerType.ActionCompleted">ActionCompleted</option>
+                </select>
+            </div>
+            <div class="field"><label>Description</label><input @bind="_draft.Description" /></div>
+        </div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private bool _includeInactive;
+    private List<ActionBillingDto> _list = new();
+    private List<ActionDefinitionDto> _actions = new();
+    private List<ChargeCodeDto> _chargeCodes = new();
+    private Feedback? _feedback;
+    private long? _editId;
+    private BillingDraft? _draft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<ActionBillingDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _list
+            : _list.Where(r =>
+                r.ActionCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || r.ActionName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || r.ChargeCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || (r.ChargeCodeDescription?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (r.Description?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCatalogsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadCatalogsAsync()
+    {
+        var actions = await Api.GetAdminActionsAsync(includeInactive: true);
+        _actions = (actions.Succeeded ? actions.Value ?? new() : new()).OrderBy(a => a.Code).ToList();
+        var codes = await Api.GetAdminChargeCodesAsync(includeInactive: true);
+        _chargeCodes = (codes.Succeeded ? codes.Value ?? new() : new()).OrderBy(c => c.Code).ToList();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminActionBillingsAsync(_includeInactive);
+        _list = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft() { _editId = null; _draft = new BillingDraft(); }
+
+    private void Edit(ActionBillingDto row)
+    {
+        _editId = row.Id;
+        _draft = new BillingDraft
+        {
+            ActionDefinitionId = row.ActionDefinitionId,
+            ActionLabel = row.ActionCode,
+            ChargeCodeId = row.ChargeCodeId,
+            Trigger = row.Trigger,
+            Description = row.Description
+        };
+    }
+
+    private void CancelEdit() { _editId = null; _draft = null; }
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        if (_draft.ActionDefinitionId <= 0 || _draft.ChargeCodeId <= 0)
+        {
+            _feedback = Feedback.Fail("An action and a charge code are required.");
+            return;
+        }
+
+        _busy = true;
+        var req = new SaveActionBillingRequest(_draft.ActionDefinitionId, _draft.ChargeCodeId, _draft.Description, _draft.Trigger);
+        var r = _editId is null
+            ? await Api.CreateAdminActionBillingAsync(req)
+            : await Api.UpdateAdminActionBillingAsync(_editId.Value, req);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _feedback = r.ToFeedback("Action billing saved.");
+            _editId = null;
+            _draft = null;
+            await LoadAsync();
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+    }
+
+    private async Task SetActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminActionBillingActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.Succeeded ? r.ToFeedback(active ? "Activated." : "Deactivated.") : r.ToFeedback();
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private sealed class BillingDraft
+    {
+        public long ActionDefinitionId { get; set; }
+        public string ActionLabel { get; set; } = string.Empty;
+        public long ChargeCodeId { get; set; }
+        public BillingTriggerType Trigger { get; set; } = BillingTriggerType.ActionCompleted;
+        public string? Description { get; set; }
+    }
+}

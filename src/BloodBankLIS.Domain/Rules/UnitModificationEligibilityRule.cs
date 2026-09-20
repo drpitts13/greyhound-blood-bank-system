@@ -27,15 +27,26 @@ public static class UnitModificationEligibilityRule
         DateTime ExpiresUtc,
         decimal? Volume);
 
-    /// <summary>Checks a single source unit against the rule's expected source product and the clock.</summary>
-    public static RuleEvaluation EvaluateSource(SourceUnitSnapshot unit, long ruleSourceProductTypeId, DateTime nowUtc)
+    /// <summary>
+    /// Checks a single source unit against the rule's expected source product and the clock.
+    /// Standalone modify requires <see cref="UnitStatus.Available"/>. Order-linked 1:1
+    /// modify also accepts <see cref="UnitStatus.Assigned"/>.
+    /// </summary>
+    public static RuleEvaluation EvaluateSource(
+        SourceUnitSnapshot unit,
+        long ruleSourceProductTypeId,
+        DateTime nowUtc,
+        bool allowAssigned = false)
     {
         var results = new List<RuleResult>();
 
-        if (unit.Status != UnitStatus.Available)
+        var statusOk = unit.Status == UnitStatus.Available
+            || (allowAssigned && unit.Status == UnitStatus.Assigned);
+        if (!statusOk)
         {
+            var allowed = allowAssigned ? "Available or Assigned" : "Available";
             results.Add(RuleResult.HardStop(StatusInvalidCode,
-                $"Unit status {unit.Status} is not eligible for modification (must be Available)."));
+                $"Unit status {unit.Status} is not eligible for modification (must be {allowed})."));
         }
 
         if (unit.ExpiresUtc <= nowUtc)

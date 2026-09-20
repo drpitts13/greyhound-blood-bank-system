@@ -1,0 +1,200 @@
+@page "/admin/actions"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Actions &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Actions</h1>
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/admin/action-billing">Open Action Billing</a>
+        <a class="btn btn-ghost" href="/admin/modification-rules">Open Modification Rules</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New action</button>
+        }
+    </div>
+</div>
+<p class="muted">Catalog of clinical actions that can be attached to a product order. Modification actions must be a 1:1 type (irradiate, wash, thaw, volume reduce, or leukoreduce).</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code or name" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No actions.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Category</th><th>Modification</th><th>Description</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var row in Filtered)
+                {
+                    <tr>
+                        <td class="mono">@row.Code</td>
+                        <td>@row.Name</td>
+                        <td>@row.Category</td>
+                        <td>@(row.ModificationType?.ToString() ?? "—")</td>
+                        <td>@(row.Description ?? "—")</td>
+                        <td>@(row.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => Edit(row)">Edit</button>
+                                @if (row.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(row.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(row.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_draft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New action" : $"Edit: {_draft.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_draft.Code" /></div>
+            <div class="field"><label>Name</label><input @bind="_draft.Name" /></div>
+            <div class="field"><label>Category</label>
+                <select @bind="_draft.Category">
+                    <option value="@ActionCategory.Modification">Modification</option>
+                </select>
+            </div>
+            <div class="field"><label>Modification type</label>
+                <select @bind="_draft.ModificationType">
+                    <option value="@ModificationType.Irradiate">Irradiate</option>
+                    <option value="@ModificationType.Wash">Wash</option>
+                    <option value="@ModificationType.Thaw">Thaw</option>
+                    <option value="@ModificationType.VolumeReduction">Volume reduce</option>
+                    <option value="@ModificationType.Leukoreduction">Leukoreduce</option>
+                </select>
+            </div>
+            <div class="field" style="grid-column:1/-1;"><label>Description</label><input @bind="_draft.Description" /></div>
+        </div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private bool _includeInactive;
+    private List<ActionDefinitionDto> _list = new();
+    private Feedback? _feedback;
+    private long? _editId;
+    private ActionDraft? _draft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<ActionDefinitionDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _list
+            : _list.Where(r =>
+                r.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || r.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || (r.Description?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminActionsAsync(_includeInactive);
+        _list = r.Succeeded ? r.Value ?? new() : new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _draft = new ActionDraft { ModificationType = ModificationType.Irradiate };
+    }
+
+    private void Edit(ActionDefinitionDto row)
+    {
+        _editId = row.Id;
+        _draft = new ActionDraft
+        {
+            Code = row.Code,
+            Name = row.Name,
+            Category = row.Category,
+            ModificationType = row.ModificationType ?? ModificationType.Irradiate,
+            Description = row.Description
+        };
+    }
+
+    private void CancelEdit() { _editId = null; _draft = null; }
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        if (string.IsNullOrWhiteSpace(_draft.Code) || string.IsNullOrWhiteSpace(_draft.Name))
+        {
+            _feedback = Feedback.Fail("Code and name are required.");
+            return;
+        }
+
+        _busy = true;
+        var req = new SaveActionDefinitionRequest(
+            _draft.Code, _draft.Name, _draft.Category, _draft.ModificationType, _draft.Description);
+        var r = _editId is null
+            ? await Api.CreateAdminActionAsync(req)
+            : await Api.UpdateAdminActionAsync(_editId.Value, req);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _feedback = r.ToFeedback("Action saved.");
+            _editId = null;
+            _draft = null;
+            await LoadAsync();
+        }
+        else
+        {
+            _feedback = r.ToFeedback();
+        }
+    }
+
+    private async Task SetActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminActionActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.Succeeded ? r.ToFeedback(active ? "Activated." : "Deactivated.") : r.ToFeedback();
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private sealed class ActionDraft
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public ActionCategory Category { get; set; } = ActionCategory.Modification;
+        public ModificationType ModificationType { get; set; } = ModificationType.Irradiate;
+        public string? Description { get; set; }
+    }
+}

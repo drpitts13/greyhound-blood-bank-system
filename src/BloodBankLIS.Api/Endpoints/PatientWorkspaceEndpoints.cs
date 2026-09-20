@@ -92,6 +92,32 @@ public static class PatientWorkspaceEndpoints
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.PatientWrite);
 
+        group.MapPost("/orders/{orderId:long}/actions", async (
+            long patientId,
+            long orderId,
+            AddOrderActionRequest request,
+            OrderService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.AddActionAsync(patientId, orderId, request, ct);
+            return result.Succeeded
+                ? Results.Created($"/api/patients/{patientId}/orders/{orderId}/actions/{result.Value!.Id}", result.Value)
+                : Results.BadRequest(new { error = result.Error });
+        }).RequirePermission(PermissionCodes.PatientWrite);
+
+        group.MapDelete("/orders/{orderId:long}/actions/{orderActionId:long}", async (
+            long patientId,
+            long orderId,
+            long orderActionId,
+            OrderService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.RemoveActionAsync(patientId, orderId, orderActionId, ct);
+            return result.Succeeded
+                ? Results.Ok(new { removed = true })
+                : Results.BadRequest(new { error = result.Error });
+        }).RequirePermission(PermissionCodes.PatientWrite);
+
         group.MapPut("/orders/{orderId:long}/lines/{lineId:long}/comment", async (
             long patientId,
             long orderId,

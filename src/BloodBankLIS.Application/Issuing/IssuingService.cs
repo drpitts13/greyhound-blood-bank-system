@@ -53,6 +53,7 @@ public sealed class IssuingService
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
     private readonly CrossmatchSettingsReader? _crossmatchSettings;
     private readonly IRepository<AntibodyHistory>? _antibodies;
+    private readonly IRepository<OrderAction>? _orderActions;
 
     public IssuingService(
         IInventoryRepository inventory,
@@ -85,7 +86,8 @@ public sealed class IssuingService
         IRepository<AntibodyIdentificationWorkup>? workups = null,
         IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
         CrossmatchSettingsReader? crossmatchSettings = null,
-        IRepository<AntibodyHistory>? antibodies = null)
+        IRepository<AntibodyHistory>? antibodies = null,
+        IRepository<OrderAction>? orderActions = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -118,6 +120,7 @@ public sealed class IssuingService
         _requirementDefinitions = requirementDefinitions;
         _crossmatchSettings = crossmatchSettings;
         _antibodies = antibodies;
+        _orderActions = orderActions;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -179,6 +182,17 @@ public sealed class IssuingService
         var specimen = await GetCurrentSpecimenAsync(request.PatientId, ct);
         var allocation = await _allocations.FirstOrDefaultAsync(
             a => a.BloodProductId == unit.Id && a.PatientId == request.PatientId && a.Status == AllocationStatus.Reserved, ct);
+        if (_orderActions is not null && allocation?.OrderId is long pendingOrderId)
+        {
+            var pendingAction = await _orderActions.FirstOrDefaultAsync(
+                a => a.OrderId == pendingOrderId && a.Status == OrderActionStatus.Pending, ct);
+            if (pendingAction is not null)
+            {
+                return EvaluationResult<Issue>.Fail(
+                    "Complete the pending modification action before issuing this unit.");
+            }
+        }
+
         var hasValidCrossmatch = await _crossmatches.AnyAsync(
             x => x.BloodProductId == unit.Id && x.PatientId == request.PatientId
                  && x.Result == CrossmatchResult.Compatible

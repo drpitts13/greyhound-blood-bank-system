@@ -72,6 +72,7 @@ public static partial class DatabaseSeeder
         await SeedOrderingProvidersAsync(context, cancellationToken);
         await SeedChargeMasterAsync(context, cancellationToken);
         await SeedBillingCatalogsAsync(context, cancellationToken);
+        await SeedActionCatalogAsync(context, cancellationToken);
         await EnsureTransfusionBillingAsync(context, cancellationToken);
         await DeactivateChargeRulesOverlappingCatalogsAsync(context, cancellationToken);
         await SeedExpirationModificationCodesAsync(context, cancellationToken);
@@ -1258,6 +1259,79 @@ public static partial class DatabaseSeeder
                     Description = "Red blood cell unit transfused",
                     Trigger = BillingTriggerType.UnitTransfused,
                     IsbtProductCode = "E0336"
+                });
+            }
+        }
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task SeedActionCatalogAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        async Task<ChargeCode> EnsureChargeAsync(string code, string description, decimal amount, string? cpt)
+        {
+            var existing = await context.ChargeCodes.FirstOrDefaultAsync(c => c.Code == code, ct);
+            if (existing is not null)
+            {
+                return existing;
+            }
+
+            var created = new ChargeCode
+            {
+                Code = code,
+                Description = description,
+                DefaultAmount = amount,
+                CptCode = cpt,
+                RevenueCode = "0301"
+            };
+            context.ChargeCodes.Add(created);
+            await context.SaveChangesAsync(ct);
+            return created;
+        }
+
+        var irradiateCharge = await EnsureChargeAsync("BB-IRRAD", "Irradiation of blood product", 85.00m, "86945");
+        var washCharge = await EnsureChargeAsync("BB-WASH", "Washing of blood product", 120.00m, "86985");
+        var thawCharge = await EnsureChargeAsync("BB-THAW", "Thawing of plasma or cryoprecipitate", 45.00m, "86927");
+        var vrCharge = await EnsureChargeAsync("BB-VR", "Volume reduction of blood product", 65.00m, null);
+        var lrCharge = await EnsureChargeAsync("BB-LR", "Leukoreduction of blood product", 95.00m, "86960");
+
+        var seeds = new (string Code, string Name, ModificationType Type, ChargeCode Charge, string Description)[]
+        {
+            ("IRRAD", "Irradiate", ModificationType.Irradiate, irradiateCharge, "Irradiate an allocated red cell, plasma, or platelet unit."),
+            ("WASH", "Wash", ModificationType.Wash, washCharge, "Saline wash an allocated unit."),
+            ("THAW", "Thaw", ModificationType.Thaw, thawCharge, "Thaw an allocated frozen product."),
+            ("VR", "Volume reduce", ModificationType.VolumeReduction, vrCharge, "Volume-reduce an allocated unit."),
+            ("LR", "Leukoreduce", ModificationType.Leukoreduction, lrCharge, "Leukoreduce an allocated unit.")
+        };
+
+        foreach (var seed in seeds)
+        {
+            var action = await context.ActionDefinitions.FirstOrDefaultAsync(a => a.Code == seed.Code, ct);
+            if (action is null)
+            {
+                action = new ActionDefinition
+                {
+                    Code = seed.Code,
+                    Name = seed.Name,
+                    Category = ActionCategory.Modification,
+                    ModificationType = seed.Type,
+                    Description = seed.Description,
+                    IsActive = true
+                };
+                context.ActionDefinitions.Add(action);
+                await context.SaveChangesAsync(ct);
+            }
+
+            if (!await context.ActionBillings.AnyAsync(
+                    b => b.ActionDefinitionId == action.Id && b.ChargeCodeId == seed.Charge.Id, ct))
+            {
+                context.ActionBillings.Add(new ActionBilling
+                {
+                    ActionDefinitionId = action.Id,
+                    ChargeCodeId = seed.Charge.Id,
+                    Description = seed.Description,
+                    Trigger = BillingTriggerType.ActionCompleted,
+                    IsActive = true
                 });
             }
         }

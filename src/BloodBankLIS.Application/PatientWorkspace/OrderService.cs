@@ -36,6 +36,8 @@ public sealed class OrderService
     private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
     private readonly IRepository<Override>? _overrides;
     private readonly IRepository<TestResult>? _results;
+    private readonly IRepository<OrderAction>? _orderActions;
+    private readonly IRepository<ActionDefinition>? _actionDefinitions;
 
     public OrderService(
         IRepository<Order> orders,
@@ -59,7 +61,9 @@ public sealed class OrderService
         AntibodyScreenCompatLoader? antibodyScreen = null,
         IRepository<ExceptionDefinition>? exceptionDefinitions = null,
         IRepository<Override>? overrides = null,
-        IRepository<TestResult>? results = null)
+        IRepository<TestResult>? results = null,
+        IRepository<OrderAction>? orderActions = null,
+        IRepository<ActionDefinition>? actionDefinitions = null)
     {
         _ruleEngine = ruleEngine;
         _audit = audit;
@@ -70,6 +74,8 @@ public sealed class OrderService
         _exceptionDefinitions = exceptionDefinitions;
         _overrides = overrides;
         _results = results;
+        _orderActions = orderActions;
+        _actionDefinitions = actionDefinitions;
         _orders = orders;
         _orderLines = orderLines;
         _orderSpecimens = orderSpecimens;
@@ -127,6 +133,21 @@ public sealed class OrderService
                     .ThenByDescending(r => r.Version)
                     .ThenByDescending(r => r.Id)
                     .First());
+        var actions = _orderActions is null || orderIds.Count == 0
+            ? Array.Empty<OrderAction>()
+            : await _orderActions.ListAsync(a => orderIds.Contains(a.OrderId), ct);
+        var actionDefIds = actions.Select(a => a.ActionDefinitionId).Distinct().ToList();
+        var actionDefs = _actionDefinitions is null || actionDefIds.Count == 0
+            ? new Dictionary<long, ActionDefinition>()
+            : (await _actionDefinitions.ListAsync(d => actionDefIds.Contains(d.Id), ct)).ToDictionary(d => d.Id);
+        var actionsByOrder = actions
+            .GroupBy(a => a.OrderId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<OrderActionDto>)g
+                    .OrderBy(a => a.Id)
+                    .Select(a => OrderActionDto.From(a, actionDefs.GetValueOrDefault(a.ActionDefinitionId)))
+                    .ToList());
 
         IEnumerable<Order> query = orders;
 
@@ -200,7 +221,8 @@ public sealed class OrderService
                     o.Source, o.OrderedUtc, o.CancellationReason,
                     orderLines.Select(OrderLineDto.From).ToList(),
                     o.Comment,
-                    current?.Id, current?.Value, current?.Source, current?.EnteredBy, current?.TestCode);
+                    current?.Id, current?.Value, current?.Source, current?.EnteredBy, current?.TestCode,
+                    actionsByOrder.GetValueOrDefault(o.Id));
             })
             .ToList();
     }
@@ -347,6 +369,15 @@ public sealed class OrderService
             await _crossmatchAttachment.AttachSerologicIfNeededAsync(patientId, ct);
         }
 
+        if (request.ActionDefinitionIds is { Count: > 0 })
+        {
+            var attach = await AttachActionsAsync(patientId, order.Id, request.ActionDefinitionIds, ct);
+            if (!attach.Succeeded)
+            {
+                return OperationResult<Order>.Fail(attach.Error ?? "Order was created but an action could not be added.");
+            }
+        }
+
         return OperationResult<Order>.Ok(order, ruleOutcome.Warnings);
     }
 
@@ -482,6 +513,15 @@ public sealed class OrderService
             await _crossmatchAttachment.AttachSerologicIfNeededAsync(patientId, ct);
         }
 
+        if (request.ActionDefinitionIds is { Count: > 0 })
+        {
+            var attach = await AttachActionsAsync(patientId, order.Id, request.ActionDefinitionIds, ct);
+            if (!attach.Succeeded)
+            {
+                return EvaluationResult<Order>.Fail(attach.Error ?? "Order was updated but an action could not be added.");
+            }
+        }
+
         return EvaluationResult<Order>.Ok(order);
     }
 
@@ -525,6 +565,17 @@ public sealed class OrderService
         }
 
         _orders.Update(order);
+        if (_orderActions is not null)
+        {
+            var pending = await _orderActions.ListAsync(
+                a => a.OrderId == orderId && a.Status == OrderActionStatus.Pending, ct);
+            foreach (var action in pending)
+            {
+                action.Status = OrderActionStatus.Cancelled;
+                _orderActions.Update(action);
+            }
+        }
+
         _audit?.Record(
             AuditEventType.OrderChange,
             nameof(Order),
@@ -996,6 +1047,146 @@ public sealed class OrderService
             reason: "Test comment updated.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<OrderLine>.Ok(line);
+    }
+
+    public async Task<OperationResult<OrderActionDto>> AddActionAsync(
+        long patientId,
+        long orderId,
+        AddOrderActionRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var unauthorized = await RejectUnauthorizedAsync<OrderActionDto>(OrderAuthorizationRule.EvaluateUpdate, ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
+        return await AttachActionCoreAsync(patientId, orderId, request.ActionDefinitionId, request.OrderLineId, ct);
+    }
+
+    public async Task<OperationResult<bool>> RemoveActionAsync(
+        long patientId,
+        long orderId,
+        long orderActionId,
+        CancellationToken ct = default)
+    {
+        var unauthorized = await RejectUnauthorizedAsync<bool>(OrderAuthorizationRule.EvaluateUpdate, ct);
+        if (unauthorized is not null)
+        {
+            return unauthorized;
+        }
+
+        if (_orderActions is null)
+        {
+            return OperationResult<bool>.Fail("Order actions are not configured.");
+        }
+
+        var order = await _orders.FirstOrDefaultAsync(o => o.Id == orderId && o.PatientId == patientId, ct);
+        if (order is null)
+        {
+            return OperationResult<bool>.Fail("Order not found.");
+        }
+
+        var action = await _orderActions.FirstOrDefaultAsync(
+            a => a.Id == orderActionId && a.OrderId == orderId, ct);
+        if (action is null)
+        {
+            return OperationResult<bool>.Fail("Order action not found.");
+        }
+
+        var validation = OrderActionValidator.ValidateRemove(action.Status);
+        if (validation.IsHardStopped)
+        {
+            return OperationResult<bool>.Fail(validation.HardStops.First().Message);
+        }
+
+        action.Status = OrderActionStatus.Cancelled;
+        _orderActions.Update(action);
+        _audit?.Record(
+            AuditEventType.OrderChange,
+            nameof(OrderAction),
+            action.Id,
+            oldValue: new { action.Status, action.ActionDefinitionId },
+            newValue: new { Status = OrderActionStatus.Cancelled },
+            reason: "Pending order action removed.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<bool>.Ok(true);
+    }
+
+    private async Task<OperationResult<bool>> AttachActionsAsync(
+        long patientId,
+        long orderId,
+        IReadOnlyList<long> actionDefinitionIds,
+        CancellationToken ct)
+    {
+        foreach (var actionDefinitionId in actionDefinitionIds.Distinct())
+        {
+            var result = await AttachActionCoreAsync(patientId, orderId, actionDefinitionId, null, ct);
+            if (!result.Succeeded)
+            {
+                return OperationResult<bool>.Fail(result.Error ?? "Action could not be added.");
+            }
+        }
+
+        return OperationResult<bool>.Ok(true);
+    }
+
+    private async Task<OperationResult<OrderActionDto>> AttachActionCoreAsync(
+        long patientId,
+        long orderId,
+        long actionDefinitionId,
+        long? orderLineId,
+        CancellationToken ct)
+    {
+        if (_orderActions is null || _actionDefinitions is null)
+        {
+            return OperationResult<OrderActionDto>.Fail("Order actions are not configured.");
+        }
+
+        var order = await _orders.FirstOrDefaultAsync(o => o.Id == orderId && o.PatientId == patientId, ct);
+        if (order is null)
+        {
+            return OperationResult<OrderActionDto>.Fail("Order not found.");
+        }
+
+        var lines = await _orderLines.ListAsync(l => l.OrderId == orderId && l.IsActive, ct);
+        var hasProductLine = lines.Any(l => l.LineCategory == OrderCategory.Product);
+        var definition = await _actionDefinitions.GetByIdAsync(actionDefinitionId, ct);
+        var duplicate = await _orderActions.AnyAsync(
+            a => a.OrderId == orderId
+                 && a.ActionDefinitionId == actionDefinitionId
+                 && a.Status == OrderActionStatus.Pending,
+            ct);
+        var validation = OrderActionValidator.ValidateAttach(hasProductLine, definition, duplicate);
+        if (validation.IsHardStopped)
+        {
+            return OperationResult<OrderActionDto>.Fail(validation.HardStops.First().Message);
+        }
+
+        long? lineId = orderLineId;
+        if (lineId is null)
+        {
+            lineId = lines.FirstOrDefault(l => l.LineCategory == OrderCategory.Product)?.Id;
+        }
+
+        var action = new OrderAction
+        {
+            OrderId = orderId,
+            OrderLineId = lineId,
+            ActionDefinitionId = actionDefinitionId,
+            Status = OrderActionStatus.Pending
+        };
+        await _orderActions.AddAsync(action, ct);
+        _audit?.Record(
+            AuditEventType.OrderChange,
+            nameof(OrderAction),
+            0,
+            newValue: new { orderId, actionDefinitionId, Code = definition!.Code },
+            reason: "Modification action added to product order.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<OrderActionDto>.Ok(OrderActionDto.From(action, definition));
     }
 
     private static string? NormalizeComment(string? value) =>

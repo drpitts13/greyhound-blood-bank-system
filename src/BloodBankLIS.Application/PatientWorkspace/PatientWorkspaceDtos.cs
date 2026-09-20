@@ -91,7 +91,8 @@ public sealed record CreateOrderRequest(
     string? SourceSystem,
     string? OrderedByUser,
     long? SpecimenId = null,
-    string? Comment = null);
+    string? Comment = null,
+    IReadOnlyList<long>? ActionDefinitionIds = null);
 
 public sealed record CancelOrderRequest(string CancellationReason);
 
@@ -105,7 +106,43 @@ public sealed record UpdateOrderRequest(
     long? OrderingProviderId,
     string? OverrideReason = null,
     string? AuthorizedBy = null,
-    string? Comment = null);
+    string? Comment = null,
+    IReadOnlyList<long>? ActionDefinitionIds = null);
+
+public sealed record AddOrderActionRequest(long ActionDefinitionId, long? OrderLineId = null);
+
+public sealed record OrderActionDto(
+    long Id,
+    long OrderId,
+    long? OrderLineId,
+    long ActionDefinitionId,
+    string ActionCode,
+    string ActionName,
+    ActionCategory Category,
+    ModificationType? ModificationType,
+    OrderActionStatus Status,
+    long? SourceBloodUnitId,
+    long? ResultBloodUnitId,
+    long? UnitModificationId,
+    DateTime? CompletedUtc,
+    string? CompletedBy)
+{
+    public static OrderActionDto From(OrderAction action, ActionDefinition? definition) => new(
+        action.Id,
+        action.OrderId,
+        action.OrderLineId,
+        action.ActionDefinitionId,
+        definition?.Code ?? string.Empty,
+        definition?.Name ?? string.Empty,
+        definition?.Category ?? ActionCategory.Modification,
+        definition?.ModificationType,
+        action.Status,
+        action.SourceBloodUnitId,
+        action.ResultBloodUnitId,
+        action.UnitModificationId,
+        action.CompletedUtc,
+        action.CompletedBy);
+}
 
 public sealed record UpdateOrderLineCommentRequest(string? Comment);
 
@@ -136,7 +173,8 @@ public sealed record PatientOrderDto(
     string? CurrentResultValue = null,
     ResultSource? CurrentResultSource = null,
     string? CurrentResultEnteredBy = null,
-    string? CurrentResultTestCode = null)
+    string? CurrentResultTestCode = null,
+    IReadOnlyList<OrderActionDto>? Actions = null)
 {
     public bool IsUrgentPriority =>
         Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease

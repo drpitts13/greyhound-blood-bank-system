@@ -47,8 +47,9 @@ Charge capture is event-driven and isolated from clinical decisions: clinical us
 - Two additional catalogs run **in parallel** with charge rules:
   - `TestServiceBillings`: charge code (`ChargeCodes`), `TestVerified` trigger, and test code (e.g. `ABORH`).
   - `ProductBillings`: charge code (`ChargeCodes`), `UnitIssued` trigger, and ISBT product description code (e.g. `E0336`).
+  - `ActionBillings`: charge code (`ChargeCodes`), `ActionCompleted` trigger, and `ActionDefinition` (e.g. `IRRAD` → `BB-IRRAD`).
 - Amount is taken from `ChargeCodes.DefaultAmount` and snapshotted onto `BillingEvents.Amount`. It is **not** sent on the DFT.
-- Catalogs run first. When a catalog row captures a charge for the trigger, overlapping `ChargeRules` (including catch-all null-key rules) are skipped so one clinical event produces one charge and one DFT. Demo seed deactivates `ChargeRules` that duplicate catalog test or product keys. Catch-all rules still apply when no catalog matches.
+- Catalogs run first. When a catalog row captures a charge for the trigger, overlapping `ChargeRules` (including catch-all null-key rules) are skipped so one clinical event produces one charge and one DFT. An `ActionBillings` hit for `ActionCompleted` likewise suppresses overlapping `ChargeRules`. Demo seed deactivates `ChargeRules` that duplicate catalog test or product keys. Catch-all rules still apply when no catalog matches.
 
 ## B.2 Trigger events
 
@@ -57,9 +58,11 @@ flowchart LR
     v[Result verified] --> t1[Trigger: TestVerified]
     i[Unit issued] --> t2[Trigger: UnitIssued]
     p[Procedure performed] --> t3[Trigger: Procedure]
+    a[Order action completed] --> t4[Trigger: ActionCompleted]
     t1 --> be[Create BillingEvent]
     t2 --> be
     t3 --> be
+    t4 --> be
     be --> q[Charge review queue]
 ```
 

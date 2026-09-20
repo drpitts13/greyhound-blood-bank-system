@@ -90,6 +90,19 @@
                                 </label>
                             }
                         </div>
+                        @if (NewOrderProductTypeIds.Count > 0 && ActionDefinitions.Count > 0)
+                        {
+                            <label style="margin-top:.75rem;">Modification actions</label>
+                            <div class="checkbox-list">
+                                @foreach (var action in ActionDefinitions)
+                                {
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" checked="@NewOrderActionIds.Contains(action.Id)" @onchange="e => OnToggleNewOrderAction.InvokeAsync((action.Id, e))" />
+                                        @action.Name <span class="muted mono">(@action.Code)</span>
+                                    </label>
+                                }
+                            </div>
+                        }
                     </div>
                 </div>
                 <p class="form-step">3. Specimen</p>
@@ -218,6 +231,17 @@
                             {
                                 <div>@line.LineName <span class="muted">(@(line.LineCategory == OrderCategory.Test ? line.TestCode : "product"))</span></div>
                             }
+                            @foreach (var action in o.Actions ?? [])
+                            {
+                                <div class="muted">
+                                    Action: @action.ActionName
+                                    <span class="@Ui.Badge(action.Status)">@action.Status</span>
+                                    @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive && action.Status == OrderActionStatus.Pending)
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnRemoveAction.InvokeAsync((o.Id, action.Id))">Remove</button>
+                                    }
+                                </div>
+                            }
                         </td>
                         <td>@o.Source</td>
                         <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@o.Priority</span> } else { @o.Priority }</td>
@@ -250,6 +274,10 @@
                             {
                                 <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginEdit.InvokeAsync(o)">@(EditingOrderId == o.Id ? "Cancel" : "Edit")</button>
                             }
+                            @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive && o.Lines.Any(l => l.LineCategory == OrderCategory.Product))
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginAddAction.InvokeAsync(o)">@(AddingActionOrderId == o.Id ? "Cancel" : "Add action")</button>
+                            }
                         </td>
                     </tr>
                     @if (LinkingOrderId == o.Id)
@@ -279,6 +307,29 @@
                                     {
                                         <p class="muted" style="margin:.5rem 0 0;">No accepted, non-expired specimens are available. Accession a specimen first.</p>
                                     }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (AddingActionOrderId == o.Id)
+                    {
+                        <tr>
+                            <td colspan="13">
+                                <div class="alert alert-info" style="margin:.25rem 0;">
+                                    <p class="muted" style="margin:0 0 .5rem;">Add a modification action to order <span class="mono">@o.OrderNumber</span>.</p>
+                                    <div class="flex gap" style="align-items:end;flex-wrap:wrap;">
+                                        <div class="field" style="min-width:16rem;margin:0;">
+                                            <label>Action</label>
+                                            <select @bind="AddActionDefinitionId" @bind:after="() => AddActionDefinitionIdChanged.InvokeAsync(AddActionDefinitionId)">
+                                                <option value="0">— Select —</option>
+                                                @foreach (var action in AvailableActionsFor(o))
+                                                {
+                                                    <option value="@action.Id">@action.Name (@action.Code)</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <button type="button" class="btn btn-primary btn-sm" disabled="@(Busy || AddActionDefinitionId <= 0)" @onclick="() => OnAddAction.InvokeAsync(o.Id)">Add action</button>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -404,6 +455,8 @@
     [Parameter] public IReadOnlyList<TestGrouperListItemDto> TestGroupers { get; set; } = [];
     [Parameter] public IReadOnlyList<TestDefinitionListItemDto> TestDefs { get; set; } = [];
     [Parameter] public IReadOnlyList<ProductTypeDto> ProductTypes { get; set; } = [];
+    [Parameter] public IReadOnlyList<ActionDefinitionDto> ActionDefinitions { get; set; } = [];
+    [Parameter] public HashSet<long> NewOrderActionIds { get; set; } = [];
     [Parameter] public IReadOnlyList<SpecimenTypeListItemDto> SpecimenTypes { get; set; } = [];
     [Parameter] public IEnumerable<SpecimenDto> LinkableSpecimens { get; set; } = [];
     [Parameter] public IReadOnlyList<PatientOrderDto> Orders { get; set; } = [];
@@ -463,6 +516,13 @@
     [Parameter] public EventCallback<(TestGrouperListItemDto Grouper, ChangeEventArgs Event)> OnToggleNewOrderGrouper { get; set; }
     [Parameter] public EventCallback<(string Code, ChangeEventArgs Event)> OnToggleNewOrderTest { get; set; }
     [Parameter] public EventCallback<(long Id, ChangeEventArgs Event)> OnToggleNewOrderProduct { get; set; }
+    [Parameter] public EventCallback<(long Id, ChangeEventArgs Event)> OnToggleNewOrderAction { get; set; }
+    [Parameter] public long? AddingActionOrderId { get; set; }
+    [Parameter] public long AddActionDefinitionId { get; set; }
+    [Parameter] public EventCallback<long> AddActionDefinitionIdChanged { get; set; }
+    [Parameter] public EventCallback<PatientOrderDto> OnBeginAddAction { get; set; }
+    [Parameter] public EventCallback<long> OnAddAction { get; set; }
+    [Parameter] public EventCallback<(long OrderId, long ActionId)> OnRemoveAction { get; set; }
     [Parameter] public EventCallback<(TestGrouperListItemDto Grouper, ChangeEventArgs Event)> OnToggleEditOrderGrouper { get; set; }
     [Parameter] public EventCallback<(string Code, ChangeEventArgs Event)> OnToggleEditOrderTest { get; set; }
     [Parameter] public EventCallback<(long Id, ChangeEventArgs Event)> OnToggleEditOrderProduct { get; set; }
@@ -512,6 +572,15 @@
     }
 
     private static bool IsGrouperSelected(string code, HashSet<string> selected) => selected.Contains(code);
+
+    private IEnumerable<ActionDefinitionDto> AvailableActionsFor(PatientOrderDto order)
+    {
+        var pending = (order.Actions ?? [])
+            .Where(a => a.Status == OrderActionStatus.Pending)
+            .Select(a => a.ActionDefinitionId)
+            .ToHashSet();
+        return ActionDefinitions.Where(a => !pending.Contains(a.Id));
+    }
 
     private static string OrderRowClass(PatientOrderDto o)
     {

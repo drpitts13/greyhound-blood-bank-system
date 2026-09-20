@@ -96,6 +96,14 @@ public static class Ui
         _ => "badge badge-gray"
     };
 
+    public static string Badge(OrderActionStatus status) => status switch
+    {
+        OrderActionStatus.Pending => "badge badge-amber",
+        OrderActionStatus.Completed => "badge badge-green",
+        OrderActionStatus.Cancelled => "badge badge-gray",
+        _ => "badge badge-gray"
+    };
+
     public static string BloodType(AboGroup abo, RhType rh)
     {
         var group = abo == AboGroup.Unknown ? "?" : abo.ToString();
