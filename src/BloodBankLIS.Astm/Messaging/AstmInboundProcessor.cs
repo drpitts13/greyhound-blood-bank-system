@@ -12,7 +12,7 @@ namespace BloodBankLIS.Astm.Messaging;
 
 public sealed class AstmInboundProcessor
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = ClinicalJson.WebOptions;
 
     private readonly IInstrumentInterfaceRepository _interfaces;
     private readonly IRepository<InstrumentMessageLog> _messages;
@@ -86,7 +86,9 @@ public sealed class AstmInboundProcessor
         }
 
         log.MessageKind = message.Kind;
-        log.ParsedJson = JsonSerializer.Serialize(message.Records.Select(r => r.Raw), JsonOptions);
+        var view = InstrumentMessageViewBuilder.Build(message, iface);
+        log.ParsedJson = JsonSerializer.Serialize(view.ParsedFields, JsonOptions);
+        log.MappedJson = JsonSerializer.Serialize(view.MappedValues, JsonOptions);
         var notes = new List<string>();
         string? reply = null;
 
@@ -143,7 +145,6 @@ public sealed class AstmInboundProcessor
         CancellationToken ct)
     {
         var paths = AstmFieldAccessor.Index(iface.FieldMappings);
-        var mappedRows = new List<Dictionary<string, string?>>();
         var ruleTrace = new List<InstrumentRuleFire>();
         var groups = GroupResults(message.Records);
 
@@ -176,10 +177,13 @@ public sealed class AstmInboundProcessor
                     [InstrumentDataItemKeys.TestCode] = assayCode,
                     [InstrumentDataItemKeys.SubtestCode] = Read(paths, [result], InstrumentDataItemKeys.SubtestCode)
                         ?? result.GetComponent(3, 4),
-                    [InstrumentDataItemKeys.SubtestResult] = Read(paths, [result], InstrumentDataItemKeys.SubtestResult)
-                        ?? result.GetComponent(4, 1),
-                    [InstrumentDataItemKeys.TestInterp] = result.GetComponent(3, 4)
-                        .Equals(assayCode, StringComparison.OrdinalIgnoreCase)
+                    [InstrumentDataItemKeys.SubtestResult] = CellReactionGradeValue.NormalizeDisplay(
+                        Read(paths, [result], InstrumentDataItemKeys.SubtestResult)
+                        ?? result.GetComponent(4, 1)),
+                    [InstrumentDataItemKeys.TestInterp] = InstrumentInterpretationClassifier.IsInterpretation(
+                        Read(paths, [result], InstrumentDataItemKeys.SubtestCode) ?? result.GetComponent(3, 4),
+                        assayCode,
+                        iface)
                         ? (Read(paths, [result], InstrumentDataItemKeys.TestInterp) ?? result.GetField(4))
                         : null,
                     [InstrumentDataItemKeys.ResultStatus] = Read(paths, [result], InstrumentDataItemKeys.ResultStatus)
@@ -193,13 +197,12 @@ public sealed class AstmInboundProcessor
 
                 var (applied, fires) = InstrumentRuleEngine.Apply(bag, iface.Rules);
                 ruleTrace.AddRange(fires);
-                mappedRows.Add(applied);
 
                 var analyte = applied.GetValueOrDefault(InstrumentDataItemKeys.SubtestCode) ?? bag[InstrumentDataItemKeys.SubtestCode];
                 var value = applied.GetValueOrDefault(InstrumentDataItemKeys.SubtestResult);
                 var mappedInterp = applied.GetValueOrDefault(InstrumentDataItemKeys.TestInterp);
                 if (!string.IsNullOrWhiteSpace(mappedInterp)
-                    && string.Equals(analyte, assayCode, StringComparison.OrdinalIgnoreCase))
+                    && InstrumentInterpretationClassifier.IsInterpretation(analyte, assayCode, iface))
                 {
                     interp = mappedInterp;
                     continue;
@@ -229,7 +232,6 @@ public sealed class AstmInboundProcessor
             }
         }
 
-        log.MappedJson = JsonSerializer.Serialize(mappedRows, JsonOptions);
         log.RuleTraceJson = JsonSerializer.Serialize(ruleTrace, JsonOptions);
     }
 
@@ -274,7 +276,6 @@ public sealed class AstmInboundProcessor
             replies.Add(AstmOrderBuilder.Build(patient, specimen, lines, iface.TestMappings.ToList()));
         }
 
-        log.MappedJson = JsonSerializer.Serialize(new { queries = message.Records.Count(r => r.Type == 'Q') }, JsonOptions);
         return replies.Count == 0 ? null : string.Join(string.Empty, replies);
     }
 

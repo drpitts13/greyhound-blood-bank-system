@@ -1624,6 +1624,7 @@ public sealed class InstrumentInterfaceConfiguration : IEntityTypeConfiguration<
         b.HasKey(e => e.Id);
         b.Property(e => e.Name).HasMaxLength(100).IsRequired();
         b.Property(e => e.Environment).HasMaxLength(50);
+        b.Property(e => e.InterpretationAnalyteCodes).HasMaxLength(500);
         b.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(e => e.ModifiedBy).HasMaxLength(100);
         b.HasIndex(e => e.Name).IsUnique();

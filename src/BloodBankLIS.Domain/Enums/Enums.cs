@@ -980,6 +980,14 @@ public enum InstrumentMappingKind
     Analyte = 1
 }
 
+/// <summary>How an interface decides that an R record is assay-level interpretation vs an analyte result.</summary>
+public enum InstrumentInterpretationMatch
+{
+    AnalyteEqualsAssay = 0,
+    AnalyteInList = 1,
+    Never = 2
+}
+
 /// <summary>Processing state of a persisted ASTM instrument message.</summary>
 public enum InstrumentMessageStatus
 {

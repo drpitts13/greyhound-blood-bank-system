@@ -191,6 +191,10 @@ public sealed class InstrumentInterfaceAdminService : ConfigAdminServiceBase
     {
         entity.Name = req.Name?.Trim() ?? string.Empty;
         entity.Environment = req.Environment?.Trim();
+        entity.InterpretationMatch = req.InterpretationMatch;
+        entity.InterpretationAnalyteCodes = string.IsNullOrWhiteSpace(req.InterpretationAnalyteCodes)
+            ? null
+            : req.InterpretationAnalyteCodes.Trim();
     }
 
     private static ChildSet ToChildren(SaveInstrumentInterfaceRequest req)
@@ -251,6 +255,8 @@ public sealed class InstrumentInterfaceAdminService : ConfigAdminServiceBase
             entity.IsEnabled,
             entity.Environment,
             entity.Version,
+            entity.InterpretationMatch,
+            entity.InterpretationAnalyteCodes,
             new InstrumentConnectionDto(children.Connection.IpAddress, children.Connection.Port, children.Connection.IsServer),
             children.Fields.Select(m =>
             {

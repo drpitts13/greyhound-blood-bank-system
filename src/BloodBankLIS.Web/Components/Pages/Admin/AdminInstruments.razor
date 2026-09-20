@@ -7,10 +7,15 @@
 
 <div class="flex-between">
     <h1>Instrument Interfaces</h1>
-    @if (CanManage)
-    {
-        <button class="btn btn-primary" @onclick="NewDraft">New interface</button>
-    }
+    <div class="flex gap">
+        <button class="btn btn-secondary" @onclick="() => _showHelp = !_showHelp">
+            @(_showHelp ? "Hide help" : "Help")
+        </button>
+        @if (CanManage)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">New interface</button>
+        }
+    </div>
 </div>
 <div class="flex gap" style="margin:.6rem 0 1rem;flex-wrap:wrap;">
     <a class="btn btn-ghost" href="/instruments">Open status</a>
@@ -79,6 +84,31 @@
         }
         else if (_tab == "configuration")
         {
+            <div class="form-row">
+                <div class="field" style="min-width:22rem;">
+                    <label>An R record is an interpretation when</label>
+                    <select @bind="_editing.InterpretationMatch">
+                        <option value="@InstrumentInterpretationMatch.AnalyteEqualsAssay">Analyte code equals the assay code</option>
+                        <option value="@InstrumentInterpretationMatch.AnalyteInList">Analyte code is one of these values</option>
+                        <option value="@InstrumentInterpretationMatch.Never">Never — every R record is an analyte result</option>
+                    </select>
+                </div>
+                @if (_editing.InterpretationMatch == InstrumentInterpretationMatch.AnalyteInList)
+                {
+                    <div class="field" style="flex:1;">
+                        <label>Interpretation analyte codes</label>
+                        <input class="mono" @bind="_editing.InterpretationAnalyteCodes" placeholder="INTERP, RESULT, Group" />
+                    </div>
+                }
+            </div>
+            <p class="muted">
+                Map each data item to an ASTM locator such as <span class="mono">P.3</span> or
+                <span class="mono">R.4.1</span>.
+                <span class="mono">subtest_result</span> and <span class="mono">test_interp</span> can
+                share a path; this setting decides which R records are assay-level interpretation versus
+                analyte results.
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _showHelp = true">Open help</button>
+            </p>
             <table class="bb">
                 <thead><tr><th>Data item</th><th>ASTM path</th><th>Required</th></tr></thead>
                 <tbody>
@@ -95,6 +125,12 @@
         }
         else if (_tab == "mapping")
         {
+            <p class="muted">
+                Assay maps the instrument battery to an application test (Group → ABORH). Analyte maps a
+                well or cell to a subtest (Anti-D1 → Anti-D). Several inbound instrument codes may share
+                one application code; outbound allows only one instrument code per application code.
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _showHelp = true">Open help</button>
+            </p>
             <table class="bb">
                 <thead><tr><th>Instrument</th><th>Application</th><th>Kind</th><th>Direction</th><th>Order</th><th></th></tr></thead>
                 <tbody>
@@ -147,7 +183,12 @@
             {
                 <button class="btn btn-secondary" style="margin-top:.6rem;" @onclick="AddRule">Add rule</button>
             }
-            <p class="muted" style="margin-top:.6rem;">Conditions use the order/test expression language. Actions are <span class="mono">set('subtest_result','4+')</span>.</p>
+            <p class="muted" style="margin-top:.6rem;">
+                Conditions use the order/test expression language against <span class="mono">message.*</span>
+                data items. Actions are <span class="mono">set('subtest_result','4+')</span>. A grade such as
+                <span class="mono">4+</span> is not a number.
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _showHelp = true">Open help</button>
+            </p>
         }
 
         <div class="form-row" style="margin-top:1rem;">
@@ -169,6 +210,11 @@
     </div>
 }
 
+@if (_showHelp)
+{
+    <InstrumentHelpPanel Catalog="_catalog" OnClose="() => _showHelp = false" />
+}
+
 @if (_historyId is long historyId)
 {
     <ConfigHistoryPanel Title="Instrument interface history" EntityTypeName="InstrumentInterface" EntityId="historyId" OnClose="() => _historyId = null" />
@@ -185,6 +231,7 @@
     private Feedback? _feedback;
     private bool _loading = true;
     private bool _busy;
+    private bool _showHelp;
     private bool CanManage => Session.Has(PermissionCodes.AdminInstrumentsManage);
 
     protected override async Task OnInitializedAsync()
@@ -290,6 +337,9 @@
         public bool IsEnabled { get; set; }
         public string? IpAddress { get; set; }
         public int Port { get; set; } = 2576;
+        public InstrumentInterpretationMatch InterpretationMatch { get; set; } =
+            InstrumentInterpretationMatch.AnalyteEqualsAssay;
+        public string? InterpretationAnalyteCodes { get; set; }
         public List<FieldRow> FieldMappings { get; set; } = new();
         public List<MapRow> TestMappings { get; set; } = new();
         public List<RuleRow> Rules { get; set; } = new();
@@ -301,6 +351,8 @@
             IsEnabled = dto.IsEnabled,
             IpAddress = dto.Connection.IpAddress,
             Port = dto.Connection.Port,
+            InterpretationMatch = dto.InterpretationMatch,
+            InterpretationAnalyteCodes = dto.InterpretationAnalyteCodes,
             FieldMappings = dto.FieldMappings.Select(m => new FieldRow { DataItemKey = m.DataItemKey, AstmPath = m.AstmPath, IsRequired = m.IsRequired }).ToList(),
             TestMappings = dto.TestMappings.Select(m => new MapRow
             {
@@ -326,7 +378,9 @@
                 new InstrumentConnectionDto(IpAddress, Port, string.IsNullOrWhiteSpace(IpAddress)),
                 FieldMappings.Select(m => new InstrumentFieldMappingDto(m.DataItemKey, m.AstmPath, m.IsRequired)).ToList(),
                 TestMappings.Select(m => new InstrumentTestMappingDto(m.InstrumentCode, m.ApplicationCode, m.Kind, m.Direction, m.SortOrder)).ToList(),
-                Rules.Select(r => new InstrumentRuleDto(r.Name, r.ConditionExpression, r.ActionExpression, r.SortOrder, r.IsEnabled, r.StopOnMatch)).ToList());
+                Rules.Select(r => new InstrumentRuleDto(r.Name, r.ConditionExpression, r.ActionExpression, r.SortOrder, r.IsEnabled, r.StopOnMatch)).ToList(),
+                InterpretationMatch,
+                InterpretationAnalyteCodes);
     }
 
     private sealed class FieldRow

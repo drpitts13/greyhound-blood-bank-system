@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Common;
+using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Domain.Entities;
 
@@ -12,6 +13,11 @@ public class InstrumentInterface : BaseEntity
     public string? Environment { get; set; }
 
     public int Version { get; set; } = 1;
+
+    public InstrumentInterpretationMatch InterpretationMatch { get; set; } =
+        InstrumentInterpretationMatch.AnalyteEqualsAssay;
+
+    public string? InterpretationAnalyteCodes { get; set; }
 
     public InstrumentConnection? Connection { get; set; }
 

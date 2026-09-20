@@ -1,0 +1,221 @@
+@* Authoring help for ASTM instrument configuration, test mapping, and interface rules. *@
+@inject BloodBankApiClient Api
+@inject IJSRuntime Js
+
+<div id="instrument-help" class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card-title">
+        <h3>Instrument interface help</h3>
+        <button type="button" class="btn btn-secondary btn-sm" @onclick="OnClose">Close</button>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading help...</div>
+    }
+    else
+    {
+        <p>
+            An instrument interface has four parts. <strong>Connection</strong> is the TCP listen or client
+            endpoint. <strong>Configuration</strong> maps ASTM record fields onto data items such as
+            <span class="mono">patient_id</span>. <strong>Mapping</strong> translates instrument assay and
+            analyte codes into application test and subtest codes. <strong>Interface rules</strong> rewrite
+            parsed values before the result is posted.
+        </p>
+        <p class="muted">
+            Inbound messages are parsed first, then mapped, then rules run, then the result is stored as
+            pending verification. Leave the IP address blank to listen as the server. Restart the API after
+            changing a listen port.
+        </p>
+
+        <h3 id="instrument-help-configuration" style="margin-top:1.2rem;">Configuration</h3>
+        <p>
+            Configuration is the field map. Each row names a data item the LIS understands and the ASTM
+            locator that holds it on the wire. Paths are 1-based and use the form
+            <span class="mono">Record.Field</span> or <span class="mono">Record.Field.Component</span>
+            — for example <span class="mono">P.3</span>, <span class="mono">O.5.4</span>, or
+            <span class="mono">R.4.1</span>. Record letters are H, P, O, R, Q, C, and L.
+        </p>
+        <p>
+            A data item may be mapped only once. Required items must resolve for the message to post a
+            result. Unknown keys and malformed paths are rejected on save.
+        </p>
+
+        <h4 style="margin-top:.9rem;">Data items</h4>
+        <table class="bb">
+            <thead><tr><th>Data item</th><th>Default path</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+                @foreach (var item in _catalog)
+                {
+                    <tr>
+                        <td class="mono">@item.Key</td>
+                        <td class="mono">@item.DefaultAstmPath</td>
+                        <td>@(item.Required ? "Yes" : "")</td>
+                        <td>@item.Description</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <h4 id="instrument-help-shared-field" style="margin-top:1.2rem;">When subtest_result and test_interp share a field</h4>
+        <p>
+            Blood-bank instruments often put the cell reaction and the assay interpretation in the
+            <em>same</em> ASTM value field, usually <span class="mono">R.4.1</span>. Both
+            <span class="mono">subtest_result</span> and <span class="mono">test_interp</span> can map
+            to that path. Configuration has a setting that decides which R records are assay-level
+            interpretation versus analyte results:
+        </p>
+        <ul>
+            <li>
+                <strong>Analyte code equals the assay code</strong> (Echo default) — when
+                <span class="mono">subtest_code</span> matches <span class="mono">test_code</span>,
+                the value is stored in <span class="mono">test_interp</span>.
+            </li>
+            <li>
+                <strong>Analyte code is one of these values</strong> — list instrument codes such as
+                <span class="mono">INTERP</span> or <span class="mono">RESULT</span> that always mean
+                interpretation, even when they do not match the assay name.
+            </li>
+            <li>
+                <strong>Never</strong> — every R record is an analyte result. Use this when interpretation
+                is not sent on a shared value field.
+            </li>
+        </ul>
+        <p>
+            Comparison is case-insensitive. Rules can still rewrite either field after that choice is made
+            (<span class="mono">B Pos</span> to <span class="mono">B|Positive</span>, or a numeric
+            <span class="mono">80</span> to <span class="mono">4+</span>).
+        </p>
+        <p class="muted">Echo-style Group message with “analyte equals assay”.</p>
+        <pre class="pre">O|1|0651439A||^^^Group|R||||||||||Blood^Patient
+R|2|^^^Anti-A|0^0^0|||||F
+R|3|^^^Anti-B|4+^4+^90|||||F
+R|8|^^^Group|B Pos|||||F
+
+Anti-A  →  subtest_code = Anti-A,  subtest_result = 0
+Anti-B  →  subtest_code = Anti-B,  subtest_result = 4+
+Group   →  subtest_code = Group (= test_code)  →  test_interp = B Pos</pre>
+        <p>
+            Map both data items to <span class="mono">R.4.1</span> unless the instrument actually sends
+            interpretation in a different field. Do not invent a second path just to keep the rows unique.
+        </p>
+
+        <h3 id="instrument-help-mapping" style="margin-top:1.2rem;">Mapping</h3>
+        <p>
+            Mapping translates codes after the field map has produced instrument values. Kind is either
+            <strong>Assay</strong> (battery / test, such as Group → ABORH) or <strong>Analyte</strong>
+            (cell or subtest, such as Anti-D1 → Anti-D).
+        </p>
+        <ul>
+            <li>
+                <strong>Inbound / Both:</strong> many instrument codes may collapse to one application
+                code. Dual Anti-D wells both become <span class="mono">Anti-D</span>.
+            </li>
+            <li>
+                <strong>Outbound / Both:</strong> one application code may map to only one instrument
+                code, so an order download has a single assay to request.
+            </li>
+            <li>
+                When several inbound assay maps match, the resolver prefers the application test already
+                on the specimen's order, then the lowest sort order.
+            </li>
+        </ul>
+        <p class="muted">Typical Echo assay and analyte rows.</p>
+        <pre class="pre">Assay    Group      →  ABORH
+Assay    Screen     →  ABSC
+Analyte  Anti-D1    →  Anti-D
+Analyte  Anti-D2    →  Anti-D
+Analyte  Screen 1   →  Cell1</pre>
+        <p>
+            Unmapped codes pass through unchanged. Direction <em>Inbound</em> is enough for result
+            upload; use <em>Both</em> or <em>Outbound</em> when the instrument queries for worklists.
+        </p>
+
+        <h3 id="instrument-help-rules" style="margin-top:1.2rem;">Interface rules</h3>
+        <p>
+            Rules run on each parsed R record after the field map and before posting. The condition uses
+            the same expression language as order and test rules. Facts are the data items, with or
+            without a <span class="mono">message.</span> prefix.
+        </p>
+        <p>
+            The only action is <span class="mono">set('field','value')</span>. Separate several sets with
+            semicolons. Field names must be catalog data items.
+        </p>
+        <table class="bb">
+            <thead><tr><th>Example condition</th><th>Example action</th><th>When to use it</th></tr></thead>
+            <tbody>
+                <tr>
+                    <td class="mono">message.subtest_result &gt;= 80</td>
+                    <td class="mono">set('subtest_result','4+')</td>
+                    <td>Convert a numeric capture to a reaction grade.</td>
+                </tr>
+                <tr>
+                    <td class="mono">message.test_interp = 'B Pos'</td>
+                    <td class="mono">set('test_interp','B|Positive')</td>
+                    <td>Normalize an instrument interpretation to the LIS coded value.</td>
+                </tr>
+                <tr>
+                    <td class="mono">message.subtest_result IN ('?','C','Q')</td>
+                    <td class="mono">set('subtest_result','NT'); set('error','W')</td>
+                    <td>Turn instrument error tokens into Not Tested.</td>
+                </tr>
+            </tbody>
+        </table>
+        <h4 style="margin-top:.9rem;">Things that catch people out</h4>
+        <ul>
+            <li>
+                A grade such as <span class="mono">4+</span> is text, not the number 4. Numeric rules
+                (<span class="mono">&gt;= 40</span>) match only raw numeric captures such as
+                <span class="mono">40</span> or <span class="mono">80</span>.
+            </li>
+            <li>Text comparison ignores case and surrounding spaces.</li>
+            <li>Rules run from the lowest sort order to the highest. <em>Stop on match</em> skips later rules for that record.</li>
+            <li>
+                <span class="mono">set('test_interp',…)</span> only affects records the interpretation
+                setting classifies as assay-level. Setting it on a cell record has no effect on the posted panel.
+            </li>
+        </ul>
+        <div class="flex gap" style="margin-top:1.2rem;">
+            <button type="button" class="btn btn-secondary" @onclick="OnClose">Close</button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<InstrumentDataItemDto>? Catalog { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private IReadOnlyList<InstrumentDataItemDto> _catalog = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Catalog is { Count: > 0 })
+        {
+            _catalog = Catalog;
+            _loading = false;
+            return;
+        }
+
+        var result = await Api.GetAdminInstrumentDataItemsAsync();
+        _catalog = result.Value ?? [];
+        _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            await Js.InvokeVoidAsync(
+                "eval",
+                "document.getElementById('instrument-help')?.scrollIntoView({behavior:'smooth',block:'start'})");
+        }
+        catch (JSException)
+        {
+        }
+    }
+}

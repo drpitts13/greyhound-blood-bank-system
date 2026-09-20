@@ -148,7 +148,9 @@ public static class DevelopmentSqliteBootstrap
         ("SpecimenTypeDefinitions", "ExpirationMode", """ALTER TABLE "SpecimenTypeDefinitions" ADD COLUMN "ExpirationMode" INTEGER NOT NULL DEFAULT 0"""),
         ("SpecialTransfusionRequirements", "RequirementDefinitionId", """ALTER TABLE "SpecialTransfusionRequirements" ADD COLUMN "RequirementDefinitionId" INTEGER NULL"""),
         ("PatientBloodTypeHistory", "AboSubgroup", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "AboSubgroup" INTEGER NOT NULL DEFAULT 0"""),
-        ("Issues", "AcknowledgedSpecialRequirementCodes", """ALTER TABLE "Issues" ADD COLUMN "AcknowledgedSpecialRequirementCodes" TEXT NULL""")
+        ("Issues", "AcknowledgedSpecialRequirementCodes", """ALTER TABLE "Issues" ADD COLUMN "AcknowledgedSpecialRequirementCodes" TEXT NULL"""),
+        ("InstrumentInterfaces", "InterpretationMatch", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationMatch" INTEGER NOT NULL DEFAULT 0"""),
+        ("InstrumentInterfaces", "InterpretationAnalyteCodes", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationAnalyteCodes" TEXT NULL""")
     ];
 
     public static async Task InitializeAsync(

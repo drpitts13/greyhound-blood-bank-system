@@ -29,6 +29,8 @@ public sealed record InstrumentInterfaceDto(
     bool IsEnabled,
     string? Environment,
     int Version,
+    InstrumentInterpretationMatch InterpretationMatch,
+    string? InterpretationAnalyteCodes,
     InstrumentConnectionDto Connection,
     IReadOnlyList<InstrumentFieldMappingDto> FieldMappings,
     IReadOnlyList<InstrumentTestMappingDto> TestMappings,
@@ -41,7 +43,9 @@ public sealed record SaveInstrumentInterfaceRequest(
     InstrumentConnectionDto Connection,
     IReadOnlyList<InstrumentFieldMappingDto>? FieldMappings,
     IReadOnlyList<InstrumentTestMappingDto>? TestMappings,
-    IReadOnlyList<InstrumentRuleDto>? Rules);
+    IReadOnlyList<InstrumentRuleDto>? Rules,
+    InstrumentInterpretationMatch InterpretationMatch = InstrumentInterpretationMatch.AnalyteEqualsAssay,
+    string? InterpretationAnalyteCodes = null);
 
 public sealed record InstrumentStatusDto(
     long Id,
@@ -74,11 +78,15 @@ public sealed record InstrumentMessageSummaryDto(
     string? PatientId,
     string? ErrorDetail);
 
+public sealed record InstrumentParsedFieldDto(string DataItem, string? Value);
+
+public sealed record InstrumentMappedValueDto(string InstrumentValue, string ApplicationValue);
+
 public sealed record InstrumentMessageDetailDto(
     InstrumentMessageSummaryDto Message,
     string RawMessage,
-    string? ParsedJson,
-    string? MappedJson,
+    IReadOnlyList<InstrumentParsedFieldDto> ParsedFields,
+    IReadOnlyList<InstrumentMappedValueDto> MappedValues,
     string? RuleTraceJson);
 
 public sealed record EchoSimulatorPreviewRequest(

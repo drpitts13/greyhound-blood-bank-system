@@ -38,6 +38,14 @@ public static class InstrumentInterfaceValidator
             results.Add(RuleResult.HardStop("INST-PORT-DUP", "Another enabled instrument interface already uses this listen/connect port."));
         }
 
+        if (entity.InterpretationMatch == InstrumentInterpretationMatch.AnalyteInList
+            && InstrumentInterpretationClassifier.ParseCodes(entity.InterpretationAnalyteCodes).Count == 0)
+        {
+            results.Add(RuleResult.HardStop(
+                "INST-INTERP-CODES",
+                "List at least one instrument analyte code that identifies an interpretation record."));
+        }
+
         if (!string.IsNullOrWhiteSpace(connection?.IpAddress)
             && !System.Net.IPAddress.TryParse(connection.IpAddress.Trim(), out _))
         {

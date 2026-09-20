@@ -24,6 +24,7 @@ public static partial class DatabaseSeeder
             IsEnabled = true,
             Environment = "Development",
             Version = 1,
+            InterpretationMatch = InstrumentInterpretationMatch.AnalyteEqualsAssay,
             Connection = new InstrumentConnection { Port = EchoListenPort },
             FieldMappings = EchoFieldMappings(),
             TestMappings = EchoTestMappings(),
