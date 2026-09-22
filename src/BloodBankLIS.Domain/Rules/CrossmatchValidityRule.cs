@@ -14,11 +14,19 @@ public static class CrossmatchValidityRule
         bool requiresCrossmatch,
         bool hasValidCrossmatch,
         bool isEmergencyRelease,
-        bool electronicIssueEligible = false)
+        bool electronicIssueEligible = false,
+        bool hasIncompatibleCrossmatch = false)
     {
         if (!requiresCrossmatch || hasValidCrossmatch || electronicIssueEligible)
         {
             return RuleResult.Pass(Code);
+        }
+
+        if (hasIncompatibleCrossmatch)
+        {
+            return RuleResult.Warning(
+                Code,
+                "Crossmatch is incompatible — issue requires an authorized override.");
         }
 
         return isEmergencyRelease

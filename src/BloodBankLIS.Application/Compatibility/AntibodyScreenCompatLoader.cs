@@ -12,6 +12,7 @@ namespace BloodBankLIS.Application.Compatibility;
 public sealed class AntibodyScreenCompatLoader
 {
     public const string AntibodyScreenTestCode = "ABSC";
+    public const string AboRhTestCode = "ABORH";
 
     private readonly IRepository<TestResult> _results;
     private readonly IRepository<TestDefinition> _testDefinitions;
@@ -116,6 +117,60 @@ public sealed class AntibodyScreenCompatLoader
     {
         var screens = await ListVerifiedScreenResultsAsync(patientId, ct);
         return screens.Any(r => IsPositiveScreen(r.Value, r.Interpretation));
+    }
+
+    /// <summary>
+    /// True when the specimen is accepted, not expired, and has verified ABO/Rh plus
+    /// a verified antibody screen on that same specimen.
+    /// </summary>
+    public async Task<bool> HasCompletedTypeAndScreenAsync(
+        long specimenId,
+        DateTime utcNow,
+        CancellationToken ct = default)
+    {
+        if (_specimens is not null)
+        {
+            var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+            if (specimen is null || !IsAcceptedCurrent(specimen, utcNow))
+            {
+                return false;
+            }
+        }
+
+        return await HasVerifiedTypeAndScreenOnSpecimenAsync(specimenId, ct);
+    }
+
+    /// <summary>
+    /// Accepted, non-expired specimens that already have a completed type and screen.
+    /// </summary>
+    public async Task<HashSet<long>> ListCompletedTypeAndScreenSpecimenIdsAsync(
+        long patientId,
+        DateTime utcNow,
+        CancellationToken ct = default)
+    {
+        if (_specimens is null)
+        {
+            return [];
+        }
+
+        var specimens = await _specimens.ListAsync(
+            s => s.PatientId == patientId && s.Status == SpecimenStatus.Accepted, ct);
+        var current = specimens.Where(s => IsAcceptedCurrent(s, utcNow)).ToList();
+        if (current.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = new HashSet<long>();
+        foreach (var specimen in current)
+        {
+            if (await HasVerifiedTypeAndScreenOnSpecimenAsync(specimen.Id, ct))
+            {
+                ids.Add(specimen.Id);
+            }
+        }
+
+        return ids;
     }
 
     /// <summary>
@@ -228,4 +283,62 @@ public sealed class AntibodyScreenCompatLoader
     private static bool IsCurrentSpecimen(Specimen specimen, DateTime utcNow) =>
         specimen.Status is not (SpecimenStatus.Rejected or SpecimenStatus.Cancelled or SpecimenStatus.Expired)
         && (specimen.ExpiresUtc is null || specimen.ExpiresUtc > utcNow);
+
+    private static bool IsAcceptedCurrent(Specimen specimen, DateTime utcNow) =>
+        specimen.Status == SpecimenStatus.Accepted
+        && (specimen.ExpiresUtc is null || specimen.ExpiresUtc > utcNow);
+
+    private async Task<bool> HasVerifiedTypeAndScreenOnSpecimenAsync(long specimenId, CancellationToken ct)
+    {
+        var results = await _results.ListAsync(
+            r => r.SpecimenId == specimenId
+                 && r.Status == ResultStatus.Verified
+                 && r.SupersededByResultId == null
+                 && r.Value != null,
+            ct);
+        if (results.Count == 0)
+        {
+            return false;
+        }
+
+        var typeCodes = await ListTypeCodesAsync(ct);
+        var screenCodes = await ListScreenCodesAsync(ct);
+        return results.Any(r => typeCodes.Contains(r.TestCode))
+               && results.Any(r => screenCodes.Contains(r.TestCode));
+    }
+
+    private async Task<HashSet<string>> ListTypeCodesAsync(CancellationToken ct)
+    {
+        var codes = (await _testDefinitions.ListAsync(
+                d => d.IsActive
+                     && d.Category != TestCategory.AboRhRetype
+                     && (d.Code == AboRhTestCode || d.Category == TestCategory.AboRh),
+                ct))
+            .Select(d => d.Code)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (codes.Count == 0)
+        {
+            codes.Add(AboRhTestCode);
+        }
+
+        return codes;
+    }
+
+    private async Task<HashSet<string>> ListScreenCodesAsync(CancellationToken ct)
+    {
+        var codes = (await _testDefinitions.ListAsync(
+                d => d.IsActive
+                     && (d.Code == AntibodyScreenTestCode || d.Category == TestCategory.AntibodyScreen),
+                ct))
+            .Select(d => d.Code)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (codes.Count == 0)
+        {
+            codes.Add(AntibodyScreenTestCode);
+        }
+
+        return codes;
+    }
 }

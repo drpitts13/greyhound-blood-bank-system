@@ -5427,6 +5427,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<long?>("SourceResultId")
                         .HasColumnType("bigint");
 
+                    b.Property<int>("TypingSource")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BloodProductId", "BloodAttributeDefinitionId", "AttributeKind");

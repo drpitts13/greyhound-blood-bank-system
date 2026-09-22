@@ -14,4 +14,5 @@ public sealed record InventorySearchCriteria(
     long? ProductTypeId = null,
     long? LocationId = null,
     DateTime? ExpiringBeforeUtc = null,
-    IReadOnlyList<UnitStatus>? Statuses = null);
+    IReadOnlyList<UnitStatus>? Statuses = null,
+    bool ExcludeIssuedAndTransfused = false);

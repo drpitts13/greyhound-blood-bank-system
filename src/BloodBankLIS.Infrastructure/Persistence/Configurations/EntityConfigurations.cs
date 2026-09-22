@@ -627,6 +627,7 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
         b.HasIndex(i => new { i.Status, i.WardReceivedUtc });
         b.Property(i => i.PatientIdentifier1).HasMaxLength(100);
         b.Property(i => i.PatientIdentifier2).HasMaxLength(100);
+        b.Property(i => i.PtagCode).HasMaxLength(20);
         b.Property(i => i.AcknowledgedSpecialRequirementCodes).HasMaxLength(500);
     }
 }
@@ -774,9 +775,73 @@ public sealed class PrintJobConfiguration : IEntityTypeConfiguration<PrintJob>
         b.Property(p => p.PrintedBy).HasMaxLength(100).IsRequired();
         b.Property(p => p.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(p => p.ModifiedBy).HasMaxLength(100);
+        b.Property(p => p.DeliveryError).HasMaxLength(1000);
 
         b.HasIndex(p => new { p.ContextType, p.ContextId });
         b.HasIndex(p => p.Status);
+
+        b.HasOne<PdfPrinter>().WithMany().HasForeignKey(p => p.PdfPrinterId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<ZebraPrinter>().WithMany().HasForeignKey(p => p.ZebraPrinterId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public sealed class LabelLayoutConfiguration : IEntityTypeConfiguration<LabelLayout>
+{
+    public void Configure(EntityTypeBuilder<LabelLayout> b)
+    {
+        b.ToTable("LabelLayouts");
+        b.HasKey(l => l.Id);
+        b.Property(l => l.DocumentJson).IsRequired();
+        b.Property(l => l.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(l => l.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(l => l.Kind).IsUnique();
+    }
+}
+
+public sealed class PtagIdentifierConfiguration : IEntityTypeConfiguration<PtagIdentifier>
+{
+    public void Configure(EntityTypeBuilder<PtagIdentifier> b)
+    {
+        b.ToTable("PtagIdentifiers");
+        b.HasKey(p => p.Id);
+        b.Property(p => p.Code).HasMaxLength(20).IsRequired();
+        b.Property(p => p.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(p => p.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(p => p.Code).IsUnique();
+        b.HasIndex(p => new { p.BloodProductId, p.PatientId, p.IssueId });
+        b.HasOne(p => p.Issue).WithMany().HasForeignKey(p => p.IssueId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public sealed class PdfPrinterConfiguration : IEntityTypeConfiguration<PdfPrinter>
+{
+    public void Configure(EntityTypeBuilder<PdfPrinter> b)
+    {
+        b.ToTable("PdfPrinters");
+        b.HasKey(p => p.Id);
+        b.Property(p => p.Name).HasMaxLength(200).IsRequired();
+        b.Property(p => p.WindowsPrinterName).HasMaxLength(260).IsRequired();
+        b.Property(p => p.Notes).HasMaxLength(500);
+        b.Property(p => p.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(p => p.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(p => p.IsActive);
+    }
+}
+
+public sealed class ZebraPrinterConfiguration : IEntityTypeConfiguration<ZebraPrinter>
+{
+    public void Configure(EntityTypeBuilder<ZebraPrinter> b)
+    {
+        b.ToTable("ZebraPrinters");
+        b.HasKey(p => p.Id);
+        b.Property(p => p.Name).HasMaxLength(200).IsRequired();
+        b.Property(p => p.Host).HasMaxLength(255);
+        b.Property(p => p.WindowsPrinterName).HasMaxLength(260);
+        b.Property(p => p.ComPort).HasMaxLength(32);
+        b.Property(p => p.Notes).HasMaxLength(500);
+        b.Property(p => p.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(p => p.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(p => p.IsActive);
     }
 }
 

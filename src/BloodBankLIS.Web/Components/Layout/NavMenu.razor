@@ -100,7 +100,9 @@
                 <NavLink href="admin/product-billing" ActiveClass="active">Product Billing</NavLink>
                 <NavLink href="admin/products" ActiveClass="active">Products</NavLink>
                 <NavLink href="admin/providers" ActiveClass="active">Providers</NavLink>
+                <NavLink href="admin/ptag" ActiveClass="active">P-tag Layout</NavLink>
                 <NavLink href="admin/special-requirements" ActiveClass="active">Special Requirements</NavLink>
+                <NavLink href="admin/specimen-label" ActiveClass="active">Specimen Label</NavLink>
                 <NavLink href="admin/specimen-types" ActiveClass="active">Specimen Types</NavLink>
                 <NavLink href="admin/subtests" ActiveClass="active">Subtests</NavLink>
                 <NavLink href="admin/test-groupers" ActiveClass="active">Test Groupers</NavLink>
@@ -128,6 +130,7 @@
                 <summary>Interfaces</summary>
                 <NavLink href="admin/hl7" ActiveClass="active">HL7 Interface Setup</NavLink>
                 <NavLink href="admin/instruments" ActiveClass="active">Instrument Interfaces</NavLink>
+                <NavLink href="admin/printers" ActiveClass="active">Printers</NavLink>
             </details>
         }
         @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage, PermissionCodes.AdminUsersManage, PermissionCodes.AdminAuditReview))
@@ -156,7 +159,7 @@
     [
         "admin/action-billing", "admin/actions", "admin/antibody-panel-lots", "admin/blood-attributes", "admin/charge-codes", "admin/coded-comments", "admin/locations",
         "admin/phases", "admin/product-billing", "admin/products", "admin/providers",
-        "admin/special-requirements", "admin/specimen-types", "admin/subtests", "admin/test-groupers",
+        "admin/special-requirements", "admin/specimen-label", "admin/specimen-types", "admin/ptag", "admin/subtests", "admin/test-groupers",
         "admin/test-service-billing", "admin/tests"
     ];
 
@@ -180,7 +183,8 @@
             "rules" => RulesPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)),
             "inventory" => InventoryPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)),
             "interfaces" => path.StartsWith("admin/hl7", StringComparison.OrdinalIgnoreCase)
-                || path.StartsWith("admin/instruments", StringComparison.OrdinalIgnoreCase),
+                || path.StartsWith("admin/instruments", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("admin/printers", StringComparison.OrdinalIgnoreCase),
             "directory" => path.StartsWith("admin/history", StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith("admin/roles", StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith("admin/users", StringComparison.OrdinalIgnoreCase),

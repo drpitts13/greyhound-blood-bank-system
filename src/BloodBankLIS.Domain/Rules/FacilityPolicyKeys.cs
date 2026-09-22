@@ -10,6 +10,9 @@ public static class FacilityPolicyKeys
     public const string RequireWardReceipt = "Transfusion.RequireWardReceipt";
     public const string RetrospectiveCrossmatchDueHours = "Issue.RetrospectiveCrossmatchDueHours";
     public const string InTransitDueHours = "Issue.InTransitDueHours";
+
+    /// <summary>Minutes after issue when a unit may still return to Available inventory.</summary>
+    public const string ReturnToAvailableMinutes = "Issue.ReturnToAvailableMinutes";
     public const string RequireQuarantineReleaseVerifier = "Inventory.RequireQuarantineReleaseVerifier";
     public const string RequireReceiveVisualInspection = "Inventory.RequireReceiveVisualInspection";
     public const string RequireReceiveVerifier = "Inventory.RequireReceiveVerifier";
@@ -57,4 +60,7 @@ public static class FacilityPolicyKeys
 
     /// <summary>When true, the interpreting technologist cannot also perform supervisor review.</summary>
     public const string AntibodyIdBlockSelfReview = "AntibodyId.BlockSelfReview";
+
+    /// <summary>When true, product charges fire on transfusion; when false, they fire on issue.</summary>
+    public const string ProductChargeOnTransfuse = "Billing.ProductChargeOnTransfuse";
 }

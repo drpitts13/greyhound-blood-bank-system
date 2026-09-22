@@ -1,3 +1,4 @@
+using System.Text.Json;
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
@@ -6,6 +7,7 @@ using BloodBankLIS.Astm.Messaging;
 using BloodBankLIS.Astm.Simulator;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Api.Endpoints;
 
@@ -57,13 +59,26 @@ public static class InstrumentEndpoints
                 .ToList());
         });
 
-        group.MapGet("/messages/{id:long}", async (long id, IRepository<InstrumentMessageLog> messages, CancellationToken ct) =>
+        group.MapGet("/messages/{id:long}", async (
+            long id,
+            IRepository<InstrumentMessageLog> messages,
+            IInstrumentInterfaceRepository interfaces,
+            CancellationToken ct) =>
         {
             var message = await messages.GetByIdAsync(id, ct);
-            return message is null
-                ? Results.NotFound()
-                : Results.Ok(new InstrumentMessageDetailDto(
-                    ToSummary(message), message.RawMessage, message.ParsedJson, message.MappedJson, message.RuleTraceJson));
+            if (message is null)
+            {
+                return Results.NotFound();
+            }
+
+            var iface = await interfaces.GetWithChildrenAsync(message.InterfaceId, ct);
+            var view = InstrumentMessageViewBuilder.Build(message.RawMessage, iface);
+            return Results.Ok(new InstrumentMessageDetailDto(
+                ToSummary(message),
+                view.RawDisplay,
+                view.ParsedFields,
+                view.MappedValues,
+                FormatRuleTrace(message.RuleTraceJson)));
         });
 
         group.MapPost("/messages/{id:long}/replay", async (long id, AstmInboundProcessor processor, CancellationToken ct) =>
@@ -110,18 +125,23 @@ public static class InstrumentEndpoints
                 try
                 {
                     var sent = await AstmSession.SendToAsync("127.0.0.1", iface.Connection.Port, generated.RawMessage, null, ct);
-                    return Results.Ok(new EchoSimulatorSendResultDto(sent.Completed, sent.Error, null, generated.RawMessage));
+                    return Results.Ok(new EchoSimulatorSendResultDto(
+                        sent.Completed, sent.Error, null, InstrumentMessageViewBuilder.FormatRaw(generated.RawMessage)));
                 }
                 catch (Exception ex)
                 {
                     var outcome = await processor.ProcessAsync(generated.RawMessage, req.InterfaceId, isReplay: false, ct);
                     return Results.Ok(new EchoSimulatorSendResultDto(
-                        outcome.Accepted, ex.Message + " Processed locally instead.", outcome.Log.Id, generated.RawMessage));
+                        outcome.Accepted,
+                        ex.Message + " Processed locally instead.",
+                        outcome.Log.Id,
+                        InstrumentMessageViewBuilder.FormatRaw(generated.RawMessage)));
                 }
             }
 
             var local = await processor.ProcessAsync(generated.RawMessage, req.InterfaceId, isReplay: false, ct);
-            return Results.Ok(new EchoSimulatorSendResultDto(local.Accepted, local.Log.ErrorDetail, local.Log.Id, generated.RawMessage));
+            return Results.Ok(new EchoSimulatorSendResultDto(
+                local.Accepted, local.Log.ErrorDetail, local.Log.Id, InstrumentMessageViewBuilder.FormatRaw(generated.RawMessage)));
         });
     }
 
@@ -132,5 +152,26 @@ public static class InstrumentEndpoints
         new(req.Assay, req.SpecimenId, req.PatientId, req.LastName, req.FirstName, req.DateOfBirth, req.Sex, req.Seed);
 
     private static EchoSimulatorPreviewDto ToPreview(EchoSimulatorResult result) =>
-        new(result.Assay, result.RawMessage, result.Records);
+        new(result.Assay, InstrumentMessageViewBuilder.FormatRaw(result.RawMessage), result.Records);
+
+    private static string? FormatRuleTrace(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return json;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            return JsonSerializer.Serialize(document, new JsonSerializerOptions(ClinicalJson.WebOptions)
+            {
+                WriteIndented = true
+            });
+        }
+        catch (JsonException)
+        {
+            return json;
+        }
+    }
 }

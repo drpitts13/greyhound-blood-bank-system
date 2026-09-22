@@ -386,6 +386,68 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(AntigenResult.Negative, allowed.Value!.Result);
         Assert.Equal(definitionId, allowed.Value.BloodAttributeDefinitionId);
+        Assert.Equal(UnitAttributeTypingSource.InHouse, allowed.Value.TypingSource);
+    }
+
+    [Fact]
+    public async Task BloodUnitDto_From_IncludesSupplierAndCollection()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest("U-SUP-DTO", productTypeId) with
+        {
+            Supplier = "Regional Blood Center",
+            CollectionFacility = "RBC-West"
+        });
+        Assert.True(received.Succeeded, received.Error);
+
+        var dto = BloodUnitDto.From((await context.BloodUnits.FindAsync(received.Unit!.Id))!);
+        Assert.Equal("Regional Blood Center", dto.Supplier);
+        Assert.Equal("RBC-West", dto.CollectionFacility);
+    }
+
+    [Fact]
+    public async Task SaveBloodAttribute_PersistsSupplierAndInHouseSources()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        await using var context = _factory.Create();
+        var unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-ATTR-SRC", productTypeId))).Unit!.Id;
+        var definitionId = await EnsureAttributeDefinitionAsync(context);
+
+        var supplier = await CreateService(context).SaveBloodAttributeAsync(
+            unitId,
+            new SaveUnitBloodAttributeRequest(definitionId, BloodAttributeKind.Antigen, AntigenResult.Negative, UnitAttributeTypingSource.Supplier));
+        Assert.True(supplier.Succeeded, supplier.Error);
+        Assert.Equal(UnitAttributeTypingSource.Supplier, supplier.Value!.TypingSource);
+
+        var inHouse = await CreateService(context).SaveBloodAttributeAsync(
+            unitId,
+            new SaveUnitBloodAttributeRequest(definitionId, BloodAttributeKind.Antigen, AntigenResult.Positive, UnitAttributeTypingSource.InHouse));
+        Assert.True(inHouse.Succeeded, inHouse.Error);
+        Assert.Equal(UnitAttributeTypingSource.InHouse, inHouse.Value!.TypingSource);
+        Assert.Equal(AntigenResult.Positive, inHouse.Value.Result);
+
+        var stored = await context.UnitBloodAttributes.SingleAsync(a => a.BloodProductId == unitId);
+        Assert.Equal(UnitAttributeTypingSource.InHouse, stored.TypingSource);
+    }
+
+    [Fact]
+    public async Task SaveBloodAttribute_RejectsTestResultSource()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        await using var context = _factory.Create();
+        var unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-ATTR-TEST", productTypeId))).Unit!.Id;
+        var definitionId = await EnsureAttributeDefinitionAsync(context);
+
+        var result = await CreateService(context).SaveBloodAttributeAsync(
+            unitId,
+            new SaveUnitBloodAttributeRequest(definitionId, BloodAttributeKind.Antigen, AntigenResult.Negative, UnitAttributeTypingSource.TestResult));
+        Assert.False(result.Succeeded);
+        Assert.Contains("contributing tests", result.Error);
+        Assert.False(await context.UnitBloodAttributes.AnyAsync(a => a.BloodProductId == unitId));
     }
 
     [Fact]

@@ -15,7 +15,7 @@
                         <td class="mono">
                             @if (h.UnitId is long historyUnitId)
                             {
-                                <a href="@($"/inventory?unitId={historyUnitId}")">@(h.UnitNumber ?? $"#{historyUnitId}")</a>
+                                <a href="@InventoryUrls.Unit(historyUnitId)">@(h.UnitNumber ?? $"#{historyUnitId}")</a>
                             }
                             else
                             {
@@ -35,11 +35,15 @@
                         <td class="right nowrap">
                             @if (h.UnitId is long inventoryUnitId)
                             {
-                                <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={inventoryUnitId}")">Open Inventory</a>
+                                <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(inventoryUnitId)">Open unit</a>
                             }
-                            @if (h.IssueId is not null && h.UnitId is long issueUnitId)
+                            @if (h.IssueId is long historyIssueId && h.UnitId is long issueUnitId)
                             {
                                 <a class="btn btn-ghost btn-sm" href="@($"/issuing?bloodUnitId={issueUnitId}")">Open Issuing</a>
+                                @if (h.EventType == PatientProductHistoryEventType.Issued && OnMarkTransfused.HasDelegate)
+                                {
+                                    <button type="button" class="btn btn-link btn-sm" @onclick="() => OnMarkTransfused.InvokeAsync(historyIssueId)">Transfuse</button>
+                                }
                             }
                         </td>
                     </tr>
@@ -53,6 +57,7 @@
     [Parameter] public long PatientId { get; set; }
     [Parameter] public bool Loading { get; set; }
     [Parameter] public IReadOnlyList<PatientProductHistoryRowDto> Rows { get; set; } = [];
+    [Parameter] public EventCallback<long> OnMarkTransfused { get; set; }
 
     private static string HistoryRowClass(PatientProductHistoryRowDto h)
     {

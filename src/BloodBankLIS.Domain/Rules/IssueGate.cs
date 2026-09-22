@@ -31,6 +31,9 @@ public sealed record IssueGateContext
     public required bool RequiresCrossmatch { get; init; }
     public required bool HasValidCrossmatch { get; init; }
 
+    /// <summary>A completed incompatible crossmatch exists for this patient and unit.</summary>
+    public bool HasIncompatibleCrossmatch { get; init; }
+
     public required bool IsEmergencyRelease { get; init; }
 
     public required bool ProductTypeMatchesOrder { get; init; }
@@ -118,6 +121,12 @@ public sealed record IssueGateContext
     public required DateTime NowUtc { get; init; }
     public TimeSpan SpecimenNearExpiryWindow { get; init; } = TimeSpan.FromHours(12);
     public TimeSpan UnitNearExpiryWindow { get; init; } = TimeSpan.FromHours(24);
+
+    /// <summary>
+    /// False when the product requires ABO/Rh retype and no verified matching retype is on file.
+    /// Products that do not require retype are confirmed.
+    /// </summary>
+    public bool RetypeConfirmed { get; init; } = true;
 }
 
 /// <summary>
@@ -174,21 +183,24 @@ public static class IssueGate
                 ? RuleResult.Pass(ProductTypeCode)
                 : RuleResult.HardStop(ProductTypeCode, "Unit product type does not match the order/clinical requirement."),
 
-            IssuableStatuses.Contains(c.UnitStatus)
+            UnitStatusAllowsIssue(c)
                 ? RuleResult.Pass(UnitStatusCode)
                 : RuleResult.HardStop(UnitStatusCode, $"Unit status {c.UnitStatus} is not issuable."),
 
             BloodUnitExpirationRule.Evaluate(c.UnitExpiresUtc, c.NowUtc, c.UnitNearExpiryWindow),
 
-            c.AllocatedToThisPatient
+            c.AllocatedToThisPatient || EmergencyMayReserveUnretyped(c)
                 ? RuleResult.Pass(AllocationCode)
                 : RuleResult.HardStop(AllocationCode, "Unit is not allocated/reserved to this patient."),
+
+            ProductRetypeAllocationRule.EvaluateForIssue(c.RetypeConfirmed, c.IsEmergencyRelease),
 
             CrossmatchValidityRule.Evaluate(
                 RequiresCrossmatchEffective(c),
                 c.HasValidCrossmatch,
                 c.IsEmergencyRelease,
-                c.ElectronicCrossmatchEligible && (c.IsElectronicIssue || c.IsRemoteIssue)),
+                c.ElectronicCrossmatchEligible && (c.IsElectronicIssue || c.IsRemoteIssue),
+                c.HasIncompatibleCrossmatch),
 
             c.SpecialRequirementsMet
                 ? RuleResult.Pass(SpecialReqCode)
@@ -261,6 +273,21 @@ public static class IssueGate
 
         return new RuleEvaluation(results);
     }
+
+    /// <summary>
+    /// Emergency or MTP issue may release a unit that is still Received because retype
+    /// has not been confirmed. Every other issue stays on the normal issuable statuses.
+    /// </summary>
+    private static bool UnitStatusAllowsIssue(IssueGateContext c) =>
+        IssuableStatuses.Contains(c.UnitStatus)
+        || (EmergencyMayReserveUnretyped(c) && c.UnitStatus == UnitStatus.Received);
+
+    /// <summary>
+    /// An unretyped unit cannot be reserved in advance. Emergency issue is allowed to
+    /// name that unit without a prior allocation.
+    /// </summary>
+    private static bool EmergencyMayReserveUnretyped(IssueGateContext c) =>
+        c.IsEmergencyRelease && !c.RetypeConfirmed;
 
     /// <summary>RBC and whole blood always require a compatible crossmatch result.</summary>
     internal static bool RequiresCrossmatchEffective(IssueGateContext c) =>

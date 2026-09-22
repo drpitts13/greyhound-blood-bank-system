@@ -133,6 +133,10 @@ public static class AppBreadcrumbTrail
             {
                 crumbs.Add(new("Modify Products", null));
             }
+            else if (parts.Length >= 2 && parts[1].Equals("units", StringComparison.OrdinalIgnoreCase))
+            {
+                crumbs.Add(new("Unit", null));
+            }
             else if (qs.TryGetValue("board", out var board) && board.Equals("retype", StringComparison.OrdinalIgnoreCase))
             {
                 crumbs.Add(new("Retype desk", null));

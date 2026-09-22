@@ -478,6 +478,13 @@ public enum PrintJobType
     Armband = 3
 }
 
+/// <summary>One active label design. Specimen and P-tag each have a single row.</summary>
+public enum LabelLayoutKind
+{
+    Specimen = 0,
+    Ptag = 1
+}
+
 public enum PrintJobStatus
 {
     Queued = 0,
@@ -488,7 +495,41 @@ public enum PrintJobStatus
 public enum LabelFormat
 {
     Zpl = 0,
-    Preview = 1
+    Preview = 1,
+    Pdf = 2
+}
+
+public enum PrintDeliveryStatus
+{
+    NotSent = 0,
+    Sent = 1,
+    Failed = 2
+}
+
+/// <summary>How a saved Zebra printer is reached. USB and Windows driver both use a Windows queue.</summary>
+public enum ZebraConnectionType
+{
+    NetworkTcp = 0,
+    WindowsDriver = 1,
+    Usb = 2,
+    Serial = 3,
+    Bluetooth = 4
+}
+
+public enum ZebraParity
+{
+    None = 0,
+    Odd = 1,
+    Even = 2,
+    Mark = 3,
+    Space = 4
+}
+
+public enum ZebraStopBits
+{
+    One = 0,
+    OnePointFive = 1,
+    Two = 2
 }
 
 public enum Hl7Direction
@@ -635,7 +676,10 @@ public enum ModificationType
 /// <summary>Catalog category for a clinical <c>ActionDefinition</c>.</summary>
 public enum ActionCategory
 {
-    Modification = 0
+    Modification = 0,
+
+    /// <summary>Antigen typing performed on a unit assigned to a patient.</summary>
+    UnitAntigenTyping = 1
 }
 
 /// <summary>Lifecycle of an <c>OrderAction</c> attached to a product order.</summary>
@@ -742,6 +786,14 @@ public enum BloodAttributeKind
 {
     Antigen = 0,
     Antibody = 1
+}
+
+/// <summary>How an antigen or antibody typing was recorded on a unit.</summary>
+public enum UnitAttributeTypingSource
+{
+    Supplier = 0,
+    InHouse = 1,
+    TestResult = 2
 }
 
 /// <summary>How a panel subtest result is captured at result entry.</summary>

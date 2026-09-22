@@ -235,6 +235,16 @@ public class ReturnReissueRuleTests
         var result = ReturnReissueRule.Evaluate(false, true, true, true, true);
         Assert.Equal(RuleSeverity.Warning, result.Severity);
     }
+
+    [Fact]
+    public void ReturnToAvailableWindow_IsThirtyMinutes()
+    {
+        var issued = new DateTime(2026, 5, 30, 12, 0, 0, DateTimeKind.Utc);
+        Assert.True(ReturnReissueRule.IsWithinReturnToAvailableWindow(
+            issued, issued.AddMinutes(30), ReturnReissueRule.DefaultReturnToAvailableMinutes));
+        Assert.False(ReturnReissueRule.IsWithinReturnToAvailableWindow(
+            issued, issued.AddMinutes(30).AddSeconds(1), ReturnReissueRule.DefaultReturnToAvailableMinutes));
+    }
 }
 
 public class SelfVerifyRuleTests

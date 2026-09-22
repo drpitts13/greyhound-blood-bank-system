@@ -489,6 +489,11 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(listed, p => p.Key == FacilityPolicyKeys.UncrossmatchedCellularMustBeGroupO);
         Assert.Contains(listed, p => p.Key == FacilityPolicyKeys.UncrossmatchedONegForChildbearing);
         Assert.Contains(listed, p => p.Key == FacilityPolicyKeys.RetentionYears);
+        Assert.Contains(listed, p => p.Key == FacilityPolicyKeys.ProductChargeOnTransfuse);
+        Assert.Contains(listed, p => p.Key == FacilityPolicyKeys.ReturnToAvailableMinutes);
+
+        var returnMinutes = listed.Single(p => p.Key == FacilityPolicyKeys.ReturnToAvailableMinutes);
+        Assert.Equal("30", returnMinutes.Value);
 
         var retention = listed.Single(p => p.Key == FacilityPolicyKeys.RetentionYears);
         var missingReason = await svc.UpdateAsync(retention.Id, new SaveFacilityPolicyRequest("12", "no"));

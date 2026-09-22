@@ -1,0 +1,22 @@
+<div class="bb-card">
+    <div class="bb-card-title">
+        <h2 class="mono" style="margin:0;">@Unit.UnitNumber</h2>
+        <span class="@Ui.Badge(Unit.Status)">@Ui.StatusLabel(Unit.Status)</span>
+    </div>
+    <div class="form-row">
+        <div class="field"><label>Product</label><div>@ProductCode · @ProductName</div></div>
+        <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(Unit.Abo, Unit.RhD)</strong></div></div>
+        <div class="field"><label>Expires</label><div class="nowrap">@Unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+        <div class="field"><label>Location</label><div>@LocationName</div></div>
+        <div class="field"><label>Volume</label><div>@(Unit.Volume is { } vol ? vol.ToString("0.###") : "—")</div></div>
+        <div class="field"><label>Supplier</label><div>@(string.IsNullOrWhiteSpace(Unit.Supplier) ? "—" : Unit.Supplier)</div></div>
+        <div class="field"><label>Collection facility</label><div>@(string.IsNullOrWhiteSpace(Unit.CollectionFacility) ? "—" : Unit.CollectionFacility)</div></div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public BloodUnitDto Unit { get; set; } = default!;
+    [Parameter] public string ProductCode { get; set; } = "—";
+    [Parameter] public string ProductName { get; set; } = "—";
+    [Parameter] public string LocationName { get; set; } = "—";
+}

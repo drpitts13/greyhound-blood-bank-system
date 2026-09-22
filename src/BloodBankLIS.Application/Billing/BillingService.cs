@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -52,6 +53,7 @@ public sealed class BillingService
     private readonly IPermissionEvaluator? _permissionEvaluator;
     private readonly IRepository<Patient>? _patients;
     private readonly IRepository<Hl7MessageLog>? _messages;
+    private readonly FacilityPolicyService? _policy;
 
     public BillingService(
         IRepository<BillingEvent> events,
@@ -74,7 +76,8 @@ public sealed class BillingService
         IRepository<ActionBilling>? actionBillings = null,
         IRepository<OrderAction>? orderActions = null,
         IRepository<ActionDefinition>? actionDefinitions = null,
-        IRepository<Order>? orders = null)
+        IRepository<Order>? orders = null,
+        FacilityPolicyService? policy = null)
     {
         _events = events;
         _rules = rules;
@@ -97,6 +100,7 @@ public sealed class BillingService
         _permissionEvaluator = permissionEvaluator;
         _patients = patients;
         _messages = messages;
+        _policy = policy;
     }
 
     /// <summary>Captures charges for a verified result. Safe to call repeatedly (idempotent).</summary>
@@ -125,9 +129,16 @@ public sealed class BillingService
     }
 
     /// <summary>Captures charges for an issued unit. Safe to call repeatedly (idempotent).</summary>
-    public Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForIssueAsync(
-        long issueId, CancellationToken ct = default) =>
-        CaptureForUnitEventAsync(issueId, BillingTriggerType.UnitIssued, ct);
+    public async Task<OperationResult<IReadOnlyList<BillingEvent>>> CaptureForIssueAsync(
+        long issueId, CancellationToken ct = default)
+    {
+        if (_policy is not null && await _policy.GetProductChargeOnTransfuseAsync(ct))
+        {
+            return OperationResult<IReadOnlyList<BillingEvent>>.Ok(Array.Empty<BillingEvent>());
+        }
+
+        return await CaptureForUnitEventAsync(issueId, BillingTriggerType.UnitIssued, ct);
+    }
 
     /// <summary>
     /// SoftBank / SafeTrace administration charge: captured when transfusion is
@@ -137,6 +148,11 @@ public sealed class BillingService
         long issueId, TransfusionDisposition disposition, CancellationToken ct = default)
     {
         if (disposition != TransfusionDisposition.Completed)
+        {
+            return OperationResult<IReadOnlyList<BillingEvent>>.Ok(Array.Empty<BillingEvent>());
+        }
+
+        if (_policy is not null && !await _policy.GetProductChargeOnTransfuseAsync(ct))
         {
             return OperationResult<IReadOnlyList<BillingEvent>>.Ok(Array.Empty<BillingEvent>());
         }

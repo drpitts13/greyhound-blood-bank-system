@@ -1,0 +1,397 @@
+@page "/admin/printers"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Printers &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Printers</h1>
+    <div class="flex gap">
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewPdf">New PDF printer</button>
+            <button class="btn btn-secondary" @onclick="NewZebra">New Zebra printer</button>
+        }
+    </div>
+</div>
+<p class="muted">PDF printers are Windows queues already installed on this computer, including network printers Windows has a connection to. Zebra printers use a network port, a Windows queue, USB, serial, or a Bluetooth COM port. Printing still opens a PDF preview first.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card-title"><h3>PDF printers</h3>
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_pdf.Count == 0)
+    {
+        <div class="empty">No PDF printers defined.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Name</th><th>Windows printer</th><th>Default</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var p in _pdf)
+                {
+                    <tr>
+                        <td>@p.Name</td>
+                        <td class="mono">@p.WindowsPrinterName</td>
+                        <td>@(p.IsDefault ? "Yes" : "")</td>
+                        <td>@(p.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => EditPdf(p)">Edit</button>
+                                @if (p.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetPdfActiveAsync(p.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetPdfActiveAsync(p.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_pdfDraft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_pdfEditId is null ? "New PDF printer" : "Edit PDF printer")</h2>
+        <div class="form-row">
+            <div class="field"><label>Display name</label><input @bind="_pdfDraft.Name" /></div>
+            <div class="field"><label>Windows printer name</label><input @bind="_pdfDraft.WindowsPrinterName" /></div>
+            @if (_installed.Count > 0)
+            {
+                <div class="field"><label>Installed on this computer</label>
+                    <select @onchange="PickInstalled">
+                        <option value="">Choose…</option>
+                        @foreach (var name in _installed)
+                        {
+                            <option value="@name">@name</option>
+                        }
+                    </select>
+                </div>
+            }
+        </div>
+        <div class="field"><label>Notes</label><input @bind="_pdfDraft.Notes" /></div>
+        <label class="flex" style="gap:.35rem;margin:.4rem 0;"><input type="checkbox" @bind="_pdfDraft.IsDefault" /> Default PDF printer</label>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SavePdfAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="() => _pdfDraft = null">Cancel</button>
+        </div>
+    </div>
+}
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card-title"><h3>Zebra printers</h3></div>
+    @if (_zebra.Count == 0)
+    {
+        <div class="empty">No Zebra printers defined.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Name</th><th>Connection</th><th>Address</th><th>DPI</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var z in _zebra)
+                {
+                    <tr>
+                        <td>@z.Name</td>
+                        <td>@ConnectionLabel(z.ConnectionType)</td>
+                        <td class="mono">@ConnectionAddress(z)</td>
+                        <td>@z.Dpi</td>
+                        <td>@(z.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => EditZebra(z)">Edit</button>
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => TestZebraAsync(z.Id)">Test</button>
+                                @if (z.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetZebraActiveAsync(z.Id, false)">Deactivate</button>
+                                }
+                                else if (CanActivate)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => SetZebraActiveAsync(z.Id, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_zebraDraft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_zebraEditId is null ? "New Zebra printer" : "Edit Zebra printer")</h2>
+        <div class="form-row">
+            <div class="field"><label>Display name</label><input @bind="_zebraDraft.Name" /></div>
+            <div class="field"><label>Connection</label>
+                <select @bind="_zebraDraft.ConnectionType">
+                    @foreach (var c in Enum.GetValues<ZebraConnectionType>())
+                    {
+                        <option value="@c">@ConnectionLabel(c)</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>DPI</label>
+                <select @bind="_zebraDraft.Dpi">
+                    <option value="203">203</option>
+                    <option value="300">300</option>
+                    <option value="600">600</option>
+                </select>
+            </div>
+        </div>
+        @if (_zebraDraft.ConnectionType == ZebraConnectionType.NetworkTcp)
+        {
+            <div class="form-row">
+                <div class="field"><label>Host</label><input @bind="_zebraDraft.Host" placeholder="10.0.0.20" /></div>
+                <div class="field"><label>Port</label><input type="number" @bind="_zebraDraft.Port" /></div>
+            </div>
+        }
+        else if (_zebraDraft.ConnectionType is ZebraConnectionType.WindowsDriver or ZebraConnectionType.Usb)
+        {
+            <div class="field"><label>Windows printer name</label><input @bind="_zebraDraft.WindowsPrinterName" /></div>
+            @if (_installed.Count > 0)
+            {
+                <div class="field"><label>Installed on this computer</label>
+                    <select @onchange="PickInstalledZebra">
+                        <option value="">Choose…</option>
+                        @foreach (var name in _installed)
+                        {
+                            <option value="@name">@name</option>
+                        }
+                    </select>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="form-row">
+                <div class="field"><label>COM port</label><input @bind="_zebraDraft.ComPort" placeholder="COM3" /></div>
+                <div class="field"><label>Baud</label><input type="number" @bind="_zebraDraft.BaudRate" /></div>
+                <div class="field"><label>Data bits</label><input type="number" @bind="_zebraDraft.DataBits" /></div>
+                <div class="field"><label>Parity</label>
+                    <select @bind="_zebraDraft.Parity">
+                        @foreach (var p in Enum.GetValues<ZebraParity>()) { <option value="@p">@p</option> }
+                    </select>
+                </div>
+                <div class="field"><label>Stop bits</label>
+                    <select @bind="_zebraDraft.StopBits">
+                        @foreach (var s in Enum.GetValues<ZebraStopBits>()) { <option value="@s">@s</option> }
+                    </select>
+                </div>
+            </div>
+            @if (_zebraDraft.ConnectionType == ZebraConnectionType.Bluetooth)
+            {
+                <p class="muted">Bluetooth uses the COM port Windows assigns to the paired printer.</p>
+            }
+        }
+        <div class="field"><label>Notes</label><input @bind="_zebraDraft.Notes" /></div>
+        <label class="flex" style="gap:.35rem;margin:.4rem 0;"><input type="checkbox" @bind="_zebraDraft.IsDefault" /> Default Zebra printer</label>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveZebraAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="() => _zebraDraft = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private bool _includeInactive;
+    private Feedback? _feedback;
+    private List<PdfPrinterDto> _pdf = new();
+    private List<ZebraPrinterDto> _zebra = new();
+    private List<string> _installed = new();
+    private long? _pdfEditId;
+    private PdfDraft? _pdfDraft;
+    private long? _zebraEditId;
+    private ZebraDraft? _zebraDraft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var pdf = await Api.GetAdminPdfPrintersAsync(_includeInactive);
+        var zebra = await Api.GetAdminZebraPrintersAsync(_includeInactive);
+        var installed = await Api.GetInstalledPrintersAsync();
+        _pdf = pdf.Succeeded ? pdf.Value ?? new() : new();
+        _zebra = zebra.Succeeded ? zebra.Value ?? new() : new();
+        _installed = installed.Succeeded ? installed.Value ?? new() : new();
+        if (!pdf.Succeeded) _feedback = pdf.ToFeedback();
+        else if (!zebra.Succeeded) _feedback = zebra.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewPdf()
+    {
+        _pdfEditId = null;
+        _pdfDraft = new PdfDraft();
+    }
+
+    private void EditPdf(PdfPrinterDto p)
+    {
+        _pdfEditId = p.Id;
+        _pdfDraft = new PdfDraft { Name = p.Name, WindowsPrinterName = p.WindowsPrinterName, IsDefault = p.IsDefault, Notes = p.Notes };
+    }
+
+    private void PickInstalled(ChangeEventArgs e)
+    {
+        if (_pdfDraft is not null && e.Value is string name && !string.IsNullOrWhiteSpace(name))
+        {
+            _pdfDraft.WindowsPrinterName = name;
+            if (string.IsNullOrWhiteSpace(_pdfDraft.Name)) _pdfDraft.Name = name;
+        }
+    }
+
+    private void PickInstalledZebra(ChangeEventArgs e)
+    {
+        if (_zebraDraft is not null && e.Value is string name && !string.IsNullOrWhiteSpace(name))
+        {
+            _zebraDraft.WindowsPrinterName = name;
+            if (string.IsNullOrWhiteSpace(_zebraDraft.Name)) _zebraDraft.Name = name;
+        }
+    }
+
+    private async Task SavePdfAsync()
+    {
+        if (_pdfDraft is null) return;
+        _busy = true;
+        var req = new SavePdfPrinterRequest(_pdfDraft.Name, _pdfDraft.WindowsPrinterName, _pdfDraft.IsDefault, _pdfDraft.Notes);
+        var r = _pdfEditId is long id
+            ? await Api.UpdateAdminPdfPrinterAsync(id, req)
+            : await Api.CreateAdminPdfPrinterAsync(req);
+        _busy = false;
+        _feedback = r.ToFeedback(r.Succeeded ? "PDF printer saved." : null);
+        if (r.Succeeded) { _pdfDraft = null; await LoadAsync(); }
+    }
+
+    private async Task SetPdfActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminPdfPrinterActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.ToFeedback(r.Succeeded ? (active ? "PDF printer activated." : "PDF printer deactivated.") : null);
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private void NewZebra()
+    {
+        _zebraEditId = null;
+        _zebraDraft = new ZebraDraft();
+    }
+
+    private void EditZebra(ZebraPrinterDto z)
+    {
+        _zebraEditId = z.Id;
+        _zebraDraft = new ZebraDraft
+        {
+            Name = z.Name,
+            ConnectionType = z.ConnectionType,
+            Host = z.Host,
+            Port = z.Port,
+            WindowsPrinterName = z.WindowsPrinterName,
+            ComPort = z.ComPort,
+            BaudRate = z.BaudRate,
+            DataBits = z.DataBits,
+            Parity = z.Parity,
+            StopBits = z.StopBits,
+            Dpi = z.Dpi,
+            IsDefault = z.IsDefault,
+            Notes = z.Notes
+        };
+    }
+
+    private async Task SaveZebraAsync()
+    {
+        if (_zebraDraft is null) return;
+        _busy = true;
+        var d = _zebraDraft;
+        var req = new SaveZebraPrinterRequest(d.Name, d.ConnectionType, d.Host, d.Port, d.WindowsPrinterName, d.ComPort, d.BaudRate, d.DataBits, d.Parity, d.StopBits, d.Dpi, d.IsDefault, d.Notes);
+        var r = _zebraEditId is long id
+            ? await Api.UpdateAdminZebraPrinterAsync(id, req)
+            : await Api.CreateAdminZebraPrinterAsync(req);
+        _busy = false;
+        _feedback = r.ToFeedback(r.Succeeded ? "Zebra printer saved." : null);
+        if (r.Succeeded) { _zebraDraft = null; await LoadAsync(); }
+    }
+
+    private async Task SetZebraActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminZebraPrinterActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.ToFeedback(r.Succeeded ? (active ? "Zebra printer activated." : "Zebra printer deactivated.") : null);
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private async Task TestZebraAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.TestAdminZebraPrinterAsync(id);
+        _busy = false;
+        _feedback = r.Succeeded
+            ? r.ToFeedback(string.IsNullOrWhiteSpace(r.Value?.Message) ? "Printer responded." : r.Value!.Message)
+            : r.ToFeedback();
+    }
+
+    private static string ConnectionLabel(ZebraConnectionType type) => type switch
+    {
+        ZebraConnectionType.NetworkTcp => "Network (TCP 9100)",
+        ZebraConnectionType.WindowsDriver => "Windows driver",
+        ZebraConnectionType.Usb => "USB",
+        ZebraConnectionType.Serial => "Serial",
+        ZebraConnectionType.Bluetooth => "Bluetooth",
+        _ => type.ToString()
+    };
+
+    private static string ConnectionAddress(ZebraPrinterDto z) => z.ConnectionType switch
+    {
+        ZebraConnectionType.NetworkTcp => $"{z.Host}:{z.Port}",
+        ZebraConnectionType.WindowsDriver or ZebraConnectionType.Usb => z.WindowsPrinterName ?? "",
+        _ => z.ComPort ?? ""
+    };
+
+    private sealed class PdfDraft
+    {
+        public string Name { get; set; } = string.Empty;
+        public string WindowsPrinterName { get; set; } = string.Empty;
+        public bool IsDefault { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    private sealed class ZebraDraft
+    {
+        public string Name { get; set; } = string.Empty;
+        public ZebraConnectionType ConnectionType { get; set; } = ZebraConnectionType.NetworkTcp;
+        public string? Host { get; set; }
+        public int Port { get; set; } = 9100;
+        public string? WindowsPrinterName { get; set; }
+        public string? ComPort { get; set; }
+        public int BaudRate { get; set; } = 9600;
+        public int DataBits { get; set; } = 8;
+        public ZebraParity Parity { get; set; } = ZebraParity.None;
+        public ZebraStopBits StopBits { get; set; } = ZebraStopBits.One;
+        public int Dpi { get; set; } = 203;
+        public bool IsDefault { get; set; }
+        public string? Notes { get; set; }
+    }
+}

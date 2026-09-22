@@ -94,6 +94,9 @@ public class Issue : BaseEntity
 
     public string? PatientIdentifier2 { get; set; }
 
+    /// <summary>P-tag ID scanned from the printed tag when the active layout includes that field.</summary>
+    public string? PtagCode { get; set; }
+
     /// <summary>Comma-separated special-requirement codes acknowledged at issue (warmer / Other).</summary>
     public string? AcknowledgedSpecialRequirementCodes { get; set; }
 }

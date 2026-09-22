@@ -350,6 +350,7 @@ public sealed class OrderService
             newValue: new { order.OrderNumber, order.Status, order.Source, LineCount = builtLines.Count },
             reason: "Order created.");
 
+        var requireCompletedTypeAndScreen = builtLines.Any(l => l.LineCategory == OrderCategory.Product);
         if (request.SpecimenId is > 0)
         {
             var link = await LinkSpecimenCoreAsync(patientId, order.Id, new LinkOrderSpecimenRequest(request.SpecimenId.Value), ct);
@@ -360,7 +361,7 @@ public sealed class OrderService
         }
         else
         {
-            await AssociateCurrentSpecimenAsync(order.Id, patientId, request.EncounterId, ct);
+            await AssociateCurrentSpecimenAsync(order.Id, patientId, request.EncounterId, requireCompletedTypeAndScreen, ct);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
@@ -651,6 +652,14 @@ public sealed class OrderService
                 $"Specimen {specimen.AccessionNumber} has expired and cannot be linked.");
         }
 
+        if (await OrderHasProductLineAsync(orderId, ct)
+            && _antibodyScreen is not null
+            && !await _antibodyScreen.HasCompletedTypeAndScreenAsync(specimen.Id, _clock.UtcNow, ct))
+        {
+            return OperationResult<PatientOrderDto>.Fail(
+                $"Only active specimens with a completed type and screen can be linked to a product order. Specimen {specimen.AccessionNumber} does not qualify.");
+        }
+
         await SyncOrderSpecimenAsync(orderId, specimen.Id, ct);
         _audit?.Record(
             AuditEventType.OrderChange,
@@ -666,9 +675,17 @@ public sealed class OrderService
             : OperationResult<PatientOrderDto>.Ok(updated);
     }
 
-    public async Task AssociateCurrentSpecimenAsync(long orderId, long patientId, long encounterId, CancellationToken ct)
+    public Task AssociateCurrentSpecimenAsync(long orderId, long patientId, long encounterId, CancellationToken ct) =>
+        AssociateCurrentSpecimenAsync(orderId, patientId, encounterId, requireCompletedTypeAndScreen: false, ct);
+
+    public async Task AssociateCurrentSpecimenAsync(
+        long orderId,
+        long patientId,
+        long encounterId,
+        bool requireCompletedTypeAndScreen,
+        CancellationToken ct)
     {
-        var specimen = await ResolveCurrentSpecimenAsync(patientId, encounterId, ct);
+        var specimen = await ResolveCurrentSpecimenAsync(patientId, encounterId, requireCompletedTypeAndScreen, ct);
         if (specimen is null)
         {
             return;
@@ -709,18 +726,35 @@ public sealed class OrderService
 
         var specimen = specimenId is > 0
             ? await _specimens.GetByIdAsync(specimenId.Value, ct)
-            : await ResolveCurrentSpecimenAsync(patientId, encounterId, ct);
+            : await ResolveCurrentSpecimenAsync(patientId, encounterId, requireCompletedTypeAndScreen: false, ct);
 
         return string.IsNullOrWhiteSpace(specimen?.SpecimenType) ? null : specimen!.SpecimenType;
     }
 
-    private async Task<Specimen?> ResolveCurrentSpecimenAsync(long patientId, long encounterId, CancellationToken ct)
+    private async Task<bool> OrderHasProductLineAsync(long orderId, CancellationToken ct)
+    {
+        var lines = await _orderLines.ListAsync(
+            l => l.OrderId == orderId && l.IsActive && l.LineCategory == OrderCategory.Product, ct);
+        return lines.Count > 0;
+    }
+
+    private async Task<Specimen?> ResolveCurrentSpecimenAsync(
+        long patientId,
+        long encounterId,
+        bool requireCompletedTypeAndScreen,
+        CancellationToken ct)
     {
         var now = _clock.UtcNow;
         var specimens = await _specimens.ListAsync(s =>
             s.PatientId == patientId
             && s.Status == SpecimenStatus.Accepted
             && (s.ExpiresUtc == null || s.ExpiresUtc > now), ct);
+
+        if (requireCompletedTypeAndScreen && _antibodyScreen is not null)
+        {
+            var qualifying = await _antibodyScreen.ListCompletedTypeAndScreenSpecimenIdsAsync(patientId, now, ct);
+            specimens = specimens.Where(s => qualifying.Contains(s.Id)).ToList();
+        }
 
         return specimens
             .OrderByDescending(s => s.EncounterId == encounterId)

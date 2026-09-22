@@ -13,6 +13,10 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!-- QuestPDF's Lato font archive is copied beside this host. The renderer lives in Printing, and QuestPDF only finds that archive next to the entry assembly. -->
+    <PackageReference Include="QuestPDF" Version="2026.9.0" />
+    <PackageReference Include="PDFtoImage" Version="5.4.0" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.12" />
   </ItemGroup>
 
   <ItemGroup>

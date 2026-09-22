@@ -1,6 +1,7 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -36,6 +37,7 @@ public static class ResultEndpoints
             SaveTestResultRequest request,
             ResultService service,
             BillingService billing,
+            UnitAntigenTypingService unitAntigenTyping,
             ISignatureService signatures,
             HttpContext http,
             CancellationToken ct) =>
@@ -56,6 +58,14 @@ public static class ResultEndpoints
             if (result.Succeeded && result.Value!.Status == ResultStatus.Verified)
             {
                 await billing.CaptureForResultAsync(result.Value.Id, ct);
+                if (request.OrderActionId is long orderActionId)
+                {
+                    var completed = await unitAntigenTyping.CompleteAfterVerifiedResultAsync(orderActionId, result.Value, ct);
+                    if (!completed.Succeeded)
+                    {
+                        return Results.BadRequest(new { error = completed.Error });
+                    }
+                }
             }
 
             return EndpointResults.FromEvaluation(result, r => TestResultDto.From(r));

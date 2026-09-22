@@ -28,6 +28,19 @@ public class PrintJob : BaseEntity
 
     public string? RenderedZpl { get; set; }
 
+    /// <summary>PDF bytes when <see cref="Format"/> is <see cref="LabelFormat.Pdf"/>.</summary>
+    public byte[]? RenderedPdf { get; set; }
+
+    public PrintDeliveryStatus DeliveryStatus { get; set; } = PrintDeliveryStatus.NotSent;
+
+    public string? DeliveryError { get; set; }
+
+    public DateTime? DeliveredUtc { get; set; }
+
+    public long? PdfPrinterId { get; set; }
+
+    public long? ZebraPrinterId { get; set; }
+
     public PrintJobStatus Status { get; set; } = PrintJobStatus.Queued;
 
     public bool IsReprint { get; set; }

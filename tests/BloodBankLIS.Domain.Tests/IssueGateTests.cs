@@ -80,6 +80,20 @@ public class IssueGateTests
     }
 
     [Fact]
+    public void IncompatibleCrossmatch_RequiresOverride()
+    {
+        var context = PassingContext() with
+        {
+            HasValidCrossmatch = false,
+            HasIncompatibleCrossmatch = true
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.False(evaluation.IsHardStopped);
+        Assert.True(evaluation.RequiresOverride);
+        Assert.Contains(evaluation.Warnings, r => r.Code == CrossmatchValidityRule.Code);
+    }
+
+    [Fact]
     public void MissingCrossmatch_UnderEmergencyRelease_RequiresOverride()
     {
         var context = PassingContext() with { HasValidCrossmatch = false, IsEmergencyRelease = true };
@@ -87,6 +101,34 @@ public class IssueGateTests
         Assert.False(evaluation.IsHardStopped);
         Assert.True(evaluation.RequiresOverride);
         Assert.Contains(evaluation.Warnings, r => r.Code == CrossmatchValidityRule.Code);
+    }
+
+    [Fact]
+    public void MissingRetype_OutsideEmergency_IsHardStopped()
+    {
+        var context = PassingContext() with { RetypeConfirmed = false };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.True(evaluation.IsHardStopped);
+        Assert.Contains(evaluation.HardStops, r => r.Code == ProductRetypeAllocationRule.Code);
+    }
+
+    [Fact]
+    public void MissingRetype_UnderEmergencyRelease_RequiresOverrideWithoutPriorAllocation()
+    {
+        var context = PassingContext() with
+        {
+            RetypeConfirmed = false,
+            IsEmergencyRelease = true,
+            AllocatedToThisPatient = false,
+            UnitStatus = UnitStatus.Received,
+            HasValidCrossmatch = false
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.False(evaluation.IsHardStopped);
+        Assert.True(evaluation.RequiresOverride);
+        Assert.Contains(evaluation.Warnings, r => r.Code == ProductRetypeAllocationRule.Code);
+        Assert.DoesNotContain(evaluation.HardStops, r => r.Code == IssueGate.AllocationCode);
+        Assert.DoesNotContain(evaluation.HardStops, r => r.Code == IssueGate.UnitStatusCode);
     }
 
     [Fact]

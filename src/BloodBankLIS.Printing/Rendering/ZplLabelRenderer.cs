@@ -12,7 +12,7 @@ public sealed class ZplLabelRenderer : ILabelRenderer
 {
     public LabelFormat Format => LabelFormat.Zpl;
 
-    public string Render(LabelDocument document)
+    public LabelRenderResult Render(LabelDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
 
@@ -42,7 +42,7 @@ public sealed class ZplLabelRenderer : ILabelRenderer
         }
 
         sb.Append("^XZ");
-        return sb.ToString();
+        return LabelRenderResult.TextContent(sb.ToString());
     }
 
     /// <summary>

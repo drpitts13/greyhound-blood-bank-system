@@ -7,11 +7,22 @@ namespace BloodBankLIS.Printing.Rendering;
 /// </summary>
 public sealed class LabelDocument
 {
-    public LabelDocument(int widthDots, int heightDots, IEnumerable<LabelElement> elements)
+    public LabelDocument(
+        int widthDots,
+        int heightDots,
+        IEnumerable<LabelElement> elements,
+        LabelCheckForm? checkForm = null,
+        IEnumerable<LabelElement>? page2 = null,
+        int page2WidthDots = 0,
+        int page2HeightDots = 0)
     {
         WidthDots = widthDots;
         HeightDots = heightDots;
         Elements = elements.ToList();
+        CheckForm = checkForm;
+        Page2Elements = page2?.ToList() ?? [];
+        Page2WidthDots = page2WidthDots;
+        Page2HeightDots = page2HeightDots;
     }
 
     public int WidthDots { get; }
@@ -19,7 +30,38 @@ public sealed class LabelDocument
     public int HeightDots { get; }
 
     public IReadOnlyList<LabelElement> Elements { get; }
+
+    /// <summary>Bottom half of a folded P-tag. Empty when the built-in form is used instead.</summary>
+    public IReadOnlyList<LabelElement> Page2Elements { get; }
+
+    public int Page2WidthDots { get; }
+
+    public int Page2HeightDots { get; }
+
+    /// <summary>
+    /// When set, the PDF renderer prints the label on the top half of a portrait
+    /// letter page and this form on the bottom half. ZPL ignores it.
+    /// </summary>
+    public LabelCheckForm? CheckForm { get; }
 }
+
+/// <summary>
+/// A fold-under check form: product and patient facts, no barcode, plus a signature.
+/// </summary>
+public sealed class LabelCheckForm
+{
+    public LabelCheckForm(string attestation, IEnumerable<LabelCheckField> fields)
+    {
+        Attestation = attestation;
+        Fields = fields.ToList();
+    }
+
+    public string Attestation { get; }
+
+    public IReadOnlyList<LabelCheckField> Fields { get; }
+}
+
+public sealed record LabelCheckField(string Label, string Value);
 
 /// <summary>Base type for a positioned element on a label (origin is top-left, in dots).</summary>
 public abstract class LabelElement

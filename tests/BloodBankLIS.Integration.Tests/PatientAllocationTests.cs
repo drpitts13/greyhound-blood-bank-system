@@ -27,7 +27,8 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         new(
             new EfRepository<TestResult>(c),
             new EfRepository<TestDefinition>(c),
-            new EfRepository<AntibodyHistory>(c));
+            new EfRepository<AntibodyHistory>(c),
+            specimens: new EfRepository<Specimen>(c));
 
     private CompatibilityService Compatibility(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
@@ -63,7 +64,11 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             new FixedPermissionEvaluator(3),
             _factory.Clock,
             _factory.CurrentUser,
-            c);
+            c,
+            orderLines: new EfRepository<OrderLine>(c),
+            orderRepo: new EfRepository<Order>(c),
+            orderSpecimens: new EfRepository<OrderSpecimen>(c),
+            issues: new EfRepository<Issue>(c));
 
     private async Task<(Patient Patient, BloodUnit Unit)> SeedAvailableUnitAsync(BloodBankDbContext c, string key)
     {
@@ -744,5 +749,34 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         Assert.True(result.Succeeded);
         Assert.Contains(result.Value!, u => u.UnitNumber.StartsWith("U-KNEG-", StringComparison.Ordinal));
         Assert.DoesNotContain(result.Value!, u => u.UnitNumber.StartsWith("U-KPOS-", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task ListAllocatableOrders_FiltersOpenOrdersForProductType()
+    {
+        await using var c = _factory.Create();
+        var (patient, unit) = await SeedAvailableUnitAsync(c, "ORD-LIST");
+        var loc = new OrderingLocation { Code = $"L-{Guid.NewGuid():N}"[..10], Name = "BB", IsActive = true };
+        c.OrderingLocations.Add(loc);
+        var enc = new Encounter
+        {
+            PatientId = patient.Id,
+            VisitNumber = $"VIS-{Guid.NewGuid():N}"[..12],
+            EncounterType = EncounterType.Inpatient,
+            Status = EncounterStatus.Active,
+            AdmitUtc = _factory.Clock.UtcNow
+        };
+        c.Encounters.Add(enc);
+        await c.SaveChangesAsync();
+
+        var created = await Orders(c).CreateAsync(patient.Id, new CreateOrderRequest(
+            enc.Id, loc.Id, $"ORD-OPEN-{Guid.NewGuid():N}",
+            [new OrderLineInputDto(OrderCategory.Product, null, unit.ProductTypeId)],
+            OrderPriority.Routine, _factory.Clock.UtcNow, null, OrderSource.Manual, null, null));
+        Assert.True(created.Succeeded, created.Error);
+
+        var list = await Allocations(c).ListAllocatableOrdersForUnitAsync(unit.Id);
+        Assert.Contains(list, o => o.OrderId == created.Value!.Id);
+        Assert.Equal(patient.Id, list[0].PatientId);
     }
 }

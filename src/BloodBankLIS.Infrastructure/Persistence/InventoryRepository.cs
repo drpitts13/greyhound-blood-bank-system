@@ -80,6 +80,14 @@ public sealed class InventoryRepository : IInventoryRepository
 
             query = query.Where(u => statuses.Contains(u.Status));
         }
+        else if (criteria.ExcludeIssuedAndTransfused)
+        {
+            query = query.Where(u =>
+                u.Status != UnitStatus.Issued
+                && u.Status != UnitStatus.Transfused
+                && u.Status != UnitStatus.TransfusionStarted
+                && u.Status != UnitStatus.TransfusionStopped);
+        }
 
         if (criteria.Abo is not null)
         {

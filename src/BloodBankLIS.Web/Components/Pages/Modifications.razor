@@ -179,7 +179,7 @@
                         <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
                         <td class="nowrap">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="right nowrap">
-                            <a class="btn btn-secondary btn-sm" href="@($"/inventory?unitId={u.Id}")">Open Inventory</a>
+                            <a class="btn btn-secondary btn-sm" href="@InventoryUrls.Unit(u.Id)">Open unit</a>
                             @if (u.Status == UnitStatus.Received)
                             {
                                 <a class="btn btn-ghost btn-sm" href="@($"/inventory?board=retype&unitId={u.Id}#pending-retype")">Open retype desk</a>
@@ -253,6 +253,9 @@
 
     [SupplyParameterFromQuery]
     public long? UnitId { get; set; }
+
+    [SupplyParameterFromQuery]
+    public long? RuleId { get; set; }
 
     [SupplyParameterFromQuery]
     public long? OrderActionId { get; set; }
@@ -376,6 +379,11 @@
                 _selectedRuleId = _eligible[0].RuleId;
                 _selectedRule = _eligible[0];
             }
+        }
+        else if (RuleId is long ruleId && _eligible.FirstOrDefault(e => e.RuleId == ruleId) is { } preselected)
+        {
+            _selectedRuleId = preselected.RuleId;
+            _selectedRule = preselected;
         }
 
         var history = await Api.GetUnitModificationHistoryAsync(u.Id);

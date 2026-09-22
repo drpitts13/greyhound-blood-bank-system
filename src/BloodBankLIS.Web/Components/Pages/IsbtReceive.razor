@@ -23,7 +23,7 @@
     @if (_lastUnit is not null)
     {
         <p class="flex gap" style="flex-wrap:wrap;">
-            <a class="btn btn-secondary btn-sm" href="@($"/inventory?unitId={_lastUnit.Id}")">Open Inventory</a>
+            <a class="btn btn-secondary btn-sm" href="@InventoryUrls.Unit(_lastUnit.Id)">Open Inventory</a>
             @if (_lastUnit.Status == UnitStatus.Received)
             {
                 <a class="btn btn-secondary btn-sm" href="@($"/inventory?board=retype&unitId={_lastUnit.Id}#pending-retype")">Open retype desk</a>

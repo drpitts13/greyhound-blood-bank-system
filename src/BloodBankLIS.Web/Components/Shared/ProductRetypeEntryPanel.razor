@@ -12,12 +12,12 @@
         <div><span class="@Ui.Badge(Detail.Status)">@Ui.StatusLabel(Detail.Status)</span></div>
     </div>
 
-    @if (Detail.Latest is not null && Detail.Latest.Status != ResultStatus.Pending)
+    @if (HasPerformedRetype)
     {
         <div class="bb-card" style="background:#fafbfe;">
-            <h4>Last retype</h4>
+            <h4>ABO retype</h4>
             <p>
-                @Detail.Latest.DisplayValue
+                <strong>@ProductRetypeEntryCopy.Format(Detail.Latest!.InterpretedAbo, Detail.Latest.InterpretedRh)</strong>
                 <span class="@Ui.Badge(Detail.Latest.Status)">@Detail.Latest.Status</span>
                 entered by @Detail.Latest.EnteredBy at @Detail.Latest.EnteredUtc.ToString("yyyy-MM-dd HH:mm")
                 @if (!string.IsNullOrWhiteSpace(Detail.Latest.VerifiedBy))
@@ -25,6 +25,25 @@
                     <span> · verified by @Detail.Latest.VerifiedBy</span>
                 }
             </p>
+            @if (Detail.Latest.CellReactions is { Count: > 0 })
+            {
+                <table class="bb">
+                    <thead><tr><th>Cell</th><th>Reaction</th></tr></thead>
+                    <tbody>
+                        @foreach (var cell in Detail.Latest.CellReactions)
+                        {
+                            <tr>
+                                <td>@cell.Label</td>
+                                <td><strong>@cell.Grade</strong></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else if (!string.IsNullOrWhiteSpace(Detail.Latest.DisplayValue))
+            {
+                <p>@Detail.Latest.DisplayValue</p>
+            }
             @if (!Detail.Latest.MatchesLabel)
             {
                 <div class="alert alert-warning">@(Detail.Latest.DiscrepancyDetail ?? "Retype does not match the labeled ABO/Rh.")</div>
@@ -46,13 +65,66 @@
             <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="VerifyAsync">Confirm retype</button>
         }
     }
-    else if (!string.IsNullOrWhiteSpace(Detail.BlockReason) && !Detail.CanRecord)
+    else if (!HasPerformedRetype && !string.IsNullOrWhiteSpace(Detail.BlockReason) && !Detail.CanRecord)
     {
         <p class="muted">@Detail.BlockReason</p>
     }
 
-    @if (Detail.CanRecord && Session.Has(PermissionCodes.ResultEnter))
+    @if (ShowEnterButton)
     {
+        <button type="button" class="btn btn-primary btn-sm" disabled="@_busy" @onclick="OpenEntry">Enter ABORH retype</button>
+    }
+    else if (ShowInlineEntry)
+    {
+        @EntryForm
+    }
+</div>
+
+@if (_entryOpen)
+{
+    <div class="bb-dialog-backdrop" @onclick="CloseEntry">
+        <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="aborh-retype-entry-title" @onclick:stopPropagation="true">
+            <div class="flex-between">
+                <h2 id="aborh-retype-entry-title" style="margin:0;">Enter ABORH retype</h2>
+                <button type="button" class="btn btn-secondary btn-sm" @onclick="CloseEntry">Close</button>
+            </div>
+            <div style="margin-top:.8rem;">
+                @EntryForm
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ProductRetypeDetailDto Detail { get; set; } = default!;
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    /// <summary>
+    /// Unit chart keeps the form closed until the operator chooses to enter.
+    /// The retype desk still shows the form inline after Enter.
+    /// </summary>
+    [Parameter] public bool EntryInDialog { get; set; }
+
+    private AboGroup _abo = AboGroup.Unknown;
+    private RhType _rh = RhType.Unknown;
+    private Dictionary<string, string> _subtests = new(StringComparer.OrdinalIgnoreCase);
+    private HashSet<string> _optionalPerformed = new(StringComparer.OrdinalIgnoreCase);
+    private bool _busy;
+    private bool _entryOpen;
+    private Feedback? _fb;
+    private long _boundUnitId;
+
+    private bool HasPerformedRetype =>
+        Detail.Latest is { Status: not ResultStatus.Pending };
+
+    private bool CanEnter =>
+        Detail.CanRecord && Session.Has(PermissionCodes.ResultEnter);
+
+    private bool ShowEnterButton => EntryInDialog && !HasPerformedRetype && CanEnter;
+
+    private bool ShowInlineEntry => !EntryInDialog && CanEnter;
+
+    private RenderFragment EntryForm => @<div>
         <div class="form-row">
             <div class="field"><label>Interpreted ABO</label>
                 <select @bind="_abo">@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>
@@ -94,21 +166,9 @@
                 }
             </tbody>
         </table>
+        <Outcome Value="_fb" />
         <button class="btn btn-primary btn-sm" style="margin-top:.6rem;" disabled="@_busy" @onclick="SaveAsync">Record retype</button>
-    }
-</div>
-
-@code {
-    [Parameter, EditorRequired] public ProductRetypeDetailDto Detail { get; set; } = default!;
-    [Parameter] public EventCallback OnSaved { get; set; }
-
-    private AboGroup _abo = AboGroup.Unknown;
-    private RhType _rh = RhType.Unknown;
-    private Dictionary<string, string> _subtests = new(StringComparer.OrdinalIgnoreCase);
-    private HashSet<string> _optionalPerformed = new(StringComparer.OrdinalIgnoreCase);
-    private bool _busy;
-    private Feedback? _fb;
-    private long _boundUnitId;
+    </div>;
 
     protected override void OnParametersSet()
     {
@@ -121,12 +181,17 @@
         _abo = Detail.LabeledAbo;
         _rh = Detail.LabeledRh;
         _fb = null;
+        _entryOpen = false;
         _optionalPerformed.Clear();
         _subtests = Detail.Subtests.ToDictionary(
             s => s.Code,
             s => s.Required ? (Detail.GradeChoices.FirstOrDefault() ?? "0") : "NT",
             StringComparer.OrdinalIgnoreCase);
     }
+
+    private void OpenEntry() => _entryOpen = true;
+
+    private void CloseEntry() => _entryOpen = false;
 
     private string GetSubtest(string code) =>
         _subtests.TryGetValue(code, out var v) ? v : "NT";
@@ -175,6 +240,7 @@
                     ? ProductRetypeEntryCopy.Saved(latest.InterpretedAbo, latest.InterpretedRh)
                     : ProductRetypeEntryCopy.SavedQuarantine(
                         latest.InterpretedAbo, latest.InterpretedRh, latest.DiscrepancyDetail));
+            _entryOpen = false;
             await OnSaved.InvokeAsync();
         }
         else

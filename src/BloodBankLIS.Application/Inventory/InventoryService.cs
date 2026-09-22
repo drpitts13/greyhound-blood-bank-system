@@ -236,6 +236,12 @@ public sealed class InventoryService
             }
         }
 
+        if (request.TypingSource == UnitAttributeTypingSource.TestResult)
+        {
+            return OperationResult<UnitBloodAttribute>.Fail(
+                "Test-result typings are posted from contributing tests, not entered here.");
+        }
+
         if (await _repository.GetUnitAsync(unitId, ct) is null)
         {
             return OperationResult<UnitBloodAttribute>.Fail("Unit not found.");
@@ -259,13 +265,15 @@ public sealed class InventoryService
                 BloodProductId = unitId,
                 BloodAttributeDefinitionId = request.BloodAttributeDefinitionId,
                 AttributeKind = request.AttributeKind,
-                Result = request.Result
+                Result = request.Result,
+                TypingSource = request.TypingSource
             };
             await _unitAttributes.AddAsync(existing, ct);
         }
         else
         {
             existing.Result = request.Result;
+            existing.TypingSource = request.TypingSource;
             _unitAttributes.Update(existing);
         }
 

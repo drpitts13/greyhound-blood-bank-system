@@ -29,6 +29,9 @@ public sealed class PatientAllocationService
     private readonly IRepository<OrderLine>? _orderLines;
     private readonly IRepository<OrderAction>? _orderActions;
     private readonly IRepository<ActionDefinition>? _actionDefinitions;
+    private readonly IRepository<Order>? _orderRepo;
+    private readonly IRepository<OrderSpecimen>? _orderSpecimens;
+    private readonly IRepository<Issue>? _issues;
     private readonly BloodAttributeCompatLoader _bloodAttributeCompat;
     private readonly AntibodyScreenCompatLoader _antibodyScreenCompat;
     private readonly IPermissionEvaluator _permissions;
@@ -37,6 +40,7 @@ public sealed class PatientAllocationService
     private readonly IUnitOfWork _unitOfWork;
     private readonly CrossmatchAttachmentService? _crossmatchAttachment;
     private readonly ElectronicCrossmatchEligibilityService? _exmEligibility;
+    private readonly IRepository<ProductRetypeResult>? _retypes;
 
     public PatientAllocationService(
         CompatibilityService compatibility,
@@ -63,7 +67,11 @@ public sealed class PatientAllocationService
         ElectronicCrossmatchEligibilityService? exmEligibility = null,
         IRepository<OrderLine>? orderLines = null,
         IRepository<OrderAction>? orderActions = null,
-        IRepository<ActionDefinition>? actionDefinitions = null)
+        IRepository<ActionDefinition>? actionDefinitions = null,
+        IRepository<Order>? orderRepo = null,
+        IRepository<OrderSpecimen>? orderSpecimens = null,
+        IRepository<Issue>? issues = null,
+        IRepository<ProductRetypeResult>? retypes = null)
     {
         _compatibility = compatibility;
         _orders = orders;
@@ -82,6 +90,9 @@ public sealed class PatientAllocationService
         _orderLines = orderLines;
         _orderActions = orderActions;
         _actionDefinitions = actionDefinitions;
+        _orderRepo = orderRepo;
+        _orderSpecimens = orderSpecimens;
+        _issues = issues;
         _bloodAttributeCompat = bloodAttributeCompat;
         _antibodyScreenCompat = antibodyScreenCompat;
         _permissions = permissions;
@@ -90,12 +101,18 @@ public sealed class PatientAllocationService
         _unitOfWork = unitOfWork;
         _crossmatchAttachment = crossmatchAttachment;
         _exmEligibility = exmEligibility;
+        _retypes = retypes;
     }
 
-    public async Task<IReadOnlyList<PatientAllocationRowDto>> ListActiveAsync(long patientId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<PatientAllocationRowDto>> ListActiveAsync(
+        long patientId,
+        bool includeIssuedTransfused = false,
+        CancellationToken ct = default)
     {
         var allocations = await _allocations.ListAsync(
-            a => a.PatientId == patientId && a.Status == AllocationStatus.Reserved, ct);
+            a => a.PatientId == patientId
+                 && (a.Status == AllocationStatus.Reserved
+                     || (includeIssuedTransfused && a.Status == AllocationStatus.Consumed)), ct);
         if (allocations.Count == 0)
         {
             return Array.Empty<PatientAllocationRowDto>();
@@ -123,6 +140,12 @@ public sealed class PatientAllocationService
 
         var orderIds = allocations.Where(a => a.OrderId.HasValue).Select(a => a.OrderId!.Value).Distinct().ToList();
         var pendingByOrder = await LoadPendingActionsAsync(orderIds, ct);
+        var issues = _issues is null || allocations.Count == 0
+            ? new Dictionary<long, Issue>()
+            : (await _issues.ListAsync(
+                    i => i.PatientId == patientId && unitIds.Contains(i.BloodProductId), ct))
+                .GroupBy(i => i.BloodProductId)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(i => i.IssuedUtc).First());
 
         var rows = new List<PatientAllocationRowDto>();
         foreach (var allocation in allocations.OrderByDescending(a => a.AllocatedUtc))
@@ -142,6 +165,7 @@ public sealed class PatientAllocationService
                 xm?.Result,
                 hasException);
 
+            issues.TryGetValue(unit.Id, out var issue);
             rows.Add(new PatientAllocationRowDto(
                 allocation.Id,
                 unit.Id,
@@ -159,7 +183,10 @@ public sealed class PatientAllocationService
                 allocation.AllocatedUtc,
                 allocation.AllocatedBy,
                 allocation.ExpiresUtc,
-                allocation.OrderId is long oid ? pendingByOrder.GetValueOrDefault(oid) : null));
+                allocation.OrderId is long oid ? pendingByOrder.GetValueOrDefault(oid) : null,
+                unit.Status,
+                issue?.Id,
+                issue?.Status));
         }
 
         return rows;
@@ -196,6 +223,21 @@ public sealed class PatientAllocationService
                     .ToList());
     }
 
+    private async Task<HashSet<long>> ConfirmedRetypeUnitIdsAsync(IReadOnlyList<long> unitIds, CancellationToken ct)
+    {
+        if (_retypes is null || unitIds.Count == 0)
+        {
+            return [];
+        }
+
+        var confirmed = await _retypes.ListAsync(
+            r => unitIds.Contains(r.BloodProductId)
+                 && r.Status == ResultStatus.Verified
+                 && r.MatchesLabel,
+            ct);
+        return confirmed.Select(r => r.BloodProductId).ToHashSet();
+    }
+
     public async Task<OperationResult<IReadOnlyList<CompatibleUnitDto>>> ListCompatibleUnitsAsync(
         long patientId, CancellationToken ct = default)
     {
@@ -213,11 +255,18 @@ public sealed class PatientAllocationService
 
         var available = await _inventory.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Available), ct);
         var productTypes = (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id);
+        var retypedUnitIds = await ConfirmedRetypeUnitIdsAsync(available.Select(u => u.Id).ToList(), ct);
         var results = new List<CompatibleUnitDto>();
 
         foreach (var unit in available.OrderBy(u => u.ExpiresUtc).ThenBy(u => u.UnitNumber))
         {
             if (!productTypes.TryGetValue(unit.ProductTypeId, out var product) || !unit.BloodType.IsKnown)
+            {
+                continue;
+            }
+
+            if (ProductRetypeAllocationRule.Evaluate(product.RequiresRetype, retypedUnitIds.Contains(unit.Id)).Severity
+                == RuleSeverity.HardStop)
             {
                 continue;
             }
@@ -296,16 +345,21 @@ public sealed class PatientAllocationService
 
         Order? productOrder = null;
         TestDefinition? requestedXmTest = null;
-        if (product.RequiresCrossmatch && _crossmatchAttachment is not null)
+        var resolvedOrder = await ResolveExplicitOrUniqueProductOrderAsync(
+            patientId, product.Id, request.OrderId, ct);
+        if (!resolvedOrder.Succeeded)
         {
-            productOrder = await _crossmatchAttachment.ResolveProductOrderAsync(patientId, product.Id, null, ct);
-            if (productOrder is null)
-            {
-                return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
-                    "An open product order is required before selecting a unit that requires crossmatch.");
-            }
+            return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
+                resolvedOrder.Error ?? "An open product order is required.");
         }
-        else if (product.RequiresCrossmatch)
+
+        productOrder = resolvedOrder.Value;
+        if (product.RequiresCrossmatch && _crossmatchAttachment is not null && productOrder is null)
+        {
+            return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
+                "An open product order is required before selecting a unit that requires crossmatch.");
+        }
+        else if (product.RequiresCrossmatch && _crossmatchAttachment is null)
         {
             if (string.IsNullOrWhiteSpace(request.CrossmatchTestCode))
             {
@@ -364,14 +418,34 @@ public sealed class PatientAllocationService
             }
         }
 
-        if (request.SpecimenId is not null)
+        long? specimenId = request.SpecimenId;
+        if (specimenId is null && productOrder is not null && _orderSpecimens is not null)
         {
-            var specimen = await _specimens.GetByIdAsync(request.SpecimenId.Value, ct);
+            var links = await _orderSpecimens.ListAsync(os => os.OrderId == productOrder.Id, ct);
+            specimenId = links.OrderByDescending(l => l.IsPrimary).FirstOrDefault()?.SpecimenId;
+        }
+
+        if (specimenId is not null)
+        {
+            var specimen = await _specimens.GetByIdAsync(specimenId.Value, ct);
             if (specimen is null || specimen.PatientId != patientId)
             {
                 return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
                     "Specimen not found for this patient.");
             }
+
+            if (product.RequiresCrossmatch
+                && _crossmatchAttachment is not null
+                && !await _antibodyScreenCompat.HasCompletedTypeAndScreenAsync(specimen.Id, _clock.UtcNow, ct))
+            {
+                return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
+                    "A current specimen with a completed type and screen is required to allocate this product.");
+            }
+        }
+        else if (product.RequiresCrossmatch && _crossmatchAttachment is not null)
+        {
+            return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
+                "Link a current type-and-screen specimen to the product order before allocating this unit.");
         }
 
         var bloodAttrs = await _bloodAttributeCompat.LoadAsync(patientId, unit.Id, ct);
@@ -413,7 +487,7 @@ public sealed class PatientAllocationService
             new AllocateUnitRequest(
                 request.BloodUnitId,
                 patientId,
-                request.SpecimenId,
+                specimenId,
                 request.ExpiresUtc,
                 antigenNegOverrideAuthorized),
             ct);
@@ -442,7 +516,7 @@ public sealed class PatientAllocationService
             if (exmEligible && _crossmatchAttachment is not null)
             {
                 var exm = await _crossmatchAttachment.ApplyElectronicForUnitAsync(
-                    patientId, allocation, unit, productOrder, request.SpecimenId, ct);
+                    patientId, allocation, unit, productOrder, specimenId, ct);
                 if (!exm.Succeeded)
                 {
                     return exm.Evaluation is not null
@@ -496,7 +570,7 @@ public sealed class PatientAllocationService
                 OrderSource.Manual,
                 null,
                 _currentUser.UserName,
-                request.SpecimenId));
+                specimenId));
 
             if (!orderResult.Succeeded || orderResult.Value is null)
             {
@@ -529,6 +603,11 @@ public sealed class PatientAllocationService
                 }, ct);
                 overrideApplied = true;
             }
+        }
+
+        if (productOrder is not null && allocation.OrderId is null)
+        {
+            allocation.OrderId = productOrder.Id;
         }
 
         if (antigenNegOverrideAuthorized
@@ -577,6 +656,158 @@ public sealed class PatientAllocationService
         return EvaluationResult<AllocatePatientUnitResultDto>.Ok(
             new AllocatePatientUnitResultDto(row, orderId, xmTestCode, overrideApplied),
             allocResult.Evaluation);
+    }
+
+    public async Task<IReadOnlyList<AllocatableOrderDto>> ListAllocatableOrdersAsync(
+        long productTypeId,
+        long? patientId = null,
+        CancellationToken ct = default)
+    {
+        if (_orderRepo is null || _orderLines is null)
+        {
+            return [];
+        }
+
+        var orders = (await _orderRepo.ListAsync(
+                o => o.Status != OrderStatus.Completed
+                     && o.Status != OrderStatus.Cancelled
+                     && o.Status != OrderStatus.Discontinued
+                     && (patientId == null || o.PatientId == patientId.Value),
+                ct))
+            .OrderByDescending(o => o.OrderedUtc)
+            .ToList();
+        if (orders.Count == 0)
+        {
+            return [];
+        }
+
+        var orderIds = orders.Select(o => o.Id).ToList();
+        var lines = await _orderLines.ListAsync(
+            l => orderIds.Contains(l.OrderId)
+                 && l.IsActive
+                 && l.LineCategory == OrderCategory.Product
+                 && l.ProductTypeId == productTypeId,
+            ct);
+        var matchIds = lines.Select(l => l.OrderId).ToHashSet();
+        orders = orders.Where(o => matchIds.Contains(o.Id)).ToList();
+        if (orders.Count == 0)
+        {
+            return [];
+        }
+
+        var patientIds = orders.Select(o => o.PatientId).Distinct().ToList();
+        var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var links = _orderSpecimens is null
+            ? Array.Empty<OrderSpecimen>()
+            : await _orderSpecimens.ListAsync(os => matchIds.Contains(os.OrderId), ct);
+        var specimenByOrder = links
+            .GroupBy(l => l.OrderId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.IsPrimary).First().SpecimenId);
+        var specimenIds = specimenByOrder.Values.Distinct().ToList();
+        var specimens = specimenIds.Count == 0
+            ? new Dictionary<long, Specimen>()
+            : (await _specimens.ListAsync(s => specimenIds.Contains(s.Id), ct)).ToDictionary(s => s.Id);
+
+        return orders.Select(o =>
+        {
+            patients.TryGetValue(o.PatientId, out var patient);
+            long? specimenId = specimenByOrder.TryGetValue(o.Id, out var sid) ? sid : null;
+            var accession = specimenId is long id && specimens.TryGetValue(id, out var spec)
+                ? spec.AccessionNumber
+                : null;
+            return new AllocatableOrderDto(
+                o.Id,
+                o.PatientId,
+                patient?.MedicalRecordNumber ?? string.Empty,
+                patient is null ? string.Empty : $"{patient.LastName}, {patient.FirstName}",
+                o.OrderNumber,
+                o.OrderName,
+                productTypeId,
+                specimenId,
+                accession,
+                o.OrderedUtc);
+        }).ToList();
+    }
+
+    public async Task<IReadOnlyList<AllocatableOrderDto>> ListAllocatableOrdersForUnitAsync(
+        long unitId,
+        CancellationToken ct = default)
+    {
+        var unit = await _inventory.GetUnitAsync(unitId, ct);
+        if (unit is null)
+        {
+            return [];
+        }
+
+        return await ListAllocatableOrdersAsync(unit.ProductTypeId, patientId: null, ct);
+    }
+
+    private async Task<OperationResult<Order?>> ResolveExplicitOrUniqueProductOrderAsync(
+        long patientId,
+        long productTypeId,
+        long? requestedOrderId,
+        CancellationToken ct)
+    {
+        if (requestedOrderId is > 0)
+        {
+            if (_crossmatchAttachment is not null)
+            {
+                var preferred = await _crossmatchAttachment.ResolveProductOrderAsync(
+                    patientId, productTypeId, requestedOrderId, ct);
+                if (preferred is null)
+                {
+                    return OperationResult<Order?>.Fail(
+                        "The selected order is not an open order for this product.");
+                }
+
+                return OperationResult<Order?>.Ok(preferred);
+            }
+
+            if (_orderRepo is not null)
+            {
+                var order = await _orderRepo.FirstOrDefaultAsync(
+                    o => o.Id == requestedOrderId.Value && o.PatientId == patientId, ct);
+                if (order is null
+                    || order.Status is OrderStatus.Completed or OrderStatus.Cancelled or OrderStatus.Discontinued)
+                {
+                    return OperationResult<Order?>.Fail(
+                        "The selected order is not an open order for this product.");
+                }
+
+                return OperationResult<Order?>.Ok(order);
+            }
+        }
+
+        var matches = await ListAllocatableOrdersAsync(productTypeId, patientId, ct);
+        if (matches.Count > 1)
+        {
+            return OperationResult<Order?>.Fail(
+                "Select the open product order to allocate this unit to.");
+        }
+
+        if (matches.Count == 1)
+        {
+            if (_crossmatchAttachment is not null)
+            {
+                var unique = await _crossmatchAttachment.ResolveProductOrderAsync(
+                    patientId, productTypeId, matches[0].OrderId, ct);
+                return OperationResult<Order?>.Ok(unique);
+            }
+
+            if (_orderRepo is not null)
+            {
+                var unique = await _orderRepo.GetByIdAsync(matches[0].OrderId, ct);
+                return OperationResult<Order?>.Ok(unique);
+            }
+        }
+
+        if (_crossmatchAttachment is null)
+        {
+            return OperationResult<Order?>.Ok(null);
+        }
+
+        return OperationResult<Order?>.Fail(
+            "An open product order is required to allocate this unit.");
     }
 
     private async Task<bool> HasCompatibilityExceptionAsync(

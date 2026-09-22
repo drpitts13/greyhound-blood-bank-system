@@ -166,12 +166,20 @@ public static class PatientWorkspaceEndpoints
 
         group.MapGet("/allocations", async (
             long patientId,
+            bool? includeIssuedTransfused,
             PatientAllocationService service,
             CancellationToken ct) =>
         {
-            var list = await service.ListActiveAsync(patientId, ct);
+            var list = await service.ListActiveAsync(patientId, includeIssuedTransfused == true, ct);
             return Results.Ok(list);
         });
+
+        group.MapGet("/allocatable-orders", async (
+            long patientId,
+            long productTypeId,
+            PatientAllocationService service,
+            CancellationToken ct) =>
+            Results.Ok(await service.ListAllocatableOrdersAsync(productTypeId, patientId, ct)));
 
         group.MapGet("/compatible-units", async (
             long patientId,
@@ -200,6 +208,18 @@ public static class PatientWorkspaceEndpoints
             var list = await service.ListCrossmatchTestsAsync(ct);
             return Results.Ok(list);
         });
+
+        group.MapPost("/allocations/{allocationId:long}/unit-antigen-typing", async (
+            long patientId,
+            long allocationId,
+            UnitAntigenTypingService service,
+            CancellationToken ct) =>
+        {
+            var result = await service.StartAsync(patientId, allocationId, ct);
+            return result.Succeeded
+                ? Results.Ok(result.Value)
+                : Results.BadRequest(new { error = result.Error });
+        }).RequirePermission(PermissionCodes.ResultEnter);
 
         group.MapPost("/allocations", async (
             long patientId,

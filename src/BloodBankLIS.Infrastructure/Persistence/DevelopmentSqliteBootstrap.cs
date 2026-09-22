@@ -150,7 +150,8 @@ public static class DevelopmentSqliteBootstrap
         ("PatientBloodTypeHistory", "AboSubgroup", """ALTER TABLE "PatientBloodTypeHistory" ADD COLUMN "AboSubgroup" INTEGER NOT NULL DEFAULT 0"""),
         ("Issues", "AcknowledgedSpecialRequirementCodes", """ALTER TABLE "Issues" ADD COLUMN "AcknowledgedSpecialRequirementCodes" TEXT NULL"""),
         ("InstrumentInterfaces", "InterpretationMatch", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationMatch" INTEGER NOT NULL DEFAULT 0"""),
-        ("InstrumentInterfaces", "InterpretationAnalyteCodes", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationAnalyteCodes" TEXT NULL""")
+        ("InstrumentInterfaces", "InterpretationAnalyteCodes", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationAnalyteCodes" TEXT NULL"""),
+        ("UnitBloodAttributes", "TypingSource", """ALTER TABLE "UnitBloodAttributes" ADD COLUMN "TypingSource" INTEGER NOT NULL DEFAULT 1""")
     ];
 
     public static async Task InitializeAsync(
@@ -207,6 +208,7 @@ public static class DevelopmentSqliteBootstrap
             await context.Database.ExecuteSqlRawAsync(alterSql, ct);
         }
 
+        await BackfillUnitAttributeTypingSourceAsync(context, ct);
         await BackfillModificationCodesAsync(context, ct);
         await ReplaceModificationRuleCodeIndexAsync(context, logger, ct);
         await BackfillInventoryLocationPolicyAsync(context, ct);
@@ -292,6 +294,23 @@ public static class DevelopmentSqliteBootstrap
         {
             await context.Database.CloseConnectionAsync();
         }
+    }
+
+    private static async Task BackfillUnitAttributeTypingSourceAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await TableExistsAsync(context, "UnitBloodAttributes", ct)
+            || !await ColumnExistsAsync(context, "UnitBloodAttributes", "TypingSource", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            UPDATE UnitBloodAttributes
+            SET TypingSource = 2
+            WHERE SourceResultId IS NOT NULL AND TypingSource <> 2
+            """,
+            ct);
     }
 
     private static async Task BackfillModificationCodesAsync(BloodBankDbContext context, CancellationToken ct)

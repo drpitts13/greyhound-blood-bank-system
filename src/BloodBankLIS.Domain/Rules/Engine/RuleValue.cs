@@ -93,11 +93,15 @@ public sealed class RuleValue
                 number = (decimal)_raw!;
                 return true;
             case RuleValueKind.Text:
-                return decimal.TryParse(
-                    ((string)_raw!).Trim(),
-                    NumberStyles.Number,
-                    CultureInfo.InvariantCulture,
-                    out number);
+                var text = ((string)_raw!).Trim();
+                if (text.Contains('+', StringComparison.Ordinal)
+                    || !decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out number))
+                {
+                    number = 0m;
+                    return false;
+                }
+
+                return true;
             case RuleValueKind.Boolean:
                 number = (bool)_raw! ? 1m : 0m;
                 return true;

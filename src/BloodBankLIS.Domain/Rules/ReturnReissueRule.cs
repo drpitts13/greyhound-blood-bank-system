@@ -28,4 +28,9 @@ public static class ReturnReissueRule
 
         return RuleResult.Warning(Code, "Return conditions require quarantine rather than return to available inventory.");
     }
+
+    public const int DefaultReturnToAvailableMinutes = 30;
+
+    public static bool IsWithinReturnToAvailableWindow(DateTime issuedUtc, DateTime nowUtc, int minutes) =>
+        nowUtc - issuedUtc <= TimeSpan.FromMinutes(Math.Max(1, minutes));
 }

@@ -32,8 +32,10 @@ public static partial class DatabaseSeeder
         await EnsureExpectedArrivalDueHoursPolicyAsync(context, cancellationToken);
         await EnsureNearExpiryWarningHoursPolicyAsync(context, cancellationToken);
         await EnsureInTransitDueHoursPolicyAsync(context, cancellationToken);
+        await EnsureReturnToAvailableMinutesPolicyAsync(context, cancellationToken);
         await EnsureBlockAboSelfVerifyPolicyAsync(context, cancellationToken);
         await EnsureAllowElectronicCrossmatchPolicyAsync(context, cancellationToken);
+        await EnsureProductChargeOnTransfusePolicyAsync(context, cancellationToken);
         await EnsureRequireSecondAboForCellularIssuePolicyAsync(context, cancellationToken);
         await EnsureUncrossmatchedIssuePoliciesAsync(context, cancellationToken);
         await EnsureAntibodyIdentificationPoliciesAsync(context, cancellationToken);
@@ -58,6 +60,7 @@ public static partial class DatabaseSeeder
         await EnsureRhRetypeTestsAsync(context, cancellationToken);
         await EnsureProductRetypeTestAssignmentsAsync(context, cancellationToken);
         await EnsureAgtypeTestAsync(context, cancellationToken);
+        await EnsureUnitAntigenTypingTestAsync(context, cancellationToken);
         await EnsureWeakDTestAsync(context, cancellationToken);
         await EnsureNeonatalTypeAndScreenTestAsync(context, cancellationToken);
         await EnsureCrossmatchTestsAsync(context, cancellationToken);
@@ -428,6 +431,40 @@ public static partial class DatabaseSeeder
             Value = "false",
             Category = "Issue",
             Description = "Permit computer XM and electronic issue after AABB 5.16 preconditions. Off until enabled in Facility Policy (OCD-006)."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureReturnToAvailableMinutesPolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.ReturnToAvailableMinutes, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.ReturnToAvailableMinutes,
+            Value = ReturnReissueRule.DefaultReturnToAvailableMinutes.ToString(),
+            Category = "Issue",
+            Description = "Minutes after issue when a unit may still return to Available. After this window only quarantine or discard are allowed."
+        });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureProductChargeOnTransfusePolicyAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.ProductChargeOnTransfuse, ct))
+        {
+            return;
+        }
+
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.ProductChargeOnTransfuse,
+            Value = "false",
+            Category = "Billing",
+            Description = "When true, product charges are captured on transfusion. When false, they are captured at issue."
         });
         await context.SaveChangesAsync(ct);
     }
@@ -1223,6 +1260,7 @@ public static partial class DatabaseSeeder
             new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "ABSC", ChargeCodeId = screen.Id },
             new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "XM", ChargeCodeId = xm.Id },
             new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "CXM", ChargeCodeId = xm.Id },
+            new ChargeRule { TriggerType = BillingTriggerType.TestVerified, TriggerKey = "EXM", ChargeCodeId = xm.Id },
             // Product-specific rule plus a catch-all for any other issued unit.
             new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = "RBC-LR", ChargeCodeId = rbcIssue.Id },
             new ChargeRule { TriggerType = BillingTriggerType.UnitIssued, TriggerKey = null, ChargeCodeId = unitIssue.Id },
@@ -1244,7 +1282,8 @@ public static partial class DatabaseSeeder
                 new TestServiceBilling { ChargeCodeId = aboRh.Id, Description = "ABO/Rh typing", Trigger = BillingTriggerType.TestVerified, TestCode = "ABORH" },
                 new TestServiceBilling { ChargeCodeId = screen.Id, Description = "Antibody screen", Trigger = BillingTriggerType.TestVerified, TestCode = "ABSC" },
                 new TestServiceBilling { ChargeCodeId = xm.Id, Description = "Crossmatch", Trigger = BillingTriggerType.TestVerified, TestCode = "XM" },
-                new TestServiceBilling { ChargeCodeId = xm.Id, Description = "Computer crossmatch", Trigger = BillingTriggerType.TestVerified, TestCode = "CXM" });
+                new TestServiceBilling { ChargeCodeId = xm.Id, Description = "Computer crossmatch", Trigger = BillingTriggerType.TestVerified, TestCode = "CXM" },
+                new TestServiceBilling { ChargeCodeId = xm.Id, Description = "Electronic crossmatch", Trigger = BillingTriggerType.TestVerified, TestCode = "EXM" });
         }
 
         if (!await context.ProductBillings.AnyAsync(ct)
@@ -1300,6 +1339,7 @@ public static partial class DatabaseSeeder
         var thawCharge = await EnsureChargeAsync("BB-THAW", "Thawing of plasma or cryoprecipitate", 45.00m, "86927");
         var vrCharge = await EnsureChargeAsync("BB-VR", "Volume reduction of blood product", 65.00m, null);
         var lrCharge = await EnsureChargeAsync("BB-LR", "Leukoreduction of blood product", 95.00m, "86960");
+        var unitAntigenCharge = await EnsureChargeAsync("BB-UAG", "Unit antigen typing", 48.00m, "86905");
 
         var seeds = new (string Code, string Name, ModificationType Type, ChargeCode Charge, string Description)[]
         {
@@ -1340,6 +1380,34 @@ public static partial class DatabaseSeeder
                     IsActive = true
                 });
             }
+        }
+
+        var unitAntigen = await context.ActionDefinitions.FirstOrDefaultAsync(a => a.Code == "UAGTYPE", ct);
+        if (unitAntigen is null)
+        {
+            unitAntigen = new ActionDefinition
+            {
+                Code = "UAGTYPE",
+                Name = "Unit antigen typing",
+                Category = ActionCategory.UnitAntigenTyping,
+                Description = "Type antigens on a unit assigned to a patient.",
+                IsActive = true
+            };
+            context.ActionDefinitions.Add(unitAntigen);
+            await context.SaveChangesAsync(ct);
+        }
+
+        if (!await context.ActionBillings.AnyAsync(
+                b => b.ActionDefinitionId == unitAntigen.Id && b.ChargeCodeId == unitAntigenCharge.Id, ct))
+        {
+            context.ActionBillings.Add(new ActionBilling
+            {
+                ActionDefinitionId = unitAntigen.Id,
+                ChargeCodeId = unitAntigenCharge.Id,
+                Description = "Unit antigen typing",
+                Trigger = BillingTriggerType.ActionCompleted,
+                IsActive = true
+            });
         }
 
         await context.SaveChangesAsync(ct);
@@ -1473,6 +1541,40 @@ public static partial class DatabaseSeeder
             TriggerKey = "CXM",
             ChargeCodeId = xmCharge.Id
         });
+        await context.SaveChangesAsync(ct);
+    }
+
+    private static async Task EnsureExmBillingAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var xmCharge = await context.ChargeCodes.FirstOrDefaultAsync(c => c.Code == "BB-XM", ct);
+        if (xmCharge is null)
+        {
+            return;
+        }
+
+        if (!await context.ChargeRules.AnyAsync(
+                r => r.TriggerType == BillingTriggerType.TestVerified && r.TriggerKey == "EXM", ct))
+        {
+            context.ChargeRules.Add(new ChargeRule
+            {
+                TriggerType = BillingTriggerType.TestVerified,
+                TriggerKey = "EXM",
+                ChargeCodeId = xmCharge.Id
+            });
+        }
+
+        if (!await context.TestServiceBillings.AnyAsync(
+                r => r.Trigger == BillingTriggerType.TestVerified && r.TestCode == "EXM", ct))
+        {
+            context.TestServiceBillings.Add(new TestServiceBilling
+            {
+                ChargeCodeId = xmCharge.Id,
+                Description = "Electronic crossmatch",
+                Trigger = BillingTriggerType.TestVerified,
+                TestCode = "EXM"
+            });
+        }
+
         await context.SaveChangesAsync(ct);
     }
 
@@ -2192,6 +2294,7 @@ public static partial class DatabaseSeeder
     {
         await EnsureCrossmatchSubtestsAsync(context, ct);
         await EnsureCxmChargeRuleAsync(context, ct);
+        await EnsureExmBillingAsync(context, ct);
 
         var now = DateTime.UtcNow;
         var changed = false;
@@ -2313,6 +2416,48 @@ public static partial class DatabaseSeeder
             IsActive = true,
             IsDraft = false,
             EffectiveUtc = now,
+            Version = 1
+        });
+
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Antigen typing performed on a unit assigned to a patient. Verification writes
+    /// unit attributes. Billing is the UAGTYPE action charge, not a second test charge.
+    /// </summary>
+    private static async Task EnsureUnitAntigenTypingTestAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.TestDefinitions.AnyAsync(t => t.Code == "UAGTYPE", ct))
+        {
+            return;
+        }
+
+        var attrs = await context.BloodAttributeDefinitions
+            .Where(d => d.IsActive)
+            .OrderBy(d => d.SortOrder)
+            .ToListAsync(ct);
+        if (attrs.Count == 0)
+        {
+            return;
+        }
+
+        var scope = BloodAttributeScope.Serialize(attrs.Select(a => new BloodAttributeScopeEntry(a.Code)));
+        context.TestDefinitions.Add(new TestDefinition
+        {
+            Code = "UAGTYPE",
+            Name = "Unit Antigen Typing",
+            Category = TestCategory.AntigenTyping,
+            ResultValueType = ResultValueType.BloodAttribute,
+            BloodAttributeScopeJson = scope,
+            BloodAttributeScopeKind = BloodAttributeKind.Antigen,
+            ContributesToUnitBloodAttributes = true,
+            VerificationRequired = true,
+            ContributesToCompatibility = true,
+            Billable = false,
+            IsActive = true,
+            IsDraft = false,
+            EffectiveUtc = DateTime.UtcNow,
             Version = 1
         });
 

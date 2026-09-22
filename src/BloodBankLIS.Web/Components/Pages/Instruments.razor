@@ -105,13 +105,49 @@
             <div class="alert alert-error">@_detail.Message.ErrorDetail</div>
         }
         <h4>Raw ASTM</h4>
-        <pre class="mono">@_detail.RawMessage</pre>
-        <h4>Parsed</h4>
-        <pre class="mono">@_detail.ParsedJson</pre>
-        <h4>Mapped</h4>
-        <pre class="mono">@_detail.MappedJson</pre>
+        <pre class="pre">@_detail.RawMessage</pre>
+        <h4>Parsing</h4>
+        @if (_detail.ParsedFields.Count == 0)
+        {
+            <div class="empty">No parsed data elements.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Data element</th><th>Value</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _detail.ParsedFields)
+                    {
+                        <tr>
+                            <td class="mono">@row.DataItem</td>
+                            <td>@row.Value</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        <h4>Mapping</h4>
+        @if (_detail.MappedValues.Count == 0)
+        {
+            <div class="empty">No instrument-to-application mappings.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Instrument</th><th>Application</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _detail.MappedValues)
+                    {
+                        <tr>
+                            <td class="mono">@row.InstrumentValue</td>
+                            <td class="mono">@row.ApplicationValue</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
         <h4>Rules</h4>
-        <pre class="mono">@_detail.RuleTraceJson</pre>
+        <pre class="pre">@_detail.RuleTraceJson</pre>
     </div>
 }
 

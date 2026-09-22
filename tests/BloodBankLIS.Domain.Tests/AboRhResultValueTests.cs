@@ -15,6 +15,25 @@ public class AboRhResultValueTests
         Assert.Equal(RhType.Negative, parsed.Rh);
     }
 
+    [Fact]
+    public void FormatPanel_WritesReadablePlusInsteadOfUnicodeEscape()
+    {
+        var json = AboRhResultValue.FormatPanel(new AboRhPanelResult(
+            AboGroup.B,
+            RhType.Positive,
+            new Dictionary<string, string>
+            {
+                ["Anti-A"] = "0",
+                ["Anti-B"] = "4+",
+                ["Anti-D"] = "2+"
+            }));
+
+        Assert.Contains("4+", json, StringComparison.Ordinal);
+        Assert.Contains("2+", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\\u002B", json, StringComparison.Ordinal);
+        Assert.Equal("B+ · Anti-A:0 · Anti-B:4+ · Anti-D:2+", AboRhResultValue.FormatDisplay(json));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

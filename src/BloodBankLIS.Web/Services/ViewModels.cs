@@ -65,7 +65,14 @@ public sealed record PrintJobVm(
     string? ReprintReason,
     string PrintedBy,
     DateTime? PrintedUtc,
-    string? RenderedZpl);
+    string? RenderedZpl,
+    PrintDeliveryStatus DeliveryStatus,
+    string? DeliveryError,
+    bool HasPdf);
+
+public sealed record DeliverPrintRequestVm(long? PdfPrinterId = null, long? ZebraPrinterId = null);
+
+public sealed record ZebraProbeVm(string Message);
 
 public sealed record AuditEventVm(
     long Id,
@@ -103,6 +110,10 @@ public sealed record TransferRequestVm(long ToLocationId, string? Reason);
 public sealed record ReasonRequestVm(string Reason);
 public sealed record DiscardUnitRequestVm(string Reason, string? SecondVerifier = null);
 public sealed record PrintRequestVm(LabelFormat Format = LabelFormat.Zpl, string? TemplateCode = null, string? TargetPrinter = null);
+
+public sealed record PtagIdRequiredVm(bool Required);
+
+public sealed record PrepareCompatibilityTagVm(long UnitId, long PatientId, IssueType IssueType, LabelFormat Format);
 public sealed record SignatureRequestVm(
     string Action,
     string MeaningOfSignature,

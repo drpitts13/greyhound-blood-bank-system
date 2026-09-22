@@ -15,7 +15,7 @@
         }
     </div>
 </div>
-<p class="muted">Catalog of clinical actions that can be attached to a product order. Modification actions must be a 1:1 type (irradiate, wash, thaw, volume reduce, or leukoreduce).</p>
+<p class="muted">Catalog of clinical actions that can be attached to a product order. Modification actions must be a 1:1 type (irradiate, wash, thaw, volume reduce, or leukoreduce). Unit antigen typing opens the unit antigen test on an assigned unit.</p>
 
 <Outcome Value="_feedback" />
 
@@ -78,17 +78,21 @@
             <div class="field"><label>Category</label>
                 <select @bind="_draft.Category">
                     <option value="@ActionCategory.Modification">Modification</option>
+                    <option value="@ActionCategory.UnitAntigenTyping">Unit antigen typing</option>
                 </select>
             </div>
-            <div class="field"><label>Modification type</label>
-                <select @bind="_draft.ModificationType">
-                    <option value="@ModificationType.Irradiate">Irradiate</option>
-                    <option value="@ModificationType.Wash">Wash</option>
-                    <option value="@ModificationType.Thaw">Thaw</option>
-                    <option value="@ModificationType.VolumeReduction">Volume reduce</option>
-                    <option value="@ModificationType.Leukoreduction">Leukoreduce</option>
-                </select>
-            </div>
+            @if (_draft.Category == ActionCategory.Modification)
+            {
+                <div class="field"><label>Modification type</label>
+                    <select @bind="_draft.ModificationType">
+                        <option value="@ModificationType.Irradiate">Irradiate</option>
+                        <option value="@ModificationType.Wash">Wash</option>
+                        <option value="@ModificationType.Thaw">Thaw</option>
+                        <option value="@ModificationType.VolumeReduction">Volume reduce</option>
+                        <option value="@ModificationType.Leukoreduction">Leukoreduce</option>
+                    </select>
+                </div>
+            }
             <div class="field" style="grid-column:1/-1;"><label>Description</label><input @bind="_draft.Description" /></div>
         </div>
         <div class="flex gap">
@@ -161,8 +165,11 @@
         }
 
         _busy = true;
+        var modificationType = _draft.Category == ActionCategory.Modification
+            ? _draft.ModificationType
+            : (ModificationType?)null;
         var req = new SaveActionDefinitionRequest(
-            _draft.Code, _draft.Name, _draft.Category, _draft.ModificationType, _draft.Description);
+            _draft.Code, _draft.Name, _draft.Category, modificationType, _draft.Description);
         var r = _editId is null
             ? await Api.CreateAdminActionAsync(req)
             : await Api.UpdateAdminActionAsync(_editId.Value, req);

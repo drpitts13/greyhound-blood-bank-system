@@ -111,6 +111,19 @@ public sealed record UpdateOrderRequest(
 
 public sealed record AddOrderActionRequest(long ActionDefinitionId, long? OrderLineId = null);
 
+public sealed record UnitAntigenTypingSessionDto(
+    long AllocationId,
+    long BloodUnitId,
+    string UnitNumber,
+    long PatientId,
+    long ProductOrderId,
+    long TestOrderId,
+    long OrderLineId,
+    long SpecimenId,
+    long OrderActionId,
+    string TestCode,
+    OrderActionStatus ActionStatus);
+
 public sealed record OrderActionDto(
     long Id,
     long OrderId,

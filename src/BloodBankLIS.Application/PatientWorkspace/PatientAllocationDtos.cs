@@ -19,7 +19,10 @@ public sealed record PatientAllocationRowDto(
     DateTime AllocatedUtc,
     string AllocatedBy,
     DateTime? ExpiresUtc,
-    IReadOnlyList<OrderActionDto>? PendingActions = null);
+    IReadOnlyList<OrderActionDto>? PendingActions = null,
+    UnitStatus UnitStatus = UnitStatus.Assigned,
+    long? IssueId = null,
+    IssueStatus? IssueStatus = null);
 
 public sealed record CompatibleUnitDto(
     long BloodUnitId,
@@ -46,7 +49,20 @@ public sealed record AllocatePatientUnitRequest(
     DateTime? ExpiresUtc = null,
     string? CrossmatchTestCode = null,
     string? OverrideReason = null,
-    string? AuthorizedBy = null);
+    string? AuthorizedBy = null,
+    long? OrderId = null);
+
+public sealed record AllocatableOrderDto(
+    long OrderId,
+    long PatientId,
+    string MedicalRecordNumber,
+    string PatientName,
+    string OrderNumber,
+    string OrderName,
+    long ProductTypeId,
+    long? SpecimenId,
+    string? AccessionNumber,
+    DateTime OrderedUtc);
 
 public sealed record AllocatePatientUnitResultDto(
     PatientAllocationRowDto Allocation,

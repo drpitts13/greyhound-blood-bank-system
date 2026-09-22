@@ -1,0 +1,306 @@
+@inject BloodBankApiClient Api
+
+<div class="bb-card">
+    <div class="bb-card-title flex-between">
+        <h1 style="margin:0;">@Title</h1>
+        <div class="flex gap">
+            <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="Reset">Reset</button>
+            <button type="button" class="btn btn-primary" disabled="@(_busy || _document is null)" @onclick="SaveAsync">Save</button>
+        </div>
+    </div>
+    <p class="muted">
+        @if (_saved)
+        {
+            <span>This is the only active layout. Saving replaces it.</span>
+        }
+        else
+        {
+            <span>Built-in positions. Save to make this the active layout.</span>
+        }
+        Drag a field onto the label, or drag a placed field to move it.
+    </p>
+    <Outcome Value="_feedback" />
+
+    @if (Kind == LabelLayoutKind.Ptag && _document is not null)
+    {
+        <div class="flex gap" style="margin:.5rem 0 1rem;">
+            <button type="button" class="btn btn-sm @(_page == 1 ? "btn-primary" : "btn-ghost")" @onclick="() => SelectPage(1)">Page 1 · tag</button>
+            <button type="button" class="btn btn-sm @(_page == 2 ? "btn-primary" : "btn-ghost")" @onclick="() => SelectPage(2)">Page 2 · verification</button>
+        </div>
+    }
+
+    @if (_document is not null)
+    {
+        <div class="designer">
+            <div>
+                <div class="muted" style="margin-bottom:.35rem;">Fields</div>
+                @foreach (var option in Palette)
+                {
+                    <button type="button" class="palette" draggable="true"
+                            @ondragstart="() => ArmPalette(option)"
+                            @ondragend="DisarmPalette"
+                            @onclick="() => Add(option)">
+                        @option.Label
+                    </button>
+                }
+                @if (_page == 2)
+                {
+                    <p class="muted" style="margin-top:.75rem;">Barcodes stay on page 1.</p>
+                }
+            </div>
+
+            <div>
+                <div class="canvas-wrap @(_paletteArmed ? "placing" : null)"
+                     style="width:@(CanvasWidth)px;height:@(CanvasHeight)px;"
+                     @onpointermove="Move"
+                     @onpointerup="EndMove"
+                     @ondragover:preventDefault
+                     @ondrop="Drop">
+                    @for (var i = 0; i < Fields.Count; i++)
+                    {
+                        var field = Fields[i];
+                        var index = i;
+                        <button type="button"
+                                class="placed @(index == _selected ? "selected" : null)"
+                                style="left:@(field.X * Scale)px;top:@(field.Y * Scale)px;font-weight:@(field.Bold ? "700" : "500");"
+                                @onpointerdown="e => BeginMove(index, e)"
+                                @onpointerdown:stopPropagation>
+                            @(field.Barcode ? "▮ " : "")@Preview(field)
+                        </button>
+                    }
+                </div>
+                <p class="muted" style="margin-top:.35rem;">@CanvasCaption</p>
+            </div>
+
+            <div>
+                <div class="muted" style="margin-bottom:.35rem;">Selected field</div>
+                @if (Selected is null)
+                {
+                    <p class="muted">Select a field on the label.</p>
+                }
+                else
+                {
+                    <div class="field"><label>Field</label><div>@LabelFields.Caption(Selected.Key)</div></div>
+                    <div class="field"><label>Font size</label>
+                        <input type="number" min="8" max="72" @bind="Selected.FontHeight" @bind:after="Refresh" />
+                    </div>
+                    <label class="flex" style="gap:.35rem;margin:.5rem 0;">
+                        <input type="checkbox" @bind="Selected.Bold" @bind:after="Refresh" /> Bold
+                    </label>
+                    @if (AllowBarcode(Selected))
+                    {
+                        <label class="flex" style="gap:.35rem;margin:.5rem 0;">
+                            <input type="checkbox" @bind="Selected.Barcode" @bind:after="Refresh" /> Barcode
+                        </label>
+                    }
+                    @if (Selected.Key == LabelFields.StaticText)
+                    {
+                        <div class="field"><label>Text</label>
+                            <input @bind="Selected.StaticText" @bind:after="Refresh" />
+                        </div>
+                    }
+                    <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.75rem;" @onclick="RemoveSelected">Remove</button>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public LabelLayoutKind Kind { get; set; }
+    [Parameter] public string Title { get; set; } = "Label";
+
+    private LabelLayoutDocument? _document;
+    private bool _saved;
+    private bool _busy;
+    private int _page = 1;
+    private int? _selected;
+    private Feedback? _feedback;
+    private string? _dragKey;
+    private bool _paletteArmed;
+    private int? _moving;
+    private double _startClientX;
+    private double _startClientY;
+    private int _startX;
+    private int _startY;
+
+    private double Scale => Kind == LabelLayoutKind.Specimen ? 2.2 : _page == 1 ? 1.05 : 0.42;
+
+    private List<PlacedLabelField> Fields =>
+        _document is null ? [] : _page == 2 ? _document.Page2 : _document.Page1;
+
+    private PlacedLabelField? Selected =>
+        _selected is int i && i >= 0 && i < Fields.Count ? Fields[i] : null;
+
+    private IReadOnlyList<LabelFieldOption> Palette =>
+        Kind == LabelLayoutKind.Specimen ? LabelFields.SpecimenPalette() : LabelFields.PtagPalette(_page);
+
+    private int CanvasWidth => (int)((_page == 2 ? _document!.Page2WidthDots : _document!.WidthDots) * Scale);
+    private int CanvasHeight => (int)((_page == 2 ? _document!.Page2HeightDots : _document!.HeightDots) * Scale);
+
+    private string CanvasCaption => Kind == LabelLayoutKind.Specimen
+        ? "2 × 1 in specimen label"
+        : _page == 1 ? "4 × 3 in tag, top half of the sheet" : "Verification form, bottom half of the sheet";
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _busy = true;
+        var result = Kind == LabelLayoutKind.Specimen
+            ? await Api.GetSpecimenLabelLayoutAsync()
+            : await Api.GetPtagLabelLayoutAsync();
+        _busy = false;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _feedback = result.ToFeedback();
+            _document = Kind == LabelLayoutKind.Specimen ? LabelLayoutDefaults.Specimen() : LabelLayoutDefaults.Ptag();
+            return;
+        }
+
+        _document = result.Value.Document;
+        _saved = result.Value.IsSaved;
+    }
+
+    private void SelectPage(int page)
+    {
+        _page = page;
+        _selected = null;
+    }
+
+    private void ArmPalette(LabelFieldOption option)
+    {
+        _dragKey = option.Key;
+        _paletteArmed = true;
+    }
+
+    private void DisarmPalette() => _paletteArmed = false;
+
+    private void Add(LabelFieldOption option)
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        var field = NewField(option, 16, Math.Min(MaxY() - 20, 16 + (Fields.Count * 28)));
+        Fields.Add(field);
+        _selected = Fields.Count - 1;
+    }
+
+    private void Drop(DragEventArgs e)
+    {
+        _paletteArmed = false;
+        if (_document is null || _dragKey is null)
+        {
+            return;
+        }
+
+        var option = Palette.FirstOrDefault(o => o.Key == _dragKey) ?? new LabelFieldOption(_dragKey, _dragKey, false);
+        var x = (int)(e.OffsetX / Scale);
+        var y = (int)(e.OffsetY / Scale);
+        Fields.Add(NewField(option, x, y));
+        _selected = Fields.Count - 1;
+        _dragKey = null;
+    }
+
+    private PlacedLabelField NewField(LabelFieldOption option, int x, int y)
+    {
+        var width = _page == 2 ? _document!.Page2WidthDots : _document!.WidthDots;
+        var height = _page == 2 ? _document.Page2HeightDots : _document.HeightDots;
+        return new PlacedLabelField
+        {
+            Key = option.Key,
+            X = Math.Clamp(x, 0, Math.Max(0, width - 8)),
+            Y = Math.Clamp(y, 0, Math.Max(0, height - 8)),
+            FontHeight = 28,
+            Barcode = _page == 1 && option.AllowBarcode && option.Key is LabelFields.Accession or LabelFields.PtagId,
+            StaticText = option.Key == LabelFields.StaticText ? "Text" : null
+        };
+    }
+
+    private int MaxY() => _page == 2 ? _document!.Page2HeightDots : _document!.HeightDots;
+
+    private void BeginMove(int index, PointerEventArgs e)
+    {
+        _selected = index;
+        _moving = index;
+        _startClientX = e.ClientX;
+        _startClientY = e.ClientY;
+        _startX = Fields[index].X;
+        _startY = Fields[index].Y;
+    }
+
+    private void Move(PointerEventArgs e)
+    {
+        if (_moving is not int index || index >= Fields.Count || _document is null)
+        {
+            return;
+        }
+
+        var field = Fields[index];
+        var width = _page == 2 ? _document.Page2WidthDots : _document.WidthDots;
+        var height = _page == 2 ? _document.Page2HeightDots : _document.HeightDots;
+        field.X = Math.Clamp(_startX + (int)((e.ClientX - _startClientX) / Scale), 0, Math.Max(0, width - 8));
+        field.Y = Math.Clamp(_startY + (int)((e.ClientY - _startClientY) / Scale), 0, Math.Max(0, height - 8));
+    }
+
+    private void EndMove() => _moving = null;
+
+    private bool AllowBarcode(PlacedLabelField field) =>
+        _page == 1 && field.Key is LabelFields.Accession or LabelFields.UnitNumber or LabelFields.PtagId;
+
+    private void RemoveSelected()
+    {
+        if (_selected is int index && index >= 0 && index < Fields.Count)
+        {
+            Fields.RemoveAt(index);
+            _selected = null;
+        }
+    }
+
+    private void Reset()
+    {
+        _document = Kind == LabelLayoutKind.Specimen ? LabelLayoutDefaults.Specimen() : LabelLayoutDefaults.Ptag();
+        _selected = null;
+        _page = 1;
+        _feedback = Feedback.Succeed("Restored the built-in positions. Save to apply them.");
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_document is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = Kind == LabelLayoutKind.Specimen
+            ? await Api.SaveSpecimenLabelLayoutAsync(_document)
+            : await Api.SavePtagLabelLayoutAsync(_document);
+        _busy = false;
+        _feedback = result.ToFeedback(_saved ? "Layout replaced." : "Layout saved.");
+        if (result.Succeeded && result.Value is not null)
+        {
+            _document = result.Value.Document;
+            _saved = result.Value.IsSaved;
+            _selected = null;
+        }
+    }
+
+    private void Refresh() { }
+
+    private static string Preview(PlacedLabelField field) =>
+        field.Key == LabelFields.StaticText && !string.IsNullOrWhiteSpace(field.StaticText)
+            ? field.StaticText!
+            : LabelFields.Caption(field.Key);
+}
+
+<style>
+    .designer { display: grid; grid-template-columns: 180px 1fr 200px; gap: 1rem; align-items: start; }
+    .palette { display: block; width: 100%; text-align: left; margin-bottom: .35rem; }
+    .canvas-wrap { position: relative; background: #fff; border: 1px solid #c5ccd6; overflow: hidden; }
+    .placed { position: absolute; background: rgba(255,255,255,.92); border: 1px dashed #8aa; padding: 1px 4px; font-size: 12px; cursor: grab; max-width: 90%; white-space: nowrap; }
+    .placed.selected { border: 2px solid #1d4e89; background: #f3f7fb; }
+    .placing .placed { pointer-events: none; }
+</style>

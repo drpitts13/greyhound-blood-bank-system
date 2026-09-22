@@ -2,6 +2,7 @@
 @using BloodBankLIS.Application.Admin
 @using BloodBankLIS.Application.Immunohematology
 @using BloodBankLIS.Application.Issuing
+@using BloodBankLIS.Application.Modifications
 @using BloodBankLIS.Application.PatientWorkspace
 @using BloodBankLIS.Application.Reference
 @using BloodBankLIS.Domain.ValueObjects
@@ -135,10 +136,15 @@ else
             TestGroupers="_testGroupers"
             TestDefs="_testDefs"
             ProductTypes="_productTypes"
-            ActionDefinitions="_actionDefinitions"
-            NewOrderActionIds="_newOrderActionIds"
             SpecimenTypes="_specimenTypes"
             LinkableSpecimens="LinkableSpecimens"
+            Allocations="_allocations"
+            CompatibleUnits="_compatibleUnits"
+            AllocatingOrderId="_allocatingOrderId"
+            SelectedUnitId="_selectedUnitId"
+            OnBeginAllocate="BeginAllocateOnOrderAsync"
+            OnAllocUnitPicked="OnAllocUnitChanged"
+            OnAllocateFromOrder="AllocateUnitFromOrderAsync"
             Orders="_orders"
             NewOrderTestCodes="_newOrderTestCodes"
             NewOrderGrouperCodes="_newOrderGrouperCodes"
@@ -178,11 +184,11 @@ else
             OnToggleNewOrderGrouper="OnOrdersToggleNewGrouper"
             OnToggleNewOrderTest="OnOrdersToggleNewTest"
             OnToggleNewOrderProduct="OnOrdersToggleNewProduct"
-            OnToggleNewOrderAction="OnOrdersToggleNewAction"
             AddingActionOrderId="_addingActionOrderId"
-            @bind-AddActionDefinitionId="_addActionDefinitionId"
-            OnBeginAddAction="BeginAddOrderAction"
-            OnAddAction="AddOrderActionAsync"
+            EligibleModifications="_eligibleMods"
+            @bind-SelectedEligibleRuleId="_selectedEligibleRuleId"
+            OnBeginAddAction="BeginModifyOnOrderAsync"
+            OnAddAction="ApplyEligibleModificationAsync"
             OnRemoveAction="RemoveOrderActionAsync"
             OnToggleEditOrderGrouper="OnOrdersToggleEditGrouper"
             OnToggleEditOrderTest="OnOrdersToggleEditTest"
@@ -265,6 +271,7 @@ else
             Allocations="_allocations"
             LastIssue="_lastIssue"
             PtagFeedback="_ptagFb"
+            PrintedJobId="_ptagJobId"
             IssuingAllocation="_issuingAllocation"
             IssueFeedback="_issueFb"
             @bind-IssueLocalDateTime="_issueLocalDateTime"
@@ -291,6 +298,12 @@ else
             AcknowledgmentSpecialRequirements="AcknowledgmentSpecialRequirements"
             Encounters="_encounters"
             LinkableSpecimens="LinkableSpecimens"
+            AllocatableOrders="_allocatableOrders"
+            AllocOrderId="_allocatingOrderId ?? 0"
+            OnAllocOrderPicked="OnAllocOrderPicked"
+            ShowIssuedTransfused="_showIssuedTransfused"
+            OnToggleIssuedTransfused="ToggleShowIssuedTransfusedAsync"
+            OnMarkTransfused="MarkTransfusedAsync"
             CompatUnitsLoading="_compatUnitsLoading"
             CompatUnitsError="_compatUnitsError"
             CompatibleUnits="_compatibleUnits"
@@ -303,6 +316,11 @@ else
             OnBeginIssue="BeginIssueAllocation"
             OnBeginRelease="BeginReleaseAllocation"
             OnPrintPtag="PrintLastIssuePtagAsync"
+            PtagRequired="_ptagRequired"
+            @bind-PtagId="_ptagScan"
+            OnPrintPreparedPtag="PrintPreparedPtagAsync"
+            PtagPrepareFeedback="_ptagPrepareFb"
+            PreparedJobId="_ptagJobId"
             OnToggleIssueAck="OnProductsToggleIssueAck"
             OnConfirmIssue="IssueAllocationAsync"
             OnIssueOverride="IssueAllocationWithOverrideAsync"
@@ -315,7 +333,7 @@ else
 
     @if (_tab == "history")
     {
-        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" />
+        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" OnMarkTransfused="MarkTransfusedAsync" />
     }
 }
 
@@ -414,10 +432,10 @@ else
     private HashSet<string> _editOrderGrouperCodes = new(StringComparer.OrdinalIgnoreCase);
     private List<TestGrouperListItemDto> _testGroupers = new();
     private HashSet<long> _newOrderProductTypeIds = new();
-    private List<ActionDefinitionDto> _actionDefinitions = new();
-    private HashSet<long> _newOrderActionIds = new();
     private long? _addingActionOrderId;
-    private long _addActionDefinitionId;
+    private List<EligibleModificationDto> _eligibleMods = new();
+    private long _selectedEligibleRuleId;
+    private long _eligibleModUnitId;
     private OrderPriority _newOrderPriority = OrderPriority.Routine;
     private long _newOrderLocationId;
     private long? _newOrderProviderId;
@@ -439,6 +457,9 @@ else
     private IEnumerable<SpecimenDto> LinkableSpecimens => _specimens.Where(s =>
         s.Status == SpecimenStatus.Accepted
         && (s.ExpiresUtc is null || s.ExpiresUtc > DateTime.UtcNow));
+
+    private IEnumerable<SpecimenDto> ProductLinkableSpecimens =>
+        LinkableSpecimens.Where(s => s.HasCompletedTypeAndScreen);
 
     // manual blood type
     private AboGroup _typeAbo = AboGroup.O;
@@ -520,18 +541,18 @@ else
     private bool _allocLoading;
     private bool _allocLoaded;
     private bool _showAllocate;
+    private bool _showIssuedTransfused;
+    private long? _allocatingOrderId;
     private Feedback? _allocFb;
     private List<CompatibleUnitDto> _compatibleUnits = new();
+    private List<AllocatableOrderDto> _allocatableOrders = new();
     private bool _compatUnitsLoading;
     private string? _compatUnitsError;
     private List<CrossmatchTestOptionDto> _crossmatchTests = new();
     private long? _selectedUnitId;
     private CompatibleUnitDto? _selectedUnit;
-    private string _allocXmTestCode = "CXM";
     private long _allocEncounterId;
     private long _allocSpecimenId;
-    private string _allocOverrideReason = string.Empty;
-    private string _allocAuthorizedBy = string.Empty;
     private int _allocXmMinLevel = 2;
     private long? _releasingAllocationId;
     private string _releaseReason = string.Empty;
@@ -571,11 +592,6 @@ else
             string.Equals(t.Code, c, StringComparison.OrdinalIgnoreCase)
             && t.ResultValueType == ResultValueType.ComplexCrossmatch));
 
-    private ResultValueType SelectedXmResultType =>
-        _crossmatchTests.FirstOrDefault(t => string.Equals(t.Code, _allocXmTestCode, StringComparison.OrdinalIgnoreCase))
-            ?.ResultValueType
-        ?? ResultValueType.Crossmatch;
-
     private static readonly HashSet<string> KnownTabs = new(StringComparer.OrdinalIgnoreCase)
     {
         "overview", "visits", "orders", "specimens", "tests", "test-history", "products", "history"
@@ -602,6 +618,13 @@ else
             _orders = new();
             _allocations = new();
             _productHistory = new();
+        }
+
+        if (!_ptagRequiredLoaded && Session.Has(PermissionCodes.PrintLabel))
+        {
+            _ptagRequiredLoaded = true;
+            var required = await Api.GetPtagIdRequiredAsync();
+            _ptagRequired = required.Succeeded && required.Value?.Required == true;
         }
 
         await LoadAsync();
@@ -663,24 +686,24 @@ else
     {
         get
         {
-            var visit = _encounters.Count > 0;
             var order = _orders.Count > 0;
             var linked = _orders.Any(o => o.SpecimenId is > 0);
-            var typed = _currentType is not null;
+            var allocated = _allocations.Any(a => a.AllocationStatus == AllocationStatus.Reserved || a.IssueId is > 0);
+            var modified = allocated && !_allocations.Any(a => (a.PendingActions ?? []).Count > 0);
             var reserved = _allocations.Count > 0;
-            var issued = _productHistory.Any(h => h.EventType == PatientProductHistoryEventType.Issued);
-            var states = new[] { visit, order, linked, typed, reserved, issued };
+            var issued = _productHistory.Any(h => h.EventType == PatientProductHistoryEventType.Issued)
+                         || _allocations.Any(a => a.IssueStatus == IssueStatus.Issued || a.IssueStatus == IssueStatus.Transfused);
+            var states = new[] { order, linked, allocated, modified || !allocated, reserved, issued };
             var current = Array.FindIndex(states, s => !s);
             if (current < 0) current = 5;
-
             return
             [
-                new("visit", 1, "Visit", visit, current == 0, visit ? $"{_encounters.Count} visit(s)" : "Add a visit before ordering"),
-                new("order", 2, "Order", order, current == 1, order ? $"{_orders.Count} order(s)" : "Place tests or products"),
-                new("specimen", 3, "Specimen linked", linked, current == 2, linked ? "Order has an accession" : "Accession and link so tests reach the worklist"),
-                new("type", 4, "Type verified", typed, current == 3, typed ? Ui.BloodType(_currentType!.Abo, _currentType.RhD) : "Verify ABO/Rh on Tests"),
-                new("xm", 5, "Crossmatch / reserve", reserved, current == 4, reserved ? $"{_allocations.Count} reserved" : "Record XM and reserve a unit"),
-                new("issue", 6, "Issued", issued, current == 5, issued ? "Unit issued" : "Issue from Products")
+                new("order", 1, "Order", order, current == 0, order ? $"{_orders.Count} order(s)" : "Place a product or test order"),
+                new("specimen", 2, "Specimen", linked, current == 1, linked ? "Type-and-screen specimen linked" : "Link a completed type and screen"),
+                new("allocate", 3, "Allocate", allocated, current == 2, allocated ? $"{_allocations.Count} unit(s)" : "Allocate a unit to the order"),
+                new("modify", 4, "Modify", modified, current == 3, allocated ? "Eligible after allocate" : "Allocate before modifying"),
+                new("xm", 5, "Crossmatch", reserved, current == 4, reserved ? "XM/EXM attached" : "XM/EXM attaches on allocate"),
+                new("issue", 6, "Issue / Transfuse", issued, current == 5, issued ? "Issued — mark transfused when given" : "Issue compatible units")
             ];
         }
     }
@@ -726,13 +749,19 @@ else
                 if (_orders.Count == 0 && !_showAddOrder) await ToggleAddOrder();
                 break;
             case "specimen":
-                await OpenAddOrderWithAccessionAsync();
+                await SelectTab("orders");
                 break;
             case "type":
                 await SelectTab("tests");
                 break;
+            case "allocate":
+                await SelectTab("orders");
+                break;
+            case "modify":
+                await SelectTab("products");
+                break;
             case "xm":
-                Nav.NavigateTo(CompatibilityHref());
+                await SelectTab("products");
                 break;
             case "issue":
                 await SelectTab("products");
@@ -806,7 +835,7 @@ else
     private async Task LoadAllocationsAsync()
     {
         _allocLoading = true;
-        var r = await Api.GetPatientAllocationsAsync(Id);
+        var r = await Api.GetPatientAllocationsAsync(Id, _showIssuedTransfused);
         _allocations = r.Value ?? new();
         if (!r.Succeeded) _allocFb = r.ToFeedback();
         _allocLoading = false;
@@ -830,21 +859,6 @@ else
             await EnsureWorkspaceRefsAsync();
             if (!_visitsLoaded) await LoadVisitsAsync();
             await LoadCompatibleUnitsAsync();
-            var tests = await Api.GetPatientCrossmatchTestsAsync(Id);
-            _crossmatchTests = tests.Value ?? new();
-            if (_antibodyHistory.Count > 0
-                && _crossmatchTests.Any(t => t.ResultValueType == ResultValueType.ComplexCrossmatch))
-            {
-                _allocXmTestCode = _crossmatchTests.First(t => t.ResultValueType == ResultValueType.ComplexCrossmatch).Code;
-            }
-            else if (_crossmatchTests.Count > 0
-                     && !_crossmatchTests.Any(t => string.Equals(t.Code, _allocXmTestCode, StringComparison.OrdinalIgnoreCase)))
-            {
-                _allocXmTestCode = _crossmatchTests[0].Code;
-            }
-
-            var exc = await Api.GetAdminExceptionByCodeAsync(AntibodyHistoryCrossmatchRule.RuleCode);
-            if (exc.Succeeded && exc.Value is not null) _allocXmMinLevel = exc.Value.MinSecurityLevel;
         }
     }
 
@@ -856,6 +870,40 @@ else
         _compatibleUnits = r.Value ?? new();
         if (!r.Succeeded) _compatUnitsError = r.FailureSummary();
         _compatUnitsLoading = false;
+        RefreshAllocatableOrdersFromChart();
+    }
+
+    private void RefreshAllocatableOrdersFromChart()
+    {
+        _allocatableOrders = _orders
+            .Where(o => o.IsActive)
+            .SelectMany(o => o.Lines
+                .Where(l => l.LineCategory == OrderCategory.Product && l.ProductTypeId is > 0)
+                .Select(l => new AllocatableOrderDto(
+                    o.Id,
+                    Id,
+                    string.Empty,
+                    string.Empty,
+                    o.OrderNumber,
+                    l.LineName,
+                    l.ProductTypeId!.Value,
+                    o.SpecimenId,
+                    o.AccessionNumber,
+                    o.OrderedUtc)))
+            .ToList();
+    }
+
+    private Task OnAllocOrderPicked(long? orderId)
+    {
+        _allocatingOrderId = orderId is > 0 ? orderId : null;
+        var order = _orders.FirstOrDefault(o => o.Id == _allocatingOrderId);
+        if (order is not null)
+        {
+            _allocEncounterId = order.EncounterId;
+            _allocSpecimenId = order.SpecimenId ?? 0;
+        }
+
+        return Task.CompletedTask;
     }
 
     private void OnAllocUnitChanged(long? id)
@@ -945,7 +993,8 @@ else
             Comment: string.IsNullOrWhiteSpace(_issueComment) ? null : _issueComment.Trim(),
             VerifiedScan: _issueScan.ToRequest(),
             Appearance: _issueAppearance,
-            AcknowledgedSpecialRequirementCodes: _issueAcks.ToList());
+            AcknowledgedSpecialRequirementCodes: _issueAcks.ToList(),
+            PtagId: string.IsNullOrWhiteSpace(_ptagScan) ? null : _ptagScan.Trim());
     }
 
     private bool ValidateIssueForm()
@@ -977,16 +1026,48 @@ else
         return true;
     }
 
+    private bool _ptagRequired;
+    private bool _ptagRequiredLoaded;
+    private string _ptagScan = string.Empty;
+    private Feedback? _ptagPrepareFb;
+
+    private async Task PrintPreparedPtagAsync()
+    {
+        if (_issuingAllocation is null || !Session.Has(PermissionCodes.PrintLabel))
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.PrepareCompatibilityTagAsync(_issuingAllocation.BloodUnitId, Id, IssueType.Standard);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _ptagJobId = r.Value!.Id;
+        }
+
+        _ptagPrepareFb = r.Succeeded
+            ? r.ToFeedback($"PDF preview saved as job #{r.Value!.Id}. Scan the P-tag ID.")
+            : r.ToFeedback();
+    }
+
     private async Task PrintLastIssuePtagAsync()
     {
         if (_lastIssue is null || !Session.Has(PermissionCodes.PrintLabel)) return;
         _busy = true;
-        var r = await Api.PrintCompatibilityTagAsync(_lastIssue.Id, new PrintRequestVm(LabelFormat.Preview));
+        var r = await Api.PrintCompatibilityTagAsync(_lastIssue.Id, new PrintRequestVm(LabelFormat.Pdf));
         _busy = false;
+        if (r.Succeeded)
+        {
+            _ptagJobId = r.Value!.Id;
+        }
+
         _ptagFb = r.Succeeded
-            ? r.ToFeedback($"P-tag queued as job #{r.Value!.Id}. Reprints stay on Printing.")
+            ? r.ToFeedback($"PDF preview saved as job #{r.Value!.Id}.")
             : r.ToFeedback();
     }
+
+    private long? _ptagJobId;
 
     private async Task IssueAllocationAsync()
     {
@@ -1089,7 +1170,8 @@ else
             _selectedUnitId.Value,
             _allocEncounterId > 0 ? _allocEncounterId : null,
             _allocSpecimenId > 0 ? _allocSpecimenId : null,
-            _newOrderLocationId > 0 ? _newOrderLocationId : null);
+            _newOrderLocationId > 0 ? _newOrderLocationId : null,
+            OrderId: _allocatingOrderId);
 
         var r = await Api.AllocatePatientUnitAsync(Id, req);
         _busy = false;
@@ -1102,11 +1184,52 @@ else
         if (r.Succeeded)
         {
             _showAllocate = false;
+            _allocatingOrderId = null;
             _selectedUnitId = null;
             _selectedUnit = null;
-            _allocOverrideReason = string.Empty;
             await LoadAllocationsAsync();
             _testsLoaded = false;
+        }
+    }
+
+    private async Task BeginAllocateOnOrderAsync(PatientOrderDto order)
+    {
+        if (_allocatingOrderId == order.Id)
+        {
+            _allocatingOrderId = null;
+            return;
+        }
+
+        _allocatingOrderId = order.Id;
+        _allocFb = null;
+        await LoadCompatibleUnitsAsync();
+        if (!_allocLoaded) await LoadAllocationsAsync();
+    }
+
+    private async Task AllocateUnitFromOrderAsync(PatientOrderDto order)
+    {
+        _allocatingOrderId = order.Id;
+        _allocEncounterId = order.EncounterId;
+        _allocSpecimenId = order.SpecimenId ?? 0;
+        await AllocateUnitAsync();
+    }
+
+    private async Task ToggleShowIssuedTransfusedAsync()
+    {
+        _showIssuedTransfused = !_showIssuedTransfused;
+        await LoadAllocationsAsync();
+    }
+
+    private async Task MarkTransfusedAsync(long issueId)
+    {
+        _busy = true;
+        var r = await Api.MarkIssueTransfusedAsync(issueId);
+        _busy = false;
+        _allocFb = r.ToFeedback("Unit marked transfused.");
+        if (r.Succeeded)
+        {
+            await LoadAllocationsAsync();
+            if (_historyLoaded) await LoadProductHistoryAsync();
         }
     }
 
@@ -1146,7 +1269,6 @@ else
         if (_testDefs.Count == 0) _testDefs = (await Api.GetTestDefinitionsListAsync()).Value ?? new();
         if (_testGroupers.Count == 0) _testGroupers = (await Api.GetReferenceTestGroupersAsync()).Value ?? new();
         if (_productTypes.Count == 0) _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
-        if (_actionDefinitions.Count == 0) _actionDefinitions = (await Api.GetReferenceActionsAsync()).Value ?? new();
     }
 
     private void ToggleAddVisit() => _showAddVisit = !_showAddVisit;
@@ -1210,42 +1332,39 @@ else
     private void OnOrdersToggleNewProduct((long Id, ChangeEventArgs Event) args) =>
         ToggleNewOrderProduct(args.Id, args.Event);
 
-    private void OnOrdersToggleNewAction((long Id, ChangeEventArgs Event) args)
-    {
-        if (IsChecked(args.Event)) _newOrderActionIds.Add(args.Id);
-        else _newOrderActionIds.Remove(args.Id);
-    }
-
-    private void BeginAddOrderAction(PatientOrderDto order)
+    private async Task BeginModifyOnOrderAsync(PatientOrderDto order)
     {
         if (_addingActionOrderId == order.Id)
         {
             _addingActionOrderId = null;
-            _addActionDefinitionId = 0;
+            _selectedEligibleRuleId = 0;
+            _eligibleMods = [];
+            _eligibleModUnitId = 0;
             return;
         }
 
         _addingActionOrderId = order.Id;
-        _addActionDefinitionId = 0;
+        _selectedEligibleRuleId = 0;
+        _eligibleMods = [];
+        _eligibleModUnitId = 0;
+        if (!_allocLoaded) await LoadAllocationsAsync();
+        var alloc = _allocations.FirstOrDefault(a => a.OrderId == order.Id && a.AllocationStatus == AllocationStatus.Reserved);
+        if (alloc is null) return;
+        _eligibleModUnitId = alloc.BloodUnitId;
+        var mods = await Api.GetEligibleModificationsAsync(alloc.BloodUnitId);
+        _eligibleMods = mods.Value ?? [];
     }
 
-    private async Task AddOrderActionAsync(long orderId)
+    private Task ApplyEligibleModificationAsync(long orderId)
     {
-        if (_addActionDefinitionId <= 0) return;
-        _busy = true;
-        var r = await Api.AddPatientOrderActionAsync(Id, orderId, new AddOrderActionRequest(_addActionDefinitionId));
-        _busy = false;
-        if (!r.Succeeded)
+        if (_selectedEligibleRuleId <= 0 || _eligibleModUnitId <= 0)
         {
-            _orderFb = r.ToFeedback();
-            return;
+            return Task.CompletedTask;
         }
 
-        _orderFb = r.ToFeedback("Modification action added.");
-        _addingActionOrderId = null;
-        _addActionDefinitionId = 0;
-        _ordersLoaded = false;
-        await LoadOrdersAsync();
+        var returnUrl = Uri.EscapeDataString($"/patients/{Id}?tab=orders");
+        Nav.NavigateTo($"/inventory/modify?unitId={_eligibleModUnitId}&ruleId={_selectedEligibleRuleId}&returnUrl={returnUrl}");
+        return Task.CompletedTask;
     }
 
     private async Task RemoveOrderActionAsync((long OrderId, long ActionId) args)
@@ -1395,8 +1514,7 @@ else
             "Manual",
             null,
             specimenId,
-            string.IsNullOrWhiteSpace(_newOrderComment) ? null : _newOrderComment,
-            _newOrderActionIds.Count == 0 ? null : _newOrderActionIds.ToList());
+            string.IsNullOrWhiteSpace(_newOrderComment) ? null : _newOrderComment);
         var r = await Api.CreatePatientOrderAsync(Id, req);
         _busy = false;
         if (!r.Succeeded) { _orderFb = r.ToFeedback(); return; }
@@ -1413,7 +1531,6 @@ else
         _newOrderTestCodes.Clear();
         _newOrderGrouperCodes.Clear();
         _newOrderProductTypeIds.Clear();
-        _newOrderActionIds.Clear();
         _newOrderSpecimenId = 0;
         _newOrderAccessionNow = false;
         _newOrderComment = null;

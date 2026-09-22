@@ -10,13 +10,20 @@ using BloodBankLIS.Infrastructure;
 using BloodBankLIS.Infrastructure.Common;
 using BloodBankLIS.Infrastructure.Isbt128;
 using BloodBankLIS.Infrastructure.Persistence;
+using BloodBankLIS.Api.Printing;
 using BloodBankLIS.Printing;
+using BloodBankLIS.Printing.Delivery;
 using BloodBankLIS.Security;
+using BloodBankLIS.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Encoder = ClinicalJson.WebOptions.Encoder;
+});
 
 var dbProvider = DatabaseOptions.ResolveProvider(builder.Configuration, builder.Environment.IsDevelopment());
 var connectionString = DatabaseOptions.ResolveConnectionString(builder.Configuration, builder.Environment.IsDevelopment());
@@ -49,6 +56,9 @@ builder.Services.AddSingleton<IIccbbaExtractDirectory>(
 builder.Services.AddHl7Interfaces();
 builder.Services.AddAstmInterfaces();
 builder.Services.AddPrinting();
+builder.Services.AddSingleton<IInstalledPrinterCatalog, WindowsInstalledPrinterCatalog>();
+builder.Services.AddSingleton<IRawSpooler, WindowsRawSpooler>();
+builder.Services.AddSingleton<IPdfDocumentPrinter, WindowsPdfDocumentPrinter>();
 builder.Services.AddSecurity();
 builder.Services.AddHostedService<MllpListenerService>();
 builder.Services.AddHostedService<MllpSenderService>();

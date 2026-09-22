@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Immunohematology;
 using BloodBankLIS.Domain.Entities;
@@ -34,6 +35,7 @@ public sealed class SpecimenService
     private readonly IRepository<AntibodyIdentificationFinding>? _antibodyFindings;
     private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
     private readonly IRepository<Override>? _overrides;
+    private readonly AntibodyScreenCompatLoader? _antibodyScreen;
 
     public SpecimenService(
         IRepository<Specimen> specimens,
@@ -49,7 +51,8 @@ public sealed class SpecimenService
         IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null,
         IRepository<AntibodyIdentificationFinding>? antibodyFindings = null,
         IRepository<ExceptionDefinition>? exceptionDefinitions = null,
-        IRepository<Override>? overrides = null)
+        IRepository<Override>? overrides = null,
+        AntibodyScreenCompatLoader? antibodyScreen = null)
     {
         _specimens = specimens;
         _patients = patients;
@@ -65,6 +68,7 @@ public sealed class SpecimenService
         _antibodyFindings = antibodyFindings;
         _exceptionDefinitions = exceptionDefinitions;
         _overrides = overrides;
+        _antibodyScreen = antibodyScreen;
     }
 
     public async Task<SpecimenDto?> GetAsync(long id, CancellationToken ct = default)
@@ -77,9 +81,15 @@ public sealed class SpecimenService
     {
         var specimens = await _specimens.ListAsync(s => s.PatientId == patientId, ct);
         var descriptions = await LoadActiveDescriptionMapAsync(ct);
+        var completed = _antibodyScreen is null
+            ? []
+            : await _antibodyScreen.ListCompletedTypeAndScreenSpecimenIdsAsync(patientId, _clock.UtcNow, ct);
         return specimens
             .OrderByDescending(s => s.CollectedUtc)
-            .Select(s => SpecimenDto.From(s, ResolveDescription(s.SpecimenType, descriptions)))
+            .Select(s => SpecimenDto.From(
+                s,
+                ResolveDescription(s.SpecimenType, descriptions),
+                completed.Contains(s.Id)))
             .ToList();
     }
 
@@ -520,7 +530,12 @@ public sealed class SpecimenService
     private async Task<SpecimenDto> MapAsync(Specimen specimen, CancellationToken ct)
     {
         var descriptions = await LoadActiveDescriptionMapAsync(ct);
-        return SpecimenDto.From(specimen, ResolveDescription(specimen.SpecimenType, descriptions));
+        var completed = _antibodyScreen is not null
+            && await _antibodyScreen.HasCompletedTypeAndScreenAsync(specimen.Id, _clock.UtcNow, ct);
+        return SpecimenDto.From(
+            specimen,
+            ResolveDescription(specimen.SpecimenType, descriptions),
+            completed);
     }
 
     private async Task<Dictionary<string, string>> LoadActiveDescriptionMapAsync(CancellationToken ct)

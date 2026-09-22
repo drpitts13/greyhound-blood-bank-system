@@ -1,5 +1,7 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Persistence;
@@ -27,11 +29,13 @@ public static class InventoryEndpoints
             long? locationId,
             DateTime? expiringBeforeUtc,
             UnitStatus[]? statuses,
+            bool? excludeIssuedAndTransfused,
             InventoryService service,
             CancellationToken ct) =>
         {
             var criteria = new InventorySearchCriteria(
-                unitNumber, status, abo, rh, productTypeId, locationId, expiringBeforeUtc, statuses);
+                unitNumber, status, abo, rh, productTypeId, locationId, expiringBeforeUtc, statuses,
+                excludeIssuedAndTransfused == true);
             var units = await service.SearchAsync(criteria, ct);
             return Results.Ok(units.Select(BloodUnitDto.From));
         });
@@ -60,11 +64,29 @@ public static class InventoryEndpoints
             return unit is null ? Results.NotFound() : Results.Ok(BloodUnitDto.From(unit));
         });
 
+        group.MapGet("/units/{id:long}/allocatable-orders", async (
+            long id,
+            PatientAllocationService allocations,
+            CancellationToken ct) =>
+            Results.Ok(await allocations.ListAllocatableOrdersForUnitAsync(id, ct)))
+            .RequirePermission(PermissionCodes.CompatibilityAllocate);
+
         group.MapGet("/units/{id:long}/history", async (long id, InventoryService service, CancellationToken ct) =>
         {
             var history = await service.GetHistoryAsync(id, ct);
             return Results.Ok(history.Select(InventoryStatusHistoryDto.From));
         });
+
+        group.MapGet("/units/{id:long}/activity", async (long id, UnitActivityService activity, CancellationToken ct) =>
+            Results.Ok(await activity.ListAsync(id, ct)));
+
+        group.MapPost("/units/{id:long}/change-status", async (
+            long id,
+            ReturnUnitRequest request,
+            IssuingService issuing,
+            CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await issuing.ReturnUnitForBloodUnitAsync(id, request, ct), ReturnDto.From))
+            .RequirePermission(PermissionCodes.IssueReturn);
 
         group.MapGet("/units/{id:long}/blood-attributes", async (long id, InventoryService service, BloodBankDbContext context, CancellationToken ct) =>
         {

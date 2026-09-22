@@ -31,6 +31,34 @@ public class ActionCatalogValidatorTests
     }
 
     [Fact]
+    public void ActionDefinition_AcceptsUnitAntigenTyping()
+    {
+        var entity = new ActionDefinition
+        {
+            Code = "UAGTYPE",
+            Name = "Unit antigen typing",
+            Category = ActionCategory.UnitAntigenTyping
+        };
+        var result = ActionDefinitionValidator.Validate(entity, duplicateCode: false);
+        Assert.False(result.IsHardStopped);
+    }
+
+    [Fact]
+    public void ActionDefinition_RejectsModificationTypeOnUnitAntigenTyping()
+    {
+        var entity = new ActionDefinition
+        {
+            Code = "UAGTYPE",
+            Name = "Unit antigen typing",
+            Category = ActionCategory.UnitAntigenTyping,
+            ModificationType = ModificationType.Irradiate
+        };
+        var result = ActionDefinitionValidator.Validate(entity, duplicateCode: false);
+        Assert.True(result.IsHardStopped);
+        Assert.Contains(result.HardStops, r => r.Code == ActionDefinitionValidator.ModificationTypeInvalid);
+    }
+
+    [Fact]
     public void ActionDefinition_AcceptsIrradiate()
     {
         var entity = new ActionDefinition
@@ -85,6 +113,20 @@ public class ActionCatalogValidatorTests
         var result = OrderActionValidator.ValidateAttach(hasProductLine: false, action, duplicatePending: false);
         Assert.True(result.IsHardStopped);
         Assert.Contains(result.HardStops, r => r.Code == OrderActionValidator.ProductOrderRequiredCode);
+    }
+
+    [Fact]
+    public void OrderAction_AcceptsUnitAntigenTyping()
+    {
+        var action = new ActionDefinition
+        {
+            Code = "UAGTYPE",
+            Name = "Unit antigen typing",
+            Category = ActionCategory.UnitAntigenTyping,
+            IsActive = true
+        };
+        var result = OrderActionValidator.ValidateAttach(hasProductLine: true, action, duplicatePending: false);
+        Assert.False(result.IsHardStopped);
     }
 
     [Fact]

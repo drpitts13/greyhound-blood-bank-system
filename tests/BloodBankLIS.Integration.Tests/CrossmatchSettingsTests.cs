@@ -1,4 +1,6 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
+using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.PatientWorkspace;
@@ -140,7 +142,7 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
         var beforeOrders = await c.Orders.CountAsync(o => o.PatientId == seed.Patient.Id);
 
         var alloc = await Allocations(c).AllocateAsync(seed.Patient.Id, new AllocatePatientUnitRequest(
-            seed.Unit!.Id, seed.Encounter.Id, seed.Specimen.Id, seed.Location.Id));
+            seed.Unit!.Id, seed.Encounter.Id, seed.Specimen.Id, seed.Location.Id, OrderId: seed.ProductOrder.Id));
         Assert.True(alloc.Succeeded, alloc.Error);
         Assert.Equal("EXM", alloc.Value!.CrossmatchTestCode);
         Assert.Equal(seed.ProductOrder.Id, alloc.Value.CrossmatchOrderId);
@@ -155,6 +157,30 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Allocate_ExmEligible_CapturesTestChargeOnVerify()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedExmEligibleAsync(c, screens: 2, withUnit: true);
+        var charge = new ChargeCode { Code = "BB-EXM", Description = "Electronic XM", DefaultAmount = 40m };
+        c.ChargeCodes.Add(charge);
+        await c.SaveChangesAsync();
+        c.TestServiceBillings.Add(new TestServiceBilling
+        {
+            TestCode = "EXM",
+            ChargeCodeId = charge.Id,
+            Trigger = BillingTriggerType.TestVerified,
+            IsActive = true
+        });
+        await c.SaveChangesAsync();
+
+        var alloc = await Allocations(c).AllocateAsync(seed.Patient.Id, new AllocatePatientUnitRequest(
+            seed.Unit!.Id, seed.Encounter.Id, seed.Specimen.Id, seed.Location.Id, OrderId: seed.ProductOrder.Id));
+        Assert.True(alloc.Succeeded, alloc.Error);
+        Assert.True(await c.BillingEvents.AnyAsync(e =>
+            e.TriggerType == BillingTriggerType.TestVerified && e.BillingCode == "BB-EXM"));
+    }
+
+    [Fact]
     public async Task Allocate_CountsBelowMinimum_DoesNotAutoResultExm()
     {
         await using var c = _factory.Create();
@@ -165,10 +191,10 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
             cr.Code == ElectronicCrossmatchEligibilityRule.VisitsCode && !cr.Satisfied);
 
         var alloc = await Allocations(c).AllocateAsync(seed.Patient.Id, new AllocatePatientUnitRequest(
-            seed.Unit!.Id, seed.Encounter.Id, seed.Specimen.Id, seed.Location.Id));
+            seed.Unit!.Id, seed.Encounter.Id, seed.Specimen.Id, seed.Location.Id, OrderId: seed.ProductOrder.Id));
         Assert.True(alloc.Succeeded, alloc.Error);
         Assert.Equal("XM", alloc.Value!.CrossmatchTestCode);
-        Assert.False(await c.TestResults.AnyAsync(r => r.TestCode == "EXM"));
+        Assert.False(await c.TestResults.AnyAsync(r => r.TestCode == "EXM" && r.PatientId == seed.Patient.Id));
         Assert.Equal(2, await c.Orders.CountAsync(o => o.PatientId == seed.Patient.Id));
     }
 
@@ -238,7 +264,22 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
             _factory.Clock,
             _factory.CurrentUser,
             c,
-            new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            billing: Billing(c));
+    }
+
+    private BillingService Billing(BloodBankDbContext c) =>
+        new(new EfRepository<BillingEvent>(c), new EfRepository<ChargeRule>(c), new EfRepository<ChargeCode>(c),
+            new EfRepository<TestServiceBilling>(c), new EfRepository<ProductBilling>(c),
+            new EfRepository<TestResult>(c), new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c),
+            new EfRepository<ProductType>(c), c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            new NoopBillingPublisher());
+
+    private sealed class NoopBillingPublisher : IBillingInterfacePublisher
+    {
+        public Task<long?> PublishChargeAsync(BillingEvent billingEvent, CancellationToken ct = default) =>
+            Task.FromResult<long?>(null);
     }
 
     private CompatibilityService Compatibility(BloodBankDbContext c) =>
@@ -268,6 +309,7 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
         await EnsureTestAsync(c, "CXM", "Complex Crossmatch", TestCategory.Crossmatch, ResultValueType.ComplexCrossmatch);
         await EnsureTestAsync(c, "EXM", "Electronic Crossmatch", TestCategory.Crossmatch, ResultValueType.Crossmatch);
         await EnsureTestAsync(c, "ABSC", "Antibody Screen", TestCategory.AntibodyScreen, ResultValueType.Coded);
+        await EnsureTestAsync(c, "ABORH", "ABO/Rh", TestCategory.AboRh, ResultValueType.AboRh);
         if (!await c.ExceptionDefinitions.AnyAsync(e => e.RuleCode == AntibodyHistoryCrossmatchRule.RuleCode))
         {
             c.ExceptionDefinitions.Add(new ExceptionDefinition
@@ -356,7 +398,9 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
             c,
             Attachment(c),
             Eligibility(c),
-            new EfRepository<OrderLine>(c));
+            new EfRepository<OrderLine>(c),
+            orderRepo: new EfRepository<Order>(c),
+            orderSpecimens: new EfRepository<OrderSpecimen>(c));
 
     private ElectronicCrossmatchEligibilityService Eligibility(BloodBankDbContext c) =>
         new(
@@ -455,7 +499,23 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
                 OrderId = productOrder.Id, LineNumber = 1, LineCategory = OrderCategory.Product,
                 LineName = "RBC", ProductTypeId = product.Id, IsActive = true
             });
-        c.OrderSpecimens.Add(new OrderSpecimen { OrderId = tns.Id, SpecimenId = specimen.Id, IsPrimary = true });
+        c.OrderSpecimens.AddRange(
+            new OrderSpecimen { OrderId = tns.Id, SpecimenId = specimen.Id, IsPrimary = true },
+            new OrderSpecimen { OrderId = productOrder.Id, SpecimenId = specimen.Id, IsPrimary = true });
+        c.TestResults.Add(new TestResult
+        {
+            PatientId = patient.Id,
+            SpecimenId = specimen.Id,
+            OrderId = tns.Id,
+            TestCode = "ABORH",
+            Value = "O Pos",
+            Status = ResultStatus.Verified,
+            Source = ResultSource.Manual,
+            EnteredBy = _factory.CurrentUser.UserName,
+            EnteredUtc = _factory.Clock.UtcNow,
+            VerifiedBy = "tech-verify",
+            VerifiedUtc = _factory.Clock.UtcNow
+        });
 
         if (antibodyHistory)
         {

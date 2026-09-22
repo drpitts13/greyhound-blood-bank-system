@@ -129,6 +129,10 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(recorded.Succeeded, recorded.Error);
         Assert.Equal(ResultStatus.Verified, recorded.Value!.Latest!.Status);
         Assert.Equal(before.Id, recorded.Value.Latest.Id);
+        Assert.Equal("0", recorded.Value.Latest.CellReactions.Single(c => c.Code == AboRhPanelSubtestCodes.AntiA).Grade);
+        Assert.Equal("Anti-A", recorded.Value.Latest.CellReactions.Single(c => c.Code == AboRhPanelSubtestCodes.AntiA).Label);
+        Assert.Equal("0", recorded.Value.Latest.CellReactions.Single(c => c.Code == AboRhPanelSubtestCodes.AntiB).Grade);
+        Assert.DoesNotContain(recorded.Value.Latest.CellReactions, c => c.Code == AboRhPanelSubtestCodes.AntiD);
         Assert.Equal(1, await context.ProductRetypeResults.CountAsync(r => r.BloodProductId == unitId));
     }
 

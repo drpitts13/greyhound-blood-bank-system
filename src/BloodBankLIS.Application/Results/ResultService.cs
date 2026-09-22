@@ -2465,13 +2465,15 @@ public sealed class ResultService
                 BloodAttributeDefinitionId = attributeDefinitionId,
                 AttributeKind = kind,
                 Result = resultValue,
-                SourceResultId = sourceResultId
+                SourceResultId = sourceResultId,
+                TypingSource = UnitAttributeTypingSource.TestResult
             }, ct);
         }
         else
         {
             existing.Result = resultValue;
             existing.SourceResultId = sourceResultId;
+            existing.TypingSource = UnitAttributeTypingSource.TestResult;
             _unitBloodAttributes.Update(existing);
         }
     }

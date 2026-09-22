@@ -29,11 +29,13 @@ public class TestCatalogPackagingTests
         foreach (var line in File.ReadAllLines(path).Where(static l => l.StartsWith("| TEST-BB-", StringComparison.Ordinal)))
         {
             var cols = line.Split('|', StringSplitOptions.TrimEntries);
-            var cited = cols[3].Trim('`');
-            var className = cited.Split('.', 2)[0];
-            if (!sources.Any(f => File.ReadAllText(f).Contains($"class {className}", StringComparison.Ordinal)))
+            foreach (var cited in cols[3].Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
             {
-                missing.Add(cited);
+                var className = cited.Trim('`').Split('.', 2)[0];
+                if (!sources.Any(f => File.ReadAllText(f).Contains($"class {className}", StringComparison.Ordinal)))
+                {
+                    missing.Add(cited);
+                }
             }
         }
 

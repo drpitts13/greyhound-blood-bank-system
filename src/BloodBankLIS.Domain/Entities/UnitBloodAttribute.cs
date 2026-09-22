@@ -36,5 +36,7 @@ public class UnitBloodAttribute : BaseEntity
 
     public long? SourceResultId { get; set; }
 
+    public UnitAttributeTypingSource TypingSource { get; set; } = UnitAttributeTypingSource.InHouse;
+
 }
 

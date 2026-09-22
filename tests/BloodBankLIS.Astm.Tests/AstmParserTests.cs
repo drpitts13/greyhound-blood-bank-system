@@ -149,4 +149,81 @@ public class AstmParserTests
         Assert.Contains(message.Records, r => r.Type == 'O' && r.GetComponent(5, 4) == "Screen");
         Assert.Contains(message.Records, r => r.Type == 'L');
     }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(11)]
+    [InlineData(42)]
+    public void Simulator_GroupReactionsMatchInterpretation(int seed)
+    {
+        var generated = EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Group", "ACC0010", "MRN0002", "Newborn", "Baby", "20260101", "M", seed));
+        var message = AstmParser.Parse(generated.RawMessage);
+        var grade = (string analyte) =>
+            message.Records.First(r => r.GetComponent(3, 4) == analyte).GetComponent(4, 1);
+        var interp = message.Records.First(r => r.GetComponent(3, 4) == "Group").GetField(4);
+
+        Assert.Equal("0", grade("Mono Ctrl"));
+        Assert.DoesNotContain("\\u002B", generated.RawMessage, StringComparison.Ordinal);
+        Assert.Contains('+', generated.RawMessage);
+
+        var abo = interp.StartsWith("AB", StringComparison.Ordinal) ? "AB"
+            : interp.StartsWith('O') ? "O"
+            : interp[..1];
+        var rhPos = interp.Contains("Pos", StringComparison.OrdinalIgnoreCase);
+        AssertPolarity(grade("Anti-A"), expectedPositive: abo is "A" or "AB");
+        AssertPolarity(grade("Anti-B"), expectedPositive: abo is "B" or "AB");
+        AssertPolarity(grade("Anti-D1"), expectedPositive: rhPos);
+        AssertPolarity(grade("Anti-D2"), expectedPositive: rhPos);
+        AssertPolarity(grade("A1 Cells"), expectedPositive: abo is "B" or "O");
+        AssertPolarity(grade("B Cells"), expectedPositive: abo is "A" or "O");
+    }
+
+    [Fact]
+    public void Simulator_ScreenAndCrossmatchMatchInterpretation()
+    {
+        var screen = AstmParser.Parse(EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Screen", "ACC0010", "MRN0002", "Newborn", "Baby", "20260101", "M", 8)).RawMessage);
+        var screenInterp = screen.Records.First(r => r.GetComponent(3, 4) == "Screen").GetField(4);
+        var cells = screen.Records
+            .Where(r => r.Type == 'R' && r.GetComponent(3, 4).StartsWith("Screen ", StringComparison.Ordinal))
+            .Select(r => r.GetComponent(4, 1))
+            .ToList();
+        if (screenInterp == "Negative")
+        {
+            Assert.All(cells, g => Assert.Equal("0", g));
+        }
+        else
+        {
+            Assert.Contains(cells, g => g != "0");
+        }
+
+        var xm = AstmParser.Parse(EchoResultSimulator.Generate(new EchoSimulatorRequest(
+            "Crossmatch", "ACC0001", "MRN0001", "Demo", "Patricia", "19800101", "F", 9)).RawMessage);
+        var xmInterp = xm.Records.First(r => r.GetComponent(3, 4) == "Crossmatch").GetField(4);
+        var igg = xm.Records.First(r => r.GetComponent(3, 4) == "IgG XM").GetComponent(4, 1);
+        Assert.Equal("4+", xm.Records.First(r => r.GetComponent(3, 4) == "Ind Ctrl").GetComponent(4, 1));
+        if (xmInterp.Contains("Comp", StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.Equal("0", igg);
+        }
+        else
+        {
+            Assert.NotEqual("0", igg);
+        }
+    }
+
+    private static void AssertPolarity(string grade, bool expectedPositive)
+    {
+        if (expectedPositive)
+        {
+            Assert.NotEqual("0", grade);
+            Assert.EndsWith("+", grade);
+        }
+        else
+        {
+            Assert.Equal("0", grade);
+        }
+    }
 }

@@ -48,7 +48,7 @@ else
                                 <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
                                 <td>@(u.IsDerivedComponent ? "Yes" : "")</td>
                                 <td class="right nowrap">
-                                    <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={u.BloodProductId}")">Open Inventory</a>
+                                    <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(u.BloodProductId)">Open Inventory</a>
                                 </td>
                             </tr>
                         }
@@ -91,7 +91,7 @@ else
                                         {
                                             <a class="btn btn-ghost btn-sm" href="@($"/patients/{chartPatientId}")">Open chart</a>
                                         }
-                                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={r.BloodProductId}")">Open Inventory</a>
+                                        <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(r.BloodProductId)">Open Inventory</a>
                                         @if (!string.IsNullOrWhiteSpace(r.MedicalRecordNumber))
                                         {
                                             <button class="btn btn-ghost btn-sm" @onclick="() => TraceRecipient(r.MedicalRecordNumber!)">Trace recipient</button>
@@ -231,7 +231,7 @@ else
                                         }
                                     </td>
                                     <td class="right nowrap">
-                                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={u.BloodProductId}")">Open Inventory</a>
+                                        <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(u.BloodProductId)">Open Inventory</a>
                                     </td>
                                 </tr>
                             }
@@ -260,7 +260,7 @@ else
                                     <td class="mono">@r.UnitNumber (#@r.BloodProductId)</td>
                                     <td><span class="@Ui.Badge(r.Status)">@r.Status</span></td>
                                     <td class="right nowrap">
-                                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={r.BloodProductId}")">Open Inventory</a>
+                                        <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(r.BloodProductId)">Open Inventory</a>
                                     </td>
                                 </tr>
                             }
@@ -290,7 +290,7 @@ else
                                     <td class="nowrap">@r.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                                     <td class="right nowrap">
                                         <a class="btn btn-ghost btn-sm" href="@($"/patients/{r.PatientId}")">Open chart</a>
-                                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={r.BloodProductId}")">Open Inventory</a>
+                                        <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(r.BloodProductId)">Open Inventory</a>
                                         <button class="btn btn-ghost btn-sm" @onclick="() => TraceRecipient(r.MedicalRecordNumber)">Trace</button>
                                     </td>
                                 </tr>

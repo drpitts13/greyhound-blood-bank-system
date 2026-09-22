@@ -30,7 +30,9 @@ public sealed record IssueUnitRequest(
     string? ReceivedBy = null,
     string? CoolerId = null,
     UnitAppearance Appearance = UnitAppearance.Acceptable,
-    IReadOnlyList<string>? AcknowledgedSpecialRequirementCodes = null);
+    IReadOnlyList<string>? AcknowledgedSpecialRequirementCodes = null,
+    /// <summary>Scanned P-tag ID. Required when the active P-tag layout places that field.</summary>
+    string? PtagId = null);
 
 public sealed record ComponentScanVerificationRequest(
     string Din,
@@ -44,7 +46,8 @@ public sealed record ReturnUnitRequest(
     bool TemperatureAcceptable = true,
     bool SealIntegrityAcceptable = true,
     bool VisualInspectionAcceptable = true,
-    bool TimeOutOfStorageAcceptable = true);
+    bool TimeOutOfStorageAcceptable = true,
+    UnitStatus? Destination = null);
 
 public sealed record WardReceiptRequest(
     string ReceivedBy,

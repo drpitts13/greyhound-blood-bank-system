@@ -55,6 +55,7 @@ public static partial class DatabaseSeeder
         await SeedHl7DataLoadScenarioAsync(context, ct);
         await SeedHl7BpamDataLoadScenarioAsync(context, ct);
         await SeedBillingCaptureScenarioAsync(context, ct);
+        await SeedUnitAntigenTypingScenarioAsync(context, ct);
     }
 
     // ---------------------------------------------------------------------
@@ -673,6 +674,23 @@ public static partial class DatabaseSeeder
             await context.SaveChangesAsync(ct);
         }
     }
+
+    private static ProductRetypeResult VerifiedLabelRetype(BloodUnit unit, TestDefinition test, DateTime now) =>
+        new()
+        {
+            BloodProductId = unit.Id,
+            TestDefinitionId = test.Id,
+            TestCode = test.Code,
+            Value = string.Empty,
+            InterpretedAbo = unit.Abo,
+            InterpretedRh = unit.RhD,
+            MatchesLabel = true,
+            Status = ResultStatus.Verified,
+            EnteredBy = "tech1",
+            EnteredUtc = now.AddHours(-3),
+            VerifiedBy = "tech1",
+            VerifiedUtc = now.AddHours(-3)
+        };
 
     private static BloodUnit NewUnit(
         int serial,
@@ -2404,6 +2422,190 @@ public static partial class DatabaseSeeder
 
         var log = await context.Hl7Messages.SingleAsync(m => m.MessageControlId == controlId, ct);
         billingEvent.Hl7MessageId = log.Id;
+        await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// A patient with two assigned red-cell units and no unit antigen attributes,
+    /// so unit antigen typing can be entered from the products tab.
+    /// </summary>
+    private static async Task SeedUnitAntigenTypingScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0010", ct))
+        {
+            return;
+        }
+
+        var redCells = await context.ProductTypes.FirstOrDefaultAsync(p => p.ProductCode == "RBC-LR", ct);
+        var fridge = await context.InventoryLocations.FirstOrDefaultAsync(l => l.Code == "FRIDGE-1", ct);
+        var location = await context.OrderingLocations.FirstOrDefaultAsync(l => l.Code == "ICU", ct);
+        if (redCells is null || fridge is null || location is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        var visit = await AddPatientVisitAsync(
+            context,
+            mrn: "MRN0010",
+            last: "Kline",
+            first: "Nora",
+            dateOfBirth: new DateOnly(1966, 9, 3),
+            sex: Sex.Female,
+            visitNumber: "VIS-2026-020",
+            encounterType: EncounterType.Inpatient,
+            currentLocation: "6E Oncology",
+            accession: "ACC0020",
+            specimenType: "EDTA",
+            collectedUtc: now.AddHours(-4),
+            ct);
+
+        var screenOrder = new Order
+        {
+            OrderNumber = "ORD0018",
+            PatientId = visit.Patient.Id,
+            EncounterId = visit.Encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Test,
+            OrderName = "Type and Screen",
+            OrderType = OrderType.TypeAndScreen,
+            TestCode = "TNS",
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.Completed,
+            Source = OrderSource.Manual,
+            OrderedUtc = now.AddHours(-4),
+            ResultStatus = ResultStatus.Verified
+        };
+        var productOrder = new Order
+        {
+            OrderNumber = "ORD0019",
+            PatientId = visit.Patient.Id,
+            EncounterId = visit.Encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product,
+            OrderName = "Red Blood Cells",
+            OrderType = OrderType.Other,
+            ProductTypeId = redCells.Id,
+            Priority = OrderPriority.Routine,
+            Status = OrderStatus.InProcess,
+            Source = OrderSource.Manual,
+            OrderedUtc = now.AddHours(-3),
+            FulfillmentStatus = FulfillmentStatus.Ordered
+        };
+        context.Orders.AddRange(screenOrder, productOrder);
+        await context.SaveChangesAsync(ct);
+
+        context.OrderLines.AddRange(
+            new OrderLine
+            {
+                OrderId = screenOrder.Id,
+                LineNumber = 1,
+                LineCategory = OrderCategory.Test,
+                LineName = "ABO/Rh Type",
+                TestCode = "ABORH",
+                OrderType = OrderType.AboRh,
+                ResultStatus = ResultStatus.Verified
+            },
+            new OrderLine
+            {
+                OrderId = screenOrder.Id,
+                LineNumber = 2,
+                LineCategory = OrderCategory.Test,
+                LineName = "Antibody Screen",
+                TestCode = "ABSC",
+                OrderType = OrderType.AntibodyScreen,
+                ResultStatus = ResultStatus.Verified
+            },
+            new OrderLine
+            {
+                OrderId = productOrder.Id,
+                LineNumber = 1,
+                LineCategory = OrderCategory.Product,
+                LineName = "Red Blood Cells",
+                ProductTypeId = redCells.Id,
+                OrderType = OrderType.Other,
+                FulfillmentStatus = FulfillmentStatus.Ordered
+            });
+        context.OrderSpecimens.Add(new OrderSpecimen
+        {
+            OrderId = screenOrder.Id,
+            SpecimenId = visit.Specimen.Id,
+            IsPrimary = true
+        });
+        context.TestResults.AddRange(
+            VerifiedResult(visit, screenOrder.Id, "ABORH", AboRhResultValue.Format(AboGroup.O, RhType.Positive), now.AddHours(-3)),
+            VerifiedResult(visit, screenOrder.Id, "ABSC", "Negative", now.AddHours(-3)));
+        context.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = visit.Patient.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+
+        var first = new BloodUnit
+        {
+            UnitNumber = "W000123UAG0001",
+            ProductTypeId = redCells.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = now.AddDays(21),
+            CurrentLocationId = fridge.Id,
+            Status = UnitStatus.Assigned,
+            CollectionFacility = "Regional Blood Center"
+        };
+        var second = new BloodUnit
+        {
+            UnitNumber = "W000123UAG0002",
+            ProductTypeId = redCells.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = now.AddDays(18),
+            CurrentLocationId = fridge.Id,
+            Status = UnitStatus.Assigned,
+            CollectionFacility = "Regional Blood Center"
+        };
+        context.BloodUnits.AddRange(first, second);
+        await context.SaveChangesAsync(ct);
+
+        var retypeTest = await context.TestDefinitions.FirstOrDefaultAsync(
+            t => t.Code == ProductRetypeAssignment.RhPositiveTestCode, ct);
+        if (retypeTest is not null)
+        {
+            context.ProductRetypeResults.AddRange(
+                VerifiedLabelRetype(first, retypeTest, now),
+                VerifiedLabelRetype(second, retypeTest, now));
+        }
+
+        context.Allocations.AddRange(
+            new Allocation
+            {
+                BloodProductId = first.Id,
+                PatientId = visit.Patient.Id,
+                EncounterId = visit.Encounter.Id,
+                OrderId = productOrder.Id,
+                SpecimenId = visit.Specimen.Id,
+                Status = AllocationStatus.Reserved,
+                AssignmentType = AssignmentType.Reservation,
+                AllocatedUtc = now.AddHours(-2),
+                AllocatedBy = "tech1",
+                ExpiresUtc = now.AddHours(24)
+            },
+            new Allocation
+            {
+                BloodProductId = second.Id,
+                PatientId = visit.Patient.Id,
+                EncounterId = visit.Encounter.Id,
+                OrderId = productOrder.Id,
+                SpecimenId = visit.Specimen.Id,
+                Status = AllocationStatus.Reserved,
+                AssignmentType = AssignmentType.Reservation,
+                AllocatedUtc = now.AddHours(-2),
+                AllocatedBy = "tech1",
+                ExpiresUtc = now.AddHours(24)
+            });
+
         await context.SaveChangesAsync(ct);
     }
 

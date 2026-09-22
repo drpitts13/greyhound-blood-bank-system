@@ -3,38 +3,66 @@
 <div class="bb-card">
     <div class="bb-card-title flex-between">
         <h3>Allocated products</h3>
-        @if (Session.Has(PermissionCodes.CompatibilityAllocate))
-        {
-            <button type="button" class="btn btn-primary btn-sm" @onclick="OnToggleAllocate">@(ShowAllocate ? "Cancel" : "Allocate unit")</button>
-        }
+        <div class="flex gap">
+            <label class="checkbox-item">
+                <input type="checkbox" checked="@ShowIssuedTransfused" @onchange="OnToggleIssued" />
+                Show issued/transfused
+            </label>
+            @if (Session.Has(PermissionCodes.CompatibilityAllocate))
+            {
+                <button type="button" class="btn btn-primary btn-sm" @onclick="OnToggleAllocate">@(ShowAllocate ? "Cancel" : "Allocate unit")</button>
+            }
+        </div>
     </div>
     <Outcome Value="AllocFeedback" />
     @if (AllocLoading) { <div class="loading">Loading allocations...</div> }
-    else if (Allocations.Count == 0) { <div class="empty">No active product allocations.</div> }
+                else if (Allocations.Count == 0) { <div class="empty">@(ShowIssuedTransfused ? "No product allocations." : "No active product allocations.")</div> }
     else
     {
         <table class="bb">
-            <thead><tr><th>Unit number</th><th>Product code</th><th>Status</th><th></th></tr></thead>
+                    <thead><tr><th>Unit number</th><th>Product code</th><th>Status</th><th>Unit</th><th></th></tr></thead>
             <tbody>
                 @foreach (var a in Allocations)
                 {
                     <tr>
-                        <td class="mono">@a.UnitNumber</td>
+                        <td class="mono">
+                            @if (a.BloodUnitId > 0)
+                            {
+                                <a href="@InventoryUrls.Unit(a.BloodUnitId)">@(string.IsNullOrWhiteSpace(a.UnitNumber) ? $"#{a.BloodUnitId}" : a.UnitNumber)</a>
+                            }
+                            else
+                            {
+                                @(string.IsNullOrWhiteSpace(a.UnitNumber) ? "—" : a.UnitNumber)
+                            }
+                        </td>
                         <td class="mono">@a.ProductCode</td>
                         <td><span class="@Ui.Badge(a.DisplayStatus)">@DisplayAllocationStatus(a.DisplayStatus)</span></td>
+                        <td><span class="@Ui.Badge(a.UnitStatus)">@Ui.StatusLabel(a.UnitStatus)</span></td>
                         <td>
                             <div class="flex gap" style="flex-wrap:wrap;">
                                 @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
                                 {
                                     <a class="btn btn-ghost btn-sm" href="@CompatibilityHref.Invoke(a.SpecimenId, a.BloodUnitId)">Crossmatch</a>
                                 }
-                                @foreach (var action in a.PendingActions ?? [])
+                                @if (Session.Has(PermissionCodes.InventoryModify) && a.IssueId is null && a.AllocationStatus == AllocationStatus.Reserved)
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="@ModifyUnitHref(a)">Modify</a>
+                                }
+                                @if (CanTypeUnitAntigens(a))
+                                {
+                                    <a class="btn btn-secondary btn-sm" href="@UnitAntigenTypingHref(a)">Unit antigen typing</a>
+                                }
+                                @foreach (var action in (a.PendingActions ?? []).Where(x => x.Category == ActionCategory.Modification))
                                 {
                                     <a class="btn btn-secondary btn-sm" href="@ModifyActionHref(a, action)">@action.ActionName</a>
                                 }
-                                @if (Session.Has(PermissionCodes.IssueCreate))
+                                @if (Session.Has(PermissionCodes.IssueCreate) && a.IssueId is null)
                                 {
-                                    <button type="button" class="btn btn-primary btn-sm" disabled="@(Busy || HasPendingActions(a))" @onclick="() => OnBeginIssue.InvokeAsync(a)">Issue</button>
+                                    <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnBeginIssue.InvokeAsync(a)">Issue</button>
+                                }
+                                @if (a.IssueId is long issueId && a.IssueStatus == IssueStatus.Issued && Session.Has(PermissionCodes.TransfusionDocument))
+                                {
+                                    <button type="button" class="btn btn-link btn-sm" disabled="@Busy" @onclick="() => OnMarkTransfused.InvokeAsync(issueId)">Transfuse</button>
                                 }
                                 @if (Session.Has(PermissionCodes.CompatibilityAllocate))
                                 {
@@ -57,7 +85,7 @@
                 {
                     <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="OnPrintPtag">Print P-tag</button>
                 }
-                <a class="btn btn-secondary btn-sm" href="@($"/printing?issueId={LastIssue.Id}")">Open Printing</a>
+                <a class="btn btn-secondary btn-sm" href="@(PrintedJobId is long jobId ? $"/printing?jobId={jobId}" : $"/printing?issueId={LastIssue.Id}")">Open Printing</a>
             </div>
             <Outcome Value="PtagFeedback" />
         </div>
@@ -116,6 +144,25 @@
                 </select>
             </div>
             <UnitScanVerificationPanel Scan="IssueScan" />
+            @if (PtagRequired && Session.Has(PermissionCodes.PrintLabel))
+            {
+                <div class="alert alert-warning" style="margin-top:.75rem;">
+                    <strong>P-tag ID</strong>
+                    <p class="muted">Print the compatibility tag, then scan the P-tag ID before issuing.</p>
+                    <div class="flex gap" style="flex-wrap:wrap;align-items:end;">
+                        <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="OnPrintPreparedPtag">Print P-tag</button>
+                        <div class="field" style="min-width:14rem;margin:0;">
+                            <label>Scanned P-tag ID</label>
+                            <input value="@PtagId" @oninput="OnPtagTyped" autocomplete="off" />
+                        </div>
+                        @if (PreparedJobId is long preparedJob)
+                        {
+                            <a class="btn btn-ghost btn-sm" href="@($"/printing?jobId={preparedJob}")">Open preview</a>
+                        }
+                    </div>
+                    <Outcome Value="PtagPrepareFeedback" />
+                </div>
+            }
             @if (AcknowledgmentSpecialRequirements.Any())
             {
                 <div class="alert alert-warning" style="margin-top:.75rem;">
@@ -142,7 +189,7 @@
                         <div class="field"><label>Password / PIN</label><input type="password" @bind="IssueSignatureSecret" @bind:after="() => IssueSignatureSecretChanged.InvokeAsync(IssueSignatureSecret)" /></div>
                     </div>
                     <div class="flex gap" style="margin-top:.5rem;">
-                        <button class="btn btn-danger btn-sm" disabled="@Busy" @onclick="OnIssueOverride">Sign &amp; issue</button>
+                        <button class="btn btn-danger btn-sm" disabled="@(Busy || PtagScanMissing)" @onclick="OnIssueOverride">Sign &amp; issue</button>
                         <button class="btn btn-ghost btn-sm" @onclick="OnCancelIssue">Cancel</button>
                     </div>
                 </div>
@@ -150,7 +197,7 @@
             else
             {
                 <div class="flex gap" style="margin-top:.75rem;">
-                    <button class="btn btn-primary" disabled="@Busy" @onclick="OnConfirmIssue">Confirm issue</button>
+                    <button class="btn btn-primary" disabled="@(Busy || PtagScanMissing)" @onclick="OnConfirmIssue">Confirm issue</button>
                     <button class="btn btn-ghost" @onclick="OnCancelIssue">Cancel</button>
                 </div>
             }
@@ -173,7 +220,7 @@
 {
     <div class="bb-card" style="margin-top:1rem;">
         <div class="bb-card-title"><h3>Allocate unit</h3></div>
-        <p class="muted">Select an ABO/Rh-compatible Available unit. Crossmatch-required products will order the selected XM/CXM test.</p>
+        <p class="muted">Select an open product order and an ABO/Rh-compatible Available unit that has completed retype when the product requires it. Crossmatch-required products attach EXM, XM, or CXM automatically. An unretyped unit can leave inventory only through emergency or MTP issue.</p>
         @if (OpenAbidWorkups.Count > 0)
         {
             <div class="alert alert-warning">
@@ -192,10 +239,19 @@
                     }
                 </select>
             </div>
-            <div class="field"><label>Specimen (optional)</label>
+            <div class="field"><label>Order</label>
+                <select value="@AllocOrderId" @onchange="e => OnAllocOrderPicked.InvokeAsync(ParseLong(e.Value))">
+                    <option value="0">— Select open product order —</option>
+                    @foreach (var o in AllocatableOrders.Where(o => SelectedUnit is null || o.ProductTypeId == SelectedUnit.ProductTypeId))
+                    {
+                        <option value="@o.OrderId">@o.OrderNumber — @o.OrderName @(o.AccessionNumber is null ? "" : $"({o.AccessionNumber})")</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Specimen</label>
                 <select @bind="AllocSpecimenId" @bind:after="() => AllocSpecimenIdChanged.InvokeAsync(AllocSpecimenId)">
-                    <option value="0">— None —</option>
-                    @foreach (var s in LinkableSpecimens)
+                    <option value="0">— Order specimen —</option>
+                    @foreach (var s in LinkableSpecimens.Where(x => x.HasCompletedTypeAndScreen))
                     {
                         <option value="@s.Id">@s.AccessionNumber</option>
                     }
@@ -246,7 +302,7 @@
         }
 
         <div class="flex gap" style="margin-top:1rem;">
-            <button class="btn btn-primary" disabled="@(Busy || SelectedUnitId is null)" @onclick="OnReserve">Reserve unit</button>
+            <button class="btn btn-primary" disabled="@(Busy || SelectedUnitId is null || AllocOrderId <= 0)" @onclick="OnReserve">Reserve unit</button>
         </div>
     </div>
 }
@@ -259,6 +315,7 @@
     [Parameter] public IReadOnlyList<PatientAllocationRowDto> Allocations { get; set; } = [];
     [Parameter] public IssueDto? LastIssue { get; set; }
     [Parameter] public Feedback? PtagFeedback { get; set; }
+    [Parameter] public long? PrintedJobId { get; set; }
     [Parameter] public PatientAllocationRowDto? IssuingAllocation { get; set; }
     [Parameter] public Feedback? IssueFeedback { get; set; }
     [Parameter] public DateTime IssueLocalDateTime { get; set; }
@@ -298,6 +355,12 @@
     [Parameter] public IEnumerable<SpecialRequirementDto> AcknowledgmentSpecialRequirements { get; set; } = [];
     [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];
     [Parameter] public IEnumerable<SpecimenDto> LinkableSpecimens { get; set; } = [];
+    [Parameter] public IReadOnlyList<AllocatableOrderDto> AllocatableOrders { get; set; } = [];
+    [Parameter] public long AllocOrderId { get; set; }
+    [Parameter] public EventCallback<long?> OnAllocOrderPicked { get; set; }
+    [Parameter] public bool ShowIssuedTransfused { get; set; }
+    [Parameter] public EventCallback OnToggleIssuedTransfused { get; set; }
+    [Parameter] public EventCallback<long> OnMarkTransfused { get; set; }
     [Parameter] public bool CompatUnitsLoading { get; set; }
     [Parameter] public string? CompatUnitsError { get; set; }
     [Parameter] public IReadOnlyList<CompatibleUnitDto> CompatibleUnits { get; set; } = [];
@@ -312,6 +375,12 @@
     [Parameter] public EventCallback<PatientAllocationRowDto> OnBeginIssue { get; set; }
     [Parameter] public EventCallback<PatientAllocationRowDto> OnBeginRelease { get; set; }
     [Parameter] public EventCallback OnPrintPtag { get; set; }
+    [Parameter] public bool PtagRequired { get; set; }
+    [Parameter] public string PtagId { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> PtagIdChanged { get; set; }
+    [Parameter] public EventCallback OnPrintPreparedPtag { get; set; }
+    [Parameter] public Feedback? PtagPrepareFeedback { get; set; }
+    [Parameter] public long? PreparedJobId { get; set; }
     [Parameter] public EventCallback<(string? Code, bool On)> OnToggleIssueAck { get; set; }
     [Parameter] public EventCallback OnConfirmIssue { get; set; }
     [Parameter] public EventCallback OnIssueOverride { get; set; }
@@ -322,6 +391,10 @@
     [Parameter] public EventCallback OnReserve { get; set; }
     [Parameter] public long PatientId { get; set; }
 
+    private bool PtagScanMissing => PtagRequired && string.IsNullOrWhiteSpace(PtagId);
+
+    private Task OnPtagTyped(ChangeEventArgs e) => PtagIdChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
+
     private Task OnSecondVerifierChanged(string? value)
     {
         IssueSecondVerifier = value;
@@ -331,14 +404,26 @@
     private static bool IsChecked(ChangeEventArgs e) =>
         e.Value is true || string.Equals(Convert.ToString(e.Value), "true", StringComparison.OrdinalIgnoreCase);
 
-    private static bool HasPendingActions(PatientAllocationRowDto allocation) =>
-        allocation.PendingActions is { Count: > 0 };
-
     private string ModifyActionHref(PatientAllocationRowDto allocation, OrderActionDto action)
     {
         var returnUrl = Uri.EscapeDataString($"/patients/{PatientId}?tab=products");
         var type = action.ModificationType?.ToString() ?? string.Empty;
         return $"/inventory/modify?unitId={allocation.BloodUnitId}&orderActionId={action.Id}&modificationType={type}&returnUrl={returnUrl}";
+    }
+
+    private bool CanTypeUnitAntigens(PatientAllocationRowDto allocation) =>
+        Session.Has(PermissionCodes.ResultEnter)
+        && allocation.IssueId is null
+        && allocation.AllocationStatus == AllocationStatus.Reserved
+        && allocation.UnitStatus is UnitStatus.Assigned or UnitStatus.Allocated or UnitStatus.Crossmatched;
+
+    private string UnitAntigenTypingHref(PatientAllocationRowDto allocation) =>
+        $"/patients/{PatientId}/unit-antigen-typing/{allocation.BloodUnitId}?allocationId={allocation.AllocationId}";
+
+    private string ModifyUnitHref(PatientAllocationRowDto allocation)
+    {
+        var returnUrl = Uri.EscapeDataString($"/patients/{PatientId}?tab=products");
+        return $"/inventory/modify?unitId={allocation.BloodUnitId}&returnUrl={returnUrl}";
     }
 
     private static string DisplayAllocationStatus(ProductAllocationDisplayStatus status) => status switch
@@ -348,4 +433,9 @@
         ProductAllocationDisplayStatus.Reserved => "Reserved",
         _ => status.ToString()
     };
+
+    private Task OnToggleIssued() => OnToggleIssuedTransfused.InvokeAsync();
+
+    private static long? ParseLong(object? value) =>
+        long.TryParse(value?.ToString(), out var id) ? id : null;
 }

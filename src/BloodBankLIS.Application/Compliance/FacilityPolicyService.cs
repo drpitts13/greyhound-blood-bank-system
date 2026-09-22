@@ -48,6 +48,9 @@ public sealed class FacilityPolicyService
     public Task<int> GetInTransitDueHoursAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.InTransitDueHours, 4, ct);
 
+    public Task<int> GetReturnToAvailableMinutesAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.ReturnToAvailableMinutes, ReturnReissueRule.DefaultReturnToAvailableMinutes, ct);
+
     public Task<bool> GetRequireQuarantineReleaseVerifierAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireQuarantineReleaseVerifier, true, ct);
 
@@ -114,4 +117,7 @@ public sealed class FacilityPolicyService
             blockSelf,
             AntibodyIdentificationPolicy.DefaultDosageSensitiveCodes);
     }
+
+    public Task<bool> GetProductChargeOnTransfuseAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.ProductChargeOnTransfuse, false, ct);
 }

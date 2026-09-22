@@ -368,11 +368,48 @@ public class OrderActionTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
-    public async Task Issue_BlockedWhileActionPending_AndAllowedAfterComplete()
+    public async Task Issue_WithPendingAction_CancelsActionAndDoesNotBill()
     {
         await using var c = _factory.Create();
         var (patient, encounter, location, source, _) = await SeedOrderContextAsync(c, "ISSUE");
         var action = await SeedActionAsync(c, "IRRAD-ISSUE");
+        var charge = new ChargeCode { Code = "BB-IRRAD-ISSUE", Description = "Irradiation", DefaultAmount = 85m };
+        c.ChargeCodes.Add(charge);
+        await c.SaveChangesAsync();
+        c.ActionBillings.Add(new ActionBilling
+        {
+            ActionDefinitionId = action.Id,
+            ChargeCodeId = charge.Id,
+            Trigger = BillingTriggerType.ActionCompleted,
+            IsActive = true
+        });
+        c.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Source = BloodTypeSource.TestResult,
+                IsCurrent = true
+            },
+            new PatientBloodTypeHistory
+            {
+                PatientId = patient.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Source = BloodTypeSource.HistoricalImport,
+                IsCurrent = false
+            });
+        c.Specimens.Add(new Specimen
+        {
+            AccessionNumber = "ACC-ISSUE-MOD",
+            PatientId = patient.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-2),
+            ReceivedUtc = _factory.Clock.UtcNow.AddHours(-1),
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(2),
+            Status = SpecimenStatus.Accepted
+        });
         var unit = new BloodUnit
         {
             UnitNumber = "U-ISSUE-SRC",
@@ -402,18 +439,87 @@ public class OrderActionTests : IClassFixture<SqliteContextFactory>
             AllocatedUtc = _factory.Clock.UtcNow,
             AllocatedBy = "tech"
         });
+        c.Crossmatches.Add(new Crossmatch
+        {
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            SpecimenId = 0,
+            Method = CrossmatchMethod.Serologic,
+            Result = CrossmatchResult.Compatible,
+            PerformedUtc = _factory.Clock.UtcNow,
+            PerformedBy = "tech"
+        });
         await c.SaveChangesAsync();
 
-        var blocked = await Issuing(c).IssueUnitAsync(new IssueUnitRequest(unit.Id, patient.Id));
-        Assert.False(blocked.Succeeded);
-        Assert.Contains("pending modification action", blocked.Error, StringComparison.OrdinalIgnoreCase);
+        var issued = await Issuing(c).IssueUnitAsync(new IssueUnitRequest(
+            unit.Id,
+            patient.Id,
+            PatientIdentifier1Value: patient.MedicalRecordNumber,
+            PatientIdentifier2Value: patient.DateOfBirth.ToString("yyyy-MM-dd")));
+        Assert.True(
+            issued.Succeeded,
+            issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => $"{r.Code}: {r.Message}") ?? []));
 
         var orderAction = await c.OrderActions.SingleAsync(a => a.OrderId == created.Value.Id);
-        orderAction.Status = OrderActionStatus.Completed;
+        Assert.Equal(OrderActionStatus.Cancelled, orderAction.Status);
+        Assert.DoesNotContain(
+            c.BillingEvents,
+            e => e.BillingCode == "BB-IRRAD-ISSUE"
+                 || e.TriggerEntityId == orderAction.Id);
+    }
+
+    [Fact]
+    public async Task EligibleModifications_FilterBySourceProductType()
+    {
+        await using var c = _factory.Create();
+        var source = new ProductType { ProductCode = "SRC-ELIG", Name = "RBC" };
+        var other = new ProductType { ProductCode = "OTH-ELIG", Name = "Plasma" };
+        var target = new ProductType { ProductCode = "TGT-ELIG", Name = "Irradiated RBC" };
+        c.ProductTypes.AddRange(source, other, target);
+        var exp = new ExpirationModificationCode
+        {
+            Code = "24H-ELIG",
+            OffsetAmount = 24,
+            OffsetUnit = ExpirationOffsetUnit.Hours,
+            RelativeTo = ExpirationRelativeTo.ModificationDateTime,
+            IsActive = true
+        };
+        c.ExpirationModificationCodes.Add(exp);
+        await c.SaveChangesAsync();
+        c.ModificationRules.AddRange(
+            new ModificationRule
+            {
+                ModificationCode = "IRR-ELIG",
+                SourceProductTypeId = source.Id,
+                TargetProductTypeId = target.Id,
+                ModificationType = ModificationType.Irradiate,
+                ExpirationModificationCodeId = exp.Id,
+                IsActive = true
+            },
+            new ModificationRule
+            {
+                ModificationCode = "THAW-ELIG",
+                SourceProductTypeId = other.Id,
+                TargetProductTypeId = target.Id,
+                ModificationType = ModificationType.Thaw,
+                ExpirationModificationCodeId = exp.Id,
+                IsActive = true
+            });
+        var unit = new BloodUnit
+        {
+            UnitNumber = "U-ELIG",
+            ProductTypeId = source.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10),
+            Status = UnitStatus.Assigned
+        };
+        c.BloodUnits.Add(unit);
         await c.SaveChangesAsync();
 
-        var after = await Issuing(c).IssueUnitAsync(new IssueUnitRequest(unit.Id, patient.Id));
-        Assert.DoesNotContain("pending modification action", after.Error ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        var eligible = await Modifications(c).GetEligibleModificationsAsync(unit.Id);
+        Assert.Contains(eligible, e => e.ModificationCode == "IRR-ELIG");
+        Assert.DoesNotContain(eligible, e => e.ModificationCode == "THAW-ELIG");
     }
 }
 

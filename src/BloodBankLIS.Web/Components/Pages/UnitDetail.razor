@@ -1,0 +1,902 @@
+@page "/inventory/units/{UnitId:long}"
+@using BloodBankLIS.Application.Inventory
+@using BloodBankLIS.Application.Issuing
+@using BloodBankLIS.Application.Reference
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>@(UnitNumberTitle) &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<InventoryDeskRibbon Current="InventoryDeskRibbon.Desk.Inventory" />
+
+@if (_loading)
+{
+    <div class="loading">Loading unit...</div>
+}
+else if (_unit is null)
+{
+    <div class="alert alert-danger">@(_error ?? "Unit not found.")</div>
+    <a class="btn btn-secondary" href="/inventory">Back to inventory</a>
+}
+else
+{
+    <UnitChartHeader Unit="_unit" ProductCode="@ProductCode(_unit)" ProductName="@ProductName(_unit.ProductTypeId)" LocationName="@LocationName(_unit.CurrentLocationId)" />
+    <UnitChartTabBar Current="_tab" OnSelect="SelectTab" />
+    <Outcome Value="_actionFb" />
+
+    @if (_tab == "overview")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Unit identity</h3></div>
+            <div class="form-row">
+                <div class="field"><label>Unit number</label><div class="mono">@_unit.UnitNumber</div></div>
+                <div class="field"><label>Component identity</label><div class="mono">@(_unit.ComponentIdentity ?? "—")</div></div>
+                <div class="field"><label>DIN</label><div class="mono">@(_unit.Din ?? "—")</div></div>
+                <div class="field"><label>Product code</label><div class="mono">@ProductCode(_unit)</div></div>
+                <div class="field"><label>Product</label><div>@ProductName(_unit.ProductTypeId)</div></div>
+                <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
+                <div class="field"><label>Expires</label><div class="nowrap">@_unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+                <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@Ui.StatusLabel(_unit.Status)</span></div></div>
+                <div class="field"><label>Location</label><div>@LocationName(_unit.CurrentLocationId)</div></div>
+                <div class="field"><label>Volume</label><div>@(_unit.Volume is { } vol ? vol.ToString("0.###") : "—")</div></div>
+                <div class="field"><label>Supplier</label><div>@(string.IsNullOrWhiteSpace(_unit.Supplier) ? "—" : _unit.Supplier)</div></div>
+                <div class="field"><label>Collection facility</label><div>@(string.IsNullOrWhiteSpace(_unit.CollectionFacility) ? "—" : _unit.CollectionFacility)</div></div>
+                <div class="field"><label>Collected</label><div>@(_unit.CollectionDateTime?.ToString("yyyy-MM-dd HH:mm") ?? "—")</div></div>
+                <div class="field"><label>Processing facility</label><div>@(string.IsNullOrWhiteSpace(_unit.ProcessingFacilityCode) ? "—" : _unit.ProcessingFacilityCode)</div></div>
+                <div class="field"><label>Shipment</label><div class="mono">@(_unit.ShipmentId ?? "—")</div></div>
+                <div class="field"><label>Donation</label><div>@_unit.DonationRestriction@(_unit.ReservedPatientId is long pid ? $" — {RecipientLabel(pid)}" : "")</div></div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_unit.HoldReason) || _unit.QuarantineReasonCode != UnitQuarantineReason.Unspecified || !string.IsNullOrWhiteSpace(_unit.QuarantineReason) || !string.IsNullOrWhiteSpace(_unit.MissingReason) || !string.IsNullOrWhiteSpace(_unit.DamagedReason) || !string.IsNullOrWhiteSpace(_unit.SupplierReturnReason) || !string.IsNullOrWhiteSpace(_unit.ReceiveVisualNotes) || _unit.ReceiveAppearance != UnitAppearance.Acceptable || _unit.ReceiveTemperatureCelsius is not null || !string.IsNullOrWhiteSpace(_unit.DirectedConversionReason) || _unit.ExpectedArrivalDueUtc is not null)
+            {
+                <p class="muted">
+                    @if (_unit.ExpectedArrivalDueUtc is DateTime due)
+                    {
+                        <span>Expected by: @due.ToString("yyyy-MM-dd HH:mm") UTC@(due < DateTime.UtcNow && _unit.Status == UnitStatus.Expected ? " (overdue)" : "")</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_unit.HoldReason))
+                    {
+                        <span>Hold: @_unit.HoldReason</span>
+                    }
+                    @if (_unit.QuarantineReasonCode != UnitQuarantineReason.Unspecified || !string.IsNullOrWhiteSpace(_unit.QuarantineReason))
+                    {
+                        <span>Quarantine: @_unit.QuarantineReasonCode@(string.IsNullOrWhiteSpace(_unit.QuarantineReason) ? "" : $" — {_unit.QuarantineReason}")</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_unit.MissingReason))
+                    {
+                        <span>Missing: @_unit.MissingReason</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_unit.DamagedReason))
+                    {
+                        <span>Damaged: @_unit.DamagedReason</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_unit.SupplierReturnReason))
+                    {
+                        <span>Returned to supplier: @_unit.SupplierReturnReason</span>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_unit.DirectedConversionReason))
+                    {
+                        <span>Converted from directed@(_unit.DirectedConvertedBy is string by ? $" by {by}" : ""): @_unit.DirectedConversionReason</span>
+                    }
+                    @if (_unit.ReceiveAppearance != UnitAppearance.Acceptable || !string.IsNullOrWhiteSpace(_unit.ReceiveVisualNotes))
+                    {
+                        <span>Appearance: @_unit.ReceiveAppearance@(string.IsNullOrWhiteSpace(_unit.ReceiveVisualNotes) ? "" : $" — {_unit.ReceiveVisualNotes}")</span>
+                    }
+                    @if (_unit.ReceiveTemperatureCelsius is decimal temp)
+                    {
+                        <span>Receipt temperature: @temp.ToString("0.#") °C</span>
+                    }
+                </p>
+            }
+        </div>
+    }
+
+    @if (_tab == "actions")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Actions</h3></div>
+            <div class="stack">
+                <div class="flex gap" style="flex-wrap:wrap;">
+                    @if (_unit.Status == UnitStatus.Quarantine && Session.Has(PermissionCodes.InventoryRelease))
+                    {
+                        <div class="field" style="min-width:16rem;">
+                            <label>Second verifier</label>
+                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                Items="VerifierChoices"
+                                @bind-Value="_releaseSecondVerifier"
+                                DisplayText="@(x => x.Label)"
+                                ItemValue="@(x => x.UserName)"
+                                SearchText="@(x => x.Label)"
+                                Clearable="true"
+                                Placeholder="Different active user" />
+                        </div>
+                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(_unit.Id)">Release from quarantine</button>
+                    }
+                    @if (_unit.Status == UnitStatus.Expected && Session.Has(PermissionCodes.InventoryReceive))
+                    {
+                        <div class="field" style="min-width:14rem;">
+                            <label>Appearance</label>
+                            <select @bind="_arrivalAppearance">
+                                @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
+                            </select>
+                        </div>
+                        <div class="field" style="min-width:16rem;">
+                            <label>Arrival notes</label>
+                            <input @bind="_arrivalVisualNotes" placeholder="Appearance, defects" />
+                        </div>
+                        <div class="field" style="min-width:12rem;">
+                            <label>Receipt temperature (°C)</label>
+                            <input type="number" step="0.1" @bind="_arrivalTemperatureCelsius" placeholder="e.g. 4.0" />
+                        </div>
+                        <div class="field" style="min-width:16rem;">
+                            <label>Second verifier</label>
+                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                Items="VerifierChoices"
+                                @bind-Value="_arrivalSecondVerifier"
+                                DisplayText="@(x => x.Label)"
+                                ItemValue="@(x => x.UserName)"
+                                SearchText="@(x => x.Label)"
+                                Clearable="true"
+                                Placeholder="Different active user" />
+                        </div>
+                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReceiveExpectedAsync(_unit.Id)">Confirm arrival</button>
+                        <div class="field" style="min-width:16rem;">
+                            <label>Cancel reason</label>
+                            <input @bind="_cancelExpectedReason" placeholder="Not shipped / cancelled ASN" />
+                        </div>
+                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_cancelExpectedReason))" @onclick="() => CancelExpectedAsync(_unit.Id)">Cancel expected</button>
+                        <div class="field" style="min-width:16rem;">
+                            <label>Return to supplier</label>
+                            <input @bind="_supplierReturnReason" placeholder="Failed inspection / refused at dock" />
+                        </div>
+                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_supplierReturnReason))" @onclick="() => ReturnToSupplierAsync(_unit.Id)">Return to supplier</button>
+                    }
+                    @if (_unit.Status == UnitStatus.OnHold && Session.Has(PermissionCodes.InventoryRelease))
+                    {
+                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseHoldAsync(_unit.Id)">Release from hold</button>
+                    }
+                    @if (_unit.Status == UnitStatus.Missing && Session.Has(PermissionCodes.InventoryRelease))
+                    {
+                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => LocateMissingAsync(_unit.Id)">Unit located</button>
+                    }
+                    @if (_unit.Status == UnitStatus.Damaged && Session.Has(PermissionCodes.InventoryRelease))
+                    {
+                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => InspectDamagedAsync(_unit.Id)">Inspect into quarantine</button>
+                    }
+                    @if (Session.Has(PermissionCodes.PrintLabel))
+                    {
+                        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => PrintComponentLabelAsync(_unit.Id)">Print component label</button>
+                        <a class="btn btn-ghost btn-sm" href="@(_componentJobId is long jobId ? $"/printing?jobId={jobId}" : $"/printing?unitId={_unit.Id}")">Open Printing</a>
+                    }
+                    @if (_unit.Status is UnitStatus.Received or UnitStatus.Quarantine)
+                    {
+                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?board=retype&unitId={_unit.Id}#pending-retype")">Open retype desk</a>
+                    }
+                    @if (Session.Has(PermissionCodes.InventoryModify) && _unit.Status is UnitStatus.Assigned or UnitStatus.Allocated or UnitStatus.Crossmatched)
+                    {
+                        <div class="field" style="min-width:20rem;">
+                            <label>Eligible modification</label>
+                            <select @bind="_selectedEligibleRuleId">
+                                <option value="0">— Select modification for this product —</option>
+                                @foreach (var m in _eligibleMods.Where(m => m.IsAvailable))
+                                {
+                                    <option value="@m.RuleId">@m.ModificationCode — @m.ModificationType → @m.TargetProductCode</option>
+                                }
+                            </select>
+                        </div>
+                        <a class="btn btn-ghost btn-sm" href="@ModifyHref(_unit.Id, _selectedEligibleRuleId)">Modify</a>
+                    }
+                    @if (_unit.Status is UnitStatus.Available or UnitStatus.Selected && Session.Has(PermissionCodes.CompatibilityAllocate))
+                    {
+                        <div class="field" style="min-width:22rem;">
+                            <label>Allocate to open order</label>
+                            <select @bind="_allocateOrderId">
+                                <option value="0">— Current open orders for this product —</option>
+                                @foreach (var o in _allocatableOrders)
+                                {
+                                    <option value="@o.OrderId">@o.OrderNumber — @o.PatientName (@o.MedicalRecordNumber) @(o.AccessionNumber is null ? "" : $"· {o.AccessionNumber}")</option>
+                                }
+                            </select>
+                        </div>
+                        <button class="btn btn-primary btn-sm" disabled="@(_busy || _allocateOrderId <= 0)" @onclick="() => AllocateSelectedAsync(_unit)">Allocate</button>
+                    }
+                    @if (_unit.Status == UnitStatus.Issued && _selectedIssueId is long issuedId && Session.Has(PermissionCodes.TransfusionDocument))
+                    {
+                        <button type="button" class="btn btn-link btn-sm" disabled="@_busy" @onclick="() => MarkInventoryTransfusedAsync(issuedId)">Transfuse</button>
+                    }
+                    @if (_unit.Status == UnitStatus.Issued && Session.Has(PermissionCodes.IssueReturn))
+                    {
+                        <div class="field" style="min-width:22rem;">
+                            <label>Change status</label>
+                            <select @bind="_changeStatusDestination">
+                                @if (IssuedCanReturnToAvailable)
+                                {
+                                    <option value="@UnitStatus.Available">Available</option>
+                                }
+                                <option value="@UnitStatus.Quarantine">Quarantine</option>
+                                <option value="@UnitStatus.Discarded">Disposed</option>
+                            </select>
+                        </div>
+                        <input @bind="_changeStatusReason" placeholder="Reason" style="flex:1;min-width:12rem;" />
+                        @if (_changeStatusDestination == UnitStatus.Available)
+                        {
+                            <label class="checkbox-item"><input type="checkbox" @bind="_changeTempOk" /> Temperature acceptable</label>
+                            <label class="checkbox-item"><input type="checkbox" @bind="_changeSealOk" /> Seal intact</label>
+                            <label class="checkbox-item"><input type="checkbox" @bind="_changeVisualOk" /> Visual inspection acceptable</label>
+                        }
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_changeStatusReason))" @onclick="() => ChangeIssuedStatusAsync(_unit.Id)">Change status</button>
+                    }
+                </div>
+
+                @if (CanPlaceOnHold(_unit.Status) && Session.Has(PermissionCodes.InventoryRelease))
+                {
+                    <div class="flex gap">
+                        <input @bind="_holdReason" placeholder="Hold reason (paperwork, pending review)" style="flex:1;" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_holdReason))" @onclick="() => HoldAsync(_unit.Id)">Place on hold</button>
+                    </div>
+                }
+
+                @if (CanQuarantine(_unit.Status) && Session.Has(PermissionCodes.InventoryRelease))
+                {
+                    <div class="flex gap" style="flex-wrap:wrap;">
+                        <select @bind="_quarantineCode">
+                            @foreach (var q in Enum.GetValues<UnitQuarantineReason>().Where(x => x != UnitQuarantineReason.Unspecified))
+                            {
+                                <option value="@q">@q</option>
+                            }
+                        </select>
+                        <input @bind="_quarantineNotes" placeholder="Notes (required when Other)" style="flex:1;min-width:12rem;" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || (_quarantineCode == UnitQuarantineReason.Other && string.IsNullOrWhiteSpace(_quarantineNotes)))" @onclick="() => PlaceInQuarantineAsync(_unit.Id)">Place in quarantine</button>
+                    </div>
+                }
+
+                @if (CanMarkMissing(_unit.Status) && Session.Has(PermissionCodes.InventoryRelease))
+                {
+                    <div class="flex gap">
+                        <input @bind="_missingReason" placeholder="Missing reason (physical inventory, lost in transit)" style="flex:1;" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_missingReason))" @onclick="() => MarkMissingAsync(_unit.Id)">Mark missing</button>
+                    </div>
+                }
+
+                @if (CanMarkDamaged(_unit.Status) && Session.Has(PermissionCodes.InventoryRelease))
+                {
+                    <div class="flex gap">
+                        <input @bind="_damagedReason" placeholder="Damage reason (leaking bag, crushed, storage mishandling)" style="flex:1;" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_damagedReason))" @onclick="() => MarkDamagedAsync(_unit.Id)">Mark damaged</button>
+                    </div>
+                }
+
+                @if (CanReturnToSupplier(_unit.Status) && Session.Has(PermissionCodes.InventoryReceive))
+                {
+                    <div class="flex gap">
+                        <input @bind="_supplierReturnReason" placeholder="Return-to-supplier reason (failed inspection, unused credit)" style="flex:1;" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_supplierReturnReason))" @onclick="() => ReturnToSupplierAsync(_unit.Id)">Return to supplier</button>
+                    </div>
+                }
+
+                @if (CanConvertDirected(_unit) && Session.Has(PermissionCodes.InventoryRelease))
+                {
+                    <div class="flex gap" style="flex-wrap:wrap;">
+                        <input @bind="_directedConversionReason" placeholder="Why this directed unit can enter volunteer inventory" style="flex:1;min-width:12rem;" />
+                        <div class="field" style="min-width:16rem;">
+                            <label>Second verifier</label>
+                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                Items="VerifierChoices"
+                                @bind-Value="_directedConversionVerifier"
+                                DisplayText="@(x => x.Label)"
+                                ItemValue="@(x => x.UserName)"
+                                SearchText="@(x => x.Label)"
+                                Clearable="true"
+                                Placeholder="Different active user" />
+                        </div>
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_directedConversionReason))" @onclick="() => ConvertDirectedAsync(_unit.Id)">Convert to allogeneic</button>
+                    </div>
+                }
+
+                @if (Session.Has(PermissionCodes.InventoryTransfer))
+                {
+                    <div class="flex gap">
+                        <select @bind="_transferTo"><option value="0">— location —</option>@foreach (var l in _locations) { <option value="@l.Id">@l.Code — @l.Name</option> }</select>
+                        <input @bind="_transferReason" placeholder="Reason (optional)" />
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || _transferTo == 0)" @onclick="() => TransferAsync(_unit.Id)">Transfer</button>
+                    </div>
+                }
+
+                @if (Session.Has(PermissionCodes.InventoryDiscard))
+                {
+                    <div class="flex gap" style="flex-wrap:wrap;">
+                        <input @bind="_discardReason" placeholder="Discard reason" style="flex:1;min-width:12rem;" />
+                        <div class="field" style="min-width:16rem;">
+                            <label>Second verifier</label>
+                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                Items="VerifierChoices"
+                                @bind-Value="_discardSecondVerifier"
+                                DisplayText="@(x => x.Label)"
+                                ItemValue="@(x => x.UserName)"
+                                SearchText="@(x => x.Label)"
+                                Clearable="true"
+                                Placeholder="Different active user" />
+                        </div>
+                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discardReason))" @onclick="() => DiscardAsync(_unit.Id)">Discard</button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (_tab == "attributes")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Blood attributes</h3></div>
+            <p class="muted">Antigen and antibody typing on this unit. Record supplier label typings or in-house results. Contributing tests post as Test result.</p>
+            @if (_unitAttributes.Count == 0)
+            {
+                <div class="muted">No extended typing on record.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>Kind</th><th>Antigen</th><th>Antibody</th><th>Result</th><th>Source</th><th>Recorded</th><th>By</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in _unitAttributes)
+                        {
+                            <tr>
+                                <td>@a.AttributeKind</td>
+                                <td class="mono">@a.AntigenCode — @a.AntigenName</td>
+                                <td>@a.AntibodyName</td>
+                                <td>@a.Result</td>
+                                <td>@TypingSourceLabel(a.TypingSource)</td>
+                                <td class="nowrap">@a.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@(string.IsNullOrWhiteSpace(a.CreatedBy) ? "—" : a.CreatedBy)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @if (Session.Has(PermissionCodes.InventoryReceive))
+            {
+                <div class="form-row" style="margin-top:.5rem;">
+                    <div class="field"><label>Attribute</label>
+                        <FilterableComboBox TItem="BloodAttributeListItemDto" TValue="long?"
+                                            Items="_bloodAttributeCatalog"
+                                            @bind-Value="_uaCatalogId"
+                                            DisplayText="@(a => $"{a.Name} ({a.Code})")"
+                                            ItemValue="@(a => a.Id)"
+                                            Placeholder="Select" />
+                    </div>
+                    <div class="field"><label>Kind</label>
+                        <select @bind="_uaKind">@foreach (var k in Enum.GetValues<BloodAttributeKind>()) { <option value="@k">@k</option> }</select>
+                    </div>
+                    <div class="field"><label>Result</label>
+                        <select @bind="_uaResult">@foreach (var r in Enum.GetValues<AntigenResult>()) { <option value="@r">@r</option> }</select>
+                    </div>
+                    <div class="field"><label>Source</label>
+                        <select @bind="_uaSource">
+                            <option value="@UnitAttributeTypingSource.Supplier">Supplier</option>
+                            <option value="@UnitAttributeTypingSource.InHouse">In-house</option>
+                        </select>
+                    </div>
+                </div>
+                <button class="btn btn-secondary btn-sm" disabled="@(_busy || _uaCatalogId is null)" @onclick="() => SaveUnitAttributeAsync(_unit.Id)">Save attribute</button>
+            }
+        </div>
+    }
+
+    @if (_tab == "history")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Status history</h3></div>
+            <p class="muted">Actions performed on this unit — receive, allocate, crossmatch, issue, return, transfuse, modifications, and status changes. Use this trail for product dispositions.</p>
+            @if (_activity.Count == 0)
+            {
+                <div class="muted">No activity.</div>
+            }
+            else
+            {
+                <table class="bb">
+                    <thead><tr><th>When</th><th>Event</th><th>Detail</th><th>By</th></tr></thead>
+                    <tbody>
+                        @foreach (var row in _activity)
+                        {
+                            <tr>
+                                <td class="nowrap">@row.WhenUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td>@row.EventType</td>
+                                <td>@row.Summary</td>
+                                <td>@(row.ChangedBy ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    }
+
+    @if (_tab == "retype")
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Retype</h3></div>
+            <p class="muted" style="margin:0 0 .5rem;">
+                The pending retype board is the product-retype desk.
+                <a href="@($"/inventory?board=retype&unitId={_unit.Id}#pending-retype")">Open this unit on the board</a>
+                if you want the worklist context. Recording here still uses the same panel and gates.
+            </p>
+            @if (_retypeDetail is null)
+            {
+                <div class="muted">Unable to load retype details for this unit.</div>
+            }
+            else
+            {
+                <ProductRetypeEntryPanel Detail="_retypeDetail" OnSaved="OnRetypeSaved" EntryInDialog="true" />
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public long UnitId { get; set; }
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }
+
+    private static readonly HashSet<string> KnownTabs = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "overview", "actions", "attributes", "history", "retype"
+    };
+
+    private bool _loading = true;
+    private string? _error;
+    private BloodUnitDto? _unit;
+    private long _loadedId;
+    private string _tab = "overview";
+    private bool _busy;
+    private Feedback? _actionFb;
+
+    private List<ProductTypeDto> _productTypes = new();
+    private List<InventoryLocationDto> _locations = new();
+    private List<DirectoryUserDto> _directoryUsers = new();
+    private List<PatientDto> _patients = new();
+    private List<UnitActivityDto> _activity = new();
+    private List<UnitBloodAttributeDto> _unitAttributes = new();
+    private List<BloodAttributeListItemDto> _bloodAttributeCatalog = new();
+    private List<AllocatableOrderDto> _allocatableOrders = new();
+    private List<EligibleModificationDto> _eligibleMods = new();
+    private ProductRetypeDetailDto? _retypeDetail;
+
+    private long? _uaCatalogId;
+    private BloodAttributeKind _uaKind = BloodAttributeKind.Antigen;
+    private AntigenResult _uaResult = AntigenResult.Negative;
+    private UnitAttributeTypingSource _uaSource = UnitAttributeTypingSource.Supplier;
+
+    private long _allocateOrderId;
+    private long _selectedEligibleRuleId;
+    private long? _selectedIssueId;
+    private DateTime? _selectedIssuedUtc;
+    private UnitStatus _changeStatusDestination = UnitStatus.Available;
+    private string _changeStatusReason = string.Empty;
+    private bool _changeTempOk = true;
+    private bool _changeSealOk = true;
+    private bool _changeVisualOk = true;
+    private long _transferTo;
+    private string _transferReason = string.Empty;
+    private string _discardReason = string.Empty;
+    private string? _discardSecondVerifier;
+    private string _holdReason = string.Empty;
+    private UnitQuarantineReason _quarantineCode = UnitQuarantineReason.SupervisorReview;
+    private string _quarantineNotes = string.Empty;
+    private string _missingReason = string.Empty;
+    private string _damagedReason = string.Empty;
+    private string? _releaseSecondVerifier;
+    private string _cancelExpectedReason = string.Empty;
+    private string _supplierReturnReason = string.Empty;
+    private string _directedConversionReason = string.Empty;
+    private string? _directedConversionVerifier;
+    private UnitAppearance _arrivalAppearance = UnitAppearance.Acceptable;
+    private string? _arrivalVisualNotes;
+    private string? _arrivalSecondVerifier;
+    private decimal? _arrivalTemperatureCelsius;
+
+    private string UnitNumberTitle => _unit?.UnitNumber ?? "Unit";
+
+    private IEnumerable<DirectoryUserDto> VerifierChoices =>
+        _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
+
+    private bool IssuedCanReturnToAvailable =>
+        _selectedIssuedUtc is DateTime issued
+        && ReturnReissueRule.IsWithinReturnToAvailableWindow(
+            issued, DateTime.UtcNow, ReturnReissueRule.DefaultReturnToAvailableMinutes);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(TabQuery) && KnownTabs.Contains(TabQuery))
+        {
+            _tab = TabQuery.Trim().ToLowerInvariant();
+        }
+
+        if (_loadedId == UnitId && _unit is not null)
+        {
+            return;
+        }
+
+        _loadedId = UnitId;
+        await LoadAsync();
+    }
+
+    private Task SelectTab(string tab)
+    {
+        _tab = tab;
+        var href = InventoryUrls.Unit(UnitId, tab == "overview" ? null : tab);
+        if (!Nav.Uri.EndsWith(href, StringComparison.OrdinalIgnoreCase)
+            && !Nav.ToBaseRelativePath(Nav.Uri).Equals(href.TrimStart('/'), StringComparison.OrdinalIgnoreCase))
+        {
+            Nav.NavigateTo(href, replace: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        if (_productTypes.Count == 0)
+        {
+            _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
+        }
+
+        if (_locations.Count == 0)
+        {
+            _locations = (await Api.GetLocationsAsync()).Value ?? new();
+        }
+
+        if (_directoryUsers.Count == 0)
+        {
+            var users = await Api.GetDirectoryUsersAsync();
+            if (users.Succeeded) _directoryUsers = users.Value ?? new();
+        }
+
+        if (_patients.Count == 0)
+        {
+            var patients = await Api.GetPatientsAsync();
+            if (patients.Succeeded) _patients = patients.Value ?? new();
+        }
+
+        if (_bloodAttributeCatalog.Count == 0)
+        {
+            _bloodAttributeCatalog = (await Api.GetReferenceBloodAttributesAsync()).Value ?? new();
+        }
+
+        var r = await Api.GetUnitAsync(UnitId);
+        if (!r.Succeeded || r.Value is null)
+        {
+            _unit = null;
+            _error = r.FailureSummary() ?? "Unit not found.";
+            _loading = false;
+            return;
+        }
+
+        _unit = r.Value;
+        await RefreshDetailsAsync();
+        _loading = false;
+    }
+
+    private async Task RefreshDetailsAsync()
+    {
+        if (_unit is null) return;
+        var id = _unit.Id;
+        var unit = await Api.GetUnitAsync(id);
+        if (unit.Succeeded && unit.Value is not null) _unit = unit.Value;
+
+        _activity = (await Api.GetUnitActivityAsync(id)).Value ?? new();
+        _unitAttributes = (await Api.GetUnitBloodAttributesAsync(id)).Value ?? new();
+        _retypeDetail = (await Api.GetUnitRetypeAsync(id)).Value;
+        _allocatableOrders = (await Api.GetUnitAllocatableOrdersAsync(id)).Value ?? new();
+        _eligibleMods = (await Api.GetEligibleModificationsAsync(id)).Value ?? new();
+        _selectedIssueId = null;
+        _selectedIssuedUtc = null;
+        if (_unit.Status == UnitStatus.Issued)
+        {
+            var outstanding = await Api.GetOutstandingIssuesAsync();
+            var row = outstanding.Value?.FirstOrDefault(i => i.BloodUnitId == id);
+            _selectedIssueId = row?.IssueId;
+            _selectedIssuedUtc = row?.IssuedUtc
+                ?? _activity.LastOrDefault(a => a.EventType == "Issue")?.WhenUtc;
+            _changeStatusDestination = IssuedCanReturnToAvailable ? UnitStatus.Available : UnitStatus.Quarantine;
+        }
+    }
+
+    private string ProductCode(BloodUnitDto u)
+    {
+        if (!string.IsNullOrWhiteSpace(u.ProductDescriptionCode)) return u.ProductDescriptionCode;
+        if (!string.IsNullOrWhiteSpace(u.ProductCodeData) && u.ProductCodeData.Length >= 5) return u.ProductCodeData[..5];
+        if (!string.IsNullOrWhiteSpace(u.Isbt128ProductCode))
+        {
+            return u.Isbt128ProductCode.Length >= 5 ? u.Isbt128ProductCode[..5] : u.Isbt128ProductCode;
+        }
+
+        return _productTypes.FirstOrDefault(t => t.Id == u.ProductTypeId)?.DisplayProductCode
+            ?? u.ProductTypeId.ToString();
+    }
+
+    private string ProductName(long productTypeId) =>
+        _productTypes.FirstOrDefault(t => t.Id == productTypeId)?.Name ?? "—";
+
+    private string LocationName(long? id) =>
+        id is null ? "—" : (_locations.FirstOrDefault(l => l.Id == id)?.Code ?? id.Value.ToString());
+
+    private string RecipientLabel(long patientId)
+    {
+        var p = _patients.FirstOrDefault(x => x.Id == patientId);
+        return p is null ? $"patient #{patientId}" : $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})";
+    }
+
+    private static string TypingSourceLabel(UnitAttributeTypingSource source) => source switch
+    {
+        UnitAttributeTypingSource.Supplier => "Supplier",
+        UnitAttributeTypingSource.InHouse => "In-house",
+        UnitAttributeTypingSource.TestResult => "Test result",
+        _ => source.ToString()
+    };
+
+    private static string ModifyHref(long unitId, long ruleId)
+    {
+        var href = $"/inventory/modify?unitId={unitId}";
+        return ruleId > 0 ? $"{href}&ruleId={ruleId}" : href;
+    }
+
+    private static bool CanPlaceOnHold(UnitStatus status) => status is
+        UnitStatus.Available or UnitStatus.Selected or UnitStatus.Assigned or UnitStatus.Allocated
+        or UnitStatus.Crossmatched or UnitStatus.Received or UnitStatus.Returned
+        or UnitStatus.Transferred or UnitStatus.CancelledAssignment;
+
+    private static bool CanQuarantine(UnitStatus status) =>
+        CanPlaceOnHold(status) || status == UnitStatus.OnHold;
+
+    private static bool CanMarkMissing(UnitStatus status) => status is
+        UnitStatus.Available or UnitStatus.Selected or UnitStatus.Assigned or UnitStatus.Allocated
+        or UnitStatus.Crossmatched or UnitStatus.Received or UnitStatus.Returned
+        or UnitStatus.Transferred or UnitStatus.CancelledAssignment or UnitStatus.Quarantine
+        or UnitStatus.OnHold or UnitStatus.Expected or UnitStatus.Recalled;
+
+    private static bool CanMarkDamaged(UnitStatus status) => status is
+        UnitStatus.Available or UnitStatus.Selected or UnitStatus.Assigned or UnitStatus.Allocated
+        or UnitStatus.Crossmatched or UnitStatus.Received or UnitStatus.Returned
+        or UnitStatus.Transferred or UnitStatus.CancelledAssignment or UnitStatus.Quarantine
+        or UnitStatus.OnHold or UnitStatus.Missing;
+
+    private static bool CanReturnToSupplier(UnitStatus status) => status is
+        UnitStatus.Received or UnitStatus.Quarantine or UnitStatus.OnHold
+        or UnitStatus.Available or UnitStatus.Damaged;
+
+    private static bool CanConvertDirected(BloodUnitDto u) =>
+        u.DonationRestriction == DonationRestriction.Directed
+        && AutologousDirectedRule.IsConvertibleStatus(u.Status);
+
+    private async Task AfterActionAsync<T>(ApiResult<T> r, string success)
+    {
+        _actionFb = r.ToFeedback(success);
+        if (r.Succeeded) await RefreshDetailsAsync();
+    }
+
+    private async Task AllocateSelectedAsync(BloodUnitDto unit)
+    {
+        var order = _allocatableOrders.FirstOrDefault(o => o.OrderId == _allocateOrderId);
+        if (order is null)
+        {
+            _actionFb = Feedback.Fail("Select an open order that includes this product.");
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.AllocatePatientUnitAsync(order.PatientId, new AllocatePatientUnitRequest(
+            unit.Id, SpecimenId: order.SpecimenId, OrderId: order.OrderId));
+        _busy = false;
+        await AfterActionAsync(r, "Unit allocated to the selected order.");
+    }
+
+    private async Task ChangeIssuedStatusAsync(long unitId)
+    {
+        if (string.IsNullOrWhiteSpace(_changeStatusReason))
+        {
+            _actionFb = Feedback.Fail("A reason is required to change status.");
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.ChangeIssuedUnitStatusAsync(unitId, new ReturnUnitRequest(
+            _changeStatusReason.Trim(), _changeTempOk, _changeSealOk, _changeVisualOk,
+            Destination: _changeStatusDestination));
+        _busy = false;
+        if (r.Succeeded) _changeStatusReason = string.Empty;
+        await AfterActionAsync(r, $"Unit status changed to {_changeStatusDestination}.");
+    }
+
+    private async Task MarkInventoryTransfusedAsync(long issueId)
+    {
+        _busy = true;
+        var r = await Api.MarkIssueTransfusedAsync(issueId);
+        _busy = false;
+        await AfterActionAsync(r, "Unit marked transfused.");
+    }
+
+    private async Task OnRetypeSaved()
+    {
+        await RefreshDetailsAsync();
+        _tab = "retype";
+    }
+
+    private async Task SaveUnitAttributeAsync(long unitId)
+    {
+        if (_uaCatalogId is null) return;
+        _busy = true;
+        var r = await Api.SaveUnitBloodAttributeAsync(unitId,
+            new SaveUnitBloodAttributeRequest(_uaCatalogId.Value, _uaKind, _uaResult, _uaSource));
+        _busy = false;
+        await AfterActionAsync(r, "Blood attribute saved.");
+    }
+
+    private async Task ReleaseAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReleaseUnitAsync(id, new ReleaseFromQuarantineRequest(_releaseSecondVerifier));
+        _busy = false;
+        if (r.Succeeded) _releaseSecondVerifier = null;
+        await AfterActionAsync(r, "Unit released from quarantine.");
+    }
+
+    private async Task HoldAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.HoldUnitAsync(id, _holdReason);
+        _busy = false;
+        if (r.Succeeded) _holdReason = string.Empty;
+        await AfterActionAsync(r, "Unit placed on operational hold. It cannot be issued until released.");
+    }
+
+    private async Task PlaceInQuarantineAsync(long id)
+    {
+        _busy = true;
+        var notes = string.IsNullOrWhiteSpace(_quarantineNotes) ? null : _quarantineNotes.Trim();
+        var r = await Api.QuarantineUnitAsync(id, _quarantineCode, notes);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _quarantineNotes = string.Empty;
+            _quarantineCode = UnitQuarantineReason.SupervisorReview;
+        }
+
+        await AfterActionAsync(r, "Unit placed in quality quarantine.");
+    }
+
+    private async Task ReleaseHoldAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReleaseHoldAsync(id);
+        _busy = false;
+        await AfterActionAsync(r, "Unit released from operational hold.");
+    }
+
+    private async Task MarkMissingAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.MarkMissingAsync(id, _missingReason);
+        _busy = false;
+        if (r.Succeeded) _missingReason = string.Empty;
+        await AfterActionAsync(r, "Unit marked missing. It cannot be issued until located.");
+    }
+
+    private async Task LocateMissingAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.LocateMissingAsync(id);
+        _busy = false;
+        await AfterActionAsync(r, "Unit located into quarantine for inspection.");
+    }
+
+    private async Task ReturnToSupplierAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReturnToSupplierAsync(id, _supplierReturnReason);
+        _busy = false;
+        if (r.Succeeded) _supplierReturnReason = string.Empty;
+        await AfterActionAsync(r, "Unit returned to the supplier. It cannot be issued.");
+    }
+
+    private async Task ConvertDirectedAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ConvertDirectedToAllogeneicAsync(id, _directedConversionReason, _directedConversionVerifier);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _directedConversionReason = string.Empty;
+            _directedConversionVerifier = null;
+        }
+
+        await AfterActionAsync(r, "Directed unit released to allogeneic inventory.");
+    }
+
+    private async Task MarkDamagedAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.MarkDamagedAsync(id, _damagedReason);
+        _busy = false;
+        if (r.Succeeded) _damagedReason = string.Empty;
+        await AfterActionAsync(r, "Unit marked damaged. It cannot be issued until inspected or discarded.");
+    }
+
+    private async Task InspectDamagedAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.InspectDamagedAsync(id);
+        _busy = false;
+        await AfterActionAsync(r, "Damaged unit moved to quarantine for quality review.");
+    }
+
+    private async Task ReceiveExpectedAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.ReceiveExpectedUnitAsync(id, new ReceiveExpectedUnitRequest(
+            VisualInspectionAcceptable: _arrivalAppearance == UnitAppearance.Acceptable,
+            VisualInspectionNotes: string.IsNullOrWhiteSpace(_arrivalVisualNotes) ? null : _arrivalVisualNotes,
+            SecondVerifier: _arrivalSecondVerifier,
+            Appearance: _arrivalAppearance,
+            ReceiveTemperatureCelsius: _arrivalTemperatureCelsius));
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _arrivalAppearance = UnitAppearance.Acceptable;
+            _arrivalVisualNotes = null;
+            _arrivalSecondVerifier = null;
+            _arrivalTemperatureCelsius = null;
+            _tab = "retype";
+        }
+
+        await AfterActionAsync(r, r.Value?.Status == UnitStatus.Received
+            ? "Arrival confirmed. Pending retype until results are entered and verified."
+            : "Arrival confirmed into quarantine.");
+    }
+
+    private async Task CancelExpectedAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.CancelExpectedUnitAsync(id, new CancelExpectedUnitRequest(_cancelExpectedReason));
+        _busy = false;
+        if (r.Succeeded) _cancelExpectedReason = string.Empty;
+        await AfterActionAsync(r, "Expected unit cancelled.");
+    }
+
+    private async Task TransferAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.TransferUnitAsync(id, _transferTo, string.IsNullOrWhiteSpace(_transferReason) ? null : _transferReason);
+        _busy = false;
+        await AfterActionAsync(r, "Unit transferred.");
+    }
+
+    private async Task DiscardAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.DiscardUnitAsync(id, _discardReason, _discardSecondVerifier);
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _discardReason = string.Empty;
+            _discardSecondVerifier = null;
+        }
+
+        await AfterActionAsync(r, "Unit discarded.");
+    }
+
+    private async Task PrintComponentLabelAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.PrintComponentLabelAsync(id, new PrintRequestVm(LabelFormat.Pdf));
+        _busy = false;
+        if (r.Succeeded)
+        {
+            _componentJobId = r.Value!.Id;
+        }
+
+        await AfterActionAsync(r, r.Succeeded ? $"PDF preview saved as job #{r.Value!.Id}." : "Component label queued. Use Open Printing to view or reprint.");
+    }
+
+    private long? _componentJobId;
+}

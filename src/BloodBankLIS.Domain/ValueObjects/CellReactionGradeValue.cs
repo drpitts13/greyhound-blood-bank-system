@@ -19,6 +19,28 @@ public static class CellReactionGradeValue
         _ => "NT"
     };
 
+    /// <summary>
+    /// Turns escaped or full-width plus signs into a readable <c>+</c> and
+    /// canonicalizes known grades (<c>4+</c>, <c>w+</c>, <c>NT</c>).
+    /// Numeric instrument captures such as <c>40</c> are left unchanged so rules can convert them.
+    /// </summary>
+    public static string NormalizeDisplay(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return value ?? string.Empty;
+        }
+
+        var text = UnescapePlus(value.Trim());
+        return TryParseCode(text, out var grade) ? ToCode(grade) : text;
+    }
+
+    public static string UnescapePlus(string value) =>
+        value
+            .Replace("\\u002B", "+", StringComparison.OrdinalIgnoreCase)
+            .Replace("\\u002b", "+", StringComparison.Ordinal)
+            .Replace("＋", "+", StringComparison.Ordinal);
+
     public static bool TryParseCode(string? code, out CellReactionGrade grade)
     {
         grade = CellReactionGrade.NotTested;
@@ -27,7 +49,8 @@ public static class CellReactionGradeValue
             return false;
         }
 
-        grade = code.Trim() switch
+        var text = UnescapePlus(code.Trim());
+        grade = text switch
         {
             "NT" or "nt" or "NotTested" => CellReactionGrade.NotTested,
             "0" => CellReactionGrade.Zero,
@@ -41,7 +64,7 @@ public static class CellReactionGradeValue
             _ => CellReactionGrade.NotTested
         };
 
-        return code.Trim() is "NT" or "nt" or "NotTested" or "0" or "1+" or "2+" or "3+" or "4+"
+        return text is "NT" or "nt" or "NotTested" or "0" or "1+" or "2+" or "3+" or "4+"
             or "H" or "h" or "w+" or "W+" or "+/-";
     }
 }

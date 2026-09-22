@@ -90,18 +90,9 @@
                                 </label>
                             }
                         </div>
-                        @if (NewOrderProductTypeIds.Count > 0 && ActionDefinitions.Count > 0)
+                        @if (NewOrderProductTypeIds.Count > 0)
                         {
-                            <label style="margin-top:.75rem;">Modification actions</label>
-                            <div class="checkbox-list">
-                                @foreach (var action in ActionDefinitions)
-                                {
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" checked="@NewOrderActionIds.Contains(action.Id)" @onchange="e => OnToggleNewOrderAction.InvokeAsync((action.Id, e))" />
-                                        @action.Name <span class="muted mono">(@action.Code)</span>
-                                    </label>
-                                }
-                            </div>
+                            <p class="muted" style="margin-top:.75rem;">Modification actions become available after a unit is allocated to this order.</p>
                         }
                     </div>
                 </div>
@@ -158,8 +149,8 @@
                     <div class="field" style="grid-column:1/-1;max-width:420px;">
                         <label>Specimen (optional)</label>
                         <select @bind="NewOrderSpecimenId" @bind:after="() => NewOrderSpecimenIdChanged.InvokeAsync(NewOrderSpecimenId)">
-                            <option value="0">Auto-link most recent accepted specimen</option>
-                            @foreach (var s in LinkableSpecimens)
+                            <option value="0">@(NewOrderProductTypeIds.Count > 0 ? "Auto-link most recent completed type and screen" : "Auto-link most recent accepted specimen")</option>
+                            @foreach (var s in SpecimensForNewOrder)
                             {
                                 <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType</option>
                             }
@@ -169,7 +160,11 @@
                     {
                         <div class="alert alert-warning" style="margin:.5rem 0 0;">@LinkExistingMismatch</div>
                     }
-                    <p class="muted" style="margin:.5rem 0 0;font-size:.85rem;">Link a specimen to inherit this order's tests on the worklist. Leave auto-link to use the most recent accepted specimen, or pick one explicitly.</p>
+                    <p class="muted" style="margin:.5rem 0 0;font-size:.85rem;">
+                        @(NewOrderProductTypeIds.Count > 0
+                            ? "Product orders auto-link the most recent active specimen with a completed type and screen. Override by picking another qualifying specimen."
+                            : "Link a specimen to inherit this order's tests on the worklist. Leave auto-link to use the most recent accepted specimen, or pick one explicitly.")
+                    </p>
                 }
                 <div class="field" style="margin-top:.75rem;">
                     <label>Comment</label>
@@ -242,6 +237,16 @@
                                     }
                                 </div>
                             }
+                            @foreach (var alloc in Allocations.Where(a => a.OrderId == o.Id))
+                            {
+                                <div class="muted">
+                                    @alloc.UnitNumber
+                                    @if (!string.IsNullOrWhiteSpace(alloc.CrossmatchTestCode) || alloc.CrossmatchResult is not null)
+                                    {
+                                        <text> · @(alloc.CrossmatchTestCode ?? "XM") @(alloc.CrossmatchResult?.ToString() ?? "pending")</text>
+                                    }
+                                </div>
+                            }
                         </td>
                         <td>@o.Source</td>
                         <td>@if (o.IsUrgentPriority) { <span class="badge badge-red">@o.Priority</span> } else { @o.Priority }</td>
@@ -274,9 +279,13 @@
                             {
                                 <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginEdit.InvokeAsync(o)">@(EditingOrderId == o.Id ? "Cancel" : "Edit")</button>
                             }
-                            @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive && o.Lines.Any(l => l.LineCategory == OrderCategory.Product))
+                            @if (Session.Has(PermissionCodes.CompatibilityAllocate) && o.IsActive && o.Lines.Any(l => l.LineCategory == OrderCategory.Product) && o.SpecimenId is > 0)
                             {
-                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginAddAction.InvokeAsync(o)">@(AddingActionOrderId == o.Id ? "Cancel" : "Add action")</button>
+                                <button type="button" class="btn btn-primary btn-sm" @onclick="() => OnBeginAllocate.InvokeAsync(o)">@(AllocatingOrderId == o.Id ? "Cancel" : "Allocate")</button>
+                            }
+                            @if (Session.Has(PermissionCodes.InventoryModify) && o.IsActive && o.Lines.Any(l => l.LineCategory == OrderCategory.Product) && HasAllocatedUnitFor(o))
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginAddAction.InvokeAsync(o)">@(AddingActionOrderId == o.Id ? "Cancel" : "Modify")</button>
                             }
                         </td>
                     </tr>
@@ -291,7 +300,7 @@
                                             <label>Specimen</label>
                                             <select @bind="LinkSpecimenId" @bind:after="() => LinkSpecimenIdChanged.InvokeAsync(LinkSpecimenId)">
                                                 <option value="0">— Select —</option>
-                                                @foreach (var s in LinkableSpecimens)
+                                                @foreach (var s in SpecimensFor(o))
                                                 {
                                                     <option value="@s.Id">@s.AccessionNumber — @s.SpecimenType (@s.CollectedUtc.ToString("yyyy-MM-dd HH:mm"))</option>
                                                 }
@@ -303,10 +312,37 @@
                                     {
                                         <div class="alert alert-warning" style="margin:.5rem 0 0;">@linkWarn</div>
                                     }
-                                    @if (!LinkableSpecimens.Any())
+                                    @if (!SpecimensFor(o).Any())
                                     {
-                                        <p class="muted" style="margin:.5rem 0 0;">No accepted, non-expired specimens are available. Accession a specimen first.</p>
+                                        <p class="muted" style="margin:.5rem 0 0;">
+                                            @(o.Lines.Any(l => l.LineCategory == OrderCategory.Product)
+                                                ? "No active specimens with a completed type and screen are available."
+                                                : "No accepted, non-expired specimens are available. Accession a specimen first.")
+                                        </p>
                                     }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (AllocatingOrderId == o.Id && Session.Has(PermissionCodes.CompatibilityAllocate))
+                    {
+                        <tr>
+                            <td colspan="13">
+                                <div class="alert alert-info" style="margin:.25rem 0;">
+                                    <p class="muted" style="margin:0 0 .5rem;">Allocate a compatible unit to order <span class="mono">@o.OrderNumber</span>.</p>
+                                    <div class="flex gap" style="align-items:end;flex-wrap:wrap;">
+                                        <div class="field" style="min-width:22rem;margin:0;">
+                                            <label>Unit</label>
+                                            <select value="@SelectedUnitId" @onchange="e => OnAllocUnitPicked.InvokeAsync(ParseLong(e.Value))">
+                                                <option value="">— Select unit —</option>
+                                                @foreach (var u in CompatibleUnits.Where(u => OrderProductTypeIds(o).Contains(u.ProductTypeId)))
+                                                {
+                                                    <option value="@u.BloodUnitId">@u.UnitNumber · @u.BloodType · @u.ProductCode</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <button type="button" class="btn btn-primary btn-sm" disabled="@(Busy || SelectedUnitId is null)" @onclick="() => OnAllocateFromOrder.InvokeAsync(o)">Allocate</button>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -316,20 +352,27 @@
                         <tr>
                             <td colspan="13">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
-                                    <p class="muted" style="margin:0 0 .5rem;">Add a modification action to order <span class="mono">@o.OrderNumber</span>.</p>
-                                    <div class="flex gap" style="align-items:end;flex-wrap:wrap;">
-                                        <div class="field" style="min-width:16rem;margin:0;">
-                                            <label>Action</label>
-                                            <select @bind="AddActionDefinitionId" @bind:after="() => AddActionDefinitionIdChanged.InvokeAsync(AddActionDefinitionId)">
-                                                <option value="0">— Select —</option>
-                                                @foreach (var action in AvailableActionsFor(o))
-                                                {
-                                                    <option value="@action.Id">@action.Name (@action.Code)</option>
-                                                }
-                                            </select>
+                                    <p class="muted" style="margin:0 0 .5rem;">Eligible modifications for the allocated unit on order <span class="mono">@o.OrderNumber</span>.</p>
+                                    @if (EligibleModifications.Count == 0)
+                                    {
+                                        <p class="muted" style="margin:0;">No modification rules apply to this product code.</p>
+                                    }
+                                    else
+                                    {
+                                        <div class="flex gap" style="align-items:end;flex-wrap:wrap;">
+                                            <div class="field" style="min-width:18rem;margin:0;">
+                                                <label>Modification</label>
+                                                <select @bind="SelectedEligibleRuleId" @bind:after="() => SelectedEligibleRuleIdChanged.InvokeAsync(SelectedEligibleRuleId)">
+                                                    <option value="0">— Select modification —</option>
+                                                    @foreach (var mod in EligibleModifications.Where(m => m.IsAvailable))
+                                                    {
+                                                        <option value="@mod.RuleId">@mod.ModificationCode — @mod.ModificationType → @mod.TargetProductCode</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <button type="button" class="btn btn-primary btn-sm" disabled="@(Busy || SelectedEligibleRuleId <= 0)" @onclick="() => OnAddAction.InvokeAsync(o.Id)">Modify unit</button>
                                         </div>
-                                        <button type="button" class="btn btn-primary btn-sm" disabled="@(Busy || AddActionDefinitionId <= 0)" @onclick="() => OnAddAction.InvokeAsync(o.Id)">Add action</button>
-                                    </div>
+                                    }
                                 </div>
                             </td>
                         </tr>
@@ -455,10 +498,15 @@
     [Parameter] public IReadOnlyList<TestGrouperListItemDto> TestGroupers { get; set; } = [];
     [Parameter] public IReadOnlyList<TestDefinitionListItemDto> TestDefs { get; set; } = [];
     [Parameter] public IReadOnlyList<ProductTypeDto> ProductTypes { get; set; } = [];
-    [Parameter] public IReadOnlyList<ActionDefinitionDto> ActionDefinitions { get; set; } = [];
-    [Parameter] public HashSet<long> NewOrderActionIds { get; set; } = [];
     [Parameter] public IReadOnlyList<SpecimenTypeListItemDto> SpecimenTypes { get; set; } = [];
     [Parameter] public IEnumerable<SpecimenDto> LinkableSpecimens { get; set; } = [];
+    [Parameter] public IReadOnlyList<PatientAllocationRowDto> Allocations { get; set; } = [];
+    [Parameter] public IReadOnlyList<CompatibleUnitDto> CompatibleUnits { get; set; } = [];
+    [Parameter] public long? AllocatingOrderId { get; set; }
+    [Parameter] public long? SelectedUnitId { get; set; }
+    [Parameter] public EventCallback<PatientOrderDto> OnBeginAllocate { get; set; }
+    [Parameter] public EventCallback<long?> OnAllocUnitPicked { get; set; }
+    [Parameter] public EventCallback<PatientOrderDto> OnAllocateFromOrder { get; set; }
     [Parameter] public IReadOnlyList<PatientOrderDto> Orders { get; set; } = [];
     [Parameter] public HashSet<string> NewOrderTestCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [Parameter] public HashSet<string> NewOrderGrouperCodes { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -516,10 +564,10 @@
     [Parameter] public EventCallback<(TestGrouperListItemDto Grouper, ChangeEventArgs Event)> OnToggleNewOrderGrouper { get; set; }
     [Parameter] public EventCallback<(string Code, ChangeEventArgs Event)> OnToggleNewOrderTest { get; set; }
     [Parameter] public EventCallback<(long Id, ChangeEventArgs Event)> OnToggleNewOrderProduct { get; set; }
-    [Parameter] public EventCallback<(long Id, ChangeEventArgs Event)> OnToggleNewOrderAction { get; set; }
     [Parameter] public long? AddingActionOrderId { get; set; }
-    [Parameter] public long AddActionDefinitionId { get; set; }
-    [Parameter] public EventCallback<long> AddActionDefinitionIdChanged { get; set; }
+    [Parameter] public IReadOnlyList<EligibleModificationDto> EligibleModifications { get; set; } = [];
+    [Parameter] public long SelectedEligibleRuleId { get; set; }
+    [Parameter] public EventCallback<long> SelectedEligibleRuleIdChanged { get; set; }
     [Parameter] public EventCallback<PatientOrderDto> OnBeginAddAction { get; set; }
     [Parameter] public EventCallback<long> OnAddAction { get; set; }
     [Parameter] public EventCallback<(long OrderId, long ActionId)> OnRemoveAction { get; set; }
@@ -573,14 +621,26 @@
 
     private static bool IsGrouperSelected(string code, HashSet<string> selected) => selected.Contains(code);
 
-    private IEnumerable<ActionDefinitionDto> AvailableActionsFor(PatientOrderDto order)
-    {
-        var pending = (order.Actions ?? [])
-            .Where(a => a.Status == OrderActionStatus.Pending)
-            .Select(a => a.ActionDefinitionId)
+    private IEnumerable<SpecimenDto> SpecimensForNewOrder =>
+        NewOrderProductTypeIds.Count > 0
+            ? LinkableSpecimens.Where(s => s.HasCompletedTypeAndScreen)
+            : LinkableSpecimens;
+
+    private IEnumerable<SpecimenDto> SpecimensFor(PatientOrderDto order) =>
+        order.Lines.Any(l => l.LineCategory == OrderCategory.Product)
+            ? LinkableSpecimens.Where(s => s.HasCompletedTypeAndScreen)
+            : LinkableSpecimens;
+
+    private bool HasAllocatedUnitFor(PatientOrderDto order) =>
+        Allocations.Any(a => a.OrderId == order.Id && a.AllocationStatus == AllocationStatus.Reserved);
+
+    private static HashSet<long> OrderProductTypeIds(PatientOrderDto order) =>
+        order.Lines.Where(l => l.LineCategory == OrderCategory.Product && l.ProductTypeId is > 0)
+            .Select(l => l.ProductTypeId!.Value)
             .ToHashSet();
-        return ActionDefinitions.Where(a => !pending.Contains(a.Id));
-    }
+
+    private static long? ParseLong(object? value) =>
+        long.TryParse(value?.ToString(), out var id) ? id : null;
 
     private static string OrderRowClass(PatientOrderDto o)
     {

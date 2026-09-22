@@ -56,7 +56,11 @@ public sealed record BloodUnitDto(
     UnitQuarantineReason QuarantineReasonCode = UnitQuarantineReason.Unspecified,
     decimal? Volume = null,
     string? DivisionCode = null,
-    string? CollectionTypeCode = null)
+    string? CollectionTypeCode = null,
+    string? Supplier = null,
+    string? CollectionFacility = null,
+    DateTime? CollectionDateTime = null,
+    string? ProcessingFacilityCode = null)
 {
     public static BloodUnitDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
@@ -69,7 +73,8 @@ public sealed record BloodUnitDto(
         u.DonationRestriction, u.ReservedPatientId,
         u.DirectedConversionReason, u.DirectedConvertedUtc, u.DirectedConvertedBy,
         u.ExpectedArrivalDueUtc, u.QuarantineReasonCode,
-        u.Volume, u.DivisionCode, u.CollectionTypeCode);
+        u.Volume, u.DivisionCode, u.CollectionTypeCode,
+        u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode);
 }
 
 public sealed record ExpectedInboundWorkItemDto(

@@ -14,7 +14,7 @@ public class ZplLabelRendererTests
             new LabelText(10, 10, "Hello")
         });
 
-        var zpl = _renderer.Render(doc);
+        var zpl = _renderer.Render(doc).Text;
 
         Assert.StartsWith("^XA", zpl);
         Assert.EndsWith("^XZ", zpl);
@@ -31,7 +31,7 @@ public class ZplLabelRendererTests
             new LabelBarcode(10, 50, "ACC-123", height: 60)
         });
 
-        var zpl = _renderer.Render(doc);
+        var zpl = _renderer.Render(doc).Text;
 
         Assert.Contains("^BCN,60,Y,N,N", zpl);
         Assert.Contains("^FDACC-123^FS", zpl);
@@ -55,7 +55,7 @@ public class ZplLabelRendererTests
             new LabelText(0, 0, "Smith^Evil~Inject")
         });
 
-        var zpl = _renderer.Render(doc);
+        var zpl = _renderer.Render(doc).Text;
 
         // The raw caret/tilde must be escaped, never appearing as commands in field data.
         Assert.Contains("^FH^FDSmith_5EEvil_7EInject^FS", zpl);

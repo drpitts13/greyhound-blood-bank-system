@@ -38,6 +38,8 @@ public sealed record ProductRetypeWorkItemDto(
 
 public sealed record ProductRetypeSubtestDto(string Code, string Label, bool Required);
 
+public sealed record ProductRetypeCellReactionDto(string Code, string Label, string Grade);
+
 public sealed record ProductRetypeResultDto(
     long Id,
     long BloodProductId,
@@ -50,12 +52,42 @@ public sealed record ProductRetypeResultDto(
     string EnteredBy,
     DateTime EnteredUtc,
     string? VerifiedBy,
-    string DisplayValue)
+    string DisplayValue,
+    IReadOnlyList<ProductRetypeCellReactionDto> CellReactions)
 {
     public static ProductRetypeResultDto From(ProductRetypeResult r) => new(
         r.Id, r.BloodProductId, r.TestCode, r.InterpretedAbo, r.InterpretedRh,
         r.MatchesLabel, r.DiscrepancyDetail, r.Status, r.EnteredBy, r.EnteredUtc,
-        r.VerifiedBy, AboRhResultValue.FormatDisplay(r.Value));
+        r.VerifiedBy, AboRhResultValue.FormatDisplay(r.Value), CellReactionsOf(r));
+
+    private static IReadOnlyList<ProductRetypeCellReactionDto> CellReactionsOf(ProductRetypeResult r)
+    {
+        if (!AboRhResultValue.TryParsePanel(r.Value, out var panel))
+        {
+            return [];
+        }
+
+        var labels = PanelSubtestDefinitions.DefaultAboRh()
+            .Concat(PanelSubtestDefinitions.DefaultAboRhRetype())
+            .Concat(PanelSubtestDefinitions.DefaultAboRhRetypePositive())
+            .Concat(PanelSubtestDefinitions.DefaultAboRhRetypeNegative())
+            .GroupBy(s => s.Code, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First().Label, StringComparer.OrdinalIgnoreCase);
+        var order = AboRhPanelSubtestCodes.All
+            .Select((code, index) => (code, index))
+            .ToDictionary(x => x.code, x => x.index, StringComparer.OrdinalIgnoreCase);
+
+        return panel.Subtests
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value)
+                && !string.Equals(kv.Value, "NT", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(kv => order.TryGetValue(kv.Key, out var index) ? index : int.MaxValue)
+            .ThenBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(kv => new ProductRetypeCellReactionDto(
+                kv.Key,
+                labels.TryGetValue(kv.Key, out var label) ? label : kv.Key,
+                kv.Value))
+            .ToList();
+    }
 }
 
 public sealed record ProductRetypeDetailDto(

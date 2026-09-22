@@ -13,12 +13,13 @@ using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Modifications;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Patients;
+using BloodBankLIS.Application.Printing;
 using BloodBankLIS.Application.Reporting;
+using BloodBankLIS.Domain.Reporting;
 using BloodBankLIS.Application.Reference;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Enums;
-using BloodBankLIS.Domain.Reporting;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 
@@ -101,8 +102,31 @@ public sealed class BloodBankApiClient
         CancellationToken ct = default) =>
         SendAsync<List<PatientTestHistoryRowDto>>(HttpMethod.Get, $"api/patients/{patientId}/test-history", ct: ct);
 
-    public Task<ApiResult<List<PatientAllocationRowDto>>> GetPatientAllocationsAsync(long patientId, CancellationToken ct = default) =>
-        SendAsync<List<PatientAllocationRowDto>>(HttpMethod.Get, $"api/patients/{patientId}/allocations", ct: ct);
+    public Task<ApiResult<List<PatientAllocationRowDto>>> GetPatientAllocationsAsync(
+        long patientId,
+        bool includeIssuedTransfused = false,
+        CancellationToken ct = default) =>
+        SendAsync<List<PatientAllocationRowDto>>(
+            HttpMethod.Get,
+            $"api/patients/{patientId}/allocations{(includeIssuedTransfused ? "?includeIssuedTransfused=true" : string.Empty)}",
+            ct: ct);
+
+    public Task<ApiResult<List<AllocatableOrderDto>>> GetPatientAllocatableOrdersAsync(
+        long patientId,
+        long productTypeId,
+        CancellationToken ct = default) =>
+        SendAsync<List<AllocatableOrderDto>>(
+            HttpMethod.Get,
+            $"api/patients/{patientId}/allocatable-orders?productTypeId={productTypeId}",
+            ct: ct);
+
+    public Task<ApiResult<List<AllocatableOrderDto>>> GetUnitAllocatableOrdersAsync(
+        long unitId,
+        CancellationToken ct = default) =>
+        SendAsync<List<AllocatableOrderDto>>(
+            HttpMethod.Get,
+            $"api/inventory/units/{unitId}/allocatable-orders",
+            ct: ct);
 
     public Task<ApiResult<ElectronicCrossmatchEligibilityDto>> GetPatientElectronicCrossmatchEligibilityAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<ElectronicCrossmatchEligibilityDto>(HttpMethod.Get, $"api/patients/{patientId}/electronic-crossmatch-eligibility", ct: ct);
@@ -112,6 +136,15 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<List<CrossmatchTestOptionDto>>> GetPatientCrossmatchTestsAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<CrossmatchTestOptionDto>>(HttpMethod.Get, $"api/patients/{patientId}/crossmatch-tests", ct: ct);
+
+    public Task<ApiResult<UnitAntigenTypingSessionDto>> StartUnitAntigenTypingAsync(
+        long patientId,
+        long allocationId,
+        CancellationToken ct = default) =>
+        SendAsync<UnitAntigenTypingSessionDto>(
+            HttpMethod.Post,
+            $"api/patients/{patientId}/allocations/{allocationId}/unit-antigen-typing",
+            ct: ct);
 
     public Task<ApiResult<AllocatePatientUnitResultDto>> AllocatePatientUnitAsync(
         long patientId,
@@ -322,6 +355,7 @@ public sealed class BloodBankApiClient
         if (c.ProductTypeId is not null) q.Add($"productTypeId={c.ProductTypeId}");
         if (c.LocationId is not null) q.Add($"locationId={c.LocationId}");
         if (c.ExpiringBeforeUtc is not null) q.Add($"expiringBeforeUtc={Uri.EscapeDataString(c.ExpiringBeforeUtc.Value.ToString("o"))}");
+        if (c.ExcludeIssuedAndTransfused) q.Add("excludeIssuedAndTransfused=true");
         var query = q.Count > 0 ? "?" + string.Join("&", q) : string.Empty;
         return SendAsync<List<BloodUnitDto>>(HttpMethod.Get, $"api/inventory/units{query}", ct: ct);
     }
@@ -331,6 +365,12 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<List<InventoryStatusHistoryDto>>> GetUnitHistoryAsync(long id, CancellationToken ct = default) =>
         SendAsync<List<InventoryStatusHistoryDto>>(HttpMethod.Get, $"api/inventory/units/{id}/history", ct: ct);
+
+    public Task<ApiResult<List<UnitActivityDto>>> GetUnitActivityAsync(long id, CancellationToken ct = default) =>
+        SendAsync<List<UnitActivityDto>>(HttpMethod.Get, $"api/inventory/units/{id}/activity", ct: ct);
+
+    public Task<ApiResult<ReturnDto>> ChangeIssuedUnitStatusAsync(long unitId, ReturnUnitRequest req, CancellationToken ct = default) =>
+        SendAsync<ReturnDto>(HttpMethod.Post, $"api/inventory/units/{unitId}/change-status", req, ct);
 
     public Task<ApiResult<List<UnitBloodAttributeDto>>> GetUnitBloodAttributesAsync(long unitId, CancellationToken ct = default) =>
         SendAsync<List<UnitBloodAttributeDto>>(HttpMethod.Get, $"api/inventory/units/{unitId}/blood-attributes", ct: ct);
@@ -482,6 +522,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<TransfusionEventDto>> DocumentTransfusionAsync(long issueId, DocumentTransfusionRequest req, CancellationToken ct = default) =>
         SendAsync<TransfusionEventDto>(HttpMethod.Post, $"api/issues/{issueId}/transfusion", req, ct);
 
+    public Task<ApiResult<TransfusionEventDto>> MarkIssueTransfusedAsync(long issueId, CancellationToken ct = default) =>
+        SendAsync<TransfusionEventDto>(HttpMethod.Post, $"api/issues/{issueId}/mark-transfused", ct: ct);
+
     // ---- Signatures ----
     public Task<ApiResult<SignatureCreatedVm>> RecordSignatureAsync(SignatureRequestVm req, CancellationToken ct = default) =>
         SendAsync<SignatureCreatedVm>(HttpMethod.Post, "api/signatures", req, ct);
@@ -538,6 +581,14 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<PrintJobVm>> PrintCompatibilityTagAsync(long issueId, PrintRequestVm req, CancellationToken ct = default) =>
         SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/compatibility-tags/{issueId}", req, ct);
 
+    public Task<ApiResult<PtagIdRequiredVm>> GetPtagIdRequiredAsync(CancellationToken ct = default) =>
+        SendAsync<PtagIdRequiredVm>(HttpMethod.Get, "api/print/ptag-id-required", ct: ct);
+
+    public Task<ApiResult<PrintJobVm>> PrepareCompatibilityTagAsync(
+        long unitId, long patientId, IssueType issueType, CancellationToken ct = default) =>
+        SendAsync<PrintJobVm>(HttpMethod.Post, "api/print/compatibility-tags/prepare",
+            new PrepareCompatibilityTagVm(unitId, patientId, issueType, LabelFormat.Pdf), ct);
+
     public Task<ApiResult<PrintJobVm>> PrintComponentLabelAsync(long unitId, PrintRequestVm req, CancellationToken ct = default) =>
         SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/component-labels/{unitId}", req, ct);
 
@@ -549,6 +600,40 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<PrintJobVm>> GetPrintJobAsync(long id, CancellationToken ct = default) =>
         SendAsync<PrintJobVm>(HttpMethod.Get, $"api/print/jobs/{id}", ct: ct);
+
+    public async Task<ApiResult<byte[]>> GetPrintJobPdfAsync(long id, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"api/print/jobs/{id}/pdf");
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(request, ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<byte[]>.Fail($"Could not reach the API: {ex.Message}", 0);
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(ct);
+                return ApiResult<byte[]>.Fail(string.IsNullOrWhiteSpace(error) ? "PDF preview is not available." : error, (int)response.StatusCode);
+            }
+
+            return ApiResult<byte[]>.Ok(await response.Content.ReadAsByteArrayAsync(ct));
+        }
+    }
+
+    public Task<ApiResult<List<PrinterChoiceDto>>> GetActivePdfPrintersAsync(CancellationToken ct = default) =>
+        SendAsync<List<PrinterChoiceDto>>(HttpMethod.Get, "api/print/pdf-printers", ct: ct);
+
+    public Task<ApiResult<List<PrinterChoiceDto>>> GetActiveZebraPrintersAsync(CancellationToken ct = default) =>
+        SendAsync<List<PrinterChoiceDto>>(HttpMethod.Get, "api/print/zebra-printers", ct: ct);
+
+    public Task<ApiResult<PrintJobVm>> DeliverPrintJobAsync(long id, DeliverPrintRequestVm request, CancellationToken ct = default) =>
+        SendAsync<PrintJobVm>(HttpMethod.Post, $"api/print/jobs/{id}/deliver", request, ct);
 
     // ---- Billing ----
     public Task<ApiResult<List<BillingEventDto>>> GetBillingQueueAsync(CancellationToken ct = default) =>
@@ -966,6 +1051,48 @@ public sealed class BloodBankApiClient
         SendAsync<OrderingProviderDto>(HttpMethod.Post, $"api/admin/providers/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
 
     // ---- Admin: Ordering locations ----
+    public Task<ApiResult<List<string>>> GetInstalledPrintersAsync(CancellationToken ct = default) =>
+        SendAsync<List<string>>(HttpMethod.Get, "api/admin/pdf-printers/installed", ct: ct);
+
+    public Task<ApiResult<List<PdfPrinterDto>>> GetAdminPdfPrintersAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<PdfPrinterDto>>(HttpMethod.Get, $"api/admin/pdf-printers?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<PdfPrinterDto>> CreateAdminPdfPrinterAsync(SavePdfPrinterRequest req, CancellationToken ct = default) =>
+        SendAsync<PdfPrinterDto>(HttpMethod.Post, "api/admin/pdf-printers", req, ct);
+
+    public Task<ApiResult<PdfPrinterDto>> UpdateAdminPdfPrinterAsync(long id, SavePdfPrinterRequest req, CancellationToken ct = default) =>
+        SendAsync<PdfPrinterDto>(HttpMethod.Put, $"api/admin/pdf-printers/{id}", req, ct);
+
+    public Task<ApiResult<PdfPrinterDto>> SetAdminPdfPrinterActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<PdfPrinterDto>(HttpMethod.Post, $"api/admin/pdf-printers/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    public Task<ApiResult<List<ZebraPrinterDto>>> GetAdminZebraPrintersAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<ZebraPrinterDto>>(HttpMethod.Get, $"api/admin/zebra-printers?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<ZebraPrinterDto>> CreateAdminZebraPrinterAsync(SaveZebraPrinterRequest req, CancellationToken ct = default) =>
+        SendAsync<ZebraPrinterDto>(HttpMethod.Post, "api/admin/zebra-printers", req, ct);
+
+    public Task<ApiResult<ZebraPrinterDto>> UpdateAdminZebraPrinterAsync(long id, SaveZebraPrinterRequest req, CancellationToken ct = default) =>
+        SendAsync<ZebraPrinterDto>(HttpMethod.Put, $"api/admin/zebra-printers/{id}", req, ct);
+
+    public Task<ApiResult<ZebraPrinterDto>> SetAdminZebraPrinterActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<ZebraPrinterDto>(HttpMethod.Post, $"api/admin/zebra-printers/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    public Task<ApiResult<ZebraProbeVm>> TestAdminZebraPrinterAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ZebraProbeVm>(HttpMethod.Post, $"api/admin/zebra-printers/{id}/test", ct: ct);
+
+    public Task<ApiResult<LabelLayoutView>> GetSpecimenLabelLayoutAsync(CancellationToken ct = default) =>
+        SendAsync<LabelLayoutView>(HttpMethod.Get, "api/admin/label-layouts/specimen", ct: ct);
+
+    public Task<ApiResult<LabelLayoutView>> SaveSpecimenLabelLayoutAsync(LabelLayoutDocument document, CancellationToken ct = default) =>
+        SendAsync<LabelLayoutView>(HttpMethod.Put, "api/admin/label-layouts/specimen", document, ct);
+
+    public Task<ApiResult<LabelLayoutView>> GetPtagLabelLayoutAsync(CancellationToken ct = default) =>
+        SendAsync<LabelLayoutView>(HttpMethod.Get, "api/admin/label-layouts/ptag", ct: ct);
+
+    public Task<ApiResult<LabelLayoutView>> SavePtagLabelLayoutAsync(LabelLayoutDocument document, CancellationToken ct = default) =>
+        SendAsync<LabelLayoutView>(HttpMethod.Put, "api/admin/label-layouts/ptag", document, ct);
+
     public Task<ApiResult<List<OrderingLocationDto>>> GetAdminLocationsAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<OrderingLocationDto>>(HttpMethod.Get, $"api/admin/locations?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
 

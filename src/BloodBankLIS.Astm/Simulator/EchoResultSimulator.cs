@@ -14,16 +14,15 @@ public sealed record EchoSimulatorRequest(
 
 public sealed record EchoSimulatorResult(string Assay, string RawMessage, IReadOnlyList<string> Records);
 
-/// <summary>Builds randomized ImmuLINK Echo result messages from the LIS specification examples.</summary>
+/// <summary>
+/// Builds ImmuLINK Echo result messages whose cell reactions match the reported interpretation.
+/// </summary>
 public static class EchoResultSimulator
 {
-    private static readonly string[] Grades = ["0", "1+", "2+", "3+", "4+"];
+    private static readonly string[] PositiveGrades = ["2+", "3+", "4+"];
+    private static readonly string[] WeakPositiveGrades = ["1+", "2+"];
     private static readonly string[] GroupInterps =
         ["A Pos", "A Neg", "B Pos", "B Neg", "AB Pos", "AB Neg", "O Pos", "O Neg"];
-    private static readonly string[] ScreenInterps = ["Positive", "Negative"];
-    private static readonly string[] XmInterps = ["IgG Comp (Check ABO Comp)", "Incompatible"];
-    private static readonly string[] DatInterps = ["Positive", "Negative"];
-    private static readonly string[] WeakDInterps = ["Positive (Perform DAT Assay)", "Negative"];
 
     public static IReadOnlyList<string> Assays { get; } =
         ["Group", "Screen", "Crossmatch", "DAT", "Weak D", "Donor", "GroupScreen"];
@@ -82,16 +81,25 @@ public static class EchoResultSimulator
 
     private static void AddGroup(List<string> records, string specimenId, DateTime now, Random rng, string assay = "Group")
     {
-        records.Add(AstmBuilder.Order(1, specimenId, assay, assay.Equals("Donor", StringComparison.OrdinalIgnoreCase) ? "Blood^Product" : "Blood^Patient"));
+        var interp = Pick(rng, GroupInterps);
+        var abo = interp[0] == 'O' ? "O" : interp.StartsWith("AB", StringComparison.Ordinal) ? "AB" : interp[..1];
+        var rhPositive = interp.Contains("Pos", StringComparison.OrdinalIgnoreCase);
+
+        records.Add(AstmBuilder.Order(
+            1,
+            specimenId,
+            assay,
+            assay.Equals("Donor", StringComparison.OrdinalIgnoreCase) ? "Blood^Product" : "Blood^Patient"));
+
         var cells = new (string Code, string Grade)[]
         {
-            ("Mono Ctrl", Grade(rng, preferNegative: true)),
-            ("Anti-A", Grade(rng)),
-            ("Anti-B", Grade(rng)),
-            ("Anti-D1", Grade(rng)),
-            ("Anti-D2", Grade(rng)),
-            ("A1 Cells", Grade(rng)),
-            ("B Cells", Grade(rng))
+            ("Mono Ctrl", "0"),
+            ("Anti-A", PositiveIf(rng, abo is "A" or "AB")),
+            ("Anti-B", PositiveIf(rng, abo is "B" or "AB")),
+            ("Anti-D1", PositiveIf(rng, rhPositive)),
+            ("Anti-D2", PositiveIf(rng, rhPositive)),
+            ("A1 Cells", PositiveIf(rng, abo is "B" or "O")),
+            ("B Cells", PositiveIf(rng, abo is "A" or "O"))
         };
 
         var seq = 1;
@@ -100,47 +108,62 @@ public static class EchoResultSimulator
             records.Add(Reaction(seq++, code, grade, now));
         }
 
-        var interp = assay.Equals("Donor", StringComparison.OrdinalIgnoreCase)
-            ? Pick(rng, GroupInterps)
-            : Pick(rng, GroupInterps);
         records.Add(AstmBuilder.Result(seq, assay, interp, "F", Stamp(now), "M0002"));
     }
 
     private static void AddScreen(List<string> records, string specimenId, DateTime now, Random rng, int sequence = 1)
     {
+        var positive = rng.Next(2) == 0;
         records.Add(AstmBuilder.Order(sequence, specimenId, "Screen"));
         var seq = 1;
-        foreach (var cell in new[] { "Screen 1", "Screen 2", "Screen 3", "Pos Ctrl" })
+        var hit = positive ? rng.Next(3) : -1;
+        foreach (var (cell, index) in new[] { "Screen 1", "Screen 2", "Screen 3" }.Select((c, i) => (c, i)))
         {
-            records.Add(Reaction(seq++, cell, cell == "Pos Ctrl" ? "4+" : Grade(rng), now));
+            records.Add(Reaction(seq++, cell, index == hit || (positive && rng.NextDouble() < 0.25) ? PositiveGrade(rng) : "0", now));
         }
 
-        records.Add(AstmBuilder.Result(seq, "Screen", Pick(rng, ScreenInterps), "F", Stamp(now), "M0002"));
+        records.Add(Reaction(seq++, "Pos Ctrl", "4+", now));
+        records.Add(AstmBuilder.Result(seq, "Screen", positive ? "Positive" : "Negative", "F", Stamp(now), "M0002"));
     }
 
     private static void AddCrossmatch(List<string> records, string specimenId, DateTime now, Random rng)
     {
+        var compatible = rng.Next(2) == 0;
         records.Add(AstmBuilder.Order(1, specimenId, "Crossmatch"));
         records.Add(AstmBuilder.Result(1, "Donor", "R02460", "F", Stamp(now), "M0002"));
-        records.Add(Reaction(2, "IgG XM", Grade(rng), now));
+        records.Add(Reaction(2, "IgG XM", compatible ? "0" : PositiveGrade(rng), now));
         records.Add(Reaction(3, "Ind Ctrl", "4+", now));
-        records.Add(AstmBuilder.Result(4, "Crossmatch", Pick(rng, XmInterps), "F", Stamp(now), "M0002"));
+        records.Add(AstmBuilder.Result(
+            4,
+            "Crossmatch",
+            compatible ? "IgG Comp (Check ABO Comp)" : "Incompatible",
+            "F",
+            Stamp(now),
+            "M0002"));
     }
 
     private static void AddDat(List<string> records, string specimenId, DateTime now, Random rng)
     {
+        var positive = rng.Next(2) == 0;
         records.Add(AstmBuilder.Order(1, specimenId, "DAT"));
-        records.Add(Reaction(1, "DAT Rxn", Grade(rng), now));
+        records.Add(Reaction(1, "DAT Rxn", positive ? PositiveGrade(rng) : "0", now));
         records.Add(Reaction(2, "Ind Ctrl", "4+", now));
-        records.Add(AstmBuilder.Result(3, "DAT", Pick(rng, DatInterps), "F", Stamp(now), "M0002"));
+        records.Add(AstmBuilder.Result(3, "DAT", positive ? "Positive" : "Negative", "F", Stamp(now), "M0002"));
     }
 
     private static void AddWeakD(List<string> records, string specimenId, DateTime now, Random rng)
     {
+        var positive = rng.Next(2) == 0;
         records.Add(AstmBuilder.Order(1, specimenId, "Weak D"));
-        records.Add(Reaction(1, "Anti-D", Grade(rng), now));
-        records.Add(Reaction(2, "Ind Ctrl", Grade(rng, preferNegative: true), now));
-        records.Add(AstmBuilder.Result(3, "Weak D", Pick(rng, WeakDInterps), "F", Stamp(now), "M0002"));
+        records.Add(Reaction(1, "Anti-D", positive ? Pick(rng, WeakPositiveGrades) : "0", now));
+        records.Add(Reaction(2, "Ind Ctrl", "0", now));
+        records.Add(AstmBuilder.Result(
+            3,
+            "Weak D",
+            positive ? "Positive (Perform DAT Assay)" : "Negative",
+            "F",
+            Stamp(now),
+            "M0002"));
     }
 
     private static string Reaction(int seq, string analyte, string grade, DateTime now)
@@ -157,8 +180,11 @@ public static class EchoResultSimulator
         return AstmBuilder.Result(seq, analyte, $"{grade}^{grade}^{measured}", "F", Stamp(now), "M0002");
     }
 
-    private static string Grade(Random rng, bool preferNegative = false) =>
-        preferNegative && rng.NextDouble() < 0.8 ? "0" : Pick(rng, Grades);
+    private static string PositiveIf(Random rng, bool positive) =>
+        positive ? PositiveGrade(rng) : "0";
+
+    private static string PositiveGrade(Random rng) =>
+        rng.NextDouble() < 0.15 ? "1+" : Pick(rng, PositiveGrades);
 
     private static string Pick(Random rng, IReadOnlyList<string> values) => values[rng.Next(values.Count)];
 

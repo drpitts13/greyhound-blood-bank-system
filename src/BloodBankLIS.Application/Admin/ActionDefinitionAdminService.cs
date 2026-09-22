@@ -138,7 +138,9 @@ public sealed class ActionDefinitionAdminService : ConfigAdminServiceBase
         entity.Code = (request.Code ?? string.Empty).Trim().ToUpperInvariant();
         entity.Name = request.Name?.Trim() ?? string.Empty;
         entity.Category = request.Category;
-        entity.ModificationType = request.ModificationType;
+        entity.ModificationType = request.Category == ActionCategory.Modification
+            ? request.ModificationType
+            : null;
         entity.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
     }
 

@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -348,5 +349,68 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
 
         var afterOrders = await c.AuditEvents.CountAsync(e => e.EntityType == nameof(Order));
         Assert.True(afterOrders > beforeOrders);
+    }
+
+    [Fact]
+    public async Task ProductOrder_AutolinksCompletedTypeAndScreen_AndRejectsIncompleteSpecimen()
+    {
+        await using var c = _factory.Create();
+        var (patient, loc) = await SeedPatientAsync(c);
+        var enc = await Encounters(c).CreateAsync(patient.Id, new CreateEncounterRequest(
+            "VIS-TS", EncounterType.Inpatient, EncounterStatus.Active, DateTime.UtcNow, null,
+            null, null, null, null, null, null, null, null));
+        var rbc = new ProductType { ProductCode = "RBC-TS", Name = "RBC", ComponentClass = ComponentClass.RedBloodCells };
+        c.ProductTypes.Add(rbc);
+        c.TestDefinitions.AddRange(
+            new TestDefinition { Code = "ABORH", Name = "ABO/Rh", Category = TestCategory.AboRh, ResultValueType = ResultValueType.AboRh, IsActive = true, IsDraft = false, EffectiveUtc = DateTime.UtcNow, Version = 1 },
+            new TestDefinition { Code = "ABSC", Name = "Antibody Screen", Category = TestCategory.AntibodyScreen, ResultValueType = ResultValueType.Coded, IsActive = true, IsDraft = false, EffectiveUtc = DateTime.UtcNow, Version = 1 });
+        var incomplete = new Specimen
+        {
+            PatientId = patient.Id,
+            AccessionNumber = "ACC-INCOMPLETE",
+            SpecimenType = "EDTA",
+            CollectedUtc = DateTime.UtcNow.AddHours(-3),
+            Status = SpecimenStatus.Accepted,
+            EncounterId = enc.Value!.Id
+        };
+        var complete = new Specimen
+        {
+            PatientId = patient.Id,
+            AccessionNumber = "ACC-COMPLETE",
+            SpecimenType = "EDTA",
+            CollectedUtc = DateTime.UtcNow.AddHours(-1),
+            Status = SpecimenStatus.Accepted,
+            EncounterId = enc.Value.Id
+        };
+        c.Specimens.AddRange(incomplete, complete);
+        await c.SaveChangesAsync();
+        c.TestResults.AddRange(
+            new TestResult { SpecimenId = complete.Id, PatientId = patient.Id, TestCode = "ABORH", Value = "O Pos", Status = ResultStatus.Verified, Source = ResultSource.Manual },
+            new TestResult { SpecimenId = complete.Id, PatientId = patient.Id, TestCode = "ABSC", Value = "Negative", Status = ResultStatus.Verified, Source = ResultSource.Manual });
+        await c.SaveChangesAsync();
+
+        var antibody = new AntibodyScreenCompatLoader(
+            new EfRepository<TestResult>(c),
+            new EfRepository<TestDefinition>(c),
+            new EfRepository<AntibodyHistory>(c),
+            specimens: new EfRepository<Specimen>(c));
+        var orders = new OrderService(
+            new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
+            new EfRepository<Encounter>(c), new EfRepository<OrderingLocation>(c), new EfRepository<Patient>(c),
+            new EfRepository<Specimen>(c), new EfRepository<OrderingProvider>(c), new EfRepository<ProductType>(c),
+            new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c), new FixedClock(DateTime.UtcNow), c,
+            antibodyScreen: antibody);
+
+        var created = await orders.CreateAsync(patient.Id, new CreateOrderRequest(
+            enc.Value.Id, loc.Id, $"ORD-TS-{Guid.NewGuid():N}",
+            [new OrderLineInputDto(OrderCategory.Product, null, rbc.Id)],
+            OrderPriority.Routine, DateTime.UtcNow, null, OrderSource.Manual, null, null));
+        Assert.True(created.Succeeded, created.Error);
+        var listed = await orders.ListByPatientAsync(patient.Id);
+        Assert.Equal(complete.Id, listed[0].SpecimenId);
+
+        var link = await orders.LinkSpecimenAsync(patient.Id, created.Value!.Id, new LinkOrderSpecimenRequest(incomplete.Id));
+        Assert.False(link.Succeeded);
+        Assert.Contains("type and screen", link.Error!, StringComparison.OrdinalIgnoreCase);
     }
 }

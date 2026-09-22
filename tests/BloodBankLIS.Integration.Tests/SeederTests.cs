@@ -55,12 +55,25 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.AntibodyPanelCells.CountAsync() >= 10);
 
             // The original demo patient, five clinical scenarios, plus alloimmunization,
-            // autologous/directed FDA/AABB validation, and HL7 data-load patients.
-            Assert.Equal(9, await verify.Patients.CountAsync());
-            Assert.Equal(10, await verify.Encounters.CountAsync());
-            Assert.Equal(14, await verify.Orders.CountAsync());
+            // autologous/directed FDA/AABB validation, HL7 data-load patients, and the
+            // unit antigen typing patient.
+            Assert.Equal(10, await verify.Patients.CountAsync());
+            Assert.Equal(11, await verify.Encounters.CountAsync());
+            Assert.Equal(16, await verify.Orders.CountAsync());
             Assert.Equal("false", (await verify.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.AllowElectronicCrossmatch)).Value);
             Assert.True(await verify.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0009"));
+            Assert.True(await verify.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN0010"));
+            Assert.Equal(2, await verify.BloodUnits.CountAsync(u =>
+                (u.UnitNumber == "W000123UAG0001" || u.UnitNumber == "W000123UAG0002")
+                && u.Status == UnitStatus.Assigned));
+            var antigenUnits = await verify.BloodUnits
+                .Where(u => u.UnitNumber == "W000123UAG0001" || u.UnitNumber == "W000123UAG0002")
+                .Select(u => u.Id)
+                .ToListAsync();
+            Assert.Equal(2, await verify.ProductRetypeResults.CountAsync(r =>
+                antigenUnits.Contains(r.BloodProductId)
+                && r.Status == ResultStatus.Verified
+                && r.MatchesLabel));
             Assert.True(await verify.TestResults.AnyAsync(r =>
                 r.SourceReference == "CTRL-HL7-ORU-0009"
                 && r.Source == ResultSource.Interface
@@ -83,8 +96,9 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             // one on operational hold, six ISBT divide-scenario units
             // (three available + one completed source + two V0A/V0B results),
             // autologous + directed, lookback sibling, missing + damaged,
-            // and two expected inbound packing-list units, plus the Helen BPAM unit.
-            Assert.Equal(51, await verify.BloodUnits.CountAsync());
+            // and two expected inbound packing-list units, plus the Helen BPAM unit,
+            // plus two units assigned for unit antigen typing.
+            Assert.Equal(53, await verify.BloodUnits.CountAsync());
             Assert.Equal(2, await verify.BloodUnits.CountAsync(u => u.Status == UnitStatus.Expected));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.UnitNumber == "W000123ASN0001" && u.ShipmentId == "ASN-DEMO-01"));
             Assert.True(await verify.BloodUnits.AnyAsync(u => u.Status == UnitStatus.OnHold && u.HoldReason != null));
@@ -484,7 +498,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "CUSTOM"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "OR"));
             Assert.True(await verify.OrderingLocations.AnyAsync(l => l.Code == "ED"));
-            Assert.Equal(9, await verify.Patients.CountAsync());
+            Assert.Equal(10, await verify.Patients.CountAsync());
         }
     }
 }

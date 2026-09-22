@@ -71,6 +71,7 @@ public static class DependencyInjection
 
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<InventoryService>();
+        services.AddScoped<UnitActivityService>();
         services.AddScoped<ProductRetypeService>();
         services.AddScoped<BloodProductModificationService>();
         services.AddSingleton<IDinCheckCharacterValidator, Iso7064Mod37_2DinCheckCharacterValidator>();
@@ -97,6 +98,7 @@ public static class DependencyInjection
         services.AddScoped<PatientProductHistoryService>();
         services.AddScoped<PatientTestHistoryService>();
         services.AddScoped<PatientAllocationService>();
+        services.AddScoped<UnitAntigenTypingService>();
         services.AddScoped<ResultService>();
         services.AddScoped<TestWorklistService>();
         services.AddScoped<ImmunohematologyService>();
@@ -129,6 +131,9 @@ public static class DependencyInjection
             IccbbaExtractDirectory.FromConfiguration(sp.GetService<IConfiguration>()));
         services.AddScoped<OrderingProviderAdminService>();
         services.AddScoped<OrderingLocationAdminService>();
+        services.AddScoped<PrinterCatalogAdminService>();
+        services.AddScoped<LabelLayoutAdminService>();
+        services.TryAddSingleton<IInstalledPrinterCatalog, Printing.EmptyInstalledPrinterCatalog>();
         services.AddScoped<InventoryLocationAdminService>();
         services.AddScoped<FacilityPolicyAdminService>();
         services.AddScoped<CrossmatchSettingsAdminService>();

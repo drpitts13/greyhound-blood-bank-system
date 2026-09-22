@@ -1,0 +1,185 @@
+@page "/patients/{PatientId:long}/unit-antigen-typing/{BloodUnitId:long}"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Unit antigen typing &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Unit antigen typing</h1>
+<p class="muted">Enter antigen results for the assigned unit. Verifying the interpretation adds those antigens to the unit and sends the patient billing message.</p>
+
+<Outcome Value="_feedback" />
+
+@if (_loading)
+{
+    <div class="loading">Opening unit antigen typing...</div>
+}
+else if (_session is not null)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Assigned unit</h3></div>
+        <div class="form-row">
+            <div class="field"><label>Unit number</label><div class="mono">@_session.UnitNumber</div></div>
+            <div class="field"><label>Test</label><div>@(_test?.Name ?? "Unit Antigen Typing") <span class="mono muted">@_session.TestCode</span></div></div>
+        </div>
+        @if (_session.ActionStatus == OrderActionStatus.Completed)
+        {
+            <div class="alert alert-success">This unit already has a verified antigen typing.</div>
+            <a class="btn btn-ghost" href="@ChartHref">Back to products</a>
+        }
+        else if (_antigens.Count == 0)
+        {
+            <div class="empty">No antigens are configured on the unit antigen typing test.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Antigen</th><th>Result</th></tr></thead>
+                <tbody>
+                    @foreach (var antigen in _antigens)
+                    {
+                        <tr>
+                            <td><strong>@antigen.Code</strong> <span class="muted">@antigen.Name</span></td>
+                            <td>
+                                <select value="@_results[antigen.Code]" disabled="@_busy" @onchange="e => SetResult(antigen.Code, e)">
+                                    <option value="@AntigenResult.NotTested">Not tested</option>
+                                    <option value="@AntigenResult.Positive">Positive</option>
+                                    <option value="@AntigenResult.Negative">Negative</option>
+                                </select>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <div class="flex gap" style="margin-top:.75rem;">
+                <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Verify results</button>
+                <a class="btn btn-ghost" href="@ChartHref">Back to products</a>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public long PatientId { get; set; }
+    [Parameter] public long BloodUnitId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "allocationId")]
+    public long AllocationId { get; set; }
+
+    private bool _loading = true;
+    private bool _busy;
+    private Feedback? _feedback;
+    private UnitAntigenTypingSessionDto? _session;
+    private TestDefinitionForEntryDto? _test;
+    private List<BloodAttributeListItemDto> _antigens = new();
+    private Dictionary<string, AntigenResult> _results = new(StringComparer.Ordinal);
+
+    private string ChartHref => $"/patients/{PatientId}?tab=products";
+
+    protected override async Task OnParametersSetAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _feedback = null;
+        if (!Session.Has(PermissionCodes.ResultEnter))
+        {
+            _feedback = Feedback.Fail("Entering a result requires the result.enter permission.");
+            _loading = false;
+            return;
+        }
+
+        if (AllocationId <= 0)
+        {
+            _feedback = Feedback.Fail("Open unit antigen typing from the assigned unit on the patient chart.");
+            _loading = false;
+            return;
+        }
+
+        var started = await Api.StartUnitAntigenTypingAsync(PatientId, AllocationId);
+        if (!started.Succeeded || started.Value is null)
+        {
+            _feedback = started.ToFeedback();
+            _session = null;
+            _loading = false;
+            return;
+        }
+
+        if (started.Value.BloodUnitId != BloodUnitId)
+        {
+            _feedback = Feedback.Fail("The allocation does not match this unit.");
+            _session = null;
+            _loading = false;
+            return;
+        }
+
+        _session = started.Value;
+        var definition = await Api.GetTestDefinitionForEntryAsync(_session.TestCode);
+        _test = definition.Value;
+        _antigens = (_test?.BloodAttributeScope ?? [])
+            .OrderBy(a => a.SortOrder)
+            .ThenBy(a => a.Code, StringComparer.Ordinal)
+            .ToList();
+        _results = _antigens.ToDictionary(a => a.Code, _ => AntigenResult.NotTested, StringComparer.Ordinal);
+        if (!definition.Succeeded)
+        {
+            _feedback = definition.ToFeedback();
+        }
+
+        _loading = false;
+    }
+
+    private void SetResult(string code, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<AntigenResult>(e.Value?.ToString(), out var result))
+        {
+            _results[code] = result;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_session is null || _session.ActionStatus == OrderActionStatus.Completed)
+        {
+            return;
+        }
+
+        var rows = _results
+            .Where(r => r.Value is AntigenResult.Positive or AntigenResult.Negative)
+            .Select(r => new BloodAttributeResultRow(r.Key, r.Value))
+            .ToList();
+        if (rows.Count == 0)
+        {
+            _feedback = Feedback.Fail("Enter at least one positive or negative antigen.");
+            return;
+        }
+
+        _busy = true;
+        var saved = await Api.SaveTestResultAsync(new SaveTestResultRequest(
+            _session.SpecimenId,
+            _session.TestOrderId,
+            _session.OrderLineId,
+            _session.TestCode,
+            BloodAttributeResultValue.Serialize(rows),
+            null,
+            null,
+            null,
+            null,
+            null,
+            MarkComplete: true,
+            CorrectionReason: null,
+            UnitNumber: _session.UnitNumber,
+            CrossmatchMethod: null,
+            CrossmatchResult: null,
+            AntibodyScreenNegative: null,
+            OrderActionId: _session.OrderActionId));
+        _busy = false;
+        if (!saved.Succeeded)
+        {
+            _feedback = saved.ToFeedback();
+            return;
+        }
+
+        _session = _session with { ActionStatus = OrderActionStatus.Completed };
+        _feedback = Feedback.Succeed($"Unit {_session.UnitNumber} antigen typing verified. The unit attributes were updated and the patient billing message was sent.");
+    }
+}

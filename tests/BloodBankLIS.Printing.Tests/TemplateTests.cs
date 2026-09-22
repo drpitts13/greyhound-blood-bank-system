@@ -33,6 +33,11 @@ public class TemplateTests
         Assert.Contains(texts, t => t.Contains("Compatible"));
         Assert.DoesNotContain(texts, t => t.Contains("EMERGENCY"));
         Assert.Contains(doc.Elements.OfType<LabelBarcode>(), b => b.Data == "W12345");
+        Assert.NotNull(doc.CheckForm);
+        Assert.Equal(CompatibilityTagTemplate.CheckAttestation, doc.CheckForm!.Attestation);
+        Assert.Contains(doc.CheckForm.Fields, f => f.Label == "Product" && f.Value == "Red Blood Cells");
+        Assert.Contains(doc.CheckForm.Fields, f => f.Label == "Patient" && f.Value == "Doe, John");
+        Assert.DoesNotContain(doc.CheckForm.Fields, f => f.Label.Contains("barcode", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

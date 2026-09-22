@@ -1,7 +1,9 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -20,7 +22,8 @@ public class Phase7BillingTests : IDisposable
         BloodBankDbContext c,
         CapturingPublisher? publisher = null,
         IRepository<Patient>? patients = null,
-        IRepository<Hl7MessageLog>? messages = null) =>
+        IRepository<Hl7MessageLog>? messages = null,
+        FacilityPolicyService? policy = null) =>
         new(new EfRepository<BillingEvent>(c), new EfRepository<ChargeRule>(c), new EfRepository<ChargeCode>(c),
             new EfRepository<TestServiceBilling>(c), new EfRepository<ProductBilling>(c),
             new EfRepository<TestResult>(c), new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c),
@@ -28,7 +31,8 @@ public class Phase7BillingTests : IDisposable
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
             publisher ?? new CapturingPublisher(),
             patients: patients,
-            messages: messages);
+            messages: messages,
+            policy: policy);
 
     private async Task<long> SeedChargeCodeAsync(BloodBankDbContext c, string code, decimal amount)
     {
@@ -438,6 +442,64 @@ public class Phase7BillingTests : IDisposable
         Assert.True(transfused.Succeeded);
         Assert.Equal("RULE-ISSUE", Assert.Single(issued.Value!).BillingCode);
         Assert.Equal("RULE-TX2", Assert.Single(transfused.Value!).BillingCode);
+    }
+
+    [Fact]
+    public async Task CaptureForIssue_SkippedWhenFacilityBillsOnTransfuse()
+    {
+        long issueId;
+        await using (var setup = _factory.Create())
+        {
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitIssued, "RBC-LR", "RULE-ISSUE-POL", 200m);
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitTransfused, "RBC-LR", "RULE-TX-POL", 75m);
+            setup.SystemSettings.Add(new SystemSetting
+            {
+                Key = FacilityPolicyKeys.ProductChargeOnTransfuse,
+                Value = "true",
+                Category = "Billing"
+            });
+            await setup.SaveChangesAsync();
+            issueId = await CreateIssuedUnitAsync(setup, "BILL-POL-TX", "RBC-LR", "E0336");
+        }
+
+        await using var context = _factory.Create();
+        var billing = Billing(context, policy: new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
+        var issued = await billing.CaptureForIssueAsync(issueId);
+        var transfused = await billing.CaptureForTransfusionAsync(issueId, TransfusionDisposition.Completed);
+
+        Assert.True(issued.Succeeded);
+        Assert.True(transfused.Succeeded);
+        Assert.Empty(issued.Value!);
+        Assert.Equal("RULE-TX-POL", Assert.Single(transfused.Value!).BillingCode);
+    }
+
+    [Fact]
+    public async Task CaptureForTransfusion_SkippedWhenFacilityBillsOnIssue()
+    {
+        long issueId;
+        await using (var setup = _factory.Create())
+        {
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitIssued, "RBC-LR", "RULE-ISSUE-DEF", 200m);
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitTransfused, "RBC-LR", "RULE-TX-DEF", 75m);
+            setup.SystemSettings.Add(new SystemSetting
+            {
+                Key = FacilityPolicyKeys.ProductChargeOnTransfuse,
+                Value = "false",
+                Category = "Billing"
+            });
+            await setup.SaveChangesAsync();
+            issueId = await CreateIssuedUnitAsync(setup, "BILL-POL-ISS", "RBC-LR", "E0336");
+        }
+
+        await using var context = _factory.Create();
+        var billing = Billing(context, policy: new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
+        var issued = await billing.CaptureForIssueAsync(issueId);
+        var transfused = await billing.CaptureForTransfusionAsync(issueId, TransfusionDisposition.Completed);
+
+        Assert.True(issued.Succeeded);
+        Assert.True(transfused.Succeeded);
+        Assert.Equal("RULE-ISSUE-DEF", Assert.Single(issued.Value!).BillingCode);
+        Assert.Empty(transfused.Value!);
     }
 
     [Fact]

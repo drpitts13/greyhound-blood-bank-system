@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Domain.ValueObjects;
@@ -14,12 +13,7 @@ public static class AboRhResultValue
     private const char Separator = '|';
     private const int PanelVersion = 1;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new JsonStringEnumConverter() }
-    };
+    private static readonly JsonSerializerOptions JsonOptions = ClinicalJson.Options;
 
     public static string Format(AboGroup abo, RhType rh) => $"{abo}{Separator}{rh}";
 

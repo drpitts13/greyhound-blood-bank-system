@@ -1,5 +1,7 @@
+using System.Text.Json;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Printing;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
@@ -44,7 +46,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             new EfRepository<PatientBloodTypeHistory>(c),
             BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
             new EfRepository<Issue>(c), new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            retypes: new EfRepository<ProductRetypeResult>(c));
 
     private IssuingService Issuing(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
     {
@@ -73,8 +76,24 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             c, _factory.Clock, _factory.CurrentUser, audit,
             workups: new EfRepository<AntibodyIdentificationWorkup>(c),
             requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c),
-            antibodies: new EfRepository<AntibodyHistory>(c));
+            antibodies: new EfRepository<AntibodyHistory>(c),
+            orderActions: new EfRepository<OrderAction>(c),
+            retypes: new EfRepository<ProductRetypeResult>(c));
     }
+
+    private UnitActivityService Activity(BloodBankDbContext c) =>
+        new(
+            new InventoryRepository(c),
+            new EfRepository<Allocation>(c),
+            new EfRepository<Crossmatch>(c),
+            new EfRepository<Issue>(c),
+            new EfRepository<Return>(c),
+            new EfRepository<TransfusionEvent>(c),
+            new EfRepository<OrderAction>(c),
+            new EfRepository<ActionDefinition>(c),
+            new EfRepository<UnitModificationUnit>(c),
+            new EfRepository<UnitModification>(c),
+            new EfRepository<Patient>(c));
 
     private InventoryService Inventory(BloodBankDbContext c)
     {
@@ -135,7 +154,9 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         bool includeHistoricalAbo = true,
         bool includeCurrentAbo = true,
         Sex sex = Sex.Unknown,
-        DateOnly? dateOfBirth = null)
+        DateOnly? dateOfBirth = null,
+        bool requiresRetype = false,
+        UnitStatus unitStatus = UnitStatus.Available)
     {
         await using var c = _factory.Create();
         var birth = dateOfBirth ?? new DateOnly(1975, 6, 1);
@@ -155,7 +176,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             ProductCode = $"RBC-{key}",
             Name = "Test RBC",
             ComponentClass = ComponentClass.RedBloodCells,
-            RequiresCrossmatch = requiresCrossmatch
+            RequiresCrossmatch = requiresCrossmatch,
+            RequiresRetype = requiresRetype
         };
         c.ProductTypes.Add(productType);
         await c.SaveChangesAsync();
@@ -202,7 +224,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Abo = unitAbo,
             RhD = unitRh,
             ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
-            Status = UnitStatus.Available
+            Status = unitStatus
         };
         c.BloodUnits.Add(unit);
         await c.SaveChangesAsync();
@@ -223,6 +245,69 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using var c = _factory.Create();
         var result = await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
         Assert.True(result.Succeeded);
+    }
+
+    [Fact]
+    public async Task Allocate_WithoutVerifiedRetype_IsBlocked_UntilRetypeThenEmergencyCanReleaseUnretyped()
+    {
+        var pending = await SeedAsync("RETYPE-ALLOC", requiresRetype: true);
+        await using (var blocked = _factory.Create())
+        {
+            var denied = await Compatibility(blocked).AllocateUnitAsync(
+                new AllocateUnitRequest(pending.UnitId, pending.PatientId, pending.SpecimenId));
+            Assert.False(denied.Succeeded);
+            Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == ProductRetypeAllocationRule.Code);
+        }
+
+        await using (var confirm = _factory.Create())
+        {
+            var test = new TestDefinition
+            {
+                Code = "ABORH-RETYPE-POS-ALLOC",
+                Name = "ABO/Rh retype",
+                Category = TestCategory.AboRh,
+                IsActive = true
+            };
+            confirm.TestDefinitions.Add(test);
+            await confirm.SaveChangesAsync();
+            confirm.ProductRetypeResults.Add(new ProductRetypeResult
+            {
+                BloodProductId = pending.UnitId,
+                TestDefinitionId = test.Id,
+                TestCode = test.Code,
+                MatchesLabel = true,
+                Status = ResultStatus.Verified,
+                InterpretedAbo = AboGroup.O,
+                InterpretedRh = RhType.Positive,
+                EnteredBy = "tech",
+                EnteredUtc = _factory.Clock.UtcNow,
+                VerifiedBy = "tech",
+                VerifiedUtc = _factory.Clock.UtcNow
+            });
+            await confirm.SaveChangesAsync();
+        }
+
+        await using (var allowed = _factory.Create())
+        {
+            var reserved = await Compatibility(allowed).AllocateUnitAsync(
+                new AllocateUnitRequest(pending.UnitId, pending.PatientId, pending.SpecimenId));
+            Assert.True(reserved.Succeeded, reserved.Error);
+        }
+
+        var emergency = await SeedAsync("RETYPE-EMERG", requiresRetype: true, unitStatus: UnitStatus.Received);
+        await using var issue = _factory.Create();
+        var standard = await Issuing(issue).IssueUnitAsync(IssueReq(emergency));
+        Assert.True(standard.Evaluation!.IsHardStopped);
+        Assert.Contains(standard.Evaluation!.HardStops, r => r.Code == ProductRetypeAllocationRule.Code);
+
+        var released = await Issuing(issue).IssueUnitAsync(IssueReq(
+            emergency,
+            IssueType.EmergencyRelease,
+            overrideReason: "Emergency release before ABO/Rh retype",
+            authorizedBy: "dr-authorizer"));
+        Assert.True(released.Succeeded, released.Error ?? string.Join("; ", released.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        Assert.Contains(released.Evaluation!.Warnings, r => r.Code == ProductRetypeAllocationRule.Code);
+        Assert.Equal(UnitStatus.Issued, (await issue.BloodUnits.FindAsync(emergency.UnitId))!.Status);
     }
 
     [Fact]
@@ -592,6 +677,53 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Issue_IncompatibleCrossmatch_RequiresOverride()
+    {
+        var s = await SeedAsync("INCXM");
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var xm = await Compatibility(c).RecordCrossmatchAsync(
+            new RecordCrossmatchRequest(s.UnitId, s.PatientId, s.SpecimenId, CrossmatchMethod.Serologic, CrossmatchResult.Incompatible));
+        Assert.True(xm.Succeeded, xm.Error);
+
+        var blocked = await Issuing(c).IssueUnitAsync(IssueReq(s));
+        Assert.False(blocked.Succeeded);
+        Assert.True(blocked.RequiresOverride);
+        Assert.Contains(blocked.Evaluation!.Warnings, r => r.Code == CrossmatchValidityRule.Code);
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, overrideReason: "Clinically indicated incompatible issue", authorizedBy: "supervisor"));
+        Assert.True(issued.Succeeded, issued.Error);
+        Assert.Equal(IssueStatus.Issued, issued.Value!.Status);
+    }
+
+    [Fact]
+    public async Task MarkTransfused_CompletesIssuedUnit()
+    {
+        var s = await SeedAsync("MARKTX");
+        await RecordCompatibleCrossmatchAsync(s);
+
+        await using var c = _factory.Create();
+        var reserved = await Compatibility(c).AllocateUnitAsync(
+            new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
+        Assert.True(reserved.Succeeded, reserved.Error);
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+        Assert.True(issued.Succeeded, issued.Error);
+
+        var marked = await Issuing(c).MarkTransfusedAsync(issued.Value!.Id);
+        Assert.True(marked.Succeeded, marked.Error);
+        Assert.Equal(TransfusionDisposition.Completed, marked.Value!.FinalDisposition);
+
+        var unit = await c.BloodUnits.FindAsync(s.UnitId);
+        Assert.Equal(UnitStatus.Transfused, unit!.Status);
+        var issue = await c.Issues.FindAsync(issued.Value.Id);
+        Assert.Equal(IssueStatus.Transfused, issue!.Status);
+        Assert.NotNull(issue.WardReceivedUtc);
+    }
+
+    [Fact]
     public async Task Issue_WhenNotAllocated_IsHardStopped()
     {
         var s = await SeedAsync("NOALLOC");
@@ -858,6 +990,136 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.Equal(UnitStatus.Quarantine, unit!.Status);
             Assert.Equal("Out of temperature range", unit.QuarantineReason);
         }
+    }
+
+    [Fact]
+    public async Task Return_AfterThirtyMinutes_AvailableRejected_QuarantineAllowed()
+    {
+        var s = await SeedAsync("RETURN-30");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-31) })).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var available = await Issuing(c).ReturnUnitAsync(
+                issueId,
+                new ReturnUnitRequest("Still unused", Destination: UnitStatus.Available));
+            Assert.False(available.Succeeded);
+            Assert.Contains("30 minutes", available.Error, StringComparison.OrdinalIgnoreCase);
+
+            var quarantined = await Issuing(c).ReturnUnitForBloodUnitAsync(
+                s.UnitId,
+                new ReturnUnitRequest("Out too long", Destination: UnitStatus.Quarantine));
+            Assert.True(quarantined.Succeeded, quarantined.Error);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Quarantine, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.Equal(IssueStatus.Returned, (await verify.Issues.FindAsync(issueId))!.Status);
+    }
+
+    [Fact]
+    public async Task Return_AfterThirtyMinutes_DiscardedAllowed()
+    {
+        var s = await SeedAsync("RETURN-DISP");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-45) })).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var disposed = await Issuing(c).ReturnUnitAsync(
+                issueId,
+                new ReturnUnitRequest("Broken seal after issue", Destination: UnitStatus.Discarded));
+            Assert.True(disposed.Succeeded, disposed.Error);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Discarded, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
+    public async Task UnitActivity_IncludesAllocateCrossmatchIssueAndCanceledMod()
+    {
+        var s = await SeedAsync("ACT-TRAIL");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            var allocation = await c.Allocations.SingleAsync(a => a.BloodProductId == s.UnitId);
+            var encounter = new Encounter
+            {
+                PatientId = s.PatientId,
+                VisitNumber = "VIS-ACT-TRAIL",
+                EncounterType = EncounterType.Inpatient,
+                Status = EncounterStatus.Active,
+                AdmitUtc = _factory.Clock.UtcNow
+            };
+            var location = new OrderingLocation { Code = "LOC-ACT-TRAIL", Name = "Ward", IsActive = true };
+            c.Encounters.Add(encounter);
+            c.OrderingLocations.Add(location);
+            await c.SaveChangesAsync();
+
+            var order = new Order
+            {
+                OrderNumber = "ORD-ACT-TRAIL",
+                PatientId = s.PatientId,
+                EncounterId = encounter.Id,
+                OrderingLocationId = location.Id,
+                OrderCategory = OrderCategory.Product,
+                ProductTypeId = s.ProductTypeId,
+                Status = OrderStatus.InProcess,
+                OrderedUtc = _factory.Clock.UtcNow
+            };
+            c.Orders.Add(order);
+            var definition = new ActionDefinition
+            {
+                Code = "IRRAD-ACT",
+                Name = "Irradiate",
+                Category = ActionCategory.Modification,
+                ModificationType = ModificationType.Irradiate,
+                IsActive = true
+            };
+            c.ActionDefinitions.Add(definition);
+            await c.SaveChangesAsync();
+
+            c.OrderActions.Add(new OrderAction
+            {
+                OrderId = order.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Pending,
+                SourceBloodUnitId = s.UnitId
+            });
+            allocation.OrderId = order.Id;
+            await c.SaveChangesAsync();
+
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.True(issued.Succeeded, issued.Error);
+        }
+
+        await using var verify = _factory.Create();
+        var trail = await Activity(verify).ListAsync(s.UnitId);
+        Assert.Contains(trail, r => r.EventType == "Allocation");
+        Assert.Contains(trail, r => r.EventType == "Crossmatch" && r.Summary.Contains("Compatible", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(trail, r => r.EventType == "Issue");
+        Assert.Contains(trail, r =>
+            r.EventType == "Modification"
+            && r.Summary.Contains("Cancelled", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(OrderActionStatus.Cancelled, (await verify.OrderActions.SingleAsync(a => a.SourceBloodUnitId == s.UnitId)).Status);
     }
 
     [Fact]
@@ -1744,5 +2006,118 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Cooler returned unused"))).Succeeded);
         var after = await Issuing(ctx).ListInTransitAsync();
         Assert.DoesNotContain(after, t => t.IssueId == issueId);
+    }
+
+    [Fact]
+    public async Task Issue_SucceedsWithoutPtagScan_WhenLayoutOmitsTheField()
+    {
+        var s = await SeedAsync("PTAG-OFF");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await SavePtagLayoutAsync(includePtagId: false);
+
+        await using var c = _factory.Create();
+        var issued = await IssuingWithPtag(c).IssueUnitAsync(IssueReq(s));
+
+        Assert.True(issued.Succeeded, issued.Error);
+        Assert.Null(issued.Value!.PtagCode);
+    }
+
+    [Fact]
+    public async Task Issue_RequiresMatchingPtagScan_WhenTheFieldIsPlaced()
+    {
+        var s = await SeedAsync("PTAG-ON");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await SavePtagLayoutAsync(includePtagId: true);
+
+        await using (var missing = _factory.Create())
+        {
+            var blocked = await IssuingWithPtag(missing).IssueUnitAsync(IssueReq(s));
+            Assert.False(blocked.Succeeded);
+            Assert.Contains("P-tag ID", blocked.Error);
+        }
+
+        await using (var wrong = _factory.Create())
+        {
+            wrong.PtagIdentifiers.Add(new PtagIdentifier
+            {
+                Code = "PABCDEF12",
+                BloodProductId = s.UnitId,
+                PatientId = s.PatientId
+            });
+            await wrong.SaveChangesAsync();
+            var blocked = await IssuingWithPtag(wrong).IssueUnitAsync(IssueReq(s) with { PtagId = "PWRONG" });
+            Assert.False(blocked.Succeeded);
+            Assert.Contains("does not match", blocked.Error);
+            Assert.NotEqual(UnitStatus.Issued, (await wrong.BloodUnits.FindAsync(s.UnitId))!.Status);
+        }
+
+        await using var ok = _factory.Create();
+        var issued = await IssuingWithPtag(ok).IssueUnitAsync(IssueReq(s) with { PtagId = "pabcdef12" });
+        Assert.True(issued.Succeeded, issued.Error);
+        Assert.Equal("PABCDEF12", issued.Value!.PtagCode);
+        var consumed = await ok.PtagIdentifiers.SingleAsync(p => p.Code == "PABCDEF12");
+        Assert.Equal(issued.Value.Id, consumed.IssueId);
+        Assert.NotNull(consumed.ConsumedUtc);
+    }
+
+    private IssuingService IssuingWithPtag(BloodBankDbContext c)
+    {
+        var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
+        return new IssuingService(
+            new InventoryRepository(c), new EfRepository<Issue>(c), new EfRepository<Allocation>(c),
+            new EfRepository<Crossmatch>(c), new EfRepository<Return>(c), new EfRepository<TransfusionEvent>(c),
+            new EfRepository<Override>(c), new EfRepository<Patient>(c), new EfRepository<Specimen>(c),
+            new EfRepository<ProductType>(c), new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<ExceptionDefinition>(c),
+            new EfRepository<SpecialTransfusionRequirement>(c),
+            new EfRepository<ProductAttribute>(c),
+            new EfRepository<ProductAttributeAssignment>(c),
+            new EfRepository<Order>(c),
+            new EfRepository<User>(c),
+            new EfRepository<InventoryLocation>(c),
+            BloodAttrCompat(c),
+            AntibodyScreenCompat(c),
+            new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
+            new ReactionInvestigationService(
+                new EfRepository<ReactionInvestigation>(c),
+                new EfRepository<TransfusionEvent>(c),
+                new InventoryRepository(c),
+                c, _factory.Clock, _factory.CurrentUser, audit),
+            new FixedPermissionEvaluator(3),
+            c, _factory.Clock, _factory.CurrentUser, audit,
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c),
+            antibodies: new EfRepository<AntibodyHistory>(c),
+            orderActions: new EfRepository<OrderAction>(c),
+            labelLayouts: new EfRepository<LabelLayout>(c),
+            ptagIdentifiers: new EfRepository<PtagIdentifier>(c));
+    }
+
+    private async Task SavePtagLayoutAsync(bool includePtagId)
+    {
+        await using var c = _factory.Create();
+        var existing = await c.LabelLayouts.Where(l => l.Kind == LabelLayoutKind.Ptag).ToListAsync();
+        c.LabelLayouts.RemoveRange(existing);
+        var document = LabelLayoutDefaults.Ptag();
+        if (includePtagId)
+        {
+            document.Page1.Add(new PlacedLabelField
+            {
+                Key = LabelFields.PtagId,
+                X = 20,
+                Y = 520,
+                FontHeight = 28,
+                Barcode = true
+            });
+        }
+
+        c.LabelLayouts.Add(new LabelLayout
+        {
+            Kind = LabelLayoutKind.Ptag,
+            DocumentJson = JsonSerializer.Serialize(document, LabelFields.JsonOptions)
+        });
+        await c.SaveChangesAsync();
     }
 }

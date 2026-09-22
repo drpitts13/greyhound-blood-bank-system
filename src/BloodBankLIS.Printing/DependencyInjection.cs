@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Printing.Delivery;
 using BloodBankLIS.Printing.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,8 +15,12 @@ public static class DependencyInjection
     {
         services.AddSingleton<ILabelRenderer, ZplLabelRenderer>();
         services.AddSingleton<ILabelRenderer, PreviewLabelRenderer>();
+        services.AddSingleton<ILabelRenderer, PdfLabelRenderer>();
+        services.AddSingleton<IPdfDocumentPrinter, UnavailablePdfDocumentPrinter>();
+        services.AddSingleton<IZebraLabelSender>(sp => new ZebraLabelSender(sp.GetService<IRawSpooler>()));
         services.AddSingleton<IReportDocumentRenderer, TabularReportRenderer>();
         services.AddScoped<PrintService>();
+        services.AddScoped<PrintDeliveryService>();
         return services;
     }
 }

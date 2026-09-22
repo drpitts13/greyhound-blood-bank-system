@@ -13,11 +13,7 @@ public static class PanelResultValue
     public const int FlatVersion = 1;
     public const int PhasedVersion = 2;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
+    private static readonly JsonSerializerOptions JsonOptions = ClinicalJson.Options;
 
     public static string Format(IReadOnlyDictionary<string, string> subtests)
     {

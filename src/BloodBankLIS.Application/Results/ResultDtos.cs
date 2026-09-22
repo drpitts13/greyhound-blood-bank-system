@@ -56,7 +56,8 @@ public sealed record SaveTestResultRequest(
     AboRhHistoryResolution? HistoryResolution = null,
     long? SignatureId = null,
     ResultSource Source = ResultSource.Manual,
-    string? SourceReference = null);
+    string? SourceReference = null,
+    long? OrderActionId = null);
 
 public sealed record TestResultDto(
     long Id,

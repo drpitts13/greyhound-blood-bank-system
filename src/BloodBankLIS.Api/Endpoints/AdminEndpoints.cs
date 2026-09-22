@@ -1,8 +1,10 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Immunohematology;
+using BloodBankLIS.Application.Printing;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Printing.Delivery;
 
 namespace BloodBankLIS.Api.Endpoints;
 
@@ -45,6 +47,8 @@ public static class AdminEndpoints
         MapCompatibilityRules(app);
         MapHl7(app);
         MapInstruments(app);
+        MapPrinters(app);
+        MapLabelLayouts(app);
         MapUsersAndRoles(app);
         MapHistory(app);
     }
@@ -693,6 +697,65 @@ public static class AdminEndpoints
         rules.MapPost("/{id:long}/deactivate", async (long id, CompatibilityRuleAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SetRuleActiveAsync(id, false, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapPrinters(WebApplication app)
+    {
+        var pdf = app.MapGroup("/api/admin/pdf-printers").WithTags("Admin: PDF Printers").RequireAuthenticatedUser();
+        pdf.MapGet("/installed", (PrinterCatalogAdminService svc) => Results.Ok(svc.ListInstalledPrinters()))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        pdf.MapGet("", async (PrinterCatalogAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListPdfAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        pdf.MapPost("", async (SavePdfPrinterRequest req, PrinterCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreatePdfAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        pdf.MapPut("/{id:long}", async (long id, SavePdfPrinterRequest req, PrinterCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdatePdfAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        pdf.MapPost("/{id:long}/activate", async (long id, PrinterCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetPdfActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+        pdf.MapPost("/{id:long}/deactivate", async (long id, PrinterCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetPdfActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        var zebra = app.MapGroup("/api/admin/zebra-printers").WithTags("Admin: Zebra Printers").RequireAuthenticatedUser();
+        zebra.MapGet("", async (PrinterCatalogAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListZebraAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        zebra.MapPost("", async (SaveZebraPrinterRequest req, PrinterCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateZebraAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        zebra.MapPut("/{id:long}", async (long id, SaveZebraPrinterRequest req, PrinterCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateZebraAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        zebra.MapPost("/{id:long}/activate", async (long id, PrinterCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetZebraActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+        zebra.MapPost("/{id:long}/deactivate", async (long id, PrinterCatalogAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetZebraActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+        zebra.MapPost("/{id:long}/test", async (long id, PrintDeliveryService delivery, CancellationToken ct) =>
+            EndpointResults.From(await delivery.ProbeZebraAsync(id, ct), message => new { message }))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+    }
+
+    private static void MapLabelLayouts(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/label-layouts").WithTags("Admin: Label layouts").RequireAuthenticatedUser();
+        group.MapGet("/specimen", async (LabelLayoutAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAsync(LabelLayoutKind.Specimen, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        group.MapPut("/specimen", async (LabelLayoutDocument document, LabelLayoutAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SaveAsync(LabelLayoutKind.Specimen, document, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        group.MapGet("/ptag", async (LabelLayoutAdminService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAsync(LabelLayoutKind.Ptag, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        group.MapPut("/ptag", async (LabelLayoutDocument document, LabelLayoutAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SaveAsync(LabelLayoutKind.Ptag, document, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
     }
 
     private static void MapLocations(WebApplication app)

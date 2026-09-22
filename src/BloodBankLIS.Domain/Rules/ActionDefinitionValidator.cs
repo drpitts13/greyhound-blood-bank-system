@@ -43,6 +43,11 @@ public static class ActionDefinitionValidator
                     "Order-attachable modification actions must be irradiate, wash, thaw, volume reduction, or leukoreduction."));
             }
         }
+        else if (entity.Category == ActionCategory.UnitAntigenTyping && entity.ModificationType is not null)
+        {
+            results.Add(RuleResult.HardStop(ModificationTypeInvalid,
+                "Unit antigen typing does not use a modification type."));
+        }
 
         return new RuleEvaluation(results);
     }

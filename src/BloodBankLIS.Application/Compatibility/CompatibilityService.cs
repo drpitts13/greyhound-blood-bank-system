@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -36,6 +37,7 @@ public sealed class CompatibilityService
     private readonly IPermissionEvaluator? _permissions;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
     private readonly CrossmatchSettingsReader? _crossmatchSettings;
+    private readonly IRepository<ProductRetypeResult>? _retypes;
 
     public CompatibilityService(
         IInventoryRepository inventory,
@@ -55,7 +57,8 @@ public sealed class CompatibilityService
         FacilityPolicyService? policy = null,
         IPermissionEvaluator? permissions = null,
         IRepository<AntibodyIdentificationWorkup>? workups = null,
-        CrossmatchSettingsReader? crossmatchSettings = null)
+        CrossmatchSettingsReader? crossmatchSettings = null,
+        IRepository<ProductRetypeResult>? retypes = null)
     {
         _inventory = inventory;
         _crossmatches = crossmatches;
@@ -75,6 +78,7 @@ public sealed class CompatibilityService
         _permissions = permissions;
         _workups = workups;
         _crossmatchSettings = crossmatchSettings;
+        _retypes = retypes;
     }
 
     public Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(
@@ -340,6 +344,13 @@ public sealed class CompatibilityService
 
         var bloodType = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == request.PatientId && h.IsCurrent, ct);
         var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
+        var retypeConfirmed = await ProductRetypeConfirmation.IsConfirmedAsync(_retypes, productType, unit.Id, ct);
+        var retypeGate = ProductRetypeAllocationRule.Evaluate(productType?.RequiresRetype == true, retypeConfirmed);
+        if (retypeGate.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Allocation>.Blocked(new RuleEvaluation([retypeGate]));
+        }
+
         if (bloodType is not null && productType is not null && unit.BloodType.IsKnown)
         {
             results.AddRange(AboCompatibilityRule.Evaluate(bloodType.BloodType, unit.BloodType, productType.ComponentClass));

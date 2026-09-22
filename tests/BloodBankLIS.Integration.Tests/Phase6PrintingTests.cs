@@ -22,7 +22,7 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c),
             new EfRepository<Crossmatch>(c), new EfRepository<PatientBloodTypeHistory>(c),
             c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
-            new ILabelRenderer[] { new ZplLabelRenderer(), new PreviewLabelRenderer() },
+            new ILabelRenderer[] { new ZplLabelRenderer(), new PreviewLabelRenderer(), new PdfLabelRenderer() },
             permissions);
 
     private async Task<long> CreatePatientAsync(BloodBankDbContext c, string mrn)
@@ -120,6 +120,40 @@ public class Phase6PrintingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(LabelFormat.Preview, result.Value!.Format);
         Assert.Contains("LABEL", result.Value.RenderedZpl);
         Assert.DoesNotContain("^XA", result.Value.RenderedZpl);
+    }
+
+    [Fact]
+    public async Task PrintSpecimenLabel_PdfFormat_StoresPdfBytes()
+    {
+        long specimenId;
+        await using (var setup = _factory.Create())
+        {
+            var patientId = await CreatePatientAsync(setup, "PRT-PDF");
+            var specimen = new Specimen
+            {
+                AccessionNumber = "ACC-PDF-1",
+                PatientId = patientId,
+                SpecimenType = "EDTA",
+                CollectedUtc = _factory.Clock.UtcNow.AddHours(-1),
+                Status = SpecimenStatus.Accepted
+            };
+            setup.Specimens.Add(specimen);
+            await setup.SaveChangesAsync();
+            specimenId = specimen.Id;
+        }
+
+        await using var context = _factory.Create();
+        var result = await Printing(context).PrintSpecimenLabelAsync(specimenId, new PrintRequest(LabelFormat.Pdf));
+
+        Assert.True(result.Succeeded, result.Error);
+        var job = result.Value!;
+        Assert.Equal(LabelFormat.Pdf, job.Format);
+        Assert.Equal(PrintDeliveryStatus.NotSent, job.DeliveryStatus);
+        Assert.Null(job.RenderedZpl);
+        Assert.NotNull(job.RenderedPdf);
+        Assert.True(job.RenderedPdf!.Length > 4);
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(job.RenderedPdf, 0, 4));
+        Assert.Contains("ACC-PDF-1", job.PayloadJson);
     }
 
     [Fact]

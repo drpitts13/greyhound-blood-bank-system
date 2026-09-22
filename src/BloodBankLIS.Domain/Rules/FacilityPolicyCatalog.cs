@@ -46,6 +46,9 @@ public static class FacilityPolicyCatalog
         new(FacilityPolicyKeys.InTransitDueHours, "Issue", "In-transit receipt due hours",
             "Hours after issue when ward receipt of a cooler is due.",
             FacilityPolicyValueKind.Integer, "4", "AABB 5.1.8 / 21 CFR 606.160", 1, 24),
+        new(FacilityPolicyKeys.ReturnToAvailableMinutes, "Issue", "Return to available minutes",
+            "Minutes after issue when a unit may still be returned to Available. After this window only quarantine or discard (disposed) are allowed.",
+            FacilityPolicyValueKind.Integer, "30", "AABB 5.1.8 / 21 CFR 606.160", 1, 240),
         new(FacilityPolicyKeys.AllowElectronicCrossmatch, "Issue", "Allow electronic crossmatch",
             "Off by default. Enable in Facility Policy after the facility validates AABB 5.16 computer XM. Disabled policy is a HardStop (XM-EC-POLICY).",
             FacilityPolicyValueKind.Boolean, "false", "AABB 5.16 / CAP TRM.40650 / OCD-006"),
@@ -111,7 +114,10 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Boolean, "true", "Facility SOP / OCD-021"),
         new(FacilityPolicyKeys.AntibodyIdBlockSelfReview, "AntibodyId", "Block antibody ID self-review",
             "When true, the technologist who interpreted the workup cannot also perform supervisor review.",
-            FacilityPolicyValueKind.Boolean, "true", "Facility SOP / OCD-021")
+            FacilityPolicyValueKind.Boolean, "true", "Facility SOP / OCD-021"),
+        new(FacilityPolicyKeys.ProductChargeOnTransfuse, "Billing", "Bill products on transfusion",
+            "When true, product charges are captured when a unit is marked transfused. When false, they are captured at issue. Only one trigger fires.",
+            FacilityPolicyValueKind.Boolean, "false", "Facility SOP / billing catalog")
     ];
 
     public static FacilityPolicyDefinition? Find(string key) =>

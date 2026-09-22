@@ -70,7 +70,7 @@
                 <p class="muted" style="margin-top:.75rem;">
                     Crossmatch #@_lastCrossmatch.Id recorded. Allocate below is prefilled with the same unit, patient, and specimen.
                     <a href="@($"/patients/{_lastCrossmatch.PatientId}?tab=products")">Open chart · Products</a>
-                    · <a href="@($"/inventory?unitId={_lastCrossmatch.BloodUnitId}")">Open Inventory</a>
+                    · <a href="@InventoryUrls.Unit(_lastCrossmatch.BloodUnitId)">Open Inventory</a>
                 </p>
             }
         }
@@ -124,7 +124,7 @@
                         {
                             <a class="btn btn-primary btn-sm" href="@($"/issuing?patientId={_lastAllocation.PatientId}&bloodUnitId={_lastAllocation.BloodUnitId}")">Issue</a>
                         }
-                        <a class="btn btn-ghost btn-sm" href="@($"/inventory?unitId={_lastAllocation.BloodUnitId}")">Open Inventory</a>
+                        <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(_lastAllocation.BloodUnitId)">Open Inventory</a>
                         <a class="btn btn-ghost btn-sm" href="@($"/patients/{_lastAllocation.PatientId}?tab=products")">Open chart · Products</a>
                     </div>
                 </div>

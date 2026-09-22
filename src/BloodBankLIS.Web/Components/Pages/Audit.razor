@@ -130,7 +130,7 @@
         return e.EntityType switch
         {
             "Patient" => $"/patients/{id}",
-            "BloodUnit" => $"/inventory?unitId={id}",
+            "BloodUnit" => InventoryUrls.Unit(id),
             "Issue" => $"/printing?issueId={id}",
             "Specimen" => $"/printing?specimenId={id}",
             _ => null

@@ -12,7 +12,7 @@ public sealed class PreviewLabelRenderer : ILabelRenderer
 {
     public LabelFormat Format => LabelFormat.Preview;
 
-    public string Render(LabelDocument document)
+    public LabelRenderResult Render(LabelDocument document)
     {
         ArgumentNullException.ThrowIfNull(document);
 
@@ -36,6 +36,6 @@ public sealed class PreviewLabelRenderer : ILabelRenderer
             }
         }
 
-        return sb.ToString();
+        return LabelRenderResult.TextContent(sb.ToString());
     }
 }

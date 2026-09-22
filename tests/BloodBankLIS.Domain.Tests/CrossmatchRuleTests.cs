@@ -33,6 +33,18 @@ public class CrossmatchRuleTests
     }
 
     [Fact]
+    public void Required_Incompatible_IsOverridableWarning()
+    {
+        var result = CrossmatchValidityRule.Evaluate(
+            requiresCrossmatch: true,
+            hasValidCrossmatch: false,
+            isEmergencyRelease: false,
+            hasIncompatibleCrossmatch: true);
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Contains("override", result.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ElectronicEligibility_AllPreconditions_Passes()
     {
         var result = ElectronicCrossmatchEligibilityRule.Evaluate(

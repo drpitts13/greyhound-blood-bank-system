@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Domain.Entities;
@@ -34,6 +35,7 @@ public sealed class CrossmatchAttachmentService
     private readonly ICurrentUser _currentUser;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditWriter? _audit;
+    private readonly BillingService? _billing;
 
     public CrossmatchAttachmentService(
         CrossmatchSettingsReader settings,
@@ -53,7 +55,8 @@ public sealed class CrossmatchAttachmentService
         IClock clock,
         ICurrentUser currentUser,
         IUnitOfWork unitOfWork,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        BillingService? billing = null)
     {
         _settings = settings;
         _eligibility = eligibility;
@@ -73,6 +76,7 @@ public sealed class CrossmatchAttachmentService
         _currentUser = currentUser;
         _unitOfWork = unitOfWork;
         _audit = audit;
+        _billing = billing;
     }
 
     public async Task AttachSerologicIfNeededAsync(long patientId, CancellationToken ct = default)
@@ -200,6 +204,11 @@ public sealed class CrossmatchAttachmentService
             reason: "Electronic crossmatch automatically resulted.");
 
         await _unitOfWork.SaveChangesAsync(ct);
+        if (_billing is not null && result.Id > 0)
+        {
+            await _billing.CaptureForResultAsync(result.Id, ct);
+        }
+
         return EvaluationResult<string?>.Ok(test.Code);
     }
 

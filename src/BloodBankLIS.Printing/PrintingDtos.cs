@@ -23,13 +23,18 @@ public sealed record PrintJobDto(
     string? ReprintReason,
     string PrintedBy,
     DateTime? PrintedUtc,
-    string? RenderedZpl)
+    string? RenderedZpl,
+    PrintDeliveryStatus DeliveryStatus,
+    string? DeliveryError,
+    bool HasPdf)
 {
     public static PrintJobDto Summary(PrintJob j) => new(
         j.Id, j.JobType, j.TemplateCode, j.Format, j.TargetPrinter, j.ContextType, j.ContextId,
-        j.Status, j.IsReprint, j.ReprintReason, j.PrintedBy, j.PrintedUtc, null);
+        j.Status, j.IsReprint, j.ReprintReason, j.PrintedBy, j.PrintedUtc, null,
+        j.DeliveryStatus, j.DeliveryError, j.RenderedPdf is { Length: > 0 });
 
     public static PrintJobDto Full(PrintJob j) => new(
         j.Id, j.JobType, j.TemplateCode, j.Format, j.TargetPrinter, j.ContextType, j.ContextId,
-        j.Status, j.IsReprint, j.ReprintReason, j.PrintedBy, j.PrintedUtc, j.RenderedZpl);
+        j.Status, j.IsReprint, j.ReprintReason, j.PrintedBy, j.PrintedUtc, j.RenderedZpl,
+        j.DeliveryStatus, j.DeliveryError, j.RenderedPdf is { Length: > 0 });
 }

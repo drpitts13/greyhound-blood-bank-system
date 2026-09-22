@@ -1,6 +1,7 @@
 using System.Text.Json;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Printing;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -31,6 +32,8 @@ public sealed class PrintService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<LabelLayout>? _layouts;
+    private readonly IRepository<PtagIdentifier>? _ptagIdentifiers;
     private readonly IReadOnlyDictionary<LabelFormat, ILabelRenderer> _renderers;
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
@@ -49,7 +52,9 @@ public sealed class PrintService
         ICurrentUser currentUser,
         IAuditWriter audit,
         IEnumerable<ILabelRenderer> renderers,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<LabelLayout>? layouts = null,
+        IRepository<PtagIdentifier>? ptagIdentifiers = null)
     {
         _printJobs = printJobs;
         _specimens = specimens;
@@ -65,6 +70,8 @@ public sealed class PrintService
         _audit = audit;
         _renderers = renderers.ToDictionary(r => r.Format);
         _permissions = permissions;
+        _layouts = layouts;
+        _ptagIdentifiers = ptagIdentifiers;
     }
 
     public async Task<OperationResult<PrintJob>> PrintSpecimenLabelAsync(long specimenId, PrintRequest request, CancellationToken ct = default)
@@ -91,7 +98,10 @@ public sealed class PrintService
             specimen.DrawLocation);
 
         var templateCode = request.TemplateCode ?? SpecimenLabelTemplate.TemplateCode;
-        var document = SpecimenLabelTemplate.Build(model);
+        var layout = await LoadLayoutAsync(LabelLayoutKind.Specimen, ct);
+        var document = layout is null
+            ? SpecimenLabelTemplate.Build(model)
+            : LabelLayoutComposer.ComposeSpecimen(layout, model);
 
         return await CreateJobAsync(PrintJobType.SpecimenLabel, templateCode, request, model, document,
             nameof(Specimen), specimen.Id, ct);
@@ -126,6 +136,13 @@ public sealed class PrintService
         var currentType = (await _bloodTypes.ListAsync(b => b.PatientId == patient.Id && b.IsCurrent, ct))
             .FirstOrDefault();
 
+        var layout = await LoadLayoutAsync(LabelLayoutKind.Ptag, ct);
+        var ptagId = issue.PtagCode;
+        if (layout is not null && LabelFields.RequiresPtagId(layout) && string.IsNullOrWhiteSpace(ptagId))
+        {
+            ptagId = await AllocatePtagCodeAsync(unit.Id, patient.Id, ct);
+        }
+
         var model = new CompatibilityTagModel(
             PatientName: PatientName(patient),
             MedicalRecordNumber: patient.MedicalRecordNumber,
@@ -140,10 +157,13 @@ public sealed class PrintService
             IssuedUtc: issue.IssuedUtc,
             IssuedBy: issue.IssuedBy,
             IsEmergency: issue.IssueType != IssueType.Standard,
-            TestsIncomplete: issue.TestsIncompleteAtIssue);
+            TestsIncomplete: issue.TestsIncompleteAtIssue,
+            PtagId: ptagId);
 
         var templateCode = request.TemplateCode ?? CompatibilityTagTemplate.TemplateCode;
-        var document = CompatibilityTagTemplate.Build(model);
+        var document = layout is null
+            ? CompatibilityTagTemplate.Build(model)
+            : LabelLayoutComposer.ComposePtag(layout, model);
 
         return await CreateJobAsync(PrintJobType.CompatibilityTag, templateCode, request, model, document,
             nameof(Issue), issue.Id, ct);
@@ -175,6 +195,71 @@ public sealed class PrintService
             nameof(BloodUnit), unit.Id, ct);
     }
 
+    /// <summary>
+    /// Prints a compatibility tag before the issue is saved, so the tech can scan its P-tag ID.
+    /// Reuses an unconsumed code for the same unit and patient.
+    /// </summary>
+    public async Task<OperationResult<PrintJob>> PrintPreparedCompatibilityTagAsync(
+        long unitId, long patientId, IssueType issueType, PrintRequest request, CancellationToken ct = default)
+    {
+        var unit = await _units.GetByIdAsync(unitId, ct);
+        if (unit is null)
+        {
+            return OperationResult<PrintJob>.Fail($"Blood unit {unitId} not found.");
+        }
+
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
+        {
+            return OperationResult<PrintJob>.Fail($"Patient {patientId} not found.");
+        }
+
+        var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
+        var crossmatch = (await _crossmatches.ListAsync(
+                x => x.BloodProductId == unit.Id && x.PatientId == patient.Id, ct))
+            .OrderByDescending(x => x.PerformedUtc)
+            .FirstOrDefault();
+        var currentType = (await _bloodTypes.ListAsync(b => b.PatientId == patient.Id && b.IsCurrent, ct))
+            .FirstOrDefault();
+        var layout = await LoadLayoutAsync(LabelLayoutKind.Ptag, ct);
+        string? ptagId = null;
+        if (layout is not null && LabelFields.RequiresPtagId(layout))
+        {
+            ptagId = await AllocatePtagCodeAsync(unit.Id, patient.Id, ct);
+        }
+
+        var now = _clock.UtcNow;
+        var model = new CompatibilityTagModel(
+            PatientName: PatientName(patient),
+            MedicalRecordNumber: patient.MedicalRecordNumber,
+            DateOfBirth: patient.DateOfBirth,
+            PatientBloodType: currentType?.BloodType.ToString() ?? "Unknown",
+            UnitNumber: unit.UnitNumber,
+            UnitBloodType: unit.BloodType.ToString(),
+            ProductName: productType?.Name ?? "Unknown",
+            CrossmatchMethod: crossmatch?.Method.ToString() ?? "None",
+            CrossmatchResult: crossmatch?.Result.ToString() ?? "None",
+            UnitExpiresUtc: unit.ExpiresUtc,
+            IssuedUtc: now,
+            IssuedBy: _currentUser.UserName,
+            IsEmergency: issueType is IssueType.EmergencyRelease or IssueType.MassiveTransfusion,
+            TestsIncomplete: false,
+            PtagId: ptagId);
+
+        var templateCode = request.TemplateCode ?? CompatibilityTagTemplate.TemplateCode;
+        var document = layout is null
+            ? CompatibilityTagTemplate.Build(model)
+            : LabelLayoutComposer.ComposePtag(layout, model);
+        var created = await CreateJobAsync(PrintJobType.CompatibilityTag, templateCode, request, model, document,
+            nameof(BloodUnit), unit.Id, ct);
+        if (created.Succeeded && created.Value is not null && !string.IsNullOrWhiteSpace(ptagId))
+        {
+            await AttachPrintJobAsync(unit.Id, patient.Id, ptagId, created.Value.Id, ct);
+        }
+
+        return created;
+    }
+
     public async Task<OperationResult<PrintJob>> ReprintAsync(long printJobId, string reason, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -195,7 +280,7 @@ public sealed class PrintService
         }
 
         // Re-render from the stored payload so the reprint matches what was printed.
-        var document = RebuildDocument(original);
+        var document = await RebuildDocumentAsync(original, ct);
         if (document is null)
         {
             return OperationResult<PrintJob>.Fail($"Cannot reprint job type {original.JobType}.");
@@ -216,13 +301,13 @@ public sealed class PrintService
             ContextType = original.ContextType,
             ContextId = original.ContextId,
             PayloadJson = original.PayloadJson,
-            RenderedZpl = renderer.Render(document),
             Status = PrintJobStatus.Printed,
             IsReprint = true,
             ReprintReason = reason,
             PrintedBy = _currentUser.UserName,
             PrintedUtc = now
         };
+        ApplyRendered(reprint, renderer.Render(document));
 
         await _printJobs.AddAsync(reprint, ct);
 
@@ -241,8 +326,22 @@ public sealed class PrintService
     public async Task<PrintJob?> GetAsync(long id, CancellationToken ct = default) =>
         await _printJobs.GetByIdAsync(id, ct);
 
-    public async Task<IReadOnlyList<PrintJob>> ListAsync(CancellationToken ct = default) =>
-        await _printJobs.ListAsync(ct);
+    public Task<IReadOnlyList<PrintJob>> ListAsync(CancellationToken ct = default) =>
+        _printJobs.ListAsync(ct);
+
+    public async Task<byte[]?> GetPdfAsync(long id, CancellationToken ct = default)
+    {
+        var job = await _printJobs.GetByIdAsync(id, ct);
+        return job?.Format == LabelFormat.Pdf && job.RenderedPdf is { Length: > 0 }
+            ? job.RenderedPdf
+            : null;
+    }
+
+    private static void ApplyRendered(PrintJob job, LabelRenderResult rendered)
+    {
+        job.RenderedZpl = rendered.Text;
+        job.RenderedPdf = rendered.Pdf;
+    }
 
     private async Task<OperationResult<PrintJob>> CreateJobAsync(
         PrintJobType jobType,
@@ -275,11 +374,11 @@ public sealed class PrintService
             ContextType = contextType,
             ContextId = contextId,
             PayloadJson = JsonSerializer.Serialize(model, model.GetType(), JsonOptions),
-            RenderedZpl = renderer.Render(document),
             Status = PrintJobStatus.Printed,
             PrintedBy = _currentUser.UserName,
             PrintedUtc = now
         };
+        ApplyRendered(job, renderer.Render(document));
 
         await _printJobs.AddAsync(job, ct);
         await _unitOfWork.SaveChangesAsync(ct);
@@ -294,16 +393,119 @@ public sealed class PrintService
         return OperationResult<PrintJob>.Ok(job);
     }
 
-    private static LabelDocument? RebuildDocument(PrintJob job) => job.JobType switch
+    private async Task<LabelDocument?> RebuildDocumentAsync(PrintJob job, CancellationToken ct)
     {
-        PrintJobType.SpecimenLabel => SpecimenLabelTemplate.Build(
-            JsonSerializer.Deserialize<SpecimenLabelModel>(job.PayloadJson, JsonOptions)!),
-        PrintJobType.CompatibilityTag => CompatibilityTagTemplate.Build(
-            JsonSerializer.Deserialize<CompatibilityTagModel>(job.PayloadJson, JsonOptions)!),
-        PrintJobType.ProductLabel => ComponentLabelTemplate.Build(
-            JsonSerializer.Deserialize<ComponentLabelModel>(job.PayloadJson, JsonOptions)!),
-        _ => null
-    };
+        switch (job.JobType)
+        {
+            case PrintJobType.SpecimenLabel:
+            {
+                var model = JsonSerializer.Deserialize<SpecimenLabelModel>(job.PayloadJson, JsonOptions)!;
+                var layout = await LoadLayoutAsync(LabelLayoutKind.Specimen, ct);
+                return layout is null
+                    ? SpecimenLabelTemplate.Build(model)
+                    : LabelLayoutComposer.ComposeSpecimen(layout, model);
+            }
+            case PrintJobType.CompatibilityTag:
+            {
+                var model = JsonSerializer.Deserialize<CompatibilityTagModel>(job.PayloadJson, JsonOptions)!;
+                var layout = await LoadLayoutAsync(LabelLayoutKind.Ptag, ct);
+                return layout is null
+                    ? CompatibilityTagTemplate.Build(model)
+                    : LabelLayoutComposer.ComposePtag(layout, model);
+            }
+            case PrintJobType.ProductLabel:
+                return ComponentLabelTemplate.Build(
+                    JsonSerializer.Deserialize<ComponentLabelModel>(job.PayloadJson, JsonOptions)!);
+            default:
+                return null;
+        }
+    }
+
+    private async Task<LabelLayoutDocument?> LoadLayoutAsync(LabelLayoutKind kind, CancellationToken ct)
+    {
+        if (_layouts is null)
+        {
+            return null;
+        }
+
+        var rows = await _layouts.ListAsync(l => l.Kind == kind, ct);
+        var json = rows.FirstOrDefault()?.DocumentJson;
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<LabelLayoutDocument>(json, LabelFields.JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<string> AllocatePtagCodeAsync(long unitId, long patientId, CancellationToken ct)
+    {
+        if (_ptagIdentifiers is null)
+        {
+            return "P" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        }
+
+        var open = await _ptagIdentifiers.ListAsync(
+            p => p.BloodProductId == unitId && p.PatientId == patientId && p.IssueId == null, ct);
+        var existing = open.FirstOrDefault();
+        if (existing is not null)
+        {
+            return existing.Code;
+        }
+
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var code = "P" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+            var taken = await _ptagIdentifiers.ListAsync(p => p.Code == code, ct);
+            if (taken.Count > 0)
+            {
+                continue;
+            }
+
+            await _ptagIdentifiers.AddAsync(new PtagIdentifier
+            {
+                Code = code,
+                BloodProductId = unitId,
+                PatientId = patientId
+            }, ct);
+            await _unitOfWork.SaveChangesAsync(ct);
+            return code;
+        }
+
+        throw new InvalidOperationException("Could not allocate a unique P-tag ID.");
+    }
+
+    private async Task AttachPrintJobAsync(long unitId, long patientId, string code, long printJobId, CancellationToken ct)
+    {
+        if (_ptagIdentifiers is null)
+        {
+            return;
+        }
+
+        var rows = await _ptagIdentifiers.ListAsync(
+            p => p.BloodProductId == unitId && p.PatientId == patientId && p.Code == code && p.IssueId == null, ct);
+        var row = rows.FirstOrDefault();
+        if (row is null)
+        {
+            return;
+        }
+
+        var tracked = await _ptagIdentifiers.GetByIdAsync(row.Id, ct);
+        if (tracked is null)
+        {
+            return;
+        }
+
+        tracked.PrintJobId = printJobId;
+        await _unitOfWork.SaveChangesAsync(ct);
+    }
 
     private static string PatientName(Patient patient) =>
         string.IsNullOrWhiteSpace(patient.MiddleName)

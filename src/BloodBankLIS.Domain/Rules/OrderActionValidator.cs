@@ -44,15 +44,18 @@ public static class OrderActionValidator
             results.Add(RuleResult.HardStop(ActionInactiveCode, $"Action '{action.Code}' is not active."));
         }
 
-        if (action.Category != ActionCategory.Modification)
+        if (action.Category == ActionCategory.Modification)
+        {
+            if (!IsOrderAttachable(action.ModificationType))
+            {
+                results.Add(RuleResult.HardStop(TypeInvalidCode,
+                    "Only irradiate, wash, thaw, volume reduction, and leukoreduction can be added to a product order."));
+            }
+        }
+        else if (action.Category != ActionCategory.UnitAntigenTyping)
         {
             results.Add(RuleResult.HardStop(CategoryInvalidCode,
-                $"Action '{action.Code}' is not a modification action."));
-        }
-        else if (!IsOrderAttachable(action.ModificationType))
-        {
-            results.Add(RuleResult.HardStop(TypeInvalidCode,
-                "Only irradiate, wash, thaw, volume reduction, and leukoreduction can be added to a product order."));
+                $"Action '{action.Code}' cannot be added to a product order."));
         }
 
         if (duplicatePending)

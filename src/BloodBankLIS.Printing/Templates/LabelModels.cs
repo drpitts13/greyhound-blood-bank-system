@@ -31,7 +31,8 @@ public sealed record CompatibilityTagModel(
     DateTime IssuedUtc,
     string IssuedBy,
     bool IsEmergency,
-    bool TestsIncomplete = false);
+    bool TestsIncomplete = false,
+    string? PtagId = null);
 
 /// <summary>
 /// ISBT 128 component label data (docs A.1). Assembled from the audited unit so

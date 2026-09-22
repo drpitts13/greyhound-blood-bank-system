@@ -43,10 +43,11 @@ public sealed record SpecimenDto(
     DateTime? ExpiresUtc,
     SpecimenStatus Status,
     string? RejectionReason,
-    string? Comment = null)
+    string? Comment = null,
+    bool HasCompletedTypeAndScreen = false)
 {
-    public static SpecimenDto From(Specimen s, string? typeDescription = null) => new(
+    public static SpecimenDto From(Specimen s, string? typeDescription = null, bool hasCompletedTypeAndScreen = false) => new(
         s.Id, s.AccessionNumber, s.PatientId, s.SpecimenType, typeDescription, s.Barcode,
         s.DrawLocation, s.Collector, s.CollectedUtc, s.ReceivedUtc, s.ExpiresUtc, s.Status, s.RejectionReason,
-        s.Comment);
+        s.Comment, hasCompletedTypeAndScreen);
 }
