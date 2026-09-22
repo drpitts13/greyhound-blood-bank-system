@@ -88,15 +88,13 @@ public sealed class DeliveryService
         var supplier = request.BloodSupplierId > 0
             ? await _suppliers.GetByIdAsync(request.BloodSupplierId, ct)
             : null;
-        var unknown = await UnknownProductTypesAsync(lines, ct);
         var validation = BloodDeliveryValidator.Validate(
             request.OrderedUtc,
             receivedUtc,
             request.PackingListNumber,
             supplierMissing: supplier is null,
             supplierInactive: supplier is { IsActive: false },
-            lines,
-            unknown);
+            lines);
         if (validation.IsHardStopped)
         {
             return EvaluationResult<DeliveryDetailDto>.Blocked(validation);
@@ -118,7 +116,7 @@ public sealed class DeliveryService
             await _lines.AddAsync(new BloodDeliveryLine
             {
                 BloodDeliveryId = delivery.Id,
-                ProductTypeId = line.ProductTypeId,
+                ComponentClass = line.ComponentClass,
                 ExpectedQuantity = line.ExpectedQuantity
             }, ct);
         }
@@ -160,35 +158,33 @@ public sealed class DeliveryService
         var supplier = request.BloodSupplierId > 0
             ? await _suppliers.GetByIdAsync(request.BloodSupplierId, ct)
             : null;
-        var receivedByProduct = await ReceivedCountsAsync(id, ct);
-        var supplierLocked = receivedByProduct.Values.Sum() > 0;
+        var receivedByClass = await ReceivedCountsAsync(id, ct);
+        var supplierLocked = receivedByClass.Values.Sum() > 0;
         if (supplierLocked && request.BloodSupplierId != delivery.BloodSupplierId)
         {
             return EvaluationResult<DeliveryDetailDto>.Fail("The supplier cannot change after units are received on the delivery.");
         }
 
-        var unknown = await UnknownProductTypesAsync(lines, ct);
         var validation = BloodDeliveryValidator.Validate(
             request.OrderedUtc,
             delivery.ReceivedUtc,
             request.PackingListNumber,
             supplierMissing: supplier is null,
             supplierInactive: supplier is { IsActive: false } && request.BloodSupplierId != delivery.BloodSupplierId,
-            lines,
-            unknown);
+            lines);
         if (validation.IsHardStopped)
         {
             return EvaluationResult<DeliveryDetailDto>.Blocked(validation);
         }
 
         var existing = await _lineStore.ListTrackedAsync(id, ct);
-        var requestedIds = lines.Select(l => l.ProductTypeId).ToHashSet();
-        foreach (var line in existing.Where(l => !requestedIds.Contains(l.ProductTypeId)))
+        var requestedClasses = lines.Select(l => l.ComponentClass).ToHashSet();
+        foreach (var line in existing.Where(l => !requestedClasses.Contains(l.ComponentClass)))
         {
-            if (receivedByProduct.GetValueOrDefault(line.ProductTypeId) > 0)
+            if (receivedByClass.GetValueOrDefault(line.ComponentClass) > 0)
             {
                 return EvaluationResult<DeliveryDetailDto>.Fail(
-                    "A product type that already has units on the delivery cannot be removed.");
+                    "A product that already has units on the delivery cannot be removed.");
             }
 
             _lineStore.Remove(line);
@@ -196,13 +192,13 @@ public sealed class DeliveryService
 
         foreach (var requested in lines)
         {
-            var match = existing.FirstOrDefault(l => l.ProductTypeId == requested.ProductTypeId);
+            var match = existing.FirstOrDefault(l => l.ComponentClass == requested.ComponentClass);
             if (match is null)
             {
                 await _lines.AddAsync(new BloodDeliveryLine
                 {
                     BloodDeliveryId = id,
-                    ProductTypeId = requested.ProductTypeId,
+                    ComponentClass = requested.ComponentClass,
                     ExpectedQuantity = requested.ExpectedQuantity
                 }, ct);
             }
@@ -283,11 +279,17 @@ public sealed class DeliveryService
             return EvaluationResult<DeliveryReceiveContext>.Fail("Units can only be added to an open delivery.");
         }
 
+        var product = await _productTypes.GetByIdAsync(productTypeId, ct);
+        if (product is null)
+        {
+            return EvaluationResult<DeliveryReceiveContext>.Fail("Product type was not found.");
+        }
+
         var onDelivery = await _lines.AnyAsync(
-            l => l.BloodDeliveryId == delivery.Id && l.ProductTypeId == productTypeId, ct);
+            l => l.BloodDeliveryId == delivery.Id && l.ComponentClass == product.ComponentClass, ct);
         if (!onDelivery)
         {
-            return EvaluationResult<DeliveryReceiveContext>.Fail("That product type is not on this delivery.");
+            return EvaluationResult<DeliveryReceiveContext>.Fail("That product is not on this delivery.");
         }
 
         var supplier = await _suppliers.GetByIdAsync(delivery.BloodSupplierId, ct);
@@ -305,10 +307,6 @@ public sealed class DeliveryService
         var supplier = delivery.BloodSupplier ?? await _suppliers.GetByIdAsync(delivery.BloodSupplierId, ct);
         var lines = await _lines.ListAsync(l => l.BloodDeliveryId == delivery.Id, ct);
         var received = await ReceivedCountsAsync(delivery.Id, ct);
-        var productIds = lines.Select(l => l.ProductTypeId).Distinct().ToList();
-        var products = productIds.Count == 0
-            ? new List<ProductType>()
-            : (await _productTypes.ListAsync(p => productIds.Contains(p.Id), ct)).ToList();
         var units = await _units.ListAsync(u => u.DeliveryId == delivery.Id, ct);
 
         return new DeliveryDetailDto(
@@ -321,44 +319,36 @@ public sealed class DeliveryService
             delivery.ReceivedUtc,
             delivery.Status,
             SupplierLocked: received.Values.Sum() > 0,
-            lines.OrderBy(l => products.FirstOrDefault(p => p.Id == l.ProductTypeId)?.ProductCode).Select(l =>
-            {
-                var product = products.FirstOrDefault(p => p.Id == l.ProductTypeId);
-                return new DeliveryLineDto(
-                    l.Id,
-                    l.ProductTypeId,
-                    product?.ProductCode ?? l.ProductTypeId.ToString(),
-                    product?.Name ?? "Product",
-                    l.ExpectedQuantity,
-                    received.GetValueOrDefault(l.ProductTypeId));
-            }).ToList(),
+            lines.OrderBy(l => l.ComponentClass).Select(l => new DeliveryLineDto(
+                l.Id,
+                l.ComponentClass,
+                ComponentClassLabels.Label(l.ComponentClass),
+                l.ExpectedQuantity,
+                received.GetValueOrDefault(l.ComponentClass))).ToList(),
             units.OrderBy(u => u.UnitNumber).Select(BloodUnitDto.From).ToList());
     }
 
-    private async Task<Dictionary<long, int>> ReceivedCountsAsync(long deliveryId, CancellationToken ct)
+    private async Task<Dictionary<ComponentClass, int>> ReceivedCountsAsync(long deliveryId, CancellationToken ct)
     {
         var units = await _units.ListAsync(u => u.DeliveryId == deliveryId, ct);
-        return units.GroupBy(u => u.ProductTypeId).ToDictionary(g => g.Key, g => g.Count());
-    }
-
-    private async Task<IReadOnlyCollection<long>> UnknownProductTypesAsync(
-        IReadOnlyList<(long ProductTypeId, int ExpectedQuantity)> lines,
-        CancellationToken ct)
-    {
-        if (lines.Count == 0)
+        if (units.Count == 0)
         {
-            return Array.Empty<long>();
+            return new Dictionary<ComponentClass, int>();
         }
 
-        var ids = lines.Select(l => l.ProductTypeId).Distinct().ToList();
-        var known = await _productTypes.ListAsync(p => ids.Contains(p.Id), ct);
-        var knownIds = known.Select(p => p.Id).ToHashSet();
-        return ids.Where(id => !knownIds.Contains(id)).ToList();
+        var productIds = units.Select(u => u.ProductTypeId).Distinct().ToList();
+        var products = await _productTypes.ListAsync(p => productIds.Contains(p.Id), ct);
+        var classByProduct = products.ToDictionary(p => p.Id, p => p.ComponentClass);
+        return units
+            .Where(u => classByProduct.ContainsKey(u.ProductTypeId))
+            .GroupBy(u => classByProduct[u.ProductTypeId])
+            .ToDictionary(g => g.Key, g => g.Count());
     }
 
-    private static List<(long ProductTypeId, int ExpectedQuantity)> NormalizeLines(IReadOnlyList<SaveDeliveryLineRequest>? lines) =>
+    private static List<(ComponentClass ComponentClass, int ExpectedQuantity)> NormalizeLines(
+        IReadOnlyList<SaveDeliveryLineRequest>? lines) =>
         (lines ?? Array.Empty<SaveDeliveryLineRequest>())
-            .Select(l => (l.ProductTypeId, l.ExpectedQuantity))
+            .Select(l => (l.ComponentClass, l.ExpectedQuantity))
             .ToList();
 
     private static string? NullIfEmpty(string? value) =>

@@ -50,19 +50,25 @@
                     }
                 </select>
             </div>
-            <div class="field"><label>Product type</label>
+            <div class="field"><label>Product</label>
                 <select @bind="_productTypeId">
                     <option value="0">— select —</option>
-                    @foreach (var line in _deliveryLines)
+                    @foreach (var product in EligibleProducts)
                     {
-                        <option value="@line.ProductTypeId">@line.ProductCode — @line.ProductName (@line.ReceivedQuantity/@line.ExpectedQuantity)</option>
+                        <option value="@product.Id">@product.Name</option>
                     }
                 </select>
             </div>
         </div>
+        @if (_deliveryLines.Count > 0)
+        {
+            <p class="muted">
+                @string.Join(" · ", _deliveryLines.Select(l => $"{l.ProductLabel} {l.ReceivedQuantity}/{l.ExpectedQuantity}"))
+            </p>
+        }
         @if (_openDeliveries.Count == 0)
         {
-            <p class="muted">No open delivery. <a href="/inventory">Create a delivery</a> before receiving units.</p>
+            <p class="muted">No open delivery. <a href="/inventory/deliveries/new">Create a delivery</a> before receiving units.</p>
         }
     </div>
 
@@ -180,9 +186,15 @@ Valid: @_session.Validation?.Valid</pre>
     private long _deliveryId;
     private List<OpenDeliveryDto> _openDeliveries = new();
     private List<DeliveryLineDto> _deliveryLines = new();
+    private List<ProductTypeDto> _productTypes = new();
+
+    private IEnumerable<ProductTypeDto> EligibleProducts =>
+        _productTypes.Where(p => _deliveryLines.Any(l => l.ComponentClass == p.ComponentClass))
+            .OrderBy(p => p.Name);
 
     protected override async Task OnInitializedAsync()
     {
+        _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
         var open = await Api.GetOpenDeliveriesAsync();
         if (open.Succeeded) _openDeliveries = open.Value ?? new();
         var users = await Api.GetDirectoryUsersAsync();
@@ -210,9 +222,9 @@ Valid: @_session.Validation?.Valid</pre>
         }
 
         _deliveryLines = delivery.Value.Lines.ToList();
-        _productTypeId = _deliveryLines.Any(l => l.ProductTypeId == previousProduct)
+        _productTypeId = EligibleProducts.Any(p => p.Id == previousProduct)
             ? previousProduct
-            : _deliveryLines.Count > 0 ? _deliveryLines[0].ProductTypeId : 0;
+            : EligibleProducts.FirstOrDefault()?.Id ?? 0;
     }
 
     private bool DeliveryReady()

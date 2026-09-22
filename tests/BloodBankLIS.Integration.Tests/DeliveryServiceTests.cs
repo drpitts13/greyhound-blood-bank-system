@@ -22,14 +22,13 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
     {
         await using var context = _factory.Create();
         var supplierId = await SeedSupplierAsync(context);
-        var productTypeId = await SeedProductAsync(context);
         var service = CreateDeliveryService(context);
 
         var created = await service.CreateAsync(new CreateDeliveryRequest(
             supplierId,
             _factory.Clock.UtcNow.AddHours(-3),
             "PL-100",
-            [new SaveDeliveryLineRequest(productTypeId, 4)]));
+            [new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 4)]));
 
         Assert.True(created.Succeeded, created.Error);
         Assert.Equal(_factory.Clock.UtcNow, created.Value!.ReceivedUtc);
@@ -41,7 +40,7 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
             supplierId,
             _factory.Clock.UtcNow.AddHours(2),
             null,
-            [new SaveDeliveryLineRequest(productTypeId, 1)]));
+            [new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 1)]));
         Assert.False(future.Succeeded);
     }
 
@@ -50,7 +49,6 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
     {
         await using var context = _factory.Create();
         var supplierId = await SeedSupplierAsync(context, "TWO");
-        var productTypeId = await SeedProductAsync(context, "RBC-DEL-2");
         var service = CreateDeliveryService(context);
 
         var empty = await service.CreateAsync(new CreateDeliveryRequest(
@@ -61,7 +59,7 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
             supplierId,
             _factory.Clock.UtcNow.AddHours(-1),
             null,
-            [new SaveDeliveryLineRequest(productTypeId, 1), new SaveDeliveryLineRequest(productTypeId, 2)]));
+            [new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 1), new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 2)]));
         Assert.False(duplicate.Succeeded);
     }
 
@@ -73,6 +71,7 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
         var supplierId = await SeedSupplierAsync(context, "RCV");
         var productTypeId = await SeedProductAsync(context, "RBC-DEL-RCV");
         var otherProductId = await SeedProductAsync(context, "PLS-DEL-RCV", ComponentClass.Plasma);
+        var sameClassId = await SeedProductAsync(context, "RBC-DEL-RCV-2");
         var deliveries = CreateDeliveryService(context);
         var inventory = CreateInventory(context, deliveries);
 
@@ -84,7 +83,7 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
             supplierId,
             _factory.Clock.UtcNow.AddHours(-1),
             "PACK-9",
-            [new SaveDeliveryLineRequest(productTypeId, 1)]));
+            [new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 1)]));
         Assert.True(created.Succeeded, created.Error);
         var deliveryId = created.Value!.Id;
 
@@ -97,11 +96,14 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("Receive Supplier", first.Unit.Supplier);
         Assert.Equal("PACK-9", first.Unit.ShipmentId);
 
-        var over = await inventory.ReceiveUnitAsync(UnitRequest("U-OK-2", productTypeId, deliveryId));
+        var over = await inventory.ReceiveUnitAsync(UnitRequest("U-OK-2", sameClassId, deliveryId));
         Assert.True(over.Succeeded, over.Error);
 
         var detail = await deliveries.GetAsync(deliveryId);
-        Assert.Equal(2, Assert.Single(detail!.Lines).ReceivedQuantity);
+        var line = Assert.Single(detail!.Lines);
+        Assert.Equal(ComponentClass.RedBloodCells, line.ComponentClass);
+        Assert.Equal("RBC", line.ProductLabel);
+        Assert.Equal(2, line.ReceivedQuantity);
 
         var completed = await deliveries.CompleteAsync(deliveryId);
         Assert.True(completed.Succeeded, completed.Error);

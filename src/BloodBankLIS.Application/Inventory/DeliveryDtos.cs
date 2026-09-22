@@ -2,7 +2,7 @@ using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Inventory;
 
-public sealed record SaveDeliveryLineRequest(long ProductTypeId, int ExpectedQuantity);
+public sealed record SaveDeliveryLineRequest(ComponentClass ComponentClass, int ExpectedQuantity);
 
 public sealed record CreateDeliveryRequest(
     long BloodSupplierId,
@@ -18,9 +18,8 @@ public sealed record UpdateDeliveryRequest(
 
 public sealed record DeliveryLineDto(
     long Id,
-    long ProductTypeId,
-    string ProductCode,
-    string ProductName,
+    ComponentClass ComponentClass,
+    string ProductLabel,
     int ExpectedQuantity,
     int ReceivedQuantity)
 {

@@ -1,0 +1,118 @@
+@page "/inventory/deliveries/new"
+@using BloodBankLIS.Application.Inventory
+@using BloodBankLIS.Application.Reference
+@using BloodBankLIS.Domain.Enums
+@using BloodBankLIS.Domain.Rules
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>New delivery &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<InventoryDeskRibbon Current="InventoryDeskRibbon.Desk.Inventory" />
+
+<div class="flex-between" style="margin-bottom:1rem;">
+    <h1>New delivery</h1>
+    <a class="btn btn-ghost" href="/inventory">Back to inventory</a>
+</div>
+
+<div class="bb-card">
+    <p class="muted">Received date/time is stamped when this delivery is saved. Counts are by product, such as RBC or FFP. Enter each unit on the next page.</p>
+    <Outcome Value="_feedback" />
+    <div class="form-row">
+        <div class="field"><label>Blood supplier</label>
+            <select @bind="_supplierId">
+                <option value="0">— select —</option>
+                @foreach (var s in _suppliers) { <option value="@s.Id">@s.DisplayName</option> }
+            </select>
+        </div>
+        <div class="field"><label>Ordered (UTC)</label><input type="datetime-local" @bind="_orderedLocal" /></div>
+        <div class="field"><label>Packing list</label><input @bind="_packingList" placeholder="Optional" /></div>
+    </div>
+    <table class="bb">
+        <thead><tr><th>Product</th><th>Expected quantity</th><th></th></tr></thead>
+        <tbody>
+            @foreach (var line in _lines)
+            {
+                <tr>
+                    <td>
+                        <select @bind="line.ComponentClass">
+                            @foreach (var product in Enum.GetValues<ComponentClass>())
+                            {
+                                <option value="@product">@ComponentClassLabels.Label(product)</option>
+                            }
+                        </select>
+                    </td>
+                    <td><input type="number" min="1" @bind="line.ExpectedQuantity" /></td>
+                    <td class="right">
+                        @if (_lines.Count > 1)
+                        {
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _lines.Remove(line)">Remove</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="flex gap" style="margin-top:.6rem;">
+        <button class="btn btn-secondary" type="button" @onclick="AddLine">Add product</button>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="CreateAsync">Save delivery</button>
+    </div>
+</div>
+
+@code {
+    private bool _busy;
+    private Feedback? _feedback;
+    private List<BloodSupplierRefDto> _suppliers = new();
+    private long _supplierId;
+    private DateTime _orderedLocal = DateTime.UtcNow;
+    private string? _packingList;
+    private List<LineDraft> _lines = [new()];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Session.Has(PermissionCodes.InventoryReceive))
+        {
+            Nav.NavigateTo("/inventory");
+            return;
+        }
+
+        _suppliers = (await Api.GetBloodSuppliersAsync()).Value ?? new();
+    }
+
+    private void AddLine()
+    {
+        var next = Enum.GetValues<ComponentClass>().FirstOrDefault(c => _lines.All(l => l.ComponentClass != c));
+        _lines.Add(new LineDraft { ComponentClass = next, ExpectedQuantity = 1 });
+    }
+
+    private async Task CreateAsync()
+    {
+        if (_supplierId <= 0 || _lines.Count == 0)
+        {
+            _feedback = Feedback.Fail("Choose a supplier and at least one product.");
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.CreateDeliveryAsync(new CreateDeliveryRequest(
+            _supplierId,
+            DateTime.SpecifyKind(_orderedLocal, DateTimeKind.Utc),
+            string.IsNullOrWhiteSpace(_packingList) ? null : _packingList.Trim(),
+            _lines.Select(l => new SaveDeliveryLineRequest(l.ComponentClass, l.ExpectedQuantity)).ToList()));
+        _busy = false;
+        if (!r.Succeeded || r.Value is null)
+        {
+            _feedback = r.ToFeedback();
+            return;
+        }
+
+        Nav.NavigateTo($"/inventory/deliveries/{r.Value.Id}");
+    }
+
+    private sealed class LineDraft
+    {
+        public ComponentClass ComponentClass { get; set; } = ComponentClass.RedBloodCells;
+        public int ExpectedQuantity { get; set; } = 1;
+    }
+}

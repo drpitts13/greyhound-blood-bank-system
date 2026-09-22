@@ -16,7 +16,7 @@
     <div class="flex gap">
         @if (Session.Has(PermissionCodes.InventoryReceive))
         {
-            <button class="btn btn-primary" @onclick="ToggleDelivery">@(_showDelivery ? "Cancel" : "New delivery")</button>
+            <a class="btn btn-primary" href="/inventory/deliveries/new">New delivery</a>
         }
         @if (Session.Has(PermissionCodes.InventoryDiscard))
         {
@@ -437,7 +437,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Open deliveries</h3></div>
-        <p class="muted">Continue a delivery to enter the units that arrived. Each delivery has one supplier and the expected counts by product type.</p>
+        <p class="muted">Open a delivery to review it, or enter the units that arrived. Each delivery has one supplier and expected counts by product, such as RBC or FFP.</p>
         @if (_openDeliveries.Count == 0)
         {
             <div class="muted">No open deliveries.</div>
@@ -461,65 +461,19 @@
                     @foreach (var delivery in _openDeliveries)
                     {
                         <tr>
-                            <td class="mono">@delivery.Id</td>
+                            <td class="mono"><a href="@($"/inventory/deliveries/{delivery.Id}")">@delivery.Id</a></td>
                             <td>@delivery.SupplierName</td>
                             <td class="mono">@(delivery.PackingListNumber ?? "—")</td>
                             <td>@delivery.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@delivery.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@delivery.ExpectedQuantity</td>
                             <td>@delivery.ReceivedQuantity</td>
-                            <td class="right"><a class="btn btn-primary btn-sm" href="@($"/inventory/deliveries/{delivery.Id}")">Enter units</a></td>
+                            <td class="right"><a class="btn btn-primary btn-sm" href="@($"/inventory/deliveries/{delivery.Id}/receive")">Enter units</a></td>
                         </tr>
                     }
                 </tbody>
             </table>
         }
-    </div>
-}
-
-@if (_showDelivery)
-{
-    <div class="bb-card">
-        <div class="bb-card-title"><h3>New delivery</h3></div>
-        <p class="muted">Received date/time is stamped when this delivery is saved. Then enter each unit on the delivery.</p>
-        <Outcome Value="_deliveryFb" />
-        <div class="form-row">
-            <div class="field"><label>Blood supplier</label>
-                <select @bind="_deliverySupplierId">
-                    <option value="0">— select —</option>
-                    @foreach (var s in _suppliers) { <option value="@s.Id">@s.DisplayName</option> }
-                </select>
-            </div>
-            <div class="field"><label>Ordered (UTC)</label><input type="datetime-local" @bind="_orderedLocal" /></div>
-            <div class="field"><label>Packing list</label><input @bind="_packingList" placeholder="Optional" /></div>
-        </div>
-        <table class="bb">
-            <thead><tr><th>Product type</th><th>Expected quantity</th><th></th></tr></thead>
-            <tbody>
-                @foreach (var line in _deliveryLines)
-                {
-                    <tr>
-                        <td>
-                            <select @bind="line.ProductTypeId">
-                                <option value="0">— select —</option>
-                                @foreach (var t in _productTypes) { <option value="@t.Id">@t.DisplayProductCode — @t.Name</option> }
-                            </select>
-                        </td>
-                        <td><input type="number" min="1" @bind="line.ExpectedQuantity" /></td>
-                        <td class="right">
-                            @if (_deliveryLines.Count > 1)
-                            {
-                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _deliveryLines.Remove(line)">Remove</button>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-        <div class="flex gap" style="margin-top:.6rem;">
-            <button class="btn btn-secondary" type="button" @onclick="AddDeliveryLine">Add product type</button>
-            <button class="btn btn-primary" disabled="@_busy" @onclick="CreateDeliveryAsync">Save delivery</button>
-        </div>
     </div>
 }
 
@@ -616,14 +570,7 @@
     private AboGroup? _searchAbo;
     private RhType? _searchRh;
 
-    private bool _showDelivery;
-    private Feedback? _deliveryFb;
-    private List<BloodSupplierRefDto> _suppliers = new();
     private List<OpenDeliveryDto> _openDeliveries = new();
-    private long _deliverySupplierId;
-    private DateTime _orderedLocal = DateTime.UtcNow;
-    private string? _packingList;
-    private List<DeliveryLineDraft> _deliveryLines = [new()];
     private UnitAppearance _arrivalAppearance = UnitAppearance.Acceptable;
     private string? _arrivalVisualNotes;
     private string? _arrivalSecondVerifier;
@@ -647,7 +594,6 @@
         _locations = (await Api.GetLocationsAsync()).Value ?? new();
         if (Session.Has(PermissionCodes.InventoryReceive))
         {
-            _suppliers = (await Api.GetBloodSuppliersAsync()).Value ?? new();
             await LoadOpenDeliveriesAsync();
         }
         var users = await Api.GetDirectoryUsersAsync();
@@ -831,38 +777,6 @@
         if (!r.Succeeded) _topFb = r.ToFeedback();
     }
 
-    private void ToggleDelivery() => _showDelivery = !_showDelivery;
-
-    private void AddDeliveryLine() => _deliveryLines.Add(new DeliveryLineDraft());
-
-    private async Task CreateDeliveryAsync()
-    {
-        var lines = _deliveryLines
-            .Where(l => l.ProductTypeId > 0)
-            .Select(l => new SaveDeliveryLineRequest(l.ProductTypeId, l.ExpectedQuantity))
-            .ToList();
-        if (_deliverySupplierId <= 0 || lines.Count == 0)
-        {
-            _deliveryFb = Feedback.Fail("Choose a supplier and at least one product type.");
-            return;
-        }
-
-        _busy = true;
-        var r = await Api.CreateDeliveryAsync(new CreateDeliveryRequest(
-            _deliverySupplierId,
-            DateTime.SpecifyKind(_orderedLocal, DateTimeKind.Utc),
-            string.IsNullOrWhiteSpace(_packingList) ? null : _packingList.Trim(),
-            lines));
-        _busy = false;
-        if (!r.Succeeded || r.Value is null)
-        {
-            _deliveryFb = r.ToFeedback();
-            return;
-        }
-
-        Nav.NavigateTo($"/inventory/deliveries/{r.Value.Id}");
-    }
-
     private async Task ExpireDueAsync()
     {
         _busy = true;
@@ -960,9 +874,4 @@
         }
     }
 
-    private sealed class DeliveryLineDraft
-    {
-        public long ProductTypeId { get; set; }
-        public int ExpectedQuantity { get; set; } = 1;
-    }
 }

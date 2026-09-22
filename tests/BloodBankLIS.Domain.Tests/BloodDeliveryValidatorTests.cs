@@ -1,3 +1,4 @@
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Domain.Tests;
@@ -15,8 +16,7 @@ public class BloodDeliveryValidatorTests
             packingListNumber: null,
             supplierMissing: true,
             supplierInactive: false,
-            lines: [],
-            unknownProductTypeIds: []);
+            lines: []);
 
         Assert.Contains(result.Results, r => r.Code == "DELIVERY.SUPPLIER.REQUIRED");
         Assert.Contains(result.Results, r => r.Code == "DELIVERY.LINES.REQUIRED");
@@ -31,8 +31,7 @@ public class BloodDeliveryValidatorTests
             packingListNumber: null,
             supplierMissing: false,
             supplierInactive: false,
-            lines: [(1, 2)],
-            unknownProductTypeIds: []);
+            lines: [(ComponentClass.RedBloodCells, 2)]);
 
         Assert.Contains(result.Results, r => r.Code == "DELIVERY.ORDERED.AFTER.RECEIPT");
     }
@@ -46,8 +45,7 @@ public class BloodDeliveryValidatorTests
             packingListNumber: "PL-1",
             supplierMissing: false,
             supplierInactive: false,
-            lines: [(1, 2), (1, 3)],
-            unknownProductTypeIds: []);
+            lines: [(ComponentClass.RedBloodCells, 2), (ComponentClass.RedBloodCells, 3)]);
 
         Assert.Contains(result.Results, r => r.Code == "DELIVERY.LINE.DUPLICATE");
     }

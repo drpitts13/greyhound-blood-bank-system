@@ -133,8 +133,7 @@ public sealed class BloodDeliveryLineConfiguration : IEntityTypeConfiguration<Bl
         b.HasKey(l => l.Id);
         b.Property(l => l.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(l => l.ModifiedBy).HasMaxLength(100);
-        b.HasOne(l => l.ProductType).WithMany().HasForeignKey(l => l.ProductTypeId).OnDelete(DeleteBehavior.Restrict);
-        b.HasIndex(l => new { l.BloodDeliveryId, l.ProductTypeId }).IsUnique();
+        b.HasIndex(l => new { l.BloodDeliveryId, l.ComponentClass }).IsUnique();
     }
 }
 

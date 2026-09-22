@@ -1,3 +1,5 @@
+using BloodBankLIS.Domain.Enums;
+
 namespace BloodBankLIS.Domain.Rules;
 
 public static class BloodDeliveryValidator
@@ -10,8 +12,7 @@ public static class BloodDeliveryValidator
         string? packingListNumber,
         bool supplierMissing,
         bool supplierInactive,
-        IReadOnlyList<(long ProductTypeId, int ExpectedQuantity)> lines,
-        IReadOnlyCollection<long> unknownProductTypeIds)
+        IReadOnlyList<(ComponentClass ComponentClass, int ExpectedQuantity)> lines)
     {
         var results = new List<RuleResult>();
 
@@ -40,22 +41,22 @@ public static class BloodDeliveryValidator
 
         if (lines.Count == 0)
         {
-            results.Add(RuleResult.HardStop("DELIVERY.LINES.REQUIRED", "Enter the expected number of at least one product type."));
+            results.Add(RuleResult.HardStop("DELIVERY.LINES.REQUIRED", "Enter the expected number of at least one product."));
         }
 
-        if (lines.GroupBy(l => l.ProductTypeId).Any(g => g.Count() > 1))
+        if (lines.Any(l => !Enum.IsDefined(l.ComponentClass)))
         {
-            results.Add(RuleResult.HardStop("DELIVERY.LINE.DUPLICATE", "Each product type can appear only once on a delivery."));
+            results.Add(RuleResult.HardStop("DELIVERY.LINE.PRODUCT.UNKNOWN", "One or more products were not recognized."));
+        }
+
+        if (lines.GroupBy(l => l.ComponentClass).Any(g => g.Count() > 1))
+        {
+            results.Add(RuleResult.HardStop("DELIVERY.LINE.DUPLICATE", "Each product can appear only once on a delivery."));
         }
 
         if (lines.Any(l => l.ExpectedQuantity < 1))
         {
             results.Add(RuleResult.HardStop("DELIVERY.LINE.QUANTITY", "Expected quantity must be at least 1."));
-        }
-
-        if (unknownProductTypeIds.Count > 0)
-        {
-            results.Add(RuleResult.HardStop("DELIVERY.LINE.PRODUCT.UNKNOWN", "One or more product types were not found."));
         }
 
         return new RuleEvaluation(results);
