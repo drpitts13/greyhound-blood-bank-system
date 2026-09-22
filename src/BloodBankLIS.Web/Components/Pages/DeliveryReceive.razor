@@ -78,7 +78,6 @@ else
             <div class="field"><label>Product description code</label>
                 <input @bind="_rec.ProductDescriptionCode" placeholder="E0336 or E0336000" maxlength="8" />
             </div>
-            <div class="field"><label>Collection facility</label><input @bind="_rec.CollectionFacility" /></div>
         </div>
         <div class="form-row">
             <div class="field"><label>Appearance</label>
@@ -110,17 +109,20 @@ else
                         Placeholder="Autologous / directed patient" />
                 </div>
             }
-            <div class="field" style="min-width:16rem;">
-                <label>Second verifier</label>
-                <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
-                    Items="ReceiveVerifierChoices"
-                    @bind-Value="_rec.SecondVerifier"
-                    DisplayText="@(x => x.Label)"
-                    ItemValue="@(x => x.UserName)"
-                    SearchText="@(x => x.Label)"
-                    Clearable="true"
-                    Placeholder="Different active user" />
-            </div>
+            @if (_requireReceiveVerifier)
+            {
+                <div class="field" style="min-width:16rem;">
+                    <label>Second verifier</label>
+                    <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                        Items="ReceiveVerifierChoices"
+                        @bind-Value="_rec.SecondVerifier"
+                        DisplayText="@(x => x.Label)"
+                        ItemValue="@(x => x.UserName)"
+                        SearchText="@(x => x.Label)"
+                        Clearable="true"
+                        Placeholder="Different active user" />
+                </div>
+            }
         </div>
         <button class="btn btn-primary" disabled="@_busy" @onclick="ReceiveAsync">Receive</button>
     </div>
@@ -137,6 +139,7 @@ else
     private List<InventoryLocationDto> _locations = new();
     private List<DirectoryUserDto> _directoryUsers = new();
     private List<PatientDto> _patients = new();
+    private bool _requireReceiveVerifier;
     private ReceiveModel _rec = new();
 
     private IEnumerable<DirectoryUserDto> ReceiveVerifierChoices =>
@@ -159,6 +162,8 @@ else
 
     private async Task LoadAsync()
     {
+        var policy = await Api.GetReceivePolicyAsync();
+        _requireReceiveVerifier = policy.Succeeded && policy.Value?.RequireSecondVerifier == true;
         _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
         _locations = (await Api.GetLocationsAsync()).Value ?? new();
         var users = await Api.GetDirectoryUsersAsync();
@@ -199,11 +204,10 @@ else
             _rec.RhD,
             DateTime.SpecifyKind(_rec.ExpiresLocal, DateTimeKind.Utc),
             _rec.LocationId == 0 ? null : _rec.LocationId,
-            string.IsNullOrWhiteSpace(_rec.CollectionFacility) ? null : _rec.CollectionFacility.Trim(),
             Isbt128ProductCode: string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode) ? null : _rec.ProductDescriptionCode.Trim(),
             VisualInspectionAcceptable: _rec.Appearance == UnitAppearance.Acceptable,
             VisualInspectionNotes: string.IsNullOrWhiteSpace(_rec.VisualInspectionNotes) ? null : _rec.VisualInspectionNotes,
-            SecondVerifier: _rec.SecondVerifier,
+            SecondVerifier: _requireReceiveVerifier ? _rec.SecondVerifier : null,
             Appearance: _rec.Appearance,
             ReceiveTemperatureCelsius: _rec.ReceiveTemperatureCelsius,
             DonationRestriction: _rec.DonationRestriction,
@@ -234,7 +238,6 @@ else
         public DateTime ExpiresLocal { get; set; } = DateTime.UtcNow.AddDays(30);
         public long LocationId { get; set; }
         public string ProductDescriptionCode { get; set; } = string.Empty;
-        public string? CollectionFacility { get; set; }
         public string? VisualInspectionNotes { get; set; }
         public UnitAppearance Appearance { get; set; } = UnitAppearance.Acceptable;
         public decimal? ReceiveTemperatureCelsius { get; set; }

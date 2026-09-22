@@ -664,6 +664,9 @@ public sealed class BloodBankApiClient
         SendAsync<BillingEventDto>(HttpMethod.Post, $"api/billing/charges/{id}/export", ct: ct);
 
     // ---- Reference ----
+    public Task<ApiResult<ReceivePolicyDto>> GetReceivePolicyAsync(CancellationToken ct = default) =>
+        SendAsync<ReceivePolicyDto>(HttpMethod.Get, "api/reference/receive-policy", ct: ct);
+
     public Task<ApiResult<List<ProductTypeDto>>> GetProductTypesAsync(CancellationToken ct = default) =>
         SendAsync<List<ProductTypeDto>>(HttpMethod.Get, "api/reference/product-types", ct: ct);
 

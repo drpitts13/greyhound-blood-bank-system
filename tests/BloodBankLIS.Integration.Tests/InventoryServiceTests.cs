@@ -84,6 +84,28 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             await Ensure(ProductRetypeAssignment.RhNegativeTestCode, "Rh− Retype"));
     }
 
+    private async Task SetReceiveVerifierPolicyAsync(bool required)
+    {
+        await using var context = _factory.Create();
+        var setting = await context.SystemSettings
+            .FirstOrDefaultAsync(s => s.Key == FacilityPolicyKeys.RequireReceiveVerifier);
+        if (setting is null)
+        {
+            context.SystemSettings.Add(new SystemSetting
+            {
+                Key = FacilityPolicyKeys.RequireReceiveVerifier,
+                Value = required ? "true" : "false",
+                Category = "Inventory"
+            });
+        }
+        else
+        {
+            setting.Value = required ? "true" : "false";
+        }
+
+        await context.SaveChangesAsync();
+    }
+
     private async Task EnsureSecondVerifierAsync(string userName = "tech2")
     {
         await using var context = _factory.Create();
@@ -845,6 +867,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     public async Task ReceiveUnit_MissingSecondVerifier_IsHardStopped()
     {
         var productTypeId = await EnsureProductTypeAsync();
+        await SetReceiveVerifierPolicyAsync(true);
         await using var context = _factory.Create();
         var result = await CreateService(context).ReceiveUnitAsync(
             NewUnitRequest("U-RCV-NO2", productTypeId) with { SecondVerifier = null });
@@ -857,11 +880,24 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     public async Task ReceiveUnit_SameUserVerifier_IsHardStopped()
     {
         var productTypeId = await EnsureProductTypeAsync();
+        await SetReceiveVerifierPolicyAsync(true);
         await using var context = _factory.Create();
         var result = await CreateService(context).ReceiveUnitAsync(
             NewUnitRequest("U-RCV-SELF", productTypeId) with { SecondVerifier = "tech-test" });
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ReceiveVerifierRule.Code);
+    }
+
+    [Fact]
+    public async Task ReceiveUnit_MissingSecondVerifier_SucceedsWhenNotRequired()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await SetReceiveVerifierPolicyAsync(false);
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ReceiveUnitAsync(
+            NewUnitRequest("U-RCV-OPT", productTypeId) with { SecondVerifier = null });
+        Assert.True(result.Succeeded);
+        Assert.NotNull(await context.BloodUnits.FirstOrDefaultAsync(u => u.UnitNumber == "U-RCV-OPT"));
     }
 
     [Fact]

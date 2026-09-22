@@ -129,17 +129,20 @@ else
                             <label>Receipt temperature (°C)</label>
                             <input type="number" step="0.1" @bind="_arrivalTemperatureCelsius" placeholder="e.g. 4.0" />
                         </div>
-                        <div class="field" style="min-width:16rem;">
-                            <label>Second verifier</label>
-                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
-                                Items="VerifierChoices"
-                                @bind-Value="_arrivalSecondVerifier"
-                                DisplayText="@(x => x.Label)"
-                                ItemValue="@(x => x.UserName)"
-                                SearchText="@(x => x.Label)"
-                                Clearable="true"
-                                Placeholder="Different active user" />
-                        </div>
+                        @if (_requireReceiveVerifier)
+                        {
+                            <div class="field" style="min-width:16rem;">
+                                <label>Second verifier</label>
+                                <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                    Items="VerifierChoices"
+                                    @bind-Value="_arrivalSecondVerifier"
+                                    DisplayText="@(x => x.Label)"
+                                    ItemValue="@(x => x.UserName)"
+                                    SearchText="@(x => x.Label)"
+                                    Clearable="true"
+                                    Placeholder="Different active user" />
+                            </div>
+                        }
                         <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReceiveExpectedAsync(_unit.Id)">Confirm arrival</button>
                         <div class="field" style="min-width:16rem;">
                             <label>Cancel reason</label>
@@ -492,6 +495,7 @@ else
     private UnitAppearance _arrivalAppearance = UnitAppearance.Acceptable;
     private string? _arrivalVisualNotes;
     private string? _arrivalSecondVerifier;
+    private bool _requireReceiveVerifier;
     private decimal? _arrivalTemperatureCelsius;
 
     private string UnitNumberTitle => _unit?.UnitNumber ?? "Unit";
@@ -537,6 +541,8 @@ else
     {
         _loading = true;
         _error = null;
+        var policy = await Api.GetReceivePolicyAsync();
+        _requireReceiveVerifier = policy.Succeeded && policy.Value?.RequireSecondVerifier == true;
         if (_productTypes.Count == 0)
         {
             _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
@@ -837,7 +843,7 @@ else
         var r = await Api.ReceiveExpectedUnitAsync(id, new ReceiveExpectedUnitRequest(
             VisualInspectionAcceptable: _arrivalAppearance == UnitAppearance.Acceptable,
             VisualInspectionNotes: string.IsNullOrWhiteSpace(_arrivalVisualNotes) ? null : _arrivalVisualNotes,
-            SecondVerifier: _arrivalSecondVerifier,
+            SecondVerifier: _requireReceiveVerifier ? _arrivalSecondVerifier : null,
             Appearance: _arrivalAppearance,
             ReceiveTemperatureCelsius: _arrivalTemperatureCelsius));
         _busy = false;

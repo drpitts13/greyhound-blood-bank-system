@@ -1,5 +1,6 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Admin;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Reference;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -21,6 +22,9 @@ public static class ReferenceEndpoints
 
         group.MapGet("/actions", async (ActionDefinitionAdminService service, CancellationToken ct) =>
             Results.Ok(await service.ListAsync(includeInactive: false, ct)));
+
+        group.MapGet("/receive-policy", async (FacilityPolicyService policy, CancellationToken ct) =>
+            Results.Ok(new ReceivePolicyDto(await policy.GetRequireReceiveVerifierAsync(ct))));
 
         group.MapGet("/product-types", async (BloodBankDbContext context, CancellationToken ct) =>
         {

@@ -245,9 +245,9 @@ public static partial class DatabaseSeeder
             new SystemSetting
             {
                 Key = FacilityPolicyKeys.RequireReceiveVerifier,
-                Value = "true",
+                Value = "false",
                 Category = "Inventory",
-                Description = "Require a distinct directory user as second verifier when receiving a unit."
+                Description = "When true, receiving a unit requires a distinct directory user as second verifier."
             },
             new SystemSetting
             {
@@ -628,17 +628,28 @@ public static partial class DatabaseSeeder
 
     private static async Task EnsureReceiveVerifierPolicyAsync(BloodBankDbContext context, CancellationToken ct)
     {
-        if (await context.SystemSettings.AnyAsync(s => s.Key == FacilityPolicyKeys.RequireReceiveVerifier, ct))
+        const string description = "When true, receiving a unit requires a distinct directory user as second verifier.";
+        var existing = await context.SystemSettings
+            .FirstOrDefaultAsync(s => s.Key == FacilityPolicyKeys.RequireReceiveVerifier, ct);
+        if (existing is not null)
         {
+            if (existing.Value == "true"
+                && existing.Description == "Require a distinct directory user as second verifier when receiving a unit.")
+            {
+                existing.Value = "false";
+                existing.Description = description;
+                await context.SaveChangesAsync(ct);
+            }
+
             return;
         }
 
         context.SystemSettings.Add(new SystemSetting
         {
             Key = FacilityPolicyKeys.RequireReceiveVerifier,
-            Value = "true",
+            Value = "false",
             Category = "Inventory",
-            Description = "Require a distinct directory user as second verifier when receiving a unit."
+            Description = description
         });
         await context.SaveChangesAsync(ct);
     }

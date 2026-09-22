@@ -58,7 +58,7 @@ public sealed class FacilityPolicyService
         GetBoolAsync(FacilityPolicyKeys.RequireReceiveVisualInspection, true, ct);
 
     public Task<bool> GetRequireReceiveVerifierAsync(CancellationToken ct = default) =>
-        GetBoolAsync(FacilityPolicyKeys.RequireReceiveVerifier, true, ct);
+        GetBoolAsync(FacilityPolicyKeys.RequireReceiveVerifier, false, ct);
 
     public Task<bool> GetRequireReceiveTemperatureAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequireReceiveTemperature, true, ct);

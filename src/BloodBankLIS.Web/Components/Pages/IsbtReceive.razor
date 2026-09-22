@@ -115,17 +115,20 @@
                         Placeholder="Autologous / directed patient" />
                 </label>
             }
-            <label>
-                Second verifier
-                <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
-                    Items="ReceiveVerifierChoices"
-                    @bind-Value="_secondVerifier"
-                    DisplayText="@(x => x.Label)"
-                    ItemValue="@(x => x.UserName)"
-                    SearchText="@(x => x.Label)"
-                    Clearable="true"
-                    Placeholder="Different active user" />
-            </label>
+            @if (_requireReceiveVerifier)
+            {
+                <label>
+                    Second verifier
+                    <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                        Items="ReceiveVerifierChoices"
+                        @bind-Value="_secondVerifier"
+                        DisplayText="@(x => x.Label)"
+                        ItemValue="@(x => x.UserName)"
+                        SearchText="@(x => x.Label)"
+                        Clearable="true"
+                        Placeholder="Different active user" />
+                </label>
+            }
             <label><input type="checkbox" @bind="_releaseAvailable" /> Release to Available</label>
             <p class="muted" style="margin-top:0;font-size:0.85rem;">
                 Ignored when the product requires an ABO/Rh retype — those units enter as Received.
@@ -172,6 +175,7 @@ Valid: @_session.Validation?.Valid</pre>
     private long? _reservedPatientId;
     private bool _releaseAvailable = true;
     private string? _secondVerifier;
+    private bool _requireReceiveVerifier;
     private List<DirectoryUserDto> _directoryUsers = new();
     private List<PatientDto> _patients = new();
 
@@ -194,6 +198,8 @@ Valid: @_session.Validation?.Valid</pre>
 
     protected override async Task OnInitializedAsync()
     {
+        var policy = await Api.GetReceivePolicyAsync();
+        _requireReceiveVerifier = policy.Succeeded && policy.Value?.RequireSecondVerifier == true;
         _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
         var open = await Api.GetOpenDeliveriesAsync();
         if (open.Succeeded) _openDeliveries = open.Value ?? new();
@@ -247,7 +253,7 @@ Valid: @_session.Validation?.Valid</pre>
             _expirationLocal, _explicitTime, _productTypeId,
             ReleaseToAvailable: _releaseAvailable,
             VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
-            SecondVerifier: _secondVerifier,
+            SecondVerifier: _requireReceiveVerifier ? _secondVerifier : null,
             Appearance: _appearance,
             ReceiveTemperatureCelsius: _receiveTemperature,
             DonationRestriction: _donationRestriction,
@@ -301,7 +307,7 @@ Valid: @_session.Validation?.Valid</pre>
         var result = await Api.CompleteIsbtScanSessionAsync(new CompleteScanSessionRequest(
             _sessionKey.Value, _productTypeId, ReleaseToAvailable: _releaseAvailable,
             VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
-            SecondVerifier: _secondVerifier, Appearance: _appearance,
+            SecondVerifier: _requireReceiveVerifier ? _secondVerifier : null, Appearance: _appearance,
             ReceiveTemperatureCelsius: _receiveTemperature,
             DonationRestriction: _donationRestriction,
             ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId,

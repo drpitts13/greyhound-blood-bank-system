@@ -4,6 +4,8 @@ using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Reference;
 
+public sealed record ReceivePolicyDto(bool RequireSecondVerifier);
+
 public sealed record ProductTypeDto(
     long Id,
     string ProductCode,

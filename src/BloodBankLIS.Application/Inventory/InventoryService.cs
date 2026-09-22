@@ -374,7 +374,7 @@ public sealed class InventoryService
             RhD = request.RhD,
             ExpiresUtc = request.ExpiresUtc,
             CurrentLocationId = request.LocationId,
-            CollectionFacility = request.CollectionFacility,
+            CollectionFacility = deliveryGate.Context?.SupplierName ?? request.CollectionFacility,
             Supplier = deliveryGate.Context?.SupplierName ?? request.Supplier,
             DeliveryId = deliveryGate.Context?.Id,
             Isbt128ProductCode = resolved.ProductCodeData ?? resolved.ProductDescriptionCode,
@@ -808,7 +808,7 @@ public sealed class InventoryService
             locationId,
             deliveryGate.Context?.SupplierName ?? supplier,
             deliveryGate.Context is not null ? deliveryGate.Context.PackingListNumber : shipmentId,
-            collectionFacility,
+            deliveryGate.Context?.SupplierName ?? collectionFacility,
             volume,
             initialStatus,
             _clock.UtcNow);
