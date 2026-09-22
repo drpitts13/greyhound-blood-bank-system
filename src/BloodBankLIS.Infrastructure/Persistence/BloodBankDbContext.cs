@@ -41,6 +41,9 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<Patient> Patients => Set<Patient>();
     public DbSet<Encounter> Encounters => Set<Encounter>();
     public DbSet<OrderingLocation> OrderingLocations => Set<OrderingLocation>();
+    public DbSet<BloodSupplier> BloodSuppliers => Set<BloodSupplier>();
+    public DbSet<BloodDelivery> BloodDeliveries => Set<BloodDelivery>();
+    public DbSet<BloodDeliveryLine> BloodDeliveryLines => Set<BloodDeliveryLine>();
     public DbSet<OrderingProvider> OrderingProviders => Set<OrderingProvider>();
     public DbSet<Specimen> Specimens => Set<Specimen>();
     public DbSet<Order> Orders => Set<Order>();

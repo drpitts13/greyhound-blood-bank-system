@@ -33,6 +33,7 @@ public static class AdminEndpoints
         MapIsbtProductCodes(app);
         MapProviders(app);
         MapLocations(app);
+        MapBloodSuppliers(app);
         MapInventoryLocations(app);
         MapFacilityPolicies(app);
         MapCrossmatchSettings(app);
@@ -785,6 +786,37 @@ public static class AdminEndpoints
             .RequirePermission(PermissionCodes.AdminConfigActivate);
 
         group.MapPost("/{id:long}/deactivate", async (long id, OrderingLocationAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+    }
+
+    private static void MapBloodSuppliers(WebApplication app)
+    {
+        var group = app.MapGroup("/api/admin/blood-suppliers").WithTags("Admin: Blood Suppliers").RequireAuthenticatedUser();
+
+        group.MapGet("", async (BloodSupplierAdminService svc, bool? includeInactive, CancellationToken ct) =>
+            Results.Ok(await svc.ListAsync(includeInactive ?? true, ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapGet("/{id:long}", async (long id, BloodSupplierAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetAsync(id, ct);
+            return dto is null ? Results.NotFound(new { error = "Blood supplier not found." }) : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.AdminConfigView);
+
+        group.MapPost("", async (SaveBloodSupplierRequest req, BloodSupplierAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPut("/{id:long}", async (long id, SaveBloodSupplierRequest req, BloodSupplierAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+
+        group.MapPost("/{id:long}/activate", async (long id, BloodSupplierAdminService svc, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
+        group.MapPost("/{id:long}/deactivate", async (long id, BloodSupplierAdminService svc, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
             .RequirePermission(PermissionCodes.AdminConfigActivate);
     }

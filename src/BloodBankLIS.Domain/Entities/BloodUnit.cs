@@ -77,6 +77,11 @@ public class BloodUnit : BaseEntity
 
     public string? ShipmentId { get; set; }
 
+    /// <summary>Supplier delivery this unit was received on. Null for units received before deliveries.</summary>
+    public long? DeliveryId { get; set; }
+
+    public BloodDelivery? Delivery { get; set; }
+
     public DateTime? CollectedUtc { get; set; }
 
     public DateTime ExpiresUtc { get; set; }

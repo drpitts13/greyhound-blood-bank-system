@@ -378,6 +378,21 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<UnitBloodAttributeDto>> SaveUnitBloodAttributeAsync(long unitId, SaveUnitBloodAttributeRequest req, CancellationToken ct = default) =>
         SendAsync<UnitBloodAttributeDto>(HttpMethod.Post, $"api/inventory/units/{unitId}/blood-attributes", req, ct);
 
+    public Task<ApiResult<List<OpenDeliveryDto>>> GetOpenDeliveriesAsync(CancellationToken ct = default) =>
+        SendAsync<List<OpenDeliveryDto>>(HttpMethod.Get, "api/inventory/deliveries/open", ct: ct);
+
+    public Task<ApiResult<DeliveryDetailDto>> GetDeliveryAsync(long id, CancellationToken ct = default) =>
+        SendAsync<DeliveryDetailDto>(HttpMethod.Get, $"api/inventory/deliveries/{id}", ct: ct);
+
+    public Task<ApiResult<DeliveryDetailDto>> CreateDeliveryAsync(CreateDeliveryRequest req, CancellationToken ct = default) =>
+        SendAsync<DeliveryDetailDto>(HttpMethod.Post, "api/inventory/deliveries", req, ct);
+
+    public Task<ApiResult<DeliveryDetailDto>> UpdateDeliveryAsync(long id, UpdateDeliveryRequest req, CancellationToken ct = default) =>
+        SendAsync<DeliveryDetailDto>(HttpMethod.Put, $"api/inventory/deliveries/{id}", req, ct);
+
+    public Task<ApiResult<DeliveryDetailDto>> CompleteDeliveryAsync(long id, CancellationToken ct = default) =>
+        SendAsync<DeliveryDetailDto>(HttpMethod.Post, $"api/inventory/deliveries/{id}/complete", ct: ct);
+
     public Task<ApiResult<BloodUnitDto>> ReceiveUnitAsync(ReceiveUnitRequest req, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, "api/inventory/units", req, ct);
 
@@ -1092,6 +1107,21 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<LabelLayoutView>> SavePtagLabelLayoutAsync(LabelLayoutDocument document, CancellationToken ct = default) =>
         SendAsync<LabelLayoutView>(HttpMethod.Put, "api/admin/label-layouts/ptag", document, ct);
+
+    public Task<ApiResult<List<BloodSupplierRefDto>>> GetBloodSuppliersAsync(CancellationToken ct = default) =>
+        SendAsync<List<BloodSupplierRefDto>>(HttpMethod.Get, "api/reference/blood-suppliers", ct: ct);
+
+    public Task<ApiResult<List<BloodSupplierDto>>> GetAdminBloodSuppliersAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<BloodSupplierDto>>(HttpMethod.Get, $"api/admin/blood-suppliers?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<BloodSupplierDto>> CreateAdminBloodSupplierAsync(SaveBloodSupplierRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodSupplierDto>(HttpMethod.Post, "api/admin/blood-suppliers", req, ct);
+
+    public Task<ApiResult<BloodSupplierDto>> UpdateAdminBloodSupplierAsync(long id, SaveBloodSupplierRequest req, CancellationToken ct = default) =>
+        SendAsync<BloodSupplierDto>(HttpMethod.Put, $"api/admin/blood-suppliers/{id}", req, ct);
+
+    public Task<ApiResult<BloodSupplierDto>> SetAdminBloodSupplierActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<BloodSupplierDto>(HttpMethod.Post, $"api/admin/blood-suppliers/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
 
     public Task<ApiResult<List<OrderingLocationDto>>> GetAdminLocationsAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<OrderingLocationDto>>(HttpMethod.Get, $"api/admin/locations?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);

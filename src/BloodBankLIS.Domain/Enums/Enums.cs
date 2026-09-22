@@ -1076,3 +1076,10 @@ public enum InstrumentMessageKind
     Order = 2,
     Unknown = 3
 }
+
+/// <summary>Lifecycle of a supplier delivery that units are received against.</summary>
+public enum DeliveryStatus
+{
+    Open = 0,
+    Completed = 1
+}

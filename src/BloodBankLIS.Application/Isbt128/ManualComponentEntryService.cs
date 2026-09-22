@@ -121,6 +121,7 @@ public sealed class ManualComponentEntryService
             request.ReceiveTemperatureCelsius,
             request.DonationRestriction,
             request.ReservedPatientId,
+            request.DeliveryId,
             ct);
     }
 

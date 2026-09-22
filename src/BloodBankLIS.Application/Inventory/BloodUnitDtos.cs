@@ -60,7 +60,8 @@ public sealed record BloodUnitDto(
     string? Supplier = null,
     string? CollectionFacility = null,
     DateTime? CollectionDateTime = null,
-    string? ProcessingFacilityCode = null)
+    string? ProcessingFacilityCode = null,
+    long? DeliveryId = null)
 {
     public static BloodUnitDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
@@ -74,7 +75,7 @@ public sealed record BloodUnitDto(
         u.DirectedConversionReason, u.DirectedConvertedUtc, u.DirectedConvertedBy,
         u.ExpectedArrivalDueUtc, u.QuarantineReasonCode,
         u.Volume, u.DivisionCode, u.CollectionTypeCode,
-        u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode);
+        u.Supplier, u.CollectionFacility, u.CollectionDateTime, u.ProcessingFacilityCode, u.DeliveryId);
 }
 
 public sealed record ExpectedInboundWorkItemDto(

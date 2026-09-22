@@ -93,6 +93,51 @@ public sealed class OrderingLocationConfiguration : IEntityTypeConfiguration<Ord
     }
 }
 
+public sealed class BloodSupplierConfiguration : IEntityTypeConfiguration<BloodSupplier>
+{
+    public void Configure(EntityTypeBuilder<BloodSupplier> b)
+    {
+        b.ToTable("BloodSuppliers");
+        b.HasKey(s => s.Id);
+        b.Property(s => s.Code).HasMaxLength(50).IsRequired();
+        b.Property(s => s.Name).HasMaxLength(150).IsRequired();
+        b.Property(s => s.Address).HasMaxLength(500);
+        b.Property(s => s.Registration).HasMaxLength(80).IsRequired();
+        b.Property(s => s.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(s => s.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(s => s.Code).IsUnique();
+    }
+}
+
+public sealed class BloodDeliveryConfiguration : IEntityTypeConfiguration<BloodDelivery>
+{
+    public void Configure(EntityTypeBuilder<BloodDelivery> b)
+    {
+        b.ToTable("BloodDeliveries");
+        b.HasKey(d => d.Id);
+        b.Property(d => d.PackingListNumber).HasMaxLength(100);
+        b.Property(d => d.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(d => d.ModifiedBy).HasMaxLength(100);
+        b.HasOne(d => d.BloodSupplier).WithMany().HasForeignKey(d => d.BloodSupplierId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(d => d.Lines).WithOne(l => l.BloodDelivery!).HasForeignKey(l => l.BloodDeliveryId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(d => d.BloodSupplierId);
+        b.HasIndex(d => d.Status);
+    }
+}
+
+public sealed class BloodDeliveryLineConfiguration : IEntityTypeConfiguration<BloodDeliveryLine>
+{
+    public void Configure(EntityTypeBuilder<BloodDeliveryLine> b)
+    {
+        b.ToTable("BloodDeliveryLines");
+        b.HasKey(l => l.Id);
+        b.Property(l => l.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(l => l.ModifiedBy).HasMaxLength(100);
+        b.HasOne(l => l.ProductType).WithMany().HasForeignKey(l => l.ProductTypeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(l => new { l.BloodDeliveryId, l.ProductTypeId }).IsUnique();
+    }
+}
+
 public sealed class SpecimenConfiguration : IEntityTypeConfiguration<Specimen>
 {
     public void Configure(EntityTypeBuilder<Specimen> b)
@@ -361,6 +406,8 @@ public sealed class BloodUnitConfiguration : IEntityTypeConfiguration<BloodUnit>
         b.Property(u => u.CollectionFacility).HasMaxLength(150);
         b.Property(u => u.Supplier).HasMaxLength(150);
         b.Property(u => u.ShipmentId).HasMaxLength(100);
+        b.HasOne(u => u.Delivery).WithMany().HasForeignKey(u => u.DeliveryId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(u => u.DeliveryId);
         b.Property(u => u.QuarantineReason).HasMaxLength(500);
         b.Property(u => u.QuarantineReasonCode);
         b.Property(u => u.HoldReason).HasMaxLength(500);

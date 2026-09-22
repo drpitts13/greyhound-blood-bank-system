@@ -51,6 +51,7 @@ public sealed class InventoryService
     private readonly IPermissionEvaluator? _permissions;
     private readonly ProductRetypeService? _retype;
     private readonly IRepository<ProductRetypeResult>? _retypeResults;
+    private readonly DeliveryService? _deliveries;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -68,7 +69,8 @@ public sealed class InventoryService
         IRepository<ProductType>? productTypes = null,
         IPermissionEvaluator? permissions = null,
         ProductRetypeService? retype = null,
-        IRepository<ProductRetypeResult>? retypeResults = null)
+        IRepository<ProductRetypeResult>? retypeResults = null,
+        DeliveryService? deliveries = null)
     {
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -78,6 +80,7 @@ public sealed class InventoryService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _deliveries = deliveries;
         _users = users;
         _policy = policy;
         _patients = patients;
@@ -318,6 +321,12 @@ public sealed class InventoryService
             return verifier;
         }
 
+        var deliveryGate = await ResolveDeliveryAsync(request.DeliveryId, request.ProductTypeId, ct);
+        if (deliveryGate.Error is not null)
+        {
+            return deliveryGate.Error;
+        }
+
         if (string.IsNullOrWhiteSpace(request.UnitNumber))
         {
             return InventoryActionResult.Fail("Unit number is required.");
@@ -366,7 +375,8 @@ public sealed class InventoryService
             ExpiresUtc = request.ExpiresUtc,
             CurrentLocationId = request.LocationId,
             CollectionFacility = request.CollectionFacility,
-            Supplier = request.Supplier,
+            Supplier = deliveryGate.Context?.SupplierName ?? request.Supplier,
+            DeliveryId = deliveryGate.Context?.Id,
             Isbt128ProductCode = resolved.ProductCodeData ?? resolved.ProductDescriptionCode,
             ProductDescriptionCode = resolved.ProductDescriptionCode,
             ProductCodeData = resolved.ProductCodeData,
@@ -375,7 +385,9 @@ public sealed class InventoryService
             Isbt128DonationId = request.Isbt128DonationId,
             Volume = request.Volume,
             Status = initialStatus,
-            ShipmentId = string.IsNullOrWhiteSpace(request.ShipmentId) ? null : request.ShipmentId.Trim(),
+            ShipmentId = deliveryGate.Context is not null
+                ? deliveryGate.Context.PackingListNumber
+                : string.IsNullOrWhiteSpace(request.ShipmentId) ? null : request.ShipmentId.Trim(),
             ReceiveVisualAcceptable = request.VisualInspectionAcceptable
                 && ReceiveAppearanceRule.IsAcceptable(request.Appearance),
             ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
@@ -708,6 +720,7 @@ public sealed class InventoryService
         decimal? receiveTemperatureCelsius = null,
         DonationRestriction donationRestriction = DonationRestriction.Allogeneic,
         long? reservedPatientId = null,
+        long? deliveryId = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -717,6 +730,13 @@ public sealed class InventoryService
         {
             return denied;
         }
+
+        var deliveryGate = await ResolveDeliveryAsync(deliveryId, productTypeId, ct);
+        if (deliveryGate.Error is not null)
+        {
+            return deliveryGate.Error;
+        }
+
         draft.RebuildIdentity();
 
         var appear = await EvaluateReceiveAppearanceAsync(visualInspectionAcceptable, appearance, ct);
@@ -783,8 +803,16 @@ public sealed class InventoryService
         }
 
         var unit = Application.Isbt128.CanonicalComponentMapper.ToBloodUnit(
-            draft, productTypeId, locationId, supplier, shipmentId, collectionFacility, volume,
-            initialStatus, _clock.UtcNow);
+            draft,
+            productTypeId,
+            locationId,
+            deliveryGate.Context?.SupplierName ?? supplier,
+            deliveryGate.Context is not null ? deliveryGate.Context.PackingListNumber : shipmentId,
+            collectionFacility,
+            volume,
+            initialStatus,
+            _clock.UtcNow);
+        unit.DeliveryId = deliveryGate.Context?.Id;
         unit.ReceiveVisualAcceptable = visualInspectionAcceptable
             && ReceiveAppearanceRule.IsAcceptable(appearance);
         unit.ReceiveVisualNotes = string.IsNullOrWhiteSpace(visualInspectionNotes)
@@ -1055,6 +1083,27 @@ public sealed class InventoryService
         }
 
         return null;
+    }
+
+    private async Task<(DeliveryReceiveContext? Context, InventoryActionResult? Error)> ResolveDeliveryAsync(
+        long? deliveryId,
+        long productTypeId,
+        CancellationToken ct)
+    {
+        if (_deliveries is null)
+        {
+            return (null, null);
+        }
+
+        var resolved = await _deliveries.ResolveForReceiveAsync(deliveryId, productTypeId, ct);
+        if (!resolved.Succeeded || resolved.Value is null)
+        {
+            return resolved.Evaluation is { IsHardStopped: true } evaluation
+                ? (null, InventoryActionResult.Blocked(evaluation))
+                : (null, InventoryActionResult.Fail(resolved.Error ?? "Delivery is not valid for this unit."));
+        }
+
+        return (resolved.Value, null);
     }
 
     private async Task<InventoryActionResult?> EvaluateReceiveVerifierAsync(string? secondVerifier, CancellationToken ct)

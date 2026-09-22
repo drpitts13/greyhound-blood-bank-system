@@ -70,6 +70,8 @@ public static class DependencyInjection
         services.AddScoped<IIdentityAdminStore, IdentityAdminStore>();
 
         services.AddScoped<IInventoryRepository, InventoryRepository>();
+        services.AddScoped<IDeliveryLineStore, DeliveryLineStore>();
+        services.AddScoped<DeliveryService>();
         services.AddScoped<InventoryService>();
         services.AddScoped<UnitActivityService>();
         services.AddScoped<ProductRetypeService>();
@@ -131,6 +133,7 @@ public static class DependencyInjection
             IccbbaExtractDirectory.FromConfiguration(sp.GetService<IConfiguration>()));
         services.AddScoped<OrderingProviderAdminService>();
         services.AddScoped<OrderingLocationAdminService>();
+        services.AddScoped<BloodSupplierAdminService>();
         services.AddScoped<PrinterCatalogAdminService>();
         services.AddScoped<LabelLayoutAdminService>();
         services.TryAddSingleton<IInstalledPrinterCatalog, Printing.EmptyInstalledPrinterCatalog>();

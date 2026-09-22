@@ -240,6 +240,7 @@ public sealed class ScanSessionService
             request.ReceiveTemperatureCelsius,
             request.DonationRestriction,
             request.ReservedPatientId,
+            request.DeliveryId,
             ct);
 
         if (result.Succeeded)

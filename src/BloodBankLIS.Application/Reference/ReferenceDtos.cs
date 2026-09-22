@@ -40,6 +40,12 @@ public sealed record InventoryLocationDto(
         l.AllowsIssue, l.AllowsRemoteIssue, l.AllowsElectronicIssue, l.RequiresSecondVerifier, l.IsSatellite);
 }
 
+public sealed record BloodSupplierRefDto(long Id, string Code, string Name, string Registration, string DisplayName)
+{
+    public static BloodSupplierRefDto From(BloodSupplier supplier) => new(
+        supplier.Id, supplier.Code, supplier.Name, supplier.Registration, $"{supplier.Code} — {supplier.Name}");
+}
+
 public sealed record OrderingLocationRefDto(long Id, string Code, string? Name, string? Department, bool IsActive, string DisplayName)
 {
     public static OrderingLocationRefDto From(OrderingLocation l) => new(

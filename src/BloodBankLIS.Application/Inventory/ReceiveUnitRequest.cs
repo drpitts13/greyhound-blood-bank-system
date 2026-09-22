@@ -22,7 +22,8 @@ public sealed record ReceiveUnitRequest(
     UnitAppearance Appearance = UnitAppearance.Acceptable,
     decimal? ReceiveTemperatureCelsius = null,
     DonationRestriction DonationRestriction = DonationRestriction.Allogeneic,
-    long? ReservedPatientId = null);
+    long? ReservedPatientId = null,
+    long? DeliveryId = null);
 
 public sealed record ReceiveExpectedUnitRequest(
     bool VisualInspectionAcceptable = true,

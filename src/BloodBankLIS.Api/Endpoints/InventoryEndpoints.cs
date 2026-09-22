@@ -114,6 +114,27 @@ public static class InventoryEndpoints
             return EndpointResults.Created(result, a => ($"/api/inventory/units/{id}/blood-attributes/{a.Id}", (object)UnitBloodAttributeDto.From(a, def.Code, def.Name, def.AntibodyName)));
         }).RequirePermission(PermissionCodes.InventoryReceive);
 
+        group.MapGet("/deliveries/open", async (DeliveryService deliveries, CancellationToken ct) =>
+            Results.Ok(await deliveries.ListOpenAsync(ct)));
+
+        group.MapGet("/deliveries/{id:long}", async (long id, DeliveryService deliveries, CancellationToken ct) =>
+        {
+            var delivery = await deliveries.GetAsync(id, ct);
+            return delivery is null ? Results.NotFound() : Results.Ok(delivery);
+        });
+
+        group.MapPost("/deliveries", async (CreateDeliveryRequest request, DeliveryService deliveries, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await deliveries.CreateAsync(request, ct), d => d))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
+        group.MapPut("/deliveries/{id:long}", async (long id, UpdateDeliveryRequest request, DeliveryService deliveries, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await deliveries.UpdateAsync(id, request, ct), d => d))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
+        group.MapPost("/deliveries/{id:long}/complete", async (long id, DeliveryService deliveries, CancellationToken ct) =>
+            EndpointResults.FromEvaluation(await deliveries.CompleteAsync(id, ct), d => d))
+            .RequirePermission(PermissionCodes.InventoryReceive);
+
         // Intake: new units land in Quarantine.
         group.MapPost("/units", async (ReceiveUnitRequest request, InventoryService service, CancellationToken ct) =>
         {

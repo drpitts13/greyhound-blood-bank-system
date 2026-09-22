@@ -39,6 +39,33 @@
         </p>
     }
 
+    <div class="bb-card" style="margin-bottom:1rem;">
+        <div class="form-row">
+            <div class="field"><label>Open delivery</label>
+                <select @bind="_deliveryId" @bind:after="LoadDeliveryAsync">
+                    <option value="0">— select —</option>
+                    @foreach (var delivery in _openDeliveries)
+                    {
+                        <option value="@delivery.Id">@delivery.Id — @delivery.SupplierName@(string.IsNullOrWhiteSpace(delivery.PackingListNumber) ? "" : $" ({delivery.PackingListNumber})")</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Product type</label>
+                <select @bind="_productTypeId">
+                    <option value="0">— select —</option>
+                    @foreach (var line in _deliveryLines)
+                    {
+                        <option value="@line.ProductTypeId">@line.ProductCode — @line.ProductName (@line.ReceivedQuantity/@line.ExpectedQuantity)</option>
+                    }
+                </select>
+            </div>
+        </div>
+        @if (_openDeliveries.Count == 0)
+        {
+            <p class="muted">No open delivery. <a href="/inventory">Create a delivery</a> before receiving units.</p>
+        }
+    </div>
+
     <div class="grid-2">
         <div>
             <h2>Manual entry</h2>
@@ -150,20 +177,58 @@ Valid: @_session.Validation?.Valid</pre>
     private string _scanValue = "";
     private ScanSessionDto? _session;
     private long _productTypeId;
+    private long _deliveryId;
+    private List<OpenDeliveryDto> _openDeliveries = new();
+    private List<DeliveryLineDto> _deliveryLines = new();
 
     protected override async Task OnInitializedAsync()
     {
-        var products = await Api.GetProductTypesAsync();
-        if (products.Succeeded && products.Value is { Count: > 0 })
-            _productTypeId = products.Value[0].Id;
+        var open = await Api.GetOpenDeliveriesAsync();
+        if (open.Succeeded) _openDeliveries = open.Value ?? new();
         var users = await Api.GetDirectoryUsersAsync();
         if (users.Succeeded) _directoryUsers = users.Value ?? new();
         var patients = await Api.GetPatientsAsync();
         if (patients.Succeeded) _patients = patients.Value ?? new();
     }
 
+    private async Task LoadDeliveryAsync()
+    {
+        var previousProduct = _productTypeId;
+        _deliveryLines = new();
+        if (_deliveryId <= 0)
+        {
+            _productTypeId = 0;
+            return;
+        }
+
+        var delivery = await Api.GetDeliveryAsync(_deliveryId);
+        if (!delivery.Succeeded || delivery.Value is null)
+        {
+            _productTypeId = 0;
+            _message = delivery.Error;
+            return;
+        }
+
+        _deliveryLines = delivery.Value.Lines.ToList();
+        _productTypeId = _deliveryLines.Any(l => l.ProductTypeId == previousProduct)
+            ? previousProduct
+            : _deliveryLines.Count > 0 ? _deliveryLines[0].ProductTypeId : 0;
+    }
+
+    private bool DeliveryReady()
+    {
+        if (_deliveryId <= 0 || _productTypeId <= 0)
+        {
+            _message = "Select an open delivery and a product type on that delivery.";
+            return false;
+        }
+
+        return true;
+    }
+
     private async Task SubmitManual()
     {
+        if (!DeliveryReady()) return;
         var req = new ManualComponentEntryRequest(
             _donationNumber.Trim(),
             _aboCode, _pdc, _collection, _division, null,
@@ -174,12 +239,14 @@ Valid: @_session.Validation?.Valid</pre>
             Appearance: _appearance,
             ReceiveTemperatureCelsius: _receiveTemperature,
             DonationRestriction: _donationRestriction,
-            ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId);
+            ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId,
+            DeliveryId: _deliveryId);
         var result = await Api.CreateIsbtManualAsync(req);
         if (result.Succeeded)
         {
             _lastUnit = result.Value;
             _message = $"Created {result.Value!.ComponentIdentity} (status {result.Value.Status})";
+            await LoadDeliveryAsync();
         }
         else
         {
@@ -218,17 +285,20 @@ Valid: @_session.Validation?.Valid</pre>
     private async Task CompleteSession()
     {
         if (_sessionKey is null) return;
+        if (!DeliveryReady()) return;
         var result = await Api.CompleteIsbtScanSessionAsync(new CompleteScanSessionRequest(
             _sessionKey.Value, _productTypeId, ReleaseToAvailable: _releaseAvailable,
             VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
             SecondVerifier: _secondVerifier, Appearance: _appearance,
             ReceiveTemperatureCelsius: _receiveTemperature,
             DonationRestriction: _donationRestriction,
-            ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId));
+            ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId,
+            DeliveryId: _deliveryId));
         if (result.Succeeded)
         {
             _lastUnit = result.Value;
             _message = $"Received {result.Value!.ComponentIdentity}";
+            await LoadDeliveryAsync();
         }
         else
         {

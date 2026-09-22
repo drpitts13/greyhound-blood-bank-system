@@ -38,6 +38,15 @@ public static class ReferenceEndpoints
             return Results.Ok(locations.Select(InventoryLocationDto.From));
         });
 
+        group.MapGet("/blood-suppliers", async (BloodBankDbContext context, CancellationToken ct) =>
+        {
+            var suppliers = await context.BloodSuppliers.AsNoTracking()
+                .Where(s => s.IsActive)
+                .OrderBy(s => s.Code)
+                .ToListAsync(ct);
+            return Results.Ok(suppliers.Select(BloodSupplierRefDto.From));
+        });
+
         group.MapGet("/ordering-locations", async (BloodBankDbContext context, CancellationToken ct) =>
         {
             var locations = await context.OrderingLocations.AsNoTracking()
