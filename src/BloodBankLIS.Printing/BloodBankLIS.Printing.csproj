@@ -6,7 +6,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
+    <PackageReference Include="QuestPDF" Version="2026.9.0" />
   </ItemGroup>
 
   <PropertyGroup>

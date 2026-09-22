@@ -607,7 +607,10 @@ public enum AuditEventType
     UserRole = 37,
     Invalidate = 38,
     Billing = 39,
-    Print = 40
+    Print = 40,
+
+    /// <summary>A saved or ad-hoc operational report was run. File export uses <see cref="Export"/>.</summary>
+    ReportRun = 41
 }
 
 /// <summary>

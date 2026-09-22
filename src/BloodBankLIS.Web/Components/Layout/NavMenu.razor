@@ -55,6 +55,10 @@
     {
         <NavLink href="billing" ActiveClass="active">Billing</NavLink>
     }
+    @if (Session.HasAny(PermissionCodes.ReportRun, PermissionCodes.ReportDesign))
+    {
+        <NavLink href="reports" ActiveClass="active">Reports</NavLink>
+    }
     @if (Session.Has(PermissionCodes.Hl7Manage))
     {
         <NavLink href="hl7" ActiveClass="active">HL7 Interface</NavLink>

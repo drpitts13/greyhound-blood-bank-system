@@ -1,0 +1,199 @@
+@page "/reports/{Id:long}"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject ReportDownloadCache Downloads
+@inject IJSRuntime Js
+
+<PageTitle>Run report · Greyhound Blood Bank LIS</PageTitle>
+
+@if (_report is null)
+{
+    <h1>Report</h1>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+}
+else
+{
+    <h1>@_report.Name</h1>
+    <p class="muted">@(_report.Description ?? "Facility operational report. Not an FDA, AABB, or CAP compliance claim.")</p>
+    <p><a href="reports">Back to catalog</a></p>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+
+    @if (_prompts.Count > 0)
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Filters</h3></div>
+            <p class="muted">Leave a prompted filter blank to include every row.</p>
+            @foreach (var prompt in _prompts)
+            {
+                <div class="form-row">
+                    <div class="field">
+                        <label>@prompt.Label</label>
+                        @if (prompt.Operator == ReportFilterOperator.Between)
+                        {
+                            <div class="form-row">
+                                <input type="@(prompt.ValueKind == ReportValueKind.Date ? "date" : "text")" @bind="prompt.From" />
+                                <input type="@(prompt.ValueKind == ReportValueKind.Date ? "date" : "text")" @bind="prompt.To" />
+                            </div>
+                        }
+                        else
+                        {
+                            <input @bind="prompt.From" />
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <div style="margin:.6rem 0;">
+        <button class="btn btn-primary" disabled="@_busy" @onclick="RunAsync">Run</button>
+        <button class="btn btn-secondary" disabled="@_busy" @onclick='() => ExportAsync("pdf")'>Export PDF</button>
+        <button class="btn btn-secondary" disabled="@_busy" @onclick='() => ExportAsync("xlsx")'>Export Excel</button>
+    </div>
+
+    @if (_result is not null)
+    {
+        <div class="bb-card">
+            <div class="bb-card-title">
+                <h3>@_result.Rows.Count row@(_result.Rows.Count == 1 ? "" : "s")</h3>
+            </div>
+            @if (_result.Truncated)
+            {
+                <div class="alert alert-warning">The preview stopped at @ReportLimits.PreviewRows rows. Export includes up to @ReportLimits.ExportRows.</div>
+            }
+            @if (_result.Columns.Count == 0)
+            {
+                <div class="empty">The report returned no columns.</div>
+            }
+            else
+            {
+                <div style="overflow:auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                @foreach (var column in _result.Columns)
+                                {
+                                    <th>@column</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (_result.Rows.Count == 0)
+                            {
+                                <tr><td colspan="@_result.Columns.Count">No rows.</td></tr>
+                            }
+                            @foreach (var row in _result.Rows)
+                            {
+                                <tr>
+                                    @foreach (var cell in row)
+                                    {
+                                        <td>@cell</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public long Id { get; set; }
+
+    private ReportDetailDto? _report;
+    private ReportResultDto? _result;
+    private List<PromptEntry> _prompts = new();
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Session.HasAny(PermissionCodes.ReportRun, PermissionCodes.ReportDesign))
+        {
+            _error = "No permission to run reports.";
+            return;
+        }
+
+        var result = await Api.GetReportAsync(Id);
+        if (!result.Succeeded || result.Value is null)
+        {
+            _error = result.Error ?? "Report not found.";
+            _report = null;
+            return;
+        }
+
+        _report = result.Value;
+        _prompts = result.Value.Prompts.Select(prompt => new PromptEntry(prompt)).ToList();
+        _error = null;
+    }
+
+    private async Task RunAsync()
+    {
+        _busy = true;
+        _error = null;
+        var result = await Api.RunReportAsync(Id, new RunReportRequest { Parameters = Parameters() });
+        _result = result.Succeeded ? result.Value : null;
+        _error = result.Succeeded ? null : result.Error;
+        _busy = false;
+    }
+
+    private async Task ExportAsync(string format)
+    {
+        _busy = true;
+        _error = null;
+        var result = await Api.ExportReportAsync(Id, format, new RunReportRequest { Parameters = Parameters() });
+        if (!result.Succeeded || result.Value is null)
+        {
+            _error = result.Error ?? "Export failed.";
+            _busy = false;
+            return;
+        }
+
+        var contentType = format == "pdf"
+            ? "application/pdf"
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        var name = (_report?.Code ?? "report") + "." + format;
+        var token = Downloads.Put(name, contentType, result.Value);
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
+        _busy = false;
+    }
+
+    private Dictionary<string, string?> Parameters()
+    {
+        var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prompt in _prompts)
+        {
+            values[prompt.Id] = string.IsNullOrWhiteSpace(prompt.From) ? null : prompt.From.Trim();
+            values[prompt.Id + ":to"] = string.IsNullOrWhiteSpace(prompt.To) ? null : prompt.To.Trim();
+        }
+
+        return values;
+    }
+
+    private sealed class PromptEntry
+    {
+        public PromptEntry(ReportPromptDto prompt)
+        {
+            Id = prompt.Id;
+            Label = prompt.Label;
+            Operator = prompt.Operator;
+            ValueKind = prompt.ValueKind;
+        }
+
+        public string Id { get; }
+        public string Label { get; }
+        public ReportFilterOperator Operator { get; }
+        public ReportValueKind ValueKind { get; }
+        public string? From { get; set; }
+        public string? To { get; set; }
+    }
+}

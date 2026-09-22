@@ -13,10 +13,12 @@ using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Modifications;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Patients;
+using BloodBankLIS.Application.Reporting;
 using BloodBankLIS.Application.Reference;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Reporting;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 
@@ -1381,6 +1383,67 @@ public sealed class BloodBankApiClient
         if (entityId is not null) q.Add($"entityId={entityId}");
         return SendAsync<List<ConfigHistoryDto>>(HttpMethod.Get, $"api/admin/history?{string.Join("&", q)}", ct: ct);
     }
+
+    // ---- Reports ----
+    public Task<ApiResult<List<ReportSummaryDto>>> GetReportsAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReportSummaryDto>>(HttpMethod.Get, "api/reports", ct: ct);
+
+    public Task<ApiResult<ReportDetailDto>> GetReportAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReportDetailDto>(HttpMethod.Get, $"api/reports/{id}", ct: ct);
+
+    public Task<ApiResult<List<ReportSourceDefinition>>> GetReportSourcesAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReportSourceDefinition>>(HttpMethod.Get, "api/reports/sources", ct: ct);
+
+    public Task<ApiResult<ReportDetailDto>> SaveReportAsync(long? id, SaveReportRequest request, CancellationToken ct = default) =>
+        id is null
+            ? SendAsync<ReportDetailDto>(HttpMethod.Post, "api/reports", request, ct)
+            : SendAsync<ReportDetailDto>(HttpMethod.Put, $"api/reports/{id}", request, ct);
+
+    public Task<ApiResult<ReportDetailDto>> CloneReportAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReportDetailDto>(HttpMethod.Post, $"api/reports/{id}/clone", ct: ct);
+
+    public Task<ApiResult<object>> DeleteReportAsync(long id, CancellationToken ct = default) =>
+        SendAsync<object>(HttpMethod.Delete, $"api/reports/{id}", ct: ct);
+
+    public Task<ApiResult<ReportResultDto>> RunReportAsync(long id, RunReportRequest request, CancellationToken ct = default) =>
+        SendAsync<ReportResultDto>(HttpMethod.Post, $"api/reports/{id}/run", request, ct);
+
+    public Task<ApiResult<ReportResultDto>> PreviewReportAsync(PreviewReportRequest request, CancellationToken ct = default) =>
+        SendAsync<ReportResultDto>(HttpMethod.Post, "api/reports/preview", request, ct);
+
+    public Task<ApiResult<object>> ValidateReportSqlAsync(string? sql, CancellationToken ct = default) =>
+        SendAsync<object>(HttpMethod.Post, "api/reports/validate-sql", new SqlTextBody(sql), ct);
+
+    public async Task<ApiResult<byte[]>> ExportReportAsync(long id, string format, RunReportRequest request, CancellationToken ct = default)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Post, $"api/reports/{id}/export?format={Uri.EscapeDataString(format)}")
+        {
+            Content = JsonContent.Create(request, request.GetType(), options: Json)
+        };
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.SendAsync(message, ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<byte[]>.Fail($"Could not reach the API: {ex.Message}", 0);
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(ct);
+                return ApiResult<byte[]>.Fail(string.IsNullOrWhiteSpace(error) ? "Export failed." : error, (int)response.StatusCode);
+            }
+
+            return ApiResult<byte[]>.Ok(await response.Content.ReadAsByteArrayAsync(ct));
+        }
+    }
+
+    private sealed record SqlTextBody(string? Sql);
 
     // ---- Core ----
     private async Task<ApiResult<T>> SendAsync<T>(

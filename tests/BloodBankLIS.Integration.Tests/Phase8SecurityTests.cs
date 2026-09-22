@@ -80,14 +80,15 @@ public class Phase8SecurityTests : IDisposable
     }
 
     [Fact]
-    public async Task ReadOnly_HasOnlyAuditRead()
+    public async Task ReadOnly_HasAuditReadAndReportRun()
     {
         await using var c = _factory.Create();
         await DatabaseSeeder.SeedAsync(c);
 
         var perms = await Evaluator(c).GetPermissionsAsync("viewer");
-        Assert.Single(perms);
+        Assert.Equal(2, perms.Count);
         Assert.Contains(PermissionCodes.AuditRead, perms);
+        Assert.Contains(PermissionCodes.ReportRun, perms);
     }
 
     [Fact]

@@ -1,0 +1,407 @@
+@page "/reports/design"
+@page "/reports/design/{Id:long}"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Report designer · Greyhound Blood Bank LIS</PageTitle>
+
+<h1>@(Id is null ? "New report" : "Design report")</h1>
+<p class="muted">Drag fields onto the report, or write one SELECT against a reporting view. Facility operational reports are not an FDA, AABB, or CAP compliance claim.</p>
+<p><a href="reports">Back to catalog</a></p>
+
+@if (!Session.Has(PermissionCodes.ReportDesign))
+{
+    <div class="muted">No permission to design reports.</div>
+}
+else if (!string.IsNullOrEmpty(_error) && _layout is null && _kind != ReportKind.Sql)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else
+{
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-success">@_message</div>
+    }
+    @if (_systemOwned)
+    {
+        <div class="alert alert-warning">This is a system report. Clone it to change the definition. It cannot be deleted.</div>
+    }
+
+    <div class="bb-grid cols-2">
+        <div class="bb-card">
+            <div class="field"><label>Code</label><input @bind="_code" disabled="@(_systemOwned || Id is not null)" /></div>
+            <div class="field"><label>Name</label><input @bind="_name" disabled="@_systemOwned" /></div>
+            <div class="field"><label>Description</label><textarea rows="2" @bind="_description" disabled="@_systemOwned"></textarea></div>
+            <div class="field">
+                <label>Designer</label>
+                <select @bind="_kind" disabled="@(_systemOwned || Id is not null)">
+                    <option value="@ReportKind.Visual">Visual</option>
+                    <option value="@ReportKind.Sql">SQL</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" disabled="@(_busy || _systemOwned)" @onclick="SaveAsync">Save</button>
+            @if (Id is not null)
+            {
+                <button class="btn btn-secondary" disabled="@_busy" @onclick="CloneAsync">Clone</button>
+                <button class="btn btn-secondary" disabled="@(_busy || _systemOwned)" @onclick="DeleteAsync">Delete</button>
+                <a class="btn btn-secondary" href="@($"reports/{Id}")">Run</a>
+            }
+        </div>
+
+        @if (_kind == ReportKind.Sql)
+        {
+            <div class="bb-card">
+                <div class="bb-card-title"><h3>SQL</h3></div>
+                <p class="muted">One SELECT or WITH … SELECT. FROM and JOIN may use only: @string.Join(", ", ReportViewCatalog.All.OrderBy(name => name)). Comments and writes are rejected.</p>
+                <textarea rows="12" @bind="_sql" disabled="@_systemOwned"></textarea>
+                <div style="margin-top:.5rem;">
+                    <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ValidateSqlAsync">Validate</button>
+                    <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="PreviewAsync">Preview</button>
+                </div>
+            </div>
+        }
+        else if (_layout is not null)
+        {
+            <div class="bb-card">
+                <div class="field">
+                    <label>Data source</label>
+                    <select @bind="_layout.SourceCode" @bind:after="OnSourceChanged" disabled="@_systemOwned">
+                        @foreach (var source in _sources)
+                        {
+                            <option value="@source.Code">@source.Name</option>
+                        }
+                    </select>
+                </div>
+                <p class="muted">Drag a field into Columns, Filters, Group by, or Aggregates.</p>
+                <ul style="list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:.4rem;">
+                    @foreach (var field in CurrentFields)
+                    {
+                        <li draggable="@(_systemOwned ? "false" : "true")" @ondragstart="() => _drag = field.Code"
+                            style="border:1px solid #c5d0dc;border-radius:4px;padding:.2rem .5rem;background:#f7fafc;">
+                            @field.Label
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+
+    @if (_kind == ReportKind.Visual && _layout is not null)
+    {
+        <div class="bb-grid cols-2" style="margin-top:.8rem;">
+            <div class="bb-card" @ondragover:preventDefault @ondrop="() => Drop(DropTarget.Columns)" @ondrop:preventDefault>
+                <div class="bb-card-title"><h3>Columns</h3></div>
+                @if (_layout.Columns.Count == 0)
+                {
+                    <div class="empty">Drop fields here.</div>
+                }
+                @foreach (var item in _layout.Columns.ToList())
+                {
+                    <div>
+                        <span class="mono">@item</span>
+                        @if (!_systemOwned)
+                        {
+                            <button class="btn btn-ghost btn-sm" @onclick="() => _layout.Columns.Remove(item)">Remove</button>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="bb-card" @ondragover:preventDefault @ondrop="() => Drop(DropTarget.Filters)" @ondrop:preventDefault>
+                <div class="bb-card-title"><h3>Filters</h3></div>
+                @if (_layout.Filters.Count == 0)
+                {
+                    <div class="empty">Drop a field, then choose how it filters.</div>
+                }
+                @foreach (var filter in _layout.Filters.ToList())
+                {
+                    <div class="form-row">
+                        <strong>@filter.Field</strong>
+                        <select @bind="filter.Operator" disabled="@_systemOwned">
+                            @foreach (var op in Enum.GetValues<ReportFilterOperator>())
+                            {
+                                <option value="@op">@op</option>
+                            }
+                        </select>
+                        <input placeholder="Value" @bind="filter.Value" disabled="@(_systemOwned || filter.PromptAtRun)" />
+                        @if (filter.Operator == ReportFilterOperator.Between)
+                        {
+                            <input placeholder="To" @bind="filter.ValueTo" disabled="@(_systemOwned || filter.PromptAtRun)" />
+                        }
+                        <label><input type="checkbox" @bind="filter.PromptAtRun" disabled="@_systemOwned" /> Ask at run</label>
+                        @if (!_systemOwned)
+                        {
+                            <button class="btn btn-ghost btn-sm" @onclick="() => _layout.Filters.Remove(filter)">Remove</button>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="bb-card" @ondragover:preventDefault @ondrop="() => Drop(DropTarget.GroupBy)" @ondrop:preventDefault>
+                <div class="bb-card-title"><h3>Group by</h3></div>
+                @if (_layout.GroupBy.Count == 0)
+                {
+                    <div class="empty">Drop fields here.</div>
+                }
+                @foreach (var item in _layout.GroupBy.ToList())
+                {
+                    <div>
+                        <span class="mono">@item</span>
+                        @if (!_systemOwned)
+                        {
+                            <button class="btn btn-ghost btn-sm" @onclick="() => _layout.GroupBy.Remove(item)">Remove</button>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="bb-card" @ondragover:preventDefault @ondrop="() => Drop(DropTarget.Aggregates)" @ondrop:preventDefault>
+                <div class="bb-card-title"><h3>Aggregates</h3></div>
+                @if (_layout.Aggregates.Count == 0)
+                {
+                    <div class="empty">Drop a field to count, sum, or find min/max.</div>
+                }
+                @foreach (var aggregate in _layout.Aggregates.ToList())
+                {
+                    <div class="form-row">
+                        <select @bind="aggregate.Function" disabled="@_systemOwned">
+                            @foreach (var function in Enum.GetValues<ReportAggregateFunction>())
+                            {
+                                <option value="@function">@function</option>
+                            }
+                        </select>
+                        <span class="mono">@aggregate.Field</span>
+                        <input placeholder="Alias" @bind="aggregate.Alias" disabled="@_systemOwned" />
+                        @if (!_systemOwned)
+                        {
+                            <button class="btn btn-ghost btn-sm" @onclick="() => _layout.Aggregates.Remove(aggregate)">Remove</button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+        <div style="margin:.6rem 0;">
+            <button class="btn btn-secondary" disabled="@_busy" @onclick="PreviewAsync">Preview</button>
+        </div>
+    }
+
+    @if (_preview is not null)
+    {
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Preview (@_preview.Rows.Count)</h3></div>
+            @if (_preview.Truncated)
+            {
+                <div class="alert alert-warning">Preview stopped at @ReportLimits.PreviewRows rows.</div>
+            }
+            <div style="overflow:auto;">
+                <table class="table">
+                    <thead>
+                        <tr>@foreach (var column in _preview.Columns) { <th>@column</th> }</tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in _preview.Rows.Take(50))
+                        {
+                            <tr>@foreach (var cell in row) { <td>@cell</td> }</tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public long? Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "kind")] public string? KindQuery { get; set; }
+
+    private readonly List<ReportSourceDefinition> _sources = new();
+    private ReportLayout? _layout;
+    private ReportKind _kind = ReportKind.Visual;
+    private string _code = string.Empty;
+    private string _name = string.Empty;
+    private string? _description;
+    private string? _sql;
+    private string? _drag;
+    private string? _error;
+    private string? _message;
+    private bool _busy;
+    private bool _systemOwned;
+    private ReportResultDto? _preview;
+
+    private IReadOnlyList<ReportField> CurrentFields =>
+        _sources.FirstOrDefault(source => source.Code == _layout?.SourceCode)?.Fields ?? Array.Empty<ReportField>();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!Session.Has(PermissionCodes.ReportDesign))
+            return;
+
+        if (_sources.Count == 0)
+        {
+            var sources = await Api.GetReportSourcesAsync();
+            if (sources.Succeeded && sources.Value is not null)
+                _sources.AddRange(sources.Value);
+        }
+
+        if (Id is null)
+        {
+            _kind = string.Equals(KindQuery, "sql", StringComparison.OrdinalIgnoreCase) ? ReportKind.Sql : ReportKind.Visual;
+            _layout ??= new ReportLayout
+            {
+                SourceCode = _sources.FirstOrDefault()?.Code ?? ReportSourceCatalog.InventoryOnHand
+            };
+            _sql ??= "SELECT unit_number, product_name, abo, rh, status, location, expires_utc\nFROM rpt_inventory_on_hand";
+            return;
+        }
+
+        var report = await Api.GetReportAsync(Id.Value);
+        if (!report.Succeeded || report.Value is null)
+        {
+            _error = report.Error ?? "Report not found.";
+            return;
+        }
+
+        _code = report.Value.Code;
+        _name = report.Value.Name;
+        _description = report.Value.Description;
+        _kind = report.Value.Kind;
+        _sql = report.Value.SqlText;
+        _systemOwned = report.Value.IsSystemOwned;
+        _layout = report.Value.Layout ?? new ReportLayout
+        {
+            SourceCode = _sources.FirstOrDefault()?.Code ?? ReportSourceCatalog.InventoryOnHand
+        };
+    }
+
+    private void OnSourceChanged()
+    {
+        if (_layout is null)
+            return;
+
+        _layout.Columns.Clear();
+        _layout.Filters.Clear();
+        _layout.GroupBy.Clear();
+        _layout.Aggregates.Clear();
+        _layout.Sorts.Clear();
+    }
+
+    private void Drop(DropTarget target)
+    {
+        if (_systemOwned || _layout is null || string.IsNullOrWhiteSpace(_drag))
+            return;
+
+        switch (target)
+        {
+            case DropTarget.Columns when !_layout.Columns.Contains(_drag, StringComparer.OrdinalIgnoreCase):
+                _layout.Columns.Add(_drag);
+                break;
+            case DropTarget.GroupBy when !_layout.GroupBy.Contains(_drag, StringComparer.OrdinalIgnoreCase):
+                _layout.GroupBy.Add(_drag);
+                break;
+            case DropTarget.Filters:
+                _layout.Filters.Add(new ReportFilter
+                {
+                    Id = "f" + Guid.NewGuid().ToString("N")[..8],
+                    Field = _drag,
+                    Operator = ReportFilterOperator.Equals
+                });
+                break;
+            case DropTarget.Aggregates:
+                _layout.Aggregates.Add(new ReportAggregate
+                {
+                    Field = _drag,
+                    Function = ReportAggregateFunction.Count
+                });
+                break;
+        }
+
+        _drag = null;
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+        var request = new SaveReportRequest
+        {
+            Code = _code,
+            Name = _name,
+            Description = _description,
+            Kind = _kind,
+            Layout = _kind == ReportKind.Visual ? _layout : null,
+            SqlText = _kind == ReportKind.Sql ? _sql : null
+        };
+        var result = await Api.SaveReportAsync(Id, request);
+        if (!result.Succeeded || result.Value is null)
+            _error = result.Error ?? "Save failed.";
+        else
+        {
+            _message = "Saved.";
+            if (Id is null)
+                Nav.NavigateTo($"reports/design/{result.Value.Id}");
+        }
+
+        _busy = false;
+    }
+
+    private async Task CloneAsync()
+    {
+        if (Id is null)
+            return;
+
+        _busy = true;
+        var result = await Api.CloneReportAsync(Id.Value);
+        _busy = false;
+        if (!result.Succeeded || result.Value is null)
+            _error = result.Error ?? "Clone failed.";
+        else
+            Nav.NavigateTo($"reports/design/{result.Value.Id}");
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (Id is null || _systemOwned)
+            return;
+
+        _busy = true;
+        var result = await Api.DeleteReportAsync(Id.Value);
+        _busy = false;
+        if (!result.Succeeded)
+            _error = result.Error ?? "Delete failed.";
+        else
+            Nav.NavigateTo("reports");
+    }
+
+    private async Task ValidateSqlAsync()
+    {
+        _busy = true;
+        _message = null;
+        var result = await Api.ValidateReportSqlAsync(_sql);
+        _error = result.Succeeded ? null : result.Error;
+        _message = result.Succeeded ? "SQL is allowed." : null;
+        _busy = false;
+    }
+
+    private async Task PreviewAsync()
+    {
+        _busy = true;
+        _error = null;
+        var result = await Api.PreviewReportAsync(new PreviewReportRequest
+        {
+            Name = string.IsNullOrWhiteSpace(_name) ? "Preview" : _name,
+            Kind = _kind,
+            Layout = _kind == ReportKind.Visual ? _layout : null,
+            SqlText = _sql
+        });
+        _preview = result.Succeeded ? result.Value : null;
+        _error = result.Succeeded ? null : result.Error;
+        _busy = false;
+    }
+
+    private enum DropTarget { Columns, Filters, GroupBy, Aggregates }
+}

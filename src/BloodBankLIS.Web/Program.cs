@@ -39,10 +39,12 @@ builder.Services.AddScoped<IdentityHeaderHandler>();
 // Typed client over the HTTP API. Default to the API's HTTP endpoint to avoid dev-cert
 // friction for server-to-server calls; override with Api:BaseUrl in configuration.
 var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5177/";
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ReportDownloadCache>();
 builder.Services.AddHttpClient<BloodBankApiClient>(client =>
     {
         client.BaseAddress = new Uri(apiBaseUrl);
-        client.Timeout = TimeSpan.FromSeconds(30);
+        client.Timeout = TimeSpan.FromMinutes(2);
     })
     .AddHttpMessageHandler<IdentityHeaderHandler>();
 
@@ -60,6 +62,13 @@ app.UseHttpsRedirection();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseAntiforgery();
+app.MapGet("/downloads/reports/{token}", (string token, ReportDownloadCache cache) =>
+{
+    var file = cache.Take(token);
+    return file is null
+        ? Results.NotFound()
+        : Results.File(file.Bytes, file.ContentType, file.FileName);
+});
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

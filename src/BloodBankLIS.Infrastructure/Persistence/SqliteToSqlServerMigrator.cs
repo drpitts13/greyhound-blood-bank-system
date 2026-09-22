@@ -106,6 +106,7 @@ public sealed class SqliteToSqlServerMigrator
         "ReactionInvestigations",
         "LookbackNotifications",
         "Deviations",
+        "ReportDefinitions",
         "SystemSettings",
         "HL7Messages",
         "InterfaceErrorQueue",

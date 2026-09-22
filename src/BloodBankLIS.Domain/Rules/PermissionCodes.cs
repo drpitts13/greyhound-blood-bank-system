@@ -60,6 +60,13 @@ public static class PermissionCodes
     public const string InstrumentManage = "instrument.manage";
 
     public const string AuditRead = "audit.read";
+
+    /// <summary>Run a saved report and export PDF or Excel.</summary>
+    public const string ReportRun = "report.run";
+
+    /// <summary>Create, edit, clone, and delete report definitions. System reports cannot be deleted.</summary>
+    public const string ReportDesign = "report.design";
+
     public const string LookbackManage = "lookback.manage";
     public const string ReactionInvestigate = "reaction.investigate";
     public const string DeviationManage = "deviation.manage";
@@ -101,7 +108,7 @@ public static class PermissionCodes
         PrintLabel, PrintReprint,
         BillingReview, BillingCancel, BillingExport,
         Hl7Manage, InstrumentManage,
-        AuditRead, LookbackManage, ReactionInvestigate, DeviationManage,
+        AuditRead, ReportRun, ReportDesign, LookbackManage, ReactionInvestigate, DeviationManage,
         AdminConfigView, AdminConfigEdit, AdminConfigActivate,
         AdminTestsManage, AdminProductsManage, AdminModificationRulesManage, AdminHl7Manage,
         AdminInstrumentsManage,
@@ -114,6 +121,7 @@ public static class PermissionCodes
         AdminConfigView, AdminConfigEdit, AdminConfigActivate,
         AdminTestsManage, AdminProductsManage, AdminModificationRulesManage, AdminHl7Manage,
         AdminInstrumentsManage,
-        AdminUsersManage, AdminRolesManage, AdminAuditReview
+        AdminUsersManage, AdminRolesManage, AdminAuditReview,
+        ReportDesign
     };
 }

@@ -67,4 +67,39 @@ public static class PermissionFilterExtensions
 
         return builder;
     }
+
+    /// <summary>Allows the call when the user holds any one of the listed permissions.</summary>
+    public static TBuilder RequireAnyPermission<TBuilder>(this TBuilder builder, params string[] permissionCodes)
+        where TBuilder : IEndpointConventionBuilder
+    {
+        builder.AddEndpointFilter(async (context, next) =>
+        {
+            var http = context.HttpContext;
+            var current = http.RequestServices.GetRequiredService<ICurrentUser>();
+            var evaluator = http.RequestServices.GetRequiredService<IPermissionEvaluator>();
+
+            var isAuthenticated = current is HttpCurrentUser shim
+                ? shim.IsAuthenticated
+                : !string.IsNullOrWhiteSpace(current.UserName) && current.UserName != "system";
+
+            if (!isAuthenticated)
+            {
+                return Results.Problem(
+                    title: "Authentication required",
+                    detail: "Sign in and supply a session token via the Authorization Bearer header.",
+                    statusCode: StatusCodes.Status401Unauthorized);
+            }
+
+            var granted = await evaluator.GetPermissionsAsync(current.UserName);
+            if (permissionCodes.Any(code => PermissionPolicy.Evaluate(true, granted, code) == AccessDecision.Allowed))
+                return await next(context);
+
+            return Results.Problem(
+                title: "Forbidden",
+                detail: "A report permission is required for this action.",
+                statusCode: StatusCodes.Status403Forbidden);
+        });
+
+        return builder;
+    }
 }

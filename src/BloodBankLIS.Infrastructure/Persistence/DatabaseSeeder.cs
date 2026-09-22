@@ -84,6 +84,8 @@ public static partial class DatabaseSeeder
         await EnsureCompatibilityRuleCatalogAsync(context, cancellationToken);
         await SeedInstrumentInterfacesAsync(context, cancellationToken);
         await SeedExtendedDemoScenariosAsync(context, cancellationToken);
+        await EnsureReportDefinitionsAsync(context, cancellationToken);
+        await EnsureReportViewsAsync(context, cancellationToken);
 
         if (seedDevAdmin)
         {
@@ -113,6 +115,9 @@ public static partial class DatabaseSeeder
         {
             foreach (var perm in perms)
             {
+                if (role.Name == "Supervisor" && perm.Code == PermissionCodes.ReportDesign)
+                    continue;
+
                 if (!await context.RolePermissions.AnyAsync(rp => rp.RoleId == role.Id && rp.PermissionId == perm.Id, ct))
                 {
                     context.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = perm.Id });
@@ -885,6 +890,7 @@ public static partial class DatabaseSeeder
         {
             PermissionCodes.PatientWrite,
             PermissionCodes.SpecimenAccession, PermissionCodes.SpecimenReject, PermissionCodes.SpecimenEdit,
+            PermissionCodes.ReportRun,
             PermissionCodes.ResultEnter, PermissionCodes.ResultVerify,
             PermissionCodes.ImmunoRecord,
             PermissionCodes.InventoryReceive, PermissionCodes.InventoryTransfer, PermissionCodes.InventoryRelease,
@@ -923,7 +929,7 @@ public static partial class DatabaseSeeder
         var inventoryManagerCodes = new[]
         {
             PermissionCodes.InventoryReceive, PermissionCodes.InventoryTransfer, PermissionCodes.InventoryRelease, PermissionCodes.InventoryDiscard,
-            PermissionCodes.InventoryModify,
+            PermissionCodes.InventoryModify, PermissionCodes.ReportRun,
             PermissionCodes.AdminConfigView, PermissionCodes.AdminConfigEdit, PermissionCodes.AdminConfigActivate,
             PermissionCodes.AdminProductsManage, PermissionCodes.AdminModificationRulesManage
         };
@@ -934,7 +940,7 @@ public static partial class DatabaseSeeder
         };
         var auditorCodes = new[]
         {
-            PermissionCodes.AuditRead, PermissionCodes.AdminConfigView, PermissionCodes.AdminAuditReview
+            PermissionCodes.AuditRead, PermissionCodes.ReportRun, PermissionCodes.AdminConfigView, PermissionCodes.AdminAuditReview
         };
         // Non-interactive interface engine / system integrations.
         var serviceAccountCodes = new[] { PermissionCodes.Hl7Manage, PermissionCodes.InstrumentManage };
@@ -942,7 +948,7 @@ public static partial class DatabaseSeeder
         var administrator = AddRole(context, "Administrator", "Full system access", byCode, 3, PermissionCodes.All.ToArray());
         var supervisor = AddRole(context, "Supervisor", "Bench work plus overrides and dangerous actions", byCode, 2, supervisorCodes);
         var technologist = AddRole(context, "Technologist", "Routine bench work", byCode, 1, technologistCodes);
-        var readOnly = AddRole(context, "ReadOnly", "Audit and read-only access", byCode, 0, PermissionCodes.AuditRead);
+        var readOnly = AddRole(context, "ReadOnly", "Audit and read-only access", byCode, 0, PermissionCodes.AuditRead, PermissionCodes.ReportRun);
         var interfaceAnalyst = AddRole(context, "Interface Analyst", "HL7 interface configuration and monitoring", byCode, 0, interfaceAnalystCodes);
         var inventoryManager = AddRole(context, "Inventory Manager", "Inventory operations and product configuration", byCode, 0, inventoryManagerCodes);
         var billingAnalyst = AddRole(context, "Billing Analyst", "Billing review, cancel, and export", byCode, 0, billingAnalystCodes);

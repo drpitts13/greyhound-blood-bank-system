@@ -142,6 +142,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<InstrumentInterfaceRule> InstrumentInterfaceRules => Set<InstrumentInterfaceRule>();
     public DbSet<InstrumentMessageLog> InstrumentMessages => Set<InstrumentMessageLog>();
     public DbSet<InstrumentInterfaceLog> InstrumentInterfaceLogs => Set<InstrumentInterfaceLog>();
+    public DbSet<ReportDefinition> ReportDefinitions => Set<ReportDefinition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

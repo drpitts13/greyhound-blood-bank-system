@@ -200,3 +200,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-192 | Staff can attach a modification action (irradiate, wash, thaw, volume reduce, leukoreduce) to a normal product order instead of writing the request as a comment. | P0 | FRS-BB-226 |
 | URS-BB-193 | After the reserved unit is modified for that action, staff can issue the modified unit from the same order without a separate quarantine-release step. | P0 | FRS-BB-227, FRS-BB-229 |
 | URS-BB-194 | Completing a modification action captures the matching action charge and queues a DFT without a second product-issue charge for the action itself. | P0 | FRS-BB-228 |
+| URS-BB-195 | Staff can run prebuilt operational reports and export them to PDF or Excel, and designers can add a visual or SQL report. The starter list is for facility review and is not claimed as a regulatory submission. | P7 | FRS-BB-230 |

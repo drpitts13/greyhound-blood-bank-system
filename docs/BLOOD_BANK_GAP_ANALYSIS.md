@@ -33,7 +33,7 @@ them silently and do not invent ICCBBA tables.
 | 10 | P5 | Record retention / purge not implemented (OCD-007) | Low | **Closed 2026-09-14** — do not purge; retention years stay metadata |
 | 11 | P7 | RhIG workflow missing | Medium | SME for indications |
 | 12 | P2 | Neonatal irradiation / CMV product-selection defaults | Low | **Closed 2026-09-14** — keep order-rule hooks; do not invent product defaults (OCD-035) |
-| 13 | P7 / P9 | Quality metrics / reporting | Low | Later |
+| 13 | P7 / P9 | Quality metrics / reporting | Low (operational catalog, visual designer, guarded SQL, PDF/Excel). Starter list is not a regulatory claim | **Implemented** — eight facility reports; review sign-off not included |
 | 14 | P8 | FHIR | Low | HL7 v2 exists |
 | 15 | P1 | Bedside dual-ID / administration device path incomplete | Low (PPID tokens + ISBT scan; RISK-BB-258). Residual: no dedicated administration-device protocol or required vitals (do not invent) | **Implemented Cycle 6** (identity tokens; device path still thin) |
 | 16 | P5 | Downtime reconciliation tooling thin | Low (snapshot; no paper OCR / failover) | **Implemented Cycle 11** |
@@ -155,6 +155,14 @@ the patient (RISK-BB-292). ReplayAllowed stays unenforced.
 Cycle 41: product history shows inbound RAS volume, location, and
 transfusionist; default transfusionist map is `RXA-10` XCN
 (RISK-BB-293). Issue and bedside-scan gates are unchanged.
+
+Reporting: `/reports` runs eight prebuilt operational reports (inventory,
+issue/transfusion, discards, reactions, lookback, open deviations,
+emergency release/overrides, crossmatch and transfusion activity) and
+exports PDF or Excel. A visual designer filters, groups, and aggregates.
+SQL reports are one SELECT against `rpt_*` views. This starter set is
+pending regulatory review and is not an FDA, AABB, or CAP claim. There
+is no reviewer sign-off.
 
 ## Scoring used for Cycle 1 selection
 

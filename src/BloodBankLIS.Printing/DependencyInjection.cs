@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Printing.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,6 +14,7 @@ public static class DependencyInjection
     {
         services.AddSingleton<ILabelRenderer, ZplLabelRenderer>();
         services.AddSingleton<ILabelRenderer, PreviewLabelRenderer>();
+        services.AddSingleton<IReportDocumentRenderer, TabularReportRenderer>();
         services.AddScoped<PrintService>();
         return services;
     }
