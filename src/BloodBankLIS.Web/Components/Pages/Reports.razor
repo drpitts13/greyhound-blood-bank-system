@@ -1,14 +1,13 @@
 @page "/reports"
 @inject BloodBankApiClient Api
 @inject UserSession Session
-@inject NavigationManager Nav
 
 <PageTitle>Reports · Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Reports</h1>
 <p class="muted">Facility operational reports for review and export. This starter set is not an FDA, AABB, or CAP compliance claim.</p>
 
-@if (!Session.HasAny(PermissionCodes.ReportRun, PermissionCodes.ReportDesign))
+@if (!Session.Has(PermissionCodes.ReportRun))
 {
     <div class="muted">No permission to run reports.</div>
 }
@@ -18,11 +17,6 @@ else
         <div class="bb-card-title">
             <h3>Catalog</h3>
             <span>
-                @if (Session.Has(PermissionCodes.ReportDesign))
-                {
-                    <button class="btn btn-secondary btn-sm" @onclick='() => Nav.NavigateTo("reports/design?kind=visual")'>New visual report</button>
-                    <button class="btn btn-secondary btn-sm" @onclick='() => Nav.NavigateTo("reports/design?kind=sql")'>New SQL report</button>
-                }
                 <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
             </span>
         </div>
@@ -59,10 +53,6 @@ else
                             <td>@(row.Kind == ReportKind.Sql ? "SQL" : "Visual")</td>
                             <td>
                                 <a class="btn btn-primary btn-sm" href="@($"reports/{row.Id}")">Run</a>
-                                @if (Session.Has(PermissionCodes.ReportDesign))
-                                {
-                                    <a class="btn btn-secondary btn-sm" href="@($"reports/design/{row.Id}")">Design</a>
-                                }
                             </td>
                         </tr>
                     }

@@ -81,6 +81,10 @@
     {
         <div class="group-label">Administration</div>
         <NavLink href="admin" Match="NavLinkMatch.All" ActiveClass="active">Admin Home</NavLink>
+        @if (Session.Has(PermissionCodes.ReportDesign))
+        {
+            <NavLink href="admin/reports" ActiveClass="active">Report designer</NavLink>
+        }
         @if (Session.Has(PermissionCodes.AdminConfigView))
         {
             <details class="nav-group" open="@AdminGroupOpen("catalog")">

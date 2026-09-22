@@ -1,5 +1,9 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Reporting;
+using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
+using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Reporting;
 using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Reporting;
@@ -67,6 +71,119 @@ public class ReportServiceTests : IDisposable
         Assert.True(excel.Succeeded, excel.Error);
         Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", excel.Value!.ContentType);
         Assert.Equal((byte)'P', excel.Value.Bytes[0]);
+    }
+
+    [Fact]
+    public async Task LabResultsSource_RunsVisualAndViewColumns()
+    {
+        await using var db = _factory.Create();
+        var entered = new DateTime(2026, 9, 22, 15, 4, 0, DateTimeKind.Utc);
+        var patient = new Patient
+        {
+            MedicalRecordNumber = "MRN-LAB",
+            LastName = "Grey",
+            FirstName = "Hound",
+            DateOfBirth = new DateOnly(2014, 3, 8),
+            Sex = Sex.Female,
+            Status = PatientStatus.Active
+        };
+        db.Patients.Add(patient);
+        db.TestDefinitions.Add(new TestDefinition
+        {
+            Code = "ABORH",
+            Name = "Retired type",
+            Category = TestCategory.Other,
+            IsActive = false,
+            IsDraft = false
+        });
+        db.TestDefinitions.Add(new TestDefinition
+        {
+            Code = "ABORH",
+            Name = "ABO/Rh",
+            Category = TestCategory.AboRh,
+            IsActive = true,
+            IsDraft = false
+        });
+        await db.SaveChangesAsync();
+
+        var specimen = new Specimen
+        {
+            AccessionNumber = "ACC-LAB",
+            PatientId = patient.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = entered.AddHours(-1),
+            ReceivedUtc = entered,
+            Status = SpecimenStatus.Accepted
+        };
+        db.Specimens.Add(specimen);
+        await db.SaveChangesAsync();
+
+        db.TestResults.Add(new TestResult
+        {
+            SpecimenId = specimen.Id,
+            PatientId = patient.Id,
+            TestCode = "ABORH",
+            Value = "O Pos",
+            Units = null,
+            Interpretation = "Compatible",
+            Status = ResultStatus.Verified,
+            EnteredUtc = entered,
+            VerifiedUtc = entered.AddMinutes(12)
+        });
+        await db.SaveChangesAsync();
+        ReportViewSql.Apply(sql => db.Database.ExecuteSqlRaw(sql), db.Database.ProviderName ?? string.Empty);
+
+        var service = Service(db);
+        var source = service.Sources().Single(item => item.Code == ReportSourceCatalog.LabResults);
+        Assert.Equal(ReportViewCatalog.LabResults, source.ViewName);
+        Assert.Contains(source.Fields, field => field.Code == "mrn");
+        Assert.Contains(source.Fields, field => field.Code == "accession_number");
+        Assert.Contains(source.Fields, field => field.Code == "test_name");
+        Assert.Contains(source.Fields, field => field.Code == "result_value");
+
+        var preview = await service.PreviewAsync(new PreviewReportRequest
+        {
+            Name = "Lab preview",
+            Kind = ReportKind.Visual,
+            Layout = new ReportLayout
+            {
+                SourceCode = ReportSourceCatalog.LabResults,
+                Columns = ["mrn", "patient_name", "date_of_birth", "sex", "accession_number", "test_code", "test_name", "test_category", "result_value", "result_status"]
+            }
+        });
+        Assert.True(preview.Succeeded, preview.Error);
+        Assert.Equal(
+            ["mrn", "patient_name", "date_of_birth", "sex", "accession_number", "test_code", "test_name", "test_category", "result_value", "result_status"],
+            preview.Value!.Columns);
+        var row = Assert.Single(preview.Value.Rows);
+        Assert.Equal("MRN-LAB", row[0]);
+        Assert.Equal("Grey, Hound", row[1]);
+        Assert.Equal("2014-03-08", row[2]);
+        Assert.Equal("Female", row[3]);
+        Assert.Equal("ACC-LAB", row[4]);
+        Assert.Equal("ABORH", row[5]);
+        Assert.Equal("ABO/Rh", row[6]);
+        Assert.Equal("AboRh", row[7]);
+        Assert.Equal("O Pos", row[8]);
+        Assert.Equal("Verified", row[9]);
+
+        var saved = await service.SaveAsync(null, new SaveReportRequest
+        {
+            Code = "RPT-LAB-SQL",
+            Name = "SQL lab results",
+            Kind = ReportKind.Sql,
+            SqlText = "SELECT mrn, patient_name, date_of_birth, test_name, test_category, result_value FROM rpt_lab_results"
+        });
+        Assert.True(saved.Succeeded, saved.Error);
+        var run = await service.RunAsync(saved.Value!.Id, null);
+        Assert.True(run.Succeeded, run.Error);
+        var sqlRow = Assert.Single(run.Value!.Rows);
+        Assert.Equal("MRN-LAB", sqlRow[0]);
+        Assert.Equal("Grey, Hound", sqlRow[1]);
+        Assert.Equal("2014-03-08", sqlRow[2]);
+        Assert.Equal("ABO/Rh", sqlRow[3]);
+        Assert.Equal("AboRh", sqlRow[4]);
+        Assert.Equal("O Pos", sqlRow[5]);
     }
 
     private ReportService Service(Infrastructure.Persistence.BloodBankDbContext db) =>

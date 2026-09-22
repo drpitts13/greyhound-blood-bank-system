@@ -41,6 +41,14 @@ public static class ReportViewSql
             : "COALESCE(p.LastName, '') || CASE WHEN p.LastName IS NULL OR p.FirstName IS NULL OR p.LastName = '' OR p.FirstName = '' THEN '' ELSE ', ' END || COALESCE(p.FirstName, '')";
         var crossmatchDetail =
             $"{CaseEnum("c.Method", typeof(CrossmatchMethod))}{join}' '{join}{CaseEnum("c.Result", typeof(CrossmatchResult))}";
+        var dateOfBirth = sqlServer ? "CONVERT(varchar(10), p.DateOfBirth, 23)" : "p.DateOfBirth";
+        var activeTest = "td.Code = r.TestCode AND td.IsActive = 1 AND td.IsDraft = 0";
+        var testName = sqlServer
+            ? $"(SELECT TOP 1 td.Name FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC)"
+            : $"(SELECT td.Name FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC LIMIT 1)";
+        var testCategory = sqlServer
+            ? $"(SELECT TOP 1 {CaseEnum("td.Category", typeof(TestCategory))} FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC)"
+            : $"(SELECT {CaseEnum("td.Category", typeof(TestCategory))} FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC LIMIT 1)";
 
         yield return (ReportViewCatalog.InventoryOnHand, $"""
             SELECT
@@ -181,6 +189,33 @@ public static class ReportViewSql
             INNER JOIN BloodProducts u ON u.Id = t.BloodProductId
             INNER JOIN ProductTypes pt ON pt.Id = u.ProductTypeId
             INNER JOIN Patients p ON p.Id = t.PatientId
+            """);
+
+        yield return (ReportViewCatalog.LabResults, $"""
+            SELECT
+                p.MedicalRecordNumber AS mrn,
+                {person} AS patient_name,
+                {dateOfBirth} AS date_of_birth,
+                {CaseEnum("p.Sex", typeof(Sex))} AS sex,
+                {CaseEnum("p.Status", typeof(PatientStatus))} AS patient_status,
+                s.AccessionNumber AS accession_number,
+                s.SpecimenType AS specimen_type,
+                {CaseEnum("s.Status", typeof(SpecimenStatus))} AS specimen_status,
+                s.CollectedUtc AS collected_utc,
+                s.ReceivedUtc AS received_utc,
+                s.ExpiresUtc AS expires_utc,
+                r.TestCode AS test_code,
+                {testName} AS test_name,
+                {testCategory} AS test_category,
+                r.Value AS result_value,
+                r.Units AS units,
+                r.Interpretation AS interpretation,
+                {CaseEnum("r.Status", typeof(ResultStatus))} AS result_status,
+                r.EnteredUtc AS entered_utc,
+                r.VerifiedUtc AS verified_utc
+            FROM TestResults r
+            INNER JOIN Patients p ON p.Id = r.PatientId
+            INNER JOIN Specimens s ON s.Id = r.SpecimenId
             """);
     }
 

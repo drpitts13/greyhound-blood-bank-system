@@ -7,6 +7,9 @@ internal static class ReportValueFormat
 {
     public static string? Text(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    public static string Date(DateOnly value) =>
+        value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
     public static string? Date(DateTime? value)
     {
         if (value is null)

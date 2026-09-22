@@ -1,0 +1,83 @@
+@page "/admin/reports"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject NavigationManager Nav
+
+<PageTitle>Report designer · Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Report designer</h1>
+<p class="muted">Create and change report definitions. Running and export stay on the Reports page.</p>
+
+@if (!Session.Has(PermissionCodes.ReportDesign))
+{
+    <div class="muted">No permission to design reports.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="bb-card-title">
+            <h3>Definitions</h3>
+            <span>
+                <button class="btn btn-secondary btn-sm" @onclick='() => Nav.NavigateTo("admin/reports/design?kind=visual")'>New visual report</button>
+                <button class="btn btn-secondary btn-sm" @onclick='() => Nav.NavigateTo("admin/reports/design?kind=sql")'>New SQL report</button>
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+            </span>
+        </div>
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger">@_error</div>
+        }
+        @if (_rows.Count == 0)
+        {
+            <div class="empty">No reports are available.</div>
+        }
+        else
+        {
+            <table class="table">
+                <thead>
+                    <tr><th>Name</th><th>Code</th><th>Kind</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _rows)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@row.Name</strong>
+                                @if (row.IsSystemOwned)
+                                {
+                                    <span class="muted"> · system</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(row.Description))
+                                {
+                                    <div class="muted">@row.Description</div>
+                                }
+                            </td>
+                            <td class="mono">@row.Code</td>
+                            <td>@(row.Kind == ReportKind.Sql ? "SQL" : "Visual")</td>
+                            <td>
+                                <a class="btn btn-secondary btn-sm" href="@($"admin/reports/design/{row.Id}")">Design</a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    private List<ReportSummaryDto> _rows = new();
+    private string? _error;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _busy = true;
+        var result = await Api.GetReportsAsync();
+        _rows = result.Succeeded && result.Value is not null ? result.Value : new();
+        _error = result.Succeeded ? null : result.Error;
+        _busy = false;
+    }
+}

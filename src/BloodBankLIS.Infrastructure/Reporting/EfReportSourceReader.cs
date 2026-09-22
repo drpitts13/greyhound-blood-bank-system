@@ -23,6 +23,7 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ReportSourceCatalog.Deviations => DeviationsAsync(cancellationToken),
             ReportSourceCatalog.Overrides => OverridesAsync(cancellationToken),
             ReportSourceCatalog.CrossmatchTransfusion => ActivityAsync(cancellationToken),
+            ReportSourceCatalog.LabResults => LabResultsAsync(cancellationToken),
             _ => throw new InvalidOperationException($"Unknown report source '{sourceCode}'.")
         };
 
@@ -301,5 +302,72 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("detail", row.FinalDisposition.ToString()))));
 
         return rows;
+    }
+
+    private async Task<IReadOnlyList<IReadOnlyDictionary<string, string?>>> LabResultsAsync(CancellationToken cancellationToken)
+    {
+        var definitions = await _db.TestDefinitions.AsNoTracking()
+            .Where(definition => definition.IsActive && !definition.IsDraft)
+            .Select(definition => new { definition.Id, definition.Code, definition.Name, definition.Category })
+            .ToListAsync(cancellationToken);
+        var byCode = definitions
+            .GroupBy(definition => definition.Code, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderByDescending(definition => definition.Id).First(),
+                StringComparer.OrdinalIgnoreCase);
+
+        var rows = await (
+            from result in _db.TestResults.AsNoTracking()
+            join patient in _db.Patients.AsNoTracking() on result.PatientId equals patient.Id
+            join specimen in _db.Specimens.AsNoTracking() on result.SpecimenId equals specimen.Id
+            select new
+            {
+                patient.MedicalRecordNumber,
+                patient.LastName,
+                patient.FirstName,
+                patient.DateOfBirth,
+                patient.Sex,
+                PatientStatus = patient.Status,
+                specimen.AccessionNumber,
+                specimen.SpecimenType,
+                SpecimenStatus = specimen.Status,
+                specimen.CollectedUtc,
+                specimen.ReceivedUtc,
+                specimen.ExpiresUtc,
+                result.TestCode,
+                result.Value,
+                result.Units,
+                result.Interpretation,
+                ResultStatus = result.Status,
+                result.EnteredUtc,
+                result.VerifiedUtc
+            }).ToListAsync(cancellationToken);
+
+        return rows.Select(row =>
+        {
+            byCode.TryGetValue(row.TestCode, out var definition);
+            return ReportValueFormat.Row(
+                ("mrn", ReportValueFormat.Text(row.MedicalRecordNumber)),
+                ("patient_name", ReportValueFormat.Name(row.LastName, row.FirstName)),
+                ("date_of_birth", ReportValueFormat.Date(row.DateOfBirth)),
+                ("sex", row.Sex.ToString()),
+                ("patient_status", row.PatientStatus.ToString()),
+                ("accession_number", ReportValueFormat.Text(row.AccessionNumber)),
+                ("specimen_type", ReportValueFormat.Text(row.SpecimenType)),
+                ("specimen_status", row.SpecimenStatus.ToString()),
+                ("collected_utc", ReportValueFormat.Date(row.CollectedUtc)),
+                ("received_utc", ReportValueFormat.Date(row.ReceivedUtc)),
+                ("expires_utc", ReportValueFormat.Date(row.ExpiresUtc)),
+                ("test_code", ReportValueFormat.Text(row.TestCode)),
+                ("test_name", ReportValueFormat.Text(definition?.Name)),
+                ("test_category", definition is null ? null : definition.Category.ToString()),
+                ("result_value", ReportValueFormat.Text(row.Value)),
+                ("units", ReportValueFormat.Text(row.Units)),
+                ("interpretation", ReportValueFormat.Text(row.Interpretation)),
+                ("result_status", row.ResultStatus.ToString()),
+                ("entered_utc", ReportValueFormat.Date(row.EnteredUtc)),
+                ("verified_utc", ReportValueFormat.Date(row.VerifiedUtc)));
+        }).ToList();
     }
 }

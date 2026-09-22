@@ -16,6 +16,7 @@ public static class ReportSourceCatalog
     public const string Deviations = "deviations";
     public const string Overrides = "overrides";
     public const string CrossmatchTransfusion = "crossmatch_transfusion";
+    public const string LabResults = "lab_results";
 
     public static readonly IReadOnlyList<ReportSourceDefinition> All = new[]
     {
@@ -86,7 +87,28 @@ public static class ReportSourceCatalog
             Field("unit_number", "Unit number"),
             Field("product_name", "Product"),
             Field("mrn", "MRN"),
-            Field("detail", "Detail"))
+            Field("detail", "Detail")),
+        Source(LabResults, "Lab results", ReportViewCatalog.LabResults,
+            Field("mrn", "MRN"),
+            Field("patient_name", "Patient"),
+            Field("date_of_birth", "Date of birth", ReportValueKind.Date),
+            Field("sex", "Sex"),
+            Field("patient_status", "Patient status"),
+            Field("accession_number", "Accession"),
+            Field("specimen_type", "Specimen type"),
+            Field("specimen_status", "Specimen status"),
+            Field("collected_utc", "Collected", ReportValueKind.Date),
+            Field("received_utc", "Received", ReportValueKind.Date),
+            Field("expires_utc", "Specimen expiration", ReportValueKind.Date),
+            Field("test_code", "Test code"),
+            Field("test_name", "Test"),
+            Field("test_category", "Test category"),
+            Field("result_value", "Result"),
+            Field("units", "Units"),
+            Field("interpretation", "Interpretation"),
+            Field("result_status", "Result status"),
+            Field("entered_utc", "Entered", ReportValueKind.Date),
+            Field("verified_utc", "Verified", ReportValueKind.Date))
     };
 
     public static ReportSourceDefinition? Find(string? code) =>

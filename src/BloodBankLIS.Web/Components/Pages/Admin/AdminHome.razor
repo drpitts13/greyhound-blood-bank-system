@@ -159,4 +159,11 @@
             <p>Accounts, role assignment, activation/lock. Privilege escalation requires a reason.</p>
         </a>
     }
+    @if (Session.Has(PermissionCodes.ReportDesign))
+    {
+        <a class="admin-card" href="/admin/reports">
+            <h3>Report designer</h3>
+            <p>Visual and SQL report definitions. Running and export stay on the Reports page.</p>
+        </a>
+    }
 </div>

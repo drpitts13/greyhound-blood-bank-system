@@ -1,5 +1,5 @@
-@page "/reports/design"
-@page "/reports/design/{Id:long}"
+@page "/admin/reports/design"
+@page "/admin/reports/design/{Id:long}"
 @inject BloodBankApiClient Api
 @inject UserSession Session
 @inject NavigationManager Nav
@@ -8,7 +8,7 @@
 
 <h1>@(Id is null ? "New report" : "Design report")</h1>
 <p class="muted">Drag fields onto the report, or write one SELECT against a reporting view. Facility operational reports are not an FDA, AABB, or CAP compliance claim.</p>
-<p><a href="reports">Back to catalog</a></p>
+<p><a href="admin/reports">Back to designer</a></p>
 
 @if (!Session.Has(PermissionCodes.ReportDesign))
 {
@@ -343,7 +343,7 @@ else
         {
             _message = "Saved.";
             if (Id is null)
-                Nav.NavigateTo($"reports/design/{result.Value.Id}");
+                Nav.NavigateTo($"admin/reports/design/{result.Value.Id}");
         }
 
         _busy = false;
@@ -360,7 +360,7 @@ else
         if (!result.Succeeded || result.Value is null)
             _error = result.Error ?? "Clone failed.";
         else
-            Nav.NavigateTo($"reports/design/{result.Value.Id}");
+            Nav.NavigateTo($"admin/reports/design/{result.Value.Id}");
     }
 
     private async Task DeleteAsync()
@@ -374,7 +374,7 @@ else
         if (!result.Succeeded)
             _error = result.Error ?? "Delete failed.";
         else
-            Nav.NavigateTo("reports");
+            Nav.NavigateTo("admin/reports");
     }
 
     private async Task ValidateSqlAsync()
