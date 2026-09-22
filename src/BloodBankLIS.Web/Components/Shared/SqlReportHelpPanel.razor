@@ -1,0 +1,159 @@
+@* SQL designer help. Functions are the ones that run on both SQLite and SQL Server. The schema is the reporting view catalog. *@
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card-title">
+        <h3>SQL report help</h3>
+        <button class="btn btn-ghost btn-sm" @onclick="OnClose">Close</button>
+    </div>
+
+    <p>
+        Write one <span class="mono">SELECT</span>, or a <span class="mono">WITH</span> query that ends in one <span class="mono">SELECT</span>.
+        <span class="mono">FROM</span> and <span class="mono">JOIN</span> may name a reporting view below, or a name you defined in that same <span class="mono">WITH</span>.
+        Clinical tables are not readable from here. Comments and a second statement are rejected.
+    </p>
+
+    <h3 style="margin-top:1.2rem;">Functions</h3>
+    <p class="muted">
+        These run on both the development database and SQL Server. A function that exists in only one of them fails when the report runs on the other.
+    </p>
+
+    <h4 style="margin-top:.9rem;">Counts and totals</h4>
+    <table class="bb">
+        <thead><tr><th>Function</th><th>Returns</th><th>Description</th><th>Example</th></tr></thead>
+        <tbody>
+            @foreach (var function in Aggregates)
+            {
+                <tr>
+                    <td class="mono nowrap">@function.Name</td>
+                    <td>@function.Returns</td>
+                    <td>@function.Description</td>
+                    <td class="mono">@function.Example</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h4 style="margin-top:.9rem;">Values</h4>
+    <table class="bb">
+        <thead><tr><th>Function</th><th>Returns</th><th>Description</th><th>Example</th></tr></thead>
+        <tbody>
+            @foreach (var function in Values)
+            {
+                <tr>
+                    <td class="mono nowrap">@function.Name</td>
+                    <td>@function.Returns</td>
+                    <td>@function.Description</td>
+                    <td class="mono">@function.Example</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h4 style="margin-top:.9rem;">Filters and grouping</h4>
+    <p class="muted">Text values go in single quotes. Comparison ignores the database's own case rules, so write the value as it is stored, for example <span class="mono">'Verified'</span>.</p>
+    <ul>
+        <li><span class="mono">=</span>, <span class="mono">&lt;&gt;</span>, <span class="mono">&lt;</span>, <span class="mono">&gt;</span>, <span class="mono">&lt;=</span>, <span class="mono">&gt;=</span>, combined with <span class="mono">AND</span>, <span class="mono">OR</span>, and <span class="mono">NOT</span>.</li>
+        <li><span class="mono">IN ('A', 'B')</span>, <span class="mono">BETWEEN '2026-01-01' AND '2026-12-31'</span>, and <span class="mono">LIKE 'O%'</span>. <span class="mono">%</span> matches any text. <span class="mono">_</span> matches one character.</li>
+        <li><span class="mono">IS NULL</span> and <span class="mono">IS NOT NULL</span> test for a missing value. <span class="mono">= NULL</span> does not.</li>
+        <li><span class="mono">DISTINCT</span> keeps one copy of each selected row.</li>
+        <li><span class="mono">GROUP BY</span> is required for every selected column that is not inside <span class="mono">COUNT</span>, <span class="mono">SUM</span>, <span class="mono">AVG</span>, <span class="mono">MIN</span>, or <span class="mono">MAX</span>. <span class="mono">HAVING</span> filters after the grouping.</li>
+        <li><span class="mono">ORDER BY column</span> or <span class="mono">ORDER BY column DESC</span>.</li>
+        <li><span class="mono">INNER JOIN</span> keeps matching rows. <span class="mono">LEFT JOIN</span> keeps the left row when the right side has no match. <span class="mono">UNION ALL</span> stacks two selects that have the same columns.</li>
+    </ul>
+
+    <h4 style="margin-top:.9rem;">Dates</h4>
+    <p>
+        Date columns compare against a quoted UTC value such as <span class="mono">'2026-01-01'</span> or <span class="mono">'2026-01-01T00:00:00'</span>.
+        <span class="mono">date_of_birth</span> is a calendar date, <span class="mono">'2014-03-08'</span>.
+        Date functions such as <span class="mono">DATEADD</span> and <span class="mono">strftime</span> are not shared by both databases, so filter the column directly.
+    </p>
+
+    <h4 style="margin-top:.9rem;">Rejected or not portable</h4>
+    <ul>
+        <li>Comments (<span class="mono">--</span> and <span class="mono">/* */</span>), and a semicolon followed by another statement.</li>
+        <li>Writes and data-definition keywords, including <span class="mono">INSERT</span>, <span class="mono">UPDATE</span>, <span class="mono">DELETE</span>, <span class="mono">INTO</span>, <span class="mono">DROP</span>, and <span class="mono">EXEC</span>.</li>
+        <li><span class="mono">FROM</span> inside a function, such as <span class="mono">EXTRACT(YEAR FROM verified_utc)</span>, is read as a table name and rejected.</li>
+        <li><span class="mono">LIMIT</span>, <span class="mono">TOP</span>, and <span class="mono">OFFSET</span>. Preview stops at 500 rows and export at 50,000.</li>
+        <li><span class="mono">LEN</span> and <span class="mono">LENGTH</span>, <span class="mono">SUBSTRING</span> and <span class="mono">SUBSTR</span>, and joining text with <span class="mono">||</span> or <span class="mono">+</span>. Use the columns as stored, or <span class="mono">CASE</span>.</li>
+    </ul>
+
+    <h4 style="margin-top:.9rem;">Example</h4>
+    <pre class="pre">SELECT status, COUNT(*) AS units
+FROM rpt_inventory_on_hand
+GROUP BY status
+ORDER BY units DESC</pre>
+
+    <h3 style="margin-top:1.2rem;">Reporting views</h3>
+    <p class="muted">Use the column name in SQL. The label is what the visual designer calls the same field.</p>
+
+    @foreach (var source in ReportSourceCatalog.All)
+    {
+        <h4 style="margin-top:.9rem;"><span class="mono">@source.ViewName</span> — @source.Name</h4>
+        <p class="muted">@Scope(source.Code)</p>
+        <table class="bb">
+            <thead><tr><th>Column</th><th>Label</th><th>Kind</th></tr></thead>
+            <tbody>
+                @foreach (var field in source.Fields)
+                {
+                    <tr>
+                        <td class="mono">@field.Code</td>
+                        <td>@field.Label</td>
+                        <td>@Kind(field.Kind)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private static readonly HelpFunction[] Aggregates =
+    [
+        new("COUNT(*)", "Number", "Rows in the group, including rows whose columns are blank.", "COUNT(*)"),
+        new("COUNT(column)", "Number", "Rows where that column has a value.", "COUNT(mrn)"),
+        new("COUNT(DISTINCT column)", "Number", "How many different values the column has.", "COUNT(DISTINCT mrn)"),
+        new("SUM(column)", "Number", "Total of a numeric column. Text columns are not numeric.", "SUM(CAST(result_value AS REAL))"),
+        new("AVG(column)", "Number", "Average of a numeric column.", "AVG(CAST(result_value AS REAL))"),
+        new("MIN(column)", "Same as the column", "Smallest value. For dates, the earliest.", "MIN(expires_utc)"),
+        new("MAX(column)", "Same as the column", "Largest value. For dates, the latest.", "MAX(verified_utc)")
+    ];
+
+    private static readonly HelpFunction[] Values =
+    [
+        new("COALESCE(a, b)", "Same as the arguments", "The first argument that is not null.", "COALESCE(patient_name, mrn)"),
+        new("NULLIF(a, b)", "Same as a, or null", "Null when the two arguments are equal.", "NULLIF(status, 'Available')"),
+        new("UPPER(text)", "Text", "Letters in upper case.", "UPPER(abo)"),
+        new("LOWER(text)", "Text", "Letters in lower case.", "LOWER(status)"),
+        new("TRIM(text)", "Text", "Removes spaces from both ends.", "TRIM(mrn)"),
+        new("ABS(number)", "Number", "The value without a sign.", "ABS(CAST(result_value AS INT))"),
+        new("ROUND(number, digits)", "Number", "Rounds to the given number of decimal places.", "ROUND(AVG(CAST(result_value AS REAL)), 1)"),
+        new("CAST(value AS INT)", "Number", "Whole number. A value that is not numeric fails the report.", "CAST(result_value AS INT)"),
+        new("CAST(value AS REAL)", "Number", "Decimal number.", "CAST(result_value AS REAL)"),
+        new("CASE WHEN … THEN … ELSE … END", "The chosen value", "Picks a result from conditions, in order. ELSE covers everything left.", "CASE WHEN status = 'Available' THEN 'On hand' ELSE status END")
+    ];
+
+    private static string Kind(ReportValueKind kind) => kind switch
+    {
+        ReportValueKind.Number => "Number",
+        ReportValueKind.Date => "Date",
+        _ => "Text"
+    };
+
+    private static string Scope(string code) => code switch
+    {
+        ReportSourceCatalog.InventoryOnHand => "Units currently on hand. Issued, transfused, and discarded units are omitted.",
+        ReportSourceCatalog.IssueTransfusion => "One row per issue. Transfusion start, stop, and disposition are blank when the unit was not transfused.",
+        ReportSourceCatalog.Discards => "Units that were discarded or given a discard reason.",
+        ReportSourceCatalog.Reactions => "Transfusion reaction investigations.",
+        ReportSourceCatalog.Lookback => "Lookback notifications. The medical record number is blank when no patient is linked.",
+        ReportSourceCatalog.Deviations => "Deviations that are still open. Closed deviations are omitted.",
+        ReportSourceCatalog.Overrides => "Warning overrides, plus emergency-release and massive-transfusion issues.",
+        ReportSourceCatalog.CrossmatchTransfusion => "Crossmatches and transfusions. event_type is Crossmatch or Transfusion.",
+        ReportSourceCatalog.LabResults => "One row per test result, with its patient, specimen, and the active test definition. The test name is blank when no active definition matches the code.",
+        _ => "Every row in this view."
+    };
+
+    private sealed record HelpFunction(string Name, string Returns, string Description, string Example);
+}

@@ -57,8 +57,11 @@ else
         @if (_kind == ReportKind.Sql)
         {
             <div class="bb-card">
-                <div class="bb-card-title"><h3>SQL</h3></div>
-                <p class="muted">One SELECT or WITH … SELECT. FROM and JOIN may use only: @string.Join(", ", ReportViewCatalog.All.OrderBy(name => name)). Comments and writes are rejected.</p>
+                <div class="bb-card-title">
+                    <h3>SQL</h3>
+                    <button class="btn btn-ghost btn-sm" @onclick="() => _showSqlHelp = !_showSqlHelp">@(_showSqlHelp ? "Hide help" : "Help")</button>
+                </div>
+                <p class="muted">One SELECT or WITH … SELECT. FROM and JOIN may use only the reporting views in Help. Comments and writes are rejected.</p>
                 <textarea rows="12" @bind="_sql" disabled="@_systemOwned"></textarea>
                 <div style="margin-top:.5rem;">
                     <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ValidateSqlAsync">Validate</button>
@@ -91,6 +94,11 @@ else
             </div>
         }
     </div>
+
+    @if (_kind == ReportKind.Sql && _showSqlHelp)
+    {
+        <SqlReportHelpPanel OnClose="() => _showSqlHelp = false" />
+    }
 
     @if (_kind == ReportKind.Visual && _layout is not null)
     {
@@ -230,6 +238,7 @@ else
     private string? _message;
     private bool _busy;
     private bool _systemOwned;
+    private bool _showSqlHelp;
     private ReportResultDto? _preview;
 
     private IReadOnlyList<ReportField> CurrentFields =>
