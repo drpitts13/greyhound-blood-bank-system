@@ -339,33 +339,35 @@ else
 
     @if (_autoThawRow is not null)
     {
-        <div class="bb-card" style="margin-top:1rem;">
-            <h3>Auto thaw @_autoThawRow.ProductCode</h3>
-            <p class="muted">
-                @if (_autoThawAsk)
-                {
-                    <text>Thaw this product now? The product code stays @_autoThawRow.ProductCode. Expiration becomes 24 hours after the thaw date and time. A thaw billing message is sent and the product ID tag prints.</text>
-                }
-                else
-                {
-                    <text>Thaw @_autoThawRow.UnitNumber in place. The product code stays @_autoThawRow.ProductCode and expiration becomes 24 hours after the thaw date and time.</text>
-                }
-            </p>
-            <div class="field">
-                <label>Thaw date/time</label>
-                <input type="datetime-local" @bind="_autoThawLocal" />
-            </div>
-            <div class="flex gap" style="margin-top:.75rem;">
-                @if (_autoThawAsk)
-                {
-                    <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAutoThawAsync">Yes</button>
-                    <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="DeclineAutoThawAsync">No</button>
-                }
-                else
-                {
-                    <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAutoThawAsync">Auto thaw</button>
-                    <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="CancelAutoThaw">Cancel</button>
-                }
+        <div class="bb-dialog-backdrop">
+            <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="auto-thaw-title" @onclick:stopPropagation="true">
+                <h2 id="auto-thaw-title" style="margin:0;">Auto thaw @AutoThawCode(_autoThawRow)?</h2>
+                <p class="muted">
+                    @if (_autoThawAsk)
+                    {
+                        <text>Thaw this product now? The product code stays @AutoThawCode(_autoThawRow). Expiration becomes 24 hours after the thaw date and time. A thaw billing message is sent and the product ID tag prints.</text>
+                    }
+                    else
+                    {
+                        <text>Thaw @_autoThawRow.UnitNumber in place. The product code stays @AutoThawCode(_autoThawRow) and expiration becomes 24 hours after the thaw date and time.</text>
+                    }
+                </p>
+                <div class="field">
+                    <label>Thaw date/time</label>
+                    <input type="datetime-local" @bind="_autoThawLocal" />
+                </div>
+                <div class="flex gap" style="margin-top:.75rem;">
+                    @if (_autoThawAsk)
+                    {
+                        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAutoThawAsync">Yes</button>
+                        <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="DeclineAutoThawAsync">No</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAutoThawAsync">Auto thaw</button>
+                        <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="CancelAutoThaw">Cancel</button>
+                    }
+                </div>
             </div>
         </div>
     }
@@ -1293,6 +1295,9 @@ else
         var now = DateTime.Now;
         return new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Local);
     }
+
+    private static string AutoThawCode(PatientAllocationRowDto row) =>
+        string.IsNullOrWhiteSpace(row.AutoThawProductCode) ? row.ProductCode : row.AutoThawProductCode;
 
     private async Task BeginAllocateOnOrderAsync(PatientOrderDto order)
     {

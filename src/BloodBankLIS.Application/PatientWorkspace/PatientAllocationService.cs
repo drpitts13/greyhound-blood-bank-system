@@ -172,6 +172,7 @@ public sealed class PatientAllocationService
                 hasException);
 
             issues.TryGetValue(unit.Id, out var issue);
+            var thawCode = await AutoThawCodeAsync(allocation, unit, product, issue, ct);
             rows.Add(new PatientAllocationRowDto(
                 allocation.Id,
                 unit.Id,
@@ -193,7 +194,8 @@ public sealed class PatientAllocationService
                 unit.Status,
                 issue?.Id,
                 issue?.Status,
-                pendingAutoThaw.Contains(allocation.Id)));
+                pendingAutoThaw.Contains(allocation.Id),
+                thawCode));
         }
 
         return rows;
@@ -660,10 +662,39 @@ public sealed class PatientAllocationService
             allocation.AllocatedBy,
             allocation.ExpiresUtc);
 
-        var autoThawEligible = _autoThaw is not null && await _autoThaw.IsEligibleAsync(unit, product, ct);
+        var thawCode = await AutoThawCodeAsync(allocation, unit, product, issue: null, ct);
+        if (thawCode is not null)
+        {
+            row = row with { AutoThawProductCode = thawCode };
+        }
+
         return EvaluationResult<AllocatePatientUnitResultDto>.Ok(
-            new AllocatePatientUnitResultDto(row, orderId, xmTestCode, overrideApplied, autoThawEligible),
+            new AllocatePatientUnitResultDto(row, orderId, xmTestCode, overrideApplied, thawCode is not null),
             allocResult.Evaluation);
+    }
+
+    private async Task<string?> AutoThawCodeAsync(
+        Allocation allocation,
+        BloodUnit unit,
+        ProductType? product,
+        Issue? issue,
+        CancellationToken ct)
+    {
+        if (_autoThaw is null
+            || allocation.Status != AllocationStatus.Reserved
+            || issue is not null
+            || unit.Status is UnitStatus.Issued or UnitStatus.Transfused or UnitStatus.TransfusionStarted
+                or UnitStatus.TransfusionStopped or UnitStatus.Discarded or UnitStatus.Modified)
+        {
+            return null;
+        }
+
+        if (await _autoThaw.HasCompletedAsync(unit.Id, ct))
+        {
+            return null;
+        }
+
+        return await _autoThaw.MatchCodeAsync(unit, product, ct);
     }
 
     public async Task<IReadOnlyList<AllocatableOrderDto>> ListAllocatableOrdersAsync(

@@ -67,6 +67,10 @@ public sealed class AutoThawService
     public async Task<bool> IsEligibleAsync(BloodUnit unit, ProductType? productType, CancellationToken ct = default) =>
         await MatchCodeAsync(unit, productType, ct) is not null;
 
+    public async Task<bool> HasCompletedAsync(long bloodUnitId, CancellationToken ct = default) =>
+        await _requests.AnyAsync(
+            r => r.BloodUnitId == bloodUnitId && r.Status == AutoThawRequestStatus.Completed, ct);
+
     public async Task<string?> MatchCodeAsync(BloodUnit unit, ProductType? productType, CancellationToken ct = default)
     {
         var codes = ProductCodes(unit, productType);
@@ -224,9 +228,10 @@ public sealed class AutoThawService
             return OperationResult<AutoThawResultDto>.Fail("Unit not found.");
         }
 
-        if (unit.Status is UnitStatus.Issued or UnitStatus.Transfused or UnitStatus.TransfusionStarted)
+        if (unit.Status is UnitStatus.Issued or UnitStatus.Transfused or UnitStatus.TransfusionStarted
+            or UnitStatus.TransfusionStopped or UnitStatus.Discarded or UnitStatus.Modified)
         {
-            return OperationResult<AutoThawResultDto>.Fail("An issued unit cannot be auto-thawed.");
+            return OperationResult<AutoThawResultDto>.Fail("This unit status cannot be auto-thawed.");
         }
 
         var product = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);

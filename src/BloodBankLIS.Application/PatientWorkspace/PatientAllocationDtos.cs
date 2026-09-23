@@ -23,7 +23,8 @@ public sealed record PatientAllocationRowDto(
     UnitStatus UnitStatus = UnitStatus.Assigned,
     long? IssueId = null,
     IssueStatus? IssueStatus = null,
-    bool PendingAutoThaw = false);
+    bool PendingAutoThaw = false,
+    string? AutoThawProductCode = null);
 
 public sealed record CompatibleUnitDto(
     long BloodUnitId,

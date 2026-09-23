@@ -56,10 +56,9 @@
                                 {
                                     <a class="btn btn-secondary btn-sm" href="@ModifyActionHref(a, action)">@action.ActionName</a>
                                 }
-                                @if (a.PendingAutoThaw && a.IssueId is null && a.AllocationStatus == AllocationStatus.Reserved
-                                    && Session.Has(PermissionCodes.CompatibilityAllocate))
+                                @if (CanOfferAutoThaw(a))
                                 {
-                                    <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="() => OnBeginAutoThaw.InvokeAsync(a)">Auto thaw</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="() => OnBeginAutoThaw.InvokeAsync(a)">Auto thaw @a.AutoThawProductCode</button>
                                 }
                                 @if (Session.Has(PermissionCodes.IssueCreate) && a.IssueId is null)
                                 {
@@ -416,6 +415,17 @@
         var type = action.ModificationType?.ToString() ?? string.Empty;
         return $"/inventory/modify?unitId={allocation.BloodUnitId}&orderActionId={action.Id}&modificationType={type}&returnUrl={returnUrl}";
     }
+
+    private bool CanOfferAutoThaw(PatientAllocationRowDto allocation) =>
+        Session.Has(PermissionCodes.CompatibilityAllocate)
+        && !string.IsNullOrEmpty(allocation.AutoThawProductCode)
+        && allocation.IssueId is null
+        && allocation.AllocationStatus == AllocationStatus.Reserved
+        && allocation.UnitStatus is not UnitStatus.Issued
+            and not UnitStatus.Transfused
+            and not UnitStatus.TransfusionStarted
+            and not UnitStatus.Discarded
+            and not UnitStatus.Modified;
 
     private bool CanTypeUnitAntigens(PatientAllocationRowDto allocation) =>
         Session.Has(PermissionCodes.ResultEnter)

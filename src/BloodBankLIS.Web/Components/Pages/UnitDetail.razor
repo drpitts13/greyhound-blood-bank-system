@@ -25,6 +25,24 @@ else
     <UnitChartTabBar Current="_tab" OnSelect="SelectTab" />
     <Outcome Value="_actionFb" />
 
+    @if (_autoThawAllocationId is long thawAllocationId)
+    {
+        <div class="bb-dialog-backdrop">
+            <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="unit-auto-thaw-title" @onclick:stopPropagation="true">
+                <h2 id="unit-auto-thaw-title" style="margin:0;">Auto thaw @_autoThawProductCode?</h2>
+                <p class="muted">Thaw this product now? The product code stays @_autoThawProductCode. Expiration becomes 24 hours after the thaw date and time. A thaw billing message is sent and the product ID tag prints.</p>
+                <div class="field">
+                    <label>Thaw date/time</label>
+                    <input type="datetime-local" @bind="_autoThawLocal" />
+                </div>
+                <div class="flex gap" style="margin-top:.75rem;">
+                    <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="() => ConfirmUnitAutoThawAsync(thawAllocationId)">Yes</button>
+                    <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="() => DeclineUnitAutoThawAsync(thawAllocationId)">No</button>
+                </div>
+            </div>
+        </div>
+    }
+
     @if (_tab == "overview")
     {
         <div class="bb-card">
@@ -203,21 +221,6 @@ else
                             </select>
                         </div>
                         <button class="btn btn-primary btn-sm" disabled="@(_busy || _allocateOrderId <= 0)" @onclick="() => AllocateSelectedAsync(_unit)">Allocate</button>
-                    }
-                    @if (_autoThawAllocationId is long thawAllocationId)
-                    {
-                        <div class="bb-card" style="margin-top:.75rem;min-width:22rem;">
-                            <strong>Auto thaw @_autoThawProductCode?</strong>
-                            <p class="muted">The product code stays the same. Expiration becomes 24 hours after the thaw date and time. A thaw billing message is sent and the product ID tag prints.</p>
-                            <div class="field">
-                                <label>Thaw date/time</label>
-                                <input type="datetime-local" @bind="_autoThawLocal" />
-                            </div>
-                            <div class="flex gap" style="margin-top:.5rem;">
-                                <button type="button" class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ConfirmUnitAutoThawAsync(thawAllocationId)">Yes</button>
-                                <button type="button" class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => DeclineUnitAutoThawAsync(thawAllocationId)">No</button>
-                            </div>
-                        </div>
                     }
                     @if (_unit.Status == UnitStatus.Issued && _selectedIssueId is long issuedId && Session.Has(PermissionCodes.TransfusionDocument))
                     {
@@ -719,7 +722,7 @@ else
         {
             _autoThawPatientId = order.PatientId;
             _autoThawAllocationId = r.Value.Allocation.AllocationId;
-            _autoThawProductCode = r.Value.Allocation.ProductCode;
+            _autoThawProductCode = r.Value.Allocation.AutoThawProductCode ?? r.Value.Allocation.ProductCode;
             _autoThawLocal = LocalMinuteNow();
         }
     }

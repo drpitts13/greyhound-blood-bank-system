@@ -270,12 +270,40 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(flagged.Value!.AutoThawEligible);
     }
 
+    [Fact]
+    public async Task ProductTypeIsbtCode_OffersThawAfterUnitIsAssigned()
+    {
+        await using var c = _factory.Create();
+        var seeded = await SeedReservedScenarioAsync(
+            c, listed: true, alreadyAllocated: false, productTypeCodeOnly: true);
+        var flagged = await Allocations(c).AllocateAsync(seeded.PatientId, new AllocatePatientUnitRequest(
+            seeded.UnitId, OrderId: seeded.OrderId));
+        Assert.True(flagged.Succeeded, flagged.Error);
+        Assert.True(flagged.Value!.AutoThawEligible);
+        Assert.Equal(seeded.ProductCode, flagged.Value.Allocation.AutoThawProductCode);
+
+        var unit = await c.BloodUnits.SingleAsync(u => u.Id == seeded.UnitId);
+        Assert.Equal(UnitStatus.Assigned, unit.Status);
+        Assert.Null(unit.ProductDescriptionCode);
+
+        var rows = await Allocations(c).ListActiveAsync(seeded.PatientId);
+        Assert.Contains(rows, r => r.AllocationId == flagged.Value.Allocation.AllocationId
+            && r.AutoThawProductCode == seeded.ProductCode
+            && r.DisplayStatus == ProductAllocationDisplayStatus.ReadyForIssue);
+
+        var applied = await Thaw(c).ApplyAsync(
+            seeded.PatientId, flagged.Value.Allocation.AllocationId, _factory.Clock.UtcNow.AddMinutes(-5));
+        Assert.True(applied.Succeeded, applied.Error);
+        Assert.Equal(seeded.ProductCode, applied.Value!.ProductCode);
+    }
+
     private async Task<SeededPlasma> SeedReservedScenarioAsync(
         BloodBankDbContext c,
         bool listed,
         bool alreadyAllocated,
         string? unitCode = null,
-        bool codeDataOnly = false)
+        bool codeDataOnly = false,
+        bool productTypeCodeOnly = false)
     {
         var token = Guid.NewGuid().ToString("N")[..8];
         var productCode = ("E" + token[..4]).ToUpperInvariant();
@@ -285,6 +313,7 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
             Name = "Fresh Frozen Plasma",
             ComponentClass = ComponentClass.Plasma,
             RequiresCrossmatch = false,
+            Isbt128ProductCode = productTypeCodeOnly ? productCode : null,
             IsActive = true
         };
         var patient = new Patient
@@ -344,8 +373,8 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
         {
             UnitNumber = $"F{token}",
             ProductTypeId = product.Id,
-            ProductDescriptionCode = codeDataOnly ? null : stamped,
-            ProductCodeData = codeDataOnly ? productCode + "V00" : null,
+            ProductDescriptionCode = productTypeCodeOnly || codeDataOnly ? null : stamped,
+            ProductCodeData = !productTypeCodeOnly && codeDataOnly ? productCode + "V00" : null,
             Abo = AboGroup.O,
             RhD = RhType.Positive,
             Status = alreadyAllocated ? UnitStatus.Assigned : UnitStatus.Available,
