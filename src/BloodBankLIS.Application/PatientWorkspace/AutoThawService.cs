@@ -64,8 +64,56 @@ public sealed class AutoThawService
         _permissions = permissions;
     }
 
-    public async Task<bool> IsEligibleAsync(long productTypeId, CancellationToken ct = default) =>
-        await _products.AnyAsync(p => p.IsActive && p.ProductTypeId == productTypeId, ct);
+    public async Task<bool> IsEligibleAsync(BloodUnit unit, ProductType? productType, CancellationToken ct = default) =>
+        await MatchCodeAsync(unit, productType, ct) is not null;
+
+    public async Task<string?> MatchCodeAsync(BloodUnit unit, ProductType? productType, CancellationToken ct = default)
+    {
+        var codes = ProductCodes(unit, productType);
+        if (codes.Count == 0)
+        {
+            return null;
+        }
+
+        var listed = await _products.ListAsync(p => p.IsActive && codes.Contains(p.ProductCode), ct);
+        var active = listed.Select(p => p.ProductCode).ToHashSet(StringComparer.Ordinal);
+        return codes.FirstOrDefault(active.Contains);
+    }
+
+    public static List<string> ProductCodes(BloodUnit unit, ProductType? productType)
+    {
+        var codes = new List<string>();
+        Add(unit.ProductDescriptionCode);
+        Add(unit.Isbt128ProductCode);
+        Add(unit.ProductCodeData);
+        Add(productType?.Isbt128ProductCode);
+        return codes;
+
+        void Add(string? raw)
+        {
+            var code = NormalizeProductCode(raw);
+            if (code is not null && !codes.Contains(code, StringComparer.Ordinal))
+            {
+                codes.Add(code);
+            }
+        }
+    }
+
+    public static string? NormalizeProductCode(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
+        var text = raw.Trim().ToUpperInvariant();
+        if (text.Length > 5)
+        {
+            text = text[..5];
+        }
+
+        return text.Length == 5 ? text : null;
+    }
 
     public async Task<IReadOnlySet<long>> PendingAllocationIdsAsync(
         IReadOnlyCollection<long> allocationIds,
@@ -106,7 +154,8 @@ public sealed class AutoThawService
             return OperationResult<long>.Fail("Unit not found.");
         }
 
-        if (!await IsEligibleAsync(unit.ProductTypeId, ct))
+        var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
+        if (!await IsEligibleAsync(unit, productType, ct))
         {
             return OperationResult<long>.Fail("This product code is not in the auto-thaw list.");
         }
@@ -181,7 +230,8 @@ public sealed class AutoThawService
         }
 
         var product = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
-        if (product is null || !await IsEligibleAsync(product.Id, ct))
+        var matchedCode = product is null ? null : await MatchCodeAsync(unit, product, ct);
+        if (matchedCode is null)
         {
             return OperationResult<AutoThawResultDto>.Fail("This product code is not in the auto-thaw list.");
         }
@@ -279,7 +329,7 @@ public sealed class AutoThawService
         return OperationResult<AutoThawResultDto>.Ok(new AutoThawResultDto(
             allocation.Id,
             unit.Id,
-            product.ProductCode,
+            matchedCode,
             previousExpires,
             newExpires));
     }

@@ -660,7 +660,7 @@ public sealed class PatientAllocationService
             allocation.AllocatedBy,
             allocation.ExpiresUtc);
 
-        var autoThawEligible = _autoThaw is not null && await _autoThaw.IsEligibleAsync(product.Id, ct);
+        var autoThawEligible = _autoThaw is not null && await _autoThaw.IsEligibleAsync(unit, product, ct);
         return EvaluationResult<AllocatePatientUnitResultDto>.Ok(
             new AllocatePatientUnitResultDto(row, orderId, xmTestCode, overrideApplied, autoThawEligible),
             allocResult.Evaluation);

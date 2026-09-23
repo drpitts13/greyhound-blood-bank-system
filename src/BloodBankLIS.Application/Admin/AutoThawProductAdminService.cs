@@ -7,19 +7,19 @@ using BloodBankLIS.Domain.Rules;
 namespace BloodBankLIS.Application.Admin;
 
 /// <summary>
-/// Admin list of facility product codes that can be thawed in place at allocation.
+/// Admin list of ISBT product description codes that can be thawed in place at allocation.
 /// </summary>
 public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
 {
     private const string EntityType = nameof(AutoThawProduct);
 
     private readonly IRepository<AutoThawProduct> _rows;
-    private readonly IRepository<ProductType> _productTypes;
+    private readonly IRepository<IsbtProductCode> _catalog;
     private readonly IPermissionEvaluator? _permissionEvaluator;
 
     public AutoThawProductAdminService(
         IRepository<AutoThawProduct> rows,
-        IRepository<ProductType> productTypes,
+        IRepository<IsbtProductCode> catalog,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
@@ -29,7 +29,7 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _rows = rows;
-        _productTypes = productTypes;
+        _catalog = catalog;
         _permissionEvaluator = permissionEvaluator;
     }
 
@@ -38,10 +38,10 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
         var rows = includeInactive
             ? await _rows.ListAsync(ct)
             : await _rows.ListAsync(r => r.IsActive, ct);
-        var products = await LoadProductMapAsync(ct);
+        var catalog = await LoadCatalogAsync(ct);
         return rows
-            .OrderBy(r => products.GetValueOrDefault(r.ProductTypeId)?.ProductCode ?? string.Empty)
-            .Select(r => AutoThawProductDto.From(r, products.GetValueOrDefault(r.ProductTypeId)))
+            .OrderBy(r => r.ProductCode)
+            .Select(r => AutoThawProductDto.From(r, DescriptionFor(catalog, r.ProductCode)))
             .ToList();
     }
 
@@ -53,8 +53,8 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
             return null;
         }
 
-        var product = await _productTypes.GetByIdAsync(entity.ProductTypeId, ct);
-        return AutoThawProductDto.From(entity, product);
+        var catalog = await LoadCatalogAsync(ct);
+        return AutoThawProductDto.From(entity, DescriptionFor(catalog, entity.ProductCode));
     }
 
     public async Task<EvaluationResult<AutoThawProductDto>> CreateAsync(
@@ -69,17 +69,19 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
             return denied;
         }
 
-        var product = await _productTypes.GetByIdAsync(request.ProductTypeId, ct);
+        var code = Normalize(request.ProductCode);
+        var catalog = await FindCatalogAsync(code, ct);
         var entity = new AutoThawProduct
         {
-            ProductTypeId = request.ProductTypeId,
+            ProductCode = code,
             IsActive = true
         };
-        var duplicate = await _rows.AnyAsync(r => r.ProductTypeId == request.ProductTypeId, ct);
+        var duplicate = await _rows.AnyAsync(r => r.ProductCode == code, ct);
         var validation = AutoThawProductValidator.Validate(
             entity,
-            productTypeMissing: product is null || !product.IsActive,
-            duplicateProductType: duplicate);
+            codeUnknown: catalog is null,
+            codeRetired: IsRetired(catalog),
+            duplicateCode: duplicate);
         if (validation.IsHardStopped)
         {
             return EvaluationResult<AutoThawProductDto>.Blocked(validation);
@@ -88,7 +90,7 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
         await _rows.AddAsync(entity, ct);
         await UnitOfWork.SaveChangesAsync(ct);
 
-        var dto = AutoThawProductDto.From(entity, product);
+        var dto = AutoThawProductDto.From(entity, catalog?.Description);
         RecordChange(EntityType, entity.Id, 1, ConfigChangeAction.Create, AuditEventType.Configure, null, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<AutoThawProductDto>.Ok(dto, validation);
@@ -112,31 +114,49 @@ public sealed class AutoThawProductAdminService : ConfigAdminServiceBase
             return EvaluationResult<AutoThawProductDto>.Fail("Auto-thaw product not found.");
         }
 
-        var product = await _productTypes.GetByIdAsync(entity.ProductTypeId, ct);
+        var catalog = await FindCatalogAsync(entity.ProductCode, ct);
         if (active)
         {
-            var validation = AutoThawProductValidator.Validate(entity, product is null || !product.IsActive, duplicateProductType: false);
+            var validation = AutoThawProductValidator.Validate(
+                entity,
+                codeUnknown: catalog is null,
+                codeRetired: IsRetired(catalog),
+                duplicateCode: false);
             if (validation.IsHardStopped)
             {
                 return EvaluationResult<AutoThawProductDto>.Blocked(validation);
             }
         }
 
-        var old = AutoThawProductDto.From(entity, product);
+        var old = AutoThawProductDto.From(entity, catalog?.Description);
         entity.IsActive = active;
         _rows.Update(entity);
-        var dto = AutoThawProductDto.From(entity, product);
+        var dto = AutoThawProductDto.From(entity, catalog?.Description);
         var action = active ? ConfigChangeAction.Activate : ConfigChangeAction.Deactivate;
         RecordChange(EntityType, entity.Id, 1, action, ToAuditType(action), old, dto, null);
         await UnitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<AutoThawProductDto>.Ok(dto, new RuleEvaluation([]));
     }
 
-    private async Task<Dictionary<long, ProductType>> LoadProductMapAsync(CancellationToken ct)
+    internal static string Normalize(string? code) =>
+        string.IsNullOrWhiteSpace(code) ? string.Empty : code.Trim().ToUpperInvariant();
+
+    private async Task<IsbtProductCode?> FindCatalogAsync(string code, CancellationToken ct) =>
+        await _catalog.FirstOrDefaultAsync(p => p.ProductDescriptionCode == code, ct);
+
+    private async Task<Dictionary<string, IsbtProductCode>> LoadCatalogAsync(CancellationToken ct)
     {
-        var products = await _productTypes.ListAsync(ct);
-        return products.ToDictionary(p => p.Id);
+        var rows = await _catalog.ListAsync(ct);
+        return rows
+            .GroupBy(p => p.ProductDescriptionCode, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
     }
+
+    private static string? DescriptionFor(IReadOnlyDictionary<string, IsbtProductCode> catalog, string code) =>
+        catalog.TryGetValue(code, out var row) ? row.Description : null;
+
+    private static bool IsRetired(IsbtProductCode? code) =>
+        code?.RetiredDate is DateOnly retired && retired <= DateOnly.FromDateTime(DateTime.UtcNow);
 
     private async Task<EvaluationResult<AutoThawProductDto>?> RejectUnauthorizedAsync(
         string permissionCode,

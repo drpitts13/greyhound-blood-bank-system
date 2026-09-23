@@ -1,6 +1,5 @@
 @page "/admin/auto-thaw-products"
 @using BloodBankLIS.Application.Admin
-@using BloodBankLIS.Application.Reference
 @inject UserSession Session
 @inject BloodBankApiClient Api
 
@@ -9,7 +8,7 @@
 <div class="flex-between">
     <h1>Auto thaw products</h1>
 </div>
-<p class="muted">Product codes that can be thawed in place when allocated. The code stays the same; expiration becomes 24 hours after the thaw time.</p>
+<p class="muted">ISBT product codes, such as E0707, that can be thawed in place when allocated. The code stays the same; expiration becomes 24 hours after the thaw time.</p>
 
 <Outcome Value="_feedback" />
 
@@ -22,20 +21,20 @@
     {
         <div class="loading">Loading...</div>
     }
-    else if (_list.Count == 0)
+    else if (VisibleRows.Count == 0)
     {
-        <div class="empty">No auto-thaw products.</div>
+        <div class="empty">No auto-thaw product codes.</div>
     }
     else
     {
         <table class="bb">
-            <thead><tr><th>Product code</th><th>Name</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Product code</th><th>Description</th><th>Status</th><th></th></tr></thead>
             <tbody>
-                @foreach (var row in _list)
+                @foreach (var row in VisibleRows)
                 {
                     <tr>
                         <td class="mono">@row.ProductCode</td>
-                        <td>@row.ProductName</td>
+                        <td>@row.Description</td>
                         <td>@(row.IsActive ? "Active" : "Inactive")</td>
                         <td class="right nowrap">
                             @if (row.IsActive && CanActivate)
@@ -60,17 +59,17 @@
         <h2>Add product code</h2>
         <div class="form-row">
             <div class="field">
-                <label>Product</label>
-                <select @bind="_productTypeId">
-                    <option value="0">— Select a product code —</option>
-                    @foreach (var product in AvailableProducts)
+                <label>ISBT product code</label>
+                <select @bind="_productCode">
+                    <option value="">— Select a product code —</option>
+                    @foreach (var productCode in AvailableCodes)
                     {
-                        <option value="@product.Id">@product.ProductCode — @product.Name</option>
+                        <option value="@productCode.ProductDescriptionCode">@productCode.ProductDescriptionCode — @productCode.Description</option>
                     }
                 </select>
             </div>
         </div>
-        <button class="btn btn-primary" disabled="@(_busy || _productTypeId <= 0)" @onclick="AddAsync">Add</button>
+        <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrEmpty(_productCode))" @onclick="AddAsync">Add</button>
     </div>
 }
 
@@ -78,41 +77,50 @@
     private bool _loading = true;
     private bool _busy;
     private bool _includeInactive;
-    private long _productTypeId;
+    private string _productCode = string.Empty;
     private List<AutoThawProductDto> _list = new();
-    private List<ProductTypeDto> _products = new();
+    private List<IsbtProductCodeDto> _catalog = new();
     private Feedback? _feedback;
 
     private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
     private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
 
-    private IEnumerable<ProductTypeDto> AvailableProducts =>
-        _products.Where(p => p.IsActive && _list.All(row => row.ProductTypeId != p.Id))
-            .OrderBy(p => p.ProductCode);
+    private List<AutoThawProductDto> VisibleRows =>
+        (_includeInactive ? _list : _list.Where(row => row.IsActive))
+            .OrderBy(row => row.ProductCode)
+            .ToList();
+
+    private IEnumerable<IsbtProductCodeDto> AvailableCodes =>
+        _catalog.Where(code =>
+                !code.IsRetired
+                && string.Equals(code.ComponentClass, "Plasma", StringComparison.OrdinalIgnoreCase)
+                && _list.All(row => !string.Equals(row.ProductCode, code.ProductDescriptionCode, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(code => code.ProductDescriptionCode);
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task LoadAsync()
     {
         _loading = true;
-        var rows = await Api.GetAdminAutoThawProductsAsync(_includeInactive);
-        var products = await Api.GetProductTypesAsync();
+        var rows = await Api.GetAdminAutoThawProductsAsync(includeInactive: true);
+        var catalog = await Api.GetAdminIsbtProductCodesAsync();
         _list = rows.Succeeded ? rows.Value ?? new() : new();
-        _products = products.Succeeded ? products.Value ?? new() : new();
+        _catalog = catalog.Succeeded ? catalog.Value ?? new() : new();
         if (!rows.Succeeded) _feedback = rows.ToFeedback();
+        else if (!catalog.Succeeded) _feedback = catalog.ToFeedback();
         _loading = false;
     }
 
     private async Task AddAsync()
     {
-        if (_productTypeId <= 0) return;
+        if (string.IsNullOrWhiteSpace(_productCode)) return;
         _busy = true;
-        var r = await Api.CreateAdminAutoThawProductAsync(new SaveAutoThawProductRequest(_productTypeId));
+        var r = await Api.CreateAdminAutoThawProductAsync(new SaveAutoThawProductRequest(_productCode));
         _busy = false;
         _feedback = r.Succeeded ? r.ToFeedback("Product code added.") : r.ToFeedback();
         if (r.Succeeded)
         {
-            _productTypeId = 0;
+            _productCode = string.Empty;
             await LoadAsync();
         }
     }

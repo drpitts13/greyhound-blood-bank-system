@@ -1899,11 +1899,11 @@ public sealed class AutoThawProductConfiguration : IEntityTypeConfiguration<Auto
     {
         b.ToTable("AutoThawProducts");
         b.HasKey(p => p.Id);
+        b.Property(p => p.ProductCode).HasMaxLength(5).IsRequired();
         b.Property(p => p.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(p => p.ModifiedBy).HasMaxLength(100);
 
-        b.HasOne(p => p.ProductType).WithMany().HasForeignKey(p => p.ProductTypeId).OnDelete(DeleteBehavior.Restrict);
-        b.HasIndex(p => p.ProductTypeId).IsUnique();
+        b.HasIndex(p => p.ProductCode).IsUnique();
         b.HasIndex(p => p.IsActive);
     }
 }

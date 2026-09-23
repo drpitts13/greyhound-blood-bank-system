@@ -26,7 +26,7 @@ public class AutoThawProductAdminServiceTests : IClassFixture<SqliteContextFacto
         var env = new StaticEnvironmentInfo("Development", isDevMode: false);
         return new AutoThawProductAdminService(
             new EfRepository<AutoThawProduct>(c),
-            new EfRepository<ProductType>(c),
+            new EfRepository<IsbtProductCode>(c),
             c,
             _factory.Clock,
             _factory.CurrentUser,
@@ -36,44 +36,58 @@ public class AutoThawProductAdminServiceTests : IClassFixture<SqliteContextFacto
     }
 
     [Fact]
-    public async Task Create_AddsProductCode()
+    public async Task Create_AddsIsbtProductCode()
     {
         await using var c = _factory.Create();
-        var product = await SeedProductAsync(c, "FFP");
-        var created = await Admin(c).CreateAsync(new SaveAutoThawProductRequest(product.Id));
+        await SeedCatalogAsync(c, "E0707", "FRESH FROZEN PLASMA|CPDA-1/XX/<=-18C");
+        var created = await Admin(c).CreateAsync(new SaveAutoThawProductRequest("E0707"));
         Assert.True(created.Succeeded, created.Error);
-        Assert.Equal(product.ProductCode, created.Value!.ProductCode);
+        Assert.Equal("E0707", created.Value!.ProductCode);
+        Assert.Contains("FRESH FROZEN PLASMA", created.Value.Description);
         Assert.True(created.Value.IsActive);
+    }
+
+    [Fact]
+    public async Task Create_UnknownCode_IsBlocked()
+    {
+        await using var c = _factory.Create();
+        var created = await Admin(c).CreateAsync(new SaveAutoThawProductRequest("ZZZZZ"));
+        Assert.False(created.Succeeded);
+        Assert.Contains(created.Evaluation!.HardStops, r => r.Code == "AUTOTHAW.PRODUCT.MISSING");
     }
 
     [Fact]
     public async Task Create_DuplicateCode_IsBlocked()
     {
         await using var c = _factory.Create();
-        var product = await SeedProductAsync(c, "FP24");
+        var code = await SeedCatalogAsync(c, "E0869", "FRESH FROZEN PLASMA|APHERESIS/XX/<=-18C");
         var admin = Admin(c);
-        var first = await admin.CreateAsync(new SaveAutoThawProductRequest(product.Id));
+        var first = await admin.CreateAsync(new SaveAutoThawProductRequest(code));
         Assert.True(first.Succeeded, first.Error);
 
-        var second = await admin.CreateAsync(new SaveAutoThawProductRequest(product.Id));
+        var second = await admin.CreateAsync(new SaveAutoThawProductRequest(code));
         Assert.False(second.Succeeded);
         Assert.Contains(second.Evaluation!.HardStops, r => r.Code == "AUTOTHAW.PRODUCT.DUPLICATE");
-        Assert.Equal(1, await c.AutoThawProducts.CountAsync(r => r.ProductTypeId == product.Id));
+        Assert.Equal(1, await c.AutoThawProducts.CountAsync(r => r.ProductCode == code));
     }
 
-    private static async Task<ProductType> SeedProductAsync(BloodBankDbContext c, string code)
+    private static async Task<string> SeedCatalogAsync(BloodBankDbContext c, string code, string description)
     {
-        var token = Guid.NewGuid().ToString("N")[..6];
-        var product = new ProductType
+        if (!await c.IsbtProductCodes.AnyAsync(p => p.ProductDescriptionCode == code))
         {
-            ProductCode = $"{code}-{token}",
-            Name = "Fresh Frozen Plasma",
-            ComponentClass = ComponentClass.Plasma,
-            IsActive = true
-        };
-        c.ProductTypes.Add(product);
-        await c.SaveChangesAsync();
-        return product;
+            c.IsbtProductCodes.Add(new IsbtProductCode
+            {
+                ProductDescriptionCode = code,
+                Description = description,
+                ComponentClass = nameof(ComponentClass.Plasma),
+                AttributesJson = "[]",
+                StandardVersion = "TEST",
+                IsPlaceholder = true
+            });
+            await c.SaveChangesAsync();
+        }
+
+        return code;
     }
 }
 
@@ -182,6 +196,12 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(quiet.Succeeded, quiet.Error);
         Assert.False(quiet.Value!.AutoThawEligible);
 
+        var otherCode = await SeedReservedScenarioAsync(c, listed: true, alreadyAllocated: false, unitCode: "E0336");
+        var mismatch = await Allocations(c).AllocateAsync(otherCode.PatientId, new AllocatePatientUnitRequest(
+            otherCode.UnitId, OrderId: otherCode.OrderId));
+        Assert.True(mismatch.Succeeded, mismatch.Error);
+        Assert.False(mismatch.Value!.AutoThawEligible);
+
         var refused = await Thaw(c).ApplyAsync(plain.PatientId, quiet.Value.Allocation.AllocationId, _factory.Clock.UtcNow);
         Assert.False(refused.Succeeded);
     }
@@ -230,6 +250,7 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
         Assert.True(applied.Succeeded, applied.Error);
         Assert.Equal(thawUtc.AddHours(24), (await c.BloodUnits.SingleAsync(u => u.Id == seeded.UnitId)).ExpiresUtc);
         Assert.Equal(seeded.ProductCode, applied.Value!.ProductCode);
+        Assert.Equal(5, applied.Value.ProductCode.Length);
         Assert.Equal(1, await c.BillingEvents.CountAsync(e => e.BillingCode == "BB-THAW" && e.PatientId == seeded.PatientId));
         Assert.Single(publisher.Published);
 
@@ -237,12 +258,27 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(after, r => r.AllocationId == seeded.AllocationId && !r.PendingAutoThaw);
     }
 
+    [Fact]
+    public async Task DivisionSuffix_MatchesTheListedFiveCharacterCode()
+    {
+        await using var c = _factory.Create();
+        var seeded = await SeedReservedScenarioAsync(
+            c, listed: true, alreadyAllocated: false, unitCode: null, codeDataOnly: true);
+        var flagged = await Allocations(c).AllocateAsync(seeded.PatientId, new AllocatePatientUnitRequest(
+            seeded.UnitId, OrderId: seeded.OrderId));
+        Assert.True(flagged.Succeeded, flagged.Error);
+        Assert.True(flagged.Value!.AutoThawEligible);
+    }
+
     private async Task<SeededPlasma> SeedReservedScenarioAsync(
         BloodBankDbContext c,
         bool listed,
-        bool alreadyAllocated)
+        bool alreadyAllocated,
+        string? unitCode = null,
+        bool codeDataOnly = false)
     {
         var token = Guid.NewGuid().ToString("N")[..8];
+        var productCode = ("E" + token[..4]).ToUpperInvariant();
         var product = new ProductType
         {
             ProductCode = $"FFP-{token}",
@@ -285,7 +321,7 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
 
         if (listed)
         {
-            c.AutoThawProducts.Add(new AutoThawProduct { ProductTypeId = product.Id, IsActive = true });
+            c.AutoThawProducts.Add(new AutoThawProduct { ProductCode = productCode, IsActive = true });
         }
 
         await EnsureThawBillingAsync(c);
@@ -303,10 +339,13 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
             Status = OrderStatus.InProcess,
             OrderedUtc = _factory.Clock.UtcNow.AddHours(-1)
         };
+        var stamped = unitCode ?? productCode;
         var unit = new BloodUnit
         {
             UnitNumber = $"F{token}",
             ProductTypeId = product.Id,
+            ProductDescriptionCode = codeDataOnly ? null : stamped,
+            ProductCodeData = codeDataOnly ? productCode + "V00" : null,
             Abo = AboGroup.O,
             RhD = RhType.Positive,
             Status = alreadyAllocated ? UnitStatus.Assigned : UnitStatus.Available,
@@ -348,7 +387,7 @@ public class AutoThawServiceTests : IClassFixture<SqliteContextFactory>
             await c.SaveChangesAsync();
         }
 
-        return new SeededPlasma(patient.Id, unit.Id, order.Id, allocationId, product.ProductCode);
+        return new SeededPlasma(patient.Id, unit.Id, order.Id, allocationId, productCode);
     }
 
     private async Task EnsureThawBillingAsync(BloodBankDbContext c)
