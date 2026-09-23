@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Printing;
 
 namespace BloodBankLIS.Api.Endpoints;
 
@@ -238,6 +239,48 @@ public static class PatientWorkspaceEndpoints
             return Results.Created(
                 $"/api/patients/{patientId}/allocations/{result.Value.Allocation.AllocationId}",
                 result.Value);
+        }).RequirePermission(PermissionCodes.CompatibilityAllocate);
+
+        group.MapPost("/allocations/{allocationId:long}/auto-thaw", async (
+            long patientId,
+            long allocationId,
+            ApplyAutoThawRequest request,
+            AutoThawService service,
+            PrintService printing,
+            CancellationToken ct) =>
+        {
+            var thawed = await service.ApplyAsync(patientId, allocationId, request.ThawUtc, ct);
+            if (!thawed.Succeeded || thawed.Value is null)
+            {
+                return Results.BadRequest(new { error = thawed.Error });
+            }
+
+            AutoThawResultDto body;
+            try
+            {
+                var printed = await printing.PrintComponentLabelAsync(thawed.Value.BloodUnitId, new PrintRequest(), ct);
+                body = printed.Succeeded
+                    ? thawed.Value
+                    : thawed.Value with { PrintSucceeded = false, PrintError = printed.Error ?? "Product ID tag did not print." };
+            }
+            catch (Exception ex)
+            {
+                body = thawed.Value with { PrintSucceeded = false, PrintError = ex.Message };
+            }
+
+            return Results.Ok(body);
+        }).RequirePermission(PermissionCodes.CompatibilityAllocate);
+
+        group.MapPost("/allocations/{allocationId:long}/auto-thaw/decline", async (
+            long patientId,
+            long allocationId,
+            AutoThawService service,
+            CancellationToken ct) =>
+        {
+            var declined = await service.DeclineAsync(patientId, allocationId, ct);
+            return declined.Succeeded
+                ? Results.Ok(new { allocationId, requestId = declined.Value })
+                : Results.BadRequest(new { error = declined.Error });
         }).RequirePermission(PermissionCodes.CompatibilityAllocate);
     }
 }

@@ -204,6 +204,21 @@ else
                         </div>
                         <button class="btn btn-primary btn-sm" disabled="@(_busy || _allocateOrderId <= 0)" @onclick="() => AllocateSelectedAsync(_unit)">Allocate</button>
                     }
+                    @if (_autoThawAllocationId is long thawAllocationId)
+                    {
+                        <div class="bb-card" style="margin-top:.75rem;min-width:22rem;">
+                            <strong>Auto thaw @_autoThawProductCode?</strong>
+                            <p class="muted">The product code stays the same. Expiration becomes 24 hours after the thaw date and time. A thaw billing message is sent and the product ID tag prints.</p>
+                            <div class="field">
+                                <label>Thaw date/time</label>
+                                <input type="datetime-local" @bind="_autoThawLocal" />
+                            </div>
+                            <div class="flex gap" style="margin-top:.5rem;">
+                                <button type="button" class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ConfirmUnitAutoThawAsync(thawAllocationId)">Yes</button>
+                                <button type="button" class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => DeclineUnitAutoThawAsync(thawAllocationId)">No</button>
+                            </div>
+                        </div>
+                    }
                     @if (_unit.Status == UnitStatus.Issued && _selectedIssueId is long issuedId && Session.Has(PermissionCodes.TransfusionDocument))
                     {
                         <button type="button" class="btn btn-link btn-sm" disabled="@_busy" @onclick="() => MarkInventoryTransfusedAsync(issuedId)">Transfuse</button>
@@ -461,6 +476,10 @@ else
     private List<UnitBloodAttributeDto> _unitAttributes = new();
     private List<BloodAttributeListItemDto> _bloodAttributeCatalog = new();
     private List<AllocatableOrderDto> _allocatableOrders = new();
+    private long? _autoThawAllocationId;
+    private long _autoThawPatientId;
+    private string _autoThawProductCode = string.Empty;
+    private DateTime _autoThawLocal;
     private List<EligibleModificationDto> _eligibleMods = new();
     private ProductRetypeDetailDto? _retypeDetail;
 
@@ -696,6 +715,49 @@ else
             unit.Id, SpecimenId: order.SpecimenId, OrderId: order.OrderId));
         _busy = false;
         await AfterActionAsync(r, "Unit allocated to the selected order.");
+        if (r.Succeeded && r.Value?.AutoThawEligible == true)
+        {
+            _autoThawPatientId = order.PatientId;
+            _autoThawAllocationId = r.Value.Allocation.AllocationId;
+            _autoThawProductCode = r.Value.Allocation.ProductCode;
+            _autoThawLocal = LocalMinuteNow();
+        }
+    }
+
+    private async Task ConfirmUnitAutoThawAsync(long allocationId)
+    {
+        var thawUtc = DateTime.SpecifyKind(_autoThawLocal, DateTimeKind.Local).ToUniversalTime();
+        _busy = true;
+        var result = await Api.ApplyAutoThawAsync(_autoThawPatientId, allocationId, thawUtc);
+        _busy = false;
+        _autoThawAllocationId = null;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _actionFb = result.ToFeedback();
+            return;
+        }
+
+        _actionFb = result.Value.PrintSucceeded
+            ? Feedback.Succeed($"Auto thawed. Product ID tag sent to the printer. Expiration is {result.Value.ExpiresUtc.ToLocalTime():yyyy-MM-dd HH:mm}.")
+            : Feedback.Fail($"Auto thawed, but the product ID tag did not print. {result.Value.PrintError}");
+        await RefreshDetailsAsync();
+    }
+
+    private async Task DeclineUnitAutoThawAsync(long allocationId)
+    {
+        _busy = true;
+        var result = await Api.DeclineAutoThawAsync(_autoThawPatientId, allocationId);
+        _busy = false;
+        _autoThawAllocationId = null;
+        _actionFb = result.Succeeded
+            ? Feedback.Succeed("Auto thaw was not applied. Use Auto thaw on the patient's allocated products when you are ready.")
+            : result.ToFeedback();
+    }
+
+    private static DateTime LocalMinuteNow()
+    {
+        var now = DateTime.Now;
+        return new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Local);
     }
 
     private async Task ChangeIssuedStatusAsync(long unitId)

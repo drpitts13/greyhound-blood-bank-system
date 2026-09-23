@@ -690,6 +690,13 @@ public enum OrderActionStatus
     Cancelled = 2
 }
 
+/// <summary>Whether an allocation's in-place auto-thaw is waiting or already applied.</summary>
+public enum AutoThawRequestStatus
+{
+    Pending = 0,
+    Completed = 1
+}
+
 /// <summary>Whether a unit participated in a <c>UnitModification</c> as an input or an output.</summary>
 public enum ModificationUnitRole
 {

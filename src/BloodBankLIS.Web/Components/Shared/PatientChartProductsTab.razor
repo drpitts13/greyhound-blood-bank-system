@@ -56,6 +56,11 @@
                                 {
                                     <a class="btn btn-secondary btn-sm" href="@ModifyActionHref(a, action)">@action.ActionName</a>
                                 }
+                                @if (a.PendingAutoThaw && a.IssueId is null && a.AllocationStatus == AllocationStatus.Reserved
+                                    && Session.Has(PermissionCodes.CompatibilityAllocate))
+                                {
+                                    <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="() => OnBeginAutoThaw.InvokeAsync(a)">Auto thaw</button>
+                                }
                                 @if (Session.Has(PermissionCodes.IssueCreate) && a.IssueId is null)
                                 {
                                     <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnBeginIssue.InvokeAsync(a)">Issue</button>
@@ -388,6 +393,7 @@
     [Parameter] public EventCallback OnConfirmRelease { get; set; }
     [Parameter] public EventCallback OnCancelRelease { get; set; }
     [Parameter] public EventCallback<long?> OnAllocUnitChanged { get; set; }
+    [Parameter] public EventCallback<PatientAllocationRowDto> OnBeginAutoThaw { get; set; }
     [Parameter] public EventCallback OnReserve { get; set; }
     [Parameter] public long PatientId { get; set; }
 

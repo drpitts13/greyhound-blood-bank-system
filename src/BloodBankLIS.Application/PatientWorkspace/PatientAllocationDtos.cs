@@ -22,7 +22,8 @@ public sealed record PatientAllocationRowDto(
     IReadOnlyList<OrderActionDto>? PendingActions = null,
     UnitStatus UnitStatus = UnitStatus.Assigned,
     long? IssueId = null,
-    IssueStatus? IssueStatus = null);
+    IssueStatus? IssueStatus = null,
+    bool PendingAutoThaw = false);
 
 public sealed record CompatibleUnitDto(
     long BloodUnitId,
@@ -68,4 +69,5 @@ public sealed record AllocatePatientUnitResultDto(
     PatientAllocationRowDto Allocation,
     long? CrossmatchOrderId,
     string? CrossmatchTestCode,
-    bool AntibodyHistoryOverrideApplied);
+    bool AntibodyHistoryOverrideApplied,
+    bool AutoThawEligible = false);

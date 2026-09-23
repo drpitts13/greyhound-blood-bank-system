@@ -99,6 +99,7 @@ public static class DependencyInjection
         services.AddScoped<OrderService>();
         services.AddScoped<PatientProductHistoryService>();
         services.AddScoped<PatientTestHistoryService>();
+        services.AddScoped<AutoThawService>();
         services.AddScoped<PatientAllocationService>();
         services.AddScoped<UnitAntigenTypingService>();
         services.AddScoped<ResultService>();
@@ -128,6 +129,7 @@ public static class DependencyInjection
         services.AddScoped<ProductAdminService>();
         services.AddScoped<ModificationRuleAdminService>();
         services.AddScoped<ExpirationModificationCodeAdminService>();
+        services.AddScoped<AutoThawProductAdminService>();
         services.AddScoped<IsbtProductCodeAdminService>();
         services.TryAddSingleton<IIccbbaExtractDirectory>(sp =>
             IccbbaExtractDirectory.FromConfiguration(sp.GetService<IConfiguration>()));

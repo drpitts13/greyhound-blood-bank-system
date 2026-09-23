@@ -41,6 +41,7 @@ public sealed class PatientAllocationService
     private readonly CrossmatchAttachmentService? _crossmatchAttachment;
     private readonly ElectronicCrossmatchEligibilityService? _exmEligibility;
     private readonly IRepository<ProductRetypeResult>? _retypes;
+    private readonly AutoThawService? _autoThaw;
 
     public PatientAllocationService(
         CompatibilityService compatibility,
@@ -71,7 +72,8 @@ public sealed class PatientAllocationService
         IRepository<Order>? orderRepo = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
         IRepository<Issue>? issues = null,
-        IRepository<ProductRetypeResult>? retypes = null)
+        IRepository<ProductRetypeResult>? retypes = null,
+        AutoThawService? autoThaw = null)
     {
         _compatibility = compatibility;
         _orders = orders;
@@ -102,6 +104,7 @@ public sealed class PatientAllocationService
         _crossmatchAttachment = crossmatchAttachment;
         _exmEligibility = exmEligibility;
         _retypes = retypes;
+        _autoThaw = autoThaw;
     }
 
     public async Task<IReadOnlyList<PatientAllocationRowDto>> ListActiveAsync(
@@ -140,6 +143,9 @@ public sealed class PatientAllocationService
 
         var orderIds = allocations.Where(a => a.OrderId.HasValue).Select(a => a.OrderId!.Value).Distinct().ToList();
         var pendingByOrder = await LoadPendingActionsAsync(orderIds, ct);
+        var pendingAutoThaw = _autoThaw is null
+            ? new HashSet<long>()
+            : await _autoThaw.PendingAllocationIdsAsync(allocations.Select(a => a.Id).ToList(), ct);
         var issues = _issues is null || allocations.Count == 0
             ? new Dictionary<long, Issue>()
             : (await _issues.ListAsync(
@@ -186,7 +192,8 @@ public sealed class PatientAllocationService
                 allocation.OrderId is long oid ? pendingByOrder.GetValueOrDefault(oid) : null,
                 unit.Status,
                 issue?.Id,
-                issue?.Status));
+                issue?.Status,
+                pendingAutoThaw.Contains(allocation.Id)));
         }
 
         return rows;
@@ -653,8 +660,9 @@ public sealed class PatientAllocationService
             allocation.AllocatedBy,
             allocation.ExpiresUtc);
 
+        var autoThawEligible = _autoThaw is not null && await _autoThaw.IsEligibleAsync(product.Id, ct);
         return EvaluationResult<AllocatePatientUnitResultDto>.Ok(
-            new AllocatePatientUnitResultDto(row, orderId, xmTestCode, overrideApplied),
+            new AllocatePatientUnitResultDto(row, orderId, xmTestCode, overrideApplied, autoThawEligible),
             allocResult.Evaluation);
     }
 

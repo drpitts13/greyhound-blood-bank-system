@@ -152,6 +152,26 @@ public sealed class BloodBankApiClient
         CancellationToken ct = default) =>
         SendAsync<AllocatePatientUnitResultDto>(HttpMethod.Post, $"api/patients/{patientId}/allocations", req, ct);
 
+    public Task<ApiResult<AutoThawResultDto>> ApplyAutoThawAsync(
+        long patientId,
+        long allocationId,
+        DateTime thawUtc,
+        CancellationToken ct = default) =>
+        SendAsync<AutoThawResultDto>(
+            HttpMethod.Post,
+            $"api/patients/{patientId}/allocations/{allocationId}/auto-thaw",
+            new ApplyAutoThawRequest(thawUtc),
+            ct);
+
+    public Task<ApiResult<object>> DeclineAutoThawAsync(
+        long patientId,
+        long allocationId,
+        CancellationToken ct = default) =>
+        SendAsync<object>(
+            HttpMethod.Post,
+            $"api/patients/{patientId}/allocations/{allocationId}/auto-thaw/decline",
+            ct: ct);
+
     public Task<ApiResult<EncounterDto>> CreatePatientEncounterAsync(long patientId, CreateEncounterRequest req, CancellationToken ct = default) =>
         SendAsync<EncounterDto>(HttpMethod.Post, $"api/patients/{patientId}/encounters", req, ct);
 
@@ -1125,6 +1145,15 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<BloodSupplierDto>> SetAdminBloodSupplierActiveAsync(long id, bool active, CancellationToken ct = default) =>
         SendAsync<BloodSupplierDto>(HttpMethod.Post, $"api/admin/blood-suppliers/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
+    public Task<ApiResult<List<AutoThawProductDto>>> GetAdminAutoThawProductsAsync(bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<AutoThawProductDto>>(HttpMethod.Get, $"api/admin/auto-thaw-products?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<AutoThawProductDto>> CreateAdminAutoThawProductAsync(SaveAutoThawProductRequest req, CancellationToken ct = default) =>
+        SendAsync<AutoThawProductDto>(HttpMethod.Post, "api/admin/auto-thaw-products", req, ct);
+
+    public Task<ApiResult<AutoThawProductDto>> SetAdminAutoThawProductActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<AutoThawProductDto>(HttpMethod.Post, $"api/admin/auto-thaw-products/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
 
     public Task<ApiResult<List<OrderingLocationDto>>> GetAdminLocationsAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<OrderingLocationDto>>(HttpMethod.Get, $"api/admin/locations?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);

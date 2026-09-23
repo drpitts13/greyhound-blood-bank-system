@@ -124,6 +124,8 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<CodedCommentDefinition> CodedCommentDefinitions => Set<CodedCommentDefinition>();
     public DbSet<CrossmatchSettings> CrossmatchSettings => Set<CrossmatchSettings>();
     public DbSet<ExpirationModificationCode> ExpirationModificationCodes => Set<ExpirationModificationCode>();
+    public DbSet<AutoThawProduct> AutoThawProducts => Set<AutoThawProduct>();
+    public DbSet<AutoThawRequest> AutoThawRequests => Set<AutoThawRequest>();
     public DbSet<ModificationRule> ModificationRules => Set<ModificationRule>();
     public DbSet<UnitModification> UnitModifications => Set<UnitModification>();
     public DbSet<UnitModificationUnit> UnitModificationUnits => Set<UnitModificationUnit>();

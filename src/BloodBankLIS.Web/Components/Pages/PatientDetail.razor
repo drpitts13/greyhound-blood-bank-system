@@ -328,12 +328,46 @@ else
             OnConfirmRelease="ReleaseAllocationAsync"
             OnCancelRelease="CancelReleaseAllocation"
             OnAllocUnitChanged="OnAllocUnitChanged"
+            OnBeginAutoThaw="BeginAutoThaw"
             OnReserve="AllocateUnitAsync" />
     }
 
     @if (_tab == "history")
     {
         <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" OnMarkTransfused="MarkTransfusedAsync" />
+    }
+
+    @if (_autoThawRow is not null)
+    {
+        <div class="bb-card" style="margin-top:1rem;">
+            <h3>Auto thaw @_autoThawRow.ProductCode</h3>
+            <p class="muted">
+                @if (_autoThawAsk)
+                {
+                    <text>Thaw this product now? The product code stays @_autoThawRow.ProductCode. Expiration becomes 24 hours after the thaw date and time. A thaw billing message is sent and the product ID tag prints.</text>
+                }
+                else
+                {
+                    <text>Thaw @_autoThawRow.UnitNumber in place. The product code stays @_autoThawRow.ProductCode and expiration becomes 24 hours after the thaw date and time.</text>
+                }
+            </p>
+            <div class="field">
+                <label>Thaw date/time</label>
+                <input type="datetime-local" @bind="_autoThawLocal" />
+            </div>
+            <div class="flex gap" style="margin-top:.75rem;">
+                @if (_autoThawAsk)
+                {
+                    <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAutoThawAsync">Yes</button>
+                    <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="DeclineAutoThawAsync">No</button>
+                }
+                else
+                {
+                    <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="ConfirmAutoThawAsync">Auto thaw</button>
+                    <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="CancelAutoThaw">Cancel</button>
+                }
+            </div>
+        </div>
     }
 }
 
@@ -544,6 +578,9 @@ else
     private bool _showIssuedTransfused;
     private long? _allocatingOrderId;
     private Feedback? _allocFb;
+    private PatientAllocationRowDto? _autoThawRow;
+    private bool _autoThawAsk;
+    private DateTime _autoThawLocal;
     private List<CompatibleUnitDto> _compatibleUnits = new();
     private List<AllocatableOrderDto> _allocatableOrders = new();
     private bool _compatUnitsLoading;
@@ -1189,7 +1226,72 @@ else
             _selectedUnit = null;
             await LoadAllocationsAsync();
             _testsLoaded = false;
+            if (r.Value?.AutoThawEligible == true)
+            {
+                _autoThawRow = r.Value.Allocation;
+                _autoThawAsk = true;
+                _autoThawLocal = LocalMinuteNow();
+            }
         }
+    }
+
+    private void BeginAutoThaw(PatientAllocationRowDto allocation)
+    {
+        _autoThawRow = allocation;
+        _autoThawAsk = false;
+        _autoThawLocal = LocalMinuteNow();
+    }
+
+    private void CancelAutoThaw() => _autoThawRow = null;
+
+    private async Task ConfirmAutoThawAsync()
+    {
+        if (_autoThawRow is null)
+        {
+            return;
+        }
+
+        var thawUtc = DateTime.SpecifyKind(_autoThawLocal, DateTimeKind.Local).ToUniversalTime();
+        _busy = true;
+        var result = await Api.ApplyAutoThawAsync(Id, _autoThawRow.AllocationId, thawUtc);
+        _busy = false;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _allocFb = result.ToFeedback();
+            return;
+        }
+
+        _autoThawRow = null;
+        await LoadAllocationsAsync();
+        _allocFb = result.Value.PrintSucceeded
+            ? Feedback.Succeed($"Auto thawed. Product ID tag sent to the printer. Expiration is {result.Value.ExpiresUtc.ToLocalTime():yyyy-MM-dd HH:mm}.")
+            : Feedback.Fail($"Auto thawed, but the product ID tag did not print. {result.Value.PrintError}");
+    }
+
+    private async Task DeclineAutoThawAsync()
+    {
+        if (_autoThawRow is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.DeclineAutoThawAsync(Id, _autoThawRow.AllocationId);
+        _busy = false;
+        _autoThawRow = null;
+        _allocFb = result.Succeeded
+            ? Feedback.Succeed("Auto thaw was not applied. Use Auto thaw on the allocated product when you are ready.")
+            : result.ToFeedback();
+        if (result.Succeeded)
+        {
+            await LoadAllocationsAsync();
+        }
+    }
+
+    private static DateTime LocalMinuteNow()
+    {
+        var now = DateTime.Now;
+        return new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0, DateTimeKind.Local);
     }
 
     private async Task BeginAllocateOnOrderAsync(PatientOrderDto order)

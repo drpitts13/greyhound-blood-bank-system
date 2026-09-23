@@ -1,0 +1,128 @@
+@page "/admin/auto-thaw-products"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Application.Reference
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Auto thaw products &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Auto thaw products</h1>
+</div>
+<p class="muted">Product codes that can be thawed in place when allocated. The code stays the same; expiration becomes 24 hours after the thaw time.</p>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" @bind:after="LoadAsync" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_list.Count == 0)
+    {
+        <div class="empty">No auto-thaw products.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Product code</th><th>Name</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var row in _list)
+                {
+                    <tr>
+                        <td class="mono">@row.ProductCode</td>
+                        <td>@row.ProductName</td>
+                        <td>@(row.IsActive ? "Active" : "Inactive")</td>
+                        <td class="right nowrap">
+                            @if (row.IsActive && CanActivate)
+                            {
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SetActiveAsync(row.Id, false)">Remove</button>
+                            }
+                            else if (!row.IsActive && CanActivate)
+                            {
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SetActiveAsync(row.Id, true)">Activate</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>Add product code</h2>
+        <div class="form-row">
+            <div class="field">
+                <label>Product</label>
+                <select @bind="_productTypeId">
+                    <option value="0">— Select a product code —</option>
+                    @foreach (var product in AvailableProducts)
+                    {
+                        <option value="@product.Id">@product.ProductCode — @product.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <button class="btn btn-primary" disabled="@(_busy || _productTypeId <= 0)" @onclick="AddAsync">Add</button>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private bool _includeInactive;
+    private long _productTypeId;
+    private List<AutoThawProductDto> _list = new();
+    private List<ProductTypeDto> _products = new();
+    private Feedback? _feedback;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<ProductTypeDto> AvailableProducts =>
+        _products.Where(p => p.IsActive && _list.All(row => row.ProductTypeId != p.Id))
+            .OrderBy(p => p.ProductCode);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var rows = await Api.GetAdminAutoThawProductsAsync(_includeInactive);
+        var products = await Api.GetProductTypesAsync();
+        _list = rows.Succeeded ? rows.Value ?? new() : new();
+        _products = products.Succeeded ? products.Value ?? new() : new();
+        if (!rows.Succeeded) _feedback = rows.ToFeedback();
+        _loading = false;
+    }
+
+    private async Task AddAsync()
+    {
+        if (_productTypeId <= 0) return;
+        _busy = true;
+        var r = await Api.CreateAdminAutoThawProductAsync(new SaveAutoThawProductRequest(_productTypeId));
+        _busy = false;
+        _feedback = r.Succeeded ? r.ToFeedback("Product code added.") : r.ToFeedback();
+        if (r.Succeeded)
+        {
+            _productTypeId = 0;
+            await LoadAsync();
+        }
+    }
+
+    private async Task SetActiveAsync(long id, bool active)
+    {
+        _busy = true;
+        var r = await Api.SetAdminAutoThawProductActiveAsync(id, active);
+        _busy = false;
+        _feedback = r.Succeeded ? r.ToFeedback(active ? "Activated." : "Removed.") : r.ToFeedback();
+        if (r.Succeeded) await LoadAsync();
+    }
+}

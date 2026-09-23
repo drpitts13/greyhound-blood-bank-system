@@ -1892,3 +1892,38 @@ public sealed class OrderActionConfiguration : IEntityTypeConfiguration<OrderAct
         b.HasIndex(a => a.ActionDefinitionId);
     }
 }
+
+public sealed class AutoThawProductConfiguration : IEntityTypeConfiguration<AutoThawProduct>
+{
+    public void Configure(EntityTypeBuilder<AutoThawProduct> b)
+    {
+        b.ToTable("AutoThawProducts");
+        b.HasKey(p => p.Id);
+        b.Property(p => p.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(p => p.ModifiedBy).HasMaxLength(100);
+
+        b.HasOne(p => p.ProductType).WithMany().HasForeignKey(p => p.ProductTypeId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(p => p.ProductTypeId).IsUnique();
+        b.HasIndex(p => p.IsActive);
+    }
+}
+
+public sealed class AutoThawRequestConfiguration : IEntityTypeConfiguration<AutoThawRequest>
+{
+    public void Configure(EntityTypeBuilder<AutoThawRequest> b)
+    {
+        b.ToTable("AutoThawRequests");
+        b.HasKey(r => r.Id);
+        b.Property(r => r.CompletedBy).HasMaxLength(100);
+        b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.ModifiedBy).HasMaxLength(100);
+
+        b.HasOne(r => r.Allocation).WithMany().HasForeignKey(r => r.AllocationId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(r => r.BloodUnit).WithMany().HasForeignKey(r => r.BloodUnitId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne(r => r.OrderAction).WithMany().HasForeignKey(r => r.OrderActionId).OnDelete(DeleteBehavior.Restrict);
+
+        b.HasIndex(r => r.AllocationId).IsUnique();
+        b.HasIndex(r => r.BloodUnitId);
+        b.HasIndex(r => r.Status);
+    }
+}
