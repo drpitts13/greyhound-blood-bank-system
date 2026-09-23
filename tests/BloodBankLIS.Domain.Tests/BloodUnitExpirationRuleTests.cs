@@ -45,4 +45,21 @@ public class BloodUnitExpirationRuleTests
         var result = BloodUnitExpirationRule.Evaluate(Now.AddHours(-1), Now, Window);
         Assert.Equal(RuleSeverity.HardStop, result.Severity);
     }
+
+    [Fact]
+    public void PostThawDating_FullShelfLife_IsNotNearExpiry()
+    {
+        var window = BloodUnitExpirationRule.NearExpiryWindow(postThawDating: true, TimeSpan.FromHours(24));
+        var result = BloodUnitExpirationRule.Evaluate(Now.AddHours(24), Now, window);
+        Assert.Equal(RuleSeverity.Pass, result.Severity);
+    }
+
+    [Fact]
+    public void PostThawDating_LastTwoHours_IsWarning()
+    {
+        var window = BloodUnitExpirationRule.NearExpiryWindow(postThawDating: true, TimeSpan.FromHours(24));
+        var result = BloodUnitExpirationRule.Evaluate(Now.AddHours(1), Now, window);
+        Assert.Equal(RuleSeverity.Warning, result.Severity);
+        Assert.Equal(BloodUnitExpirationRule.NearExpiryCode, result.Code);
+    }
 }

@@ -40,7 +40,7 @@
                         <td><span class="@Ui.Badge(a.UnitStatus)">@Ui.StatusLabel(a.UnitStatus)</span></td>
                         <td>
                             <div class="flex gap" style="flex-wrap:wrap;">
-                                @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
+                                @if (Session.Has(PermissionCodes.CompatibilityCrossmatch) && a.RequiresCrossmatch)
                                 {
                                     <a class="btn btn-ghost btn-sm" href="@CompatibilityHref.Invoke(a.SpecimenId, a.BloodUnitId)">Crossmatch</a>
                                 }
@@ -97,8 +97,9 @@
 
     @if (IssuingAllocation is not null)
     {
-        <div class="bb-card" style="margin-top:1rem;">
-            <div class="bb-card-title"><h3>Issue unit <span class="mono">@IssuingAllocation.UnitNumber</span></h3></div>
+        <div class="bb-dialog-backdrop">
+        <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="issue-unit-title" style="width:min(960px,100%);">
+            <div class="bb-card-title"><h3 id="issue-unit-title">Issue unit <span class="mono">@IssuingAllocation.UnitNumber</span></h3></div>
             @if (OpenAbidWorkups.Count > 0)
             {
                 <div class="alert alert-warning">
@@ -193,18 +194,19 @@
                         <div class="field"><label>Password / PIN</label><input type="password" @bind="IssueSignatureSecret" @bind:after="() => IssueSignatureSecretChanged.InvokeAsync(IssueSignatureSecret)" /></div>
                     </div>
                     <div class="flex gap" style="margin-top:.5rem;">
-                        <button class="btn btn-danger btn-sm" disabled="@(Busy || PtagScanMissing)" @onclick="OnIssueOverride">Sign &amp; issue</button>
-                        <button class="btn btn-ghost btn-sm" @onclick="OnCancelIssue">Cancel</button>
+                        <button type="button" class="btn btn-danger btn-sm" disabled="@(Busy || PtagScanMissing)" @onclick="OnIssueOverride">Sign &amp; issue</button>
+                        <button type="button" class="btn btn-ghost btn-sm" @onclick="OnCancelIssue">Cancel</button>
                     </div>
                 </div>
             }
             else
             {
                 <div class="flex gap" style="margin-top:.75rem;">
-                    <button class="btn btn-primary" disabled="@(Busy || PtagScanMissing)" @onclick="OnConfirmIssue">Confirm issue</button>
-                    <button class="btn btn-ghost" @onclick="OnCancelIssue">Cancel</button>
+                    <button type="button" class="btn btn-primary" disabled="@(Busy || PtagScanMissing)" @onclick="OnConfirmIssue">Confirm issue</button>
+                    <button type="button" class="btn btn-ghost" @onclick="OnCancelIssue">Cancel</button>
                 </div>
             }
+        </div>
         </div>
     }
 

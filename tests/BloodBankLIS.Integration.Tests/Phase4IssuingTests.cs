@@ -78,7 +78,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             requirementDefinitions: new EfRepository<SpecialRequirementDefinition>(c),
             antibodies: new EfRepository<AntibodyHistory>(c),
             orderActions: new EfRepository<OrderAction>(c),
-            retypes: new EfRepository<ProductRetypeResult>(c));
+            retypes: new EfRepository<ProductRetypeResult>(c),
+            autoThawRequests: new EfRepository<AutoThawRequest>(c));
     }
 
     private UnitActivityService Activity(BloodBankDbContext c) =>
@@ -156,7 +157,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Sex sex = Sex.Unknown,
         DateOnly? dateOfBirth = null,
         bool requiresRetype = false,
-        UnitStatus unitStatus = UnitStatus.Available)
+        UnitStatus unitStatus = UnitStatus.Available,
+        ComponentClass componentClass = ComponentClass.RedBloodCells)
     {
         await using var c = _factory.Create();
         var birth = dateOfBirth ?? new DateOnly(1975, 6, 1);
@@ -175,7 +177,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         {
             ProductCode = $"RBC-{key}",
             Name = "Test RBC",
-            ComponentClass = ComponentClass.RedBloodCells,
+            ComponentClass = componentClass,
             RequiresCrossmatch = requiresCrossmatch,
             RequiresRetype = requiresRetype
         };
@@ -2006,6 +2008,53 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Cooler returned unused"))).Succeeded);
         var after = await Issuing(ctx).ListInTransitAsync();
         Assert.DoesNotContain(after, t => t.IssueId == issueId);
+    }
+
+    [Fact]
+    public async Task ThawedPlasma_IssuesWithoutCrossmatchOrNearExpiryOverride()
+    {
+        var s = await SeedAsync(
+            "THAW-FFP",
+            requiresCrossmatch: true,
+            componentClass: ComponentClass.Plasma);
+        var expires = _factory.Clock.UtcNow.AddHours(24);
+        await using var c = _factory.Create();
+        var unit = await c.BloodUnits.FindAsync(s.UnitId);
+        unit!.Status = UnitStatus.Assigned;
+        unit.ExpiresUtc = expires;
+        var allocation = new Allocation
+        {
+            BloodProductId = s.UnitId,
+            PatientId = s.PatientId,
+            SpecimenId = s.SpecimenId,
+            Status = AllocationStatus.Reserved,
+            AllocatedUtc = _factory.Clock.UtcNow,
+            AllocatedBy = "tech",
+            CreatedBy = "tech"
+        };
+        c.Allocations.Add(allocation);
+        await c.SaveChangesAsync();
+        c.AutoThawRequests.Add(new AutoThawRequest
+        {
+            AllocationId = allocation.Id,
+            BloodUnitId = s.UnitId,
+            Status = AutoThawRequestStatus.Completed,
+            ThawUtc = _factory.Clock.UtcNow,
+            PreviousExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            NewExpiresUtc = expires,
+            CompletedUtc = _factory.Clock.UtcNow,
+            CompletedBy = "tech",
+            CreatedBy = "tech"
+        });
+        await c.SaveChangesAsync();
+
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+
+        Assert.True(issued.Succeeded, issued.Error);
+        Assert.DoesNotContain(
+            issued.Evaluation?.Warnings ?? [],
+            r => r.Code == BloodUnitExpirationRule.NearExpiryCode);
+        Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
     [Fact]

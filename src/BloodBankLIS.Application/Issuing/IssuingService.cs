@@ -59,6 +59,7 @@ public sealed class IssuingService
     private readonly IRepository<LabelLayout>? _labelLayouts;
     private readonly IRepository<PtagIdentifier>? _ptagIdentifiers;
     private readonly IRepository<ProductRetypeResult>? _retypes;
+    private readonly IRepository<AutoThawRequest>? _autoThawRequests;
 
     public IssuingService(
         IInventoryRepository inventory,
@@ -95,7 +96,8 @@ public sealed class IssuingService
         IRepository<OrderAction>? orderActions = null,
         IRepository<LabelLayout>? labelLayouts = null,
         IRepository<PtagIdentifier>? ptagIdentifiers = null,
-        IRepository<ProductRetypeResult>? retypes = null)
+        IRepository<ProductRetypeResult>? retypes = null,
+        IRepository<AutoThawRequest>? autoThawRequests = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -132,6 +134,7 @@ public sealed class IssuingService
         _labelLayouts = labelLayouts;
         _ptagIdentifiers = ptagIdentifiers;
         _retypes = retypes;
+        _autoThawRequests = autoThawRequests;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -233,6 +236,8 @@ public sealed class IssuingService
         var exmEligible = facilityAllowsExm && await IsElectronicCrossmatchEligibleAsync(request.PatientId, ct);
         var issueType = ResolveIssueType(request.IssueType, location, exmEligible, hasValidCrossmatch);
         var retypeConfirmed = await ProductRetypeConfirmation.IsConfirmedAsync(_retypes, productType, unit.Id, ct);
+        var nearExpiryHours = await _policy.GetNearExpiryWarningHoursAsync(ct);
+        var postThawDating = await IsPostThawDatingAsync(unit.Id, unit.ExpiresUtc, ct);
         var emergencyUnretyped = issueType is IssueType.EmergencyRelease or IssueType.MassiveTransfusion
             && !retypeConfirmed;
 
@@ -248,6 +253,8 @@ public sealed class IssuingService
             ComponentClass = productType?.ComponentClass ?? ComponentClass.Other,
             UnitStatus = unit.Status,
             UnitExpiresUtc = unit.ExpiresUtc,
+            UnitNearExpiryWindow = BloodUnitExpirationRule.NearExpiryWindow(
+                postThawDating, TimeSpan.FromHours(nearExpiryHours)),
             AllocatedToThisPatient = allocation is not null || emergencyUnretyped,
             RetypeConfirmed = retypeConfirmed,
             RequiresCrossmatch = productType?.RequiresCrossmatch ?? false,
@@ -690,7 +697,9 @@ public sealed class IssuingService
                 .Where(x => x.PatientId == allocation.PatientId && x.BloodProductId == allocation.BloodProductId)
                 .OrderByDescending(x => x.Id)
                 .FirstOrDefault();
-            var requiresXm = unit?.ProductType?.RequiresCrossmatch ?? true;
+            var requiresXm = unit?.ProductType is { } productType
+                ? CrossmatchApplicability.RequiresCrossmatch(productType.ComponentClass, productType.RequiresCrossmatch)
+                : true;
             var display = ProductAllocationDisplayStatusRule.Evaluate(
                 requiresXm,
                 latestXm?.Result,
@@ -1306,6 +1315,24 @@ public sealed class IssuingService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         return values.Count == 0 ? null : string.Join(",", values);
+    }
+
+    /// <summary>
+    /// True when a completed auto-thaw still owns this expiration. The 24-hour
+    /// outdate is the product's shelf life, not a near-expiry exception.
+    /// </summary>
+    private async Task<bool> IsPostThawDatingAsync(long bloodUnitId, DateTime expiresUtc, CancellationToken ct)
+    {
+        if (_autoThawRequests is null)
+        {
+            return false;
+        }
+
+        return await _autoThawRequests.AnyAsync(
+            r => r.BloodUnitId == bloodUnitId
+                && r.Status == AutoThawRequestStatus.Completed
+                && r.NewExpiresUtc == expiresUtc,
+            ct);
     }
 
     private async Task<bool> ProductMatchesOrderAsync(Allocation? allocation, long? requestOrderId, long unitProductTypeId, CancellationToken ct)

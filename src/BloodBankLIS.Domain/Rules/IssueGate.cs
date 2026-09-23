@@ -289,10 +289,12 @@ public static class IssueGate
     private static bool EmergencyMayReserveUnretyped(IssueGateContext c) =>
         c.IsEmergencyRelease && !c.RetypeConfirmed;
 
-    /// <summary>RBC and whole blood always require a compatible crossmatch result.</summary>
+    /// <summary>
+    /// RBC and whole blood always require a compatible crossmatch. Plasma, platelets,
+    /// cryoprecipitate, and other non-cellular products never do.
+    /// </summary>
     internal static bool RequiresCrossmatchEffective(IssueGateContext c) =>
-        c.RequiresCrossmatch
-        || c.ComponentClass is ComponentClass.RedBloodCells or ComponentClass.WholeBlood;
+        CrossmatchApplicability.RequiresCrossmatch(c.ComponentClass, c.RequiresCrossmatch);
 
     private static RuleResult EvaluatePatientTypeKnown(IssueGateContext c)
     {

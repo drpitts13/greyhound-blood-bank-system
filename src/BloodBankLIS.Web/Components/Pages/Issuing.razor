@@ -281,7 +281,7 @@
     </div>
 }
 
-<div class="bb-card">
+<div class="bb-card" @ref="_issueForm" tabindex="-1">
     <div class="bb-card-title"><h3>Issue a unit</h3></div>
     @if (!Session.Has(PermissionCodes.IssueCreate))
     {
@@ -552,6 +552,7 @@
             || Session.Has(PermissionCodes.IssueEmergencyRelease));
 
     private bool _busy;
+    private ElementReference _issueForm;
 
     private IssueModel _issue = new();
     private List<SpecialRequirementDto> _issueAckRequirements = new();
@@ -649,6 +650,7 @@
         _issue.PatientIdentifier1Value = row.MedicalRecordNumber;
         _issue.PatientIdentifier2Value = row.DateOfBirth;
         await LoadIssueRequirementsAsync();
+        await _issueForm.FocusAsync();
     }
 
     private async Task OnIssuePatientChangedAsync()

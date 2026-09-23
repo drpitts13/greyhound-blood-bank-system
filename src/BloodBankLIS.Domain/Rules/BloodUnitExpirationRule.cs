@@ -10,6 +10,18 @@ public static class BloodUnitExpirationRule
     public const string ExpiredCode = "UNIT-EXPIRED";
     public const string NearExpiryCode = "UNIT-NEAR-EXPIRY";
 
+    /// <summary>
+    /// Auto-thaw rewrites plasma and cryoprecipitate to a 24-hour outdate. That
+    /// outdate is the shelf life, so the inventory near-expiry window must not
+    /// cover all of it. Warn only in the last two hours.
+    /// </summary>
+    public static readonly TimeSpan PostThawNearExpiryWindow = TimeSpan.FromHours(2);
+
+    public static TimeSpan NearExpiryWindow(bool postThawDating, TimeSpan standardWindow) =>
+        postThawDating && PostThawNearExpiryWindow < standardWindow
+            ? PostThawNearExpiryWindow
+            : standardWindow;
+
     public static bool IsExpired(DateTime expiresUtc, DateTime nowUtc) => nowUtc >= expiresUtc;
 
     public static bool IsNearExpiry(DateTime expiresUtc, DateTime nowUtc, TimeSpan nearExpiryWindow) =>

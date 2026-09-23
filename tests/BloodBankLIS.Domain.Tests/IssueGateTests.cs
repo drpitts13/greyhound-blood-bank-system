@@ -350,6 +350,25 @@ public class IssueGateTests
         Assert.Contains(evaluation.HardStops, r => r.Code == OrderControlRule.IssueCode);
     }
 
+    [Theory]
+    [InlineData(ComponentClass.Plasma)]
+    [InlineData(ComponentClass.Platelets)]
+    [InlineData(ComponentClass.Cryoprecipitate)]
+    [InlineData(ComponentClass.Other)]
+    public void NonCellularProduct_DoesNotRequireCrossmatch(ComponentClass componentClass)
+    {
+        var context = PassingContext() with
+        {
+            ComponentClass = componentClass,
+            RequiresCrossmatch = true,
+            HasValidCrossmatch = false,
+            UnitAboRh = new AboRh(AboGroup.A, RhType.Positive)
+        };
+        var evaluation = IssueGate.Evaluate(context);
+        Assert.False(evaluation.IsHardStopped);
+        Assert.DoesNotContain(evaluation.Results, r => r.Code == CrossmatchValidityRule.Code && r.Severity == RuleSeverity.HardStop);
+    }
+
     [Fact]
     public void PlasmaIssue_WithoutSecondAbo_IsAllowed()
     {

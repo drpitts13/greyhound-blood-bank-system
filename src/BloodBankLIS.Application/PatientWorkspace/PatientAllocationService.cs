@@ -162,7 +162,7 @@ public sealed class PatientAllocationService
             }
 
             productTypes.TryGetValue(unit.ProductTypeId, out var product);
-            var requiresXm = product?.RequiresCrossmatch ?? false;
+            var requiresXm = RequiresCrossmatch(product);
             xmByUnit.TryGetValue(unit.Id, out var xm);
             var hasException = await HasCompatibilityExceptionAsync(patientId, unit, product, ct);
 
@@ -302,7 +302,7 @@ public sealed class PatientAllocationService
                 product.Id,
                 product.ProductCode,
                 product.Name,
-                product.RequiresCrossmatch,
+                RequiresCrossmatch(product),
                 unit.Abo,
                 unit.RhD,
                 unit.BloodType.ToString(),
@@ -363,12 +363,12 @@ public sealed class PatientAllocationService
         }
 
         productOrder = resolvedOrder.Value;
-        if (product.RequiresCrossmatch && _crossmatchAttachment is not null && productOrder is null)
+        if (RequiresCrossmatch(product) && _crossmatchAttachment is not null && productOrder is null)
         {
             return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
                 "An open product order is required before selecting a unit that requires crossmatch.");
         }
-        else if (product.RequiresCrossmatch && _crossmatchAttachment is null)
+        else if (RequiresCrossmatch(product) && _crossmatchAttachment is null)
         {
             if (string.IsNullOrWhiteSpace(request.CrossmatchTestCode))
             {
@@ -443,7 +443,7 @@ public sealed class PatientAllocationService
                     "Specimen not found for this patient.");
             }
 
-            if (product.RequiresCrossmatch
+            if (RequiresCrossmatch(product)
                 && _crossmatchAttachment is not null
                 && !await _antibodyScreenCompat.HasCompletedTypeAndScreenAsync(specimen.Id, _clock.UtcNow, ct))
             {
@@ -451,7 +451,7 @@ public sealed class PatientAllocationService
                     "A current specimen with a completed type and screen is required to allocate this product.");
             }
         }
-        else if (product.RequiresCrossmatch && _crossmatchAttachment is not null)
+        else if (RequiresCrossmatch(product) && _crossmatchAttachment is not null)
         {
             return EvaluationResult<AllocatePatientUnitResultDto>.Fail(
                 "Link a current type-and-screen specimen to the product order before allocating this unit.");
@@ -515,7 +515,7 @@ public sealed class PatientAllocationService
         string? xmTestCode = null;
         var overrideApplied = false;
 
-        if (product.RequiresCrossmatch && productOrder is not null)
+        if (RequiresCrossmatch(product) && productOrder is not null)
         {
             allocation.OrderId = productOrder.Id;
             orderId = productOrder.Id;
@@ -549,7 +549,7 @@ public sealed class PatientAllocationService
                 }
             }
         }
-        else if (product.RequiresCrossmatch && requestedXmTest is not null)
+        else if (RequiresCrossmatch(product) && requestedXmTest is not null)
         {
             if (encounterId is null)
             {
@@ -650,8 +650,8 @@ public sealed class PatientAllocationService
             unit.UnitNumber,
             product.ProductCode,
             product.Name,
-            product.RequiresCrossmatch,
-            ProductAllocationDisplayStatusRule.Evaluate(product.RequiresCrossmatch, latestXm?.Result, hasException),
+            RequiresCrossmatch(product),
+            ProductAllocationDisplayStatusRule.Evaluate(RequiresCrossmatch(product), latestXm?.Result, hasException),
             allocation.Status,
             latestXm?.Result,
             xmTestCode,
@@ -874,4 +874,8 @@ public sealed class PatientAllocationService
 
         return results.Any(r => r.Severity is RuleSeverity.HardStop or RuleSeverity.Warning);
     }
+
+    private static bool RequiresCrossmatch(ProductType? product) =>
+        product is not null
+        && CrossmatchApplicability.RequiresCrossmatch(product.ComponentClass, product.RequiresCrossmatch);
 }

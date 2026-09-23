@@ -729,21 +729,34 @@ else
             var linked = _orders.Any(o => o.SpecimenId is > 0);
             var allocated = _allocations.Any(a => a.AllocationStatus == AllocationStatus.Reserved || a.IssueId is > 0);
             var modified = allocated && !_allocations.Any(a => (a.PendingActions ?? []).Count > 0);
-            var reserved = _allocations.Count > 0;
+            var needsCrossmatch = _allocations.Count == 0 || _allocations.Any(a => a.RequiresCrossmatch);
+            var crossmatched = _allocations.Any(a => a.RequiresCrossmatch);
             var issued = _productHistory.Any(h => h.EventType == PatientProductHistoryEventType.Issued)
                          || _allocations.Any(a => a.IssueStatus == IssueStatus.Issued || a.IssueStatus == IssueStatus.Transfused);
-            var states = new[] { order, linked, allocated, modified || !allocated, reserved, issued };
-            var current = Array.FindIndex(states, s => !s);
-            if (current < 0) current = 5;
-            return
-            [
-                new("order", 1, "Order", order, current == 0, order ? $"{_orders.Count} order(s)" : "Place a product or test order"),
-                new("specimen", 2, "Specimen", linked, current == 1, linked ? "Type-and-screen specimen linked" : "Link a completed type and screen"),
-                new("allocate", 3, "Allocate", allocated, current == 2, allocated ? $"{_allocations.Count} unit(s)" : "Allocate a unit to the order"),
-                new("modify", 4, "Modify", modified, current == 3, allocated ? "Eligible after allocate" : "Allocate before modifying"),
-                new("xm", 5, "Crossmatch", reserved, current == 4, reserved ? "XM/EXM attached" : "XM/EXM attaches on allocate"),
-                new("issue", 6, "Issue / Transfuse", issued, current == 5, issued ? "Issued — mark transfused when given" : "Issue compatible units")
-            ];
+            var steps = new List<PatientWorkflowStep>
+            {
+                new("order", 0, "Order", order, false, order ? $"{_orders.Count} order(s)" : "Place a product or test order"),
+                new("specimen", 0, "Specimen", linked, false, linked ? "Type-and-screen specimen linked" : "Link a completed type and screen"),
+                new("allocate", 0, "Allocate", allocated, false, allocated ? $"{_allocations.Count} unit(s)" : "Allocate a unit to the order"),
+                new("modify", 0, "Modify", modified || !allocated, false, allocated ? "Eligible after allocate" : "Allocate before modifying")
+            };
+            if (needsCrossmatch)
+            {
+                steps.Add(new("xm", 0, "Crossmatch", crossmatched, false,
+                    crossmatched ? "XM/EXM attached" : "XM/EXM attaches on allocate"));
+            }
+
+            steps.Add(new("issue", 0, "Issue / Transfuse", issued, false,
+                issued ? "Issued — mark transfused when given" : "Issue compatible units"));
+            var current = steps.FindIndex(s => !s.Complete);
+            if (current < 0)
+            {
+                current = steps.Count - 1;
+            }
+
+            return steps
+                .Select((step, index) => step with { Number = index + 1, Current = index == current })
+                .ToList();
         }
     }
 
@@ -962,6 +975,7 @@ else
 
     private void BeginIssueAllocation(PatientAllocationRowDto a)
     {
+        _autoThawRow = null;
         _releasingAllocationId = null;
         _issuingAllocation = a;
         _issueFb = null;

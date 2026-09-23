@@ -1,14 +1,18 @@
 <nav class="workflow-ribbon" aria-label="Patient transfusion workflow">
     <span class="workflow-ribbon-label">Workflow</span>
-    @foreach (var step in Steps)
+    @{
+        var last = Steps.Count - 1;
+    }
+    @for (var i = 0; i < Steps.Count; i++)
     {
+        var step = Steps[i];
         <button type="button"
                 class="workflow-step @(step.Complete ? "done" : null) @(step.Current ? "current" : null)"
                 @onclick="() => OnStepSelected.InvokeAsync(step.Key)"
                 title="@step.Detail">
             <span class="n">@step.Number</span>@step.Label
         </button>
-        @if (step.Number < 6)
+        @if (i < last)
         {
             <span class="workflow-arrow" aria-hidden="true">→</span>
         }
