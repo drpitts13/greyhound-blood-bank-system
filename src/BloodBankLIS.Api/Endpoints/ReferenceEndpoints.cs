@@ -102,6 +102,16 @@ public static class ReferenceEndpoints
                 d.Id, d.Code, d.Name, d.AntibodyName, d.IsClinicallySignificant, d.SortOrder)));
         });
 
+        group.MapGet("/order-cancellation-reasons", async (BloodBankDbContext context, CancellationToken ct) =>
+        {
+            var items = await context.OrderCancellationReasons.AsNoTracking()
+                .Where(r => r.IsActive)
+                .OrderBy(r => r.SortOrder)
+                .ThenBy(r => r.Code)
+                .ToListAsync(ct);
+            return Results.Ok(items.Select(r => new OrderCancellationReasonRefDto(r.Code, r.Text, r.SortOrder)));
+        });
+
         group.MapGet("/coded-comments", async (BloodBankDbContext context, CommentPage? page, CancellationToken ct) =>
         {
             var query = context.CodedCommentDefinitions.AsNoTracking().Where(c => c.IsActive);

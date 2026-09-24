@@ -42,6 +42,7 @@ public static partial class DatabaseSeeder
         await EnsureRoleSecurityLevelsAsync(context, cancellationToken);
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedCodedCommentDefinitionsAsync(context, cancellationToken);
+        await SeedOrderCancellationReasonsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
         await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
         await EnsureModificationProductTypesAsync(context, cancellationToken);
@@ -1057,6 +1058,40 @@ public static partial class DatabaseSeeder
                 role.SecurityLevel = level;
                 changed = true;
             }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    private static async Task SeedOrderCancellationReasonsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var seeds = new (string Code, string Text, int Sort)[]
+        {
+            ("DUP", "Duplicate order", 10),
+            ("ERR", "Entered in error", 20),
+            ("NIND", "No longer indicated", 30),
+            ("PTREQ", "Cancelled at patient request", 40)
+        };
+
+        var changed = false;
+        foreach (var (code, text, sort) in seeds)
+        {
+            if (await context.OrderCancellationReasons.AnyAsync(r => r.Code == code, ct))
+            {
+                continue;
+            }
+
+            context.OrderCancellationReasons.Add(new OrderCancellationReason
+            {
+                Code = code,
+                Text = text,
+                SortOrder = sort,
+                IsActive = true
+            });
+            changed = true;
         }
 
         if (changed)

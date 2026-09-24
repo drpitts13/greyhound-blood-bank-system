@@ -206,6 +206,17 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<object>> UpdatePatientOrderAsync(long patientId, long orderId, UpdateOrderRequest req, CancellationToken ct = default) =>
         SendAsync<object>(HttpMethod.Put, $"api/patients/{patientId}/orders/{orderId}", req, ct);
 
+    public Task<ApiResult<object>> CancelPatientOrderAsync(
+        long patientId, long orderId, string reasonCode, CancellationToken ct = default) =>
+        SendAsync<object>(
+            HttpMethod.Post,
+            $"api/patients/{patientId}/orders/{orderId}/cancel",
+            new CancelOrderRequest(reasonCode),
+            ct);
+
+    public Task<ApiResult<List<OrderCancellationReasonRefDto>>> GetOrderCancellationReasonsAsync(CancellationToken ct = default) =>
+        SendAsync<List<OrderCancellationReasonRefDto>>(HttpMethod.Get, "api/reference/order-cancellation-reasons", ct: ct);
+
     public Task<ApiResult<OrderLineDto>> UpdatePatientOrderLineCommentAsync(
         long patientId,
         long orderId,
@@ -1069,6 +1080,28 @@ public sealed class BloodBankApiClient
 
         return SendAsync<List<CodedCommentDefinitionDto>>(HttpMethod.Get, url, ct: ct);
     }
+
+    public Task<ApiResult<List<OrderCancellationReasonDto>>> GetAdminOrderCancellationReasonsAsync(
+        bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<OrderCancellationReasonDto>>(
+            HttpMethod.Get,
+            $"api/admin/order-cancellation-reasons?includeInactive={includeInactive.ToString().ToLowerInvariant()}",
+            ct: ct);
+
+    public Task<ApiResult<OrderCancellationReasonDto>> CreateAdminOrderCancellationReasonAsync(
+        SaveOrderCancellationReasonRequest req, CancellationToken ct = default) =>
+        SendAsync<OrderCancellationReasonDto>(HttpMethod.Post, "api/admin/order-cancellation-reasons", req, ct);
+
+    public Task<ApiResult<OrderCancellationReasonDto>> UpdateAdminOrderCancellationReasonAsync(
+        long id, SaveOrderCancellationReasonRequest req, CancellationToken ct = default) =>
+        SendAsync<OrderCancellationReasonDto>(HttpMethod.Put, $"api/admin/order-cancellation-reasons/{id}", req, ct);
+
+    public Task<ApiResult<OrderCancellationReasonDto>> SetAdminOrderCancellationReasonActiveAsync(
+        long id, bool active, CancellationToken ct = default) =>
+        SendAsync<OrderCancellationReasonDto>(
+            HttpMethod.Post,
+            $"api/admin/order-cancellation-reasons/{id}/{(active ? "activate" : "deactivate")}",
+            ct: ct);
 
     public Task<ApiResult<CodedCommentDefinitionDto>> CreateAdminCodedCommentAsync(
         SaveCodedCommentDefinitionRequest req, CancellationToken ct = default) =>

@@ -181,6 +181,7 @@ public sealed class OrderConfiguration : IEntityTypeConfiguration<Order>
         b.Property(o => o.SourceSystem).HasMaxLength(50);
         b.Property(o => o.OrderedByUser).HasMaxLength(100);
         b.Property(o => o.CancellationReason).HasMaxLength(500);
+        b.Property(o => o.CancellationReasonCode).HasMaxLength(20);
         b.Property(o => o.Comment).HasMaxLength(2000);
         b.Property(o => o.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(o => o.ModifiedBy).HasMaxLength(100);
@@ -1056,6 +1057,22 @@ public sealed class ExceptionDefinitionConfiguration : IEntityTypeConfiguration<
         b.Property(e => e.ModifiedBy).HasMaxLength(100);
 
         b.HasIndex(e => e.RuleCode).IsUnique();
+    }
+}
+
+public sealed class OrderCancellationReasonConfiguration : IEntityTypeConfiguration<OrderCancellationReason>
+{
+    public void Configure(EntityTypeBuilder<OrderCancellationReason> b)
+    {
+        b.ToTable("OrderCancellationReasons");
+        b.HasKey(r => r.Id);
+        b.Property(r => r.Code).HasMaxLength(20).IsRequired();
+        b.Property(r => r.Text).HasMaxLength(500).IsRequired();
+        b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(r => r.Code).IsUnique();
+        b.HasIndex(r => new { r.IsActive, r.SortOrder });
     }
 }
 

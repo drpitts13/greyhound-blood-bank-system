@@ -38,6 +38,8 @@ public sealed class OrderService
     private readonly IRepository<TestResult>? _results;
     private readonly IRepository<OrderAction>? _orderActions;
     private readonly IRepository<ActionDefinition>? _actionDefinitions;
+    private readonly IRepository<OrderCancellationReason>? _cancellationReasons;
+    private readonly IRepository<Allocation>? _allocations;
 
     public OrderService(
         IRepository<Order> orders,
@@ -63,7 +65,9 @@ public sealed class OrderService
         IRepository<Override>? overrides = null,
         IRepository<TestResult>? results = null,
         IRepository<OrderAction>? orderActions = null,
-        IRepository<ActionDefinition>? actionDefinitions = null)
+        IRepository<ActionDefinition>? actionDefinitions = null,
+        IRepository<OrderCancellationReason>? cancellationReasons = null,
+        IRepository<Allocation>? allocations = null)
     {
         _ruleEngine = ruleEngine;
         _audit = audit;
@@ -76,6 +80,8 @@ public sealed class OrderService
         _results = results;
         _orderActions = orderActions;
         _actionDefinitions = actionDefinitions;
+        _cancellationReasons = cancellationReasons;
+        _allocations = allocations;
         _orders = orders;
         _orderLines = orderLines;
         _orderSpecimens = orderSpecimens;
@@ -222,7 +228,8 @@ public sealed class OrderService
                     orderLines.Select(OrderLineDto.From).ToList(),
                     o.Comment,
                     current?.Id, current?.Value, current?.Source, current?.EnteredBy, current?.TestCode,
-                    actionsByOrder.GetValueOrDefault(o.Id));
+                    actionsByOrder.GetValueOrDefault(o.Id),
+                    o.CancellationReasonCode);
             })
             .ToList();
     }
@@ -546,9 +553,47 @@ public sealed class OrderService
             return OperationResult<Order>.Fail(merged);
         }
 
+        var editable = OrderValidator.ValidateEditable(order);
+        if (editable is not null)
+        {
+            return OperationResult<Order>.Fail(editable.Message);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.ReasonCode))
+        {
+            return OperationResult<Order>.Fail("A cancellation reason is required.");
+        }
+
+        string reasonText;
+        string? reasonCode = null;
+        if (_cancellationReasons is not null)
+        {
+            var code = request.ReasonCode.Trim().ToUpperInvariant();
+            var reason = await _cancellationReasons.FirstOrDefaultAsync(r => r.IsActive && r.Code == code, ct);
+            if (reason is null)
+            {
+                return OperationResult<Order>.Fail("Select an active cancellation reason.");
+            }
+
+            reasonCode = reason.Code;
+            reasonText = reason.Text;
+        }
+        else
+        {
+            reasonText = request.ReasonCode.Trim();
+        }
+
+        if (_allocations is not null
+            && await _allocations.AnyAsync(
+                a => a.OrderId == orderId && a.Status == AllocationStatus.Reserved, ct))
+        {
+            return OperationResult<Order>.Fail("Release allocated units before cancelling this order.");
+        }
+
         var previousStatus = order.Status;
         order.Status = OrderStatus.Cancelled;
-        order.CancellationReason = request.CancellationReason.Trim();
+        order.CancellationReasonCode = reasonCode;
+        order.CancellationReason = reasonText;
 
         var activeLines = await _orderLines.ListAsync(l => l.OrderId == orderId && l.IsActive, ct);
         var validation = OrderValidator.Validate(

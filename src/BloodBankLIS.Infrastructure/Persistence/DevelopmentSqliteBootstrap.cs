@@ -151,7 +151,8 @@ public static class DevelopmentSqliteBootstrap
         ("Issues", "AcknowledgedSpecialRequirementCodes", """ALTER TABLE "Issues" ADD COLUMN "AcknowledgedSpecialRequirementCodes" TEXT NULL"""),
         ("InstrumentInterfaces", "InterpretationMatch", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationMatch" INTEGER NOT NULL DEFAULT 0"""),
         ("InstrumentInterfaces", "InterpretationAnalyteCodes", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationAnalyteCodes" TEXT NULL"""),
-        ("UnitBloodAttributes", "TypingSource", """ALTER TABLE "UnitBloodAttributes" ADD COLUMN "TypingSource" INTEGER NOT NULL DEFAULT 1""")
+        ("UnitBloodAttributes", "TypingSource", """ALTER TABLE "UnitBloodAttributes" ADD COLUMN "TypingSource" INTEGER NOT NULL DEFAULT 1"""),
+        ("Orders", "CancellationReasonCode", """ALTER TABLE "Orders" ADD COLUMN "CancellationReasonCode" TEXT NULL""")
     ];
 
     public static async Task InitializeAsync(
@@ -159,6 +160,7 @@ public static class DevelopmentSqliteBootstrap
         ILogger logger,
         CancellationToken cancellationToken = default)
     {
+        await EnsureOrderCancellationReasonsTableAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -181,6 +183,43 @@ public static class DevelopmentSqliteBootstrap
             recreate || created
                 ? "SQLite development database created from EF model."
                 : "SQLite development database is up to date.");
+    }
+
+    /// <summary>
+    /// Creates the cancellation-reason catalog when an existing dev database predates it.
+    /// Doing this before the missing-table check keeps demo data instead of recreating the file.
+    /// </summary>
+    private static async Task EnsureOrderCancellationReasonsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "OrderCancellationReasons", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "OrderCancellationReasons" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_OrderCancellationReasons" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Text" TEXT NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """,
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_OrderCancellationReasons_Code" ON "OrderCancellationReasons" ("Code")""",
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_OrderCancellationReasons_IsActive_SortOrder" ON "OrderCancellationReasons" ("IsActive", "SortOrder")""",
+            ct);
     }
 
     private static async Task ApplyAdditiveColumnsAsync(

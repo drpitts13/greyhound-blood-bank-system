@@ -1,0 +1,146 @@
+@page "/admin/order-cancellation-reasons"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Order Cancellation Reasons &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Order cancellation reasons</h1>
+    @if (CanEdit)
+    {
+        <button type="button" class="btn btn-primary" @onclick="NewDraft">New reason</button>
+    }
+</div>
+<p class="muted">Codes and explanations used when an order is cancelled. The chart requires one of these reasons.</p>
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (_items.Count == 0)
+    {
+        <div class="empty">No cancellation reasons.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Text</th><th>Sort</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var reason in _items)
+                {
+                    <tr>
+                        <td class="mono">@reason.Code</td>
+                        <td>@reason.Text</td>
+                        <td>@reason.SortOrder</td>
+                        <td>
+                            @if (reason.IsActive) { <span class="badge badge-green">Active</span> }
+                            else { <span class="badge badge-gray">Inactive</span> }
+                        </td>
+                        <td class="right nowrap">
+                            @if (CanEdit)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => Edit(reason)">Edit</button>
+                            }
+                            @if (CanActivate)
+                            {
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(reason)">@(reason.IsActive ? "Deactivate" : "Activate")</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New cancellation reason" : "Edit cancellation reason")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_code" maxlength="20" /></div>
+            <div class="field" style="flex:2;"><label>Text</label><input @bind="_text" maxlength="500" /></div>
+            <div class="field"><label>Sort</label><input type="number" @bind="_sortOrder" /></div>
+        </div>
+        <div class="flex gap">
+            <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="CloseEditor">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private Feedback? _feedback;
+    private List<OrderCancellationReasonDto> _items = [];
+    private bool _editing;
+    private long? _editId;
+    private string _code = string.Empty;
+    private string _text = string.Empty;
+    private int _sortOrder;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var result = await Api.GetAdminOrderCancellationReasonsAsync();
+        _items = result.Value ?? [];
+        _feedback = result.Succeeded ? null : result.ToFeedback();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _code = string.Empty;
+        _text = string.Empty;
+        _sortOrder = (_items.Count + 1) * 10;
+        _editing = true;
+    }
+
+    private void Edit(OrderCancellationReasonDto reason)
+    {
+        _editId = reason.Id;
+        _code = reason.Code;
+        _text = reason.Text;
+        _sortOrder = reason.SortOrder;
+        _editing = true;
+    }
+
+    private void CloseEditor() => _editing = false;
+
+    private async Task SaveAsync()
+    {
+        var request = new SaveOrderCancellationReasonRequest(_code, _text, _sortOrder);
+        _busy = true;
+        var result = _editId is long id
+            ? await Api.UpdateAdminOrderCancellationReasonAsync(id, request)
+            : await Api.CreateAdminOrderCancellationReasonAsync(request);
+        _busy = false;
+        _feedback = result.ToFeedback(_editId is null ? "Cancellation reason added." : "Cancellation reason updated.");
+        if (result.Succeeded)
+        {
+            _editing = false;
+            await LoadAsync();
+        }
+    }
+
+    private async Task SetActiveAsync(OrderCancellationReasonDto reason)
+    {
+        _busy = true;
+        var result = await Api.SetAdminOrderCancellationReasonActiveAsync(reason.Id, !reason.IsActive);
+        _busy = false;
+        _feedback = result.ToFeedback(reason.IsActive ? "Cancellation reason deactivated." : "Cancellation reason activated.");
+        if (result.Succeeded)
+        {
+            await LoadAsync();
+        }
+    }
+}

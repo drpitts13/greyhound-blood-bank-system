@@ -33,6 +33,7 @@ public sealed class SqliteToSqlServerMigrator
         "OrderingProviders",
         "ExceptionDefinitions",
         "CodedCommentDefinitions",
+        "OrderCancellationReasons",
         "ChargeCodes",
         "ActionDefinitions",
         "ActionBillings",

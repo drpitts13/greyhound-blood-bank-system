@@ -111,6 +111,9 @@ public class Order : BaseEntity
 
     public string? CancellationReason { get; set; }
 
+    /// <summary>Code from the order cancellation reason catalog. The explanation is copied into <see cref="CancellationReason"/>.</summary>
+    public string? CancellationReasonCode { get; set; }
+
     /// <summary>Free-text order comment. Coded comments from the Order catalog may be inserted.</summary>
     public string? Comment { get; set; }
 

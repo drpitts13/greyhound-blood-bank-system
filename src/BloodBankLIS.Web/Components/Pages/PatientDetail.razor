@@ -196,6 +196,7 @@ else
             OnBeginLink="BeginLinkSpecimen"
             OnLink="LinkSpecimenAsync"
             OnBeginEdit="BeginEditOrder"
+            OnBeginCancel="BeginCancelOrderAsync"
             OnVerify="VerifyPostedOrderResultAsync"
             OnSaveEdit="SaveOrderAsync" />
     }
@@ -372,6 +373,38 @@ else
         </div>
     }
 
+    @if (_cancellingOrder is not null)
+    {
+        <div class="bb-dialog-backdrop">
+            <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="cancel-order-title" @onclick:stopPropagation="true">
+                <h2 id="cancel-order-title" style="margin:0;">Cancel order @_cancellingOrder.OrderNumber?</h2>
+                <p class="muted">Select a cancellation reason. The order cannot be edited after it is cancelled.</p>
+                <Outcome Value="_cancelOrderFb" RequiresSignature="false" />
+                @if (_cancelReasons.Count == 0)
+                {
+                    <div class="alert alert-warning">No active cancellation reasons are configured. Add them under Admin · Order Cancellation Reasons.</div>
+                }
+                else
+                {
+                    <div class="field">
+                        <label>Reason</label>
+                        <select @bind="_cancelReasonCode">
+                            <option value="">Select reason</option>
+                            @foreach (var reason in _cancelReasons)
+                            {
+                                <option value="@reason.Code">@reason.Code — @reason.Text</option>
+                            }
+                        </select>
+                    </div>
+                }
+                <div class="flex gap" style="margin-top:.75rem;">
+                    <button type="button" class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_cancelReasonCode))" @onclick="ConfirmCancelOrderAsync">Cancel order</button>
+                    <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="CloseCancelOrder">Keep order</button>
+                </div>
+            </div>
+        </div>
+    }
+
     @if (_crossmatchRow is not null)
     {
         <CrossmatchEntryDialog
@@ -485,6 +518,10 @@ else
     private long _newOrderLocationId;
     private long? _newOrderProviderId;
     private long? _editingOrderId;
+    private PatientOrderDto? _cancellingOrder;
+    private List<OrderCancellationReasonRefDto> _cancelReasons = [];
+    private string _cancelReasonCode = string.Empty;
+    private Feedback? _cancelOrderFb;
     private long _editOrderEncounterId;
     private HashSet<string> _editOrderTestCodes = new(StringComparer.OrdinalIgnoreCase);
     private HashSet<long> _editOrderProductTypeIds = new();
@@ -1728,6 +1765,47 @@ else
             _testsLoaded = false;
             await LoadOrdersAsync();
         }
+    }
+
+    private async Task BeginCancelOrderAsync(PatientOrderDto order)
+    {
+        _editingOrderId = null;
+        _cancellingOrder = order;
+        _cancelReasonCode = string.Empty;
+        _cancelOrderFb = null;
+        if (_cancelReasons.Count == 0)
+        {
+            var reasons = await Api.GetOrderCancellationReasonsAsync();
+            _cancelReasons = reasons.Value ?? [];
+            if (!reasons.Succeeded)
+            {
+                _cancelOrderFb = reasons.ToFeedback();
+            }
+        }
+    }
+
+    private void CloseCancelOrder() => _cancellingOrder = null;
+
+    private async Task ConfirmCancelOrderAsync()
+    {
+        if (_cancellingOrder is null || string.IsNullOrWhiteSpace(_cancelReasonCode))
+        {
+            _cancelOrderFb = Feedback.Fail("Select a cancellation reason.");
+            return;
+        }
+
+        _busy = true;
+        var result = await Api.CancelPatientOrderAsync(Id, _cancellingOrder.Id, _cancelReasonCode);
+        _busy = false;
+        if (!result.Succeeded)
+        {
+            _cancelOrderFb = result.ToFeedback();
+            return;
+        }
+
+        _cancellingOrder = null;
+        _orderFb = Feedback.Succeed("Order cancelled.");
+        await LoadOrdersAsync();
     }
 
     private async Task BeginEditOrder(PatientOrderDto order)

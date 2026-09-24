@@ -261,7 +261,13 @@
                                 </button>
                             }
                         </td>
-                        <td><span class="@Ui.Badge(o.Status)">@o.Status</span></td>
+                        <td>
+                            <span class="@Ui.Badge(o.Status)">@o.Status</span>
+                            @if (o.Status == OrderStatus.Cancelled && !string.IsNullOrWhiteSpace(o.CancellationReason))
+                            {
+                                <div class="muted">@(string.IsNullOrWhiteSpace(o.CancellationReasonCode) ? o.CancellationReason : $"{o.CancellationReasonCode} — {o.CancellationReason}")</div>
+                            }
+                        </td>
                         <td>
                             @(o.CurrentResultValue ?? o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")
                             @if (o.HasPostedInterfaceOrInstrumentValue)
@@ -278,6 +284,7 @@
                             @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive)
                             {
                                 <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginEdit.InvokeAsync(o)">@(EditingOrderId == o.Id ? "Cancel" : "Edit")</button>
+                                <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnBeginCancel.InvokeAsync(o)">Cancel order</button>
                             }
                             @if (Session.Has(PermissionCodes.CompatibilityAllocate) && o.IsActive && o.Lines.Any(l => l.LineCategory == OrderCategory.Product) && o.SpecimenId is > 0)
                             {
@@ -577,6 +584,7 @@
     [Parameter] public EventCallback<PatientOrderDto> OnBeginLink { get; set; }
     [Parameter] public EventCallback<long> OnLink { get; set; }
     [Parameter] public EventCallback<PatientOrderDto> OnBeginEdit { get; set; }
+    [Parameter] public EventCallback<PatientOrderDto> OnBeginCancel { get; set; }
     [Parameter] public EventCallback<PatientOrderDto> OnVerify { get; set; }
     [Parameter] public EventCallback OnSaveEdit { get; set; }
     [Parameter] public EventCallback OnAccessionNowAfter { get; set; }

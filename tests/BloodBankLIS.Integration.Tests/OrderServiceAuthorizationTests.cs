@@ -191,4 +191,43 @@ public class OrderServiceAuthorizationTests : IClassFixture<SqliteContextFactory
         Assert.True(allowed.Succeeded);
         Assert.Equal(specimen.Id, allowed.Value!.SpecimenId);
     }
+
+    [Fact]
+    public async Task Cancel_RequiresAnActiveCatalogReason()
+    {
+        await using var c = _factory.Create();
+        var (patient, _, _, order) = await SeedOrderAsync(c);
+        c.OrderCancellationReasons.Add(new OrderCancellationReason
+        {
+            Code = "ERR",
+            Text = "Entered in error",
+            SortOrder = 1,
+            IsActive = true
+        });
+        await c.SaveChangesAsync();
+
+        var orders = new OrderService(
+            new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
+            new EfRepository<Encounter>(c), new EfRepository<OrderingLocation>(c), new EfRepository<Patient>(c),
+            new EfRepository<Specimen>(c), new EfRepository<OrderingProvider>(c), new EfRepository<ProductType>(c),
+            new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c),
+            new FixedClock(DateTime.UtcNow), c,
+            cancellationReasons: new EfRepository<OrderCancellationReason>(c),
+            allocations: new EfRepository<Allocation>(c));
+
+        var blank = await orders.CancelAsync(patient.Id, order.Id, new CancelOrderRequest(" "));
+        Assert.False(blank.Succeeded);
+        Assert.Contains("required", blank.Error!, StringComparison.OrdinalIgnoreCase);
+
+        var unknown = await orders.CancelAsync(patient.Id, order.Id, new CancelOrderRequest("NOPE"));
+        Assert.False(unknown.Succeeded);
+        Assert.Contains("active cancellation reason", unknown.Error!, StringComparison.OrdinalIgnoreCase);
+
+        var cancelled = await orders.CancelAsync(patient.Id, order.Id, new CancelOrderRequest("err"));
+        Assert.True(cancelled.Succeeded, cancelled.Error);
+        var saved = await c.Orders.AsNoTracking().SingleAsync(o => o.Id == order.Id);
+        Assert.Equal(OrderStatus.Cancelled, saved.Status);
+        Assert.Equal("ERR", saved.CancellationReasonCode);
+        Assert.Equal("Entered in error", saved.CancellationReason);
+    }
 }
