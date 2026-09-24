@@ -42,7 +42,14 @@
                             <div class="flex gap" style="flex-wrap:wrap;">
                                 @if (Session.Has(PermissionCodes.CompatibilityCrossmatch) && NeedsCrossmatchEntry(a))
                                 {
-                                    <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnBeginCrossmatch.InvokeAsync(a)">Crossmatch</button>
+                                    @if (a.OrderSpecimenLinked)
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnBeginCrossmatch.InvokeAsync(a)">Crossmatch</button>
+                                    }
+                                    else
+                                    {
+                                        <span class="muted">Link a specimen to the order before crossmatch.</span>
+                                    }
                                 }
                                 @if (Session.Has(PermissionCodes.InventoryModify) && a.IssueId is null && a.AllocationStatus == AllocationStatus.Reserved)
                                 {

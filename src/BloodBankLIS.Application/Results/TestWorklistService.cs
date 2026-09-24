@@ -108,6 +108,13 @@ public sealed class TestWorklistService
             orders = orders.Where(o => linkedOrderIds.Contains(o.Id)).ToList();
         }
 
+        if (filter == TestWorklistFilter.Pending)
+        {
+            orders = orders
+                .Where(o => o.Status is not (OrderStatus.Cancelled or OrderStatus.Discontinued))
+                .ToList();
+        }
+
         if (pendingOnly)
         {
             orders = orders
@@ -216,6 +223,11 @@ public sealed class TestWorklistService
             var isPending = current is null
                 || current.Status is ResultStatus.Entered or ResultStatus.Corrected or ResultStatus.PendingVerification or ResultStatus.Invalidated;
             var isCompleted = current?.Status == ResultStatus.Verified;
+            var orderClosed = order.Status is OrderStatus.Cancelled or OrderStatus.Discontinued;
+            if (orderClosed && !isCompleted)
+            {
+                continue;
+            }
 
             if (filter == TestWorklistFilter.Pending && !isPending)
             {

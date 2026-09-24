@@ -142,6 +142,11 @@ public sealed class PatientAllocationService
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.PerformedUtc).First());
 
         var orderIds = allocations.Where(a => a.OrderId.HasValue).Select(a => a.OrderId!.Value).Distinct().ToList();
+        var linkedOrderIds = _orderSpecimens is null || orderIds.Count == 0
+            ? new HashSet<long>()
+            : (await _orderSpecimens.ListAsync(os => orderIds.Contains(os.OrderId), ct))
+                .Select(os => os.OrderId)
+                .ToHashSet();
         var xmCodeByOrder = await CrossmatchTestCodeByOrderAsync(orderIds, ct);
         var pendingByOrder = await LoadPendingActionsAsync(orderIds, ct);
         var pendingAutoThaw = _autoThaw is null
@@ -196,7 +201,8 @@ public sealed class PatientAllocationService
                 issue?.Id,
                 issue?.Status,
                 pendingAutoThaw.Contains(allocation.Id),
-                thawCode));
+                thawCode,
+                allocation.OrderId is long linkedOrderId && linkedOrderIds.Contains(linkedOrderId)));
         }
 
         return rows;
@@ -664,10 +670,10 @@ public sealed class PatientAllocationService
             allocation.ExpiresUtc);
 
         var thawCode = await AutoThawCodeAsync(allocation, unit, product, issue: null, ct);
-        if (thawCode is not null)
-        {
-            row = row with { AutoThawProductCode = thawCode };
-        }
+        var orderLinked = allocation.OrderId is long linkedOrderId
+            && _orderSpecimens is not null
+            && await _orderSpecimens.AnyAsync(os => os.OrderId == linkedOrderId, ct);
+        row = row with { AutoThawProductCode = thawCode, OrderSpecimenLinked = orderLinked };
 
         return EvaluationResult<AllocatePatientUnitResultDto>.Ok(
             new AllocatePatientUnitResultDto(row, orderId, xmTestCode, overrideApplied, thawCode is not null),

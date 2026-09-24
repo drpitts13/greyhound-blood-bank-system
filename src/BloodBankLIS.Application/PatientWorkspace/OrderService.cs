@@ -610,6 +610,8 @@ public sealed class OrderService
             return OperationResult<Order>.Fail(validation.HardStops.First().Message);
         }
 
+        await CancelPendingTestLinesAsync(orderId, activeLines, ct);
+
         _orders.Update(order);
         if (_orderActions is not null)
         {
@@ -631,6 +633,47 @@ public sealed class OrderService
             reason: order.CancellationReason);
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Order>.Ok(order);
+    }
+
+    /// <summary>
+    /// Pending test lines leave the worklist when the order is cancelled. A verified result stays
+    /// so completed testing remains on the chart.
+    /// </summary>
+    private async Task CancelPendingTestLinesAsync(
+        long orderId,
+        IReadOnlyList<OrderLine> activeLines,
+        CancellationToken ct)
+    {
+        var verifiedCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_results is not null)
+        {
+            var verified = await _results.ListAsync(
+                r => r.OrderId == orderId && r.Status == ResultStatus.Verified && r.SupersededByResultId == null,
+                ct);
+            foreach (var result in verified)
+            {
+                verifiedCodes.Add(result.TestCode);
+            }
+        }
+
+        foreach (var line in activeLines.Where(l => l.LineCategory == OrderCategory.Test))
+        {
+            var alreadyVerified = line.ResultStatus == ResultStatus.Verified
+                || (line.TestCode is not null && verifiedCodes.Contains(line.TestCode));
+            if (alreadyVerified)
+            {
+                continue;
+            }
+
+            var tracked = await _orderLines.FirstOrDefaultAsync(l => l.Id == line.Id, ct);
+            if (tracked is null)
+            {
+                continue;
+            }
+
+            tracked.IsActive = false;
+            tracked.FulfillmentStatus = FulfillmentStatus.Cancelled;
+        }
     }
 
     public async Task<OperationResult<PatientOrderDto>> LinkSpecimenAsync(

@@ -37,14 +37,15 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
                 new EfRepository<AntibodyHistory>(c)),
             new BloodBankLIS.Application.Compliance.FacilityPolicyService(new EfRepository<SystemSetting>(c)));
 
-    private ResultService Results(BloodBankDbContext c) =>
+    private ResultService Results(BloodBankDbContext c, bool requireOrderSpecimen = false) =>
         new(new EfRepository<TestResult>(c), new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
             c, _factory.Clock, _factory.CurrentUser, new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
             new EfRepository<TestDefinition>(c), new EfRepository<SubtestDefinition>(c), new EfRepository<Order>(c), new EfRepository<OrderLine>(c),
             new InventoryRepository(c), Compatibility(c), new EfRepository<AntibodyHistory>(c),
             new EfRepository<AntigenProfile>(c), new EfRepository<BloodAttributeDefinition>(c),
             new EfRepository<UnitBloodAttribute>(c), new EfRepository<SpecimenTypeDefinition>(c),
-            allocations: new EfRepository<Allocation>(c));
+            allocations: new EfRepository<Allocation>(c),
+            orderSpecimens: requireOrderSpecimen ? new EfRepository<OrderSpecimen>(c) : null);
 
     private CompatibilityService Compatibility(BloodBankDbContext c) =>
         new(new InventoryRepository(c), new EfRepository<Crossmatch>(c), new EfRepository<Allocation>(c),
@@ -175,6 +176,55 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         var inherited = Assert.Single(specimenWorklist);
         Assert.Equal(line.TestCode, inherited.TestCode);
         Assert.Equal(order.OrderNumber, inherited.OrderNumber);
+    }
+
+    [Fact]
+    public async Task Cancel_RemovesPendingTestFromTheChart()
+    {
+        await using var c = _factory.Create();
+        var (patient, _, _, _, order, line) = await SeedOrderWithTestAsync(c, linkSpecimen: false);
+
+        var cancelled = await Orders(c).CancelAsync(patient.Id, order.Id, new CancelOrderRequest("No longer needed"));
+        Assert.True(cancelled.Succeeded, cancelled.Error);
+
+        Assert.Empty(await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending));
+        Assert.Empty(await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.All));
+        var saved = await c.OrderLines.AsNoTracking().SingleAsync(l => l.Id == line.Id);
+        Assert.False(saved.IsActive);
+        Assert.Equal(FulfillmentStatus.Cancelled, saved.FulfillmentStatus);
+    }
+
+    [Fact]
+    public async Task Save_RequiresTheSpecimenToBeLinkedToTheOrder()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var other = new Specimen
+        {
+            AccessionNumber = $"ACC-{Guid.NewGuid():N}",
+            PatientId = seed.patient.Id,
+            EncounterId = seed.encounter.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-1),
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(2),
+            Status = SpecimenStatus.Accepted
+        };
+        c.Specimens.Add(other);
+        await c.SaveChangesAsync();
+
+        var results = Results(c, requireOrderSpecimen: true);
+        var blocked = await results.SaveTestResultAsync(new SaveTestResultRequest(
+            other.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.False(blocked.Succeeded);
+        Assert.Contains("Link a specimen", blocked.Error!);
+
+        var allowed = await results.SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null));
+        Assert.True(allowed.Succeeded, allowed.Error);
     }
 
     [Fact]

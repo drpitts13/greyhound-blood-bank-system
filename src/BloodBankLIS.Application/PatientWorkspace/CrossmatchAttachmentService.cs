@@ -147,10 +147,10 @@ public sealed class CrossmatchAttachmentService
             return EvaluationResult<string?>.Ok(test.Code);
         }
 
-        var resolvedSpecimenId = await ResolveSpecimenIdAsync(productOrder.Id, specimenId, allocation.SpecimenId, ct);
+        var resolvedSpecimenId = await ResolveSpecimenIdAsync(productOrder.Id, specimenId, ct);
         if (resolvedSpecimenId is null)
         {
-            return EvaluationResult<string?>.Fail("A current type-and-screen specimen is required for electronic crossmatch.");
+            return EvaluationResult<string?>.Fail("Link a specimen to this order before electronic crossmatch.");
         }
 
         var lines = (await _orderLines.ListAsync(l => l.OrderId == productOrder.Id && l.IsActive, ct)).ToList();
@@ -441,10 +441,11 @@ public sealed class CrossmatchAttachmentService
             return OperationResult<ManualCrossmatchLineDto>.Fail("Product order was not found.");
         }
 
-        var specimenId = await ResolveSpecimenIdAsync(orderId, null, allocation.SpecimenId, ct);
+        var specimenId = await ResolveSpecimenIdAsync(orderId, null, ct);
         if (specimenId is not > 0)
         {
-            return OperationResult<ManualCrossmatchLineDto>.Fail("A specimen is required to record the crossmatch.");
+            return OperationResult<ManualCrossmatchLineDto>.Fail(
+                "Link a specimen to this order before recording the crossmatch.");
         }
 
         var lines = (await _orderLines.ListAsync(l => l.OrderId == orderId, ct)).ToList();
@@ -527,32 +528,24 @@ public sealed class CrossmatchAttachmentService
             t => t.IsActive && !t.IsDraft && t.Code == normalized, ct);
     }
 
-    private async Task<long?> ResolveSpecimenIdAsync(
-        long orderId,
-        long? requested,
-        long? allocationSpecimenId,
-        CancellationToken ct)
+    /// <summary>
+    /// A test uses only a specimen linked to the order. An allocation specimen or a result
+    /// on another order is not a substitute.
+    /// </summary>
+    private async Task<long?> ResolveSpecimenIdAsync(long orderId, long? requested, CancellationToken ct)
     {
-        if (requested is > 0)
+        var links = await _orderSpecimens.ListAsync(l => l.OrderId == orderId, ct);
+        if (links.Count == 0)
+        {
+            return null;
+        }
+
+        if (requested is > 0 && links.Any(l => l.SpecimenId == requested.Value))
         {
             return requested;
         }
 
-        if (allocationSpecimenId is > 0)
-        {
-            return allocationSpecimenId;
-        }
-
-        var links = await _orderSpecimens.ListAsync(l => l.OrderId == orderId, ct);
-        var linked = links.OrderByDescending(l => l.IsPrimary).FirstOrDefault();
-        if (linked is not null)
-        {
-            return linked.SpecimenId;
-        }
-
-        var screens = await _results.ListAsync(
-            r => r.OrderId == orderId && r.Status == ResultStatus.Verified, ct);
-        return screens.OrderByDescending(r => r.VerifiedUtc).FirstOrDefault()?.SpecimenId;
+        return links.OrderByDescending(l => l.IsPrimary).First().SpecimenId;
     }
 
     private static bool IsOpen(Order order) =>

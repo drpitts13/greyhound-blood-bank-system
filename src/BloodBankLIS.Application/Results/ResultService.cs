@@ -62,6 +62,7 @@ public sealed class ResultService
     private readonly IRepository<AntibodyIdentificationWorkup>? _antibodyWorkups;
     private readonly IRepository<AntibodyIdentificationFinding>? _antibodyFindings;
     private readonly CrossmatchAttachmentService? _crossmatchAttachment;
+    private readonly IRepository<OrderSpecimen>? _orderSpecimens;
 
     public ResultService(
         IRepository<TestResult> results,
@@ -93,7 +94,8 @@ public sealed class ResultService
         IRepository<Patient>? patients = null,
         IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null,
         IRepository<AntibodyIdentificationFinding>? antibodyFindings = null,
-        CrossmatchAttachmentService? crossmatchAttachment = null)
+        CrossmatchAttachmentService? crossmatchAttachment = null,
+        IRepository<OrderSpecimen>? orderSpecimens = null)
     {
         _ruleEngine = ruleEngine;
         _allocations = allocations;
@@ -125,6 +127,7 @@ public sealed class ResultService
         _antibodyWorkups = antibodyWorkups;
         _antibodyFindings = antibodyFindings;
         _crossmatchAttachment = crossmatchAttachment;
+        _orderSpecimens = orderSpecimens;
     }
 
     public Task<TestResult?> GetAsync(long id, CancellationToken ct = default) =>
@@ -144,6 +147,12 @@ public sealed class ResultService
         }
 
         var specimen = gate.Value!;
+        var linkError = await OrderSpecimenLinkErrorAsync(request.OrderId, request.SpecimenId, ct);
+        if (linkError is not null)
+        {
+            return EvaluationResult<TestResult>.Fail(linkError);
+        }
+
         var normalizedCode = request.TestCode.Trim().ToUpperInvariant();
 
         if (_orderLines is not null)
@@ -487,6 +496,15 @@ public sealed class ResultService
         if (specimen is null)
         {
             return OperationResult<TestResult>.Fail("Specimen not found.");
+        }
+
+        if (orderId is long linkedOrderId)
+        {
+            var linkError = await OrderSpecimenLinkErrorAsync(linkedOrderId, specimenId, ct);
+            if (linkError is not null)
+            {
+                return OperationResult<TestResult>.Fail(linkError);
+            }
         }
 
         var normalizedCode = testCode.ToUpperInvariant();
@@ -1521,6 +1539,20 @@ public sealed class ResultService
             reason: "Re-entry after invalidation.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<TestResult>.Ok(replacement);
+    }
+
+    private async Task<string?> OrderSpecimenLinkErrorAsync(long orderId, long specimenId, CancellationToken ct)
+    {
+        if (_orderSpecimens is null || orderId <= 0)
+        {
+            return null;
+        }
+
+        var linked = await _orderSpecimens.AnyAsync(
+            os => os.OrderId == orderId && os.SpecimenId == specimenId, ct);
+        return linked
+            ? null
+            : "Link a specimen to this order before entering results.";
     }
 
     private async Task<OperationResult<Specimen>> ValidateSpecimenForEntryAsync(long specimenId, string testCode, CancellationToken ct)
