@@ -368,6 +368,104 @@ public sealed class CrossmatchAttachmentService
         return targets;
     }
 
+    public async Task<OperationResult<ManualCrossmatchLineDto>> EnsureManualCrossmatchLineAsync(
+        long patientId,
+        long allocationId,
+        string? testCode,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(testCode))
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail("Select the crossmatch test type.");
+        }
+
+        var code = testCode.Trim().ToUpperInvariant();
+        var settings = await _settings.GetActiveAsync(ct);
+        if (string.Equals(code, settings.ElectronicCrossmatchTestCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail(
+                "Electronic crossmatch does not use manual cell reactions.");
+        }
+
+        var allocation = await _allocations.GetByIdAsync(allocationId, ct);
+        if (allocation is null || allocation.PatientId != patientId)
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail("Allocation was not found for this patient.");
+        }
+
+        if (allocation.Status != AllocationStatus.Reserved)
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail(
+                "Crossmatch results are recorded while the unit is still reserved.");
+        }
+
+        if (allocation.OrderId is not long orderId)
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail(
+                "This allocation has no product order for the crossmatch.");
+        }
+
+        var recorded = (await _crossmatches.ListAsync(
+                x => x.PatientId == patientId && x.BloodProductId == allocation.BloodProductId, ct))
+            .OrderByDescending(x => x.PerformedUtc)
+            .FirstOrDefault();
+        if (recorded?.Result is CrossmatchResult.Compatible or CrossmatchResult.Incompatible)
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail(
+                "A crossmatch result is already recorded for this unit.");
+        }
+
+        var unit = await _inventory.GetUnitAsync(allocation.BloodProductId, ct);
+        if (unit is null)
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail("Unit was not found.");
+        }
+
+        var product = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
+        if (product is null
+            || !CrossmatchApplicability.RequiresCrossmatch(product.ComponentClass, product.RequiresCrossmatch))
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail("This product does not require a crossmatch.");
+        }
+
+        var test = await FindActiveTestAsync(code, ct);
+        if (test is null || !TestDefinitionValidator.IsCrossmatchResultType(test.ResultValueType))
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail(
+                $"Test '{code}' is not an active crossmatch test.");
+        }
+
+        var order = await _orders.GetByIdAsync(orderId, ct);
+        if (order is null)
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail("Product order was not found.");
+        }
+
+        var specimenId = await ResolveSpecimenIdAsync(orderId, null, allocation.SpecimenId, ct);
+        if (specimenId is not > 0)
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail("A specimen is required to record the crossmatch.");
+        }
+
+        var lines = (await _orderLines.ListAsync(l => l.OrderId == orderId, ct)).ToList();
+        var attached = lines.FirstOrDefault(l =>
+            l.IsActive
+            && l.LineCategory == OrderCategory.Test
+            && OrderLineBuilder.IsCrossmatchTestCode(l.TestCode)
+            && !string.Equals(l.TestCode, settings.ElectronicCrossmatchTestCode, StringComparison.OrdinalIgnoreCase));
+        if (attached is not null
+            && !string.Equals(attached.TestCode, test.Code, StringComparison.OrdinalIgnoreCase))
+        {
+            return OperationResult<ManualCrossmatchLineDto>.Fail(
+                $"This order already uses crossmatch test {attached.TestCode}.");
+        }
+
+        var line = await AddTestLineAsync(order, lines, test, ct);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ManualCrossmatchLineDto>.Ok(
+            new ManualCrossmatchLineDto(order.Id, line.Id, specimenId.Value, test.Code));
+    }
+
     private async Task<OrderLine> AddTestLineAsync(
         Order order,
         List<OrderLine> existing,

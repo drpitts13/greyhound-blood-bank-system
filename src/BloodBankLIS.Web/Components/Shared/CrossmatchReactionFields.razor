@@ -1,0 +1,128 @@
+@if (Subtests.Count == 0)
+{
+    <p class="muted">This crossmatch test has no cell reactions.</p>
+}
+else if (HasPhases)
+{
+    <table class="bb" style="margin-top:.5rem;">
+        <thead>
+            <tr>
+                <th>Cell reaction</th>
+                @foreach (var phase in PhaseColumns)
+                {
+                    <th class="mono">@phase.Label@(phase.Required ? "" : " (opt)")</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var subtest in Subtests)
+            {
+                <tr>
+                    <td>@subtest.Label</td>
+                    @foreach (var phase in PhaseColumns)
+                    {
+                        var assigned = subtest.Phases?.FirstOrDefault(p =>
+                            string.Equals(p.PhaseCode, phase.PhaseCode, StringComparison.OrdinalIgnoreCase));
+                        <td>
+                            @if (assigned is null)
+                            {
+                                <span class="muted">—</span>
+                            }
+                            else
+                            {
+                                var key = PhaseResultKeys.Compose(subtest.SubtestCode, phase.PhaseCode);
+                                <select value="@Get(key)" @onchange="e => Set(key, e)">
+                                    @if (!assigned.Required)
+                                    {
+                                        <option value="">—</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="">Select</option>
+                                    }
+                                    @foreach (var choice in subtest.Choices)
+                                    {
+                                        <option value="@choice.Code">@choice.Label</option>
+                                    }
+                                </select>
+                            }
+                        </td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <table class="bb" style="margin-top:.5rem;">
+        <thead><tr><th>Cell reaction</th><th>Result</th></tr></thead>
+        <tbody>
+            @foreach (var subtest in Subtests)
+            {
+                <tr>
+                    <td>@subtest.Label@(subtest.Required ? "" : " (optional)")</td>
+                    <td>
+                        @if (subtest.ResultType == SubtestResultType.FreeText)
+                        {
+                            <input value="@Get(subtest.SubtestCode)" @onchange="e => Set(subtest.SubtestCode, e)" />
+                        }
+                        else
+                        {
+                            <select value="@Get(subtest.SubtestCode)" @onchange="e => Set(subtest.SubtestCode, e)">
+                                @if (!subtest.Required)
+                                {
+                                    <option value="">—</option>
+                                }
+                                else
+                                {
+                                    <option value="">Select</option>
+                                }
+                                @foreach (var choice in subtest.Choices)
+                                {
+                                    <option value="@choice.Code">@choice.Label</option>
+                                }
+                            </select>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<ResolvedPanelSubtestDto> Subtests { get; set; } = [];
+    [Parameter] public Dictionary<string, string> Values { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    [Parameter] public EventCallback<Dictionary<string, string>> ValuesChanged { get; set; }
+
+    private bool HasPhases => Subtests.Any(s => s.Phases is { Count: > 0 });
+
+    private IReadOnlyList<ResolvedPanelPhaseDto> PhaseColumns =>
+        Subtests
+            .SelectMany(s => s.Phases ?? [])
+            .GroupBy(p => p.PhaseCode, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderBy(p => p.SortOrder).First())
+            .OrderBy(p => p.SortOrder)
+            .ToList();
+
+    private string Get(string key) =>
+        Values.TryGetValue(key, out var value) ? value : string.Empty;
+
+    private async Task Set(string key, ChangeEventArgs e)
+    {
+        var next = new Dictionary<string, string>(Values, StringComparer.OrdinalIgnoreCase);
+        var value = e.Value?.ToString() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            next.Remove(key);
+        }
+        else
+        {
+            next[key] = value;
+        }
+
+        Values = next;
+        await ValuesChanged.InvokeAsync(next);
+    }
+}

@@ -163,6 +163,17 @@ public sealed class BloodBankApiClient
             new ApplyAutoThawRequest(thawUtc),
             ct);
 
+    public Task<ApiResult<ManualCrossmatchLineDto>> EnsureManualCrossmatchLineAsync(
+        long patientId,
+        long allocationId,
+        string testCode,
+        CancellationToken ct = default) =>
+        SendAsync<ManualCrossmatchLineDto>(
+            HttpMethod.Post,
+            $"api/patients/{patientId}/allocations/{allocationId}/crossmatch-line",
+            new EnsureManualCrossmatchLineRequest(testCode),
+            ct);
+
     public Task<ApiResult<object>> DeclineAutoThawAsync(
         long patientId,
         long allocationId,

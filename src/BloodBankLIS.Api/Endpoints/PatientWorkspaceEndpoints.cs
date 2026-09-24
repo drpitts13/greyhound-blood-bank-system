@@ -282,5 +282,18 @@ public static class PatientWorkspaceEndpoints
                 ? Results.Ok(new { allocationId, requestId = declined.Value })
                 : Results.BadRequest(new { error = declined.Error });
         }).RequirePermission(PermissionCodes.CompatibilityAllocate);
+
+        group.MapPost("/allocations/{allocationId:long}/crossmatch-line", async (
+            long patientId,
+            long allocationId,
+            EnsureManualCrossmatchLineRequest request,
+            CrossmatchAttachmentService service,
+            CancellationToken ct) =>
+        {
+            var line = await service.EnsureManualCrossmatchLineAsync(patientId, allocationId, request.TestCode, ct);
+            return line.Succeeded
+                ? Results.Ok(line.Value)
+                : Results.BadRequest(new { error = line.Error });
+        }).RequirePermission(PermissionCodes.CompatibilityCrossmatch);
     }
 }

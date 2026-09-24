@@ -1,0 +1,190 @@
+@using BloodBankLIS.Domain.Entities.Configuration
+@inject BloodBankApiClient Api
+
+<div class="bb-dialog-backdrop">
+    <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="crossmatch-entry-title" style="width:min(960px,100%);" @onclick:stopPropagation="true">
+        <h2 id="crossmatch-entry-title" style="margin:0;">Record crossmatch</h2>
+        <p class="muted">Unit @Allocation.UnitNumber · @Allocation.ProductCode</p>
+        <Outcome Value="_feedback" RequiresSignature="false" />
+        @if (_loading)
+        {
+            <div class="loading">Loading crossmatch test...</div>
+        }
+        else if (_tests.Count == 0 && string.IsNullOrWhiteSpace(_testCode))
+        {
+            <div class="alert alert-warning">No serologic crossmatch test is configured.</div>
+        }
+        else
+        {
+            <div class="form-row">
+                <div class="field">
+                    <label>Crossmatch test</label>
+                    @if (_locked)
+                    {
+                        <div class="mono">@_testCode — @_definition?.Name</div>
+                    }
+                    else
+                    {
+                        <select value="@_testCode" @onchange="OnTestChanged">
+                            <option value="">Select test</option>
+                            @foreach (var test in _tests)
+                            {
+                                <option value="@test.Code">@test.Code — @test.Name</option>
+                            }
+                        </select>
+                    }
+                </div>
+                <div class="field">
+                    <label>Result</label>
+                    <select @bind="_result">
+                        <option value="@CrossmatchResult.Compatible">Compatible</option>
+                        <option value="@CrossmatchResult.Incompatible">Incompatible</option>
+                    </select>
+                </div>
+            </div>
+            @if (_definition is not null)
+            {
+                <CrossmatchReactionFields Subtests="_definition.PanelSubtests" Values="_reactions" ValuesChanged="OnReactionsChanged" />
+            }
+        }
+        <div class="flex gap" style="margin-top:1rem;">
+            <button type="button" class="btn btn-primary" disabled="@(_busy || _loading || string.IsNullOrWhiteSpace(_testCode))" @onclick="RecordAsync">Record crossmatch</button>
+            <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="OnClose">Cancel</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public long PatientId { get; set; }
+    [Parameter] public PatientAllocationRowDto Allocation { get; set; } = default!;
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnSaved { get; set; }
+
+    private bool _busy;
+    private bool _loading = true;
+    private bool _locked;
+    private string? _testCode;
+    private CrossmatchResult _result = CrossmatchResult.Compatible;
+    private Feedback? _feedback;
+    private List<CrossmatchTestOptionDto> _tests = [];
+    private TestDefinitionForEntryDto? _definition;
+    private Dictionary<string, string> _reactions = new(StringComparer.OrdinalIgnoreCase);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var tests = await Api.GetPatientCrossmatchTestsAsync(PatientId);
+        _tests = (tests.Value ?? [])
+            .Where(t => !CrossmatchEntryNeed.IsElectronic(t.Code))
+            .OrderBy(t => t.Code, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (!tests.Succeeded)
+        {
+            _feedback = tests.ToFeedback();
+        }
+
+        var known = Allocation.CrossmatchTestCode;
+        if (!string.IsNullOrWhiteSpace(known)
+            && !CrossmatchEntryNeed.IsElectronic(known)
+            && _tests.Any(t => string.Equals(t.Code, known, StringComparison.OrdinalIgnoreCase)))
+        {
+            _locked = true;
+            _testCode = known.Trim().ToUpperInvariant();
+            await LoadDefinitionAsync();
+        }
+
+        _loading = false;
+    }
+
+    private async Task OnTestChanged(ChangeEventArgs e)
+    {
+        _testCode = e.Value?.ToString();
+        _reactions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        _definition = null;
+        await LoadDefinitionAsync();
+    }
+
+    private Task OnReactionsChanged(Dictionary<string, string> values)
+    {
+        _reactions = values;
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadDefinitionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_testCode))
+        {
+            _definition = null;
+            return;
+        }
+
+        var definition = await Api.GetTestDefinitionForEntryAsync(_testCode);
+        if (!definition.Succeeded || definition.Value is null)
+        {
+            _feedback = definition.ToFeedback();
+            _definition = null;
+            return;
+        }
+
+        _definition = definition.Value;
+    }
+
+    private async Task RecordAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_testCode))
+        {
+            _feedback = Feedback.Fail("Select the crossmatch test type.");
+            return;
+        }
+
+        if (_result is not (CrossmatchResult.Compatible or CrossmatchResult.Incompatible))
+        {
+            _feedback = Feedback.Fail("Crossmatch result must be Compatible or Incompatible.");
+            return;
+        }
+
+        var missing = CrossmatchReactionValidation.MissingRequired(_definition?.PanelSubtests, _reactions);
+        if (missing.Count > 0)
+        {
+            _feedback = Feedback.Fail($"Enter cell reactions: {string.Join(", ", missing)}.");
+            return;
+        }
+
+        _busy = true;
+        var line = await Api.EnsureManualCrossmatchLineAsync(PatientId, Allocation.AllocationId, _testCode);
+        if (!line.Succeeded || line.Value is null)
+        {
+            _busy = false;
+            _feedback = line.ToFeedback();
+            return;
+        }
+
+        var method = _definition?.ResultValueType == ResultValueType.ComplexCrossmatch
+            ? CrossmatchMethod.Ahg
+            : CrossmatchMethod.ImmediateSpin;
+        var save = await Api.SaveTestResultAsync(new SaveTestResultRequest(
+            line.Value.SpecimenId,
+            line.Value.OrderId,
+            line.Value.OrderLineId,
+            line.Value.TestCode,
+            null,
+            null,
+            null,
+            null,
+            null,
+            _reactions,
+            MarkComplete: false,
+            CorrectionReason: null,
+            UnitNumber: Allocation.UnitNumber,
+            CrossmatchMethod: method,
+            CrossmatchResult: _result,
+            AntibodyScreenNegative: true));
+        _busy = false;
+        if (!save.Succeeded)
+        {
+            _feedback = save.ToFeedback();
+            return;
+        }
+
+        await OnSaved.InvokeAsync();
+    }
+}

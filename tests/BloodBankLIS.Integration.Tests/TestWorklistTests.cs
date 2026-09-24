@@ -539,6 +539,40 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.True(save.Succeeded);
     }
 
+    [Fact]
+    public async Task XmSave_RequiresCellReactionsDefinedOnTheTest()
+    {
+        await using var c = _factory.Create();
+        var code = $"XC{Guid.NewGuid():N}"[..10].ToUpperInvariant();
+        var seed = await SeedOrderWithTestAsync(c, testCode: code);
+        var definition = await c.TestDefinitions.FirstAsync(t => t.Code == code);
+        definition.Category = TestCategory.Crossmatch;
+        definition.ResultValueType = ResultValueType.Crossmatch;
+        definition.PanelSubtestsJson =
+            """[{"subtestCode":"IS","required":true,"sortOrder":1},{"subtestCode":"CC","required":false,"sortOrder":2}]""";
+        await c.SaveChangesAsync();
+
+        var unit = await AddCrossmatchUnitAsync(c, $"P{Guid.NewGuid():N}"[..12], $"U-{code}");
+        await ReserveAsync(c, unit, seed.patient.Id, AllocationStatus.Reserved);
+
+        var missing = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, code, null, null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: unit.UnitNumber,
+            CrossmatchMethod: CrossmatchMethod.ImmediateSpin, CrossmatchResult: CrossmatchResult.Compatible,
+            AntibodyScreenNegative: true));
+        Assert.False(missing.Succeeded);
+        Assert.Contains("IS", missing.Error!);
+
+        var saved = await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen.Id, seed.order.Id, seed.line.Id, code, null, null, null, null, null,
+            new Dictionary<string, string> { ["IS"] = "0" },
+            MarkComplete: false, CorrectionReason: null, UnitNumber: unit.UnitNumber,
+            CrossmatchMethod: CrossmatchMethod.ImmediateSpin, CrossmatchResult: CrossmatchResult.Compatible,
+            AntibodyScreenNegative: true));
+        Assert.True(saved.Succeeded, saved.Error);
+        Assert.Contains("IS", saved.Value!.Value);
+    }
+
     private async Task<BloodUnit> AddCrossmatchUnitAsync(BloodBankDbContext c, string productCode, string unitNumber)
     {
         var productType = new ProductType

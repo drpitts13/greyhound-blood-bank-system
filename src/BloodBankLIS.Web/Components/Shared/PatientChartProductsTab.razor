@@ -40,9 +40,9 @@
                         <td><span class="@Ui.Badge(a.UnitStatus)">@Ui.StatusLabel(a.UnitStatus)</span></td>
                         <td>
                             <div class="flex gap" style="flex-wrap:wrap;">
-                                @if (Session.Has(PermissionCodes.CompatibilityCrossmatch) && a.RequiresCrossmatch)
+                                @if (Session.Has(PermissionCodes.CompatibilityCrossmatch) && NeedsCrossmatchEntry(a))
                                 {
-                                    <a class="btn btn-ghost btn-sm" href="@CompatibilityHref.Invoke(a.SpecimenId, a.BloodUnitId)">Crossmatch</a>
+                                    <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnBeginCrossmatch.InvokeAsync(a)">Crossmatch</button>
                                 }
                                 @if (Session.Has(PermissionCodes.InventoryModify) && a.IssueId is null && a.AllocationStatus == AllocationStatus.Reserved)
                                 {
@@ -356,7 +356,6 @@
     [Parameter] public EventCallback<string> ReleaseReasonChanged { get; set; }
     [Parameter] public IReadOnlyList<AntibodyIdWorkupListItemDto> OpenAbidWorkups { get; set; } = [];
     [Parameter] public string AbidHref { get; set; } = "/antibody-id";
-    [Parameter] public Func<long?, long?, string> CompatibilityHref { get; set; } = (_, _) => "/compatibility";
     [Parameter] public IEnumerable<DirectoryUserDto> SecondVerifierChoices { get; set; } = [];
     [Parameter] public IEnumerable<SpecialRequirementDto> AcknowledgmentSpecialRequirements { get; set; } = [];
     [Parameter] public IReadOnlyList<EncounterDto> Encounters { get; set; } = [];
@@ -395,6 +394,7 @@
     [Parameter] public EventCallback OnCancelRelease { get; set; }
     [Parameter] public EventCallback<long?> OnAllocUnitChanged { get; set; }
     [Parameter] public EventCallback<PatientAllocationRowDto> OnBeginAutoThaw { get; set; }
+    [Parameter] public EventCallback<PatientAllocationRowDto> OnBeginCrossmatch { get; set; }
     [Parameter] public EventCallback OnReserve { get; set; }
     [Parameter] public long PatientId { get; set; }
 
@@ -417,6 +417,14 @@
         var type = action.ModificationType?.ToString() ?? string.Empty;
         return $"/inventory/modify?unitId={allocation.BloodUnitId}&orderActionId={action.Id}&modificationType={type}&returnUrl={returnUrl}";
     }
+
+    private static bool NeedsCrossmatchEntry(PatientAllocationRowDto allocation) =>
+        CrossmatchEntryNeed.ForAllocation(
+            allocation.RequiresCrossmatch,
+            allocation.CrossmatchResult,
+            allocation.CrossmatchTestCode,
+            allocation.AllocationStatus,
+            allocation.IssueId);
 
     private bool CanOfferAutoThaw(PatientAllocationRowDto allocation) =>
         Session.Has(PermissionCodes.CompatibilityAllocate)

@@ -1615,21 +1615,22 @@ public sealed class ResultService
             }
 
             var interpretation = $"Unit: {request.UnitNumber.Trim()}";
-            string value;
-            if (request.Subtests is { Count: > 0 })
+            var configured = await GetPanelSubtestsForCodeAsync(normalizedCode, ct);
+            var provided = request.Subtests ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var missing = configured
+                .Where(c => c.Required && !HasCellReaction(provided, c.Code))
+                .Select(c => c.Code)
+                .ToList();
+            if (missing.Count > 0)
             {
-                var configured = await GetPanelSubtestsForCodeAsync(normalizedCode, ct);
-                var missing = configured
-                    .Where(c => c.Required && !request.Subtests.ContainsKey(c.Code))
-                    .Select(c => c.Code)
-                    .ToList();
-                if (missing.Count > 0)
-                {
-                    return OperationResult<(string, string?, string?)>.Fail(
-                        $"Required cell reaction subtests missing: {string.Join(", ", missing)}.");
-                }
+                return OperationResult<(string, string?, string?)>.Fail(
+                    $"Required cell reactions missing: {string.Join(", ", missing)}.");
+            }
 
-                value = PanelResultValue.Format(request.Subtests);
+            string value;
+            if (provided.Count > 0)
+            {
+                value = PanelResultValue.Format(provided);
                 interpretation = $"{interpretation}; {request.CrossmatchResult.Value}";
             }
             else
@@ -1864,6 +1865,19 @@ public sealed class ResultService
         await _unitOfWork.SaveChangesAsync(ct);
         var warnings = await ValidateAgainstCatalogAsync(existing.TestCode, value, ct);
         return OperationResult<TestResult>.Ok(existing, warnings);
+    }
+
+    private static bool HasCellReaction(IReadOnlyDictionary<string, string> provided, string code)
+    {
+        if (provided.TryGetValue(code, out var direct) && !string.IsNullOrWhiteSpace(direct))
+        {
+            return true;
+        }
+
+        var prefix = code + PhaseResultKeys.Separator;
+        return provided.Any(pair =>
+            pair.Key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(pair.Value));
     }
 
     /// <summary>

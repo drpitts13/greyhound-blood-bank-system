@@ -38,6 +38,14 @@ public sealed record CompatibleUnitDto(
     string BloodType,
     DateTime ExpiresUtc);
 
+public sealed record EnsureManualCrossmatchLineRequest(string TestCode);
+
+public sealed record ManualCrossmatchLineDto(
+    long OrderId,
+    long OrderLineId,
+    long SpecimenId,
+    string TestCode);
+
 public sealed record CrossmatchTestOptionDto(
     string Code,
     string Name,

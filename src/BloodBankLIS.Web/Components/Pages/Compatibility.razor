@@ -54,8 +54,20 @@
                         Placeholder="Search accession" />
                 </div>
                 <div class="field"><label>Method</label>
-                    <select @bind="_xm.Method">@foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@m</option> }</select>
+                    <select @bind="_xm.Method" @bind:after="OnXmMethodChanged">@foreach (var m in Enum.GetValues<CrossmatchMethod>()) { <option value="@m">@m</option> }</select>
                 </div>
+                @if (_xm.Method != CrossmatchMethod.Electronic)
+                {
+                    <div class="field"><label>Crossmatch test</label>
+                        <select value="@_xmTestCode" @onchange="OnXmTestChanged">
+                            <option value="">Select test</option>
+                            @foreach (var test in _xmTests)
+                            {
+                                <option value="@test.Code">@test.Code — @test.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
                 <div class="field"><label>Result</label>
                     <select @bind="_xm.Result">@foreach (var r in Enum.GetValues<CrossmatchResult>()) { <option value="@r">@r</option> }</select>
                 </div>
@@ -63,6 +75,10 @@
                     <select @bind="_xm.ScreenNegative"><option value="true">Negative</option><option value="false">Positive</option></select>
                 </div>
             </div>
+            @if (_xm.Method != CrossmatchMethod.Electronic && _xmDefinition is not null)
+            {
+                <CrossmatchReactionFields Subtests="_xmDefinition.PanelSubtests" Values="_xmReactions" ValuesChanged="OnXmReactionsChanged" />
+            }
             <div class="field"><label>Comment</label><input @bind="_xm.Comment" /></div>
             <button class="btn btn-primary" disabled="@(_busy || _xm.BloodUnitId is null || _xm.PatientId == 0 || _xm.SpecimenId == 0)" @onclick="RecordCrossmatchAsync">Record crossmatch</button>
             @if (_lastCrossmatch is not null)
@@ -238,6 +254,11 @@
             _xm.SpecimenId = specimenId;
             _alloc.SpecimenId = specimenId;
         }
+
+        if (_xm.PatientId != 0)
+        {
+            await LoadXmTestsAsync();
+        }
     }
 
     private void PreferCurrentSpecimen()
@@ -256,6 +277,9 @@
         if (_xm.PatientId == 0)
         {
             _xmSpecimens = new();
+            _xmTests = [];
+            _xmTestCode = null;
+            _xmDefinition = null;
             return;
         }
 
@@ -264,6 +288,90 @@
         if (!r.Succeeded)
         {
             _xmFb = r.ToFeedback();
+        }
+
+        await LoadXmTestsAsync();
+    }
+
+    private async Task LoadXmTestsAsync()
+    {
+        if (_xm.PatientId == 0)
+        {
+            _xmTests = [];
+            _xmTestCode = null;
+            _xmDefinition = null;
+            return;
+        }
+
+        var tests = await Api.GetPatientCrossmatchTestsAsync(_xm.PatientId);
+        _xmTests = (tests.Value ?? [])
+            .Where(t => !CrossmatchEntryNeed.IsElectronic(t.Code))
+            .OrderBy(t => t.Code, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (!tests.Succeeded)
+        {
+            _xmFb = tests.ToFeedback();
+        }
+
+        if (!string.IsNullOrWhiteSpace(_xmTestCode)
+            && _xmTests.Any(t => string.Equals(t.Code, _xmTestCode, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        _xmTestCode = null;
+        _xmDefinition = null;
+        _xmReactions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (_xm.BloodUnitId is long unitId)
+        {
+            var allocations = await Api.GetPatientAllocationsAsync(_xm.PatientId);
+            var match = allocations.Value?.FirstOrDefault(a => a.BloodUnitId == unitId);
+            if (!string.IsNullOrWhiteSpace(match?.CrossmatchTestCode)
+                && _xmTests.Any(t => string.Equals(t.Code, match.CrossmatchTestCode, StringComparison.OrdinalIgnoreCase)))
+            {
+                _xmTestCode = match.CrossmatchTestCode;
+                await LoadXmDefinitionAsync();
+            }
+        }
+    }
+
+    private Task OnXmMethodChanged()
+    {
+        if (_xm.Method == CrossmatchMethod.Electronic)
+        {
+            _xmDefinition = null;
+            _xmReactions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task OnXmTestChanged(ChangeEventArgs e)
+    {
+        _xmTestCode = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString();
+        _xmReactions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        await LoadXmDefinitionAsync();
+    }
+
+    private Task OnXmReactionsChanged(Dictionary<string, string> values)
+    {
+        _xmReactions = values;
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadXmDefinitionAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_xmTestCode))
+        {
+            _xmDefinition = null;
+            return;
+        }
+
+        var definition = await Api.GetTestDefinitionForEntryAsync(_xmTestCode);
+        _xmDefinition = definition.Succeeded ? definition.Value : null;
+        if (!definition.Succeeded)
+        {
+            _xmFb = definition.ToFeedback();
         }
     }
 
@@ -289,8 +397,35 @@
         return $"{s.AccessionNumber} — {s.SpecimenType} ({s.Status}{expires})";
     }
 
+    private List<CrossmatchTestOptionDto> _xmTests = [];
+    private string? _xmTestCode;
+    private TestDefinitionForEntryDto? _xmDefinition;
+    private Dictionary<string, string> _xmReactions = new(StringComparer.OrdinalIgnoreCase);
+
     private async Task RecordCrossmatchAsync()
     {
+        if (_xm.Method != CrossmatchMethod.Electronic)
+        {
+            if (string.IsNullOrWhiteSpace(_xmTestCode))
+            {
+                _xmFb = Feedback.Fail("Select the crossmatch test type.");
+                return;
+            }
+
+            var missing = CrossmatchReactionValidation.MissingRequired(_xmDefinition?.PanelSubtests, _xmReactions);
+            if (missing.Count > 0)
+            {
+                _xmFb = Feedback.Fail($"Enter cell reactions: {string.Join(", ", missing)}.");
+                return;
+            }
+
+            if (_xmDefinition?.PanelSubtests.Any(s => s.Required) == true)
+            {
+                await RecordCrossmatchOnOrderAsync();
+                return;
+            }
+        }
+
         _busy = true;
         var req = new RecordCrossmatchRequest(_xm.BloodUnitId!.Value, _xm.PatientId, _xm.SpecimenId, _xm.Method, _xm.Result, _xm.ScreenNegative,
             string.IsNullOrWhiteSpace(_xm.Comment) ? null : _xm.Comment);
@@ -312,6 +447,69 @@
         else
         {
             _xmFb = r.ToFeedback();
+        }
+    }
+
+    private async Task RecordCrossmatchOnOrderAsync()
+    {
+        if (_xm.Result is not (CrossmatchResult.Compatible or CrossmatchResult.Incompatible))
+        {
+            _xmFb = Feedback.Fail("Crossmatch result must be Compatible or Incompatible.");
+            return;
+        }
+
+        _busy = true;
+        var allocations = await Api.GetPatientAllocationsAsync(_xm.PatientId);
+        var allocation = allocations.Value?.FirstOrDefault(a =>
+            a.BloodUnitId == _xm.BloodUnitId
+            && a.AllocationStatus == AllocationStatus.Reserved
+            && a.IssueId is null);
+        if (!allocations.Succeeded || allocation is null)
+        {
+            _busy = false;
+            _xmFb = allocations.Succeeded
+                ? Feedback.Fail("Allocate this unit on the patient's product order before recording cell reactions.")
+                : allocations.ToFeedback();
+            return;
+        }
+
+        var line = await Api.EnsureManualCrossmatchLineAsync(_xm.PatientId, allocation.AllocationId, _xmTestCode!);
+        if (!line.Succeeded || line.Value is null)
+        {
+            _busy = false;
+            _xmFb = line.ToFeedback();
+            return;
+        }
+
+        var save = await Api.SaveTestResultAsync(new SaveTestResultRequest(
+            line.Value.SpecimenId,
+            line.Value.OrderId,
+            line.Value.OrderLineId,
+            line.Value.TestCode,
+            null,
+            null,
+            string.IsNullOrWhiteSpace(_xm.Comment) ? null : _xm.Comment,
+            null,
+            null,
+            _xmReactions,
+            MarkComplete: false,
+            CorrectionReason: null,
+            UnitNumber: allocation.UnitNumber,
+            CrossmatchMethod: _xm.Method,
+            CrossmatchResult: _xm.Result,
+            AntibodyScreenNegative: _xm.ScreenNegative));
+        _busy = false;
+        _xmFb = save.Succeeded
+            ? Feedback.Succeed($"Crossmatch recorded for unit {allocation.UnitNumber}.")
+            : save.ToFeedback();
+        if (save.Succeeded)
+        {
+            _alloc.BloodUnitId = _xm.BloodUnitId;
+            _alloc.PatientId = _xm.PatientId;
+            if (_xm.SpecimenId != 0)
+            {
+                _alloc.SpecimenId = _xm.SpecimenId;
+            }
         }
     }
 

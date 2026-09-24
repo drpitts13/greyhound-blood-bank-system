@@ -142,6 +142,7 @@ public sealed class PatientAllocationService
             .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.PerformedUtc).First());
 
         var orderIds = allocations.Where(a => a.OrderId.HasValue).Select(a => a.OrderId!.Value).Distinct().ToList();
+        var xmCodeByOrder = await CrossmatchTestCodeByOrderAsync(orderIds, ct);
         var pendingByOrder = await LoadPendingActionsAsync(orderIds, ct);
         var pendingAutoThaw = _autoThaw is null
             ? new HashSet<long>()
@@ -183,7 +184,7 @@ public sealed class PatientAllocationService
                 display,
                 allocation.Status,
                 xm?.Result,
-                null,
+                allocation.OrderId is long xmOrderId && xmCodeByOrder.TryGetValue(xmOrderId, out var xmCode) ? xmCode : null,
                 allocation.OrderId,
                 allocation.EncounterId,
                 allocation.SpecimenId,
@@ -878,4 +879,32 @@ public sealed class PatientAllocationService
     private static bool RequiresCrossmatch(ProductType? product) =>
         product is not null
         && CrossmatchApplicability.RequiresCrossmatch(product.ComponentClass, product.RequiresCrossmatch);
+
+    private async Task<Dictionary<long, string>> CrossmatchTestCodeByOrderAsync(
+        IReadOnlyList<long> orderIds,
+        CancellationToken ct)
+    {
+        var codes = new Dictionary<long, string>();
+        if (_orderLines is null || orderIds.Count == 0)
+        {
+            return codes;
+        }
+
+        var lines = await _orderLines.ListAsync(
+            l => orderIds.Contains(l.OrderId) && l.IsActive && l.LineCategory == OrderCategory.Test, ct);
+        foreach (var line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line.TestCode) || !OrderLineBuilder.IsCrossmatchTestCode(line.TestCode))
+            {
+                continue;
+            }
+
+            if (!codes.TryGetValue(line.OrderId, out var existing) || CrossmatchEntryNeed.IsElectronic(existing))
+            {
+                codes[line.OrderId] = line.TestCode;
+            }
+        }
+
+        return codes;
+    }
 }

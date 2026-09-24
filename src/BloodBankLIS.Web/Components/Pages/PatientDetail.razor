@@ -293,7 +293,6 @@ else
             @bind-ReleaseReason="_releaseReason"
             OpenAbidWorkups="OpenAbidWorkups"
             AbidHref="@AbidHref()"
-            CompatibilityHref="CompatibilityHref"
             SecondVerifierChoices="SecondVerifierChoices"
             AcknowledgmentSpecialRequirements="AcknowledgmentSpecialRequirements"
             Encounters="_encounters"
@@ -329,6 +328,7 @@ else
             OnCancelRelease="CancelReleaseAllocation"
             OnAllocUnitChanged="OnAllocUnitChanged"
             OnBeginAutoThaw="BeginAutoThaw"
+            OnBeginCrossmatch="BeginCrossmatch"
             OnReserve="AllocateUnitAsync" />
     }
 
@@ -370,6 +370,15 @@ else
                 </div>
             </div>
         </div>
+    }
+
+    @if (_crossmatchRow is not null)
+    {
+        <CrossmatchEntryDialog
+            PatientId="Id"
+            Allocation="_crossmatchRow"
+            OnClose="CancelCrossmatch"
+            OnSaved="OnCrossmatchSavedAsync" />
     }
 }
 
@@ -581,6 +590,7 @@ else
     private long? _allocatingOrderId;
     private Feedback? _allocFb;
     private PatientAllocationRowDto? _autoThawRow;
+    private PatientAllocationRowDto? _crossmatchRow;
     private bool _autoThawAsk;
     private DateTime _autoThawLocal;
     private List<CompatibleUnitDto> _compatibleUnits = new();
@@ -966,6 +976,7 @@ else
 
     private void BeginReleaseAllocation(PatientAllocationRowDto a)
     {
+        _crossmatchRow = null;
         _issuingAllocation = null;
         _showIssueOverride = false;
         _issueFb = null;
@@ -976,6 +987,7 @@ else
     private void BeginIssueAllocation(PatientAllocationRowDto a)
     {
         _autoThawRow = null;
+        _crossmatchRow = null;
         _releasingAllocationId = null;
         _issuingAllocation = a;
         _issueFb = null;
@@ -1251,8 +1263,27 @@ else
         }
     }
 
+    private void BeginCrossmatch(PatientAllocationRowDto allocation)
+    {
+        _issuingAllocation = null;
+        _releasingAllocationId = null;
+        _autoThawRow = null;
+        _crossmatchRow = allocation;
+    }
+
+    private void CancelCrossmatch() => _crossmatchRow = null;
+
+    private async Task OnCrossmatchSavedAsync()
+    {
+        _crossmatchRow = null;
+        _allocFb = Feedback.Succeed("Crossmatch recorded.");
+        await LoadAllocationsAsync();
+        await LoadOrdersAsync();
+    }
+
     private void BeginAutoThaw(PatientAllocationRowDto allocation)
     {
+        _crossmatchRow = null;
         _autoThawRow = allocation;
         _autoThawAsk = false;
         _autoThawLocal = LocalMinuteNow();
