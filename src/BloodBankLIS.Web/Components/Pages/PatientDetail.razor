@@ -180,6 +180,9 @@ else
             CanVerifyPostedOrderResult="CanVerifyPostedOrderResult"
             OnToggleAdd="ToggleAddOrder"
             OnSave="AddOrderAsync"
+            @bind-NewVisitNumber="_newVisitNumber"
+            @bind-NewVisitAdmit="_newVisitAdmit"
+            OnSaveVisit="AddVisitAsync"
             OnRefresh="LoadOrdersAsync"
             OnToggleNewOrderGrouper="OnOrdersToggleNewGrouper"
             OnToggleNewOrderTest="OnOrdersToggleNewTest"
@@ -1460,7 +1463,11 @@ else
         if (_productTypes.Count == 0) _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
     }
 
-    private void ToggleAddVisit() => _showAddVisit = !_showAddVisit;
+    private void ToggleAddVisit()
+    {
+        _showAddVisit = !_showAddVisit;
+        if (_showAddVisit) SuggestVisit();
+    }
 
     private async Task ToggleAddOrder()
     {
@@ -1469,10 +1476,18 @@ else
         {
             await EnsureWorkspaceRefsAsync();
             if (!_visitsLoaded) await LoadVisitsAsync();
+            if (_encounters.Count == 0) SuggestVisit();
             if (_encounters.Count > 0 && _newOrderEncounterId == 0) _newOrderEncounterId = _encounters[0].Id;
             _newOrderAccessionNow = false;
             _orderAcc = new();
         }
+    }
+
+    private void SuggestVisit()
+    {
+        if (string.IsNullOrWhiteSpace(_newVisitNumber))
+            _newVisitNumber = $"VIS-{DateTime.Now:yyyyMMdd}-{Id}";
+        _newVisitAdmit ??= DateTime.Now;
     }
 
     private async Task OpenAddOrderWithAccessionAsync()
@@ -1492,7 +1507,13 @@ else
 
     private async Task AddVisitAsync()
     {
-        if (string.IsNullOrWhiteSpace(_newVisitNumber)) { _visitFb = Feedback.Fail("Visit number is required."); return; }
+        if (string.IsNullOrWhiteSpace(_newVisitNumber))
+        {
+            var missing = Feedback.Fail("Visit number is required.");
+            _visitFb = missing;
+            if (_showAddOrder) _orderFb = missing;
+            return;
+        }
         _busy = true;
         DateTime? admit = _newVisitAdmit.HasValue
             ? DateTime.SpecifyKind(_newVisitAdmit.Value, DateTimeKind.Utc)
@@ -1504,12 +1525,22 @@ else
             null, _newVisitLocation, null, null, "Manual", null);
         var r = await Api.CreatePatientEncounterAsync(Id, req);
         _busy = false;
-        if (!r.Succeeded) { _visitFb = r.ToFeedback(); return; }
-        _visitFb = r.ToFeedback($"Visit {_newVisitNumber} added.");
+        if (!r.Succeeded)
+        {
+            _visitFb = r.ToFeedback();
+            if (_showAddOrder) _orderFb = _visitFb;
+            return;
+        }
+        var addedNumber = _newVisitNumber.Trim();
+        _visitFb = r.ToFeedback($"Visit {addedNumber} added.");
+        if (_showAddOrder) _orderFb = _visitFb;
         _showAddVisit = false;
         _newVisitNumber = string.Empty;
         _visitsLoaded = false;
         await LoadVisitsAsync();
+        var added = _encounters.FirstOrDefault(e => e.VisitNumber == addedNumber);
+        if (_showAddOrder && added is not null)
+            _newOrderEncounterId = added.Id;
     }
 
     private void OnOrdersToggleNewTest((string Code, ChangeEventArgs Event) args) =>
@@ -1712,11 +1743,10 @@ else
             : ResolveOrderSpecimenType(specimenId);
         _orderFb = WithSpecimenTypeWarning(
             r.ToFeedback(specimenId is > 0
-                ? $"Order {orderNumber} created and linked to the specimen."
-                : $"Order {orderNumber} created."),
+                ? $"Order {orderNumber} created and linked to the specimen. The form stays open for another order on this visit."
+                : $"Order {orderNumber} created. The form stays open for another order on this visit."),
             _newOrderTestCodes,
             chosenType);
-        _showAddOrder = false;
         _newOrderTestCodes.Clear();
         _newOrderGrouperCodes.Clear();
         _newOrderProductTypeIds.Clear();

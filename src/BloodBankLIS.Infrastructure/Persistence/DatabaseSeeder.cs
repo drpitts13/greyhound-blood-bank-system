@@ -74,6 +74,7 @@ public static partial class DatabaseSeeder
         await SeedLocationsAsync(context, cancellationToken);
         await SeedOrderingLocationsAsync(context, cancellationToken);
         await SeedOrderingProvidersAsync(context, cancellationToken);
+        await SeedBloodSuppliersAsync(context, cancellationToken);
         await SeedChargeMasterAsync(context, cancellationToken);
         await SeedBillingCatalogsAsync(context, cancellationToken);
         await SeedActionCatalogAsync(context, cancellationToken);
@@ -2698,6 +2699,25 @@ public static partial class DatabaseSeeder
                 new OrderingLocation { Code = "ED", Name = "Emergency Department", Department = "Emergency", IsActive = true },
                 new OrderingLocation { Code = "OPLAB", Name = "Outpatient Lab", Department = "Laboratory", IsActive = true },
                 new OrderingLocation { Code = "LEGACY", Name = "Legacy Ordering Location", IsActive = true }
+            ],
+            ct);
+    }
+
+    private static async Task SeedBloodSuppliersAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        await AddMissingByCodeAsync(
+            context,
+            context.BloodSuppliers,
+            (BloodSupplier s) => s.Code,
+            [
+                new BloodSupplier
+                {
+                    Code = "ARC",
+                    Name = "American Red Cross",
+                    Registration = "FDA-1234567",
+                    Address = "National blood supplier",
+                    IsActive = true
+                }
             ],
             ct);
     }

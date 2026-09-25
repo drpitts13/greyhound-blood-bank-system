@@ -14,7 +14,18 @@
         <div class="alert alert-info" style="margin-bottom:.75rem;">
             @if (Encounters.Count == 0)
             {
-                <p class="muted">Add a visit before placing an order.</p>
+                <p class="muted">A visit is required before an order can be placed. The number and admit time are filled in so you can save the visit and continue with the order.</p>
+                <div class="form-row">
+                    <div class="field">
+                        <label>Visit number</label>
+                        <input class="mono" @bind="NewVisitNumber" @bind:after="() => NewVisitNumberChanged.InvokeAsync(NewVisitNumber)" />
+                    </div>
+                    <div class="field">
+                        <label>Admit (local)</label>
+                        <input type="datetime-local" @bind="NewVisitAdmit" @bind:after="() => NewVisitAdmitChanged.InvokeAsync(NewVisitAdmit)" />
+                    </div>
+                </div>
+                <button type="button" class="btn btn-primary" disabled="@Busy" @onclick="OnSaveVisit">Save visit</button>
             }
             else
             {
@@ -567,6 +578,11 @@
     [Parameter] public Func<PatientOrderDto, bool> CanVerifyPostedOrderResult { get; set; } = _ => false;
     [Parameter] public EventCallback OnToggleAdd { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public string NewVisitNumber { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> NewVisitNumberChanged { get; set; }
+    [Parameter] public DateTime? NewVisitAdmit { get; set; }
+    [Parameter] public EventCallback<DateTime?> NewVisitAdmitChanged { get; set; }
+    [Parameter] public EventCallback OnSaveVisit { get; set; }
     [Parameter] public EventCallback OnRefresh { get; set; }
     [Parameter] public EventCallback<(TestGrouperListItemDto Grouper, ChangeEventArgs Event)> OnToggleNewOrderGrouper { get; set; }
     [Parameter] public EventCallback<(string Code, ChangeEventArgs Event)> OnToggleNewOrderTest { get; set; }
