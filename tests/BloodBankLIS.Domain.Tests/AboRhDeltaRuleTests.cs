@@ -29,4 +29,13 @@ public class AboRhDeltaRuleTests
         Assert.Equal(RuleSeverity.Warning, result.Severity);
         Assert.Equal(AboRhDeltaRule.DeltaCode, result.Code);
     }
+
+    [Fact]
+    public void OpensOverride_OnlyForBlockedOverridableDelta()
+    {
+        Assert.True(AboRhDeltaRule.OpensOverride(true, true, [AboRhDeltaRule.DeltaCode]));
+        Assert.False(AboRhDeltaRule.OpensOverride(true, false, [AboRhDeltaRule.DeltaCode]));
+        Assert.False(AboRhDeltaRule.OpensOverride(false, true, [AboRhDeltaRule.DeltaCode]));
+        Assert.False(AboRhDeltaRule.OpensOverride(true, true, ["EXC-SECURITY-LEVEL"]));
+    }
 }

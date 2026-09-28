@@ -208,3 +208,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-200 | When an interface has replay turned off, staff cannot reapply that interface's stored messages from the HL7 log or error queue. | P1 | FRS-BB-235 |
 | URS-BB-201 | An inbound result that names an accepted specimen accession can post on that order without a separate link step. A specimen for another patient is not linked. | P1 | FRS-BB-236 |
 | URS-BB-202 | When a verified result is invalidated, its unexported test charge comes off the review queue with the invalidation. An already exported test charge stays, and the invalidation says so. | P3 | FRS-BB-237 |
+| URS-BB-203 | Staff who verify a posted ABO/Rh that disagrees with history can record the existing discrepancy override from the worklist or the order, without re-keying the result. | P0 | FRS-BB-238 |

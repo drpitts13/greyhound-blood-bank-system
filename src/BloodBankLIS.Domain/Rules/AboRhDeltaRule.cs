@@ -23,4 +23,13 @@ public static class AboRhDeltaRule
             ? RuleResult.Pass(DeltaCode)
             : RuleResult.Warning(DeltaCode, $"New ABO/Rh {newResult} disagrees with historical {current.Value}.");
     }
+
+    /// <summary>
+    /// A blocked, overridable verify that cites this rule should open the existing
+    /// override prompt. Other blocks stay as errors.
+    /// </summary>
+    public static bool OpensOverride(bool blocked, bool overridable, IEnumerable<string?> codes) =>
+        blocked
+        && overridable
+        && codes.Any(c => string.Equals(c, DeltaCode, StringComparison.Ordinal));
 }

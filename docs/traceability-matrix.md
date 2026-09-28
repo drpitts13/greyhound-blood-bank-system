@@ -274,6 +274,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-200 / FRS-BB-235 | Interface replay stays off when Replay allowed is unchecked | `Hl7InboundProcessor` | TEST-BB-089 | I | Does not claim AABB compliance |
 | URS-BB-201 / FRS-BB-236 | ORU links a named accepted specimen and posts | `Hl7InboundProcessor` | TEST-BB-090 | I | Does not claim AABB compliance |
 | URS-BB-202 / FRS-BB-237 | Invalidation cancels open test charges and warns when one is already exported | `BillingService`; `ResultEndpoints` | TEST-BB-091 | I | Does not claim AABB compliance |
+| URS-BB-203 / FRS-BB-238 | Posted ABO/Rh discrepancy verify opens the existing override | `AboRhDeltaRule`; `TestResultEntryPanel` | TEST-BB-092 | D | Does not claim AABB compliance |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

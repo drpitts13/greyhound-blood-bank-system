@@ -1552,3 +1552,35 @@ cancelling it required `billing.cancel`.
 
 Next workflow family: patient testing. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 50 — Posted ABO discrepancy opens the override (2026-09-28)
+
+Workflow-audit loop tick (patient testing). The specimen result already
+asked for a history resolution when a verified type disagreed with history.
+Verify posted result on the worklist and the Orders tab only showed the
+block, so staff had to re-key the type to reach the override.
+
+### Implemented
+
+- A blocked, overridable `RES-ABORH-DELTA` opens the existing retain or
+  replace override, with reason, authorizer, and signature.
+- The worklist entry panel and the patient Orders tab use that prompt and
+  then call verify. They do not re-save the result.
+- A user below the exception security level stays blocked. The discrepancy
+  remains a Warning.
+
+### Requirements / risk
+
+- URS-BB-203, FRS-BB-238, SRS-BB-200, RISK-BB-305.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-092 (`AboRhDeltaRuleTests.OpensOverride_OnlyForBlockedOverridableDelta`).
+- Full suite green: Domain 1387, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 872.
+
+### Next ranked residual
+
+Next workflow family: unit preparation. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

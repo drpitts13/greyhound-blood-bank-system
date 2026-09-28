@@ -371,7 +371,7 @@
                         <div class="field"><label>Meaning of signature</label><input @bind="_signatureMeaning" placeholder="I authorize ABO/Rh discrepancy override" /></div>
                         <div class="field"><label>Password / PIN</label><input type="password" @bind="_signatureSecret" /></div>
                         <div class="flex gap" style="margin-top:.5rem;">
-                            <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="SaveWithDeltaOverrideAsync">Sign &amp; verify with override</button>
+                            <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="CompleteDeltaOverrideAsync">Sign &amp; verify with override</button>
                             <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Cancel</button>
                         </div>
                     }
@@ -429,6 +429,7 @@
     private string _correctionReason = string.Empty;
     private bool _showSavePrompt;
     private bool _showDeltaOverride;
+    private bool _postedVerifyDelta;
     private string _overrideReason = string.Empty;
     private string _authorizedBy = string.Empty;
     private string _signatureMeaning = "I authorize ABO/Rh discrepancy override";
@@ -753,6 +754,14 @@
         _busy = true;
         var r = await Api.VerifyResultAsync(resultId);
         _busy = false;
+        if (AboRhDeltaRule.OpensOverride(r.Blocked, r.Overridable, r.Warnings.Select(w => w.Code).Concat(r.HardStops.Select(h => h.Code))))
+        {
+            _postedVerifyDelta = true;
+            await PrepareDeltaOverrideAsync();
+            _fb = r.ToFeedback();
+            return;
+        }
+
         _fb = r.ToFeedback("Posted result verified.");
         if (r.Succeeded)
         {
@@ -760,9 +769,62 @@
         }
     }
 
+    private async Task CompleteDeltaOverrideAsync()
+    {
+        if (_postedVerifyDelta)
+        {
+            await VerifyPostedWithDeltaOverrideAsync();
+            return;
+        }
+
+        await SaveWithDeltaOverrideAsync();
+    }
+
+    private async Task VerifyPostedWithDeltaOverrideAsync()
+    {
+        if (WorkItem.CurrentResultId is not long resultId)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_overrideReason) || string.IsNullOrWhiteSpace(_signatureMeaning))
+        {
+            _fb = Feedback.Fail("An override reason and a meaning-of-signature are required.");
+            return;
+        }
+
+        _busy = true;
+        var sig = await Api.RecordSignatureAsync(new SignatureRequestVm("ResultOverride", _signatureMeaning, "TestResult", ReauthenticationSecret: _signatureSecret));
+        if (!sig.Succeeded || sig.Value is null)
+        {
+            _busy = false;
+            _fb = sig.ToFeedback();
+            return;
+        }
+
+        var req = new VerifyResultRequest(
+            _overrideReason.Trim(),
+            string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy.Trim(),
+            _historyResolution,
+            sig.Value.Id);
+        var r = await Api.VerifyResultAsync(resultId, req, sig.Value.Id);
+        _busy = false;
+        _fb = r.Succeeded && r.Value is not null
+            ? r.ToFeedback(ResultSourceEntryCopy.VerifiedWithOverride(r.Value.Source))
+            : r.ToFeedback();
+        if (r.Succeeded)
+        {
+            _postedVerifyDelta = false;
+            _showDeltaOverride = false;
+            _overrideReason = string.Empty;
+            await OnSaved.InvokeAsync();
+        }
+    }
+
     private void CancelDeltaOverride()
     {
         _showDeltaOverride = false;
+        _postedVerifyDelta = false;
         _overrideReason = string.Empty;
     }
 

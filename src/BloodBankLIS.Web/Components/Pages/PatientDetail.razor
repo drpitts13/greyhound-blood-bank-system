@@ -125,6 +125,37 @@ else
 
     @if (_tab == "orders")
     {
+        @if (_deltaFromOrders && _deltaOverrideResultId is not null)
+        {
+            <div class="bb-card" style="background:#fff8f0;margin:.5rem 0;border:1px solid #e8c48a;">
+                <div style="margin-bottom:.5rem;"><strong>ABO/Rh historical discrepancy</strong></div>
+                <p class="muted" style="margin-bottom:.5rem;">The posted type disagrees with history. Choose whether to retain the historical type or replace it, then authorize the override.</p>
+                @if (!CanOverrideDelta)
+                {
+                    <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum required (@_deltaMinLevel) to override this exception.</div>
+                    <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Dismiss</button>
+                }
+                else
+                {
+                    <div class="form-row">
+                        <div class="field"><label>History resolution</label>
+                            <select @bind="_deltaHistoryResolution">
+                                <option value="@AboRhHistoryResolution.Retain">Retain historical type</option>
+                                <option value="@AboRhHistoryResolution.Replace">Replace with current result</option>
+                            </select>
+                        </div>
+                        <div class="field"><label>Authorized by</label><input @bind="_deltaAuthorizedBy" placeholder="@Session.UserName" /></div>
+                    </div>
+                    <div class="field"><label>Override reason</label><input @bind="_deltaOverrideReason" /></div>
+                    <div class="field"><label>Meaning of signature</label><input @bind="_deltaSignatureMeaning" /></div>
+                    <div class="field"><label>Password / PIN</label><input type="password" @bind="_deltaSignatureSecret" /></div>
+                    <div class="flex gap" style="margin-top:.5rem;">
+                        <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="VerifyWithDeltaOverrideAsync">Sign &amp; verify with override</button>
+                        <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Cancel</button>
+                    </div>
+                }
+            </div>
+        }
         <PatientChartOrdersTab
             Busy="_busy"
             Loading="_ordersLoading"
@@ -602,6 +633,7 @@ else
     private string _invalidateReason = string.Empty;
     private long? _deltaOverrideResultId;
     private long? _deltaOverrideSpecimenId;
+    private bool _deltaFromOrders;
     private string _deltaOverrideReason = string.Empty;
     private string _deltaAuthorizedBy = string.Empty;
     private string _deltaSignatureMeaning = "I authorize ABO/Rh discrepancy override";
@@ -2002,6 +2034,21 @@ else
         _busy = true;
         var r = await Api.VerifyResultAsync(resultId);
         _busy = false;
+        if (AboRhDeltaRule.OpensOverride(r.Blocked, r.Overridable, r.Warnings.Select(w => w.Code).Concat(r.HardStops.Select(h => h.Code))))
+        {
+            _deltaFromOrders = true;
+            _deltaOverrideResultId = resultId;
+            _deltaOverrideSpecimenId = o.SpecimenId;
+            var def = await Api.GetAdminExceptionByCodeAsync(AboRhDeltaRule.DeltaCode);
+            if (def.Succeeded && def.Value is not null)
+            {
+                _deltaMinLevel = def.Value.MinSecurityLevel;
+            }
+
+            _orderFb = r.ToFeedback();
+            return;
+        }
+
         _orderFb = r.Succeeded && r.Value is not null
             ? r.ToFeedback(ResultSourceEntryCopy.Verified(r.Value.Source))
             : r.ToFeedback();
@@ -2501,7 +2548,7 @@ else
         var r = await Api.VerifyResultAsync(resultId);
         _busy = false;
 
-        if (r.Blocked && r.Overridable && r.Warnings.Any(w => w.Code == AboRhDeltaRule.DeltaCode))
+        if (AboRhDeltaRule.OpensOverride(r.Blocked, r.Overridable, r.Warnings.Select(w => w.Code).Concat(r.HardStops.Select(h => h.Code))))
         {
             _deltaOverrideResultId = resultId;
             _deltaOverrideSpecimenId = specimenId;
@@ -2528,7 +2575,7 @@ else
 
     private async Task VerifyWithDeltaOverrideAsync()
     {
-        if (_deltaOverrideResultId is null || _deltaOverrideSpecimenId is null)
+        if (_deltaOverrideResultId is null)
         {
             return;
         }
@@ -2560,12 +2607,26 @@ else
             : r.ToFeedback();
         if (r.Succeeded)
         {
-            var specimenId = _deltaOverrideSpecimenId.Value;
+            var specimenId = _deltaOverrideSpecimenId;
+            var fromOrders = _deltaFromOrders;
             _deltaOverrideResultId = null;
             _deltaOverrideSpecimenId = null;
+            _deltaFromOrders = false;
             _deltaOverrideReason = string.Empty;
-            await ReloadResults(specimenId);
+            if (specimenId is long id)
+            {
+                await ReloadResults(id);
+            }
+
             await LoadHeaderType();
+            if (fromOrders)
+            {
+                await LoadOrdersAsync();
+                if (_testsLoaded)
+                {
+                    await LoadTestWorklistAsync();
+                }
+            }
         }
     }
 
@@ -2573,6 +2634,7 @@ else
     {
         _deltaOverrideResultId = null;
         _deltaOverrideSpecimenId = null;
+        _deltaFromOrders = false;
         _deltaOverrideReason = string.Empty;
     }
 
