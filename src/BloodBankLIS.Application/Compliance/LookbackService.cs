@@ -86,7 +86,10 @@ public sealed record LookbackNotificationDto(
     string? PhysicianOfRecord,
     DateTime? AttemptedUtc,
     string? AttemptedBy,
-    string? Notes)
+    string? Notes,
+    string? UnitNumber = null,
+    string? MedicalRecordNumber = null,
+    string? PatientName = null)
 {
     public static LookbackNotificationDto From(LookbackNotification n) => new(
         n.Id, n.Din, n.BloodProductId, n.PatientId, n.IssueId, n.Status,
@@ -178,7 +181,28 @@ public sealed class LookbackService
             normalized,
             units.Select(u => new LookbackUnitDto(u.Id, u.Din, u.UnitNumber, u.Status, u.Din != normalized)).ToList(),
             recipients,
-            notes.Select(LookbackNotificationDto.From).ToList()));
+            await ToNotificationDtosAsync(notes, ct)));
+    }
+
+    /// <summary>
+    /// Notifications that still need a consignee call. Completed and not-applicable
+    /// rows stay on the DIN report and leave this board.
+    /// </summary>
+    public async Task<OperationResult<IReadOnlyList<LookbackNotificationDto>>> ListOpenNotificationsAsync(
+        CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedFindAsync(ct);
+        if (denied is not null)
+        {
+            return OperationResult<IReadOnlyList<LookbackNotificationDto>>.Fail(denied.Error!);
+        }
+
+        var notes = await _notifications.ListAsync(
+            n => n.Status == LookbackNotificationStatus.Pending
+                || n.Status == LookbackNotificationStatus.Attempted,
+            ct);
+        return OperationResult<IReadOnlyList<LookbackNotificationDto>>.Ok(
+            await ToNotificationDtosAsync(notes, ct));
     }
 
     public async Task<OperationResult<LookbackReportDto>> RecallByDinAsync(string din, string reason, CancellationToken ct = default)
@@ -485,6 +509,30 @@ public sealed class LookbackService
             Status = LookbackNotificationStatus.Pending,
             Reason = reason.Trim()
         }, ct);
+    }
+
+    private async Task<List<LookbackNotificationDto>> ToNotificationDtosAsync(
+        IReadOnlyList<LookbackNotification> notes, CancellationToken ct)
+    {
+        var dtos = new List<LookbackNotificationDto>();
+        foreach (var note in notes.OrderBy(n => n.Id))
+        {
+            var unit = await _units.GetByIdAsync(note.BloodProductId, ct);
+            Patient? patient = null;
+            if (note.PatientId is long patientId)
+            {
+                patient = await _patients.GetByIdAsync(patientId, ct);
+            }
+
+            dtos.Add(LookbackNotificationDto.From(note) with
+            {
+                UnitNumber = unit?.UnitNumber,
+                MedicalRecordNumber = patient?.MedicalRecordNumber,
+                PatientName = FormatName(patient)
+            });
+        }
+
+        return dtos;
     }
 
     private static string? FormatName(Patient? patient)

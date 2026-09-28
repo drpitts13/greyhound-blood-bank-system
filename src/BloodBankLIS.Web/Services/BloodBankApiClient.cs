@@ -773,6 +773,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<SpecialRequirementDto>> DeactivateSpecialRequirementAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<SpecialRequirementDto>(HttpMethod.Post, $"api/special-requirements/{id}/deactivate", new ReasonRequestVm(reason), ct);
 
+    public Task<ApiResult<List<LookbackNotificationDto>>> GetOpenLookbackNotificationsAsync(CancellationToken ct = default) =>
+        SendAsync<List<LookbackNotificationDto>>(HttpMethod.Get, "api/lookback/notifications", ct: ct);
+
     public Task<ApiResult<LookbackReportDto>> LookbackAsync(string din, CancellationToken ct = default) =>
         SendAsync<LookbackReportDto>(HttpMethod.Get, $"api/lookback/{Uri.EscapeDataString(din)}", ct: ct);
 

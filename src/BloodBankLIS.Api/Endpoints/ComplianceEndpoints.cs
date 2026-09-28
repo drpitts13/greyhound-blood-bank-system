@@ -44,6 +44,9 @@ public static class ComplianceEndpoints
         group.MapGet("/recipient", async (string? mrn, long? patientId, LookbackService service, CancellationToken ct) =>
             EndpointResults.From(await service.FindByRecipientAsync(mrn, patientId, ct), r => r));
 
+        group.MapGet("/notifications", async (LookbackService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ListOpenNotificationsAsync(ct), r => r));
+
         group.MapGet("/{din}", async (string din, LookbackService service, CancellationToken ct) =>
             EndpointResults.From(await service.FindByDinAsync(din, ct), r => r));
 

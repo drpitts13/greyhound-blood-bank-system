@@ -273,7 +273,7 @@ flowchart TD
 
 Creating or closing a quality-system deviation requires `deviation.manage` (`DEV-PERM`) in the Application service.
 
-DIN lookback recall requires `lookback.manage` (`LK-RECALL-PERM`) in the Application service. Recording a recipient-notification attempt (`RecordAttemptAsync`) requires the same privilege (`LK-ATTEMPT-PERM`). Find-by-DIN and recipient traceback require `lookback.manage` (`LK-FIND-PERM` / `LK-TRACE-PERM`). Recall opens one notification for each issued or transfused component and does not add another row on a later recall. Issued components are still moved to Recalled. The LIS does not auto-notify patients.
+DIN lookback recall requires `lookback.manage` (`LK-RECALL-PERM`) in the Application service. Recording a recipient-notification attempt (`RecordAttemptAsync`) requires the same privilege (`LK-ATTEMPT-PERM`). Find-by-DIN and recipient traceback require `lookback.manage` (`LK-FIND-PERM` / `LK-TRACE-PERM`). Recall opens one notification for each issued or transfused component and does not add another row on a later recall. Issued components are still moved to Recalled. `/lookback` lists Pending and Attempted notifications without another DIN search, with unit number and patient name. Completed and not-applicable rows leave that board and remain on the DIN report. The LIS does not auto-notify patients.
 
 ---
 

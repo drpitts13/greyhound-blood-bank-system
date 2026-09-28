@@ -1677,3 +1677,33 @@ investigation. Staff could miss the follow-up.
 
 Next workflow family: lookback. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 54 — Lookback calls stay on the page (2026-09-28)
+
+Workflow-audit loop tick (lookback). Recall already opened one notification
+for an issued or transfused component. That row was visible only after
+searching the same DIN again, so the call dropped off the page.
+
+### Implemented
+
+- `/lookback` lists Pending and Attempted notifications on open, with the
+  unit number and patient name.
+- Completed and not-applicable rows leave that board. They remain on the
+  DIN report.
+- Recording an attempt still uses the existing update. Recall is unchanged.
+
+### Requirements / risk
+
+- URS-BB-207, FRS-BB-242, SRS-BB-204, RISK-BB-309.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-096 (`ComplianceWorkflowTests.ListOpenNotifications_IncludesPending_AndOmitsCompleted`).
+- Full suite green: Domain 1390, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 875.
+
+### Next ranked residual
+
+Next workflow family: HL7 process. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

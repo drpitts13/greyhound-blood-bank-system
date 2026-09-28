@@ -187,6 +187,85 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListOpenNotifications_IncludesPending_AndOmitsCompleted()
+    {
+        const string din = "W000088888888";
+        long pendingId;
+        long completedId;
+        await using (var c = _factory.Create())
+        {
+            var productType = new ProductType
+            {
+                ProductCode = "RBC-LB-OPEN",
+                Name = "Lookback open RBC",
+                ComponentClass = ComponentClass.RedBloodCells
+            };
+            c.ProductTypes.Add(productType);
+            var patient = new Patient
+            {
+                MedicalRecordNumber = "MRN-LB-OPEN",
+                LastName = "Open",
+                FirstName = "Recipient",
+                DateOfBirth = new DateOnly(1984, 4, 4)
+            };
+            c.Patients.Add(patient);
+            await c.SaveChangesAsync();
+
+            var pendingUnit = new BloodUnit
+            {
+                UnitNumber = "U-LB-OPEN",
+                ProductTypeId = productType.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Din = din,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+                Status = UnitStatus.Recalled
+            };
+            var completedUnit = new BloodUnit
+            {
+                UnitNumber = "U-LB-DONE",
+                ProductTypeId = productType.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Din = din,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+                Status = UnitStatus.Transfused
+            };
+            c.BloodUnits.AddRange(pendingUnit, completedUnit);
+            await c.SaveChangesAsync();
+            pendingId = pendingUnit.Id;
+            completedId = completedUnit.Id;
+            c.LookbackNotifications.AddRange(
+                new LookbackNotification
+                {
+                    Din = din,
+                    BloodProductId = pendingUnit.Id,
+                    PatientId = patient.Id,
+                    Status = LookbackNotificationStatus.Pending,
+                    Reason = "Still due"
+                },
+                new LookbackNotification
+                {
+                    Din = din,
+                    BloodProductId = completedUnit.Id,
+                    PatientId = patient.Id,
+                    Status = LookbackNotificationStatus.Completed,
+                    Reason = "Already called"
+                });
+            await c.SaveChangesAsync();
+        }
+
+        await using var c2 = _factory.Create();
+        var open = await Lookback(c2).ListOpenNotificationsAsync();
+        Assert.True(open.Succeeded, open.Error);
+        var row = Assert.Single(open.Value!, n => n.BloodProductId == pendingId);
+        Assert.Equal("U-LB-OPEN", row.UnitNumber);
+        Assert.Equal("MRN-LB-OPEN", row.MedicalRecordNumber);
+        Assert.Equal("Open, Recipient", row.PatientName);
+        Assert.DoesNotContain(open.Value!, n => n.BloodProductId == completedId);
+    }
+
+    [Fact]
     public async Task RecallByDin_RecallsCrossmatchedUnit()
     {
         const string din = "W000044444444";

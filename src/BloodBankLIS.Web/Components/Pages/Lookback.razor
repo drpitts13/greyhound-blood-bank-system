@@ -6,7 +6,7 @@
 <PageTitle>Lookback &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Lookback &amp; traceback</h1>
-<p class="muted">Donor lookback finds every component sharing a DIN. Recipient traceback lists units issued to a patient and other recipients of those donations. Recalling pulls in-stock components and opens one notification for each issued or transfused component. A later recall does not add a second row. The LIS does not auto-notify patients.</p>
+<p class="muted">Donor lookback finds every component sharing a DIN. Recipient traceback lists units issued to a patient and other recipients of those donations. Recalling pulls in-stock components and opens one notification for each issued or transfused component. Those calls stay on this page until they are completed. A later recall does not add a second row. The LIS does not auto-notify patients.</p>
 
 @if (!Session.Has(PermissionCodes.LookbackManage))
 {
@@ -14,6 +14,49 @@
 }
 else
 {
+    <div class="bb-card">
+        <div class="bb-card-title">
+            <h3>Notifications still due</h3>
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadOpenNotificationsAsync">Refresh</button>
+        </div>
+        <Outcome Value="_openFb" />
+        @if (_openNotes.Count == 0)
+        {
+            <div class="empty">No recipient notifications still due. Recall opens one row for each issued or transfused component.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>DIN</th><th>Unit</th><th>Patient</th><th>Status</th><th>Physician</th><th>Attempted</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var n in _openNotes)
+                    {
+                        <tr>
+                            <td class="mono">@n.Din</td>
+                            <td class="mono">@(n.UnitNumber ?? $"#{n.BloodProductId}")</td>
+                            <td>@PatientLabel(n)</td>
+                            <td>@n.Status</td>
+                            <td>@(n.PhysicianOfRecord ?? "—")</td>
+                            <td class="nowrap">@(n.AttemptedUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</td>
+                            <td class="right nowrap">
+                                @if (n.PatientId is long openChartId)
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{openChartId}")">Open chart</a>
+                                }
+                                <button class="btn btn-ghost btn-sm" @onclick="() => SearchDinFromTrace(n.Din)">Open DIN</button>
+                                <button class="btn btn-ghost btn-sm" @onclick="() => BeginAttempt(n)">Record attempt</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        @if (_attemptId is not null && _report is null)
+        {
+            @AttemptForm
+        }
+    </div>
+
     <div class="flex gap" style="margin-bottom:1rem;">
         <button class="@ModeClass(LookbackMode.Din)" @onclick="() => SwitchMode(LookbackMode.Din)">DIN lookback</button>
         <button class="@ModeClass(LookbackMode.Recipient)" @onclick="() => SwitchMode(LookbackMode.Recipient)">Recipient traceback</button>
@@ -119,15 +162,15 @@ else
                             {
                                 <tr>
                                     <td>@n.Id</td>
-                                    <td class="mono">@UnitLabel(n.BloodProductId)</td>
+                                    <td class="mono">@(n.UnitNumber ?? UnitLabel(n.BloodProductId))</td>
                                     <td>
                                         @if (n.PatientId is long notePatientId)
                                         {
-                                            <a href="@($"/patients/{notePatientId}")">#@notePatientId</a>
+                                            <a href="@($"/patients/{notePatientId}")">@PatientLabel(n)</a>
                                         }
                                         else
                                         {
-                                            <span>—</span>
+                                            <span>@PatientLabel(n)</span>
                                         }
                                     </td>
                                     <td>@n.Status</td>
@@ -148,17 +191,7 @@ else
 
                 @if (_attemptId is not null)
                 {
-                    <div class="alert alert-info" style="margin-top:1rem;">
-                        <div class="form-row">
-                            <div class="field"><label>Physician of record</label><input @bind="_physician" /></div>
-                            <div class="field"><label>Status</label>
-                                <select @bind="_attemptStatus">@foreach (var s in Enum.GetValues<LookbackNotificationStatus>()) { <option value="@s">@s</option> }</select>
-                            </div>
-                            <div class="field" style="grid-column:1/-1;"><label>Notes</label><input @bind="_attemptNotes" /></div>
-                        </div>
-                        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="SaveAttemptAsync">Save</button>
-                        <button class="btn btn-ghost btn-sm" @onclick="() => _attemptId = null">Cancel</button>
-                    </div>
+                    @AttemptForm
                 }
             </div>
         }
@@ -316,7 +349,9 @@ else
     private string _mrn = string.Empty;
     private bool _busy;
     private Feedback? _fb;
+    private Feedback? _openFb;
     private Feedback? _traceFb;
+    private List<LookbackNotificationDto> _openNotes = new();
     private LookbackReportDto? _report;
     private RecipientTraceReportDto? _trace;
     private long? _attemptId;
@@ -324,6 +359,14 @@ else
     private string? _attemptNotes;
     private LookbackNotificationStatus _attemptStatus = LookbackNotificationStatus.Attempted;
     private bool _autoTraced;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Session.Has(PermissionCodes.LookbackManage))
+        {
+            await LoadOpenNotificationsAsync();
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -349,6 +392,44 @@ else
         _fb = null;
         _traceFb = null;
     }
+
+    private async Task LoadOpenNotificationsAsync()
+    {
+        var r = await Api.GetOpenLookbackNotificationsAsync();
+        if (r.Succeeded)
+        {
+            _openNotes = r.Value ?? new();
+            _openFb = null;
+        }
+        else
+        {
+            _openFb = r.ToFeedback();
+        }
+    }
+
+    private static string PatientLabel(LookbackNotificationDto note)
+    {
+        if (!string.IsNullOrWhiteSpace(note.PatientName))
+        {
+            return string.IsNullOrWhiteSpace(note.MedicalRecordNumber)
+                ? note.PatientName
+                : $"{note.PatientName} ({note.MedicalRecordNumber})";
+        }
+
+        return note.PatientId is long id ? $"#{id}" : "—";
+    }
+
+    private RenderFragment AttemptForm => @<div class="alert alert-info" style="margin-top:1rem;">
+        <div class="form-row">
+            <div class="field"><label>Physician of record</label><input @bind="_physician" /></div>
+            <div class="field"><label>Status</label>
+                <select @bind="_attemptStatus">@foreach (var s in Enum.GetValues<LookbackNotificationStatus>()) { <option value="@s">@s</option> }</select>
+            </div>
+            <div class="field" style="grid-column:1/-1;"><label>Notes</label><input @bind="_attemptNotes" /></div>
+        </div>
+        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="SaveAttemptAsync">Save</button>
+        <button class="btn btn-ghost btn-sm" @onclick="() => _attemptId = null">Cancel</button>
+    </div>;
 
     private async Task SearchDinAsync()
     {
@@ -415,7 +496,11 @@ else
         if (r.Succeeded)
         {
             _attemptId = null;
-            await SearchDinAsync();
+            await LoadOpenNotificationsAsync();
+            if (!string.IsNullOrWhiteSpace(_din))
+            {
+                await SearchDinAsync();
+            }
         }
     }
 }
