@@ -118,5 +118,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-107 | I | `Phase7BillingTests.Cancel_UnsentDft_IsWithheldFromSend` | URS-BB-218 / FRS-BB-253 / RISK-BB-320 |
 | TEST-BB-108 | I | `TestWorklistTests.PendingWorklist_ExpiredSpecimen_DoesNotOfferVerify` | URS-BB-219 / FRS-BB-254 / RISK-BB-321 |
 | TEST-BB-109 | I | `ProductRetypeServiceTests.MatchingRetype_OutdatedUnit_DoesNotBecomeAvailable` | URS-BB-220 / FRS-BB-255 / RISK-BB-322 |
+| TEST-BB-110 | I | `Phase4IssuingTests.ListReadyToIssue_ExpiredSpecimen_DoesNotOfferIssue` | URS-BB-221 / FRS-BB-256 / RISK-BB-323 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

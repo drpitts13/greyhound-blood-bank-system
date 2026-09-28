@@ -683,7 +683,6 @@ public sealed class IssuingService
             .GroupBy(a => a.PatientId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(a => a.IsActive).ThenBy(a => a.AntibodySpecificity).ToList());
         var specimens = await _specimens.ListAsync(s => patientIds.Contains(s.PatientId), ct);
-        var specimensById = specimens.ToDictionary(s => s.Id);
         var xms = await _crossmatches.ListAsync(
             x => patientIds.Contains(x.PatientId), ct);
 
@@ -711,13 +710,10 @@ public sealed class IssuingService
                 requiresXm,
                 latestXm?.Result,
                 latestXm?.Result == CrossmatchResult.Incompatible);
-            var specimen = allocation.SpecimenId is long specimenId && specimensById.TryGetValue(specimenId, out var linked)
-                ? linked
-                : specimens
-                    .Where(s => s.PatientId == allocation.PatientId && s.Status == SpecimenStatus.Accepted)
-                    .OrderByDescending(s => s.CollectedUtc)
-                    .FirstOrDefault();
+            var specimen = SelectCurrentSpecimen(specimens.Where(s => s.PatientId == allocation.PatientId));
             var expires = specimen?.ExpiresUtc;
+            var specimenExpired = expires is DateTime exp && now >= exp;
+            var (specimenBlocksIssue, specimenBlockReason) = DescribeSpecimenBlock(specimen, specimenExpired);
             items.Add(new ReadyToIssueWorkItemDto(
                 allocation.Id,
                 allocation.PatientId,
@@ -730,11 +726,13 @@ public sealed class IssuingService
                 history is { Count: > 0 },
                 FormatReadyToIssueAntibodies(history),
                 expires,
-                expires is DateTime exp && exp <= now,
+                specimenExpired,
                 allocation.AllocatedUtc,
                 display,
                 latestXm?.Result,
-                needsSecondAbo));
+                needsSecondAbo,
+                specimenBlocksIssue,
+                specimenBlockReason));
         }
 
         return items;
@@ -1255,7 +1253,40 @@ public sealed class IssuingService
     private async Task<Specimen?> GetCurrentSpecimenAsync(long patientId, CancellationToken ct)
     {
         var accepted = await _specimens.ListAsync(s => s.PatientId == patientId && s.Status == SpecimenStatus.Accepted, ct);
-        return accepted.OrderByDescending(s => s.CollectedUtc).FirstOrDefault();
+        return SelectCurrentSpecimen(accepted);
+    }
+
+    /// <summary>
+    /// The specimen the issue gate will read: the latest accepted draw for the patient.
+    /// </summary>
+    private static Specimen? SelectCurrentSpecimen(IEnumerable<Specimen> specimens) =>
+        specimens
+            .Where(s => s.Status == SpecimenStatus.Accepted)
+            .OrderByDescending(s => s.CollectedUtc)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// Ready to issue uses the same specimen facts as <see cref="IssueGate"/>. A missing,
+    /// undated, or expired specimen is already a hard stop, including emergency release.
+    /// </summary>
+    private static (bool Blocks, string? Reason) DescribeSpecimenBlock(Specimen? specimen, bool specimenExpired)
+    {
+        if (specimen is null)
+        {
+            return (true, "No current specimen exists for this patient.");
+        }
+
+        if (specimen.ExpiresUtc is null)
+        {
+            return (true, "Specimen has no expiration date and cannot be validated.");
+        }
+
+        if (specimenExpired)
+        {
+            return (true, "Specimen has expired.");
+        }
+
+        return (false, null);
     }
 
     private async Task<bool> SpecialRequirementsSatisfiedAsync(

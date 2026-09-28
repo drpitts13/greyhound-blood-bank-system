@@ -195,7 +195,9 @@ public sealed record ReadyToIssueWorkItemDto(
     DateTime AllocatedUtc,
     ProductAllocationDisplayStatus DisplayStatus,
     CrossmatchResult? LatestCrossmatchResult,
-    bool NeedsSecondAbo = false);
+    bool NeedsSecondAbo = false,
+    bool SpecimenBlocksIssue = false,
+    string? SpecimenBlockReason = null);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,

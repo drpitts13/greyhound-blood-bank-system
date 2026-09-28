@@ -52,7 +52,7 @@
 
     <div class="bb-card">
         <div class="bb-card-title"><h3>Ready to issue</h3></div>
-        <p class="muted">Units reserved to a patient. Issue from the row prefills unit, MRN, and date of birth on the existing issue form. Red cells and whole blood that still need a second concordant ABO/Rh are marked and are not offered as a routine issue. Emergency release stays available for staff who can authorize it. The issue gate is unchanged.</p>
+        <p class="muted">Units reserved to a patient. Issue from the row prefills unit, MRN, and date of birth on the existing issue form. Red cells and whole blood that still need a second concordant ABO/Rh are marked and are not offered as a routine issue. Emergency release stays available for staff who can authorize it. A missing or expired current specimen is marked and is not offered for routine or emergency issue. The issue gate is unchanged.</p>
         @if (_readyItems.Count == 0)
         {
             <div class="muted">No reserved units waiting to issue.</div>
@@ -86,7 +86,12 @@
                             <td><span class="@Ui.Badge(row.DisplayStatus)">@Ui.StatusLabel(row.DisplayStatus)</span></td>
                             <td>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</td>
                             <td class="right nowrap">
-                                @if (row.NeedsSecondAbo)
+                                @if (row.SpecimenBlocksIssue)
+                                {
+                                    <span class="badge badge-red" title="@row.SpecimenBlockReason">Specimen</span>
+                                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">New specimen</a>
+                                }
+                                else if (row.NeedsSecondAbo)
                                 {
                                     <span class="badge badge-amber" title="Routine red-cell issue stays blocked until a second concordant ABO/Rh is on file.">Second ABO</span>
                                     <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=tests")">Enter type</a>

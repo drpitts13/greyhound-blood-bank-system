@@ -1625,6 +1625,60 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.True(rows.Single(r => r.BloodUnitId == missing.UnitId).NeedsSecondAbo);
         Assert.False(rows.Single(r => r.BloodUnitId == ready.UnitId).NeedsSecondAbo);
         Assert.False(rows.Single(r => r.BloodUnitId == plasma.UnitId).NeedsSecondAbo);
+        Assert.False(rows.Single(r => r.BloodUnitId == ready.UnitId).SpecimenBlocksIssue);
+    }
+
+    [Fact]
+    public async Task ListReadyToIssue_ExpiredSpecimen_DoesNotOfferIssue()
+    {
+        var expired = await SeedAsync("RDY-SPEX");
+        var current = await SeedAsync("RDY-SPOK");
+        await RecordCompatibleCrossmatchAsync(expired);
+        await RecordCompatibleCrossmatchAsync(current);
+        await AllocateAsync(expired);
+        await AllocateAsync(current);
+
+        await using (var c = _factory.Create())
+        {
+            var specimen = await c.Specimens.SingleAsync(s => s.Id == expired.SpecimenId);
+            specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+            await c.SaveChangesAsync();
+        }
+
+        await using (var ctx = _factory.Create())
+        {
+            var rows = await Issuing(ctx).ListReadyToIssueAllocationsAsync();
+            var blocked = rows.Single(r => r.BloodUnitId == expired.UnitId);
+            Assert.True(blocked.SpecimenBlocksIssue);
+            Assert.True(blocked.SpecimenExpired);
+            Assert.Contains("expired", blocked.SpecimenBlockReason, StringComparison.OrdinalIgnoreCase);
+            Assert.False(rows.Single(r => r.BloodUnitId == current.UnitId).SpecimenBlocksIssue);
+
+            var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(expired));
+            Assert.True(issued.Evaluation!.IsHardStopped);
+            Assert.Contains(issued.Evaluation.HardStops, r => r.Code == SpecimenExpirationRule.ExpiredCode);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            c.Specimens.Add(new Specimen
+            {
+                AccessionNumber = "ACC-RDY-SPNEW",
+                PatientId = expired.PatientId,
+                SpecimenType = "EDTA",
+                CollectedUtc = _factory.Clock.UtcNow.AddMinutes(-30),
+                ReceivedUtc = _factory.Clock.UtcNow.AddMinutes(-20),
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(2),
+                Status = SpecimenStatus.Accepted
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using var later = _factory.Create();
+        var refreshed = (await Issuing(later).ListReadyToIssueAllocationsAsync())
+            .Single(r => r.BloodUnitId == expired.UnitId);
+        Assert.False(refreshed.SpecimenBlocksIssue);
+        Assert.False(refreshed.SpecimenExpired);
     }
 
     [Fact]

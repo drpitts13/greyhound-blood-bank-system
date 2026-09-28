@@ -2095,3 +2095,31 @@ expiration, so an outdated unit became available stock.
 
 Next workflow family: assignment and issuing. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 68 — Ready to issue withholds an unusable specimen (2026-09-28)
+
+Workflow-audit loop tick (assignment and issuing). Ready to issue already
+showed a specimen expiration, and the issue gate already hard-stops a
+missing or expired specimen. The row still offered Issue, including when
+emergency release cannot pass that stop.
+
+### Implemented
+
+- Ready to issue reads the latest accepted specimen, the same specimen
+  the issue gate uses.
+- A missing, undated, or expired specimen is marked Specimen. The row
+  links to the chart specimens tab and does not offer Issue or Emergency.
+- A later in-date specimen clears that hold. Second ABO emergency release
+  is unchanged when the specimen can be used.
+- `SPEC-EXPIRED` and `ISS-SPEC-EXISTS` stay hard stops.
+
+### Requirements / risk
+
+- URS-BB-221, FRS-BB-256, SRS-BB-218, RISK-BB-323.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-110 (`Phase4IssuingTests.ListReadyToIssue_ExpiredSpecimen_DoesNotOfferIssue`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 889.

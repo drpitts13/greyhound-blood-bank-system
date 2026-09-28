@@ -226,3 +226,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-218 | Cancelling a charge before its DFT is sent does not leave that message available to send. | P1 | FRS-BB-253 |
 | URS-BB-219 | Staff are not offered Verify on a posted result when the specimen cannot be used. | P1 | FRS-BB-254 |
 | URS-BB-220 | A matching retype on an outdated unit does not put that unit into available stock. | P1 | FRS-BB-255 |
+| URS-BB-221 | Staff are not offered issue of a reserved unit when the current specimen is missing or expired. | P1 | FRS-BB-256 |
