@@ -2309,3 +2309,32 @@ verify still accepted a posted result on that order.
 
 Next workflow family: unit preparation. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 75 — Outdated expected units are not received (2026-09-28)
+
+Workflow-audit loop tick (unit preparation). A packing-list unit that
+passed its expiration still offered Confirm arrival. Receipt put it on
+the retype path instead of keeping it out of stock.
+
+### Implemented
+
+- Expected inbound marks that unit Outdated.
+- Confirm arrival is refused and is not offered.
+- The row and the unit page still return it to the supplier.
+- An in-date late arrival can still be received.
+
+### Requirements / risk
+
+- URS-BB-228, FRS-BB-263, SRS-BB-225, RISK-BB-330.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-117 (`InventoryServiceTests.ReceiveExpected_OutdatedUnit_DoesNotEnterStock`).
+- Full suite green: Domain 1402, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 895.
+
+### Next ranked residual
+
+Next workflow family: assignment and issuing. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

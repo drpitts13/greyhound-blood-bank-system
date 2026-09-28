@@ -31,7 +31,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Expected inbound</h3></div>
-        <p class="muted">Packing-list units that have not arrived. Confirm arrival here with appearance, cooler temperature, and a second verifier — the same receive gates as the Manage drawer. A unit that fails appearance or temperature is returned to the supplier from this row. Overdue after the facility arrival window (default 24 hours). Late arrival is still allowed.</p>
+        <p class="muted">Packing-list units that have not arrived. Confirm arrival here with appearance, cooler temperature, and a second verifier — the same receive gates as the Manage drawer. A unit that fails appearance or temperature is returned to the supplier from this row. An outdated unit says Outdated and is not received; return it to the supplier. Overdue after the facility arrival window (default 24 hours). Late arrival is still allowed.</p>
         @if (_expectedItems.Count == 0)
         {
             <div class="muted">No expected inbound units.</div>
@@ -63,7 +63,11 @@
                             <td>@row.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
                                 @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
-                                @if (row.IsOverdue)
+                                @if (row.IsOutdated)
+                                {
+                                    <span class="badge badge-red" title="This unit is outdated and cannot be received. Return it to the supplier.">Outdated</span>
+                                }
+                                else if (row.IsOverdue)
                                 {
                                     <span class="badge badge-amber">Overdue</span>
                                 }
@@ -71,8 +75,8 @@
                             <td class="right nowrap">
                                 @if (Session.Has(PermissionCodes.InventoryReceive))
                                 {
-                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ToggleExpectedConfirm(row.UnitId)">
-                                        @(_confirmingExpectedId == row.UnitId ? "Hide" : "Confirm")
+                                    <button class="btn @(row.IsOutdated ? "btn-ghost" : "btn-primary") btn-sm" disabled="@_busy" @onclick="() => ToggleExpectedConfirm(row.UnitId)">
+                                        @(_confirmingExpectedId == row.UnitId ? "Hide" : row.IsOutdated ? "Return" : "Confirm")
                                     </button>
                                 }
                                 <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a>
@@ -83,8 +87,17 @@
                             <tr>
                                 <td colspan="8">
                                     <div class="alert alert-info" style="margin:.25rem 0;">
-                                        <p class="muted" style="margin:0 0 .5rem;">Confirm arrival of <span class="mono">@row.UnitNumber</span> with the same visual and temperature gates as walk-in receive.</p>
+                                        @if (row.IsOutdated)
+                                        {
+                                            <p class="muted" style="margin:0 0 .5rem;">@row.UnitNumber is outdated and cannot be received. Return it to the supplier.</p>
+                                        }
+                                        else
+                                        {
+                                            <p class="muted" style="margin:0 0 .5rem;">Confirm arrival of <span class="mono">@row.UnitNumber</span> with the same visual and temperature gates as walk-in receive.</p>
+                                        }
                                         <Outcome Value="_actionFb" />
+                                        @if (!row.IsOutdated)
+                                        {
                                         <div class="form-row">
                                             <div class="field"><label>Appearance</label>
                                                 <select @bind="_arrivalAppearance">
@@ -116,8 +129,12 @@
                                         {
                                             <p class="muted" style="margin:.35rem 0 0;">This appearance is not received. Return the unit to the supplier.</p>
                                         }
+                                        }
                                         <div class="flex gap" style="margin-top:.5rem;flex-wrap:wrap;align-items:end;">
-                                            <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReceiveExpectedAsync(row.UnitId)">Confirm arrival</button>
+                                            @if (!row.IsOutdated)
+                                            {
+                                                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReceiveExpectedAsync(row.UnitId)">Confirm arrival</button>
+                                            }
                                             <div class="field" style="min-width:16rem;margin:0;">
                                                 <label>Return to supplier</label>
                                                 <input @bind="_supplierReturnReason" placeholder="Failed inspection / refused at dock" />

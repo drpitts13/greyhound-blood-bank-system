@@ -88,12 +88,14 @@ public sealed record ExpectedInboundWorkItemDto(
     string? Supplier,
     AboGroup Abo,
     RhType RhD,
-    long ProductTypeId)
+    long ProductTypeId,
+    bool IsOutdated = false)
 {
     public static ExpectedInboundWorkItemDto From(BloodUnit u, DateTime now) => new(
         u.Id, u.UnitNumber, u.CreatedUtc, u.ExpectedArrivalDueUtc,
         ExpectedArrivalPendingRule.EvaluateOverdue(u.ExpectedArrivalDueUtc, now).Severity == RuleSeverity.Warning,
-        u.ShipmentId, u.Supplier, u.Abo, u.RhD, u.ProductTypeId);
+        u.ShipmentId, u.Supplier, u.Abo, u.RhD, u.ProductTypeId,
+        BloodUnitExpirationRule.IsExpired(u.ExpiresUtc, now));
 }
 
 public sealed record NearExpiryWorkItemDto(

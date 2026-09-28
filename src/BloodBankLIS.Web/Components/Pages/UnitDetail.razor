@@ -133,6 +133,12 @@ else
                     }
                     @if (_unit.Status == UnitStatus.Expected && Session.Has(PermissionCodes.InventoryReceive))
                     {
+                        @if (BloodUnitExpirationRule.IsExpired(_unit.ExpiresUtc, DateTime.UtcNow))
+                        {
+                            <p class="muted" style="margin:0;">This unit is outdated and cannot be received. Return it to the supplier.</p>
+                        }
+                        else
+                        {
                         <div class="field" style="min-width:14rem;">
                             <label>Appearance</label>
                             <select @bind="_arrivalAppearance">
@@ -162,6 +168,7 @@ else
                             </div>
                         }
                         <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReceiveExpectedAsync(_unit.Id)">Confirm arrival</button>
+                        }
                         <div class="field" style="min-width:16rem;">
                             <label>Cancel reason</label>
                             <input @bind="_cancelExpectedReason" placeholder="Not shipped / cancelled ASN" />

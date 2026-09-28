@@ -562,6 +562,12 @@ public sealed class InventoryService
             return InventoryActionResult.Fail("Only an expected inbound unit can be confirmed on arrival.");
         }
 
+        if (BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow))
+        {
+            return InventoryActionResult.Fail(
+                "This unit is outdated and cannot be received. Return it to the supplier.");
+        }
+
         var appearance = await EvaluateReceiveAppearanceAsync(
             request.VisualInspectionAcceptable, request.Appearance, ct);
         if (appearance is not null)

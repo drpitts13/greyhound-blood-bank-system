@@ -984,6 +984,36 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ReceiveExpected_OutdatedUnit_DoesNotEnterStock()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var setup = _factory.Create())
+        {
+            var created = await CreateService(setup).ExpectUnitAsync(NewUnitRequest("U-EXPECT-OLD", productTypeId));
+            Assert.True(created.Succeeded, created.Error);
+            unitId = created.Unit!.Id;
+            var unit = await setup.BloodUnits.SingleAsync(u => u.Id == unitId);
+            unit.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var act = _factory.Create();
+        var service = CreateService(act);
+        var row = Assert.Single(await service.ListExpectedAsync(), i => i.UnitNumber == "U-EXPECT-OLD");
+        Assert.True(row.IsOutdated);
+
+        var result = await service.ReceiveExpectedUnitAsync(
+            unitId,
+            new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m));
+        Assert.False(result.Succeeded);
+        Assert.Contains("outdated", result.Error, StringComparison.OrdinalIgnoreCase);
+
+        var stored = await act.BloodUnits.SingleAsync(u => u.Id == unitId);
+        Assert.Equal(UnitStatus.Expected, stored.Status);
+    }
+
+    [Fact]
     public async Task ReceiveExpected_WhenOverdue_StillSucceedsAndAuditsLate()
     {
         var productTypeId = await EnsureProductTypeAsync();
