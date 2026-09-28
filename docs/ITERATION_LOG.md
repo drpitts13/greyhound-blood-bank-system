@@ -2368,3 +2368,33 @@ emergency release.
 
 Next workflow family: transfusion reactions. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 77 — Fatal severity starts fatality follow-up (2026-09-28)
+
+Workflow-audit loop tick (transfusion reactions). The fatality checkbox
+starts CBER and written-report follow-up. Choosing severity Fatal saved
+the case as an ordinary reaction, so that follow-up never started.
+
+### Implemented
+
+- Severity Fatal marks the investigation as a fatality.
+- The board shows the same follow-up that the fatality checkbox starts.
+- A later save does not move the written-report due date.
+- A non-fatal severity does not start that follow-up.
+- Close and the once-only CBER and written-report steps are unchanged.
+
+### Requirements / risk
+
+- URS-BB-230, FRS-BB-265, SRS-BB-227, RISK-BB-332.
+- Does not claim AABB compliance. The LIS does not file with FDA.
+
+### Tests
+
+- TEST-BB-119 (`ReactionInvestigationServiceTests.Update_FatalSeverity_StartsFatalityFollowUp`).
+- Full suite green: Domain 1402, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 897.
+
+### Next ranked residual
+
+Next workflow family: lookback. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

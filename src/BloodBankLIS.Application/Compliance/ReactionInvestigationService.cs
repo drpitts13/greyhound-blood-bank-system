@@ -288,7 +288,7 @@ public sealed class ReactionInvestigationService
             }
         }
 
-        if (request.IsFatality == true && !row.IsFatality)
+        if ((request.IsFatality == true || request.Severity == ReactionSeverity.Fatal) && !row.IsFatality)
         {
             row.IsFatality = true;
             row.Severity = ReactionSeverity.Fatal;

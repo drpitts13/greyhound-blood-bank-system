@@ -5,7 +5,7 @@
 <PageTitle>Reaction investigations &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Transfusion reaction investigations</h1>
-<p class="muted">Opened automatically when a transfusion is documented with a suspected reaction. The board lists work still due. A closed fatality stays here until CBER notification and the written report are both recorded. Each of those steps is recorded once. Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA. Close still requires the existing clerical, visual, and DAT gate.</p>
+<p class="muted">Opened automatically when a transfusion is documented with a suspected reaction. The board lists work still due. A closed fatality stays here until CBER notification and the written report are both recorded. Each of those steps is recorded once. Choosing severity Fatal starts that same follow-up. Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA. Close still requires the existing clerical, visual, and DAT gate.</p>
 
 @if (!Session.Has(PermissionCodes.ReactionInvestigate))
 {
@@ -154,7 +154,7 @@ else
             <div class="form-row">
                 <div class="field"><label>Type</label><input @bind="_type" /></div>
                 <div class="field"><label>Severity</label>
-                    <select @bind="_severity">@foreach (var s in Enum.GetValues<ReactionSeverity>()) { <option value="@s">@s</option> }</select>
+                    <select @bind="_severity" @bind:after="SyncFatalityFromSeverity">@foreach (var s in Enum.GetValues<ReactionSeverity>()) { <option value="@s">@s</option> }</select>
                 </div>
                 <div class="field"><label>Status</label>
                     <select @bind="_status">@foreach (var s in CloseableStatuses) { <option value="@s">@s</option> }</select>
@@ -261,6 +261,14 @@ else
             status != ReactionInvestigationStatus.Closed
             || _selected?.Status == ReactionInvestigationStatus.Closed
             || WorkupHoldMessage is null);
+
+    private void SyncFatalityFromSeverity()
+    {
+        if (_severity == ReactionSeverity.Fatal)
+        {
+            _isFatality = true;
+        }
+    }
 
     private void SyncCloseAvailability()
     {

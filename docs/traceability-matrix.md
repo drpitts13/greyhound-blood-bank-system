@@ -301,6 +301,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-227 / FRS-BB-262 | A held order does not take a result | `OrderControlRule.BlocksResultEntry`; `TestWorklistService`; `ResultService` | TEST-BB-116 | I | Does not claim AABB compliance |
 | URS-BB-228 / FRS-BB-263 | An outdated expected unit is not received | `InventoryService.ReceiveExpectedUnitAsync`; `Inventory.razor`; `UnitDetail.razor` | TEST-BB-117 | I | Does not claim AABB compliance |
 | URS-BB-229 / FRS-BB-264 | An outdated reserved unit is not offered for issue | `IssuingService.ListReadyToIssueAllocationsAsync`; `Issuing.razor`; `PatientChartProductsTab.razor` | TEST-BB-118 | I | Does not claim AABB compliance |
+| URS-BB-230 / FRS-BB-265 | Fatal severity starts fatality follow-up | `ReactionInvestigationService.UpdateAsync`; `Reactions.razor` | TEST-BB-119 | I | Does not claim AABB compliance |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

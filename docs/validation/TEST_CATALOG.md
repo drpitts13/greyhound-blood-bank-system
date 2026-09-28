@@ -127,5 +127,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-116 | I | `TestWorklistTests.PendingWorklist_HeldOrder_DoesNotOfferEnter` | URS-BB-227 / FRS-BB-262 / RISK-BB-329 |
 | TEST-BB-117 | I | `InventoryServiceTests.ReceiveExpected_OutdatedUnit_DoesNotEnterStock` | URS-BB-228 / FRS-BB-263 / RISK-BB-330 |
 | TEST-BB-118 | I | `Phase4IssuingTests.ListReadyToIssue_OutdatedUnit_DoesNotOfferIssue` | URS-BB-229 / FRS-BB-264 / RISK-BB-331 |
+| TEST-BB-119 | I | `ReactionInvestigationServiceTests.Update_FatalSeverity_StartsFatalityFollowUp` | URS-BB-230 / FRS-BB-265 / RISK-BB-332 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

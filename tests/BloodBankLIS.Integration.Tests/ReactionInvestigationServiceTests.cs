@@ -280,6 +280,42 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
+    public async Task Update_FatalSeverity_StartsFatalityFollowUp()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+
+        var severe = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                "Febrile", ReactionSeverity.Severe, null, null, null, null, null, false, null));
+        Assert.True(severe.Succeeded, severe.Error);
+        Assert.False(severe.Value!.IsFatality);
+
+        var marked = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                "Hemolytic", ReactionSeverity.Fatal, null, null, null, null, null, false, null));
+        Assert.True(marked.Succeeded, marked.Error);
+        Assert.True(marked.Value!.IsFatality);
+        Assert.Equal(ReactionSeverity.Fatal, marked.Value.Severity);
+        Assert.Equal(FatalityNotificationStatus.Pending, marked.Value.FatalityNotificationStatus);
+        Assert.Equal(_factory.Clock.UtcNow.AddDays(7), marked.Value.WrittenReportDueUtc);
+
+        var due = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.True(due.FatalityFollowUpDue);
+
+        var again = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                "Hemolytic", ReactionSeverity.Fatal, null, null, null, null, null, false, null));
+        Assert.True(again.Succeeded, again.Error);
+        Assert.Equal(marked.Value.WrittenReportDueUtc, again.Value!.WrittenReportDueUtc);
+    }
+
+    [Fact]
     public async Task RecordFatalityFollowUp_SecondStamp_DoesNotRewrite()
     {
         await using var context = _factory.Create();
