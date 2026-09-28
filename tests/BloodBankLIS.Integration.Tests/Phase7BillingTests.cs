@@ -672,6 +672,55 @@ public class Phase7BillingTests : IDisposable
     }
 
     [Fact]
+    public async Task Export_UnacceptedDft_StaysOnTheQueue()
+    {
+        long chargeId = await CaptureSingleChargeAsync("BILL-DFT-EXP", "ABORH", "BILL-ABORH-DFT-EXP");
+        long messageId;
+        await using (var setup = _factory.Create())
+        {
+            var log = new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Outbound,
+                MessageType = "DFT",
+                TriggerEvent = "P03",
+                MessageControlId = "DFT-UNACCEPTED",
+                RawMessage = "MSH|^~\\&|BBLIS|LAB|EHR|HOSP|20260928120000||DFT^P03|DFT-UNACCEPTED|P|2.5",
+                Status = Hl7MessageStatus.Received,
+                ReceivedUtc = _factory.Clock.UtcNow
+            };
+            setup.Hl7Messages.Add(log);
+            await setup.SaveChangesAsync();
+            messageId = log.Id;
+            var charge = await setup.BillingEvents.SingleAsync(e => e.Id == chargeId);
+            charge.Hl7MessageId = messageId;
+            charge.Status = BillingEventStatus.Reviewed;
+            await setup.SaveChangesAsync();
+        }
+
+        await using (var blocked = _factory.Create())
+        {
+            var billing = Billing(blocked, messages: new EfRepository<Hl7MessageLog>(blocked));
+            var exported = await billing.ExportAsync(chargeId);
+            Assert.False(exported.Succeeded);
+            Assert.Contains("not been accepted", exported.Error, StringComparison.OrdinalIgnoreCase);
+
+            var row = Assert.Single(await billing.ListReviewQueueDtosAsync(), d => d.Id == chargeId);
+            Assert.Equal(BillingEventStatus.Reviewed, row.Status);
+            Assert.True(row.DftBlocksExport);
+            Assert.Equal("DFT-UNACCEPTED", row.DftControlId);
+        }
+
+        await using var accepted = _factory.Create();
+        var message = await accepted.Hl7Messages.SingleAsync(m => m.Id == messageId);
+        message.Status = Hl7MessageStatus.Acked;
+        await accepted.SaveChangesAsync();
+
+        var released = await Billing(accepted, messages: new EfRepository<Hl7MessageLog>(accepted)).ExportAsync(chargeId);
+        Assert.True(released.Succeeded, released.Error);
+        Assert.Equal(BillingEventStatus.Exported, released.Value!.Status);
+    }
+
+    [Fact]
     public async Task Cancel_RequiresReason_AndWritesAuditEvent()
     {
         long chargeId = await CaptureSingleChargeAsync("BILL-500", "ABORH", "BILL-ABORH-5");

@@ -231,3 +231,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-223 | A lookback call names the patient on the current issue, not an earlier return of the same unit. | P1 | FRS-BB-258 |
 | URS-BB-224 | Staff are not offered replay of an HL7 message that already applied. | P1 | FRS-BB-259 |
 | URS-BB-225 | An interface result for a cancelled or discontinued order is not filed where the bench no longer shows it. | P1 | FRS-BB-260 |
+| URS-BB-226 | Staff are not offered export of a reviewed charge until its DFT is accepted. | P1 | FRS-BB-261 |

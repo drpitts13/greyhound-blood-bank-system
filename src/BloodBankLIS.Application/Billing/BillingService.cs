@@ -567,6 +567,12 @@ public sealed class BillingService
             return OperationResult<BillingEvent>.Fail($"Only reviewed charges can be exported (current: {billingEvent.Status}).");
         }
 
+        var dftBlock = await UnacceptedDftBlockAsync(billingEvent, ct);
+        if (dftBlock is not null)
+        {
+            return OperationResult<BillingEvent>.Fail(dftBlock);
+        }
+
         var previousStatus = billingEvent.Status;
         billingEvent.Status = BillingEventStatus.Exported;
         billingEvent.ExportedUtc = _clock.UtcNow;
@@ -582,6 +588,22 @@ public sealed class BillingService
 
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<BillingEvent>.Ok(billingEvent);
+    }
+
+    /// <summary>
+    /// A linked DFT that has not been accepted keeps the charge on the review queue.
+    /// A charge with no DFT can still be exported.
+    /// </summary>
+    private async Task<string?> UnacceptedDftBlockAsync(BillingEvent billingEvent, CancellationToken ct)
+    {
+        if (_messages is null || billingEvent.Hl7MessageId is not long messageId)
+        {
+            return null;
+        }
+
+        var message = await _messages.GetByIdAsync(messageId, ct);
+        var gate = BillingDftExportRule.Evaluate(message?.Status);
+        return gate.Severity == RuleSeverity.HardStop ? gate.Message : null;
     }
 
     public async Task<IReadOnlyList<BillingEvent>> GetReviewQueueAsync(CancellationToken ct = default)
@@ -686,12 +708,15 @@ public sealed class BillingService
             }
 
             messages.TryGetValue(e.Hl7MessageId ?? 0, out var message);
+            var dftGate = BillingDftExportRule.Evaluate(message?.Status);
             return BillingEventDto.From(
                 e,
                 patient?.MedicalRecordNumber,
                 patient is null ? null : $"{patient.LastName}, {patient.FirstName}",
                 clinical,
-                message?.MessageControlId);
+                message?.MessageControlId,
+                dftBlocksExport: dftGate.Severity == RuleSeverity.HardStop,
+                dftBlockReason: dftGate.Severity == RuleSeverity.HardStop ? dftGate.Message : null);
         }).ToList();
     }
 

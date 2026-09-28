@@ -123,5 +123,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-112 | I | `LookbackSearchAuthorizationTests.Recall_ReturnedThenReissued_NotifiesTheCurrentRecipient` | URS-BB-223 / FRS-BB-258 / RISK-BB-325 |
 | TEST-BB-113 | I | `Phase5Hl7Tests.Replay_AlreadyApplied_DoesNotRunAgain` | URS-BB-224 / FRS-BB-259 / RISK-BB-326 |
 | TEST-BB-114 | I | `Phase5Hl7Tests.InboundOru_CancelledOrder_DoesNotPost`; `InterfaceResultAcceptanceRuleTests.ClosedOrder_HardStop` | URS-BB-225 / FRS-BB-260 / RISK-BB-327 |
+| TEST-BB-115 | I | `Phase7BillingTests.Export_UnacceptedDft_StaysOnTheQueue`; `BillingDftExportRuleTests.UnacceptedDft_HardStops` | URS-BB-226 / FRS-BB-261 / RISK-BB-328 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

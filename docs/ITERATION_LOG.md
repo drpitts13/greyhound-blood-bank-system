@@ -2250,3 +2250,33 @@ omitted that row, so the value was stored where the bench no longer shows it.
 
 Next workflow family: billing. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 73 — Export waits until the DFT is accepted (2026-09-28)
+
+Workflow-audit loop tick (billing). Review already had to happen before
+export. Export still cleared a reviewed charge while its DFT was only
+queued, or had been rejected, so the charge left the queue before the
+hospital accepted it.
+
+### Implemented
+
+- Export is refused while the charge's DFT is not accepted.
+- `/billing` says DFT unsent on that row instead of Export.
+- A charge with no DFT can still be exported after review.
+- Cancel and the unsent-DFT withhold are unchanged.
+
+### Requirements / risk
+
+- URS-BB-226, FRS-BB-261, SRS-BB-223, RISK-BB-328.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-115 (`Phase7BillingTests.Export_UnacceptedDft_StaysOnTheQueue`).
+- Full suite green: Domain 1402, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 893.
+
+### Next ranked residual
+
+Next workflow family: patient testing. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

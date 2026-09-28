@@ -5,7 +5,7 @@
 <PageTitle>Billing &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Billing &amp; Charge Capture</h1>
-<p class="muted">Review, then export, or cancel captured charges. Charges are captured automatically on result verification, unit issue, completed transfusion — including inbound RAS — and a completed order action, with no second manual capture. Cancelling a charge withholds its DFT when that message has not been sent. Reviewed rows stay on this queue until export. Each row shows MRN, name, the test, unit, or action, and the queued DFT control id.</p>
+<p class="muted">Review, then export, or cancel captured charges. Charges are captured automatically on result verification, unit issue, completed transfusion — including inbound RAS — and a completed order action, with no second manual capture. Cancelling a charge withholds its DFT when that message has not been sent. A reviewed charge stays here until its DFT is accepted, and export is not offered before that. Each row shows MRN, name, the test, unit, or action, and the queued DFT control id.</p>
 
 <Outcome Value="_fb" />
 
@@ -76,7 +76,14 @@
                             }
                             @if (c.Status == BillingEventStatus.Reviewed && Session.Has(PermissionCodes.BillingExport))
                             {
-                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ExportAsync(c.Id)">Export</button>
+                                @if (c.DftBlocksExport)
+                                {
+                                    <span class="muted" title="@c.DftBlockReason">DFT unsent</span>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ExportAsync(c.Id)">Export</button>
+                                }
                             }
                             @if (c.Status != BillingEventStatus.Cancelled && c.Status != BillingEventStatus.Exported && Session.Has(PermissionCodes.BillingCancel))
                             {
