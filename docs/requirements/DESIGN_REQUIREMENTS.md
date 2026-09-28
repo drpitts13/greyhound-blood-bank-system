@@ -215,3 +215,4 @@
 | SRS-BB-209 | `/inventory` Near expiry expands a reason and second-verifier panel and posts `POST /api/inventory/units/{id}/discard`. A successful discard reloads the board. | FRS-BB-247 |
 | SRS-BB-210 | `/issuing` Return binds inspection flags and destination onto `ReturnUnitRequest`. A failed seal or visual inspection moves the destination off Available before post. The outstanding list reloads after success. | FRS-BB-248 |
 | SRS-BB-211 | `/reactions` builds the status list from the same completeness rule as `UpdateAsync`. Closed is omitted while that rule is a hard stop, unless the investigation is already closed. | FRS-BB-249 |
+| SRS-BB-212 | `/lookback` disables Save when Completed has no physician or NotApplicable has no note. `RecordAttemptAsync` rejects those posts before it writes the row. | FRS-BB-250 |

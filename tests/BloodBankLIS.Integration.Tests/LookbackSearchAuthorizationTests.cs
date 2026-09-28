@@ -185,4 +185,77 @@ public class LookbackSearchAuthorizationTests : IClassFixture<SqliteContextFacto
             && e.OldValueJson is not null
             && e.NewValueJson is not null);
     }
+
+    [Fact]
+    public async Task RecordAttempt_CompletedWithoutPhysician_StaysOnTheBoard()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var din = $"W0001{key}";
+        var product = new ProductType
+        {
+            ProductCode = $"RBC-LB-PHY-{key}",
+            Name = "Lookback physician RBC",
+            ComponentClass = ComponentClass.RedBloodCells
+        };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+
+        var transfused = new BloodUnit
+        {
+            UnitNumber = $"U-LB-PHY-{key}",
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Din = din,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Transfused
+        };
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-LB-PHY-{key}",
+            LastName = "Lookback",
+            FirstName = "Physician",
+            DateOfBirth = new DateOnly(1981, 2, 2)
+        };
+        c.Patients.Add(patient);
+        c.BloodUnits.Add(transfused);
+        await c.SaveChangesAsync();
+        c.Issues.Add(new Issue
+        {
+            BloodProductId = transfused.Id,
+            PatientId = patient.Id,
+            IssuedUtc = _factory.Clock.UtcNow.AddHours(-2),
+            IssuedBy = "tech-test",
+            Status = IssueStatus.Transfused
+        });
+        await c.SaveChangesAsync();
+
+        var recalled = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+        Assert.True(recalled.Succeeded, recalled.Error);
+        var notification = Assert.Single(recalled.Value!.Notifications);
+
+        var completed = await Lookback(c).RecordAttemptAsync(
+            notification.Id,
+            new RecordLookbackAttemptRequest("  ", null, LookbackNotificationStatus.Completed));
+        Assert.False(completed.Succeeded);
+        Assert.Contains("physician", completed.Error, StringComparison.OrdinalIgnoreCase);
+
+        var notApplicable = await Lookback(c).RecordAttemptAsync(
+            notification.Id,
+            new RecordLookbackAttemptRequest(null, " ", LookbackNotificationStatus.NotApplicable));
+        Assert.False(notApplicable.Succeeded);
+        Assert.Contains("note", notApplicable.Error, StringComparison.OrdinalIgnoreCase);
+
+        var stillDue = await Lookback(c).ListOpenNotificationsAsync();
+        Assert.Contains(stillDue.Value!, n => n.Id == notification.Id);
+        Assert.Equal(LookbackNotificationStatus.Pending, (await c.LookbackNotifications.FindAsync(notification.Id))!.Status);
+
+        var finished = await Lookback(c).RecordAttemptAsync(
+            notification.Id,
+            new RecordLookbackAttemptRequest("Dr. Record", "Physician notified", LookbackNotificationStatus.Completed));
+        Assert.True(finished.Succeeded, finished.Error);
+        var after = await Lookback(c).ListOpenNotificationsAsync();
+        Assert.DoesNotContain(after.Value!, n => n.Id == notification.Id);
+    }
 }

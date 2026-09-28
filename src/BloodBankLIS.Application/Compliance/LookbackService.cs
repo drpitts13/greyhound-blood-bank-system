@@ -285,6 +285,20 @@ public sealed class LookbackService
             return OperationResult<LookbackNotification>.Fail("Lookback notification not found.");
         }
 
+        if (request.Status == LookbackNotificationStatus.Completed
+            && string.IsNullOrWhiteSpace(request.PhysicianOfRecord))
+        {
+            return OperationResult<LookbackNotification>.Fail(
+                "A physician of record is required to complete a recipient notification.");
+        }
+
+        if (request.Status == LookbackNotificationStatus.NotApplicable
+            && string.IsNullOrWhiteSpace(request.Notes))
+        {
+            return OperationResult<LookbackNotification>.Fail(
+                "A note is required to mark a recipient notification not applicable.");
+        }
+
         var oldStatus = row.Status;
         var oldPhysician = row.PhysicianOfRecord;
         var oldNotes = row.Notes;

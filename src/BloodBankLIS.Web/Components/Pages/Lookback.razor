@@ -358,6 +358,11 @@ else
     private string? _physician;
     private string? _attemptNotes;
     private LookbackNotificationStatus _attemptStatus = LookbackNotificationStatus.Attempted;
+    private Feedback? _attemptFb;
+    private bool AttemptSaveDisabled =>
+        _busy
+        || (_attemptStatus == LookbackNotificationStatus.Completed && string.IsNullOrWhiteSpace(_physician))
+        || (_attemptStatus == LookbackNotificationStatus.NotApplicable && string.IsNullOrWhiteSpace(_attemptNotes));
     private bool _autoTraced;
 
     protected override async Task OnInitializedAsync()
@@ -427,7 +432,16 @@ else
             </div>
             <div class="field" style="grid-column:1/-1;"><label>Notes</label><input @bind="_attemptNotes" /></div>
         </div>
-        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="SaveAttemptAsync">Save</button>
+        @if (_attemptStatus == LookbackNotificationStatus.Completed)
+        {
+            <p class="muted">A physician of record is required before this call can be completed.</p>
+        }
+        else if (_attemptStatus == LookbackNotificationStatus.NotApplicable)
+        {
+            <p class="muted">A note is required before this call can be marked not applicable.</p>
+        }
+        <Outcome Value="_attemptFb" />
+        <button class="btn btn-primary btn-sm" disabled="@AttemptSaveDisabled" @onclick="SaveAttemptAsync">Save</button>
         <button class="btn btn-ghost btn-sm" @onclick="() => _attemptId = null">Cancel</button>
     </div>;
 
@@ -483,16 +497,32 @@ else
         _attemptId = n.Id;
         _physician = n.PhysicianOfRecord;
         _attemptNotes = n.Notes;
-        _attemptStatus = LookbackNotificationStatus.Attempted;
+        _attemptStatus = n.Status == LookbackNotificationStatus.Pending
+            ? LookbackNotificationStatus.Attempted
+            : n.Status;
+        _attemptFb = null;
     }
 
     private async Task SaveAttemptAsync()
     {
         if (_attemptId is null) return;
+        if (_attemptStatus == LookbackNotificationStatus.Completed && string.IsNullOrWhiteSpace(_physician))
+        {
+            _attemptFb = Feedback.Fail("A physician of record is required to complete a recipient notification.");
+            return;
+        }
+
+        if (_attemptStatus == LookbackNotificationStatus.NotApplicable && string.IsNullOrWhiteSpace(_attemptNotes))
+        {
+            _attemptFb = Feedback.Fail("A note is required to mark a recipient notification not applicable.");
+            return;
+        }
+
         _busy = true;
         var r = await Api.RecordLookbackAttemptAsync(_attemptId.Value, new RecordLookbackAttemptRequest(_physician, _attemptNotes, _attemptStatus));
         _busy = false;
-        _fb = r.ToFeedback("Notification attempt recorded.");
+        _attemptFb = r.ToFeedback("Notification attempt recorded.");
+        _fb = _attemptFb;
         if (r.Succeeded)
         {
             _attemptId = null;

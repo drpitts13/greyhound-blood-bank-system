@@ -1912,3 +1912,32 @@ The form still listed Closed, so staff signed a close and then hit that block.
 
 Next workflow family: lookback. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 62 — Lookback completion names the physician (2026-09-28)
+
+Workflow-audit loop tick (lookback). Pending and attempted calls already
+stay on the page. Completing one, or marking it not applicable, accepted a
+blank physician and a blank note, so the call left the board with no record.
+
+### Implemented
+
+- Completing a notification requires a physician of record.
+- Marking it not applicable requires a note.
+- A blank value does not change the row. An attempt can still be saved
+  without those fields.
+
+### Requirements / risk
+
+- URS-BB-215, FRS-BB-250, SRS-BB-212, RISK-BB-317.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-104 (`LookbackSearchAuthorizationTests.RecordAttempt_CompletedWithoutPhysician_StaysOnTheBoard`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 883.
+
+### Next ranked residual
+
+Next workflow family: HL7 process. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).
