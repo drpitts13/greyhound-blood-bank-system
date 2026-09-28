@@ -50,7 +50,10 @@ public sealed record TestWorkItemDto(
         CurrentResultStatus is ResultStatus.PendingVerification
         && CurrentResultSource is ResultSource.Interface or ResultSource.Instrument;
 
-    public string BenchActionLabel => HasPostedInterfaceOrInstrumentValue ? "Verify" : "Enter";
+    public string BenchActionLabel =>
+        CanEnterResults
+            ? HasPostedInterfaceOrInstrumentValue ? "Verify" : "Enter"
+            : "Blocked";
 
     public bool IsAboSelfVerifyBlocked(string? userName) =>
         CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected

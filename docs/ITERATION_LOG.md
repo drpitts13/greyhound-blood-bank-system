@@ -2034,3 +2034,33 @@ still transmit a charge staff had cancelled.
 
 Next workflow family: patient testing. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 66 — Expired specimens do not offer Verify (2026-09-28)
+
+Workflow-audit loop tick (patient testing). Verify already refused a result
+when the specimen was missing, not accepted, or expired. The worklist still
+labeled that row Verify, and the entry panel still offered Verify posted
+result.
+
+### Implemented
+
+- A row that cannot take results says Blocked. The block reason is the
+  button title.
+- Verify posted result is not offered while that gate is closed.
+- The server still refuses verify on an unusable specimen.
+
+### Requirements / risk
+
+- URS-BB-219, FRS-BB-254, SRS-BB-216, RISK-BB-321.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-108 (`TestWorklistTests.PendingWorklist_ExpiredSpecimen_DoesNotOfferVerify`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 887.
+
+### Next ranked residual
+
+Next workflow family: unit preparation. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

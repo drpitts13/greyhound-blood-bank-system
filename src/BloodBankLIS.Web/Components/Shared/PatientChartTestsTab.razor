@@ -109,7 +109,7 @@
                             {
                                 <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
                             }
-                            <button class="btn btn-ghost btn-sm" @onclick="() => OnToggleEntry.InvokeAsync(item.OrderLineId)">
+                            <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => OnToggleEntry.InvokeAsync(item.OrderLineId)">
                                 @(ExpandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
                             </button>
                         </td>

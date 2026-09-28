@@ -290,6 +290,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-216 / FRS-BB-251 | An outbound HL7 message is not sent again after its retry limit | `Hl7OutboundSender`; `Hl7.razor` | TEST-BB-105 | I | Does not claim AABB compliance |
 | URS-BB-217 / FRS-BB-252 | A sparse ADT does not clear name, date of birth, or sex | `Hl7InboundProcessor.ApplyPresentDemographics` | TEST-BB-106 | I | Does not claim AABB compliance |
 | URS-BB-218 / FRS-BB-253 | Cancelling a charge withholds an unsent DFT | `BillingService`; `Hl7OutboundSender`; `Hl7.razor` | TEST-BB-107 | I | Does not claim AABB compliance |
+| URS-BB-219 / FRS-BB-254 | An unusable specimen does not offer Verify | `TestWorkItemDto`; `TestResultEntryPanel` | TEST-BB-108 | I | Does not claim AABB compliance |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

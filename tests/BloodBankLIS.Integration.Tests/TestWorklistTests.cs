@@ -413,6 +413,31 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.True(item.SpecimenExpired);
         Assert.False(item.CanEnterResults);
         Assert.Contains("expired", item.BlockReason!, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Blocked", item.BenchActionLabel);
+    }
+
+    [Fact]
+    public async Task PendingWorklist_ExpiredSpecimen_DoesNotOfferVerify()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var posted = await Results(c).EnterFromInterfaceAsync(
+            seed.specimen!.Id,
+            seed.order.Id,
+            seed.line.TestCode!,
+            "Negative",
+            units: null,
+            interpretation: null,
+            sourceReference: "CTRL-WL-EXPIRED");
+        Assert.True(posted.Succeeded, posted.Error);
+
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+        await c.SaveChangesAsync();
+
+        var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.True(item.HasPostedInterfaceOrInstrumentValue);
+        Assert.False(item.CanEnterResults);
+        Assert.Equal("Blocked", item.BenchActionLabel);
     }
 
     [Fact]

@@ -443,7 +443,8 @@
     private bool CanOverrideDelta => Session.SecurityLevel >= _deltaMinLevel;
 
     private bool CanVerifyPostedResult =>
-        WorkItem.CurrentResultId is > 0
+        WorkItem.CanEnterResults
+        && WorkItem.CurrentResultId is > 0
         && WorkItem.CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
         && Session.Has(PermissionCodes.ResultVerify)
         && !WorkItem.IsAboSelfVerifyBlocked(Session.UserName);

@@ -138,7 +138,7 @@
                             {
                                 <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
                             }
-                            <button class="btn btn-ghost btn-sm" @onclick="() => ToggleEntry(item.OrderLineId)">
+                            <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => ToggleEntry(item.OrderLineId)">
                                 @(_expandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
                             </button>
                         </td>

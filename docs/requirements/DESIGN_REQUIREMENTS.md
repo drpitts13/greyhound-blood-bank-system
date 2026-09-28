@@ -219,3 +219,4 @@
 | SRS-BB-213 | `GET /api/hl7/messages` and `GET /api/hl7/errors` set `RetriesExhausted` from the message retry count and the endpoint max. `/hl7` replaces Send with Retries used. `SendOneAsync` returns before it increments or connects. | FRS-BB-251 |
 | SRS-BB-214 | `ApplyPresentDemographics` runs on an existing ADT patient and on a merge survivor. Empty last, first, and middle names, a missing date of birth, and sex Unknown are skipped. | FRS-BB-252 |
 | SRS-BB-215 | Cancel, unused-unit return, and result invalidation call `WithholdUnsentDftAsync` before save. An unsent outbound DFT is marked processed with the withhold detail. `/hl7` shows Charge cancelled. `SendOneAsync` returns before it increments or connects. | FRS-BB-253 |
+| SRS-BB-216 | `BenchActionLabel` is Blocked when `CanEnterResults` is false. `/test-worklist` and the patient Tests tab use that label. `CanVerifyPostedResult` requires `CanEnterResults`. | FRS-BB-254 |
