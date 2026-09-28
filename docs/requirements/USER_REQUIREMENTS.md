@@ -210,3 +210,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-202 | When a verified result is invalidated, its unexported test charge comes off the review queue with the invalidation. An already exported test charge stays, and the invalidation says so. | P3 | FRS-BB-237 |
 | URS-BB-203 | Staff who verify a posted ABO/Rh that disagrees with history can record the existing discrepancy override from the worklist or the order, without re-keying the result. | P0 | FRS-BB-238 |
 | URS-BB-204 | Staff who refuse a packing-list unit at arrival can return it to the supplier from the expected-inbound row, without opening the unit. | P1 | FRS-BB-239 |
+| URS-BB-205 | Staff see which reserved red cells cannot be issued routinely because a second ABO/Rh is missing, and can enter that type or start an emergency release. | P0 | FRS-BB-240 |

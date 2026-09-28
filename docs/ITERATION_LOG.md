@@ -1615,3 +1615,34 @@ unit on the packing list.
 
 Next workflow family: assignment and issuing. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 52 — Ready to issue marks a missing second ABO (2026-09-28)
+
+Workflow-audit loop tick (assignment and issuing). Routine red-cell issue
+already hard-stops when a second concordant ABO/Rh is missing. Ready to
+issue still offered Issue, so staff filled the form and then hit the block.
+
+### Implemented
+
+- Ready to issue sets `NeedsSecondAbo` for red cells and whole blood when
+  that determination is missing.
+- Those rows show Second ABO and a link to enter the type. They do not
+  offer routine issue.
+- Staff who can authorize emergency release can still open that form.
+- Plasma is not flagged. `ISS-SECOND-ABO` stays a HardStop for routine issue.
+
+### Requirements / risk
+
+- URS-BB-205, FRS-BB-240, SRS-BB-202, RISK-BB-307.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-094 (`Phase4IssuingTests.ListReadyToIssue_FlagsCellularUnitWhenSecondAboIsMissing`).
+- Full suite green: Domain 1388, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 873.
+
+### Next ranked residual
+
+Next workflow family: reactions. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

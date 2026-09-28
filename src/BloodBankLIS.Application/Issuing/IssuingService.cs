@@ -672,9 +672,10 @@ public sealed class IssuingService
         var patientIds = reserved.Select(a => a.PatientId).Distinct().ToList();
         var patients = (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct))
             .ToDictionary(p => p.Id);
-        var types = (await _bloodTypes.ListAsync(h => patientIds.Contains(h.PatientId) && h.IsCurrent, ct))
+        var historyByPatient = (await _bloodTypes.ListAsync(h => patientIds.Contains(h.PatientId), ct))
             .GroupBy(h => h.PatientId)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(h => h.Id).First());
+            .ToDictionary(g => g.Key, g => g.ToList());
+        var requireSecondAbo = await _policy.GetRequireSecondAboForCellularIssueAsync(ct);
         var antibodies = _antibodies is null
             ? []
             : await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct);
@@ -690,9 +691,15 @@ public sealed class IssuingService
         foreach (var allocation in reserved.OrderBy(a => a.AllocatedUtc))
         {
             patients.TryGetValue(allocation.PatientId, out var patient);
-            types.TryGetValue(allocation.PatientId, out var type);
+            var typeRows = historyByPatient.GetValueOrDefault(allocation.PatientId) ?? [];
+            var type = typeRows.Where(h => h.IsCurrent).OrderByDescending(h => h.Id).FirstOrDefault();
             antibodiesByPatient.TryGetValue(allocation.PatientId, out var history);
             var unit = await _inventory.GetUnitAsync(allocation.BloodProductId, ct);
+            var cellular = unit?.ProductType?.ComponentClass is ComponentClass.RedBloodCells or ComponentClass.WholeBlood;
+            var needsSecondAbo = requireSecondAbo
+                && cellular
+                && !SecondAboDeterminationRule.HasSecondConcordant(
+                    typeRows.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
             var latestXm = xms
                 .Where(x => x.PatientId == allocation.PatientId && x.BloodProductId == allocation.BloodProductId)
                 .OrderByDescending(x => x.Id)
@@ -726,7 +733,8 @@ public sealed class IssuingService
                 expires is DateTime exp && exp <= now,
                 allocation.AllocatedUtc,
                 display,
-                latestXm?.Result));
+                latestXm?.Result,
+                needsSecondAbo));
         }
 
         return items;

@@ -1577,6 +1577,24 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListReadyToIssue_FlagsCellularUnitWhenSecondAboIsMissing()
+    {
+        var missing = await SeedAsync("RDY-2ND", includeHistoricalAbo: false);
+        var ready = await SeedAsync("RDY-2OK");
+        var plasma = await SeedAsync(
+            "RDY-FFP", includeHistoricalAbo: false, requiresCrossmatch: false, componentClass: ComponentClass.Plasma);
+        await AllocateAsync(missing);
+        await AllocateAsync(ready);
+        await AllocateAsync(plasma);
+
+        await using var c = _factory.Create();
+        var rows = await Issuing(c).ListReadyToIssueAllocationsAsync();
+        Assert.True(rows.Single(r => r.BloodUnitId == missing.UnitId).NeedsSecondAbo);
+        Assert.False(rows.Single(r => r.BloodUnitId == ready.UnitId).NeedsSecondAbo);
+        Assert.False(rows.Single(r => r.BloodUnitId == plasma.UnitId).NeedsSecondAbo);
+    }
+
+    [Fact]
     public async Task ElectronicCrossmatch_WithoutSecondAbo_IsBlocked()
     {
         var s = await SeedAsync("ONEABO", requiresCrossmatch: false, includeHistoricalAbo: false);
@@ -1764,6 +1782,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.False(string.IsNullOrWhiteSpace(row.PatientDisplayName));
         Assert.Equal(CrossmatchResult.Compatible, row.LatestCrossmatchResult);
         Assert.Equal(ProductAllocationDisplayStatus.ReadyForIssue, row.DisplayStatus);
+        Assert.False(row.NeedsSecondAbo);
 
         Assert.True((await Issuing(c).IssueUnitAsync(IssueReq(s))).Succeeded);
         Assert.DoesNotContain(await Issuing(c).ListReadyToIssueAllocationsAsync(), r => r.BloodUnitId == s.UnitId);
