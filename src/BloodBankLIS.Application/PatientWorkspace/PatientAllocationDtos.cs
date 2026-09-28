@@ -25,7 +25,8 @@ public sealed record PatientAllocationRowDto(
     IssueStatus? IssueStatus = null,
     bool PendingAutoThaw = false,
     string? AutoThawProductCode = null,
-    bool OrderSpecimenLinked = false);
+    bool OrderSpecimenLinked = false,
+    bool UnitOutdated = false);
 
 public sealed record CompatibleUnitDto(
     long BloodUnitId,

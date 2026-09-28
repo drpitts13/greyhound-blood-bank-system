@@ -2338,3 +2338,33 @@ the retype path instead of keeping it out of stock.
 
 Next workflow family: assignment and issuing. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 76 — Ready to issue withholds an outdated unit (2026-09-28)
+
+Workflow-audit loop tick (assignment and issuing). A reserved unit that
+passed its expiration still offered Issue on Ready to issue and on the
+patient chart. The issue gate already refused that unit, including
+emergency release.
+
+### Implemented
+
+- Ready to issue marks that unit Outdated and does not offer Issue or Emergency.
+- The patient chart marks the same reservation Outdated and does not offer Issue.
+- Release of the reservation is unchanged.
+- An in-date reserved unit can still be issued. `UNIT-EXPIRED` stays a hard stop.
+
+### Requirements / risk
+
+- URS-BB-229, FRS-BB-264, SRS-BB-226, RISK-BB-331.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-118 (`Phase4IssuingTests.ListReadyToIssue_OutdatedUnit_DoesNotOfferIssue`).
+- Full suite green: Domain 1402, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 896.
+
+### Next ranked residual
+
+Next workflow family: transfusion reactions. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

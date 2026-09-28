@@ -69,7 +69,14 @@
                                 }
                                 @if (Session.Has(PermissionCodes.IssueCreate) && a.IssueId is null)
                                 {
-                                    <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnBeginIssue.InvokeAsync(a)">Issue</button>
+                                    @if (a.UnitOutdated)
+                                    {
+                                        <span class="badge badge-red" title="This unit is outdated and cannot be issued.">Outdated</span>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnBeginIssue.InvokeAsync(a)">Issue</button>
+                                    }
                                 }
                                 @if (a.IssueId is long issueId && a.IssueStatus == IssueStatus.Issued && Session.Has(PermissionCodes.TransfusionDocument))
                                 {

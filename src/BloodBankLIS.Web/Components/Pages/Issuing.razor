@@ -52,7 +52,7 @@
 
     <div class="bb-card">
         <div class="bb-card-title"><h3>Ready to issue</h3></div>
-        <p class="muted">Units reserved to a patient. Issue from the row prefills unit, MRN, and date of birth on the existing issue form. Red cells and whole blood that still need a second concordant ABO/Rh are marked and are not offered as a routine issue. Emergency release stays available for staff who can authorize it. A missing or expired current specimen is marked and is not offered for routine or emergency issue. The issue gate is unchanged.</p>
+        <p class="muted">Units reserved to a patient. Issue from the row prefills unit, MRN, and date of birth on the existing issue form. Red cells and whole blood that still need a second concordant ABO/Rh are marked and are not offered as a routine issue. Emergency release stays available for staff who can authorize it. A missing or expired current specimen is marked and is not offered for routine or emergency issue. An outdated unit says Outdated and is not offered for routine or emergency issue. The issue gate is unchanged.</p>
         @if (_readyItems.Count == 0)
         {
             <div class="muted">No reserved units waiting to issue.</div>
@@ -90,6 +90,10 @@
                                 {
                                     <span class="badge badge-red" title="@row.SpecimenBlockReason">Specimen</span>
                                     <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">New specimen</a>
+                                }
+                                else if (row.UnitOutdated)
+                                {
+                                    <span class="badge badge-red" title="@row.UnitBlockReason">Outdated</span>
                                 }
                                 else if (row.NeedsSecondAbo)
                                 {

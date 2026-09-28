@@ -229,3 +229,4 @@
 | SRS-BB-223 | `BillingDftExportRule` hard-stops every DFT status other than Acked, and a missing DFT passes. `ExportAsync` returns that message before the status flip. `/billing` shows DFT unsent instead of Export. | FRS-BB-261 |
 | SRS-BB-224 | `BlocksResultEntry` is true for OnHold. The worklist sets `CanEnterResults` false with `ResultEntryHoldMessage`. `EnterInternalAsync` and `VerifyResultAsync` return that message before saving. | FRS-BB-262 |
 | SRS-BB-225 | `ExpectedInboundWorkItemDto.IsOutdated` uses `BloodUnitExpirationRule.IsExpired`. `ReceiveExpectedUnitAsync` returns before the status change. `/inventory` and the unit page omit Confirm arrival and keep return to supplier. | FRS-BB-263 |
+| SRS-BB-226 | `ReadyToIssueWorkItemDto.UnitOutdated` and `PatientAllocationRowDto.UnitOutdated` use `BloodUnitExpirationRule.IsExpired`. `/issuing` and the chart omit Issue when that flag is set. `UNIT-EXPIRED` remains the issue-gate hard stop. | FRS-BB-264 |

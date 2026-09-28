@@ -714,6 +714,7 @@ public sealed class IssuingService
             var expires = specimen?.ExpiresUtc;
             var specimenExpired = expires is DateTime exp && now >= exp;
             var (specimenBlocksIssue, specimenBlockReason) = DescribeSpecimenBlock(specimen, specimenExpired);
+            var unitOutdated = unit is not null && BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, now);
             items.Add(new ReadyToIssueWorkItemDto(
                 allocation.Id,
                 allocation.PatientId,
@@ -732,7 +733,9 @@ public sealed class IssuingService
                 latestXm?.Result,
                 needsSecondAbo,
                 specimenBlocksIssue,
-                specimenBlockReason));
+                specimenBlockReason,
+                unitOutdated,
+                unitOutdated ? "This unit is outdated and cannot be issued." : null));
         }
 
         return items;

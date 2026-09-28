@@ -202,7 +202,8 @@ public sealed class PatientAllocationService
                 issue?.Status,
                 pendingAutoThaw.Contains(allocation.Id),
                 thawCode,
-                allocation.OrderId is long linkedOrderId && linkedOrderIds.Contains(linkedOrderId)));
+                allocation.OrderId is long linkedOrderId && linkedOrderIds.Contains(linkedOrderId),
+                BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow)));
         }
 
         return rows;
@@ -668,7 +669,12 @@ public sealed class PatientAllocationService
         var orderLinked = allocation.OrderId is long linkedOrderId
             && _orderSpecimens is not null
             && await _orderSpecimens.AnyAsync(os => os.OrderId == linkedOrderId, ct);
-        row = row with { AutoThawProductCode = thawCode, OrderSpecimenLinked = orderLinked };
+        row = row with
+        {
+            AutoThawProductCode = thawCode,
+            OrderSpecimenLinked = orderLinked,
+            UnitOutdated = BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow)
+        };
 
         return EvaluationResult<AllocatePatientUnitResultDto>.Ok(
             new AllocatePatientUnitResultDto(row, orderId, xmTestCode, overrideApplied, thawCode is not null),

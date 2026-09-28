@@ -1682,6 +1682,39 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListReadyToIssue_OutdatedUnit_DoesNotOfferIssue()
+    {
+        var outdated = await SeedAsync("RDY-UNITEX");
+        var current = await SeedAsync("RDY-UNITOK");
+        await RecordCompatibleCrossmatchAsync(outdated);
+        await RecordCompatibleCrossmatchAsync(current);
+        await AllocateAsync(outdated);
+        await AllocateAsync(current);
+
+        await using (var c = _factory.Create())
+        {
+            var unit = await c.BloodUnits.SingleAsync(u => u.Id == outdated.UnitId);
+            unit.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+            await c.SaveChangesAsync();
+        }
+
+        await using var ctx = _factory.Create();
+        var rows = await Issuing(ctx).ListReadyToIssueAllocationsAsync();
+        var blocked = rows.Single(r => r.BloodUnitId == outdated.UnitId);
+        Assert.True(blocked.UnitOutdated);
+        Assert.Contains("outdated", blocked.UnitBlockReason, StringComparison.OrdinalIgnoreCase);
+        Assert.False(rows.Single(r => r.BloodUnitId == current.UnitId).UnitOutdated);
+
+        var issued = await Issuing(ctx).IssueUnitAsync(IssueReq(outdated));
+        Assert.True(issued.Evaluation!.IsHardStopped);
+        Assert.Contains(issued.Evaluation.HardStops, r => r.Code == BloodUnitExpirationRule.ExpiredCode);
+
+        var emergency = await Issuing(ctx).IssueUnitAsync(IssueReq(outdated, IssueType.EmergencyRelease));
+        Assert.True(emergency.Evaluation!.IsHardStopped);
+        Assert.Contains(emergency.Evaluation.HardStops, r => r.Code == BloodUnitExpirationRule.ExpiredCode);
+    }
+
+    [Fact]
     public async Task ElectronicCrossmatch_WithoutSecondAbo_IsBlocked()
     {
         var s = await SeedAsync("ONEABO", requiresCrossmatch: false, includeHistoricalAbo: false);

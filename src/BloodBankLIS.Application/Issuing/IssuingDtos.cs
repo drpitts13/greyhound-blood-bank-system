@@ -197,7 +197,9 @@ public sealed record ReadyToIssueWorkItemDto(
     CrossmatchResult? LatestCrossmatchResult,
     bool NeedsSecondAbo = false,
     bool SpecimenBlocksIssue = false,
-    string? SpecimenBlockReason = null);
+    string? SpecimenBlockReason = null,
+    bool UnitOutdated = false,
+    string? UnitBlockReason = null);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,
