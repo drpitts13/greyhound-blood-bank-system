@@ -565,7 +565,23 @@ public sealed class BillingService
             ? new Dictionary<long, Issue>()
             : (await _issues.ListAsync(i => issueIds.Contains(i.Id), ct)).ToDictionary(i => i.Id);
 
-        var unitIds = issues.Values.Select(i => i.BloodProductId).Distinct().ToList();
+        var actionIds = queue
+            .Where(e => e.TriggerEntityType == nameof(OrderAction))
+            .Select(e => e.TriggerEntityId)
+            .Distinct()
+            .ToList();
+        var actions = _orderActions is null || actionIds.Count == 0
+            ? new Dictionary<long, OrderAction>()
+            : (await _orderActions.ListAsync(a => actionIds.Contains(a.Id), ct)).ToDictionary(a => a.Id);
+        var definitionIds = actions.Values.Select(a => a.ActionDefinitionId).Distinct().ToList();
+        var definitions = _actionDefinitions is null || definitionIds.Count == 0
+            ? new Dictionary<long, ActionDefinition>()
+            : (await _actionDefinitions.ListAsync(d => definitionIds.Contains(d.Id), ct)).ToDictionary(d => d.Id);
+
+        var unitIds = issues.Values.Select(i => i.BloodProductId)
+            .Concat(actions.Values.Select(a => a.ResultBloodUnitId ?? a.SourceBloodUnitId).OfType<long>())
+            .Distinct()
+            .ToList();
         var units = unitIds.Count == 0
             ? new Dictionary<long, BloodUnit>()
             : (await _units.ListAsync(u => unitIds.Contains(u.Id), ct)).ToDictionary(u => u.Id);
@@ -583,10 +599,25 @@ public sealed class BillingService
             {
                 clinical = result.TestCode;
             }
-            else if (issues.TryGetValue(e.TriggerEntityId, out var issue)
+            else if (e.TriggerEntityType is nameof(Issue) or nameof(TransfusionEvent)
+                     && issues.TryGetValue(e.TriggerEntityId, out var issue)
                      && units.TryGetValue(issue.BloodProductId, out var unit))
             {
                 clinical = unit.UnitNumber;
+            }
+            else if (e.TriggerEntityType == nameof(OrderAction)
+                     && actions.TryGetValue(e.TriggerEntityId, out var action))
+            {
+                definitions.TryGetValue(action.ActionDefinitionId, out var definition);
+                var unitId = action.ResultBloodUnitId ?? action.SourceBloodUnitId;
+                var unitNumber = unitId is long id && units.TryGetValue(id, out var actionUnit)
+                    ? actionUnit.UnitNumber
+                    : null;
+                clinical = string.IsNullOrWhiteSpace(unitNumber)
+                    ? definition?.Code
+                    : string.IsNullOrWhiteSpace(definition?.Code)
+                        ? unitNumber
+                        : $"{definition.Code} {unitNumber}";
             }
 
             messages.TryGetValue(e.Hl7MessageId ?? 0, out var message);

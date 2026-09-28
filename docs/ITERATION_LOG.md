@@ -1763,5 +1763,34 @@ same as routine work on the chart and the test worklist.
 
 ### Next ranked residual
 
-Next workflow family: billing. SME items remain: OCD-001 (undetectable
+Next workflow family: patient testing. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 57 — Action charges name the action and unit (2026-09-28)
+
+Workflow-audit loop tick (billing). A completed order action already
+captures a charge. The review queue showed a blank test/unit cell, so
+staff could not tell which irradiation or thaw they were about to export.
+
+### Implemented
+
+- An `ActionCompleted` row shows the action code and the result or source
+  unit number.
+- That row opens the patient's orders.
+- Test, issue, and transfusion labels are unchanged.
+
+### Requirements / risk
+
+- URS-BB-210, FRS-BB-245, SRS-BB-207, RISK-BB-312.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-099 (`Phase7BillingTests.ReviewQueueDtos_ShowActionCodeAndUnit`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 878.
+
+### Next ranked residual
+
+Next workflow family: patient testing. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).

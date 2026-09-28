@@ -23,7 +23,9 @@ public class Phase7BillingTests : IDisposable
         CapturingPublisher? publisher = null,
         IRepository<Patient>? patients = null,
         IRepository<Hl7MessageLog>? messages = null,
-        FacilityPolicyService? policy = null) =>
+        FacilityPolicyService? policy = null,
+        IRepository<OrderAction>? orderActions = null,
+        IRepository<ActionDefinition>? actionDefinitions = null) =>
         new(new EfRepository<BillingEvent>(c), new EfRepository<ChargeRule>(c), new EfRepository<ChargeCode>(c),
             new EfRepository<TestServiceBilling>(c), new EfRepository<ProductBilling>(c),
             new EfRepository<TestResult>(c), new EfRepository<Issue>(c), new EfRepository<BloodUnit>(c),
@@ -32,6 +34,8 @@ public class Phase7BillingTests : IDisposable
             publisher ?? new CapturingPublisher(),
             patients: patients,
             messages: messages,
+            orderActions: orderActions,
+            actionDefinitions: actionDefinitions,
             policy: policy);
 
     private async Task<long> SeedChargeCodeAsync(BloodBankDbContext c, string code, decimal amount)
@@ -837,6 +841,104 @@ public class Phase7BillingTests : IDisposable
         var issued = Assert.Single(dtos, d => d.BillingCode == "BB-RBC-ISSUE");
         Assert.Equal("W000123BILLDTO", issued.ClinicalLabel);
         Assert.Equal("CTRL-DFT-TEST-ISSUE", issued.DftControlId);
+    }
+
+    [Fact]
+    public async Task ReviewQueueDtos_ShowActionCodeAndUnit()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = "MRN-BILL-ACT",
+            LastName = "Action",
+            FirstName = "Charge",
+            DateOfBirth = new DateOnly(1984, 4, 4),
+            Sex = Sex.Female
+        };
+        var location = new OrderingLocation { Code = "LOC-BILL-ACT", Name = "Ward", IsActive = true };
+        var product = new ProductType { ProductCode = "RBC-ACT", Name = "RBC", Isbt128ProductCode = "E0336" };
+        c.Patients.Add(patient);
+        c.OrderingLocations.Add(location);
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+
+        var encounter = new Encounter
+        {
+            PatientId = patient.Id,
+            VisitNumber = "VIS-BILL-ACT",
+            EncounterType = EncounterType.Inpatient,
+            Status = EncounterStatus.Active,
+            AdmitUtc = _factory.Clock.UtcNow
+        };
+        c.Encounters.Add(encounter);
+        var unit = new BloodUnit
+        {
+            UnitNumber = "W000123ACT0001",
+            ProductTypeId = product.Id,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10),
+            Status = UnitStatus.Available
+        };
+        c.BloodUnits.Add(unit);
+        var definition = new ActionDefinition
+        {
+            Code = "IRRAD",
+            Name = "Irradiate",
+            Category = ActionCategory.Modification,
+            ModificationType = ModificationType.Irradiate,
+            IsActive = true
+        };
+        c.ActionDefinitions.Add(definition);
+        await c.SaveChangesAsync();
+
+        var order = new Order
+        {
+            OrderNumber = "ORD-BILL-ACT",
+            PatientId = patient.Id,
+            EncounterId = encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderName = "Irradiate",
+            OrderType = OrderType.Other
+        };
+        c.Orders.Add(order);
+        await c.SaveChangesAsync();
+
+        var action = new OrderAction
+        {
+            OrderId = order.Id,
+            ActionDefinitionId = definition.Id,
+            Status = OrderActionStatus.Completed,
+            SourceBloodUnitId = unit.Id,
+            CompletedUtc = _factory.Clock.UtcNow,
+            CompletedBy = "tech"
+        };
+        c.OrderActions.Add(action);
+        await c.SaveChangesAsync();
+
+        c.BillingEvents.Add(new BillingEvent
+        {
+            BillingCode = "BB-IRRAD",
+            TriggerType = BillingTriggerType.ActionCompleted,
+            TriggerEntityType = nameof(OrderAction),
+            TriggerEntityId = action.Id,
+            PatientId = patient.Id,
+            ServiceDateUtc = _factory.Clock.UtcNow,
+            Amount = 40m,
+            SourceKind = BillingChargeSourceKind.Action,
+            SourceId = 1,
+            DedupeKey = "dto-action",
+            Status = BillingEventStatus.Pending
+        });
+        await c.SaveChangesAsync();
+
+        var dtos = await Billing(
+            c,
+            patients: new EfRepository<Patient>(c),
+            orderActions: new EfRepository<OrderAction>(c),
+            actionDefinitions: new EfRepository<ActionDefinition>(c)).ListReviewQueueDtosAsync();
+
+        var row = Assert.Single(dtos, d => d.BillingCode == "BB-IRRAD");
+        Assert.Equal("IRRAD W000123ACT0001", row.ClinicalLabel);
+        Assert.Equal("MRN-BILL-ACT", row.MedicalRecordNumber);
     }
 
     [Fact]

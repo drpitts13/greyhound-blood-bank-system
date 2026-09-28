@@ -210,3 +210,4 @@
 | SRS-BB-204 | `GET /api/lookback/notifications` is registered ahead of `/{din}`. The page loads it on open and after an attempt is saved. Each row can open the DIN search or the existing attempt form. | FRS-BB-242 |
 | SRS-BB-205 | The error queue Resolve button posts the reason to `ResolveQueueItemAsync`. The row leaves the unresolved list. The message log is not given a new replay entry. | FRS-BB-243 |
 | SRS-BB-206 | `Order.Priority` defaults to `OBR-5`, with fallbacks `ORC-7-6`, `OBR-27-6`, and `TQ1-9-1` while that path is still the catalog default. `HandleOrmAsync` passes the mapped priority into `CreateFromHl7Async`. | FRS-BB-244 |
+| SRS-BB-207 | `ListReviewQueueDtosAsync` reads `OrderAction` and `ActionDefinition` for `ActionCompleted` rows. `/billing` uses `ClinicalLabel` and links `OrderAction` to `/patients/{id}?tab=orders`. | FRS-BB-245 |

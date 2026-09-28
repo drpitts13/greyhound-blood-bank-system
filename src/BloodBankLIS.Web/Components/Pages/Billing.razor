@@ -5,7 +5,7 @@
 <PageTitle>Billing &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Billing &amp; Charge Capture</h1>
-<p class="muted">Review, then export, or cancel captured charges. Charges are captured automatically on result verification, unit issue, and completed transfusion — including inbound RAS — with no second manual capture. Reviewed rows stay on this queue until export. Each row shows MRN, name, the test or unit, and the queued DFT control id.</p>
+<p class="muted">Review, then export, or cancel captured charges. Charges are captured automatically on result verification, unit issue, completed transfusion — including inbound RAS — and a completed order action, with no second manual capture. Reviewed rows stay on this queue until export. Each row shows MRN, name, the test, unit, or action, and the queued DFT control id.</p>
 
 <Outcome Value="_fb" />
 
@@ -148,12 +148,17 @@
         {
             "TestResult" => $"/patients/{patientId}?tab=tests",
             "Issue" or "TransfusionEvent" => $"/patients/{patientId}?tab=history",
+            "OrderAction" => $"/patients/{patientId}?tab=orders",
             _ => null
         };
     }
 
-    private static string ClinicalHopLabel(BillingEventDto c) =>
-        c.TriggerEntityType == "TestResult" ? "Open Tests" : "Open Product History";
+    private static string ClinicalHopLabel(BillingEventDto c) => c.TriggerEntityType switch
+    {
+        "TestResult" => "Open Tests",
+        "OrderAction" => "Open orders",
+        _ => "Open Product History"
+    };
 
     private void BeginCancel(long id) { _cancelId = id; _cancelReason = string.Empty; }
 
