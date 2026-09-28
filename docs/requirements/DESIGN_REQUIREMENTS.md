@@ -217,3 +217,4 @@
 | SRS-BB-211 | `/reactions` builds the status list from the same completeness rule as `UpdateAsync`. Closed is omitted while that rule is a hard stop, unless the investigation is already closed. | FRS-BB-249 |
 | SRS-BB-212 | `/lookback` disables Save when Completed has no physician or NotApplicable has no note. `RecordAttemptAsync` rejects those posts before it writes the row. | FRS-BB-250 |
 | SRS-BB-213 | `GET /api/hl7/messages` and `GET /api/hl7/errors` set `RetriesExhausted` from the message retry count and the endpoint max. `/hl7` replaces Send with Retries used. `SendOneAsync` returns before it increments or connects. | FRS-BB-251 |
+| SRS-BB-214 | `ApplyPresentDemographics` runs on an existing ADT patient and on a merge survivor. Empty last, first, and middle names, a missing date of birth, and sex Unknown are skipped. | FRS-BB-252 |

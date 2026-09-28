@@ -341,11 +341,7 @@ public sealed class Hl7InboundProcessor
         }
         else
         {
-            patient.LastName = data.LastName;
-            patient.FirstName = data.FirstName;
-            patient.MiddleName = data.MiddleName;
-            if (data.DateOfBirth is not null) patient.DateOfBirth = data.DateOfBirth.Value;
-            patient.Sex = data.Sex;
+            ApplyPresentDemographics(patient, data);
             _patients.Update(patient);
         }
 
@@ -405,11 +401,7 @@ public sealed class Hl7InboundProcessor
         }
         else
         {
-            survivor.LastName = data.LastName;
-            survivor.FirstName = data.FirstName;
-            survivor.MiddleName = data.MiddleName;
-            if (data.DateOfBirth is not null) survivor.DateOfBirth = data.DateOfBirth.Value;
-            survivor.Sex = data.Sex;
+            ApplyPresentDemographics(survivor, data);
             _patients.Update(survivor);
         }
 
@@ -444,6 +436,38 @@ public sealed class Hl7InboundProcessor
         return visitNote is null
             ? $"Patient {data.PriorMrn} merged into {data.Mrn}."
             : $"Patient {data.PriorMrn} merged into {data.Mrn}. {visitNote}";
+    }
+
+    /// <summary>
+    /// A later ADT may omit name, date of birth, or sex. Those blanks do not
+    /// replace a value already on the chart. A stated value still updates it.
+    /// </summary>
+    private static void ApplyPresentDemographics(Patient patient, Hl7PatientData data)
+    {
+        if (!string.IsNullOrWhiteSpace(data.LastName))
+        {
+            patient.LastName = data.LastName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(data.FirstName))
+        {
+            patient.FirstName = data.FirstName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(data.MiddleName))
+        {
+            patient.MiddleName = data.MiddleName.Trim();
+        }
+
+        if (data.DateOfBirth is not null)
+        {
+            patient.DateOfBirth = data.DateOfBirth.Value;
+        }
+
+        if (data.Sex != Sex.Unknown)
+        {
+            patient.Sex = data.Sex;
+        }
     }
 
     private async Task<string> HandleOrmAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)

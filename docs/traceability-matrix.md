@@ -288,6 +288,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-214 / FRS-BB-249 | Close is withheld until the reaction workup checklist is recorded | `Reactions.razor`; `ReactionInvestigationService` | TEST-BB-103 | I | Does not claim AABB compliance |
 | URS-BB-215 / FRS-BB-250 | A lookback call cannot be completed without a physician, or marked not applicable without a note | `LookbackService`; `Lookback.razor` | TEST-BB-104 | I | Does not claim AABB compliance |
 | URS-BB-216 / FRS-BB-251 | An outbound HL7 message is not sent again after its retry limit | `Hl7OutboundSender`; `Hl7.razor` | TEST-BB-105 | I | Does not claim AABB compliance |
+| URS-BB-217 / FRS-BB-252 | A sparse ADT does not clear name, date of birth, or sex | `Hl7InboundProcessor.ApplyPresentDemographics` | TEST-BB-106 | I | Does not claim AABB compliance |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

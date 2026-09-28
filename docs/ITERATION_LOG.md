@@ -1970,3 +1970,35 @@ still offered Send, so another click transmitted it again.
 
 Next workflow family: HL7 data load. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 64 — Sparse ADT keeps the chart identity (2026-09-28)
+
+Workflow-audit loop tick (HL7 data load). A later ADT copied blank name
+fields and an omitted sex onto the patient. Date of birth was already left
+alone when the message did not include it. A location-only update could
+clear the name and sex staff use to confirm the chart.
+
+### Implemented
+
+- An update applies last name, first name, and middle name only when the
+  ADT carries them.
+- A missing date of birth still leaves the chart date in place.
+- Sex Unknown, including a blank PID-8, does not replace a recorded sex.
+- A stated name, date of birth, or sex still updates the chart. A new
+  patient is still created from the message as sent.
+
+### Requirements / risk
+
+- URS-BB-217, FRS-BB-252, SRS-BB-214, RISK-BB-319.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-106 (`Phase5Hl7Tests.InboundAdt_SparseA08_KeepsNameSexAndDateOfBirth`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 885.
+
+### Next ranked residual
+
+Next workflow family: billing. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

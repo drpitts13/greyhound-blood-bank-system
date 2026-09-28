@@ -412,6 +412,33 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task InboundAdt_SparseA08_KeepsNameSexAndDateOfBirth()
+    {
+        await using (var setup = _factory.Create())
+        {
+            await Processor(setup).ProcessAsync(Adt("CTRL-SPARSE-1", "HL7-SPARSE", "Kept", "Helen"));
+            var patient = await setup.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-SPARSE");
+            patient.Sex = Sex.Female;
+            patient.MiddleName = "Ann";
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var sparse =
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|CTRL-SPARSE-2|P|2.5\r" +
+            "PID|1||HL7-SPARSE^^^HOSP^MR";
+        var result = await Processor(context).ProcessAsync(sparse);
+
+        Assert.True(result.Accepted);
+        var kept = await context.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-SPARSE");
+        Assert.Equal("Kept", kept.LastName);
+        Assert.Equal("Helen", kept.FirstName);
+        Assert.Equal("Ann", kept.MiddleName);
+        Assert.Equal(Sex.Female, kept.Sex);
+        Assert.Equal(new DateOnly(1980, 1, 1), kept.DateOfBirth);
+    }
+
+    [Fact]
     public async Task InboundAdt_A40_MergesPriorPatientIntoSurvivor()
     {
         await using (var setup = _factory.Create())
