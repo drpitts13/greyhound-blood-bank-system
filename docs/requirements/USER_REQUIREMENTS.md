@@ -202,3 +202,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-194 | Completing a modification action captures the matching action charge and queues a DFT without a second product-issue charge for the action itself. | P0 | FRS-BB-228 |
 | URS-BB-195 | Staff can run prebuilt operational reports and export them to PDF or Excel, and designers can add a visual or SQL report. The starter list is for facility review and is not claimed as a regulatory submission. | P7 | FRS-BB-230 |
 | URS-BB-196 | Staff can see an untested or not-antigen-negative red cell on the allocate list, and only a user who meets the exception security level can reserve it after recording a reason. | P0 | FRS-BB-231 |
+| URS-BB-197 | When an unused unit is returned, its unexported issue charge comes off the review queue with the return. An already exported issue charge stays, and the return says so. | P3 | FRS-BB-232 |

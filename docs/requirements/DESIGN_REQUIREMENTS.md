@@ -197,3 +197,4 @@
 | SRS-BB-191 | Admin pages `/admin/actions` and `/admin/action-billing` use `admin.config.edit` / `admin.config.activate`. Seed rows: IRRAD/WASH/THAW/VR/LR and BB-* charges. | FRS-BB-228 |
 | SRS-BB-192 | Products tab buttons deep-link `/inventory/modify?unitId=&orderActionId=&returnUrl=`. `Modifications.razor` prefills the unit and matching rule and returns to the patient Products tab. | FRS-BB-227, FRS-BB-229 |
 | SRS-BB-193 | `AllocateUnitRequest` carries override reason and authorizer. `CompatibilityService` refuses `ISS-ANTIGEN-NEG` unless `ExceptionOverridePolicy` passes, then stores `Override` on the allocation. Missing permission, exception, or override repositories fail closed. | FRS-BB-231 |
+| SRS-BB-194 | Issue return and unit return both call `CancelOpenIssueChargesForReturnAsync` after the return commits. Pending and reviewed `UnitIssued` rows become Cancelled with the return reason. Exported rows are not changed. | FRS-BB-232 |

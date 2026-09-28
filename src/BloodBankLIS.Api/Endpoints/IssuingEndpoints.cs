@@ -1,7 +1,9 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
+using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Api.Endpoints;
@@ -89,9 +91,17 @@ public static class IssuingEndpoints
             EndpointResults.FromEvaluation(await service.RecordWardReceiptAsync(id, request, ct), i => IssueDto.From(i)))
             .RequirePermission(PermissionCodes.TransfusionDocument);
 
-        issues.MapPost("/{id:long}/return", async (long id, ReturnUnitRequest request, IssuingService service, CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await service.ReturnUnitAsync(id, request, ct), r => ReturnDto.From(r)))
-            .RequirePermission(PermissionCodes.IssueReturn);
+        issues.MapPost("/{id:long}/return", async (
+            long id,
+            ReturnUnitRequest request,
+            IssuingService service,
+            BillingService billing,
+            CancellationToken ct) =>
+        {
+            var result = await service.ReturnUnitAsync(id, request, ct);
+            result = await WithReturnChargesAsync(billing, result, request.Reason, ct);
+            return EndpointResults.FromEvaluation(result, r => ReturnDto.From(r));
+        }).RequirePermission(PermissionCodes.IssueReturn);
 
         issues.MapPost("/{id:long}/transfusion", async (
             long id,
@@ -123,6 +133,31 @@ public static class IssuingEndpoints
 
             return EndpointResults.FromEvaluation(result, t => TransfusionEventDto.From(t));
         }).RequirePermission(PermissionCodes.TransfusionDocument);
+    }
+
+    internal static async Task<EvaluationResult<Return>> WithReturnChargesAsync(
+        BillingService billing,
+        EvaluationResult<Return> result,
+        string reason,
+        CancellationToken ct)
+    {
+        if (!result.Succeeded || result.Value is null)
+        {
+            return result;
+        }
+
+        var charges = await billing.CancelOpenIssueChargesForReturnAsync(result.Value.IssueId, reason, ct);
+        if (charges.Succeeded && !charges.HasWarnings)
+        {
+            return result;
+        }
+
+        var messages = charges.Succeeded
+            ? charges.Warnings
+            : [RuleResult.Warning(
+                "BILL-RETURN-OPEN",
+                charges.Error ?? "Issue charges could not be cancelled.")];
+        return EvaluationResult<Return>.Ok(result.Value, new RuleEvaluation(messages));
     }
 
     private static bool IsOverrideAttempt(IssueUnitRequest request) =>

@@ -356,6 +356,49 @@ public class Phase7BillingTests : IDisposable
     }
 
     [Fact]
+    public async Task Return_CancelsOpenIssueCharge_AndLeavesExported()
+    {
+        long openIssueId;
+        long exportedIssueId;
+        await using (var setup = _factory.Create())
+        {
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitIssued, "RBC-LR", "RULE-RET", 200m);
+            await SeedChargeRuleAsync(setup, BillingTriggerType.UnitIssued, "RBC-LR2", "RULE-RET2", 200m);
+            openIssueId = await CreateIssuedUnitAsync(setup, "BILL-RET-OPEN", "RBC-LR", "E0336");
+            exportedIssueId = await CreateIssuedUnitAsync(setup, "BILL-RET-EXP", "RBC-LR2", "E0337");
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var billing = Billing(context);
+            var open = await billing.CaptureForIssueAsync(openIssueId);
+            var exported = await billing.CaptureForIssueAsync(exportedIssueId);
+            Assert.True(open.Succeeded);
+            Assert.True(exported.Succeeded);
+            exported.Value!.Single().Status = BillingEventStatus.Exported;
+            await context.SaveChangesAsync();
+
+            var cancelled = await billing.CancelOpenIssueChargesForReturnAsync(openIssueId, "Returned unused");
+            Assert.True(cancelled.Succeeded);
+            Assert.Equal(1, cancelled.Value);
+            Assert.False(cancelled.HasWarnings);
+
+            var left = await billing.CancelOpenIssueChargesForReturnAsync(exportedIssueId, "Returned unused");
+            Assert.True(left.Succeeded);
+            Assert.Equal(0, left.Value);
+            Assert.Contains(left.Warnings, w => w.Code == BillingService.ExportedIssueChargeRemains);
+        }
+
+        await using var verify = _factory.Create();
+        var openCharge = await verify.BillingEvents.SingleAsync(e => e.TriggerEntityId == openIssueId);
+        var exportedCharge = await verify.BillingEvents.SingleAsync(e => e.TriggerEntityId == exportedIssueId);
+        Assert.Equal(BillingEventStatus.Cancelled, openCharge.Status);
+        Assert.Equal("Returned unused", openCharge.CancellationReason);
+        Assert.Equal(BillingEventStatus.Exported, exportedCharge.Status);
+        Assert.Null(exportedCharge.CancellationReason);
+    }
+
+    [Fact]
     public async Task CaptureForIssue_CatchAllRuleAndCatalog_CreatesSingleCatalogCharge()
     {
         long issueId;

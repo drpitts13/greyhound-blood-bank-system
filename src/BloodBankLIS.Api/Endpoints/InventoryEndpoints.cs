@@ -1,4 +1,5 @@
 using BloodBankLIS.Api.Auth;
+using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.PatientWorkspace;
@@ -84,9 +85,13 @@ public static class InventoryEndpoints
             long id,
             ReturnUnitRequest request,
             IssuingService issuing,
+            BillingService billing,
             CancellationToken ct) =>
-            EndpointResults.FromEvaluation(await issuing.ReturnUnitForBloodUnitAsync(id, request, ct), ReturnDto.From))
-            .RequirePermission(PermissionCodes.IssueReturn);
+        {
+            var result = await issuing.ReturnUnitForBloodUnitAsync(id, request, ct);
+            result = await IssuingEndpoints.WithReturnChargesAsync(billing, result, request.Reason, ct);
+            return EndpointResults.FromEvaluation(result, ReturnDto.From);
+        }).RequirePermission(PermissionCodes.IssueReturn);
 
         group.MapGet("/units/{id:long}/blood-attributes", async (long id, InventoryService service, BloodBankDbContext context, CancellationToken ct) =>
         {

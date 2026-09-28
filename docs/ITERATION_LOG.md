@@ -1372,3 +1372,33 @@ that skipped the security check and did not write an override.
 
 Next workflow family: billing. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 44 — Return drops open issue charges (2026-09-27)
+
+Workflow-audit loop tick (billing). Returning an unused unit left its
+issue charge on the review queue, so staff had to find and cancel it by hand.
+
+### Implemented
+
+- `CancelOpenIssueChargesForReturnAsync` cancels pending and reviewed
+  `UnitIssued` charges for that issue and audits the return reason. It does
+  not require `billing.cancel`.
+- Issue return and unit return both call it after the return commits.
+- An already exported issue charge stays. The return warns
+  `BILL-RETURN-EXPORTED`. Transfusion and test charges are unchanged.
+
+### Requirements / risk
+
+- URS-BB-197, FRS-BB-232, SRS-BB-194, RISK-BB-299.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-086 (`Phase7BillingTests.Return_CancelsOpenIssueCharge_AndLeavesExported`).
+- Full suite green: Domain 1386, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 866.
+
+### Next ranked residual
+
+Next workflow family: reactions. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).
