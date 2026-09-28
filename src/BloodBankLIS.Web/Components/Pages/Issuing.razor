@@ -480,13 +480,26 @@
             <div class="form-row">
                 <div class="field"><label>Issue id</label><input type="number" @bind="_returnIssueId" placeholder="Or Return from Issued units" /></div>
                 <div class="field"><label>Reason</label><input @bind="_returnReason" /></div>
+                <div class="field"><label>Destination</label>
+                    <select @bind="_returnDestination">
+                        @if (ReturnCanBeAvailable)
+                        {
+                            <option value="@UnitStatus.Available">Available</option>
+                        }
+                        <option value="@UnitStatus.Quarantine">Quarantine</option>
+                        <option value="@UnitStatus.Discarded">Disposed</option>
+                    </select>
+                </div>
                 @if (_returnUnitNumber is not null)
                 {
                     <p class="muted" style="margin:0;">Returning <span class="mono">@_returnUnitNumber</span>@(string.IsNullOrWhiteSpace(_returnPatientName) ? "" : $" · {_returnPatientName}").</p>
                 }
             </div>
-            <p class="muted">Reissue eligibility is computed from temperature, seal, visual inspection, and time out of storage.</p>
-            <button class="btn btn-secondary" disabled="@_busy" @onclick="ReturnAsync">Return unit</button>
+            <p class="muted">Record temperature, seal, and visual inspection. A failed seal or appearance cannot return to available stock. Time out of storage is still computed by the return rule.</p>
+            <label class="checkbox-item"><input type="checkbox" @bind="_returnTempOk" @bind:after="SyncReturnDestination" /> Temperature acceptable</label>
+            <label class="checkbox-item"><input type="checkbox" @bind="_returnSealOk" @bind:after="SyncReturnDestination" /> Seal intact</label>
+            <label class="checkbox-item"><input type="checkbox" @bind="_returnVisualOk" @bind:after="SyncReturnDestination" /> Visual inspection acceptable</label>
+            <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_returnReason))" @onclick="ReturnAsync">Return unit</button>
             @if (_lastReturn is not null)
             {
                 <p class="muted" style="margin-top:.75rem;">
@@ -590,6 +603,11 @@
 
     private long _returnIssueId;
     private string _returnReason = string.Empty;
+    private bool _returnTempOk = true;
+    private bool _returnSealOk = true;
+    private bool _returnVisualOk = true;
+    private UnitStatus _returnDestination = UnitStatus.Available;
+    private bool ReturnCanBeAvailable => _returnTempOk && _returnSealOk && _returnVisualOk;
     private Feedback? _returnFb;
 
     private long _txIssueId;
@@ -717,6 +735,22 @@
         _returnUnitNumber = row.UnitNumber;
         _returnPatientName = row.PatientDisplayName;
         _returnPatientId = row.PatientId;
+        _returnTempOk = true;
+        _returnSealOk = true;
+        _returnVisualOk = true;
+        _returnDestination = UnitStatus.Available;
+    }
+
+    private void SyncReturnDestination()
+    {
+        if (ReturnCanBeAvailable || _returnDestination != UnitStatus.Available)
+        {
+            return;
+        }
+
+        _returnDestination = _returnSealOk && _returnVisualOk
+            ? UnitStatus.Quarantine
+            : UnitStatus.Discarded;
     }
 
     private void SelectTransfusionIssue(OutstandingIssueWorkItemDto row)
@@ -958,14 +992,31 @@
 
     private async Task ReturnAsync()
     {
+        if (string.IsNullOrWhiteSpace(_returnReason))
+        {
+            _returnFb = Feedback.Fail("A reason is required to return a unit.");
+            return;
+        }
+
+        SyncReturnDestination();
         _busy = true;
-        var r = await Api.ReturnUnitAsync(_returnIssueId, new ReturnUnitRequest(_returnReason));
+        var r = await Api.ReturnUnitAsync(_returnIssueId, new ReturnUnitRequest(
+            _returnReason.Trim(),
+            _returnTempOk,
+            _returnSealOk,
+            _returnVisualOk,
+            Destination: _returnDestination));
         _returnFb = r.ToFeedback("Unit returned.");
         if (r.Succeeded)
         {
             _lastReturn = r.Value;
             _returnUnitNumber = null;
             _returnPatientName = null;
+            _returnReason = string.Empty;
+            _returnTempOk = true;
+            _returnSealOk = true;
+            _returnVisualOk = true;
+            _returnDestination = UnitStatus.Available;
             await LoadWorklistsAsync();
         }
         _busy = false;

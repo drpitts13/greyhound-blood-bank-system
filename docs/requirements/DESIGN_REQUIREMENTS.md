@@ -213,3 +213,4 @@
 | SRS-BB-207 | `ListReviewQueueDtosAsync` reads `OrderAction` and `ActionDefinition` for `ActionCompleted` rows. `/billing` uses `ClinicalLabel` and links `OrderAction` to `/patients/{id}?tab=orders`. | FRS-BB-245 |
 | SRS-BB-208 | `TestWorklistService` sorts rush priorities ahead of other priorities for the patient Tests tab and `/test-worklist`. Both surfaces badge those priorities. | FRS-BB-246 |
 | SRS-BB-209 | `/inventory` Near expiry expands a reason and second-verifier panel and posts `POST /api/inventory/units/{id}/discard`. A successful discard reloads the board. | FRS-BB-247 |
+| SRS-BB-210 | `/issuing` Return binds inspection flags and destination onto `ReturnUnitRequest`. A failed seal or visual inspection moves the destination off Available before post. The outstanding list reloads after success. | FRS-BB-248 |

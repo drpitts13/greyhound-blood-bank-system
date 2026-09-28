@@ -1054,6 +1054,39 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Return_FailedVisual_DisposesAndLeavesOutstanding()
+    {
+        var s = await SeedAsync("RETURN-VIS");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
+            Assert.Contains(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var disposed = await Issuing(c).ReturnUnitAsync(
+                issueId,
+                new ReturnUnitRequest(
+                    "Hemolysis on return",
+                    SealIntegrityAcceptable: false,
+                    VisualInspectionAcceptable: false,
+                    Destination: UnitStatus.Discarded));
+            Assert.True(disposed.Succeeded, disposed.Error);
+            Assert.False(disposed.Value!.ReissueEligible);
+            Assert.DoesNotContain(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Discarded, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.Equal(IssueStatus.Returned, (await verify.Issues.FindAsync(issueId))!.Status);
+    }
+
+    [Fact]
     public async Task UnitActivity_IncludesAllocateCrossmatchIssueAndCanceledMod()
     {
         var s = await SeedAsync("ACT-TRAIL");

@@ -110,5 +110,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-099 | I | `Phase7BillingTests.ReviewQueueDtos_ShowActionCodeAndUnit` | URS-BB-210 / FRS-BB-245 / RISK-BB-312 |
 | TEST-BB-100 | I | `TestWorklistTests.PendingWorklist_ListsRushPriorityAheadOfNewerRoutine` | URS-BB-211 / FRS-BB-246 / RISK-BB-313 |
 | TEST-BB-101 | I | `InventoryServiceTests.Discard_NearExpiryUnit_LeavesTheBoard` | URS-BB-212 / FRS-BB-247 / RISK-BB-314 |
+| TEST-BB-102 | I | `Phase4IssuingTests.Return_FailedVisual_DisposesAndLeavesOutstanding` | URS-BB-213 / FRS-BB-248 / RISK-BB-315 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

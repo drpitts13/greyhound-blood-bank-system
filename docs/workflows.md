@@ -191,7 +191,7 @@ flowchart TD
     e --> g
 ```
 
-- Use case: `ReturnUnitCommand`. Stores the per-check evaluation JSON so reissue decisions are auditable. Returning an issued unit requires `issue.return` (`ISS-RET-PERM`) in the Application service.
+- Use case: `ReturnUnitCommand`. Stores the per-check evaluation JSON so reissue decisions are auditable. Returning an issued unit requires `issue.return` (`ISS-RET-PERM`) in the Application service. `/issuing` Return records temperature, seal, and visual inspection and a destination. A failed seal or appearance cannot choose Available. Time out of storage stays on `RET-REISSUE`. The unit page status change is unchanged.
 
 ---
 

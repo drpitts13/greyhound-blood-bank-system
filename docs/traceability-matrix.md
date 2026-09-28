@@ -284,6 +284,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-210 / FRS-BB-245 | A completed-action charge names the action and unit | `BillingService`; `Billing.razor` | TEST-BB-099 | I | Does not claim AABB compliance |
 | URS-BB-211 / FRS-BB-246 | Rush test orders stay above newer routine work | `TestWorklistService`; `TestWorklist.razor` | TEST-BB-100 | I | Does not claim AABB compliance |
 | URS-BB-212 / FRS-BB-247 | A near-expiry unit can be discarded from the inventory row | `Inventory.razor`; `InventoryService` | TEST-BB-101 | I | Does not claim AABB compliance |
+| URS-BB-213 / FRS-BB-248 | An issued-unit return records inspection and cannot restore a failed inspection to available stock | `Issuing.razor`; `IssuingService` | TEST-BB-102 | I | Does not claim AABB compliance |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

@@ -1851,3 +1851,34 @@ only offered Open, so staff left the board to find Discard on the unit.
 
 Next workflow family: assignment and issuing. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 60 — Issued-unit return records inspection (2026-09-28)
+
+Workflow-audit loop tick (assignment and issuing). The unit page already
+asked for temperature, seal, and appearance before changing an issued unit.
+`/issuing` Return sent only a reason, so every check defaulted to acceptable
+and a failed inspection could return to available stock.
+
+### Implemented
+
+- Return on `/issuing` posts temperature, seal, visual inspection, and a
+  destination with the reason.
+- Available is withheld when seal, appearance, or temperature fails. A
+  failed seal or appearance moves the destination to Disposed.
+- A blank reason does not submit. `RET-REISSUE` is unchanged.
+
+### Requirements / risk
+
+- URS-BB-213, FRS-BB-248, SRS-BB-210, RISK-BB-315.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-102 (`Phase4IssuingTests.Return_FailedVisual_DisposesAndLeavesOutstanding`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 881.
+
+### Next ranked residual
+
+Next workflow family: reactions. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).
