@@ -17,7 +17,8 @@ public sealed record AllocateUnitRequest(
     long PatientId,
     long? SpecimenId = null,
     DateTime? ExpiresUtc = null,
-    bool AntigenNegOverrideAuthorized = false);
+    string? OverrideReason = null,
+    string? AuthorizedBy = null);
 
 public sealed record EvaluateCompatibilityRequest(long BloodUnitId, long PatientId);
 

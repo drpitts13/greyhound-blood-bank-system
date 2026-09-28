@@ -13,6 +13,9 @@ public static class BloodAttributeCompatibilityRule
 {
     public const string AntigenNegCode = "ISS-ANTIGEN-NEG";
     public const string CodePrefix = "COMPAT-ATTR-";
+    public const string UntestedFlag = "Untested";
+    public const string NotNegativeFlag = "NotNegative";
+    public const string MixedFlag = "Mixed";
 
     public sealed record AntibodyRef(string Code, string AntibodyName);
 
@@ -70,13 +73,62 @@ public static class BloodAttributeCompatibilityRule
             if (!unitByCode.TryGetValue(antibody.Code, out var unitAntigen)
                 || unitAntigen.Result != AntigenResult.Negative)
             {
-                results.Add(RuleResult.Warning(
-                    AntigenNegCode,
-                    $"Patient has {antibody.AntibodyName}; unit must be antigen-negative for {antibody.Code}."));
+                results.Add(DescribeCellularGap(antibody, unitAntigen));
             }
         }
 
         return results;
+    }
+
+    /// <summary>
+    /// Untested, not-antigen-negative, or both, from <see cref="AntigenNegCode"/> warnings.
+    /// </summary>
+    public static string? SummarizeAntigenNegFlag(IEnumerable<RuleResult> results)
+    {
+        var untested = false;
+        var notNegative = false;
+        foreach (var result in results)
+        {
+            if (result.Code != AntigenNegCode || result.Severity != RuleSeverity.Warning)
+            {
+                continue;
+            }
+
+            if (result.Message.Contains("not tested", StringComparison.Ordinal))
+            {
+                untested = true;
+            }
+            else
+            {
+                notNegative = true;
+            }
+        }
+
+        if (untested && notNegative)
+        {
+            return MixedFlag;
+        }
+
+        if (untested)
+        {
+            return UntestedFlag;
+        }
+
+        return notNegative ? NotNegativeFlag : null;
+    }
+
+    private static RuleResult DescribeCellularGap(AntibodyRef antibody, AntigenRef? unitAntigen)
+    {
+        if (unitAntigen is null || unitAntigen.Result == AntigenResult.NotTested)
+        {
+            return RuleResult.Warning(
+                AntigenNegCode,
+                $"Patient has {antibody.AntibodyName}; unit is not tested for {antibody.Code} and must be antigen-negative.");
+        }
+
+        return RuleResult.Warning(
+            AntigenNegCode,
+            $"Patient has {antibody.AntibodyName}; unit is {unitAntigen.Result} for {antibody.Code} and must be antigen-negative.");
     }
 
     private static IReadOnlyList<RuleResult> EvaluateCellularWarning(

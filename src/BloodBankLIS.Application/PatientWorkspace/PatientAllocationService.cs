@@ -296,13 +296,15 @@ public sealed class PatientAllocationService
                 bloodAttrs.PatientAntigens,
                 bloodAttrs.UnitSignificantAntibodies,
                 bloodAttrs.UnitAntigens));
-            // Exclude HardStops and antigen-neg Warnings (those need supervisor override).
-            if (eval.Any(r => r.Severity == RuleSeverity.HardStop
-                              || r.Code == BloodAttributeCompatibilityRule.AntigenNegCode))
+            if (eval.Any(r => r.Severity == RuleSeverity.HardStop))
             {
                 continue;
             }
 
+            var antigenWarnings = eval
+                .Where(r => r.Code == BloodAttributeCompatibilityRule.AntigenNegCode
+                            && r.Severity == RuleSeverity.Warning)
+                .ToList();
             results.Add(new CompatibleUnitDto(
                 unit.Id,
                 unit.UnitNumber,
@@ -313,7 +315,11 @@ public sealed class PatientAllocationService
                 unit.Abo,
                 unit.RhD,
                 unit.BloodType.ToString(),
-                unit.ExpiresUtc));
+                unit.ExpiresUtc,
+                BloodAttributeCompatibilityRule.SummarizeAntigenNegFlag(antigenWarnings),
+                antigenWarnings.Count == 0
+                    ? null
+                    : string.Join(" ", antigenWarnings.Select(r => r.Message))));
         }
 
         return OperationResult<IReadOnlyList<CompatibleUnitDto>>.Ok(results);
@@ -505,7 +511,8 @@ public sealed class PatientAllocationService
                 patientId,
                 specimenId,
                 request.ExpiresUtc,
-                antigenNegOverrideAuthorized),
+                antigenNegOverrideAuthorized ? request.OverrideReason : null,
+                antigenNegOverrideAuthorized ? request.AuthorizedBy : null),
             ct);
 
         if (!allocResult.Succeeded || allocResult.Value is null)
@@ -626,20 +633,8 @@ public sealed class PatientAllocationService
             allocation.OrderId = productOrder.Id;
         }
 
-        if (antigenNegOverrideAuthorized
-            && !string.IsNullOrWhiteSpace(request.OverrideReason)
-            && !string.IsNullOrWhiteSpace(request.AuthorizedBy))
+        if (antigenNegOverrideAuthorized)
         {
-            await _overrides.AddAsync(new Override
-            {
-                Action = OverrideAction.WarningOverride,
-                ContextType = nameof(Allocation),
-                ContextId = allocation.Id,
-                RuleCode = BloodAttributeCompatibilityRule.AntigenNegCode,
-                Reason = request.OverrideReason.Trim(),
-                AuthorizedBy = request.AuthorizedBy.Trim(),
-                OverriddenUtc = _clock.UtcNow
-            }, ct);
             overrideApplied = true;
         }
 

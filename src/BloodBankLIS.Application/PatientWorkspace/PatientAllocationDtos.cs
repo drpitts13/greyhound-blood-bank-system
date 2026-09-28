@@ -37,7 +37,9 @@ public sealed record CompatibleUnitDto(
     AboGroup Abo,
     RhType RhD,
     string BloodType,
-    DateTime ExpiresUtc);
+    DateTime ExpiresUtc,
+    string? AntigenNegFlag = null,
+    string? AntigenNegDetail = null);
 
 public sealed record EnsureManualCrossmatchLineRequest(string TestCode);
 

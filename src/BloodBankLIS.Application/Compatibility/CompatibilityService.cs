@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -38,6 +39,8 @@ public sealed class CompatibilityService
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
     private readonly CrossmatchSettingsReader? _crossmatchSettings;
     private readonly IRepository<ProductRetypeResult>? _retypes;
+    private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
+    private readonly IRepository<Override>? _overrides;
 
     public CompatibilityService(
         IInventoryRepository inventory,
@@ -58,7 +61,9 @@ public sealed class CompatibilityService
         IPermissionEvaluator? permissions = null,
         IRepository<AntibodyIdentificationWorkup>? workups = null,
         CrossmatchSettingsReader? crossmatchSettings = null,
-        IRepository<ProductRetypeResult>? retypes = null)
+        IRepository<ProductRetypeResult>? retypes = null,
+        IRepository<ExceptionDefinition>? exceptionDefinitions = null,
+        IRepository<Override>? overrides = null)
     {
         _inventory = inventory;
         _crossmatches = crossmatches;
@@ -79,6 +84,8 @@ public sealed class CompatibilityService
         _workups = workups;
         _crossmatchSettings = crossmatchSettings;
         _retypes = retypes;
+        _exceptionDefinitions = exceptionDefinitions;
+        _overrides = overrides;
     }
 
     public Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(
@@ -375,11 +382,16 @@ public sealed class CompatibilityService
             return EvaluationResult<Allocation>.Blocked(evaluation);
         }
 
-        // Antigen-negative mismatches are Warnings (supervisor-overridable); block unless authorized.
-        if (evaluation.Warnings.Any(w => w.Code == BloodAttributeCompatibilityRule.AntigenNegCode)
-            && !request.AntigenNegOverrideAuthorized)
+        var antigenNegWarnings = evaluation.Warnings
+            .Where(w => w.Code == BloodAttributeCompatibilityRule.AntigenNegCode)
+            .ToList();
+        if (antigenNegWarnings.Count > 0)
         {
-            return EvaluationResult<Allocation>.Blocked(evaluation);
+            var antigenBlock = await AuthorizeAntigenNegOverrideAsync(evaluation, request, ct);
+            if (antigenBlock is not null)
+            {
+                return EvaluationResult<Allocation>.Blocked(antigenBlock);
+            }
         }
 
         var fromStatus = unit.Status;
@@ -418,6 +430,20 @@ public sealed class CompatibilityService
         catch (Exception ex) when (InventoryConcurrency.AsFailure<Allocation>(ex) is { } conflict)
         {
             return conflict;
+        }
+
+        if (antigenNegWarnings.Count > 0 && _overrides is not null)
+        {
+            await _overrides.AddAsync(new Override
+            {
+                Action = OverrideAction.WarningOverride,
+                ContextType = nameof(Allocation),
+                ContextId = allocation.Id,
+                RuleCode = BloodAttributeCompatibilityRule.AntigenNegCode,
+                Reason = request.OverrideReason!.Trim(),
+                AuthorizedBy = request.AuthorizedBy!.Trim(),
+                OverriddenUtc = _clock.UtcNow
+            }, ct);
         }
 
         _audit?.Record(
@@ -602,6 +628,40 @@ public sealed class CompatibilityService
         {
             results.Add(allocateOpen);
         }
+    }
+
+    /// <summary>
+    /// Null when reserve may continue. A warning-only evaluation asks for reason and
+    /// authorizer. A hard stop means the signed-in user cannot override.
+    /// </summary>
+    private async Task<RuleEvaluation?> AuthorizeAntigenNegOverrideAsync(
+        RuleEvaluation evaluation,
+        AllocateUnitRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.OverrideReason) || string.IsNullOrWhiteSpace(request.AuthorizedBy))
+        {
+            return evaluation;
+        }
+
+        if (_permissions is null || _exceptionDefinitions is null || _overrides is null)
+        {
+            return new RuleEvaluation(evaluation.Results.Append(RuleResult.HardStop(
+                "EXC-DEF-MISSING",
+                "Antigen-negative override cannot be authorized.")).ToList());
+        }
+
+        var antigenDef = await _exceptionDefinitions.FirstOrDefaultAsync(
+            e => e.RuleCode == BloodAttributeCompatibilityRule.AntigenNegCode && e.IsActive, ct);
+        var userLevel = await _permissions.GetMaxSecurityLevelAsync(_currentUser.UserName, ct);
+        var access = ExceptionOverridePolicy.EvaluateAccess(
+            userLevel, antigenDef, BloodAttributeCompatibilityRule.AntigenNegCode);
+        if (access.Severity == RuleSeverity.HardStop)
+        {
+            return new RuleEvaluation(evaluation.Results.Append(access).ToList());
+        }
+
+        return null;
     }
 
     private async Task<EvaluationResult<T>?> RejectMergedPatientAsync<T>(long patientId, CancellationToken ct)

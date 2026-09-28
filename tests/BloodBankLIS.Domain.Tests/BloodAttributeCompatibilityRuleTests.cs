@@ -21,6 +21,10 @@ public class BloodAttributeCompatibilityRuleTests
         Assert.Single(results);
         Assert.Equal(RuleSeverity.Warning, results[0].Severity);
         Assert.Equal(BloodAttributeCompatibilityRule.AntigenNegCode, results[0].Code);
+        Assert.Contains("is Positive", results[0].Message, StringComparison.Ordinal);
+        Assert.Equal(
+            BloodAttributeCompatibilityRule.NotNegativeFlag,
+            BloodAttributeCompatibilityRule.SummarizeAntigenNegFlag(results));
     }
 
     [Fact]
@@ -36,6 +40,10 @@ public class BloodAttributeCompatibilityRuleTests
         Assert.Single(results);
         Assert.Equal(RuleSeverity.Warning, results[0].Severity);
         Assert.Equal(BloodAttributeCompatibilityRule.AntigenNegCode, results[0].Code);
+        Assert.Contains("not tested", results[0].Message, StringComparison.Ordinal);
+        Assert.Equal(
+            BloodAttributeCompatibilityRule.UntestedFlag,
+            BloodAttributeCompatibilityRule.SummarizeAntigenNegFlag(results));
     }
 
     [Fact]
@@ -119,6 +127,7 @@ public class BloodAttributeCompatibilityRuleTests
         Assert.Single(results);
         Assert.Equal(RuleSeverity.Warning, results[0].Severity);
         Assert.Equal(BloodAttributeCompatibilityRule.AntigenNegCode, results[0].Code);
+        Assert.Contains("not tested", results[0].Message, StringComparison.Ordinal);
     }
 
     [Fact]

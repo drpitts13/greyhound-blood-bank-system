@@ -308,7 +308,7 @@ else
             OnToggleIssuedTransfused="ToggleShowIssuedTransfusedAsync"
             OnMarkTransfused="MarkTransfusedAsync"
             CompatUnitsLoading="_compatUnitsLoading"
-            CompatUnitsError="_compatUnitsError"
+            CompatUnitsError="@_compatUnitsError"
             CompatibleUnits="_compatibleUnits"
             SelectedUnitId="_selectedUnitId"
             SelectedUnit="_selectedUnit"
@@ -333,7 +333,10 @@ else
             OnAllocUnitChanged="OnAllocUnitChanged"
             OnBeginAutoThaw="BeginAutoThaw"
             OnBeginCrossmatch="BeginCrossmatch"
-            OnReserve="AllocateUnitAsync" />
+            OnReserve="AllocateUnitAsync"
+            ShowAllocOverride="_showAllocOverride"
+            @bind-AllocOverrideReason="_allocOverrideReason"
+            @bind-AllocAuthorizedBy="_allocAuthorizedBy" />
     }
 
     @if (_tab == "history")
@@ -640,6 +643,9 @@ else
     private List<CrossmatchTestOptionDto> _crossmatchTests = new();
     private long? _selectedUnitId;
     private CompatibleUnitDto? _selectedUnit;
+    private bool _showAllocOverride;
+    private string _allocOverrideReason = string.Empty;
+    private string _allocAuthorizedBy = string.Empty;
     private long _allocEncounterId;
     private long _allocSpecimenId;
     private int _allocXmMinLevel = 2;
@@ -1012,6 +1018,11 @@ else
     {
         _selectedUnitId = id;
         _selectedUnit = id is null ? null : _compatibleUnits.FirstOrDefault(u => u.BloodUnitId == id);
+        _showAllocOverride = _selectedUnit?.AntigenNegFlag is not null;
+        if (_showAllocOverride && string.IsNullOrWhiteSpace(_allocAuthorizedBy))
+        {
+            _allocAuthorizedBy = Session.UserName ?? string.Empty;
+        }
     }
 
     private void BeginReleaseAllocation(PatientAllocationRowDto a)
@@ -1270,16 +1281,43 @@ else
             return;
         }
 
+        var needsOverride = _selectedUnit?.AntigenNegFlag is not null || _showAllocOverride;
+        if (needsOverride && (string.IsNullOrWhiteSpace(_allocOverrideReason) || string.IsNullOrWhiteSpace(_allocAuthorizedBy)))
+        {
+            _showAllocOverride = true;
+            if (string.IsNullOrWhiteSpace(_allocAuthorizedBy))
+            {
+                _allocAuthorizedBy = Session.UserName ?? string.Empty;
+            }
+
+            _allocFb = Feedback.Fail("An override reason and authorizer are required to reserve a unit that is not antigen-negative.");
+            return;
+        }
+
         _busy = true;
         var req = new AllocatePatientUnitRequest(
             _selectedUnitId.Value,
             _allocEncounterId > 0 ? _allocEncounterId : null,
             _allocSpecimenId > 0 ? _allocSpecimenId : null,
             _newOrderLocationId > 0 ? _newOrderLocationId : null,
-            OrderId: _allocatingOrderId);
+            OrderId: _allocatingOrderId,
+            OverrideReason: needsOverride ? _allocOverrideReason.Trim() : null,
+            AuthorizedBy: needsOverride ? _allocAuthorizedBy.Trim() : null);
 
         var r = await Api.AllocatePatientUnitAsync(Id, req);
         _busy = false;
+
+        if (r.Blocked && r.Overridable)
+        {
+            _showAllocOverride = true;
+            if (string.IsNullOrWhiteSpace(_allocAuthorizedBy))
+            {
+                _allocAuthorizedBy = Session.UserName ?? string.Empty;
+            }
+
+            _allocFb = r.ToFeedback();
+            return;
+        }
 
         _allocFb = r.ToFeedback(
             r.Value?.CrossmatchTestCode is not null
@@ -1289,6 +1327,9 @@ else
         if (r.Succeeded)
         {
             _showAllocate = false;
+            _showAllocOverride = false;
+            _allocOverrideReason = string.Empty;
+            _allocAuthorizedBy = string.Empty;
             _allocatingOrderId = null;
             _selectedUnitId = null;
             _selectedUnit = null;

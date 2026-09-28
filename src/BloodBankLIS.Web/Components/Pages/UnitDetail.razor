@@ -221,6 +221,11 @@ else
                             </select>
                         </div>
                         <button class="btn btn-primary btn-sm" disabled="@(_busy || _allocateOrderId <= 0)" @onclick="() => AllocateSelectedAsync(_unit)">Allocate</button>
+                        @if (_showAllocOverride)
+                        {
+                            <div class="field"><label>Override reason</label><input @bind="_allocOverrideReason" /></div>
+                            <div class="field"><label>Authorized by</label><input @bind="_allocAuthorizedBy" /></div>
+                        }
                     }
                     @if (_unit.Status == UnitStatus.Issued && _selectedIssueId is long issuedId && Session.Has(PermissionCodes.TransfusionDocument))
                     {
@@ -492,6 +497,9 @@ else
     private UnitAttributeTypingSource _uaSource = UnitAttributeTypingSource.Supplier;
 
     private long _allocateOrderId;
+    private bool _showAllocOverride;
+    private string _allocOverrideReason = string.Empty;
+    private string _allocAuthorizedBy = string.Empty;
     private long _selectedEligibleRuleId;
     private long? _selectedIssueId;
     private DateTime? _selectedIssuedUtc;
@@ -713,10 +721,39 @@ else
             return;
         }
 
+        if (_showAllocOverride && (string.IsNullOrWhiteSpace(_allocOverrideReason) || string.IsNullOrWhiteSpace(_allocAuthorizedBy)))
+        {
+            _actionFb = Feedback.Fail("An override reason and authorizer are required to reserve a unit that is not antigen-negative.");
+            return;
+        }
+
         _busy = true;
         var r = await Api.AllocatePatientUnitAsync(order.PatientId, new AllocatePatientUnitRequest(
-            unit.Id, SpecimenId: order.SpecimenId, OrderId: order.OrderId));
+            unit.Id,
+            SpecimenId: order.SpecimenId,
+            OrderId: order.OrderId,
+            OverrideReason: _showAllocOverride ? _allocOverrideReason.Trim() : null,
+            AuthorizedBy: _showAllocOverride ? _allocAuthorizedBy.Trim() : null));
         _busy = false;
+        if (r.Blocked && r.Overridable)
+        {
+            _showAllocOverride = true;
+            if (string.IsNullOrWhiteSpace(_allocAuthorizedBy))
+            {
+                _allocAuthorizedBy = Session.UserName ?? string.Empty;
+            }
+
+            _actionFb = r.ToFeedback();
+            return;
+        }
+
+        if (r.Succeeded)
+        {
+            _showAllocOverride = false;
+            _allocOverrideReason = string.Empty;
+            _allocAuthorizedBy = string.Empty;
+        }
+
         await AfterActionAsync(r, "Unit allocated to the selected order.");
         if (r.Succeeded && r.Value?.AutoThawEligible == true)
         {

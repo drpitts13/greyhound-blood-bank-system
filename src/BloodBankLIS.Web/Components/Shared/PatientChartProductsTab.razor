@@ -283,7 +283,7 @@
                     Items="CompatibleUnits"
                     Value="SelectedUnitId"
                     ValueChanged="OnAllocUnitChanged"
-                    DisplayText="@(u => $"{u.UnitNumber} · {u.BloodType} · {u.ProductCode} · expires {u.ExpiresUtc:yyyy-MM-dd}")"
+                    DisplayText="UnitChoiceLabel"
                     ItemValue="@(u => u.BloodUnitId)"
                     SearchText="@(u => $"{u.UnitNumber} {u.ProductCode} {u.BloodType} {u.BloodUnitId}")"
                     Clearable="true"
@@ -297,6 +297,18 @@
                     <div class="field"><label>Expires</label><div class="nowrap">@SelectedUnit.ExpiresUtc.ToString("yyyy-MM-dd")</div></div>
                     <div class="field"><label>Crossmatch required</label><div>@(SelectedUnit.RequiresCrossmatch ? "Yes" : "No")</div></div>
                 </div>
+                @if (NeedsAllocOverride)
+                {
+                    <div class="alert alert-warning" style="margin-top:.75rem;">
+                        @(string.IsNullOrWhiteSpace(SelectedUnit.AntigenNegDetail)
+                            ? "This unit is not antigen-negative for the patient's antibody. Reserve requires an authorized override."
+                            : SelectedUnit.AntigenNegDetail)
+                    </div>
+                    <div class="form-row" style="margin-top:.5rem;">
+                        <div class="field"><label>Override reason</label><input @bind="AllocOverrideReason" @bind:after="() => AllocOverrideReasonChanged.InvokeAsync(AllocOverrideReason)" /></div>
+                        <div class="field"><label>Authorized by</label><input @bind="AllocAuthorizedBy" @bind:after="() => AllocAuthorizedByChanged.InvokeAsync(AllocAuthorizedBy)" /></div>
+                    </div>
+                }
             }
         }
 
@@ -404,6 +416,26 @@
     [Parameter] public EventCallback<PatientAllocationRowDto> OnBeginCrossmatch { get; set; }
     [Parameter] public EventCallback OnReserve { get; set; }
     [Parameter] public long PatientId { get; set; }
+    [Parameter] public bool ShowAllocOverride { get; set; }
+    [Parameter] public string AllocOverrideReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> AllocOverrideReasonChanged { get; set; }
+    [Parameter] public string AllocAuthorizedBy { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> AllocAuthorizedByChanged { get; set; }
+
+    private bool NeedsAllocOverride =>
+        ShowAllocOverride || SelectedUnit?.AntigenNegFlag is not null;
+
+    private static string UnitChoiceLabel(CompatibleUnitDto u)
+    {
+        var label = $"{u.UnitNumber} · {u.BloodType} · {u.ProductCode} · expires {u.ExpiresUtc:yyyy-MM-dd}";
+        return u.AntigenNegFlag switch
+        {
+            BloodAttributeCompatibilityRule.UntestedFlag => $"{label} · not tested",
+            BloodAttributeCompatibilityRule.NotNegativeFlag => $"{label} · not antigen-negative",
+            BloodAttributeCompatibilityRule.MixedFlag => $"{label} · antigen exception",
+            _ => label
+        };
+    }
 
     private bool PtagScanMissing => PtagRequired && string.IsNullOrWhiteSpace(PtagId);
 

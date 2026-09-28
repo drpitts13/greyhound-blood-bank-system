@@ -93,5 +93,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-082 | I | `OrderActionTests.StandaloneModify_StillQuarantines_AndDoesNotBill` | URS-BB-193 / FRS-BB-062 / FRS-BB-227 |
 | TEST-BB-083 | I | `ActionDefinitionAuthorizationTests`; `ActionBillingAuthorizationTests` | URS-BB-194 / FRS-BB-228 |
 | TEST-BB-084 | I | `OrderActionTests.Issue_BlockedWhileActionPending_AndAllowedAfterComplete` | URS-BB-193 / FRS-BB-229 |
+| TEST-BB-085 | I | `PatientAllocationTests.Allocate_AntiK_Level1Override_IsBlocked`; `PatientAllocationTests.AllocateUnit_AntiK_RequiresPrivilegedOverrideRow`; `PatientAllocationTests.ListCompatibleUnits_FlagsUntypedAndAntigenPositive` | URS-BB-196 / FRS-BB-231 / RISK-BB-298 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

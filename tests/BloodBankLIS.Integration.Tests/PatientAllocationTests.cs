@@ -35,7 +35,9 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Patient>(c), new EfRepository<Specimen>(c), new EfRepository<ProductType>(c),
             new EfRepository<PatientBloodTypeHistory>(c),
             BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
-            permissions: permissions);
+            permissions: permissions,
+            exceptionDefinitions: new EfRepository<ExceptionDefinition>(c),
+            overrides: new EfRepository<Override>(c));
 
     private OrderService Orders(BloodBankDbContext c) =>
         new(new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
@@ -43,9 +45,11 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Specimen>(c), new EfRepository<OrderingProvider>(c), new EfRepository<ProductType>(c),
             new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c), _factory.Clock, c);
 
-    private PatientAllocationService Allocations(BloodBankDbContext c) =>
-        new(
-            Compatibility(c),
+    private PatientAllocationService Allocations(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
+    {
+        var perms = permissions ?? new FixedPermissionEvaluator(3);
+        return new(
+            Compatibility(c, perms),
             Orders(c),
             new InventoryRepository(c),
             new EfRepository<Allocation>(c),
@@ -61,7 +65,7 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Override>(c),
             BloodAttrCompat(c),
             AntibodyScreenCompat(c),
-            new FixedPermissionEvaluator(3),
+            perms,
             _factory.Clock,
             _factory.CurrentUser,
             c,
@@ -69,6 +73,7 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             orderRepo: new EfRepository<Order>(c),
             orderSpecimens: new EfRepository<OrderSpecimen>(c),
             issues: new EfRepository<Issue>(c));
+    }
 
     private async Task<(Patient Patient, BloodUnit Unit)> SeedAvailableUnitAsync(BloodBankDbContext c, string key)
     {
@@ -644,11 +649,167 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             "No K-neg unit available; clinical urgency", "supervisor"));
         Assert.True(ok.Succeeded, ok.Error);
         Assert.True(await c.Overrides.AnyAsync(o =>
-            o.RuleCode == BloodAttributeCompatibilityRule.AntigenNegCode));
+            o.RuleCode == BloodAttributeCompatibilityRule.AntigenNegCode
+            && o.ContextType == nameof(Allocation)
+            && o.Reason == "No K-neg unit available; clinical urgency"));
     }
 
     [Fact]
-    public async Task ListCompatibleUnits_ExcludesAntigenIncompatible()
+    public async Task Allocate_AntiK_Level1Override_IsBlocked()
+    {
+        await using var c = _factory.Create();
+        var (patient, unit, enc, loc) = await SeedAntiKUnitAsync(c, typedPositive: false);
+
+        var blocked = await Allocations(c, new FixedPermissionEvaluator(1)).AllocateAsync(
+            patient.Id,
+            new AllocatePatientUnitRequest(
+                unit.Id, enc.Id, null, loc.Id, null, "CXM",
+                "No K-neg unit available; clinical urgency", "tech"));
+        Assert.False(blocked.Succeeded);
+        Assert.False(blocked.RequiresOverride);
+        Assert.Contains(blocked.Evaluation!.HardStops, r => r.Code == "EXC-SECURITY-LEVEL");
+        Assert.False(await c.Allocations.AnyAsync(a => a.BloodProductId == unit.Id));
+        Assert.False(await c.Overrides.AnyAsync(o =>
+            o.RuleCode == BloodAttributeCompatibilityRule.AntigenNegCode && o.AuthorizedBy == "tech"));
+        Assert.Equal(UnitStatus.Available, (await c.BloodUnits.SingleAsync(u => u.Id == unit.Id)).Status);
+    }
+
+    [Fact]
+    public async Task AllocateUnit_AntiK_RequiresPrivilegedOverrideRow()
+    {
+        await using var c = _factory.Create();
+        var (patient, unit, _, _) = await SeedAntiKUnitAsync(c, typedPositive: true);
+
+        var missing = await Compatibility(c, new FixedPermissionEvaluator(2)).AllocateUnitAsync(
+            new AllocateUnitRequest(unit.Id, patient.Id));
+        Assert.False(missing.Succeeded);
+        Assert.True(missing.RequiresOverride);
+        Assert.Contains(missing.Evaluation!.Warnings, r =>
+            r.Code == BloodAttributeCompatibilityRule.AntigenNegCode
+            && r.Message.Contains("Positive", StringComparison.Ordinal));
+
+        var low = await Compatibility(c, new FixedPermissionEvaluator(1)).AllocateUnitAsync(
+            new AllocateUnitRequest(unit.Id, patient.Id, OverrideReason: "Clinical urgency for untyped red cells", AuthorizedBy: "tech"));
+        Assert.False(low.Succeeded);
+        Assert.Contains(low.Evaluation!.HardStops, r => r.Code == "EXC-SECURITY-LEVEL");
+
+        var ok = await Compatibility(c, new FixedPermissionEvaluator(2)).AllocateUnitAsync(
+            new AllocateUnitRequest(unit.Id, patient.Id, OverrideReason: "Clinical urgency for untyped red cells", AuthorizedBy: "supervisor"));
+        Assert.True(ok.Succeeded, ok.Error);
+        Assert.True(await c.Overrides.AnyAsync(o =>
+            o.ContextType == nameof(Allocation)
+            && o.ContextId == ok.Value!.Id
+            && o.RuleCode == BloodAttributeCompatibilityRule.AntigenNegCode
+            && o.AuthorizedBy == "supervisor"));
+    }
+
+    private async Task<(Patient Patient, BloodUnit Unit, Encounter Encounter, OrderingLocation Location)> SeedAntiKUnitAsync(BloodBankDbContext c, bool typedPositive)
+    {
+        await SeedCrossmatchCatalogAsync(c);
+        if (!await c.ExceptionDefinitions.AnyAsync(e => e.RuleCode == BloodAttributeCompatibilityRule.AntigenNegCode))
+        {
+            c.ExceptionDefinitions.Add(new ExceptionDefinition
+            {
+                RuleCode = BloodAttributeCompatibilityRule.AntigenNegCode,
+                Name = "Antigen-negative requirement not met",
+                MinSecurityLevel = 2,
+                IsOverridable = true,
+                IsActive = true
+            });
+        }
+
+        var kell = await c.BloodAttributeDefinitions.FirstOrDefaultAsync(d => d.Code == "K");
+        if (kell is null)
+        {
+            kell = new BloodAttributeDefinition
+            {
+                Code = "K",
+                Name = "Kell",
+                AntibodyName = "anti-K",
+                IsClinicallySignificant = true,
+                SortOrder = 1,
+                IsActive = true,
+                IsDraft = false,
+                EffectiveUtc = _factory.Clock.UtcNow,
+                Version = 1
+            };
+            c.BloodAttributeDefinitions.Add(kell);
+        }
+
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-KDIR-{Guid.NewGuid():N}"[..20],
+            LastName = "Kell",
+            FirstName = "Direct",
+            DateOfBirth = new DateOnly(1972, 3, 3)
+        };
+        c.Patients.Add(patient);
+        var loc = new OrderingLocation { Code = $"L-{Guid.NewGuid():N}"[..10], Name = "BB", IsActive = true };
+        c.OrderingLocations.Add(loc);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = false
+        };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+        c.AntibodyHistory.Add(new AntibodyHistory
+        {
+            PatientId = patient.Id,
+            AntibodySpecificity = "anti-K",
+            BloodAttributeDefinitionId = kell.Id,
+            Status = AntibodyStatus.Identified,
+            IsActive = true
+        });
+        var enc = new Encounter
+        {
+            PatientId = patient.Id,
+            VisitNumber = $"VIS-{Guid.NewGuid():N}"[..12],
+            EncounterType = EncounterType.Inpatient,
+            Status = EncounterStatus.Active,
+            AdmitUtc = _factory.Clock.UtcNow
+        };
+        c.Encounters.Add(enc);
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-KDIR-{Guid.NewGuid():N}"[..16],
+            ProductTypeId = rbc.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10),
+            Status = UnitStatus.Available
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+
+        if (typedPositive)
+        {
+            c.UnitBloodAttributes.Add(new UnitBloodAttribute
+            {
+                BloodProductId = unit.Id,
+                BloodAttributeDefinitionId = kell.Id,
+                AttributeKind = BloodAttributeKind.Antigen,
+                Result = AntigenResult.Positive
+            });
+            await c.SaveChangesAsync();
+        }
+
+        return (patient, unit, enc, loc);
+    }
+
+    [Fact]
+    public async Task ListCompatibleUnits_FlagsUntypedAndAntigenPositive()
     {
         await using var c = _factory.Create();
         await SeedCrossmatchCatalogAsync(c);
@@ -725,7 +886,16 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             ExpiresUtc = _factory.Clock.UtcNow.AddDays(10),
             Status = UnitStatus.Available
         };
-        c.BloodUnits.AddRange(okUnit, badUnit);
+        var untyped = new BloodUnit
+        {
+            UnitNumber = $"U-KNONE-{Guid.NewGuid():N}"[..16],
+            ProductTypeId = rbc.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(10),
+            Status = UnitStatus.Available
+        };
+        c.BloodUnits.AddRange(okUnit, badUnit, untyped);
         await c.SaveChangesAsync();
 
         c.UnitBloodAttributes.AddRange(
@@ -747,8 +917,14 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
 
         var result = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
         Assert.True(result.Succeeded);
-        Assert.Contains(result.Value!, u => u.UnitNumber.StartsWith("U-KNEG-", StringComparison.Ordinal));
-        Assert.DoesNotContain(result.Value!, u => u.UnitNumber.StartsWith("U-KPOS-", StringComparison.Ordinal));
+        var negative = Assert.Single(result.Value!, u => u.UnitNumber.StartsWith("U-KNEG-", StringComparison.Ordinal));
+        Assert.Null(negative.AntigenNegFlag);
+        var positive = Assert.Single(result.Value!, u => u.UnitNumber.StartsWith("U-KPOS-", StringComparison.Ordinal));
+        Assert.Equal(BloodAttributeCompatibilityRule.NotNegativeFlag, positive.AntigenNegFlag);
+        Assert.Contains("Positive", positive.AntigenNegDetail, StringComparison.Ordinal);
+        var missing = Assert.Single(result.Value!, u => u.UnitNumber.StartsWith("U-KNONE-", StringComparison.Ordinal));
+        Assert.Equal(BloodAttributeCompatibilityRule.UntestedFlag, missing.AntigenNegFlag);
+        Assert.Contains("not tested", missing.AntigenNegDetail, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1327,3 +1327,48 @@ verifier remains optional for small labs.
 
 Next workflow family: billing. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 43 — Antigen-negative allocation override (2026-09-27)
+
+Workflow-audit loop tick (assignment and issuing). RBC and whole blood that
+were untested or not antigen-negative for a patient antibody were either
+hidden from the compatible-unit list or reservable through a client boolean
+that skipped the security check and did not write an override.
+
+### Implemented
+
+- `ISS-ANTIGEN-NEG` still warns. The message says the unit is not tested or
+  states the recorded non-negative result.
+- Compatible-unit search keeps those units and flags Untested, NotNegative,
+  or Mixed. ABO and other HardStops stay off the list.
+- Patient chart, unit page, and `/compatibility` ask for reason and authorizer
+  before that reserve succeeds.
+- `AllocateUnitAsync` checks `ExceptionOverridePolicy` and writes the
+  `Override` row. A client boolean no longer authorizes it. Users below the
+  exception minimum stay blocked.
+- Granulocyte `COMPAT-ATTR-*` warnings stay advisory.
+
+### Requirements / risk
+
+- URS-BB-196, FRS-BB-231, SRS-BB-193, RISK-BB-298.
+- Does not claim AABB compliance. Granulocyte severity remains SME review.
+
+### Tests
+
+- TEST-BB-085 (`PatientAllocationTests.Allocate_AntiK_Level1Override_IsBlocked`,
+  `AllocateUnit_AntiK_RequiresPrivilegedOverrideRow`,
+  `ListCompatibleUnits_FlagsUntypedAndAntigenPositive`).
+- TEST-BB-041 still covers the issue-gate warning for untyped and K-positive units.
+- Domain message assertions in `BloodAttributeCompatibilityRuleTests`.
+- Full suite green: Domain 1386, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 865.
+- Patient chart: the compatible-unit error was bound as a string literal, so
+  the unit list never rendered. It now binds the field. On Kellerman (anti-K),
+  an untested RBC shows “not tested,” reserve without a reason is refused, and
+  a level-3 user with a reason reserves the unit and writes an `ISS-ANTIGEN-NEG`
+  Override.
+
+### Next ranked residual
+
+Next workflow family: billing. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).
