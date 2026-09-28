@@ -4,6 +4,7 @@ using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.HL7.Messaging;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -696,6 +697,57 @@ public class Phase7BillingTests : IDisposable
                  && e.Reason != null);
         Assert.NotNull(auditEvent);
         Assert.Contains("Duplicate", auditEvent!.Reason!);
+    }
+
+    [Fact]
+    public async Task Cancel_UnsentDft_IsWithheldFromSend()
+    {
+        long chargeId = await CaptureSingleChargeAsync("BILL-DFT", "ABORH", "BILL-ABORH-DFT");
+        long messageId;
+        await using (var setup = _factory.Create())
+        {
+            var log = new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Outbound,
+                MessageType = "DFT",
+                TriggerEvent = "P03",
+                MessageControlId = "DFT-WITHHOLD",
+                RawMessage = "MSH|^~\\&|BBLIS|LAB|EHR|HOSP|20260928120000||DFT^P03|DFT-WITHHOLD|P|2.5",
+                Status = Hl7MessageStatus.Received,
+                ReceivedUtc = _factory.Clock.UtcNow
+            };
+            setup.Hl7Messages.Add(log);
+            await setup.SaveChangesAsync();
+            messageId = log.Id;
+            var charge = await setup.BillingEvents.SingleAsync(e => e.Id == chargeId);
+            charge.Hl7MessageId = messageId;
+            await setup.SaveChangesAsync();
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var cancelled = await Billing(context, messages: new EfRepository<Hl7MessageLog>(context))
+                .CancelAsync(chargeId, "Entered in error");
+            Assert.True(cancelled.Succeeded);
+            Assert.False(cancelled.HasWarnings);
+        }
+
+        await using var verify = _factory.Create();
+        var message = await verify.Hl7Messages.SingleAsync(m => m.Id == messageId);
+        Assert.Equal(Hl7MessageStatus.Processed, message.Status);
+        Assert.Equal(BillingService.UnsentDftWithheldDetail, message.ErrorDetail);
+        Assert.Equal(0, message.RetryCount);
+
+        var sender = new Hl7OutboundSender(
+            new EfRepository<Hl7MessageLog>(verify),
+            new EfRepository<InterfaceEndpoint>(verify),
+            new EfRepository<InterfaceErrorQueueItem>(verify),
+            verify,
+            _factory.Clock);
+        var send = await sender.SendOneAsync(messageId);
+        Assert.False(send.Succeeded);
+        Assert.Contains("withheld", send.Error);
+        Assert.Equal(0, (await verify.Hl7Messages.SingleAsync(m => m.Id == messageId)).RetryCount);
     }
 
     [Fact]

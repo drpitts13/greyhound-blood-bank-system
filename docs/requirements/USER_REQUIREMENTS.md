@@ -223,3 +223,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-215 | Staff cannot complete a lookback call without the physician of record, or mark it not applicable without a note. | P1 | FRS-BB-250 |
 | URS-BB-216 | Staff cannot send an outbound HL7 message again after it has used the interface retry limit. | P1 | FRS-BB-251 |
 | URS-BB-217 | A later ADT that omits name, date of birth, or sex does not clear those values on the chart. | P1 | FRS-BB-252 |
+| URS-BB-218 | Cancelling a charge before its DFT is sent does not leave that message available to send. | P1 | FRS-BB-253 |

@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -75,6 +76,12 @@ public sealed class Hl7OutboundSender
 
         if (row.Status == Hl7MessageStatus.Acked)
             return OperationResult<Hl7MessageLog>.Fail("Message was already acknowledged.");
+
+        if (row.ErrorDetail == BillingService.UnsentDftWithheldDetail)
+        {
+            return OperationResult<Hl7MessageLog>.Fail(
+                "This DFT was withheld because the charge was cancelled before it was sent.");
+        }
 
         var endpoint = await ResolveEndpointAsync(row, ct);
         if (endpoint is null)

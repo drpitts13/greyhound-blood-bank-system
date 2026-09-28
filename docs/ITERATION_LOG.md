@@ -2002,3 +2002,35 @@ clear the name and sex staff use to confirm the chart.
 
 Next workflow family: billing. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 65 — Cancelling a charge withholds an unsent DFT (2026-09-28)
+
+Workflow-audit loop tick (billing). Capture already queues a DFT. Cancelling
+the charge left that message on the outbound queue, so a later send could
+still transmit a charge staff had cancelled.
+
+### Implemented
+
+- Cancelling a pending or reviewed charge marks an unsent outbound DFT
+  processed and records that it was withheld.
+- `/hl7` says Charge cancelled instead of Send. A later send is refused
+  and does not increment the retry count.
+- A DFT that already left stays. The cancellation warns `BILL-DFT-SENT`.
+  No credit transaction is created.
+- Unused-unit return and result invalidation use the same withhold.
+
+### Requirements / risk
+
+- URS-BB-218, FRS-BB-253, SRS-BB-215, RISK-BB-320.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-107 (`Phase7BillingTests.Cancel_UnsentDft_IsWithheldFromSend`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 886.
+
+### Next ranked residual
+
+Next workflow family: patient testing. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

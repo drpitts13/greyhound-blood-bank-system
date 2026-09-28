@@ -179,7 +179,11 @@
                                     <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(m.Id)">Replay</button>
                                 }
                             }
-                            @if (m.Direction == Hl7Direction.Outbound && m.Status is Hl7MessageStatus.Received or Hl7MessageStatus.Errored or Hl7MessageStatus.Nacked)
+                            @if (m.Direction == Hl7Direction.Outbound && m.ErrorDetail == BillingService.UnsentDftWithheldDetail)
+                            {
+                                <span class="muted" title="The charge was cancelled before this DFT was sent.">Charge cancelled</span>
+                            }
+                            else if (m.Direction == Hl7Direction.Outbound && m.Status is Hl7MessageStatus.Received or Hl7MessageStatus.Errored or Hl7MessageStatus.Nacked)
                             {
                                 @if (m.RetriesExhausted == true)
                                 {

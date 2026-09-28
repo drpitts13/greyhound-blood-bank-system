@@ -347,8 +347,11 @@ public sealed class BillingService
             newValue: new { Status = BillingEventStatus.Cancelled },
             reason: reason);
 
+        var dftNote = await WithholdUnsentDftAsync(billingEvent, ct);
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<BillingEvent>.Ok(billingEvent);
+        return dftNote is null
+            ? OperationResult<BillingEvent>.Ok(billingEvent)
+            : OperationResult<BillingEvent>.Ok(billingEvent, [dftNote]);
     }
 
     /// <summary>
@@ -370,6 +373,7 @@ public sealed class BillingService
             ct)).Select(e => e.Id).ToList();
         var cancelled = 0;
         var exported = 0;
+        RuleResult? sentDft = null;
         var trimmed = reason.Trim();
         foreach (var id in ids)
         {
@@ -401,6 +405,7 @@ public sealed class BillingService
                 oldValue: new { Status = previousStatus },
                 newValue: new { Status = BillingEventStatus.Cancelled, IssueId = issueId },
                 reason: trimmed);
+            sentDft ??= await WithholdUnsentDftAsync(billingEvent, ct);
             cancelled++;
         }
 
@@ -409,12 +414,20 @@ public sealed class BillingService
             await _unitOfWork.SaveChangesAsync(ct);
         }
 
-        IReadOnlyList<RuleResult>? warnings = exported > 0
-            ? [RuleResult.Warning(
+        var warnings = new List<RuleResult>();
+        if (exported > 0)
+        {
+            warnings.Add(RuleResult.Warning(
                 ExportedIssueChargeRemains,
-                "An exported issue charge was left in place. Credit that charge outside this return.")]
-            : null;
-        return OperationResult<int>.Ok(cancelled, warnings);
+                "An exported issue charge was left in place. Credit that charge outside this return."));
+        }
+
+        if (sentDft is not null)
+        {
+            warnings.Add(sentDft);
+        }
+
+        return OperationResult<int>.Ok(cancelled, warnings.Count == 0 ? null : warnings);
     }
 
     public const string ExportedIssueChargeRemains = "BILL-RETURN-EXPORTED";
@@ -438,6 +451,7 @@ public sealed class BillingService
             ct)).Select(e => e.Id).ToList();
         var cancelled = 0;
         var exported = 0;
+        RuleResult? sentDft = null;
         var trimmed = reason.Trim();
         foreach (var id in ids)
         {
@@ -464,6 +478,7 @@ public sealed class BillingService
                 oldValue: new { Status = previousStatus },
                 newValue: new { Status = BillingEventStatus.Cancelled, ResultId = resultId },
                 reason: trimmed);
+            sentDft ??= await WithholdUnsentDftAsync(billingEvent, ct);
             cancelled++;
         }
 
@@ -472,15 +487,65 @@ public sealed class BillingService
             await _unitOfWork.SaveChangesAsync(ct);
         }
 
-        IReadOnlyList<RuleResult>? warnings = exported > 0
-            ? [RuleResult.Warning(
+        var warnings = new List<RuleResult>();
+        if (exported > 0)
+        {
+            warnings.Add(RuleResult.Warning(
                 ExportedTestChargeRemains,
-                "An exported test charge was left in place. Credit that charge outside this invalidation.")]
-            : null;
-        return OperationResult<int>.Ok(cancelled, warnings);
+                "An exported test charge was left in place. Credit that charge outside this invalidation."));
+        }
+
+        if (sentDft is not null)
+        {
+            warnings.Add(sentDft);
+        }
+
+        return OperationResult<int>.Ok(cancelled, warnings.Count == 0 ? null : warnings);
     }
 
     public const string ExportedTestChargeRemains = "BILL-INVALIDATE-EXPORTED";
+
+    public const string SentDftRemains = "BILL-DFT-SENT";
+
+    public const string UnsentDftWithheldDetail =
+        "DFT withheld because the charge was cancelled before it was sent.";
+
+    /// <summary>
+    /// A charge DFT is queued at capture. Cancelling the charge before that
+    /// message is sent keeps it off the outbound queue. A message that already
+    /// left is left in place and reported with <see cref="SentDftRemains"/>.
+    /// </summary>
+    private async Task<RuleResult?> WithholdUnsentDftAsync(BillingEvent billingEvent, CancellationToken ct)
+    {
+        if (_messages is null || billingEvent.Hl7MessageId is not long messageId)
+        {
+            return null;
+        }
+
+        var message = await _messages.GetByIdAsync(messageId, ct);
+        if (message is null || message.Direction != Hl7Direction.Outbound)
+        {
+            return null;
+        }
+
+        if (message.ErrorDetail == UnsentDftWithheldDetail)
+        {
+            return null;
+        }
+
+        if (message.Status != Hl7MessageStatus.Received)
+        {
+            return RuleResult.Warning(
+                SentDftRemains,
+                "The DFT for this charge was already sent. Credit that charge outside this cancellation.");
+        }
+
+        message.Status = Hl7MessageStatus.Processed;
+        message.ErrorDetail = UnsentDftWithheldDetail;
+        message.ProcessedUtc = _clock.UtcNow;
+        _messages.Update(message);
+        return null;
+    }
 
     public async Task<OperationResult<BillingEvent>> ExportAsync(long id, CancellationToken ct = default)
     {
