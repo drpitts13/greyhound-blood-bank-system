@@ -1882,3 +1882,33 @@ and a failed inspection could return to available stock.
 
 Next workflow family: reactions. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 61 — Reaction close waits for the workup checklist (2026-09-28)
+
+Workflow-audit loop tick (reactions). Closing an investigation already
+hard-stops until clerical check, visual inspection, and DAT are recorded.
+The form still listed Closed, so staff signed a close and then hit that block.
+
+### Implemented
+
+- An open investigation omits Closed while `RXN-WORKUP-INCOMPLETE` applies,
+  and names the missing step.
+- A completed checklist offers Closed again. The signature and the hard stop
+  are unchanged.
+- An already closed investigation still shows Closed.
+
+### Requirements / risk
+
+- URS-BB-214, FRS-BB-249, SRS-BB-211, RISK-BB-316.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-103 (`ReactionInvestigationServiceTests.Update_IncompleteWorkup_DoesNotClose`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 882.
+
+### Next ranked residual
+
+Next workflow family: lookback. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

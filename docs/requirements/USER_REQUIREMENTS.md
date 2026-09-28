@@ -219,3 +219,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-211 | Staff see a Stat, Urgent, emergency-release, or massive-transfusion test above newer routine work on the pending worklist and the patient Tests tab. | P1 | FRS-BB-246 |
 | URS-BB-212 | Staff can discard a unit that is about to expire from the near-expiry row, without opening the unit. | P1 | FRS-BB-247 |
 | URS-BB-213 | Staff returning an issued unit from the issue desk record temperature, seal, and appearance, and cannot put a failed inspection back into available stock. | P0 | FRS-BB-248 |
+| URS-BB-214 | Staff cannot choose Close on a reaction investigation until the clerical check, visual inspection, and DAT are recorded. | P0 | FRS-BB-249 |

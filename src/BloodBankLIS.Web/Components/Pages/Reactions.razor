@@ -157,7 +157,7 @@ else
                     <select @bind="_severity">@foreach (var s in Enum.GetValues<ReactionSeverity>()) { <option value="@s">@s</option> }</select>
                 </div>
                 <div class="field"><label>Status</label>
-                    <select @bind="_status">@foreach (var s in Enum.GetValues<ReactionInvestigationStatus>()) { <option value="@s">@s</option> }</select>
+                    <select @bind="_status">@foreach (var s in CloseableStatuses) { <option value="@s">@s</option> }</select>
                 </div>
                 <div class="field"><label>Disposition</label><input @bind="_disposition" /></div>
             </div>
@@ -171,17 +171,21 @@ else
             {
                 <p class="badge badge-red" title="@_selected.RepeatAboRhDetail">@(_selected.RepeatAboRhDetail ?? "Repeat ABO/Rh disagrees with the current or labeled type.") Close still requires clerical, visual, and DAT only.</p>
             }
-            <label class="flex"><input type="checkbox" @bind="_clerical" /> &nbsp;Clerical check completed (patient ID, unit number, ABO/Rh)</label>
+            @if (WorkupHoldMessage is not null && _selected.Status != ReactionInvestigationStatus.Closed)
+            {
+                <p class="alert alert-warning">@WorkupHoldMessage Close stays unavailable until this step is recorded.</p>
+            }
+            <label class="flex"><input type="checkbox" @bind="_clerical" @bind:after="SyncCloseAvailability" /> &nbsp;Clerical check completed (patient ID, unit number, ABO/Rh)</label>
             <div class="field"><label>Clerical notes</label><input @bind="_clericalNotes" /></div>
-            <label class="flex"><input type="checkbox" @bind="_visual" /> &nbsp;Visual inspection of bag / tubing / segments completed</label>
+            <label class="flex"><input type="checkbox" @bind="_visual" @bind:after="SyncCloseAvailability" /> &nbsp;Visual inspection of bag / tubing / segments completed</label>
             <label class="flex"><input type="checkbox" @bind="_visualOk" /> &nbsp;Visual inspection acceptable</label>
             <div class="form-row">
                 <div class="field"><label>Repeat patient ABO/Rh</label><input @bind="_repeatPatient" placeholder="@(_selected.CurrentBloodType is { } pt ? $"recorded type {pt}" : "e.g. A+")" /></div>
                 <div class="field"><label>Repeat unit ABO/Rh</label><input @bind="_repeatUnit" placeholder="@(_selected.UnitBloodType is { } ut ? $"labeled {ut}" : "e.g. A+")" /></div>
                 <div class="field"><label>DAT</label>
-                    <select @bind="_dat">@foreach (var d in Enum.GetValues<DatWorkupResult>()) { <option value="@d">@d</option> }</select>
+                    <select @bind="_dat" @bind:after="SyncCloseAvailability">@foreach (var d in Enum.GetValues<DatWorkupResult>()) { <option value="@d">@d</option> }</select>
                 </div>
-                <div class="field"><label>Elution (required if DAT positive)</label><input @bind="_elution" /></div>
+                <div class="field"><label>Elution (required if DAT positive)</label><input @bind="_elution" @bind:after="SyncCloseAvailability" /></div>
             </div>
             <label class="flex"><input type="checkbox" @bind="_remainderHeld" /> &nbsp;Remainder / segments quarantined or retained</label>
             @if (!string.IsNullOrWhiteSpace(_selected.RemainderHoldNote))
@@ -228,6 +232,34 @@ else
     private bool _showClosed;
 
     private IEnumerable<ReactionInvestigationDto> VisibleRows => _rows.Where(IncludeOnBoard);
+
+    private string? WorkupHoldMessage
+    {
+        get
+        {
+            var workup = ReactionWorkupCompletenessRule.Evaluate(_clerical, _visual, _dat, _elution);
+            return workup.Severity == RuleSeverity.HardStop ? $"{workup.Code}: {workup.Message}" : null;
+        }
+    }
+
+    private IEnumerable<ReactionInvestigationStatus> CloseableStatuses =>
+        Enum.GetValues<ReactionInvestigationStatus>().Where(status =>
+            status != ReactionInvestigationStatus.Closed
+            || _selected?.Status == ReactionInvestigationStatus.Closed
+            || WorkupHoldMessage is null);
+
+    private void SyncCloseAvailability()
+    {
+        if (_selected is null || _selected.Status == ReactionInvestigationStatus.Closed)
+        {
+            return;
+        }
+
+        if (WorkupHoldMessage is not null && _status == ReactionInvestigationStatus.Closed)
+        {
+            _status = _selected.Status;
+        }
+    }
 
     private bool IncludeOnBoard(ReactionInvestigationDto row)
     {

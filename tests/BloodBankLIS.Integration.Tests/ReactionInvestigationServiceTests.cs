@@ -174,6 +174,43 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
+    public async Task Update_IncompleteWorkup_DoesNotClose()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+
+        var closed = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                null, null, null, null, null, null, null, null,
+                ReactionInvestigationStatus.Closed,
+                ClosedSignatureId: 1));
+        Assert.False(closed.Succeeded);
+        Assert.Contains(ReactionWorkupCompletenessRule.Code, closed.Error);
+        Assert.Equal(ReactionInvestigationStatus.Open, (await context.ReactionInvestigations.FindAsync(opened.Id))!.Status);
+
+        var stillDue = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.True(stillDue.WorkupIncomplete);
+        Assert.Contains("Clerical check", stillDue.WorkupHoldReason);
+
+        var completed = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                null, null, null, null, null, null, null, null,
+                ReactionInvestigationStatus.Closed,
+                ClosedSignatureId: 1,
+                ClericalCheckCompleted: true,
+                VisualInspectionCompleted: true,
+                DatResult: DatWorkupResult.Negative));
+        Assert.True(completed.Succeeded, completed.Error);
+        Assert.Equal(ReactionInvestigationStatus.Closed, completed.Value!.Status);
+        var ready = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.False(ready.WorkupIncomplete);
+    }
+
+    [Fact]
     public async Task ListDtos_SurfacesAboIncompatibilityAndEmergencyIssueContext()
     {
         await using var context = _factory.Create();
