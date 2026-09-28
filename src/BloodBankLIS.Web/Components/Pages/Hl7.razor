@@ -93,7 +93,14 @@
                                 <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => BeginResolve(e)">Resolve</button>
                                 @if (e.Direction == Hl7Direction.Outbound)
                                 {
-                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(e.Hl7MessageId)">Send</button>
+                                    @if (e.RetriesExhausted == true)
+                                    {
+                                        <span class="muted" title="This outbound message has used the endpoint retry limit. Resolve the row, or raise Max retries on the interface.">Retries used</span>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(e.Hl7MessageId)">Send</button>
+                                    }
                                 }
                             </td>
                         </tr>
@@ -174,7 +181,14 @@
                             }
                             @if (m.Direction == Hl7Direction.Outbound && m.Status is Hl7MessageStatus.Received or Hl7MessageStatus.Errored or Hl7MessageStatus.Nacked)
                             {
-                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(m.Id)">Send</button>
+                                @if (m.RetriesExhausted == true)
+                                {
+                                    <span class="muted" title="This outbound message has used the endpoint retry limit. Resolve the error, or raise Max retries on the interface.">Retries used</span>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(m.Id)">Send</button>
+                                }
                             }
                         </td>
                     </tr>

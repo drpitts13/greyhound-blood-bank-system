@@ -221,3 +221,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-213 | Staff returning an issued unit from the issue desk record temperature, seal, and appearance, and cannot put a failed inspection back into available stock. | P0 | FRS-BB-248 |
 | URS-BB-214 | Staff cannot choose Close on a reaction investigation until the clerical check, visual inspection, and DAT are recorded. | P0 | FRS-BB-249 |
 | URS-BB-215 | Staff cannot complete a lookback call without the physician of record, or mark it not applicable without a note. | P1 | FRS-BB-250 |
+| URS-BB-216 | Staff cannot send an outbound HL7 message again after it has used the interface retry limit. | P1 | FRS-BB-251 |

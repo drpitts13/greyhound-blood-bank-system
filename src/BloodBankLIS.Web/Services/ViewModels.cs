@@ -24,7 +24,9 @@ public sealed record Hl7MessageVm(
     string? UnitNumber = null,
     long? PatientId = null,
     long? EndpointId = null,
-    bool? ReplayAllowed = null);
+    bool? ReplayAllowed = null,
+    int? RetryCount = null,
+    bool? RetriesExhausted = null);
 
 public sealed record Hl7MessageDetailVm(Hl7MessageVm Message, string? Raw);
 
@@ -48,7 +50,8 @@ public sealed record Hl7ErrorVm(
     string? UnitNumber = null,
     long? PatientId = null,
     long? EndpointId = null,
-    bool? ReplayAllowed = null);
+    bool? ReplayAllowed = null,
+    bool? RetriesExhausted = null);
 
 public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 

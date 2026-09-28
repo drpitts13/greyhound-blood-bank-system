@@ -1941,3 +1941,32 @@ blank physician and a blank note, so the call left the board with no record.
 
 Next workflow family: HL7 process. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 63 — Outbound HL7 send stops at the retry limit (2026-09-28)
+
+Workflow-audit loop tick (HL7 process). Queued outbound send already skipped
+a message that had used its retry limit. The error queue and message log
+still offered Send, so another click transmitted it again.
+
+### Implemented
+
+- `SendOneAsync` refuses an outbound message at the endpoint max retry count
+  and does not increment the count or connect.
+- `/hl7` shows Retries used instead of Send on those rows.
+- Resolve and the configured limit are unchanged.
+
+### Requirements / risk
+
+- URS-BB-216, FRS-BB-251, SRS-BB-213, RISK-BB-318.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-105 (`Phase5Hl7Tests.OutboundSender_ExhaustedRetries_DoesNotSend`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 884.
+
+### Next ranked residual
+
+Next workflow family: HL7 data load. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

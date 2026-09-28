@@ -113,5 +113,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-102 | I | `Phase4IssuingTests.Return_FailedVisual_DisposesAndLeavesOutstanding` | URS-BB-213 / FRS-BB-248 / RISK-BB-315 |
 | TEST-BB-103 | I | `ReactionInvestigationServiceTests.Update_IncompleteWorkup_DoesNotClose` | URS-BB-214 / FRS-BB-249 / RISK-BB-316 |
 | TEST-BB-104 | I | `LookbackSearchAuthorizationTests.RecordAttempt_CompletedWithoutPhysician_StaysOnTheBoard` | URS-BB-215 / FRS-BB-250 / RISK-BB-317 |
+| TEST-BB-105 | I | `Phase5Hl7Tests.OutboundSender_ExhaustedRetries_DoesNotSend` | URS-BB-216 / FRS-BB-251 / RISK-BB-318 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -34,6 +34,14 @@ public sealed class Hl7OutboundSender
         _clock = clock;
     }
 
+    public const int DefaultMaxRetries = 5;
+
+    public static int EffectiveMaxRetries(InterfaceEndpoint? endpoint) =>
+        endpoint?.MaxRetryCount is > 0 ? endpoint.MaxRetryCount.Value : DefaultMaxRetries;
+
+    public static bool RetriesExhausted(Hl7Direction direction, int retryCount, InterfaceEndpoint? endpoint) =>
+        direction == Hl7Direction.Outbound && retryCount >= EffectiveMaxRetries(endpoint);
+
     public async Task<int> SendPendingAsync(int maxBatch = 20, CancellationToken ct = default)
     {
         var pending = await _logs.ListAsync(
@@ -45,8 +53,7 @@ public sealed class Hl7OutboundSender
         foreach (var row in pending.OrderBy(m => m.ReceivedUtc).Take(maxBatch))
         {
             var endpoint = await ResolveEndpointAsync(row, ct);
-            var maxRetry = endpoint?.MaxRetryCount is > 0 ? endpoint.MaxRetryCount.Value : 5;
-            if (row.RetryCount >= maxRetry)
+            if (RetriesExhausted(row.Direction, row.RetryCount, endpoint))
                 continue;
 
             var result = await SendOneAsync(row.Id, ct);
@@ -72,6 +79,12 @@ public sealed class Hl7OutboundSender
         var endpoint = await ResolveEndpointAsync(row, ct);
         if (endpoint is null)
             return OperationResult<Hl7MessageLog>.Fail("No enabled outbound endpoint is configured.");
+
+        if (RetriesExhausted(row.Direction, row.RetryCount, endpoint))
+        {
+            return OperationResult<Hl7MessageLog>.Fail(
+                $"Outbound retries are exhausted ({row.RetryCount} of {EffectiveMaxRetries(endpoint)}).");
+        }
 
         row.EndpointId ??= endpoint.Id;
         row.RetryCount++;

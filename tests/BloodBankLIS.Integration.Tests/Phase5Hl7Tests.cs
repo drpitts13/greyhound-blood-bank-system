@@ -1243,6 +1243,60 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task OutboundSender_ExhaustedRetries_DoesNotSend()
+    {
+        long messageId;
+        await using (var setup = _factory.Create())
+        {
+            var endpoint = new InterfaceEndpoint
+            {
+                Name = "EHR-ORU-EXHAUST",
+                Direction = Hl7Direction.Outbound,
+                Transport = InterfaceTransport.Mllp,
+                InterfaceType = InterfaceType.Results,
+                Host = "127.0.0.1",
+                Port = 2575,
+                IsEnabled = true,
+                MaxRetryCount = 2,
+                MessageTypes = "ORU"
+            };
+            setup.InterfaceEndpoints.Add(endpoint);
+            var log = new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Outbound,
+                MessageType = "ORU",
+                TriggerEvent = "R01",
+                MessageControlId = "OUT-EXHAUST-1",
+                RawMessage = "MSH|^~\\&|BBLIS|LAB|EHR|HOSP|20260530120000||ORU^R01|OUT-EXHAUST-1|P|2.5",
+                Status = Hl7MessageStatus.Errored,
+                ReceivedUtc = _factory.Clock.UtcNow,
+                RetryCount = 2,
+                ErrorDetail = "prior send failed"
+            };
+            setup.Hl7Messages.Add(log);
+            await setup.SaveChangesAsync();
+            log.EndpointId = endpoint.Id;
+            await setup.SaveChangesAsync();
+            messageId = log.Id;
+        }
+
+        await using var context = _factory.Create();
+        var sender = new Hl7OutboundSender(
+            new EfRepository<Hl7MessageLog>(context),
+            new EfRepository<InterfaceEndpoint>(context),
+            new EfRepository<InterfaceErrorQueueItem>(context),
+            context,
+            _factory.Clock);
+        var result = await sender.SendOneAsync(messageId);
+        Assert.False(result.Succeeded);
+        Assert.Contains("exhausted", result.Error, StringComparison.OrdinalIgnoreCase);
+
+        var stored = await context.Hl7Messages.FindAsync(messageId);
+        Assert.Equal(2, stored!.RetryCount);
+        Assert.Equal(Hl7MessageStatus.Errored, stored.Status);
+    }
+
+    [Fact]
     public async Task InboundOru_PostsPendingVerification_AndWritesInterfaceAudit()
     {
         await using var context = _factory.Create();

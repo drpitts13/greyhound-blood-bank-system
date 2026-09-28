@@ -27,7 +27,9 @@ public sealed record Hl7MessageDto(
     string? UnitNumber = null,
     long? PatientId = null,
     long? EndpointId = null,
-    bool? ReplayAllowed = null)
+    bool? ReplayAllowed = null,
+    int? RetryCount = null,
+    bool? RetriesExhausted = null)
 {
     public static Hl7MessageDto From(Hl7MessageLog m, long? patientId = null, bool? replayAllowed = null)
     {
@@ -37,7 +39,7 @@ public sealed record Hl7MessageDto(
             m.Status, m.ReceivedUtc, m.ProcessedUtc, m.AckCode, m.ErrorDetail,
             identity.MedicalRecordNumber, identity.DisplayName,
             identity.PlacerOrderNumber, identity.TestCode, identity.UnitNumber,
-            patientId, m.EndpointId, replayAllowed);
+            patientId, m.EndpointId, replayAllowed, m.RetryCount);
     }
 }
 
@@ -61,7 +63,8 @@ public sealed record Hl7ErrorDto(
     string? UnitNumber = null,
     long? PatientId = null,
     long? EndpointId = null,
-    bool? ReplayAllowed = null)
+    bool? ReplayAllowed = null,
+    bool? RetriesExhausted = null)
 {
     public static Hl7ErrorDto From(
         InterfaceErrorQueueItem e,
@@ -71,7 +74,7 @@ public sealed record Hl7ErrorDto(
     {
         Hl7MessageIdentity.TryRead(message?.RawMessage, out var identity);
         return new(
-            e.Id, e.Hl7MessageId, e.ErrorType, e.ErrorDetail, e.RetryCount, e.NextRetryUtc, e.Resolved,
+            e.Id, e.Hl7MessageId, e.ErrorType, e.ErrorDetail, message?.RetryCount ?? e.RetryCount, e.NextRetryUtc, e.Resolved,
             message?.MessageControlId, message?.MessageType, message?.TriggerEvent, message?.AckCode,
             identity.MedicalRecordNumber, identity.DisplayName,
             message?.Direction, identity.PlacerOrderNumber, identity.TestCode, identity.UnitNumber,
@@ -110,7 +113,10 @@ public static class Hl7Endpoints
                 .OrderByDescending(m => m.ReceivedUtc)
                 .Select(m => Hl7MessageDto.From(m))
                 .ToList();
-            return Results.Ok(await AttachPatientIdsAsync(await AttachReplayAllowedAsync(dtos, endpoints, ct), patients, ct));
+            return Results.Ok(await AttachPatientIdsAsync(
+                await AttachRetriesExhaustedAsync(await AttachReplayAllowedAsync(dtos, endpoints, ct), endpoints, ct),
+                patients,
+                ct));
         });
 
         group.MapGet("/messages/{id:long}", async (long id, IRepository<Hl7MessageLog> repo, CancellationToken ct) =>
@@ -161,7 +167,10 @@ public static class Hl7Endpoints
                 .OrderByDescending(e => e.Id)
                 .Select(e => Hl7ErrorDto.From(e, byId.GetValueOrDefault(e.Hl7MessageId)))
                 .ToList();
-            return Results.Ok(await AttachPatientIdsAsync(await AttachReplayAllowedAsync(dtos, endpoints, ct), patients, ct));
+            return Results.Ok(await AttachPatientIdsAsync(
+                await AttachRetriesExhaustedAsync(await AttachReplayAllowedAsync(dtos, endpoints, ct), endpoints, ct),
+                patients,
+                ct));
         });
 
         // Queues an outbound ORU for a verified result (transport handled by the sender).
@@ -218,6 +227,55 @@ public static class Hl7Endpoints
                     : row)
             .ToList();
     }
+
+    private static async Task<IReadOnlyList<T>> AttachRetriesExhaustedAsync<T>(
+        IReadOnlyList<T> rows,
+        IRepository<InterfaceEndpoint> endpoints,
+        CancellationToken ct)
+    {
+        var configured = await endpoints.ListAsync(ct);
+        return rows
+            .Select(row => row switch
+            {
+                Hl7MessageDto message => (T)(object)(message with
+                {
+                    RetriesExhausted = Hl7OutboundSender.RetriesExhausted(
+                        message.Direction,
+                        message.RetryCount ?? 0,
+                        EndpointFor(message.EndpointId, configured))
+                }),
+                Hl7ErrorDto error when error.Direction == Hl7Direction.Outbound => (T)(object)(error with
+                {
+                    RetriesExhausted = Hl7OutboundSender.RetriesExhausted(
+                        Hl7Direction.Outbound,
+                        error.RetryCount,
+                        EndpointFor(error.EndpointId, configured))
+                }),
+                _ => row
+            })
+            .ToList();
+    }
+
+    private static InterfaceEndpoint? EndpointFor(long? endpointId, IReadOnlyList<InterfaceEndpoint> endpoints)
+    {
+        if (endpointId is long id)
+        {
+            return endpoints.FirstOrDefault(e => e.Id == id);
+        }
+
+        return endpoints
+            .Where(e => e.IsEnabled && e.Direction == Hl7Direction.Outbound && CanSend(e))
+            .OrderBy(e => e.Transport == InterfaceTransport.Mllp ? 0 : 1)
+            .ThenBy(e => e.Name, StringComparer.Ordinal)
+            .FirstOrDefault();
+    }
+
+    private static bool CanSend(InterfaceEndpoint endpoint) => endpoint.Transport switch
+    {
+        InterfaceTransport.Mllp => !string.IsNullOrWhiteSpace(endpoint.Host) && endpoint.Port is > 0,
+        InterfaceTransport.File => !string.IsNullOrWhiteSpace(endpoint.Path),
+        _ => false
+    };
 
     private static async Task<IReadOnlyList<T>> AttachPatientIdsAsync<T>(
         IReadOnlyList<T> rows,
