@@ -2128,3 +2128,35 @@ emergency release cannot pass that stop.
 
 Next workflow family: transfusion reactions. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 69 — Fatality follow-up is recorded once (2026-09-28)
+
+Workflow-audit loop tick (transfusion reactions). A closed fatality stays
+on the board until CBER notification and the written report are both
+recorded. Both buttons stayed available. A second click restamped the
+time, and recording CBER after the written report cleared that status.
+
+### Implemented
+
+- CBER notification and the written report are each recorded once, and
+  only on a fatality.
+- Recording the written report first leaves the status Pending.
+- Recording CBER afterward keeps the written-report time.
+- `/reactions` shows the recorded time instead of the button.
+- `RXN-FATALITY-FOLLOWUP` stays a warning. Close is unchanged.
+
+### Requirements / risk
+
+- URS-BB-222, FRS-BB-257, SRS-BB-219, RISK-BB-324.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-111 (`ReactionInvestigationServiceTests.RecordFatalityFollowUp_SecondStamp_DoesNotRewrite`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 890.
+
+### Next ranked residual
+
+Next workflow family: lookback. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

@@ -5,7 +5,7 @@
 <PageTitle>Reaction investigations &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Transfusion reaction investigations</h1>
-<p class="muted">Opened automatically when a transfusion is documented with a suspected reaction. The board lists work still due. A closed fatality stays here until CBER notification and the written report are both recorded. Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA. Close still requires the existing clerical, visual, and DAT gate.</p>
+<p class="muted">Opened automatically when a transfusion is documented with a suspected reaction. The board lists work still due. A closed fatality stays here until CBER notification and the written report are both recorded. Each of those steps is recorded once. Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA. Close still requires the existing clerical, visual, and DAT gate.</p>
 
 @if (!Session.Has(PermissionCodes.ReactionInvestigate))
 {
@@ -211,8 +211,22 @@ else
                     {
                         <p class="alert alert-warning">@_selected.FatalityFollowUpDetail</p>
                     }
-                    <button class="btn btn-secondary" disabled="@_busy" @onclick="CberAsync">Record CBER notified</button>
-                    <button class="btn btn-secondary" disabled="@_busy" @onclick="WrittenAsync">Record written report</button>
+                    @if (_selected.CberNotifiedUtc is DateTime cberAt)
+                    {
+                        <span class="muted">CBER recorded @cberAt.ToString("yyyy-MM-dd HH:mm")</span>
+                    }
+                    else
+                    {
+                        <button class="btn btn-secondary" disabled="@_busy" @onclick="CberAsync">Record CBER notified</button>
+                    }
+                    @if (_selected.WrittenReportSubmittedUtc is DateTime writtenAt)
+                    {
+                        <span class="muted">Written report recorded @writtenAt.ToString("yyyy-MM-dd HH:mm")</span>
+                    }
+                    else
+                    {
+                        <button class="btn btn-secondary" disabled="@_busy" @onclick="WrittenAsync">Record written report</button>
+                    }
                 }
             </div>
         </div>

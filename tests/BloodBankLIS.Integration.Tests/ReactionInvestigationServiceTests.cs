@@ -280,6 +280,54 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
     }
 
     [Fact]
+    public async Task RecordFatalityFollowUp_SecondStamp_DoesNotRewrite()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+
+        var notFatal = await CreateService(context).RecordCberNotificationAsync(opened.Id);
+        Assert.False(notFatal.Succeeded);
+        Assert.Contains("fatality", notFatal.Error, StringComparison.OrdinalIgnoreCase);
+
+        var marked = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                "Hemolytic", ReactionSeverity.Severe, null, null, null, null, null, true, null));
+        Assert.True(marked.Succeeded, marked.Error);
+        Assert.True(marked.Value!.IsFatality);
+
+        var writtenFirst = await CreateService(context).RecordWrittenReportAsync(opened.Id);
+        Assert.True(writtenFirst.Succeeded, writtenFirst.Error);
+        Assert.NotNull(writtenFirst.Value!.WrittenReportSubmittedUtc);
+        Assert.Equal(FatalityNotificationStatus.Pending, writtenFirst.Value.FatalityNotificationStatus);
+        var writtenAt = writtenFirst.Value.WrittenReportSubmittedUtc;
+
+        var cber = await CreateService(context).RecordCberNotificationAsync(opened.Id);
+        Assert.True(cber.Succeeded, cber.Error);
+        Assert.Equal(writtenAt, cber.Value!.WrittenReportSubmittedUtc);
+        Assert.Equal(FatalityNotificationStatus.WrittenReportSubmitted, cber.Value.FatalityNotificationStatus);
+        var cberAt = cber.Value.CberNotifiedUtc;
+
+        var cberAgain = await CreateService(context).RecordCberNotificationAsync(opened.Id);
+        Assert.False(cberAgain.Succeeded);
+        Assert.Contains("already recorded", cberAgain.Error, StringComparison.OrdinalIgnoreCase);
+
+        var writtenAgain = await CreateService(context).RecordWrittenReportAsync(opened.Id);
+        Assert.False(writtenAgain.Succeeded);
+        Assert.Contains("already recorded", writtenAgain.Error, StringComparison.OrdinalIgnoreCase);
+
+        var stored = await context.ReactionInvestigations.SingleAsync(r => r.Id == opened.Id);
+        Assert.Equal(cberAt, stored.CberNotifiedUtc);
+        Assert.Equal(writtenAt, stored.WrittenReportSubmittedUtc);
+        Assert.Equal(FatalityNotificationStatus.WrittenReportSubmitted, stored.FatalityNotificationStatus);
+
+        var row = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.False(row.FatalityFollowUpDue);
+    }
+
+    [Fact]
     public async Task ListDtos_ClosedFatality_StaysDueUntilCberAndWrittenReport()
     {
         await using var context = _factory.Create();

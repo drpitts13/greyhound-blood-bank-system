@@ -338,6 +338,31 @@ public sealed class ReactionInvestigationService
 
     public const string RemainderHoldCode = "RXN-REMAINDER-HOLD";
 
+    /// <summary>
+    /// Keeps the single status label aligned with the timestamps. A written report
+    /// recorded before CBER stays Pending so the label does not say the follow-up is finished.
+    /// Recording CBER afterward does not clear the written-report timestamp.
+    /// </summary>
+    private static void ApplyFatalityProgress(ReactionInvestigation row)
+    {
+        if (row.CberNotifiedUtc is not null && row.WrittenReportSubmittedUtc is not null)
+        {
+            row.FatalityNotificationStatus = FatalityNotificationStatus.WrittenReportSubmitted;
+            return;
+        }
+
+        if (row.CberNotifiedUtc is not null)
+        {
+            row.FatalityNotificationStatus = FatalityNotificationStatus.CberNotified;
+            return;
+        }
+
+        if (row.IsFatality)
+        {
+            row.FatalityNotificationStatus = FatalityNotificationStatus.Pending;
+        }
+    }
+
     public async Task<OperationResult<ReactionInvestigation>> RecordCberNotificationAsync(long id, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync(ct);
@@ -352,10 +377,20 @@ public sealed class ReactionInvestigationService
             return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
         }
 
+        if (!row.IsFatality)
+        {
+            return OperationResult<ReactionInvestigation>.Fail("CBER notification is recorded only for a fatality.");
+        }
+
+        if (row.CberNotifiedUtc is not null)
+        {
+            return OperationResult<ReactionInvestigation>.Fail("CBER notification is already recorded.");
+        }
+
         var oldStatus = row.FatalityNotificationStatus;
         var oldNotified = row.CberNotifiedUtc;
         row.CberNotifiedUtc = _clock.UtcNow;
-        row.FatalityNotificationStatus = FatalityNotificationStatus.CberNotified;
+        ApplyFatalityProgress(row);
         _audit.Record(
             AuditEventType.ReactionInvestigation,
             nameof(ReactionInvestigation),
@@ -381,10 +416,20 @@ public sealed class ReactionInvestigationService
             return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
         }
 
+        if (!row.IsFatality)
+        {
+            return OperationResult<ReactionInvestigation>.Fail("The written report is recorded only for a fatality.");
+        }
+
+        if (row.WrittenReportSubmittedUtc is not null)
+        {
+            return OperationResult<ReactionInvestigation>.Fail("The written report is already recorded.");
+        }
+
         var oldStatus = row.FatalityNotificationStatus;
         var oldSubmitted = row.WrittenReportSubmittedUtc;
         row.WrittenReportSubmittedUtc = _clock.UtcNow;
-        row.FatalityNotificationStatus = FatalityNotificationStatus.WrittenReportSubmitted;
+        ApplyFatalityProgress(row);
         _audit.Record(
             AuditEventType.ReactionInvestigation,
             nameof(ReactionInvestigation),
