@@ -28,6 +28,7 @@ public sealed record Hl7ProcessResult(string AckMessage, string AckCode, Hl7Mess
 public sealed class Hl7InboundProcessor
 {
     public const string ReplayDisabledMessage = "Replay is turned off for this interface.";
+    public const string AlreadyAppliedMessage = "This message already applied and was not replayed.";
     public const string ResolveReasonRequired = "A reason is required to resolve an interface error without replaying it.";
     private readonly IRepository<Hl7MessageLog> _logs;
     private readonly IRepository<InterfaceErrorQueueItem> _errors;
@@ -136,9 +137,9 @@ public sealed class Hl7InboundProcessor
     }
 
     /// <summary>
-    /// Re-submits a previously stored inbound message through the same pipeline. The
-    /// replay is recorded as a new <see cref="Hl7MessageLog"/> with status Replayed;
-    /// idempotency on the control id prevents duplicate clinical effects.
+    /// Re-submits a stored inbound message that has not yet applied. A message that
+    /// already processed, acknowledged, or replayed is left as it is. An errored
+    /// message can still be replayed; that replay is a new log with status Replayed.
     /// </summary>
     public async Task<Hl7ProcessResult?> ReplayAsync(long messageId, CancellationToken ct = default)
     {
@@ -155,6 +156,11 @@ public sealed class Hl7InboundProcessor
             {
                 return new Hl7ProcessResult(ReplayDisabledMessage, AckCode.Reject, original);
             }
+        }
+
+        if (original.Status is Hl7MessageStatus.Processed or Hl7MessageStatus.Acked or Hl7MessageStatus.Replayed)
+        {
+            return new Hl7ProcessResult(AlreadyAppliedMessage, AckCode.Reject, original);
         }
 
         var outcome = await ProcessAsync(original.RawMessage, original.EndpointId, isReplay: true, ct);

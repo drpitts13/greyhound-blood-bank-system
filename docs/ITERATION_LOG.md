@@ -2191,3 +2191,33 @@ unit returned and issued again named the earlier patient.
 
 Next workflow family: HL7 process. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 71 — Applied HL7 messages are not replayed (2026-09-28)
+
+Workflow-audit loop tick (HL7 process). The message log offered Replay on
+an inbound message that had already applied. Running it again could put an
+older ADT back onto the current chart. An errored message still needs replay.
+
+### Implemented
+
+- Replay returns before it runs when the stored message is Processed,
+  Acked, or Replayed.
+- `/hl7` says Applied on those rows.
+- An errored message can still be replayed. Replay allowed and Resolve
+  are unchanged.
+
+### Requirements / risk
+
+- URS-BB-224, FRS-BB-259, SRS-BB-221, RISK-BB-326.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-113 (`Phase5Hl7Tests.Replay_AlreadyApplied_DoesNotRunAgain`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 891.
+
+### Next ranked residual
+
+Next workflow family: HL7 data load. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

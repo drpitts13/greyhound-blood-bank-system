@@ -781,26 +781,33 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
-    public async Task Replay_DoesNotDuplicate_DueToBusinessKeyIdempotency()
+    public async Task Replay_AlreadyApplied_DoesNotRunAgain()
     {
         long messageId;
         await using (var c1 = _factory.Create())
         {
             var result = await Processor(c1).ProcessAsync(Adt("CTRL-RP", "HL7-500", "Replay", "Me"));
+            Assert.True(result.Accepted);
             messageId = result.Log.Id;
+            var patient = await c1.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-500");
+            patient.LastName = "Kept";
+            await c1.SaveChangesAsync();
         }
 
         await using (var c2 = _factory.Create())
         {
             var replay = await Processor(c2).ReplayAsync(messageId);
             Assert.NotNull(replay);
-            Assert.True(replay!.Accepted);
-            Assert.Equal(Hl7MessageStatus.Replayed, replay.Log.Status);
+            Assert.False(replay!.Accepted);
+            Assert.Equal(Hl7InboundProcessor.AlreadyAppliedMessage, replay.AckMessage);
+            Assert.Equal(messageId, replay.Log.Id);
         }
 
         await using var verify = _factory.Create();
         var patients = await verify.Patients.Where(p => p.MedicalRecordNumber == "HL7-500").ToListAsync();
-        Assert.Single(patients);
+        var chart = Assert.Single(patients);
+        Assert.Equal("Kept", chart.LastName);
+        Assert.Equal(1, await verify.Hl7Messages.CountAsync(m => m.MessageControlId == "CTRL-RP"));
     }
 
     [Fact]
