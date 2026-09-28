@@ -625,6 +625,12 @@ public sealed class Hl7InboundProcessor
                 $"Order '{data.PlacerOrderId}' does not belong to patient '{data.Mrn}'.");
         }
 
+        var orderGate = InterfaceResultAcceptanceRule.EvaluateOrder(order.Status);
+        if (orderGate.Severity == RuleSeverity.HardStop)
+        {
+            throw new Hl7MappingException(orderGate.Message);
+        }
+
         var specimen = await ResolveAcceptedSpecimenAsync(order.Id, patient.Id, ct);
         if (specimen is null && !string.IsNullOrWhiteSpace(data.SpecimenAccession))
         {

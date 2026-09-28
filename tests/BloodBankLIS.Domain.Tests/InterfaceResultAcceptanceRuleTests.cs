@@ -1,3 +1,4 @@
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Domain.Tests;
@@ -27,5 +28,25 @@ public class InterfaceResultAcceptanceRuleTests
         var result = InterfaceResultAcceptanceRule.Evaluate(status);
         Assert.Equal(RuleSeverity.HardStop, result.Severity);
         Assert.Equal(InterfaceResultAcceptanceRule.Code, result.Code);
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.Cancelled)]
+    [InlineData(OrderStatus.Discontinued)]
+    public void ClosedOrder_HardStop(OrderStatus status)
+    {
+        var result = InterfaceResultAcceptanceRule.EvaluateOrder(status);
+        Assert.Equal(RuleSeverity.HardStop, result.Severity);
+        Assert.Equal(InterfaceResultAcceptanceRule.ClosedOrderCode, result.Code);
+    }
+
+    [Theory]
+    [InlineData(OrderStatus.New)]
+    [InlineData(OrderStatus.InProcess)]
+    [InlineData(OrderStatus.OnHold)]
+    [InlineData(OrderStatus.Completed)]
+    public void OpenOrder_Passes(OrderStatus status)
+    {
+        Assert.Equal(RuleSeverity.Pass, InterfaceResultAcceptanceRule.EvaluateOrder(status).Severity);
     }
 }

@@ -2221,3 +2221,32 @@ older ADT back onto the current chart. An errored message still needs replay.
 
 Next workflow family: HL7 data load. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 72 — Closed orders do not accept an interface result (2026-09-28)
+
+Workflow-audit loop tick (HL7 data load). An inbound result still posted
+when the order was cancelled or discontinued. The pending worklist then
+omitted that row, so the value was stored where the bench no longer shows it.
+
+### Implemented
+
+- An ORU for a cancelled or discontinued order does not post a result.
+- The message is queued as a mapping error.
+- An open order, including one on hold, can still receive a pending result.
+- Specimen linking and OBX-11 acceptance are unchanged.
+
+### Requirements / risk
+
+- URS-BB-225, FRS-BB-260, SRS-BB-222, RISK-BB-327.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-114 (`Phase5Hl7Tests.InboundOru_CancelledOrder_DoesNotPost`).
+- Full suite green: Domain 1396, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 892.
+
+### Next ranked residual
+
+Next workflow family: billing. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

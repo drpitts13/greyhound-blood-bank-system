@@ -230,3 +230,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-222 | Staff record a fatality's CBER notification and written report once, and a later CBER record does not clear the written report. | P1 | FRS-BB-257 |
 | URS-BB-223 | A lookback call names the patient on the current issue, not an earlier return of the same unit. | P1 | FRS-BB-258 |
 | URS-BB-224 | Staff are not offered replay of an HL7 message that already applied. | P1 | FRS-BB-259 |
+| URS-BB-225 | An interface result for a cancelled or discontinued order is not filed where the bench no longer shows it. | P1 | FRS-BB-260 |

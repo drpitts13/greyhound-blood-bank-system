@@ -1398,6 +1398,26 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task InboundOru_CancelledOrder_DoesNotPost()
+    {
+        await using var context = _factory.Create();
+        await SeedLinkedOrderAsync(context, "HL7-ORU-CXL", "ACC-HL7-ORU-CXL", "PLACER-ORU-CXL", "HGB");
+        var order = await context.Orders.SingleAsync(o => o.OrderNumber == "PLACER-ORU-CXL");
+        order.Status = OrderStatus.Cancelled;
+        order.CancellationReason = "Cancelled via HL7 ORM";
+        await context.SaveChangesAsync();
+
+        var result = await Processor(context).ProcessAsync(
+            Oru("CTRL-ORU-CXL", "HL7-ORU-CXL", "PLACER-ORU-CXL", "HGB", "12.8"));
+        Assert.False(result.Accepted);
+        Assert.Equal(AckCode.ApplicationError, result.AckCode);
+        Assert.Contains("cancelled", result.Log.ErrorDetail, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await context.TestResults.Where(r => r.OrderId == order.Id).ToListAsync());
+        Assert.True(await context.InterfaceErrorQueue.AnyAsync(
+            e => e.Hl7MessageId == result.Log.Id && !e.Resolved));
+    }
+
+    [Fact]
     public async Task InboundOru_RejectsOrderForDifferentPatient()
     {
         await using var context = _factory.Create();
