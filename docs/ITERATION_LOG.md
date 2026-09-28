@@ -1646,3 +1646,34 @@ issue still offered Issue, so staff filled the form and then hit the block.
 
 Next workflow family: reactions. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 53 — Closed fatality stays on the reaction board (2026-09-28)
+
+Workflow-audit loop tick (reactions). Closing a fatality left CBER
+notification and the written report in a list of every finished
+investigation. Staff could miss the follow-up.
+
+### Implemented
+
+- `RXN-FATALITY-FOLLOWUP` stays a Warning until both CBER notification and
+  the written report are recorded.
+- `/reactions` lists investigations still due. A closed fatality remains,
+  with the missing step named.
+- Show closed, and a patient or investigation link, still open a finished case.
+- The close gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-206, FRS-BB-241, SRS-BB-203, RISK-BB-308.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-095 (`ReactionFatalityFollowUpRuleTests.ClosedFatality_StaysDueUntilCberAndWrittenReport`).
+- Full suite green: Domain 1390, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 874.
+
+### Next ranked residual
+
+Next workflow family: lookback. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

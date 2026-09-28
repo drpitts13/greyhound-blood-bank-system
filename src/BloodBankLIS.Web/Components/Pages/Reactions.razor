@@ -5,7 +5,7 @@
 <PageTitle>Reaction investigations &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Transfusion reaction investigations</h1>
-<p class="muted">Opened automatically when a transfusion is documented with a suspected reaction. Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA.</p>
+<p class="muted">Opened automatically when a transfusion is documented with a suspected reaction. The board lists work still due. A closed fatality stays here until CBER notification and the written report are both recorded. Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA. Close still requires the existing clerical, visual, and DAT gate.</p>
 
 @if (!Session.Has(PermissionCodes.ReactionInvestigate))
 {
@@ -14,13 +14,18 @@
 else
 {
     <div class="bb-card">
-        <div class="bb-card-title"><h3>Open investigations</h3>
+        <div class="bb-card-title"><h3>Investigations still due</h3>
+            <label class="flex"><input type="checkbox" @bind="_showClosed" /> &nbsp;Show closed</label>
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
         </div>
         <Outcome Value="_fb" />
         @if (_rows.Count == 0)
         {
             <div class="empty">No reaction investigations.</div>
+        }
+        else if (!VisibleRows.Any())
+        {
+            <div class="empty">No investigations still need work. Show closed to review finished cases.</div>
         }
         else
         {
@@ -115,7 +120,16 @@ else
                             </td>
                             <td>@r.Severity</td>
                             <td>@r.Status</td>
-                            <td>@(r.IsFatality ? r.FatalityNotificationStatus.ToString() : "")</td>
+                            <td>
+                                @if (r.IsFatality)
+                                {
+                                    <div>@r.FatalityNotificationStatus</div>
+                                    @if (r.FatalityFollowUpDue)
+                                    {
+                                        <span class="badge badge-amber" title="@r.FatalityFollowUpDetail">Follow-up due</span>
+                                    }
+                                }
+                            </td>
                             <td class="nowrap">@(r.WrittenReportDueUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
                             <td class="right nowrap">
                                 <a class="btn btn-ghost btn-sm" href="@($"/patients/{r.PatientId}")">Open chart</a>
@@ -189,6 +203,10 @@ else
                 <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
                 @if (_selected.IsFatality)
                 {
+                    @if (_selected.FatalityFollowUpDue)
+                    {
+                        <p class="alert alert-warning">@_selected.FatalityFollowUpDetail</p>
+                    }
                     <button class="btn btn-secondary" disabled="@_busy" @onclick="CberAsync">Record CBER notified</button>
                     <button class="btn btn-secondary" disabled="@_busy" @onclick="WrittenAsync">Record written report</button>
                 }
@@ -207,10 +225,29 @@ else
     private List<ReactionInvestigationDto> _rows = new();
     private ReactionInvestigationDto? _selected;
 
-    private IEnumerable<ReactionInvestigationDto> VisibleRows =>
-        PatientId is long patientId
-            ? _rows.Where(r => r.PatientId == patientId)
-            : _rows;
+    private bool _showClosed;
+
+    private IEnumerable<ReactionInvestigationDto> VisibleRows => _rows.Where(IncludeOnBoard);
+
+    private bool IncludeOnBoard(ReactionInvestigationDto row)
+    {
+        if (PatientId is long patientId && row.PatientId == patientId)
+        {
+            return true;
+        }
+
+        if (Id is long id && row.Id == id)
+        {
+            return true;
+        }
+
+        if (_showClosed)
+        {
+            return true;
+        }
+
+        return row.Status != ReactionInvestigationStatus.Closed || row.FatalityFollowUpDue;
+    }
     private Feedback? _fb;
     private bool _busy;
     private string? _type;

@@ -75,7 +75,9 @@ public sealed record ReactionInvestigationDto(
     bool RepeatUnitAboRhDiscrepancy = false,
     string? RepeatAboRhDetail = null,
     UnitStatus? RemainderUnitStatus = null,
-    string? RemainderHoldNote = null)
+    string? RemainderHoldNote = null,
+    bool FatalityFollowUpDue = false,
+    string? FatalityFollowUpDetail = null)
 {
     public static ReactionInvestigationDto From(
         ReactionInvestigation r,
@@ -99,6 +101,8 @@ public sealed record ReactionInvestigationDto(
     {
         var workup = ReactionWorkupCompletenessRule.Evaluate(
             r.ClericalCheckCompleted, r.VisualInspectionCompleted, r.DatResult, r.ElutionResult);
+        var followUp = ReactionFatalityFollowUpRule.Evaluate(
+            r.IsFatality, r.CberNotifiedUtc, r.WrittenReportSubmittedUtc);
         return new(
             r.Id, r.TransfusionEventId, r.PatientId, r.BloodProductId, r.ReportedUtc, r.ReportedBy,
             r.ReactionType, r.Severity, r.Findings, r.Conclusions, r.FollowUp, r.Status, r.Disposition,
@@ -120,7 +124,9 @@ public sealed record ReactionInvestigationDto(
             repeatUnitAboRhDiscrepancy,
             repeatAboRhDetail,
             remainderUnitStatus,
-            remainderHoldNote);
+            remainderHoldNote,
+            followUp.Severity == RuleSeverity.Warning,
+            followUp.Severity == RuleSeverity.Warning ? followUp.Message : null);
     }
 }
 

@@ -242,6 +242,35 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.False(row.RemainderQuarantined);
     }
 
+    [Fact]
+    public async Task ListDtos_ClosedFatality_StaysDueUntilCberAndWrittenReport()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        opened.Status = ReactionInvestigationStatus.Closed;
+        opened.IsFatality = true;
+        opened.FatalityNotificationStatus = FatalityNotificationStatus.Pending;
+        opened.WrittenReportDueUtc = _factory.Clock.UtcNow.AddDays(7);
+        await context.SaveChangesAsync();
+
+        var due = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.True(due.FatalityFollowUpDue);
+        Assert.Contains("CBER", due.FatalityFollowUpDetail);
+
+        opened.CberNotifiedUtc = _factory.Clock.UtcNow;
+        await context.SaveChangesAsync();
+        var written = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.True(written.FatalityFollowUpDue);
+        Assert.Contains("written report", written.FatalityFollowUpDetail);
+
+        opened.WrittenReportSubmittedUtc = _factory.Clock.UtcNow;
+        await context.SaveChangesAsync();
+        var done = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.False(done.FatalityFollowUpDue);
+    }
+
     private async Task<TransfusionEvent> SeedTransfusionAsync(
         BloodBankDbContext context,
         string key,
