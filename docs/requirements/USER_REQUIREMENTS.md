@@ -206,3 +206,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-198 | Saving a reaction workup still records clerical and other findings when the unit cannot be moved into remainder quarantine, and the board says the remainder cannot be held. | P2 | FRS-BB-233 |
 | URS-BB-199 | Recalling a DIN puts each issued or transfused component on the notification worklist once, including a unit that left the bank before transfusion was recorded. | P1 | FRS-BB-234 |
 | URS-BB-200 | When an interface has replay turned off, staff cannot reapply that interface's stored messages from the HL7 log or error queue. | P1 | FRS-BB-235 |
+| URS-BB-201 | An inbound result that names an accepted specimen accession can post on that order without a separate link step. A specimen for another patient is not linked. | P1 | FRS-BB-236 |

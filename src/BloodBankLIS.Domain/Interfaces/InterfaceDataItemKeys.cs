@@ -33,6 +33,7 @@ public static class InterfaceDataItemKeys
     public const string ResultUnits = "TestResult.Units";
     public const string ResultInterpretation = "TestResult.Interpretation";
     public const string ResultObxStatus = "TestResult.Status";
+    public const string ResultSpecimenAccession = "Specimen.AccessionNumber";
 
     public const string BillingServiceDate = "BillingEvent.ServiceDateUtc";
     public const string BillingTransactionType = "BillingEvent.TransactionType";

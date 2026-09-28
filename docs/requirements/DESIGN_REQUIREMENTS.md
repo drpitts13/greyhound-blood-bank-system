@@ -201,3 +201,4 @@
 | SRS-BB-195 | `TryQuarantineRemainderAsync` returns a hold problem instead of failing `UpdateAsync`. `ReactionInvestigationDto.RemainderHoldNote` is set when the unit status cannot move to quarantine. | FRS-BB-233 |
 | SRS-BB-196 | `RecallByDinAsync` calls `EnsureConsigneeNotificationAsync` before status change when the unit is Issued or in a transfusion status. An existing notification for that DIN and blood product is left as-is. | FRS-BB-234 |
 | SRS-BB-197 | `ReplayAsync` returns `ReplayDisabledMessage` without calling `ProcessAsync` when the message endpoint exists and `ReplayAllowed` is false. `POST /api/hl7/messages/{id}/replay` returns 409. List DTOs copy `ReplayAllowed` from that endpoint. | FRS-BB-235 |
+| SRS-BB-198 | `LinkNamedAcceptedSpecimenAsync` adds an `OrderSpecimen` only when `SPM-2` matches an Accepted specimen for the order's patient. The result still posts through `EnterFromInterfaceAsync`. | FRS-BB-236 |

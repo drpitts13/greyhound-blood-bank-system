@@ -1491,3 +1491,33 @@ A corrected chart could be overwritten by an old ADT or order.
 
 Next workflow family: HL7 data load. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 48 — ORU links a named accepted specimen (2026-09-27)
+
+Workflow-audit loop tick (HL7 data load). An inbound result was rejected
+when the order was not already linked to a specimen, even when the message
+named an accepted accession. Staff had to link it and replay.
+
+### Implemented
+
+- ORU reads specimen accession from SPM-2.
+- If that accession is Accepted for the same patient, the order is linked
+  and the result posts as pending verification.
+- A missing, unaccepted, or other-patient accession does not post.
+
+### Requirements / risk
+
+- URS-BB-201, FRS-BB-236, SRS-BB-198, RISK-BB-303.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-090 (`Phase5Hl7Tests.InboundOru_LinksNamedAcceptedSpecimen_AndPosts`;
+  `Phase5Hl7Tests.InboundOru_RejectsNamedSpecimenForAnotherPatient`).
+- Full suite green: Domain 1386, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 871.
+
+### Next ranked residual
+
+Next workflow family: billing. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

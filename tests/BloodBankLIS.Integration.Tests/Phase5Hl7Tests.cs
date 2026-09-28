@@ -209,12 +209,17 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         string placerId,
         string testCode,
         string value,
-        string obxStatus = "F") =>
-        $"MSH|^~\\&|ANALYZER|LAB|BBLIS|BB|20260530120000||ORU^R01|{controlId}|P|2.5\r" +
-        $"PID|1||{mrn}^^^HOSP^MR||Doe^John\r" +
-        $"ORC|RE|{placerId}\r" +
-        $"OBR|1|{placerId}||{testCode}^{testCode}\r" +
-        $"OBX|1|ST|{testCode}^{testCode}||{value}|||N|||{obxStatus}";
+        string obxStatus = "F",
+        string? accession = null)
+    {
+        var specimen = string.IsNullOrWhiteSpace(accession) ? string.Empty : $"SPM|1|{accession}\r";
+        return $"MSH|^~\\&|ANALYZER|LAB|BBLIS|BB|20260530120000||ORU^R01|{controlId}|P|2.5\r" +
+            $"PID|1||{mrn}^^^HOSP^MR||Doe^John\r" +
+            $"ORC|RE|{placerId}\r" +
+            $"OBR|1|{placerId}||{testCode}^{testCode}\r" +
+            specimen +
+            $"OBX|1|ST|{testCode}^{testCode}||{value}|||N|||{obxStatus}";
+    }
 
     private static string Ras(string controlId, string mrn, string unitNumber) =>
         $"MSH|^~\\&|EPIC|HOSP|BBLIS|LAB|20260530120000||RAS^O17|{controlId}|P|2.5\r" +
@@ -1248,6 +1253,66 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.False(result.Accepted);
         Assert.Contains("does not belong", result.Log.ErrorDetail, StringComparison.OrdinalIgnoreCase);
         Assert.Empty(await context.TestResults.Where(r => r.SourceReference == "CTRL-ORU-OWN").ToListAsync());
+    }
+
+    [Fact]
+    public async Task InboundOru_LinksNamedAcceptedSpecimen_AndPosts()
+    {
+        await using var context = _factory.Create();
+        await SeedLinkedOrderAsync(context, "HL7-ORU-SPM", "ACC-HL7-ORU-SPM", "PLACER-ORU-SPM", "HGB");
+        var order = await context.Orders.SingleAsync(o => o.OrderNumber == "PLACER-ORU-SPM");
+        var specimen = await context.Specimens.SingleAsync(s => s.AccessionNumber == "ACC-HL7-ORU-SPM");
+        context.OrderSpecimens.RemoveRange(context.OrderSpecimens.Where(l => l.OrderId == order.Id));
+        await context.SaveChangesAsync();
+
+        var unnamed = await Processor(context).ProcessAsync(
+            Oru("CTRL-ORU-SPM-NONE", "HL7-ORU-SPM", "PLACER-ORU-SPM", "HGB", "12.0"));
+        Assert.False(unnamed.Accepted);
+        Assert.Contains("no accepted specimen", unnamed.Log.ErrorDetail, StringComparison.OrdinalIgnoreCase);
+
+        var named = await Processor(context).ProcessAsync(
+            Oru("CTRL-ORU-SPM", "HL7-ORU-SPM", "PLACER-ORU-SPM", "HGB", "12.2", accession: "ACC-HL7-ORU-SPM"));
+        Assert.True(named.Accepted, named.Log.ErrorDetail);
+
+        var posted = await context.TestResults.SingleAsync(r => r.SourceReference == "CTRL-ORU-SPM");
+        Assert.Equal(specimen.Id, posted.SpecimenId);
+        Assert.Equal("12.2", posted.Value);
+        Assert.True(await context.OrderSpecimens.AnyAsync(l => l.OrderId == order.Id && l.SpecimenId == specimen.Id));
+    }
+
+    [Fact]
+    public async Task InboundOru_RejectsNamedSpecimenForAnotherPatient()
+    {
+        await using var context = _factory.Create();
+        await SeedLinkedOrderAsync(context, "HL7-ORU-SPM-A", "ACC-HL7-ORU-A", "PLACER-ORU-SPM-A", "HGB");
+        var order = await context.Orders.SingleAsync(o => o.OrderNumber == "PLACER-ORU-SPM-A");
+        context.OrderSpecimens.RemoveRange(context.OrderSpecimens.Where(l => l.OrderId == order.Id));
+        var other = new Patient
+        {
+            MedicalRecordNumber = "HL7-ORU-SPM-B",
+            LastName = "Other",
+            FirstName = "Spec",
+            DateOfBirth = new DateOnly(1991, 3, 3),
+            Sex = Sex.Unknown
+        };
+        context.Patients.Add(other);
+        await context.SaveChangesAsync();
+        context.Specimens.Add(new Specimen
+        {
+            AccessionNumber = "ACC-HL7-ORU-B",
+            PatientId = other.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-1),
+            Status = SpecimenStatus.Accepted
+        });
+        await context.SaveChangesAsync();
+
+        var result = await Processor(context).ProcessAsync(
+            Oru("CTRL-ORU-SPM-B", "HL7-ORU-SPM-A", "PLACER-ORU-SPM-A", "HGB", "9.1", accession: "ACC-HL7-ORU-B"));
+        Assert.False(result.Accepted);
+        Assert.Contains("does not belong", result.Log.ErrorDetail, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await context.TestResults.Where(r => r.OrderId == order.Id).ToListAsync());
+        Assert.Empty(await context.OrderSpecimens.Where(l => l.OrderId == order.Id).ToListAsync());
     }
 
     [Fact]

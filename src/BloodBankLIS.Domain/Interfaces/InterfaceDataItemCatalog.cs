@@ -93,7 +93,8 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.ResultValue, "Result value", "Observation value.", "OBX-5", true),
         new(InterfaceDataItemKeys.ResultUnits, "Units", "Observation units.", "OBX-6", false),
         new(InterfaceDataItemKeys.ResultInterpretation, "Interpretation", "Abnormal flags / interpretation.", "OBX-8", false),
-        new(InterfaceDataItemKeys.ResultObxStatus, "Result status", "OBX observation result status.", "OBX-11", true)
+        new(InterfaceDataItemKeys.ResultObxStatus, "Result status", "OBX observation result status.", "OBX-11", true),
+        new(InterfaceDataItemKeys.ResultSpecimenAccession, "Specimen accession", "Specimen identifier on the result (SPM-2).", "SPM-2-1", false)
     ];
 
     private static readonly IReadOnlyList<InterfaceDataItem> Billing =

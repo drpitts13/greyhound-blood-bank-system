@@ -553,6 +553,11 @@ public sealed class Hl7InboundProcessor
         }
 
         var specimen = await ResolveAcceptedSpecimenAsync(order.Id, patient.Id, ct);
+        if (specimen is null && !string.IsNullOrWhiteSpace(data.SpecimenAccession))
+        {
+            specimen = await LinkNamedAcceptedSpecimenAsync(order.Id, patient.Id, data.SpecimenAccession, ct);
+        }
+
         if (specimen is null)
         {
             throw new Hl7MappingException(
@@ -596,6 +601,55 @@ public sealed class Hl7InboundProcessor
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// When the order is not yet linked, an ORU that names an accepted accession for
+    /// this patient is linked and used. A missing, foreign, or unaccepted accession
+    /// does not post.
+    /// </summary>
+    private async Task<Specimen?> LinkNamedAcceptedSpecimenAsync(
+        long orderId, long patientId, string accession, CancellationToken ct)
+    {
+        if (_specimens is null || _orderSpecimens is null)
+        {
+            return null;
+        }
+
+        var trimmed = accession.Trim();
+        var matches = await _specimens.ListAsync(s => s.AccessionNumber == trimmed, ct);
+        var specimen = matches.FirstOrDefault();
+        if (specimen is null)
+        {
+            throw new Hl7MappingException($"Specimen '{trimmed}' was not found; result cannot be posted.");
+        }
+
+        if (specimen.PatientId != patientId)
+        {
+            throw new Hl7MappingException(
+                $"Specimen '{trimmed}' does not belong to this patient; result cannot be posted.");
+        }
+
+        if (specimen.Status != SpecimenStatus.Accepted)
+        {
+            throw new Hl7MappingException(
+                $"Specimen '{trimmed}' is {specimen.Status}; result cannot be posted.");
+        }
+
+        var existing = await _orderSpecimens.ListAsync(
+            l => l.OrderId == orderId && l.SpecimenId == specimen.Id, ct);
+        if (existing.Count == 0)
+        {
+            var others = await _orderSpecimens.ListAsync(l => l.OrderId == orderId, ct);
+            await _orderSpecimens.AddAsync(new OrderSpecimen
+            {
+                OrderId = orderId,
+                SpecimenId = specimen.Id,
+                IsPrimary = others.Count == 0
+            }, ct);
+        }
+
+        return specimen;
     }
 
     private async Task<string> HandleBpamAsync(Hl7Message message, Hl7FieldMap map, CancellationToken ct)

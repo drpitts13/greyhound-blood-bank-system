@@ -43,7 +43,8 @@ public sealed record Hl7ResultData(
     string Value,
     string? Units,
     string? Interpretation,
-    string? ObxStatus);
+    string? ObxStatus,
+    string? SpecimenAccession = null);
 
 /// <summary>Blood-product administration details extracted from an inbound RAS/BPS message.</summary>
 public sealed record Hl7BpamData(
@@ -197,7 +198,8 @@ public static class Hl7OruMapper
             Value: FirstCoded(map.Get(message, InterfaceDataItemKeys.ResultValue)),
             Units: NullIfEmpty(FirstCoded(map.Get(message, InterfaceDataItemKeys.ResultUnits))),
             Interpretation: NullIfEmpty(FirstCoded(map.Get(message, InterfaceDataItemKeys.ResultInterpretation))),
-            ObxStatus: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.ResultObxStatus)));
+            ObxStatus: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.ResultObxStatus)),
+            SpecimenAccession: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.ResultSpecimenAccession)));
     }
 
     private static string FirstCoded(params string[] values)

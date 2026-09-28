@@ -121,7 +121,8 @@ public sealed class Hl7FieldMap
         [InterfaceDataItemKeys.ResultValue] = ["OBX-5-1", "OBX-5"],
         [InterfaceDataItemKeys.ResultUnits] = ["OBX-6-1", "OBX-6"],
         [InterfaceDataItemKeys.ResultInterpretation] = ["OBX-8-1", "OBX-8"],
-        [InterfaceDataItemKeys.ResultObxStatus] = ["OBX-11"]
+        [InterfaceDataItemKeys.ResultObxStatus] = ["OBX-11"],
+        [InterfaceDataItemKeys.ResultSpecimenAccession] = ["SPM-2-1", "SPM-2"]
     };
 }
 
