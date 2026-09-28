@@ -99,5 +99,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-088 | I | `ComplianceWorkflowTests.RecallByDin_IssuedUnit_OpensOneNotification_AndSecondRecallDoesNotDuplicate` | URS-BB-199 / FRS-BB-234 / RISK-BB-301 |
 | TEST-BB-089 | I | `Phase5Hl7Tests.Replay_WhenEndpointDisallows_DoesNotReprocess` | URS-BB-200 / FRS-BB-235 / RISK-BB-302 |
 | TEST-BB-090 | I | `Phase5Hl7Tests.InboundOru_LinksNamedAcceptedSpecimen_AndPosts`; `Phase5Hl7Tests.InboundOru_RejectsNamedSpecimenForAnotherPatient` | URS-BB-201 / FRS-BB-236 / RISK-BB-303 |
+| TEST-BB-091 | I | `Phase7BillingTests.Invalidate_CancelsOpenTestCharge_AndLeavesExported` | URS-BB-202 / FRS-BB-237 / RISK-BB-304 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

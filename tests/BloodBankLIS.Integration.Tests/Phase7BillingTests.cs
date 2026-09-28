@@ -399,6 +399,52 @@ public class Phase7BillingTests : IDisposable
     }
 
     [Fact]
+    public async Task Invalidate_CancelsOpenTestCharge_AndLeavesExported()
+    {
+        long openResultId;
+        long exportedResultId;
+        await using (var setup = _factory.Create())
+        {
+            await SeedChargeRuleAsync(setup, BillingTriggerType.TestVerified, "ABORH", "RULE-INV", 25m);
+            await SeedChargeRuleAsync(setup, BillingTriggerType.TestVerified, "ABORH2", "RULE-INV2", 25m);
+            openResultId = await CreateVerifiedResultAsync(setup, "BILL-INV-OPEN", "ABORH");
+            exportedResultId = await CreateVerifiedResultAsync(setup, "BILL-INV-EXP", "ABORH2");
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var billing = Billing(context);
+            var blank = await billing.CancelOpenTestChargesForInvalidationAsync(openResultId, " ");
+            Assert.False(blank.Succeeded);
+
+            var open = await billing.CaptureForResultAsync(openResultId);
+            var exported = await billing.CaptureForResultAsync(exportedResultId);
+            Assert.True(open.Succeeded);
+            Assert.True(exported.Succeeded);
+            exported.Value!.Single().Status = BillingEventStatus.Exported;
+            await context.SaveChangesAsync();
+
+            var cancelled = await billing.CancelOpenTestChargesForInvalidationAsync(openResultId, "Result invalidated");
+            Assert.True(cancelled.Succeeded);
+            Assert.Equal(1, cancelled.Value);
+            Assert.False(cancelled.HasWarnings);
+
+            var left = await billing.CancelOpenTestChargesForInvalidationAsync(exportedResultId, "Result invalidated");
+            Assert.True(left.Succeeded);
+            Assert.Equal(0, left.Value);
+            Assert.Contains(left.Warnings, w => w.Code == BillingService.ExportedTestChargeRemains);
+        }
+
+        await using var verify = _factory.Create();
+        var openCharge = await verify.BillingEvents.SingleAsync(e => e.TriggerEntityId == openResultId);
+        var exportedCharge = await verify.BillingEvents.SingleAsync(e => e.TriggerEntityId == exportedResultId);
+        Assert.Equal(BillingEventStatus.Cancelled, openCharge.Status);
+        Assert.Equal("Result invalidated", openCharge.CancellationReason);
+        Assert.Equal(BillingEventStatus.Exported, exportedCharge.Status);
+        Assert.Null(exportedCharge.CancellationReason);
+    }
+
+    [Fact]
     public async Task CaptureForIssue_CatchAllRuleAndCatalog_CreatesSingleCatalogCharge()
     {
         long issueId;

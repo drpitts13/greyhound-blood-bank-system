@@ -1521,3 +1521,34 @@ named an accepted accession. Staff had to link it and replay.
 
 Next workflow family: billing. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 49 — Invalidation drops an open test charge (2026-09-27)
+
+Workflow-audit loop tick (billing). Verifying a result captures a test
+charge. Invalidating that result left the charge on the review queue, and
+cancelling it required `billing.cancel`.
+
+### Implemented
+
+- Invalidating a result cancels pending and reviewed `TestVerified` charges
+  for that result.
+- The invalidation does not require `billing.cancel`.
+- An already exported test charge stays, and the response warns
+  `BILL-INVALIDATE-EXPORTED`.
+- Issue and transfusion charges are unchanged.
+
+### Requirements / risk
+
+- URS-BB-202, FRS-BB-237, SRS-BB-199, RISK-BB-304.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-091 (`Phase7BillingTests.Invalidate_CancelsOpenTestCharge_AndLeavesExported`).
+- Full suite green: Domain 1386, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 872.
+
+### Next ranked residual
+
+Next workflow family: patient testing. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

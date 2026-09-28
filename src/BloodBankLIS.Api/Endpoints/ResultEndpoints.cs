@@ -1,8 +1,10 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
+using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Results;
+using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -117,9 +119,35 @@ public static class ResultEndpoints
             EndpointResults.From(await service.SubmitForVerificationAsync(id, ct), r => TestResultDto.From(r)))
             .RequirePermission(PermissionCodes.ResultEnter);
 
-        group.MapPost("/{id:long}/invalidate", async (long id, InvalidateResultRequest request, ResultService service, CancellationToken ct) =>
-            EndpointResults.From(await service.InvalidateResultAsync(id, request.Reason, ct), r => TestResultDto.From(r)))
-            .RequirePermission(PermissionCodes.ResultInvalidate);
+        group.MapPost("/{id:long}/invalidate", async (
+            long id,
+            InvalidateResultRequest request,
+            ResultService service,
+            BillingService billing,
+            CancellationToken ct) =>
+        {
+            var result = await service.InvalidateResultAsync(id, request.Reason, ct);
+            if (!result.Succeeded || result.Value is null)
+            {
+                return EndpointResults.From(result, r => TestResultDto.From(r));
+            }
+
+            var charges = await billing.CancelOpenTestChargesForInvalidationAsync(id, request.Reason, ct);
+            if (charges.Succeeded && !charges.HasWarnings)
+            {
+                return EndpointResults.From(result, r => TestResultDto.From(r));
+            }
+
+            var messages = charges.Succeeded
+                ? charges.Warnings
+                : [RuleResult.Warning(
+                    "BILL-INVALIDATE-OPEN",
+                    charges.Error ?? "Test charges could not be cancelled.")];
+            var merged = result.Warnings.Concat(messages).ToList();
+            return EndpointResults.From(
+                OperationResult<TestResult>.Ok(result.Value, merged),
+                r => TestResultDto.From(r));
+        }).RequirePermission(PermissionCodes.ResultInvalidate);
 
         app.MapGet("/api/specimens/{specimenId:long}/results", async (long specimenId, ResultService service, CancellationToken ct) =>
         {

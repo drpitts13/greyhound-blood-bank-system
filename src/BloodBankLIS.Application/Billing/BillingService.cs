@@ -419,6 +419,69 @@ public sealed class BillingService
 
     public const string ExportedIssueChargeRemains = "BILL-RETURN-EXPORTED";
 
+    /// <summary>
+    /// Invalidating a result drops pending and reviewed test charges for that result.
+    /// This follows the clinical invalidation and does not require <c>billing.cancel</c>.
+    /// An already exported charge is left in place; the caller surfaces
+    /// <see cref="ExportedTestChargeRemains"/>.
+    /// </summary>
+    public async Task<OperationResult<int>> CancelOpenTestChargesForInvalidationAsync(
+        long resultId, string reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return OperationResult<int>.Fail("A reason is required to cancel test charges for an invalidation.");
+        }
+
+        var ids = (await _events.ListAsync(
+            e => e.TriggerType == BillingTriggerType.TestVerified && e.TriggerEntityId == resultId,
+            ct)).Select(e => e.Id).ToList();
+        var cancelled = 0;
+        var exported = 0;
+        var trimmed = reason.Trim();
+        foreach (var id in ids)
+        {
+            var billingEvent = await _events.GetByIdAsync(id, ct);
+            if (billingEvent is null || billingEvent.Status == BillingEventStatus.Cancelled)
+            {
+                continue;
+            }
+
+            if (billingEvent.Status == BillingEventStatus.Exported)
+            {
+                exported++;
+                continue;
+            }
+
+            var previousStatus = billingEvent.Status;
+            billingEvent.Status = BillingEventStatus.Cancelled;
+            billingEvent.CancellationReason = trimmed;
+            _events.Update(billingEvent);
+            _audit.Record(
+                AuditEventType.Billing,
+                nameof(BillingEvent),
+                billingEvent.Id,
+                oldValue: new { Status = previousStatus },
+                newValue: new { Status = BillingEventStatus.Cancelled, ResultId = resultId },
+                reason: trimmed);
+            cancelled++;
+        }
+
+        if (cancelled > 0)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
+        IReadOnlyList<RuleResult>? warnings = exported > 0
+            ? [RuleResult.Warning(
+                ExportedTestChargeRemains,
+                "An exported test charge was left in place. Credit that charge outside this invalidation.")]
+            : null;
+        return OperationResult<int>.Ok(cancelled, warnings);
+    }
+
+    public const string ExportedTestChargeRemains = "BILL-INVALIDATE-EXPORTED";
+
     public async Task<OperationResult<BillingEvent>> ExportAsync(long id, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync(
