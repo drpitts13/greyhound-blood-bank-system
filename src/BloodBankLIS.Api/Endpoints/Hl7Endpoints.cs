@@ -25,9 +25,11 @@ public sealed record Hl7MessageDto(
     string? PlacerOrderNumber = null,
     string? TestCode = null,
     string? UnitNumber = null,
-    long? PatientId = null)
+    long? PatientId = null,
+    long? EndpointId = null,
+    bool? ReplayAllowed = null)
 {
-    public static Hl7MessageDto From(Hl7MessageLog m, long? patientId = null)
+    public static Hl7MessageDto From(Hl7MessageLog m, long? patientId = null, bool? replayAllowed = null)
     {
         Hl7MessageIdentity.TryRead(m.RawMessage, out var identity);
         return new(
@@ -35,7 +37,7 @@ public sealed record Hl7MessageDto(
             m.Status, m.ReceivedUtc, m.ProcessedUtc, m.AckCode, m.ErrorDetail,
             identity.MedicalRecordNumber, identity.DisplayName,
             identity.PlacerOrderNumber, identity.TestCode, identity.UnitNumber,
-            patientId);
+            patientId, m.EndpointId, replayAllowed);
     }
 }
 
@@ -57,12 +59,15 @@ public sealed record Hl7ErrorDto(
     string? PlacerOrderNumber = null,
     string? TestCode = null,
     string? UnitNumber = null,
-    long? PatientId = null)
+    long? PatientId = null,
+    long? EndpointId = null,
+    bool? ReplayAllowed = null)
 {
     public static Hl7ErrorDto From(
         InterfaceErrorQueueItem e,
         Hl7MessageLog? message = null,
-        long? patientId = null)
+        long? patientId = null,
+        bool? replayAllowed = null)
     {
         Hl7MessageIdentity.TryRead(message?.RawMessage, out var identity);
         return new(
@@ -70,7 +75,7 @@ public sealed record Hl7ErrorDto(
             message?.MessageControlId, message?.MessageType, message?.TriggerEvent, message?.AckCode,
             identity.MedicalRecordNumber, identity.DisplayName,
             message?.Direction, identity.PlacerOrderNumber, identity.TestCode, identity.UnitNumber,
-            patientId);
+            patientId, message?.EndpointId, replayAllowed);
     }
 }
 
@@ -97,6 +102,7 @@ public static class Hl7Endpoints
         group.MapGet("/messages", async (
             IRepository<Hl7MessageLog> repo,
             IRepository<Patient> patients,
+            IRepository<InterfaceEndpoint> endpoints,
             CancellationToken ct) =>
         {
             var messages = await repo.ListAsync(ct);
@@ -104,7 +110,7 @@ public static class Hl7Endpoints
                 .OrderByDescending(m => m.ReceivedUtc)
                 .Select(m => Hl7MessageDto.From(m))
                 .ToList();
-            return Results.Ok(await AttachPatientIdsAsync(dtos, patients, ct));
+            return Results.Ok(await AttachPatientIdsAsync(await AttachReplayAllowedAsync(dtos, endpoints, ct), patients, ct));
         });
 
         group.MapGet("/messages/{id:long}", async (long id, IRepository<Hl7MessageLog> repo, CancellationToken ct) =>
@@ -127,6 +133,11 @@ public static class Hl7Endpoints
                 return Results.NotFound(new { error = $"Inbound message {id} not found." });
             }
 
+            if (outcome.AckMessage == Hl7InboundProcessor.ReplayDisabledMessage)
+            {
+                return Results.Conflict(new { error = outcome.AckMessage });
+            }
+
             return Results.Ok(new { ackCode = outcome.AckCode, ack = outcome.AckMessage, logId = outcome.Log.Id });
         });
 
@@ -134,6 +145,7 @@ public static class Hl7Endpoints
             IRepository<InterfaceErrorQueueItem> repo,
             IRepository<Hl7MessageLog> logs,
             IRepository<Patient> patients,
+            IRepository<InterfaceEndpoint> endpoints,
             CancellationToken ct) =>
         {
             var errors = await repo.ListAsync(e => !e.Resolved, ct);
@@ -146,7 +158,7 @@ public static class Hl7Endpoints
                 .OrderByDescending(e => e.Id)
                 .Select(e => Hl7ErrorDto.From(e, byId.GetValueOrDefault(e.Hl7MessageId)))
                 .ToList();
-            return Results.Ok(await AttachPatientIdsAsync(dtos, patients, ct));
+            return Results.Ok(await AttachPatientIdsAsync(await AttachReplayAllowedAsync(dtos, endpoints, ct), patients, ct));
         });
 
         // Queues an outbound ORU for a verified result (transport handled by the sender).
@@ -168,6 +180,40 @@ public static class Hl7Endpoints
             var processed = await poller.PollAsync(ct: ct);
             return Results.Ok(new { processed });
         });
+    }
+
+    private static async Task<IReadOnlyList<T>> AttachReplayAllowedAsync<T>(
+        IReadOnlyList<T> rows,
+        IRepository<InterfaceEndpoint> endpoints,
+        CancellationToken ct)
+    {
+        long? EndpointIdOf(T row) => row switch
+        {
+            Hl7MessageDto message => message.EndpointId,
+            Hl7ErrorDto error => error.EndpointId,
+            _ => null
+        };
+        T WithReplay(T row, bool allowed) => row switch
+        {
+            Hl7MessageDto message => (T)(object)(message with { ReplayAllowed = allowed }),
+            Hl7ErrorDto error => (T)(object)(error with { ReplayAllowed = allowed }),
+            _ => row
+        };
+
+        var ids = rows.Select(EndpointIdOf).Where(id => id is > 0).Select(id => id!.Value).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return rows.ToList();
+        }
+
+        var matches = await endpoints.ListAsync(e => ids.Contains(e.Id), ct);
+        var byId = matches.ToDictionary(e => e.Id, e => e.ReplayAllowed);
+        return rows
+            .Select(row =>
+                EndpointIdOf(row) is long id && byId.TryGetValue(id, out var allowed)
+                    ? WithReplay(row, allowed)
+                    : row)
+            .ToList();
     }
 
     private static async Task<IReadOnlyList<T>> AttachPatientIdsAsync<T>(

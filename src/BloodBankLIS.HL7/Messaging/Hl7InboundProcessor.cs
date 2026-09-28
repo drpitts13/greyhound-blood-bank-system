@@ -26,6 +26,7 @@ public sealed record Hl7ProcessResult(string AckMessage, string AckCode, Hl7Mess
 /// </summary>
 public sealed class Hl7InboundProcessor
 {
+    public const string ReplayDisabledMessage = "Replay is turned off for this interface.";
     private readonly IRepository<Hl7MessageLog> _logs;
     private readonly IRepository<InterfaceErrorQueueItem> _errors;
     private readonly IRepository<Patient> _patients;
@@ -102,6 +103,15 @@ public sealed class Hl7InboundProcessor
         if (original is null || original.Direction != Hl7Direction.Inbound)
         {
             return null;
+        }
+
+        if (original.EndpointId is long endpointId && _endpoints is not null)
+        {
+            var endpoint = await _endpoints.GetByIdAsync(endpointId, ct);
+            if (endpoint is not null && !endpoint.ReplayAllowed)
+            {
+                return new Hl7ProcessResult(ReplayDisabledMessage, AckCode.Reject, original);
+            }
         }
 
         var outcome = await ProcessAsync(original.RawMessage, original.EndpointId, isReplay: true, ct);

@@ -81,7 +81,14 @@
                                 <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(e.Hl7MessageId)">View</button>
                                 @if (e.Direction is null or Hl7Direction.Inbound)
                                 {
-                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(e.Hl7MessageId)">Replay</button>
+                                    @if (e.ReplayAllowed == false)
+                                    {
+                                        <span class="muted">Replay off</span>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(e.Hl7MessageId)">Replay</button>
+                                    }
                                 }
                                 @if (e.Direction == Hl7Direction.Outbound)
                                 {
@@ -147,7 +154,14 @@
                             <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(m.Id)">View</button>
                             @if (m.Direction == Hl7Direction.Inbound)
                             {
-                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(m.Id)">Replay</button>
+                                @if (m.ReplayAllowed == false)
+                                {
+                                    <span class="muted">Replay off</span>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(m.Id)">Replay</button>
+                                }
                             }
                             @if (m.Direction == Hl7Direction.Outbound && m.Status is Hl7MessageStatus.Received or Hl7MessageStatus.Errored or Hl7MessageStatus.Nacked)
                             {

@@ -5,7 +5,7 @@ software is AABB-accredited or FDA-cleared. Remaining automated tests stay
 citable by class or method name until an ID is assigned.
 
 Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
-**TEST-BB-089**.
+**TEST-BB-090**.
 
 | ID | Layer | Test | Traces to |
 |---|---|---|---|
@@ -97,5 +97,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-086 | I | `Phase7BillingTests.Return_CancelsOpenIssueCharge_AndLeavesExported` | URS-BB-197 / FRS-BB-232 / RISK-BB-299 |
 | TEST-BB-087 | I | `ReactionInvestigationServiceTests.Update_DiscardedUnit_SavesWorkupWhenRemainderCannotBeHeld` | URS-BB-198 / FRS-BB-233 / RISK-BB-300 |
 | TEST-BB-088 | I | `ComplianceWorkflowTests.RecallByDin_IssuedUnit_OpensOneNotification_AndSecondRecallDoesNotDuplicate` | URS-BB-199 / FRS-BB-234 / RISK-BB-301 |
+| TEST-BB-089 | I | `Phase5Hl7Tests.Replay_WhenEndpointDisallows_DoesNotReprocess` | URS-BB-200 / FRS-BB-235 / RISK-BB-302 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

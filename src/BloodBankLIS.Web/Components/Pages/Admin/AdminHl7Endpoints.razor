@@ -403,7 +403,7 @@
         public int? MaxRetryCount { get; set; }
         public int? RetryDelaySeconds { get; set; }
         public string? MessageLoggingLevel { get; set; }
-        public bool ReplayAllowed { get; set; }
+        public bool ReplayAllowed { get; set; } = true;
         public List<MappingRow> Mappings { get; set; } = new();
 
         public static EditModel From(Hl7EndpointDto e) => new()

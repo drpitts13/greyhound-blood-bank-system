@@ -1462,3 +1462,32 @@ row for a unit that was already transfused.
 
 Next workflow family: HL7 process. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 47 — HL7 replay honors the interface checkbox (2026-09-27)
+
+Workflow-audit loop tick (HL7 process). Replay allowed was stored on the
+interface and shown in admin, but Replay still reapplied the stored message.
+A corrected chart could be overwritten by an old ADT or order.
+
+### Implemented
+
+- Replay of a message whose interface has Replay allowed unchecked does not
+  reprocess. The HL7 log and error queue say Replay off.
+- New interfaces start with replay allowed. A message with no interface can
+  still be replayed. MSH-10 idempotency is unchanged.
+
+### Requirements / risk
+
+- URS-BB-200, FRS-BB-235, SRS-BB-197, RISK-BB-302.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-089 (`Phase5Hl7Tests.Replay_WhenEndpointDisallows_DoesNotReprocess`).
+- Full suite green: Domain 1386, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 869.
+
+### Next ranked residual
+
+Next workflow family: HL7 data load. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

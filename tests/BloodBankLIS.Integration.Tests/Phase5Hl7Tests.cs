@@ -740,6 +740,45 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Replay_WhenEndpointDisallows_DoesNotReprocess()
+    {
+        long messageId;
+        await using (var c = _factory.Create())
+        {
+            var endpoint = new InterfaceEndpoint
+            {
+                Name = "ZZZ replay off",
+                Direction = Hl7Direction.Inbound,
+                InterfaceType = InterfaceType.Adt,
+                MessageTypes = "ZZZ",
+                IsEnabled = false,
+                ReplayAllowed = false
+            };
+            c.InterfaceEndpoints.Add(endpoint);
+            await c.SaveChangesAsync();
+
+            var first = await Processor(c).ProcessAsync(Adt("CTRL-NOREPLAY", "HL7-NR", "No", "Replay"), endpoint.Id);
+            Assert.True(first.Accepted, first.AckMessage);
+            messageId = first.Log.Id;
+
+            var patient = await c.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-NR");
+            patient.LastName = "Corrected";
+            await c.SaveChangesAsync();
+
+            var replay = await Processor(c).ReplayAsync(messageId);
+            Assert.NotNull(replay);
+            Assert.False(replay!.Accepted);
+            Assert.Equal(Hl7InboundProcessor.ReplayDisabledMessage, replay.AckMessage);
+            Assert.Equal(messageId, replay.Log.Id);
+        }
+
+        await using var verify = _factory.Create();
+        var still = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-NR");
+        Assert.Equal("Corrected", still.LastName);
+        Assert.Equal(1, await verify.Hl7Messages.CountAsync(m => m.MessageControlId == "CTRL-NOREPLAY"));
+    }
+
+    [Fact]
     public async Task Outbound_QueuesVerifiedResultAsValidOru()
     {
         long resultId;

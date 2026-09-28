@@ -200,3 +200,4 @@
 | SRS-BB-194 | Issue return and unit return both call `CancelOpenIssueChargesForReturnAsync` after the return commits. Pending and reviewed `UnitIssued` rows become Cancelled with the return reason. Exported rows are not changed. | FRS-BB-232 |
 | SRS-BB-195 | `TryQuarantineRemainderAsync` returns a hold problem instead of failing `UpdateAsync`. `ReactionInvestigationDto.RemainderHoldNote` is set when the unit status cannot move to quarantine. | FRS-BB-233 |
 | SRS-BB-196 | `RecallByDinAsync` calls `EnsureConsigneeNotificationAsync` before status change when the unit is Issued or in a transfusion status. An existing notification for that DIN and blood product is left as-is. | FRS-BB-234 |
+| SRS-BB-197 | `ReplayAsync` returns `ReplayDisabledMessage` without calling `ProcessAsync` when the message endpoint exists and `ReplayAllowed` is false. `POST /api/hl7/messages/{id}/replay` returns 409. List DTOs copy `ReplayAllowed` from that endpoint. | FRS-BB-235 |

@@ -62,8 +62,8 @@ public class InterfaceEndpoint : BaseEntity
     /// <summary>Logging verbosity label (e.g. None/Errors/All).</summary>
     public string? MessageLoggingLevel { get; set; }
 
-    /// <summary>Whether replay of stored messages is permitted for this endpoint.</summary>
-    public bool ReplayAllowed { get; set; }
+    /// <summary>Whether replay of stored messages is permitted for this endpoint. On unless an administrator turns it off.</summary>
+    public bool ReplayAllowed { get; set; } = true;
 
     /// <summary>Monotonic config version; bumped on significant admin edits (snapshot history).</summary>
     public int Version { get; set; } = 1;

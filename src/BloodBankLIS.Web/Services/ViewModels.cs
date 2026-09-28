@@ -22,7 +22,9 @@ public sealed record Hl7MessageVm(
     string? PlacerOrderNumber = null,
     string? TestCode = null,
     string? UnitNumber = null,
-    long? PatientId = null);
+    long? PatientId = null,
+    long? EndpointId = null,
+    bool? ReplayAllowed = null);
 
 public sealed record Hl7MessageDetailVm(Hl7MessageVm Message, string? Raw);
 
@@ -44,7 +46,9 @@ public sealed record Hl7ErrorVm(
     string? PlacerOrderNumber = null,
     string? TestCode = null,
     string? UnitNumber = null,
-    long? PatientId = null);
+    long? PatientId = null,
+    long? EndpointId = null,
+    bool? ReplayAllowed = null);
 
 public sealed record Hl7ReplayVm(string AckCode, string Ack, long LogId);
 
