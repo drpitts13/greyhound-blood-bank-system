@@ -120,5 +120,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-109 | I | `ProductRetypeServiceTests.MatchingRetype_OutdatedUnit_DoesNotBecomeAvailable` | URS-BB-220 / FRS-BB-255 / RISK-BB-322 |
 | TEST-BB-110 | I | `Phase4IssuingTests.ListReadyToIssue_ExpiredSpecimen_DoesNotOfferIssue` | URS-BB-221 / FRS-BB-256 / RISK-BB-323 |
 | TEST-BB-111 | I | `ReactionInvestigationServiceTests.RecordFatalityFollowUp_SecondStamp_DoesNotRewrite` | URS-BB-222 / FRS-BB-257 / RISK-BB-324 |
+| TEST-BB-112 | I | `LookbackSearchAuthorizationTests.Recall_ReturnedThenReissued_NotifiesTheCurrentRecipient` | URS-BB-223 / FRS-BB-258 / RISK-BB-325 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

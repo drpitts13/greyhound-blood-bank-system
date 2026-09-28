@@ -2160,3 +2160,34 @@ time, and recording CBER after the written report cleared that status.
 
 Next workflow family: lookback. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 70 — Lookback names the current recipient (2026-09-28)
+
+Workflow-audit loop tick (lookback). Recall already opened one call for an
+issued or transfused unit. That call used the first issue on the unit, so a
+unit returned and issued again named the earlier patient.
+
+### Implemented
+
+- The notification uses the issue that still accounts for the unit.
+- A transfused unit uses the transfused issue. An issued unit uses the
+  open issue.
+- An earlier returned issue is not the recipient.
+- The row stores that issue and its transfusion when one exists.
+- A later recall still does not add a second row.
+
+### Requirements / risk
+
+- URS-BB-223, FRS-BB-258, SRS-BB-220, RISK-BB-325.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-112 (`LookbackSearchAuthorizationTests.Recall_ReturnedThenReissued_NotifiesTheCurrentRecipient`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 891.
+
+### Next ranked residual
+
+Next workflow family: HL7 process. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

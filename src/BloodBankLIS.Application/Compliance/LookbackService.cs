@@ -494,6 +494,28 @@ public sealed class LookbackService
     }
 
     /// <summary>
+    /// The call goes to the patient on the issue that still accounts for the unit.
+    /// An earlier returned issue is not that patient.
+    /// </summary>
+    internal static Issue? SelectConsigneeIssue(IReadOnlyList<Issue> issues, UnitStatus unitStatus)
+    {
+        if (issues.Count == 0)
+        {
+            return null;
+        }
+
+        var current = unitStatus is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped
+            ? issues.Where(i => i.Status == IssueStatus.Transfused)
+            : issues.Where(i => i.Status == IssueStatus.Issued);
+
+        return current
+            .OrderByDescending(i => i.IssuedUtc)
+            .ThenByDescending(i => i.Id)
+            .FirstOrDefault()
+            ?? issues.OrderByDescending(i => i.IssuedUtc).ThenByDescending(i => i.Id).First();
+    }
+
+    /// <summary>
     /// Distributed components need a consignee row: already transfused, or issued
     /// and not yet recorded as transfused. In-stock components are recalled only.
     /// </summary>
@@ -513,13 +535,18 @@ public sealed class LookbackService
             return;
         }
 
-        var issue = await _issues.FirstOrDefaultAsync(i => i.BloodProductId == unit.Id, ct);
+        var issues = await _issues.ListAsync(i => i.BloodProductId == unit.Id, ct);
+        var issue = SelectConsigneeIssue(issues, unit.Status);
+        var transfusion = issue is null
+            ? null
+            : await _transfusions.FirstOrDefaultAsync(t => t.IssueId == issue.Id, ct);
         await _notifications.AddAsync(new LookbackNotification
         {
             Din = din,
             BloodProductId = unit.Id,
             PatientId = issue?.PatientId,
             IssueId = issue?.Id,
+            TransfusionEventId = transfusion?.Id,
             Status = LookbackNotificationStatus.Pending,
             Reason = reason.Trim()
         }, ct);

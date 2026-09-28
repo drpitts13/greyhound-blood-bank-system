@@ -228,3 +228,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-220 | A matching retype on an outdated unit does not put that unit into available stock. | P1 | FRS-BB-255 |
 | URS-BB-221 | Staff are not offered issue of a reserved unit when the current specimen is missing or expired. | P1 | FRS-BB-256 |
 | URS-BB-222 | Staff record a fatality's CBER notification and written report once, and a later CBER record does not clear the written report. | P1 | FRS-BB-257 |
+| URS-BB-223 | A lookback call names the patient on the current issue, not an earlier return of the same unit. | P1 | FRS-BB-258 |

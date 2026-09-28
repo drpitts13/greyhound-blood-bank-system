@@ -258,4 +258,92 @@ public class LookbackSearchAuthorizationTests : IClassFixture<SqliteContextFacto
         var after = await Lookback(c).ListOpenNotificationsAsync();
         Assert.DoesNotContain(after.Value!, n => n.Id == notification.Id);
     }
+
+    [Fact]
+    public async Task Recall_ReturnedThenReissued_NotifiesTheCurrentRecipient()
+    {
+        await using var c = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var din = $"W0002{key}";
+        var product = new ProductType
+        {
+            ProductCode = $"RBC-LB-RE-{key}",
+            Name = "Lookback reissue RBC",
+            ComponentClass = ComponentClass.RedBloodCells
+        };
+        var earlier = new Patient
+        {
+            MedicalRecordNumber = $"MRN-LB-OLD-{key}",
+            LastName = "Earlier",
+            FirstName = "Return",
+            DateOfBirth = new DateOnly(1970, 2, 2)
+        };
+        var current = new Patient
+        {
+            MedicalRecordNumber = $"MRN-LB-NOW-{key}",
+            LastName = "Current",
+            FirstName = "Recipient",
+            DateOfBirth = new DateOnly(1982, 3, 3)
+        };
+        c.ProductTypes.Add(product);
+        c.Patients.AddRange(earlier, current);
+        await c.SaveChangesAsync();
+
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U-LB-RE-{key}",
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            Din = din,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Transfused
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+
+        var returned = new Issue
+        {
+            BloodProductId = unit.Id,
+            PatientId = earlier.Id,
+            IssuedUtc = _factory.Clock.UtcNow.AddDays(-2),
+            IssuedBy = "tech-test",
+            Status = IssueStatus.Returned
+        };
+        c.Issues.Add(returned);
+        await c.SaveChangesAsync();
+
+        var transfused = new Issue
+        {
+            BloodProductId = unit.Id,
+            PatientId = current.Id,
+            IssuedUtc = _factory.Clock.UtcNow.AddHours(-3),
+            IssuedBy = "tech-test",
+            Status = IssueStatus.Transfused
+        };
+        c.Issues.Add(transfused);
+        await c.SaveChangesAsync();
+        var transfusion = new TransfusionEvent
+        {
+            IssueId = transfused.Id,
+            BloodProductId = unit.Id,
+            PatientId = current.Id,
+            DocumentedBy = "tech-test",
+            FinalDisposition = TransfusionDisposition.Completed
+        };
+        c.TransfusionEvents.Add(transfusion);
+        await c.SaveChangesAsync();
+
+        var recalled = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+        Assert.True(recalled.Succeeded, recalled.Error);
+        var notification = Assert.Single(recalled.Value!.Notifications);
+        Assert.Equal(current.Id, notification.PatientId);
+        Assert.Equal(transfused.Id, notification.IssueId);
+        Assert.Equal($"MRN-LB-NOW-{key}", notification.MedicalRecordNumber);
+        Assert.Contains("Current", notification.PatientName);
+
+        var stored = await c.LookbackNotifications.SingleAsync(n => n.Id == notification.Id);
+        Assert.Equal(transfusion.Id, stored.TransfusionEventId);
+        Assert.NotEqual(earlier.Id, stored.PatientId);
+    }
 }
