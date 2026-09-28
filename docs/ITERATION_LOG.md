@@ -1584,3 +1584,34 @@ block, so staff had to re-key the type to reach the override.
 
 Next workflow family: unit preparation. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 51 — Expected inbound can return a refused unit (2026-09-28)
+
+Workflow-audit loop tick (unit preparation). Appearance and temperature
+already refuse a bad packing-list unit and say to return it to the supplier.
+The expected-inbound row only offered Confirm and Open, so staff left the
+unit on the packing list.
+
+### Implemented
+
+- The expected-inbound confirm panel returns the unit to the supplier.
+- A coded defect suggests the return reason from the appearance or the
+  arrival notes. An acceptable appearance still needs a typed reason.
+- The receipt temperature label shows the 1–10 °C shipping range.
+- Receive HardStops are unchanged.
+
+### Requirements / risk
+
+- URS-BB-204, FRS-BB-239, SRS-BB-201, RISK-BB-306.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-093 (`ReceiveAppearanceRuleTests.SuggestedSupplierReturnReason_UsesDefect_AndKeepsTypedReason`).
+- Full suite green: Domain 1388, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 872.
+
+### Next ranked residual
+
+Next workflow family: assignment and issuing. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

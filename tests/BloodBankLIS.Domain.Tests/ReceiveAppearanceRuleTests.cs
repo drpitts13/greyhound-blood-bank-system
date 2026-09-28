@@ -29,4 +29,22 @@ public class ReceiveAppearanceRuleTests
         var result = ReceiveAppearanceRule.Evaluate(required: false, UnitAppearance.Hemolysis);
         Assert.Equal(RuleSeverity.Pass, result.Severity);
     }
+
+    [Fact]
+    public void SuggestedSupplierReturnReason_UsesDefect_AndKeepsTypedReason()
+    {
+        Assert.Null(ReceiveAppearanceRule.SuggestedSupplierReturnReason(
+            UnitAppearance.Acceptable, null, null));
+        Assert.Equal(
+            "Do not receive appearance Hemolysis.",
+            ReceiveAppearanceRule.SuggestedSupplierReturnReason(UnitAppearance.Hemolysis, null, " "));
+        Assert.Equal(
+            "Visible hemolysis in the segment",
+            ReceiveAppearanceRule.SuggestedSupplierReturnReason(
+                UnitAppearance.Hemolysis, "Visible hemolysis in the segment", null));
+        Assert.Equal(
+            "Refused at the dock",
+            ReceiveAppearanceRule.SuggestedSupplierReturnReason(
+                UnitAppearance.Acceptable, null, "Refused at the dock"));
+    }
 }

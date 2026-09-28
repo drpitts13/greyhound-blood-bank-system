@@ -101,5 +101,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-090 | I | `Phase5Hl7Tests.InboundOru_LinksNamedAcceptedSpecimen_AndPosts`; `Phase5Hl7Tests.InboundOru_RejectsNamedSpecimenForAnotherPatient` | URS-BB-201 / FRS-BB-236 / RISK-BB-303 |
 | TEST-BB-091 | I | `Phase7BillingTests.Invalidate_CancelsOpenTestCharge_AndLeavesExported` | URS-BB-202 / FRS-BB-237 / RISK-BB-304 |
 | TEST-BB-092 | D | `AboRhDeltaRuleTests.OpensOverride_OnlyForBlockedOverridableDelta` | URS-BB-203 / FRS-BB-238 / RISK-BB-305 |
+| TEST-BB-093 | D | `ReceiveAppearanceRuleTests.SuggestedSupplierReturnReason_UsesDefect_AndKeepsTypedReason` | URS-BB-204 / FRS-BB-239 / RISK-BB-306 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
