@@ -105,5 +105,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-094 | I | `Phase4IssuingTests.ListReadyToIssue_FlagsCellularUnitWhenSecondAboIsMissing` | URS-BB-205 / FRS-BB-240 / RISK-BB-307 |
 | TEST-BB-095 | D | `ReactionFatalityFollowUpRuleTests.ClosedFatality_StaysDueUntilCberAndWrittenReport` | URS-BB-206 / FRS-BB-241 / RISK-BB-308 |
 | TEST-BB-096 | I | `ComplianceWorkflowTests.ListOpenNotifications_IncludesPending_AndOmitsCompleted` | URS-BB-207 / FRS-BB-242 / RISK-BB-309 |
+| TEST-BB-097 | I | `Phase5Hl7Tests.ResolveQueueItem_ClearsTheRow_WithoutReprocessing` | URS-BB-208 / FRS-BB-243 / RISK-BB-310 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

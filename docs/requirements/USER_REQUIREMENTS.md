@@ -213,3 +213,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-205 | Staff see which reserved red cells cannot be issued routinely because a second ABO/Rh is missing, and can enter that type or start an emergency release. | P0 | FRS-BB-240 |
 | URS-BB-206 | Staff still see a fatality investigation after it is closed until CBER notification and the written report are both recorded. | P1 | FRS-BB-241 |
 | URS-BB-207 | Staff see recipient lookback calls that are still due without searching the DIN again. | P1 | FRS-BB-242 |
+| URS-BB-208 | Staff can clear an HL7 error after handling it by hand, including when replay is turned off. | P1 | FRS-BB-243 |

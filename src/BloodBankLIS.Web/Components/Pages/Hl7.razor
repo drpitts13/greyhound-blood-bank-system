@@ -4,7 +4,7 @@
 <PageTitle>HL7 Interface &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>HL7 Interface</h1>
-<p class="muted">Operational view of the HL7 v2.x message log. Submit inbound messages, send queued outbound ORU/DFT over MLLP or a file-drop folder, poll inbound drop folders, inspect raw content, replay, and review the error queue.</p>
+<p class="muted">Operational view of the HL7 v2.x message log. Submit inbound messages, send queued outbound ORU/DFT over MLLP or a file-drop folder, poll inbound drop folders, inspect raw content, replay, and review the error queue. Resolve clears a queue row after the chart was handled by hand. It does not reprocess the message.</p>
 
 <div class="bb-grid cols-2">
     <div class="bb-card">
@@ -90,6 +90,7 @@
                                         <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(e.Hl7MessageId)">Replay</button>
                                     }
                                 }
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => BeginResolve(e)">Resolve</button>
                                 @if (e.Direction == Hl7Direction.Outbound)
                                 {
                                     <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(e.Hl7MessageId)">Send</button>
@@ -99,6 +100,14 @@
                     }
                 </tbody>
             </table>
+            @if (_resolveId is not null)
+            {
+                <div class="alert alert-info" style="margin-top:1rem;">
+                    <div class="field"><label>Reason for resolving without replay</label><input @bind="_resolveReason" /></div>
+                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="ResolveAsync">Resolve without replay</button>
+                    <button class="btn btn-ghost btn-sm" @onclick="() => _resolveId = null">Cancel</button>
+                </div>
+            }
         }
     </div>
 </div>
@@ -196,6 +205,8 @@
     private bool _busy;
     private long? _viewId;
     private Hl7MessageDetailVm? _detail;
+    private long? _resolveId;
+    private string _resolveReason = string.Empty;
 
     [SupplyParameterFromQuery]
     public long? MessageId { get; set; }
@@ -239,6 +250,28 @@
         if (_viewId == id) { _viewId = null; _detail = null; return; }
         var r = await Api.GetHl7MessageAsync(id);
         if (r.Succeeded) { _detail = r.Value; _viewId = id; }
+    }
+
+    private void BeginResolve(Hl7ErrorVm error)
+    {
+        _resolveId = error.Id;
+        _resolveReason = string.Empty;
+    }
+
+    private async Task ResolveAsync()
+    {
+        if (_resolveId is null) return;
+        _busy = true;
+        var r = await Api.ResolveHl7ErrorAsync(_resolveId.Value, _resolveReason);
+        _busy = false;
+        _ackFb = r.ToFeedback("Error queue row resolved. The stored message was not replayed.");
+        if (r.Succeeded)
+        {
+            _resolveId = null;
+            _resolveReason = string.Empty;
+        }
+
+        await LoadAsync();
     }
 
     private async Task ReplayAsync(long id)

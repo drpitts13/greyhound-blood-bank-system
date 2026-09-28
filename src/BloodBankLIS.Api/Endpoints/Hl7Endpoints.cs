@@ -141,6 +141,9 @@ public static class Hl7Endpoints
             return Results.Ok(new { ackCode = outcome.AckCode, ack = outcome.AckMessage, logId = outcome.Log.Id });
         });
 
+        group.MapPost("/errors/{id:long}/resolve", async (long id, ReasonBody request, Hl7InboundProcessor processor, CancellationToken ct) =>
+            EndpointResults.From(await processor.ResolveQueueItemAsync(id, request.Reason, ct), e => Hl7ErrorDto.From(e)));
+
         group.MapGet("/errors", async (
             IRepository<InterfaceErrorQueueItem> repo,
             IRepository<Hl7MessageLog> logs,

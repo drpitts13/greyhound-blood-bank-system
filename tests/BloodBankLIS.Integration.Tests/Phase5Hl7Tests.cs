@@ -69,7 +69,8 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             results: Results(c),
             orderSpecimens: new EfRepository<OrderSpecimen>(c),
             specimens: new EfRepository<Specimen>(c),
-            currentUser: _factory.CurrentUser);
+            currentUser: _factory.CurrentUser,
+            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
     }
 
     private ResultService Results(BloodBankDbContext c) =>
@@ -781,6 +782,50 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         var still = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-NR");
         Assert.Equal("Corrected", still.LastName);
         Assert.Equal(1, await verify.Hl7Messages.CountAsync(m => m.MessageControlId == "CTRL-NOREPLAY"));
+    }
+
+    [Fact]
+    public async Task ResolveQueueItem_ClearsTheRow_WithoutReprocessing()
+    {
+        long errorId;
+        long messageId;
+        await using (var c = _factory.Create())
+        {
+            var first = await Processor(c).ProcessAsync(Adt("CTRL-RESOLVE", "HL7-RES", "Keep", "Name"));
+            Assert.True(first.Accepted, first.AckMessage);
+            messageId = first.Log.Id;
+            var patient = await c.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-RES");
+            patient.LastName = "Corrected";
+            var error = new InterfaceErrorQueueItem
+            {
+                Hl7MessageId = messageId,
+                ErrorType = "Mapping",
+                ErrorDetail = "Handled on the chart."
+            };
+            c.InterfaceErrorQueue.Add(error);
+            await c.SaveChangesAsync();
+            errorId = error.Id;
+
+            var blank = await Processor(c).ResolveQueueItemAsync(errorId, "  ");
+            Assert.False(blank.Succeeded);
+            Assert.Equal(Hl7InboundProcessor.ResolveReasonRequired, blank.Error);
+
+            var resolved = await Processor(c).ResolveQueueItemAsync(errorId, "Entered on the chart.");
+            Assert.True(resolved.Succeeded, resolved.Error);
+            Assert.True(resolved.Value!.Resolved);
+            Assert.NotNull(resolved.Value.ResolvedUtc);
+        }
+
+        await using var verify = _factory.Create();
+        var row = await verify.InterfaceErrorQueue.SingleAsync(e => e.Id == errorId);
+        Assert.True(row.Resolved);
+        var still = await verify.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-RES");
+        Assert.Equal("Corrected", still.LastName);
+        Assert.Equal(1, await verify.Hl7Messages.CountAsync(m => m.MessageControlId == "CTRL-RESOLVE"));
+        Assert.Contains(verify.AuditEvents, e =>
+            e.EventType == AuditEventType.Interface
+            && e.EntityId == errorId
+            && e.Reason == "Entered on the chart.");
     }
 
     [Fact]

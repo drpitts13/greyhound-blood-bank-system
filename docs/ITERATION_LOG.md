@@ -1707,3 +1707,31 @@ searching the same DIN again, so the call dropped off the page.
 
 Next workflow family: HL7 process. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 55 — HL7 errors can be resolved without replay (2026-09-28)
+
+Workflow-audit loop tick (HL7 process). Replay already stays off when the
+interface disallows it. That row then had no way off the error queue, so a
+message staff had already handled by hand stayed open.
+
+### Implemented
+
+- Resolve marks one unresolved queue row resolved when a reason is present.
+- It does not reprocess the stored message.
+- A blank reason is refused. Replay and Replay allowed are unchanged.
+
+### Requirements / risk
+
+- URS-BB-208, FRS-BB-243, SRS-BB-205, RISK-BB-310.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-097 (`Phase5Hl7Tests.ResolveQueueItem_ClearsTheRow_WithoutReprocessing`).
+- Full suite green: Domain 1390, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 876.
+
+### Next ranked residual
+
+Next workflow family: HL7 data load. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

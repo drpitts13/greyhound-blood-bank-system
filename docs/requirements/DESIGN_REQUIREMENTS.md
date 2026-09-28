@@ -208,3 +208,4 @@
 | SRS-BB-202 | `ReadyToIssueWorkItemDto.NeedsSecondAbo` is computed with `SecondAboDeterminationRule.HasSecondConcordant` and the unit component class. `/issuing` hides routine Issue on those rows and `SelectEmergencyIssue` prefills `IssueType.EmergencyRelease` with the override fields open. | FRS-BB-240 |
 | SRS-BB-203 | `ReactionInvestigationDto.FatalityFollowUpDue` comes from `ReactionFatalityFollowUpRule`. The default `/reactions` board includes open rows and that follow-up. Show closed, `?patientId=`, and `?id=` still surface a finished case. | FRS-BB-241 |
 | SRS-BB-204 | `GET /api/lookback/notifications` is registered ahead of `/{din}`. The page loads it on open and after an attempt is saved. Each row can open the DIN search or the existing attempt form. | FRS-BB-242 |
+| SRS-BB-205 | The error queue Resolve button posts the reason to `ResolveQueueItemAsync`. The row leaves the unresolved list. The message log is not given a new replay entry. | FRS-BB-243 |

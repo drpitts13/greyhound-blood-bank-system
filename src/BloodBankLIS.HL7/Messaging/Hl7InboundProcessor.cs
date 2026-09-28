@@ -1,4 +1,5 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.PatientWorkspace;
@@ -27,6 +28,7 @@ public sealed record Hl7ProcessResult(string AckMessage, string AckCode, Hl7Mess
 public sealed class Hl7InboundProcessor
 {
     public const string ReplayDisabledMessage = "Replay is turned off for this interface.";
+    public const string ResolveReasonRequired = "A reason is required to resolve an interface error without replaying it.";
     private readonly IRepository<Hl7MessageLog> _logs;
     private readonly IRepository<InterfaceErrorQueueItem> _errors;
     private readonly IRepository<Patient> _patients;
@@ -47,6 +49,7 @@ public sealed class Hl7InboundProcessor
     private readonly IRepository<OrderSpecimen>? _orderSpecimens;
     private readonly IRepository<Specimen>? _specimens;
     private readonly ICurrentUser? _currentUser;
+    private readonly IAuditWriter? _audit;
 
     public Hl7InboundProcessor(
         IRepository<Hl7MessageLog> logs,
@@ -68,7 +71,8 @@ public sealed class Hl7InboundProcessor
         ResultService? results = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
         IRepository<Specimen>? specimens = null,
-        ICurrentUser? currentUser = null)
+        ICurrentUser? currentUser = null,
+        IAuditWriter? audit = null)
     {
         _logs = logs;
         _errors = errors;
@@ -90,6 +94,45 @@ public sealed class Hl7InboundProcessor
         _orderSpecimens = orderSpecimens;
         _specimens = specimens;
         _currentUser = currentUser;
+        _audit = audit;
+    }
+
+    /// <summary>
+    /// Clears one error-queue row after staff have handled it outside replay.
+    /// Does not reprocess the stored message.
+    /// </summary>
+    public async Task<OperationResult<InterfaceErrorQueueItem>> ResolveQueueItemAsync(
+        long errorId, string? reason, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return OperationResult<InterfaceErrorQueueItem>.Fail(ResolveReasonRequired);
+        }
+
+        var item = await _errors.GetByIdAsync(errorId, ct);
+        if (item is null)
+        {
+            return OperationResult<InterfaceErrorQueueItem>.Fail("Interface error not found.");
+        }
+
+        if (item.Resolved)
+        {
+            return OperationResult<InterfaceErrorQueueItem>.Fail("This interface error is already resolved.");
+        }
+
+        item.Resolved = true;
+        item.ResolvedBy = string.IsNullOrWhiteSpace(_currentUser?.UserName) ? "system" : _currentUser.UserName;
+        item.ResolvedUtc = _clock.UtcNow;
+        _errors.Update(item);
+        _audit?.Record(
+            AuditEventType.Interface,
+            nameof(InterfaceErrorQueueItem),
+            item.Id,
+            oldValue: new { Resolved = false, item.Hl7MessageId },
+            newValue: new { item.Resolved, item.ResolvedBy, item.Hl7MessageId },
+            reason: reason.Trim());
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<InterfaceErrorQueueItem>.Ok(item);
     }
 
     /// <summary>
