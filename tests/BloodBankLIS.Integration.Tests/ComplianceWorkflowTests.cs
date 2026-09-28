@@ -118,6 +118,75 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task RecallByDin_IssuedUnit_OpensOneNotification_AndSecondRecallDoesNotDuplicate()
+    {
+        const string din = "W000077777777";
+        long issuedId;
+        long patientId;
+        await using (var c = _factory.Create())
+        {
+            var productType = new ProductType
+            {
+                ProductCode = "RBC-LB-ISS",
+                Name = "Lookback issued RBC",
+                ComponentClass = ComponentClass.RedBloodCells
+            };
+            c.ProductTypes.Add(productType);
+            await c.SaveChangesAsync();
+
+            var issued = new BloodUnit
+            {
+                UnitNumber = "U-LB-ISS",
+                ProductTypeId = productType.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                Din = din,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+                Status = UnitStatus.Issued
+            };
+            var patient = new Patient
+            {
+                MedicalRecordNumber = "MRN-LB-ISS",
+                LastName = "Issued",
+                FirstName = "Recipient",
+                DateOfBirth = new DateOnly(1982, 2, 2)
+            };
+            c.Patients.Add(patient);
+            c.BloodUnits.Add(issued);
+            await c.SaveChangesAsync();
+            issuedId = issued.Id;
+            patientId = patient.Id;
+            c.Issues.Add(new Issue
+            {
+                BloodProductId = issued.Id,
+                PatientId = patient.Id,
+                IssuedUtc = _factory.Clock.UtcNow.AddHours(-1),
+                IssuedBy = "tech-test",
+                Status = IssueStatus.Issued
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var first = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+            Assert.True(first.Succeeded, first.Error);
+            var note = Assert.Single(first.Value!.Notifications, n => n.BloodProductId == issuedId);
+            Assert.Equal(LookbackNotificationStatus.Pending, note.Status);
+            Assert.Equal(patientId, note.PatientId);
+            Assert.Contains(first.Value.Units, u => u.BloodProductId == issuedId && u.Status == UnitStatus.Recalled);
+
+            var second = await Lookback(c).RecallByDinAsync(din, "Donor subsequently reactive");
+            Assert.True(second.Succeeded, second.Error);
+            Assert.Single(second.Value!.Notifications, n => n.BloodProductId == issuedId);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Recalled, (await verify.BloodUnits.FindAsync(issuedId))!.Status);
+        Assert.Equal(1, await verify.LookbackNotifications.CountAsync(n => n.BloodProductId == issuedId));
+    }
+
+    [Fact]
     public async Task RecallByDin_RecallsCrossmatchedUnit()
     {
         const string din = "W000044444444";

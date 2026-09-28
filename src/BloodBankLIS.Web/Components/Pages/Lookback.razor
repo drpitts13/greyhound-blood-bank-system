@@ -6,7 +6,7 @@
 <PageTitle>Lookback &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Lookback &amp; traceback</h1>
-<p class="muted">Donor lookback finds every component sharing a DIN. Recipient traceback lists units issued to a patient and other recipients of those donations. Recalling quarantines non-transfused units and opens a notification worklist. The LIS does not auto-notify patients.</p>
+<p class="muted">Donor lookback finds every component sharing a DIN. Recipient traceback lists units issued to a patient and other recipients of those donations. Recalling pulls in-stock components and opens one notification for each issued or transfused component. A later recall does not add a second row. The LIS does not auto-notify patients.</p>
 
 @if (!Session.Has(PermissionCodes.LookbackManage))
 {
@@ -108,17 +108,18 @@ else
                 <div class="bb-card-title"><h3>Notification worklist</h3></div>
                 @if (_report.Notifications.Count == 0)
                 {
-                    <div class="empty">No recipient notifications (none transfused, or recall not yet run).</div>
+                    <div class="empty">No recipient notifications. Recall opens one row for each issued or transfused component.</div>
                 }
                 else
                 {
                     <table class="bb">
-                        <thead><tr><th>Id</th><th>Patient</th><th>Status</th><th>Physician</th><th>Attempted</th><th></th></tr></thead>
+                        <thead><tr><th>Id</th><th>Unit</th><th>Patient</th><th>Status</th><th>Physician</th><th>Attempted</th><th></th></tr></thead>
                         <tbody>
                             @foreach (var n in _report.Notifications)
                             {
                                 <tr>
                                     <td>@n.Id</td>
+                                    <td class="mono">@UnitLabel(n.BloodProductId)</td>
                                     <td>
                                         @if (n.PatientId is long notePatientId)
                                         {
@@ -388,6 +389,12 @@ else
         _din = din;
         _mode = LookbackMode.Din;
         await SearchDinAsync();
+    }
+
+    private string UnitLabel(long bloodProductId)
+    {
+        var unit = _report?.Units.FirstOrDefault(u => u.BloodProductId == bloodProductId);
+        return unit is null ? $"#{bloodProductId}" : unit.UnitNumber;
     }
 
     private void BeginAttempt(LookbackNotificationDto n)

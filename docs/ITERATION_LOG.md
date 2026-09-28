@@ -1432,3 +1432,33 @@ those units.
 
 Next workflow family: lookback. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 46 — Issued units get one lookback notification (2026-09-27)
+
+Workflow-audit loop tick (lookback). Recalling a DIN moved an issued
+component to Recalled and left the notification worklist empty, so staff
+were not prompted to call the floor. Recalling again added another pending
+row for a unit that was already transfused.
+
+### Implemented
+
+- Recall opens one Pending notification for Issued, TransfusionStarted,
+  TransfusionStopped, or Transfused, and does not insert a second row.
+- Issued components are still moved to Recalled. Transfused components are
+  not status-changed. The worklist shows the unit number.
+
+### Requirements / risk
+
+- URS-BB-199, FRS-BB-234, SRS-BB-196, RISK-BB-301.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-088 (`ComplianceWorkflowTests.RecallByDin_IssuedUnit_OpensOneNotification_AndSecondRecallDoesNotDuplicate`).
+- Full suite green: Domain 1386, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 868.
+
+### Next ranked residual
+
+Next workflow family: HL7 process. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

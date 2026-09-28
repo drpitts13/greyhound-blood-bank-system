@@ -205,18 +205,13 @@ public sealed class LookbackService
 
         foreach (var unit in units)
         {
+            if (NeedsConsigneeNotification(unit.Status))
+            {
+                await EnsureConsigneeNotificationAsync(normalized, unit, reason, ct);
+            }
+
             if (unit.Status is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped)
             {
-                var issue = await _issues.FirstOrDefaultAsync(i => i.BloodProductId == unit.Id, ct);
-                await _notifications.AddAsync(new LookbackNotification
-                {
-                    Din = normalized,
-                    BloodProductId = unit.Id,
-                    PatientId = issue?.PatientId,
-                    IssueId = issue?.Id,
-                    Status = LookbackNotificationStatus.Pending,
-                    Reason = reason.Trim()
-                }, ct);
                 continue;
             }
 
@@ -242,8 +237,7 @@ public sealed class LookbackService
             {
                 Din = normalized,
                 UnitCount = units.Count,
-                PendingNotificationCount = units.Count(u =>
-                    u.Status is UnitStatus.Transfused or UnitStatus.TransfusionStarted or UnitStatus.TransfusionStopped)
+                PendingNotificationCount = units.Count(u => NeedsConsigneeNotification(u.Status))
             },
             reason: reason);
         await _unitOfWork.SaveChangesAsync(ct);
@@ -459,6 +453,38 @@ public sealed class LookbackService
         }
 
         return ids.ToList();
+    }
+
+    /// <summary>
+    /// Distributed components need a consignee row: already transfused, or issued
+    /// and not yet recorded as transfused. In-stock components are recalled only.
+    /// </summary>
+    private static bool NeedsConsigneeNotification(UnitStatus status) =>
+        status is UnitStatus.Issued
+            or UnitStatus.TransfusionStarted
+            or UnitStatus.TransfusionStopped
+            or UnitStatus.Transfused;
+
+    private async Task EnsureConsigneeNotificationAsync(
+        string din, BloodUnit unit, string reason, CancellationToken ct)
+    {
+        var existing = await _notifications.ListAsync(
+            n => n.Din == din && n.BloodProductId == unit.Id, ct);
+        if (existing.Count > 0)
+        {
+            return;
+        }
+
+        var issue = await _issues.FirstOrDefaultAsync(i => i.BloodProductId == unit.Id, ct);
+        await _notifications.AddAsync(new LookbackNotification
+        {
+            Din = din,
+            BloodProductId = unit.Id,
+            PatientId = issue?.PatientId,
+            IssueId = issue?.Id,
+            Status = LookbackNotificationStatus.Pending,
+            Reason = reason.Trim()
+        }, ct);
     }
 
     private static string? FormatName(Patient? patient)

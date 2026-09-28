@@ -270,6 +270,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-196 / FRS-BB-231 | Antigen-neg RBC stays selectable and reserve requires a privileged override | `CompatibilityService`; `PatientAllocationService` | TEST-BB-041; TEST-BB-085 | I | Does not claim AABB compliance |
 | URS-BB-197 / FRS-BB-232 | Return cancels open issue charges and warns when one is already exported | `BillingService`; `IssuingEndpoints` | TEST-BB-086 | I | Does not claim AABB compliance |
 | URS-BB-198 / FRS-BB-233 | Reaction workup saves when remainder cannot be quarantined | `ReactionInvestigationService` | TEST-BB-087 | I | Does not claim AABB compliance |
+| URS-BB-199 / FRS-BB-234 | DIN recall notifies once for an issued or transfused component | `LookbackService` | TEST-BB-088 | I | Does not claim AABB compliance |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |
