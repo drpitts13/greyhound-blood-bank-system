@@ -2280,3 +2280,32 @@ hospital accepted it.
 
 Next workflow family: patient testing. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 74 — Held orders do not take results (2026-09-28)
+
+Workflow-audit loop tick (patient testing). The bench pending list already
+omitted an order on hold. The patient Tests tab still offered Enter, and
+verify still accepted a posted result on that order.
+
+### Implemented
+
+- A held order on the patient Tests tab says Blocked.
+- Result entry and verify refuse that order.
+- The bench pending list still omits held orders.
+- Releasing the order from hold is unchanged.
+
+### Requirements / risk
+
+- URS-BB-227, FRS-BB-262, SRS-BB-224, RISK-BB-329.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-116 (`TestWorklistTests.PendingWorklist_HeldOrder_DoesNotOfferEnter`).
+- Full suite green: Domain 1402, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 894.
+
+### Next ranked residual
+
+Next workflow family: unit preparation. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

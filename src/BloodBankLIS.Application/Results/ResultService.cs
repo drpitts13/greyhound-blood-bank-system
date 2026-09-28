@@ -505,6 +505,12 @@ public sealed class ResultService
             {
                 return OperationResult<TestResult>.Fail(linkError);
             }
+
+            var holdError = await OrderHoldErrorAsync(linkedOrderId, ct);
+            if (holdError is not null)
+            {
+                return OperationResult<TestResult>.Fail(holdError);
+            }
         }
 
         var normalizedCode = testCode.ToUpperInvariant();
@@ -689,6 +695,15 @@ public sealed class ResultService
         if (!specimenGate.Succeeded)
         {
             return EvaluationResult<TestResult>.Fail(specimenGate.Error!);
+        }
+
+        if (result.OrderId is long resultOrderId)
+        {
+            var holdError = await OrderHoldErrorAsync(resultOrderId, ct);
+            if (holdError is not null)
+            {
+                return EvaluationResult<TestResult>.Fail(holdError);
+            }
         }
 
         var blockSelfVerify = await ResolveBlockSelfVerifyAsync(result, ct);
@@ -1539,6 +1554,19 @@ public sealed class ResultService
             reason: "Re-entry after invalidation.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<TestResult>.Ok(replacement);
+    }
+
+    private async Task<string?> OrderHoldErrorAsync(long orderId, CancellationToken ct)
+    {
+        if (_orders is null)
+        {
+            return null;
+        }
+
+        var order = await _orders.GetByIdAsync(orderId, ct);
+        return order is not null && OrderControlRule.BlocksResultEntry(order.Status)
+            ? OrderControlRule.ResultEntryHoldMessage(order.OrderNumber)
+            : null;
     }
 
     private async Task<string?> OrderSpecimenLinkErrorAsync(long orderId, long specimenId, CancellationToken ct)

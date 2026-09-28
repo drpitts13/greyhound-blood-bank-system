@@ -258,6 +258,11 @@ public sealed class TestWorklistService
                 line.TestCode!,
                 testDefs.GetValueOrDefault(line.TestCode!)?.RequiredSpecimenType,
                 specimenTypeDefs);
+            if (OrderControlRule.BlocksResultEntry(order.Status))
+            {
+                canEnter = false;
+                blockReason = OrderControlRule.ResultEntryHoldMessage(order.OrderNumber);
+            }
             currentTypes.TryGetValue(order.PatientId, out var currentType);
             antibodyRows.TryGetValue(order.PatientId, out var history);
             eligibility.TryGetValue(order.PatientId, out var exm);

@@ -22,6 +22,11 @@ public static class OrderControlRule
         return orc is "" or "NW" or "SN" or "OK";
     }
 
+    public static bool BlocksResultEntry(OrderStatus status) => status == OrderStatus.OnHold;
+
+    public static string ResultEntryHoldMessage(string orderNumber) =>
+        $"Order {orderNumber} is on hold.";
+
     public static bool IsFulfillable(OrderStatus status) =>
         status is OrderStatus.New
             or OrderStatus.InProcess

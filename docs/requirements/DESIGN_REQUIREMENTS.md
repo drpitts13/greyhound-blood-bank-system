@@ -227,3 +227,4 @@
 | SRS-BB-221 | `ReplayAsync` returns `AlreadyAppliedMessage` before `ProcessAsync` when the stored inbound status is Processed, Acked, or Replayed. `/hl7` shows Applied instead of Replay on those message-log rows. | FRS-BB-259 |
 | SRS-BB-222 | `EvaluateOrder` hard-stops Cancelled and Discontinued before specimen linking or result posting. The existing error queue shows that mapping error. | FRS-BB-260 |
 | SRS-BB-223 | `BillingDftExportRule` hard-stops every DFT status other than Acked, and a missing DFT passes. `ExportAsync` returns that message before the status flip. `/billing` shows DFT unsent instead of Export. | FRS-BB-261 |
+| SRS-BB-224 | `BlocksResultEntry` is true for OnHold. The worklist sets `CanEnterResults` false with `ResultEntryHoldMessage`. `EnterInternalAsync` and `VerifyResultAsync` return that message before saving. | FRS-BB-262 |

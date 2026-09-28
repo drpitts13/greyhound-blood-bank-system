@@ -417,6 +417,46 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task PendingWorklist_HeldOrder_DoesNotOfferEnter()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        var posted = await Results(c).EnterFromInterfaceAsync(
+            seed.specimen!.Id,
+            seed.order.Id,
+            seed.line.TestCode!,
+            "Negative",
+            units: null,
+            interpretation: null,
+            sourceReference: "CTRL-WL-HOLD");
+        Assert.True(posted.Succeeded, posted.Error);
+
+        var order = await c.Orders.SingleAsync(o => o.Id == seed.order.Id);
+        order.Status = OrderStatus.OnHold;
+        await c.SaveChangesAsync();
+
+        var item = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.False(item.CanEnterResults);
+        Assert.Equal("Blocked", item.BenchActionLabel);
+        Assert.Contains("on hold", item.BlockReason, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            await Worklist(c).ListPendingGlobalAsync(),
+            row => row.OrderId == seed.order.Id);
+
+        var verify = await Results(c).VerifyResultAsync(posted.Value!.Id);
+        Assert.False(verify.Succeeded);
+        Assert.Contains("on hold", verify.Error, StringComparison.OrdinalIgnoreCase);
+
+        var entered = await Results(c).EnterResultAsync(new EnterResultRequest(
+            seed.specimen.Id,
+            seed.line.TestCode!,
+            "Positive",
+            seed.order.Id));
+        Assert.False(entered.Succeeded);
+        Assert.Contains("on hold", entered.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task PendingWorklist_ExpiredSpecimen_DoesNotOfferVerify()
     {
         await using var c = _factory.Create();
