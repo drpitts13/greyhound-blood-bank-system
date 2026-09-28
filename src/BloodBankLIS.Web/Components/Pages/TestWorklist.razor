@@ -116,7 +116,16 @@
                             }
                         </td>
                         <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
-                        <td>@item.Priority</td>
+                        <td>
+                            @if (IsRush(item.Priority))
+                            {
+                                <span class="badge badge-red">@item.Priority</span>
+                            }
+                            else
+                            {
+                                @item.Priority
+                            }
+                        </td>
                         <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@(string.IsNullOrWhiteSpace(item.Comment) ? "—" : item.Comment)</td>
                         <td class="right nowrap">
@@ -291,8 +300,10 @@
         await LoadAsync();
     }
 
+    private static bool IsRush(OrderPriority priority) =>
+        priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease or OrderPriority.MassiveTransfusionProtocol;
+
     private static string RowClass(TestWorkItemDto item) =>
-        item.Priority is OrderPriority.Stat or OrderPriority.Urgent or OrderPriority.EmergencyRelease or OrderPriority.MassiveTransfusionProtocol
-            ? "row-urgent" : string.Empty;
+        IsRush(item.Priority) ? "row-urgent" : string.Empty;
 
 }

@@ -140,6 +140,32 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task PendingWorklist_ListsRushPriorityAheadOfNewerRoutine()
+    {
+        await using var c = _factory.Create();
+        var (patient, encounter, location, _, _, _) = await SeedOrderWithTestAsync(c, testCode: "ABSC");
+
+        var routine = await Orders(c).CreateAsync(patient.Id, new CreateOrderRequest(
+            encounter.Id, location.Id, $"ORD-ROUTINE-{Guid.NewGuid():N}",
+            [new OrderLineInputDto(OrderCategory.Test, "ABSC", null)],
+            OrderPriority.Routine, _factory.Clock.UtcNow, null, OrderSource.Manual, null, null));
+        Assert.True(routine.Succeeded);
+
+        var statNumber = $"ORD-STAT-{Guid.NewGuid():N}";
+        var stat = await Orders(c).CreateAsync(patient.Id, new CreateOrderRequest(
+            encounter.Id, location.Id, statNumber,
+            [new OrderLineInputDto(OrderCategory.Test, "ABSC", null)],
+            OrderPriority.Stat, _factory.Clock.UtcNow.AddHours(-5), null, OrderSource.Manual, null, null));
+        Assert.True(stat.Succeeded);
+
+        var pending = await Worklist(c).ListForPatientAsync(patient.Id, TestWorklistFilter.Pending);
+
+        Assert.Equal(statNumber, pending[0].OrderNumber);
+        Assert.Equal(OrderPriority.Stat, pending[0].Priority);
+        Assert.Contains(pending.Skip(1), item => item.Priority == OrderPriority.Routine);
+    }
+
+    [Fact]
     public async Task LinkSpecimen_EnablesWorklistForOrderTests()
     {
         await using var c = _factory.Create();

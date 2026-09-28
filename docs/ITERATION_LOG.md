@@ -1792,5 +1792,33 @@ staff could not tell which irradiation or thaw they were about to export.
 
 ### Next ranked residual
 
-Next workflow family: patient testing. SME items remain: OCD-001 (undetectable
+Next workflow family: unit preparation. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 58 — Rush tests stay above newer routine work (2026-09-28)
+
+Workflow-audit loop tick (patient testing). The pending worklist already
+shaded Stat and Urgent rows, but it listed newest orders first. An older
+Stat type and screen sat under routine tests ordered later.
+
+### Implemented
+
+- The worklist and the patient Tests tab list Stat, Urgent, emergency
+  release, and massive-transfusion orders first, then newest ordered time.
+- Those priorities use a red badge. Entry and verify gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-211, FRS-BB-246, SRS-BB-208, RISK-BB-313.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-100 (`TestWorklistTests.PendingWorklist_ListsRushPriorityAheadOfNewerRoutine`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 879.
+
+### Next ranked residual
+
+Next workflow family: unit preparation. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).

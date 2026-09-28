@@ -302,8 +302,21 @@ public sealed class TestWorklistService
                 line.Comment));
         }
 
-        return items;
+        return items
+            .OrderBy(i => IsRush(i.Priority) ? 0 : 1)
+            .ThenByDescending(i => i.OrderedUtc)
+            .ThenBy(i => i.TestCode, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
+
+    /// <summary>
+    /// Priorities the bench already marks urgent. They stay above newer routine work.
+    /// </summary>
+    private static bool IsRush(OrderPriority priority) =>
+        priority is OrderPriority.Stat
+            or OrderPriority.Urgent
+            or OrderPriority.EmergencyRelease
+            or OrderPriority.MassiveTransfusionProtocol;
 
     private static (bool Hold, string? Detail) EvaluateAboRhDelta(
         string? testCode,

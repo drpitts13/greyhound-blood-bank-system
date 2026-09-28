@@ -216,3 +216,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-208 | Staff can clear an HL7 error after handling it by hand, including when replay is turned off. | P1 | FRS-BB-243 |
 | URS-BB-209 | Staff see a STAT, ASAP, timed, or pre-op order from the interface at that priority, so the chart and worklist do not treat it as routine. | P1 | FRS-BB-244 |
 | URS-BB-210 | Staff reviewing a completed-action charge can see which action and unit it is for, and open that patient's orders. | P1 | FRS-BB-245 |
+| URS-BB-211 | Staff see a Stat, Urgent, emergency-release, or massive-transfusion test above newer routine work on the pending worklist and the patient Tests tab. | P1 | FRS-BB-246 |

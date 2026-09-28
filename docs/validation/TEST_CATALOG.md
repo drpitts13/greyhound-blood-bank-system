@@ -108,5 +108,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-097 | I | `Phase5Hl7Tests.ResolveQueueItem_ClearsTheRow_WithoutReprocessing` | URS-BB-208 / FRS-BB-243 / RISK-BB-310 |
 | TEST-BB-098 | I | `Phase5Hl7Tests.InboundOrm_StatPriority_CreatesStatOrder`; `Hl7MapperTests.OrmMapper_MapsPriorityCodes` | URS-BB-209 / FRS-BB-244 / RISK-BB-311 |
 | TEST-BB-099 | I | `Phase7BillingTests.ReviewQueueDtos_ShowActionCodeAndUnit` | URS-BB-210 / FRS-BB-245 / RISK-BB-312 |
+| TEST-BB-100 | I | `TestWorklistTests.PendingWorklist_ListsRushPriorityAheadOfNewerRoutine` | URS-BB-211 / FRS-BB-246 / RISK-BB-313 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
