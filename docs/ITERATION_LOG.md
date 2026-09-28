@@ -2123,3 +2123,8 @@ emergency release cannot pass that stop.
 - TEST-BB-110 (`Phase4IssuingTests.ListReadyToIssue_ExpiredSpecimen_DoesNotOfferIssue`).
 - Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
   ASTM 19, Integration 889.
+
+### Next ranked residual
+
+Next workflow family: transfusion reactions. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
