@@ -104,6 +104,10 @@ else
                                 {
                                     <span class="badge badge-amber">Held</span>
                                 }
+                                else if (!string.IsNullOrWhiteSpace(r.RemainderHoldNote))
+                                {
+                                    <span class="badge badge-amber" title="@r.RemainderHoldNote">Cannot hold</span>
+                                }
                                 else
                                 {
                                     <span class="badge badge-red">Not held</span>
@@ -166,6 +170,10 @@ else
                 <div class="field"><label>Elution (required if DAT positive)</label><input @bind="_elution" /></div>
             </div>
             <label class="flex"><input type="checkbox" @bind="_remainderHeld" /> &nbsp;Remainder / segments quarantined or retained</label>
+            @if (!string.IsNullOrWhiteSpace(_selected.RemainderHoldNote))
+            {
+                <p class="alert alert-warning">@_selected.RemainderHoldNote</p>
+            }
             <div class="form-row">
                 <div class="field" style="grid-column:1/-1;"><label>Findings</label><textarea rows="2" @bind="_findings"></textarea></div>
                 <div class="field" style="grid-column:1/-1;"><label>Conclusions</label><textarea rows="2" @bind="_conclusions"></textarea></div>

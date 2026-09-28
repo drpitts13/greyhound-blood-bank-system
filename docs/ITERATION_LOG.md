@@ -1402,3 +1402,33 @@ issue charge on the review queue, so staff had to find and cancel it by hand.
 
 Next workflow family: reactions. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 45 — Reaction workup saves when remainder cannot be held (2026-09-27)
+
+Workflow-audit loop tick (reactions). Checking remainder held on a unit that
+cannot move to quarantine rejected the whole investigation save, so clerical
+and other findings were dropped. The board also showed a red Not held for
+those units.
+
+### Implemented
+
+- `UpdateAsync` still saves the investigation and warns `RXN-REMAINDER-HOLD`
+  when the remainder cannot be quarantined.
+- The board says Cannot hold, with the unit status, instead of a red Not held.
+- Close still uses the existing clerical, visual, and DAT gate.
+
+### Requirements / risk
+
+- URS-BB-198, FRS-BB-233, SRS-BB-195, RISK-BB-300.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-087 (`ReactionInvestigationServiceTests.Update_DiscardedUnit_SavesWorkupWhenRemainderCannotBeHeld`).
+- Full suite green: Domain 1386, Application 38, HL7 50, Printing 21,
+  ASTM 19, Integration 867.
+
+### Next ranked residual
+
+Next workflow family: lookback. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).

@@ -73,7 +73,9 @@ public sealed record ReactionInvestigationDto(
     bool TestsIncompleteAtIssue = false,
     bool RepeatPatientAboRhDiscrepancy = false,
     bool RepeatUnitAboRhDiscrepancy = false,
-    string? RepeatAboRhDetail = null)
+    string? RepeatAboRhDetail = null,
+    UnitStatus? RemainderUnitStatus = null,
+    string? RemainderHoldNote = null)
 {
     public static ReactionInvestigationDto From(
         ReactionInvestigation r,
@@ -91,7 +93,9 @@ public sealed record ReactionInvestigationDto(
         bool testsIncompleteAtIssue = false,
         bool repeatPatientAboRhDiscrepancy = false,
         bool repeatUnitAboRhDiscrepancy = false,
-        string? repeatAboRhDetail = null)
+        string? repeatAboRhDetail = null,
+        UnitStatus? remainderUnitStatus = null,
+        string? remainderHoldNote = null)
     {
         var workup = ReactionWorkupCompletenessRule.Evaluate(
             r.ClericalCheckCompleted, r.VisualInspectionCompleted, r.DatResult, r.ElutionResult);
@@ -114,7 +118,9 @@ public sealed record ReactionInvestigationDto(
             testsIncompleteAtIssue,
             repeatPatientAboRhDiscrepancy,
             repeatUnitAboRhDiscrepancy,
-            repeatAboRhDetail);
+            repeatAboRhDetail,
+            remainderUnitStatus,
+            remainderHoldNote);
     }
 }
 
@@ -266,13 +272,13 @@ public sealed class ReactionInvestigationService
         if (request.DatResult is not null) row.DatResult = request.DatResult.Value;
         if (request.ElutionResult is not null) row.ElutionResult = request.ElutionResult;
 
+        RuleResult? remainderWarning = null;
         if (request.RemainderQuarantined == true && !row.RemainderQuarantined)
         {
-            await TryQuarantineRemainderAsync(row, ct);
-            if (!row.RemainderQuarantined)
+            var holdProblem = await TryQuarantineRemainderAsync(row, ct);
+            if (holdProblem is not null)
             {
-                return OperationResult<ReactionInvestigation>.Fail(
-                    "Remainder / segments could not be moved to quality quarantine. Hold the bag in inventory before marking remainder held.");
+                remainderWarning = RuleResult.Warning(RemainderHoldCode, holdProblem);
             }
         }
 
@@ -319,8 +325,12 @@ public sealed class ReactionInvestigationService
             newValue: Snapshot(row),
             reason: "Investigation updated.");
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<ReactionInvestigation>.Ok(row);
+        return OperationResult<ReactionInvestigation>.Ok(
+            row,
+            remainderWarning is null ? null : [remainderWarning]);
     }
+
+    public const string RemainderHoldCode = "RXN-REMAINDER-HOLD";
 
     public async Task<OperationResult<ReactionInvestigation>> RecordCberNotificationAsync(long id, CancellationToken ct = default)
     {
@@ -406,11 +416,14 @@ public sealed class ReactionInvestigationService
             or UnitStatus.ReturnPending
         || InventoryStatusTransition.IsAllowed(status, UnitStatus.Quarantine);
 
-    private async Task TryQuarantineRemainderAsync(ReactionInvestigation row, CancellationToken ct)
+    /// <summary>Null when the remainder is held. Otherwise a reason the investigation can still be saved.</summary>
+    private async Task<string?> TryQuarantineRemainderAsync(ReactionInvestigation row, CancellationToken ct)
     {
         var unit = await _inventory.GetUnitAsync(row.BloodProductId, ct);
         if (unit is null)
-            return;
+        {
+            return "Unit was not found, so the remainder was not held. The investigation was saved.";
+        }
 
         if (unit.Status == UnitStatus.Quarantine)
         {
@@ -421,11 +434,13 @@ public sealed class ReactionInvestigationService
                 unit.QuarantineReasonCode = UnitQuarantineReason.ReactionRemainder;
             }
 
-            return;
+            return null;
         }
 
         if (!CanHoldReactionRemainder(unit.Status))
-            return;
+        {
+            return $"Unit is {unit.Status} and cannot be moved to quality quarantine. The investigation was saved; remainder is not held.";
+        }
 
         const string reason = "Transfusion reaction investigation — remainder or segments held.";
         var from = unit.Status;
@@ -444,6 +459,7 @@ public sealed class ReactionInvestigationService
             ChangedUtc = _clock.UtcNow
         });
         row.RemainderQuarantined = true;
+        return null;
     }
 
     private async Task<OperationResult<ReactionInvestigation>?> RejectUnauthorizedAsync(CancellationToken ct)
@@ -571,7 +587,29 @@ public sealed class ReactionInvestigationService
                 issue?.TestsIncompleteAtIssue ?? false,
                 patientDelta,
                 unitDelta,
-                string.IsNullOrWhiteSpace(repeatDetail) ? null : repeatDetail);
+                string.IsNullOrWhiteSpace(repeatDetail) ? null : repeatDetail,
+                unit?.Status,
+                RemainderNote(row.RemainderQuarantined, unit?.Status));
+        }
+
+        private static string? RemainderNote(bool quarantined, UnitStatus? status)
+        {
+            if (quarantined)
+            {
+                return null;
+            }
+
+            if (status is null)
+            {
+                return "Unit record was not found, so the remainder is not held.";
+            }
+
+            if (!CanHoldReactionRemainder(status.Value))
+            {
+                return $"Unit is {status.Value} and cannot be moved to quality quarantine.";
+            }
+
+            return null;
         }
 
         private static (bool Incompatible, string? Alert) EvaluateLabeledCompatibility(

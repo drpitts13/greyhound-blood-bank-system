@@ -215,12 +215,40 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.False(row.AboRhIncompatible);
     }
 
+    [Fact]
+    public async Task Update_DiscardedUnit_SavesWorkupWhenRemainderCannotBeHeld()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key, unitStatus: UnitStatus.Discarded);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        Assert.False(opened.RemainderQuarantined);
+
+        var updated = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                "FNHTR", null, "Fever after start", null, null, null, null, null, null,
+                ClericalCheckCompleted: true,
+                RemainderQuarantined: true));
+        Assert.True(updated.Succeeded, updated.Error);
+        Assert.Contains(updated.Warnings, w => w.Code == ReactionInvestigationService.RemainderHoldCode);
+        Assert.False(updated.Value!.RemainderQuarantined);
+        Assert.True(updated.Value.ClericalCheckCompleted);
+        Assert.Equal("FNHTR", updated.Value.ReactionType);
+
+        var row = Assert.Single(await CreateService(context).ListDtosAsync(), r => r.Id == opened.Id);
+        Assert.Equal(UnitStatus.Discarded, row.RemainderUnitStatus);
+        Assert.Contains("Discarded", row.RemainderHoldNote);
+        Assert.False(row.RemainderQuarantined);
+    }
+
     private async Task<TransfusionEvent> SeedTransfusionAsync(
         BloodBankDbContext context,
         string key,
         bool includeCurrentType = false,
         AboGroup unitAbo = AboGroup.O,
-        bool emergency = false)
+        bool emergency = false,
+        UnitStatus unitStatus = UnitStatus.Issued)
     {
         var patient = new Patient
         {
@@ -253,7 +281,7 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
             ProductTypeId = product.Id,
             Abo = unitAbo,
             RhD = RhType.Positive,
-            Status = UnitStatus.Issued,
+            Status = unitStatus,
             ExpiresUtc = _factory.Clock.UtcNow.AddDays(10)
         };
         context.BloodUnits.Add(unit);
