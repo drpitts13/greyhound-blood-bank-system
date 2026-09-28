@@ -142,7 +142,7 @@
             <h3>Pending ABO/Rh retype</h3>
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadRetypesAsync">Refresh</button>
         </div>
-        <p class="muted">This is the product-retype desk. Received units need a front-type confirmation before they become Available. A match releases the unit; a mismatch quarantines it. The test worklist lists the same units and opens this board. The Manage drawer can still record a retype while you are already on the unit.</p>
+        <p class="muted">This is the product-retype desk. Received units need a front-type confirmation before they become Available. A match releases the unit; a mismatch quarantines it. An outdated unit is marked Outdated: a matching retype records the type and moves it to Expired instead of Available. The test worklist lists the same units and opens this board. The Manage drawer can still record a retype while you are already on the unit.</p>
         @if (_retypesLoading)
         {
             <div class="loading">Loading retypes...</div>
@@ -187,7 +187,13 @@
                             </td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td class="nowrap">@row.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                            <td><span class="@Ui.Badge(row.Status)">@Ui.StatusLabel(row.Status)</span></td>
+                            <td>
+                                <span class="@Ui.Badge(row.Status)">@Ui.StatusLabel(row.Status)</span>
+                                @if (row.Expired)
+                                {
+                                    <span class="badge badge-red" title="A matching retype records the type and moves this unit to Expired.">Outdated</span>
+                                }
+                            </td>
                             <td class="right nowrap">
                                 @if (Session.Has(PermissionCodes.ResultEnter))
                                 {

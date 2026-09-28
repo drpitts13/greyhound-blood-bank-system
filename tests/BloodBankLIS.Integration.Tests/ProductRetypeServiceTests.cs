@@ -167,6 +167,26 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task MatchingRetype_OutdatedUnit_DoesNotBecomeAvailable()
+    {
+        var (_, unitId) = await SeedReceivedUnitAsync("RT-OUTDATED", AboGroup.O, RhType.Positive);
+        await using var context = _factory.Create();
+        var unit = await context.BloodUnits.SingleAsync(u => u.Id == unitId);
+        unit.ExpiresUtc = _factory.Clock.UtcNow.AddHours(-1);
+        await context.SaveChangesAsync();
+
+        var waiting = Assert.Single(await Retype(context).ListPendingAsync(), p => p.UnitId == unitId);
+        Assert.True(waiting.Expired);
+
+        var recorded = await Retype(context).RecordAsync(unitId, MatchOPos());
+        Assert.True(recorded.Succeeded, recorded.Error);
+        Assert.Equal(UnitStatus.Expired, recorded.Value!.Status);
+        Assert.True(recorded.Value.Latest!.MatchesLabel);
+        Assert.Equal(ResultStatus.Verified, recorded.Value.Latest.Status);
+        Assert.DoesNotContain(await Retype(context).ListPendingAsync(), p => p.UnitId == unitId);
+    }
+
+    [Fact]
     public async Task Verify_WithoutResultVerify_IsHardStopped()
     {
         var (_, unitId) = await SeedReceivedUnitAsync("RT-PERM", AboGroup.O, RhType.Positive);

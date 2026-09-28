@@ -2064,3 +2064,34 @@ result.
 
 Next workflow family: unit preparation. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 67 — Outdated retype does not release the unit (2026-09-28)
+
+Workflow-audit loop tick (unit preparation). A matching front-type retype
+moved a Received unit to Available. That path did not look at the unit
+expiration, so an outdated unit became available stock.
+
+### Implemented
+
+- A matching retype on an outdated unit records the type and moves the
+  unit to Expired.
+- The pending retype board and the worklist Retype tab mark that unit
+  Outdated before it is recorded.
+- The save message says the unit was not released.
+- A mismatch still quarantines. An in-date match still becomes Available.
+
+### Requirements / risk
+
+- URS-BB-220, FRS-BB-255, SRS-BB-217, RISK-BB-322.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-109 (`ProductRetypeServiceTests.MatchingRetype_OutdatedUnit_DoesNotBecomeAvailable`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 888.
+
+### Next ranked residual
+
+Next workflow family: assignment and issuing. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

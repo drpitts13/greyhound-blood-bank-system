@@ -1,5 +1,6 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Inventory;
@@ -16,12 +17,15 @@ public sealed record ProductRetypeWorkItemDto(
     UnitStatus Status,
     string? TestCode = null,
     string? TestName = null,
-    ResultStatus? ResultStatus = null)
+    ResultStatus? ResultStatus = null,
+    DateTime? ExpiresUtc = null,
+    bool Expired = false)
 {
     public static ProductRetypeWorkItemDto From(
         BloodUnit unit,
         ProductRetypeResult? latest = null,
-        string? testName = null) => new(
+        string? testName = null,
+        DateTime? asOfUtc = null) => new(
         unit.Id,
         unit.UnitNumber,
         unit.ProductType?.ProductCode ?? string.Empty,
@@ -33,7 +37,9 @@ public sealed record ProductRetypeWorkItemDto(
         unit.Status,
         latest?.TestCode,
         testName,
-        latest?.Status);
+        latest?.Status,
+        unit.ExpiresUtc,
+        asOfUtc is DateTime asOf && BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, asOf));
 }
 
 public sealed record ProductRetypeSubtestDto(string Code, string Label, bool Required);

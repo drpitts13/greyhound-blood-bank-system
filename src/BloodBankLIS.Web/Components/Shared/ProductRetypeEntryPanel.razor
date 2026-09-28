@@ -236,10 +236,7 @@
             var latest = r.Value.Latest;
             _fb = latest is null
                 ? r.ToFeedback("Retype recorded.")
-                : r.ToFeedback(latest.MatchesLabel
-                    ? ProductRetypeEntryCopy.Saved(latest.InterpretedAbo, latest.InterpretedRh)
-                    : ProductRetypeEntryCopy.SavedQuarantine(
-                        latest.InterpretedAbo, latest.InterpretedRh, latest.DiscrepancyDetail));
+                : r.ToFeedback(OutcomeCopy(r.Value.Status, latest));
             _entryOpen = false;
             await OnSaved.InvokeAsync();
         }
@@ -247,6 +244,19 @@
         {
             _fb = r.ToFeedback();
         }
+    }
+
+    private static string OutcomeCopy(UnitStatus status, ProductRetypeResultDto latest)
+    {
+        if (!latest.MatchesLabel)
+        {
+            return ProductRetypeEntryCopy.SavedQuarantine(
+                latest.InterpretedAbo, latest.InterpretedRh, latest.DiscrepancyDetail);
+        }
+
+        return status == UnitStatus.Expired
+            ? ProductRetypeEntryCopy.SavedOutdated(latest.InterpretedAbo, latest.InterpretedRh)
+            : ProductRetypeEntryCopy.Saved(latest.InterpretedAbo, latest.InterpretedRh);
     }
 
     private async Task VerifyAsync()
@@ -257,12 +267,7 @@
         _busy = false;
         if (r.Succeeded && r.Value is not null)
         {
-            var latest = r.Value.Latest!;
-            var msg = latest.MatchesLabel
-                ? ProductRetypeEntryCopy.VerifiedAvailable(latest.InterpretedAbo, latest.InterpretedRh)
-                : ProductRetypeEntryCopy.VerifiedQuarantine(
-                    latest.InterpretedAbo, latest.InterpretedRh, latest.DiscrepancyDetail);
-            _fb = r.ToFeedback(msg);
+            _fb = r.ToFeedback(OutcomeCopy(r.Value.Status, r.Value.Latest!));
             await OnSaved.InvokeAsync();
         }
         else

@@ -29,6 +29,9 @@ public static class ProductRetypeEntryCopy
     public static string Saved(AboGroup abo, RhType? rh) =>
         $"Retype recorded as {Format(abo, rh)}. Unit is Available.";
 
+    public static string SavedOutdated(AboGroup abo, RhType? rh) =>
+        $"Retype recorded as {Format(abo, rh)}. Unit is outdated and was not released.";
+
     public static string SavedQuarantine(AboGroup abo, RhType? rh, string? discrepancy) =>
         string.IsNullOrWhiteSpace(discrepancy)
             ? $"Retype recorded as {Format(abo, rh)}. Unit moved to Quarantine."

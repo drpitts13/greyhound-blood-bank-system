@@ -212,7 +212,13 @@
                         </td>
                         <td><strong>@Ui.BloodType(item.Abo, item.RhD)</strong></td>
                         <td class="nowrap">@item.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                        <td><span class="@Ui.Badge(item.Status)">@Ui.StatusLabel(item.Status)</span></td>
+                        <td>
+                            <span class="@Ui.Badge(item.Status)">@Ui.StatusLabel(item.Status)</span>
+                            @if (item.Expired)
+                            {
+                                <span class="badge badge-red" title="A matching retype records the type and moves this unit to Expired.">Outdated</span>
+                            }
+                        </td>
                         <td class="right nowrap">
                             <a class="btn btn-primary btn-sm" href="@($"/inventory?board=retype&unitId={item.UnitId}#pending-retype")">Enter on Inventory</a>
                         </td>

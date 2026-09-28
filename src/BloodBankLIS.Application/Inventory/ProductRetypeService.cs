@@ -71,6 +71,7 @@ public sealed class ProductRetypeService
             ? new Dictionary<long, TestDefinition>()
             : (await _tests.ListAsync(t => testIds.Contains(t.Id), ct)).ToDictionary(t => t.Id);
 
+        var now = _clock.UtcNow;
         return units.Select(unit =>
         {
             latestByUnit.TryGetValue(unit.Id, out var latest);
@@ -80,7 +81,7 @@ public sealed class ProductRetypeService
                 testName = test.Name;
             }
 
-            return ProductRetypeWorkItemDto.From(unit, latest, testName);
+            return ProductRetypeWorkItemDto.From(unit, latest, testName, now);
         }).ToList();
     }
 
@@ -459,6 +460,13 @@ public sealed class ProductRetypeService
 
         if (result.MatchesLabel)
         {
+            if (BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, now))
+            {
+                const string outdated = "ABO/Rh retype confirmed; unit is outdated";
+                ApplyStatus(unit, UnitStatus.Expired, outdated);
+                return outdated;
+            }
+
             const string confirmed = "ABO/Rh retype confirmed";
             ApplyStatus(unit, UnitStatus.Available, confirmed);
             return confirmed;
