@@ -1820,5 +1820,34 @@ Stat type and screen sat under routine tests ordered later.
 
 ### Next ranked residual
 
-Next workflow family: unit preparation. SME items remain: OCD-001 (undetectable
+Next workflow family: assignment and issuing. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 59 — Near expiry can be discarded from the row (2026-09-28)
+
+Workflow-audit loop tick (unit preparation). The near-expiry board already
+listed units inside the warning window and said to discard them. The row
+only offered Open, so staff left the board to find Discard on the unit.
+
+### Implemented
+
+- Near expiry expands the existing discard: reason and a different second
+  verifier.
+- A blank reason does not submit. A successful discard leaves the board.
+- Discard permission and the second-verifier rule are unchanged.
+
+### Requirements / risk
+
+- URS-BB-212, FRS-BB-247, SRS-BB-209, RISK-BB-314.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-101 (`InventoryServiceTests.Discard_NearExpiryUnit_LeavesTheBoard`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 880.
+
+### Next ranked residual
+
+Next workflow family: assignment and issuing. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

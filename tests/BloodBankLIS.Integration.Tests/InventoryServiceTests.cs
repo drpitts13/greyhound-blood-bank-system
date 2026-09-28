@@ -259,6 +259,31 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Discard_NearExpiryUnit_LeavesTheBoard()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var setup = _factory.Create())
+        {
+            var received = await CreateService(setup).ReceiveUnitAsync(
+                NewUnitRequest("U-NEAR-DISC", productTypeId, _factory.Clock.UtcNow.AddHours(8)));
+            Assert.True(received.Succeeded, received.Error);
+            unitId = received.Unit!.Id;
+            Assert.Contains(await CreateService(setup).ListNearExpiryAsync(), i => i.UnitId == unitId);
+        }
+
+        await using (var act = _factory.Create())
+        {
+            var discarded = await CreateService(act).DiscardAsync(unitId, "Outdated before issue", "tech2");
+            Assert.True(discarded.Succeeded, discarded.Error);
+            Assert.Equal(UnitStatus.Discarded, discarded.Unit!.Status);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.DoesNotContain(await CreateService(verify).ListNearExpiryAsync(), i => i.UnitId == unitId);
+    }
+
+    [Fact]
     public async Task ListNearExpiry_ExcludesExpectedAndExpired()
     {
         var productTypeId = await EnsureProductTypeAsync();

@@ -212,3 +212,4 @@
 | SRS-BB-206 | `Order.Priority` defaults to `OBR-5`, with fallbacks `ORC-7-6`, `OBR-27-6`, and `TQ1-9-1` while that path is still the catalog default. `HandleOrmAsync` passes the mapped priority into `CreateFromHl7Async`. | FRS-BB-244 |
 | SRS-BB-207 | `ListReviewQueueDtosAsync` reads `OrderAction` and `ActionDefinition` for `ActionCompleted` rows. `/billing` uses `ClinicalLabel` and links `OrderAction` to `/patients/{id}?tab=orders`. | FRS-BB-245 |
 | SRS-BB-208 | `TestWorklistService` sorts rush priorities ahead of other priorities for the patient Tests tab and `/test-worklist`. Both surfaces badge those priorities. | FRS-BB-246 |
+| SRS-BB-209 | `/inventory` Near expiry expands a reason and second-verifier panel and posts `POST /api/inventory/units/{id}/discard`. A successful discard reloads the board. | FRS-BB-247 |

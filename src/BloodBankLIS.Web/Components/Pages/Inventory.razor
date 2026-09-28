@@ -224,7 +224,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Near expiry</h3></div>
-        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). Use or discard them before the expiration sweep.</p>
+        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). Discard from the row with the same reason and second verifier as the unit page, before the expiration sweep.</p>
         <table class="bb">
             <thead>
                 <tr>
@@ -248,8 +248,47 @@
                             @row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
                             <span class="badge badge-amber">Near expiry</span>
                         </td>
-                        <td class="right"><a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a></td>
+                        <td class="right nowrap">
+                            @if (Session.Has(PermissionCodes.InventoryDiscard))
+                            {
+                                <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => ToggleNearExpiryDiscard(row.UnitId)">
+                                    @(_discardingNearExpiryId == row.UnitId ? "Hide" : "Discard")
+                                </button>
+                            }
+                            <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a>
+                        </td>
                     </tr>
+                    @if (_discardingNearExpiryId == row.UnitId && Session.Has(PermissionCodes.InventoryDiscard))
+                    {
+                        <tr>
+                            <td colspan="6">
+                                <div class="alert alert-info" style="margin:.25rem 0;">
+                                    <p class="muted" style="margin:0 0 .5rem;">
+                                        Discard <span class="mono">@row.UnitNumber</span>. A reason and a different second verifier are required.
+                                    </p>
+                                    <Outcome Value="_actionFb" />
+                                    <div class="flex gap" style="flex-wrap:wrap;align-items:flex-end;">
+                                        <div class="field" style="flex:1;min-width:12rem;">
+                                            <label>Discard reason</label>
+                                            <input @bind="_nearExpiryDiscardReason" />
+                                        </div>
+                                        <div class="field" style="min-width:16rem;">
+                                            <label>Second verifier</label>
+                                            <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                                                Items="QuarantineVerifierChoices"
+                                                @bind-Value="_nearExpiryDiscardVerifier"
+                                                DisplayText="@(x => x.Label)"
+                                                ItemValue="@(x => x.UserName)"
+                                                SearchText="@(x => x.Label)"
+                                                Clearable="true"
+                                                Placeholder="Different active user" />
+                                        </div>
+                                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_nearExpiryDiscardReason))" @onclick="() => DiscardNearExpiryAsync(row.UnitId)">Discard unit</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
@@ -594,6 +633,9 @@
     private decimal? _arrivalTemperatureCelsius;
     private long? _confirmingExpectedId;
     private long? _releasingQuarantineId;
+    private long? _discardingNearExpiryId;
+    private string _nearExpiryDiscardReason = string.Empty;
+    private string? _nearExpiryDiscardVerifier;
 
     private Feedback? _actionFb;
     private string? _releaseSecondVerifier;
@@ -780,6 +822,30 @@
     {
         _confirmingExpectedId = _confirmingExpectedId == unitId ? null : unitId;
         _actionFb = null;
+    }
+
+    private void ToggleNearExpiryDiscard(long unitId)
+    {
+        _discardingNearExpiryId = _discardingNearExpiryId == unitId ? null : unitId;
+        _nearExpiryDiscardReason = string.Empty;
+        _nearExpiryDiscardVerifier = null;
+        _actionFb = null;
+    }
+
+    private async Task DiscardNearExpiryAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.DiscardUnitAsync(id, _nearExpiryDiscardReason, _nearExpiryDiscardVerifier);
+        _busy = false;
+        _actionFb = r.ToFeedback("Unit discarded.");
+        if (r.Succeeded)
+        {
+            _discardingNearExpiryId = null;
+            _nearExpiryDiscardReason = string.Empty;
+            _nearExpiryDiscardVerifier = null;
+            await LoadNearExpiryAsync();
+            await SearchAsync();
+        }
     }
 
     private void ToggleQuarantineRelease(long unitId)
