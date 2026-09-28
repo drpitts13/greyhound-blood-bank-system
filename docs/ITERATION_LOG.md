@@ -1733,5 +1733,35 @@ message staff had already handled by hand stayed open.
 
 ### Next ranked residual
 
-Next workflow family: HL7 data load. SME items remain: OCD-001 (undetectable
+Next workflow family: billing. SME items remain: OCD-001 (undetectable
+antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 56 — Inbound orders keep a stated priority (2026-09-28)
+
+Workflow-audit loop tick (HL7 data load). A new ORM always created the
+order as Routine. A STAT type and screen from the interface looked the
+same as routine work on the chart and the test worklist.
+
+### Implemented
+
+- A new inbound order stores Stat, Urgent, Timed, or PreOp when the
+  message says so (`OBR-5`, or the timing priority component).
+- A blank or unrecognized code stays Routine.
+- An order that already exists is not changed.
+
+### Requirements / risk
+
+- URS-BB-209, FRS-BB-244, SRS-BB-206, RISK-BB-311.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-098 (`Phase5Hl7Tests.InboundOrm_StatPriority_CreatesStatOrder`;
+  `Hl7MapperTests.OrmMapper_MapsPriorityCodes`).
+- Full suite green: Domain 1390, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 877.
+
+### Next ranked residual
+
+Next workflow family: billing. SME items remain: OCD-001 (undetectable
 antibody vs eXM), OCD-004 (licensed extract not loaded).

@@ -519,7 +519,7 @@ public sealed class Hl7InboundProcessor
             location.Id,
             data.PlacerOrderId,
             [new OrderLineInputDto(OrderCategory.Test, testCode, null)],
-            OrderPriority.Routine,
+            data.Priority,
             _clock.UtcNow,
             provider?.Id,
             OrderSource.Hl7,

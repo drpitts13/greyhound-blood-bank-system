@@ -49,6 +49,7 @@ Action: upsert patient demographics and visit. Demographics updates never overwr
 | `Order.OrderNumber` | `ORC-2-1` |
 | `Patient.MedicalRecordNumber` | `PID-3-1` |
 | `Order.TestCode` | `OBR-4-1` |
+| `Order.Priority` | `OBR-5` (else `ORC-7-6`, `OBR-27-6`, or `TQ1-9-1`) |
 
 Action: create or cancel the order through `OrderService` (same safety checks as the UI).
 

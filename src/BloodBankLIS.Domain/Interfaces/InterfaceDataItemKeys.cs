@@ -25,6 +25,7 @@ public static class InterfaceDataItemKeys
     public const string OrderProviderId = "Order.OrderingProviderId";
     public const string OrderProviderName = "Order.OrderingProviderName";
     public const string OrderLocationCode = "Order.OrderingLocationCode";
+    public const string OrderPriority = "Order.Priority";
 
     public const string ResultObrTestCode = "TestResult.ObrTestCode";
     public const string ResultVerifiedUtc = "TestResult.VerifiedUtc";

@@ -280,6 +280,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-206 / FRS-BB-241 | Closed fatality stays on the reaction board until CBER and the written report are recorded | `ReactionFatalityFollowUpRule`; `Reactions.razor` | TEST-BB-095 | D | Does not claim AABB compliance |
 | URS-BB-207 / FRS-BB-242 | Pending lookback calls stay on the page without another DIN search | `LookbackService`; `Lookback.razor` | TEST-BB-096 | I | Does not claim AABB compliance |
 | URS-BB-208 / FRS-BB-243 | An HL7 error can be cleared without replaying the message | `Hl7InboundProcessor`; `Hl7.razor` | TEST-BB-097 | I | Does not claim AABB compliance |
+| URS-BB-209 / FRS-BB-244 | An inbound order keeps a stated STAT, ASAP, timed, or pre-op priority | `Hl7OrmMapper`; `Hl7InboundProcessor` | TEST-BB-098 | I | Does not claim AABB compliance |
 | URS-BB-003 / FRS-BB-010 | Seeded 72-hour alloimmunization specimen window | `SpecimenValidityPolicy`; `DatabaseSeeder` MRN0007 | TEST-BB-036 | I | AABB 3-day when pregnant/transfused |
 | URS-BB-008 / FRS-BB-032 | Seeded autologous reserved unit issue gate | `AutologousDirectedRule`; MRN0008 | TEST-BB-037 | I | AABB autologous/directed |
 | URS-BB-024 / FRS-BB-053 | Seeded directed conversion requires second verifier | `DirectedConversionVerifierRule`; MRN0008 | TEST-BB-038 | I | AABB directed release |

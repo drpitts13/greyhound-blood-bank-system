@@ -80,7 +80,8 @@ public static class InterfaceDataItemCatalog
         new(InterfaceDataItemKeys.EncounterVisitNumber, "Visit number", "Visit / CSN.", "PV1-19-1", false),
         new(InterfaceDataItemKeys.OrderProviderId, "Ordering provider ID", "Ordering provider identifier.", "ORC-12-1", false),
         new(InterfaceDataItemKeys.OrderProviderName, "Ordering provider name", "Ordering provider name (XCN).", "ORC-12", false),
-        new(InterfaceDataItemKeys.OrderLocationCode, "Ordering location", "Ordering location code.", "ORC-13-1", false)
+        new(InterfaceDataItemKeys.OrderLocationCode, "Ordering location", "Ordering location code.", "ORC-13-1", false),
+        new(InterfaceDataItemKeys.OrderPriority, "Order priority", "OBR priority, or the timing priority component when OBR-5 is empty.", "OBR-5", false)
     ];
 
     private static readonly IReadOnlyList<InterfaceDataItem> Results =

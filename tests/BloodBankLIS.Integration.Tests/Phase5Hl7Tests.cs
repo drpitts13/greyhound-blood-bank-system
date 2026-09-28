@@ -198,11 +198,19 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         $"MRG|{priorMrn}^^^HOSP^MR";
 
     private static string Orm(
-        string controlId, string mrn, string placerId, string serviceId = "TS", string orderControl = "NW") =>
-        $"MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ORM^O01|{controlId}|P|2.5\r" +
-        $"PID|1||{mrn}^^^HOSP^MR||Doe^John\r" +
-        $"ORC|{orderControl}|{placerId}\r" +
-        $"OBR|1|{placerId}||{serviceId}^Service";
+        string controlId,
+        string mrn,
+        string placerId,
+        string serviceId = "TS",
+        string orderControl = "NW",
+        string? priority = null)
+    {
+        var obrPriority = string.IsNullOrEmpty(priority) ? string.Empty : $"|{priority}";
+        return $"MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ORM^O01|{controlId}|P|2.5\r" +
+            $"PID|1||{mrn}^^^HOSP^MR||Doe^John\r" +
+            $"ORC|{orderControl}|{placerId}\r" +
+            $"OBR|1|{placerId}||{serviceId}^Service{obrPriority}";
+    }
 
     private static string Oru(
         string controlId,
@@ -605,6 +613,29 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         Assert.Equal("XM", line.TestCode);
         Assert.True(order.EncounterId > 0);
         Assert.True(order.OrderingLocationId > 0);
+        Assert.Equal(OrderPriority.Routine, order.Priority);
+    }
+
+    [Fact]
+    public async Task InboundOrm_StatPriority_CreatesStatOrder()
+    {
+        await using (var setup = _factory.Create())
+        {
+            await Processor(setup).ProcessAsync(Adt("CTRL-STAT-ADT", "HL7-STAT", "Stat", "Order"));
+            if (!await setup.OrderingLocations.AnyAsync(l => l.Code == "ED"))
+            {
+                setup.OrderingLocations.Add(new OrderingLocation { Code = "ED", Name = "ED", IsActive = true });
+                await setup.SaveChangesAsync();
+            }
+        }
+
+        await using var context = _factory.Create();
+        var result = await Processor(context).ProcessAsync(
+            Orm("CTRL-STAT", "HL7-STAT", "PLACER-STAT", "TS", "NW", "S"));
+
+        Assert.True(result.Accepted);
+        var order = await context.Orders.SingleAsync(o => o.OrderNumber == "PLACER-STAT");
+        Assert.Equal(OrderPriority.Stat, order.Priority);
     }
 
     [Fact]

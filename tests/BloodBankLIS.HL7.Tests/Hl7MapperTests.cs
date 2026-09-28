@@ -51,7 +51,53 @@ public class Hl7MapperTests
         Assert.Equal("PLACER-100", data.PlacerOrderId);
         Assert.Equal("MRN777", data.Mrn);
         Assert.Equal(OrderType.TypeAndScreen, data.OrderType);
+        Assert.Equal(OrderPriority.Routine, data.Priority);
         Assert.Null(data.OrderingProviderId);
+    }
+
+    [Theory]
+    [InlineData("S", OrderPriority.Stat)]
+    [InlineData("STAT", OrderPriority.Stat)]
+    [InlineData("S^Stat", OrderPriority.Stat)]
+    [InlineData("A", OrderPriority.Urgent)]
+    [InlineData("ASAP", OrderPriority.Urgent)]
+    [InlineData("T", OrderPriority.Timed)]
+    [InlineData("P", OrderPriority.PreOp)]
+    [InlineData("PREOP", OrderPriority.PreOp)]
+    [InlineData("R", OrderPriority.Routine)]
+    [InlineData("", OrderPriority.Routine)]
+    [InlineData("CALLBACK", OrderPriority.Routine)]
+    public void OrmMapper_MapsPriorityCodes(string code, OrderPriority expected)
+    {
+        Assert.Equal(expected, Hl7OrmMapper.MapPriority(code));
+    }
+
+    [Fact]
+    public void OrmMapper_ReadsTimingPriorityWhenObrPriorityIsEmpty()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ORM^O01|C2S|P|2.5\r" +
+            "PID|1||MRN777^^^HOSP^MR||Smith^Jane\r" +
+            "ORC|NW|PLACER-100|||||^^^202605301200^^S\r" +
+            "OBR|1|PLACER-100||TS^Type and Screen");
+
+        var data = Hl7OrmMapper.Map(message);
+
+        Assert.Equal(OrderPriority.Stat, data.Priority);
+    }
+
+    [Fact]
+    public void OrmMapper_ReadsObrPriority()
+    {
+        var message = Hl7Parser.Parse(
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ORM^O01|C2P|P|2.5\r" +
+            "PID|1||MRN777^^^HOSP^MR||Smith^Jane\r" +
+            "ORC|NW|PLACER-100\r" +
+            "OBR|1|PLACER-100||TS^Type and Screen|S");
+
+        var data = Hl7OrmMapper.Map(message);
+
+        Assert.Equal(OrderPriority.Stat, data.Priority);
     }
 
     [Theory]

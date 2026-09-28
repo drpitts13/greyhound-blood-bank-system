@@ -33,7 +33,8 @@ public sealed record Hl7OrderData(
     string? VisitNumber,
     string? OrderingProviderId,
     string? OrderingProviderName,
-    string? OrderingLocationCode);
+    string? OrderingLocationCode,
+    OrderPriority Priority = OrderPriority.Routine);
 
 /// <summary>Result details extracted from an inbound ORU message (PID/ORC/OBR/OBX).</summary>
 public sealed record Hl7ResultData(
@@ -160,7 +161,24 @@ public static class Hl7OrmMapper
             VisitNumber: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.EncounterVisitNumber)),
             OrderingProviderId: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderProviderId)),
             OrderingProviderName: Hl7AdtMapper.MapPersonName(message, map, InterfaceDataItemKeys.OrderProviderName),
-            OrderingLocationCode: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderLocationCode)));
+            OrderingLocationCode: NullIfEmpty(map.Get(message, InterfaceDataItemKeys.OrderLocationCode)),
+            Priority: MapPriority(map.Get(message, InterfaceDataItemKeys.OrderPriority)));
+    }
+
+    /// <summary>
+    /// HL7 priority (table 0027 and common text). A blank or unrecognized code stays Routine.
+    /// </summary>
+    public static OrderPriority MapPriority(string? code)
+    {
+        var token = (code ?? string.Empty).Split('^', 2)[0].Trim().ToUpperInvariant();
+        return token switch
+        {
+            "S" or "STAT" => OrderPriority.Stat,
+            "A" or "ASAP" => OrderPriority.Urgent,
+            "T" or "TIMING" => OrderPriority.Timed,
+            "P" or "PREOP" or "PRE-OP" => OrderPriority.PreOp,
+            _ => OrderPriority.Routine
+        };
     }
 
     public static OrderType MapOrderType(string universalServiceId) => universalServiceId.ToUpperInvariant() switch
