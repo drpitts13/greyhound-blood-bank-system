@@ -285,6 +285,12 @@ public sealed class LookbackService
             return OperationResult<LookbackNotification>.Fail("Lookback notification not found.");
         }
 
+        if (row.Status is LookbackNotificationStatus.Completed or LookbackNotificationStatus.NotApplicable)
+        {
+            return OperationResult<LookbackNotification>.Fail(
+                "This recipient notification is already finished and was not changed.");
+        }
+
         if (request.Status == LookbackNotificationStatus.Completed
             && string.IsNullOrWhiteSpace(request.PhysicianOfRecord))
         {

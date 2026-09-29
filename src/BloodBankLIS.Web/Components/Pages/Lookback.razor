@@ -6,7 +6,7 @@
 <PageTitle>Lookback &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Lookback &amp; traceback</h1>
-<p class="muted">Donor lookback finds every component sharing a DIN. Recipient traceback lists units issued to a patient and other recipients of those donations. Recalling pulls in-stock components and opens one notification for each issued or transfused component. Those calls stay on this page until they are completed. A later recall does not add a second row. The LIS does not auto-notify patients.</p>
+<p class="muted">Donor lookback finds every component sharing a DIN. Recipient traceback lists units issued to a patient and other recipients of those donations. Recalling pulls in-stock components and opens one notification for each issued or transfused component. Those calls stay on this page until they are completed. A finished call stays finished, and the DIN report does not offer another attempt. A later recall does not add a second row. The LIS does not auto-notify patients.</p>
 
 @if (!Session.Has(PermissionCodes.LookbackManage))
 {
@@ -181,7 +181,14 @@ else
                                         {
                                             <a class="btn btn-ghost btn-sm" href="@($"/patients/{noteChartId}")">Open chart</a>
                                         }
-                                        <button class="btn btn-ghost btn-sm" @onclick="() => BeginAttempt(n)">Record attempt</button>
+                                        @if (n.Status is LookbackNotificationStatus.Completed or LookbackNotificationStatus.NotApplicable)
+                                        {
+                                            <span class="muted">Finished</span>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-ghost btn-sm" @onclick="() => BeginAttempt(n)">Record attempt</button>
+                                        }
                                     </td>
                                 </tr>
                             }

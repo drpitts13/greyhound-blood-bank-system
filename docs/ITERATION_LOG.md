@@ -2398,3 +2398,32 @@ the case as an ordinary reaction, so that follow-up never started.
 
 Next workflow family: lookback. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 78 — A finished lookback call stays finished (2026-09-28)
+
+Workflow-audit loop tick (lookback). Completing a call removed it from
+the open board. The DIN report still offered Record attempt, and that
+save replaced the physician and put the call back in progress.
+
+### Implemented
+
+- A completed or not-applicable notification refuses another attempt.
+- The DIN report says Finished on those rows.
+- The open board still records an attempt on a pending or attempted call.
+- The physician and note gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-231, FRS-BB-266, SRS-BB-228, RISK-BB-333.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-120 (`LookbackSearchAuthorizationTests.RecordAttempt_FinishedNotification_DoesNotChange`).
+- Full suite green: Domain 1402, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 898.
+
+### Next ranked residual
+
+Next workflow family: HL7 process. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

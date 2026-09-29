@@ -231,3 +231,4 @@
 | SRS-BB-225 | `ExpectedInboundWorkItemDto.IsOutdated` uses `BloodUnitExpirationRule.IsExpired`. `ReceiveExpectedUnitAsync` returns before the status change. `/inventory` and the unit page omit Confirm arrival and keep return to supplier. | FRS-BB-263 |
 | SRS-BB-226 | `ReadyToIssueWorkItemDto.UnitOutdated` and `PatientAllocationRowDto.UnitOutdated` use `BloodUnitExpirationRule.IsExpired`. `/issuing` and the chart omit Issue when that flag is set. `UNIT-EXPIRED` remains the issue-gate hard stop. | FRS-BB-264 |
 | SRS-BB-227 | `UpdateAsync` calls the existing fatality mark when `Severity` is Fatal and `IsFatality` is still false. `/reactions` checks the fatality box when that severity is chosen. | FRS-BB-265 |
+| SRS-BB-228 | `RecordAttemptAsync` returns before it writes when status is Completed or NotApplicable. `/lookback` omits Record attempt on those DIN-report rows. | FRS-BB-266 |
