@@ -4,7 +4,7 @@
 <PageTitle>HL7 Interface &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>HL7 Interface</h1>
-<p class="muted">Operational view of the HL7 v2.x message log. Submit inbound messages, send queued outbound ORU/DFT over MLLP or a file-drop folder, poll inbound drop folders, inspect raw content, replay, and review the error queue. Resolve clears a queue row after the chart was handled by hand. It does not reprocess the message.</p>
+<p class="muted">Operational view of the HL7 v2.x message log. Submit inbound messages, send queued outbound ORU/DFT over MLLP or a file-drop folder, poll inbound drop folders, inspect raw content, replay, and review the error queue. Resolve clears a queue row after the chart was handled by hand. It does not reprocess the message. An errored copy says Applied once another inbound message with that control id has already applied, and replay does not run it again.</p>
 
 <div class="bb-grid cols-2">
     <div class="bb-card">
@@ -84,6 +84,10 @@
                                     @if (e.ReplayAllowed == false)
                                     {
                                         <span class="muted">Replay off</span>
+                                    }
+                                    else if (e.ControlAlreadyApplied == true)
+                                    {
+                                        <span class="muted" title="This control id already applied. Replay is not offered.">Applied</span>
                                     }
                                     else
                                     {
@@ -174,9 +178,10 @@
                                 {
                                     <span class="muted">Replay off</span>
                                 }
-                                else if (m.Status is Hl7MessageStatus.Processed or Hl7MessageStatus.Acked or Hl7MessageStatus.Replayed)
+                                else if (m.Status is Hl7MessageStatus.Processed or Hl7MessageStatus.Acked or Hl7MessageStatus.Replayed
+                                    || m.ControlAlreadyApplied == true)
                                 {
-                                    <span class="muted" title="This message already applied. Replay is not offered.">Applied</span>
+                                    <span class="muted" title="This control id already applied. Replay is not offered.">Applied</span>
                                 }
                                 else
                                 {

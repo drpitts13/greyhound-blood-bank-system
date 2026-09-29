@@ -138,8 +138,9 @@ public sealed class Hl7InboundProcessor
 
     /// <summary>
     /// Re-submits a stored inbound message that has not yet applied. A message that
-    /// already processed, acknowledged, or replayed is left as it is. An errored
-    /// message can still be replayed; that replay is a new log with status Replayed.
+    /// already processed, acknowledged, or replayed is left as it is, and so is an
+    /// errored copy once another inbound message with the same control id has applied.
+    /// Any other errored message can still be replayed; that replay is a new log.
     /// </summary>
     public async Task<Hl7ProcessResult?> ReplayAsync(long messageId, CancellationToken ct = default)
     {
@@ -161,6 +162,22 @@ public sealed class Hl7InboundProcessor
         if (original.Status is Hl7MessageStatus.Processed or Hl7MessageStatus.Acked or Hl7MessageStatus.Replayed)
         {
             return new Hl7ProcessResult(AlreadyAppliedMessage, AckCode.Reject, original);
+        }
+
+        if (!string.IsNullOrWhiteSpace(original.MessageControlId))
+        {
+            var siblingApplied = await _logs.AnyAsync(
+                l => l.Id != original.Id
+                     && l.Direction == Hl7Direction.Inbound
+                     && l.MessageControlId == original.MessageControlId
+                     && (l.Status == Hl7MessageStatus.Processed
+                         || l.Status == Hl7MessageStatus.Acked
+                         || l.Status == Hl7MessageStatus.Replayed),
+                ct);
+            if (siblingApplied)
+            {
+                return new Hl7ProcessResult(AlreadyAppliedMessage, AckCode.Reject, original);
+            }
         }
 
         var outcome = await ProcessAsync(original.RawMessage, original.EndpointId, isReplay: true, ct);

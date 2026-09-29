@@ -2427,3 +2427,33 @@ save replaced the physician and put the call back in progress.
 
 Next workflow family: HL7 process. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 79 — An applied control id is not replayed from an errored copy (2026-09-28)
+
+Workflow-audit loop tick (HL7 process). A later copy of a control id can
+apply after an earlier copy failed. The error queue and the message log
+still offered Replay on that earlier copy, and replay ran it again.
+
+### Implemented
+
+- Replay refuses an errored inbound message when another inbound message
+  with the same control id is processed, acknowledged, or replayed.
+- The error queue and the message log say Applied on that copy.
+- Resolve still clears the leftover error. An errored message with no
+  applied copy can still be replayed.
+
+### Requirements / risk
+
+- URS-BB-232, FRS-BB-267, SRS-BB-229, RISK-BB-334.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-121 (`Phase5Hl7Tests.Replay_ErroredCopy_WhenSiblingAlreadyApplied_DoesNotRunAgain`).
+- Full suite green: Domain 1402, Application 38, HL7 63, Printing 21,
+  ASTM 19, Integration 899.
+
+### Next ranked residual
+
+Next workflow family: HL7 data load. SME items remain: OCD-001
+(undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

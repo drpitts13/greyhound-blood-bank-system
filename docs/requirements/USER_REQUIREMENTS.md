@@ -237,3 +237,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-229 | Staff are not offered issue of a reserved unit that is already outdated. | P1 | FRS-BB-264 |
 | URS-BB-230 | Staff who record a fatal reaction severity start the same fatality follow-up as the fatality checkbox. | P1 | FRS-BB-265 |
 | URS-BB-231 | Staff are not offered another attempt on a lookback call that is already finished. | P1 | FRS-BB-266 |
+| URS-BB-232 | Staff are not offered replay of an errored inbound copy once that control id has already applied. | P1 | FRS-BB-267 |

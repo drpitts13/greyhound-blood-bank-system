@@ -29,7 +29,8 @@ public sealed record Hl7MessageDto(
     long? EndpointId = null,
     bool? ReplayAllowed = null,
     int? RetryCount = null,
-    bool? RetriesExhausted = null)
+    bool? RetriesExhausted = null,
+    bool? ControlAlreadyApplied = null)
 {
     public static Hl7MessageDto From(Hl7MessageLog m, long? patientId = null, bool? replayAllowed = null)
     {
@@ -64,7 +65,8 @@ public sealed record Hl7ErrorDto(
     long? PatientId = null,
     long? EndpointId = null,
     bool? ReplayAllowed = null,
-    bool? RetriesExhausted = null)
+    bool? RetriesExhausted = null,
+    bool? ControlAlreadyApplied = null)
 {
     public static Hl7ErrorDto From(
         InterfaceErrorQueueItem e,
@@ -113,10 +115,10 @@ public static class Hl7Endpoints
                 .OrderByDescending(m => m.ReceivedUtc)
                 .Select(m => Hl7MessageDto.From(m))
                 .ToList();
-            return Results.Ok(await AttachPatientIdsAsync(
+            return Results.Ok(MarkControlAlreadyApplied(await AttachPatientIdsAsync(
                 await AttachRetriesExhaustedAsync(await AttachReplayAllowedAsync(dtos, endpoints, ct), endpoints, ct),
                 patients,
-                ct));
+                ct)));
         });
 
         group.MapGet("/messages/{id:long}", async (long id, IRepository<Hl7MessageLog> repo, CancellationToken ct) =>
@@ -163,9 +165,38 @@ public static class Hl7Endpoints
                 ? []
                 : await logs.ListAsync(m => messageIds.Contains(m.Id), ct);
             var byId = messages.ToDictionary(m => m.Id);
+            var controlIds = messages
+                .Select(m => m.MessageControlId)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct()
+                .ToList();
+            var appliedControls = controlIds.Count == 0
+                ? new HashSet<string>(StringComparer.Ordinal)
+                : (await logs.ListAsync(
+                    m => m.Direction == Hl7Direction.Inbound
+                         && controlIds.Contains(m.MessageControlId)
+                         && (m.Status == Hl7MessageStatus.Processed
+                             || m.Status == Hl7MessageStatus.Acked
+                             || m.Status == Hl7MessageStatus.Replayed),
+                    ct))
+                    .Select(m => m.MessageControlId)
+                    .ToHashSet(StringComparer.Ordinal);
             var dtos = errors
                 .OrderByDescending(e => e.Id)
-                .Select(e => Hl7ErrorDto.From(e, byId.GetValueOrDefault(e.Hl7MessageId)))
+                .Select(e =>
+                {
+                    var message = byId.GetValueOrDefault(e.Hl7MessageId);
+                    var dto = Hl7ErrorDto.From(e, message);
+                    if (message is not null
+                        && message.Direction == Hl7Direction.Inbound
+                        && !string.IsNullOrWhiteSpace(message.MessageControlId)
+                        && appliedControls.Contains(message.MessageControlId))
+                    {
+                        dto = dto with { ControlAlreadyApplied = true };
+                    }
+
+                    return dto;
+                })
                 .ToList();
             return Results.Ok(await AttachPatientIdsAsync(
                 await AttachRetriesExhaustedAsync(await AttachReplayAllowedAsync(dtos, endpoints, ct), endpoints, ct),
@@ -268,6 +299,24 @@ public static class Hl7Endpoints
             .OrderBy(e => e.Transport == InterfaceTransport.Mllp ? 0 : 1)
             .ThenBy(e => e.Name, StringComparer.Ordinal)
             .FirstOrDefault();
+    }
+
+    private static IReadOnlyList<Hl7MessageDto> MarkControlAlreadyApplied(IReadOnlyList<Hl7MessageDto> rows)
+    {
+        var applied = rows
+            .Where(m => m.Direction == Hl7Direction.Inbound
+                && !string.IsNullOrWhiteSpace(m.MessageControlId)
+                && m.Status is Hl7MessageStatus.Processed or Hl7MessageStatus.Acked or Hl7MessageStatus.Replayed)
+            .Select(m => m.MessageControlId)
+            .ToHashSet(StringComparer.Ordinal);
+        return rows
+            .Select(m => m.Direction == Hl7Direction.Inbound
+                && m.Status is not (Hl7MessageStatus.Processed or Hl7MessageStatus.Acked or Hl7MessageStatus.Replayed)
+                && !string.IsNullOrWhiteSpace(m.MessageControlId)
+                && applied.Contains(m.MessageControlId)
+                    ? m with { ControlAlreadyApplied = true }
+                    : m)
+            .ToList();
     }
 
     private static bool CanSend(InterfaceEndpoint endpoint) => endpoint.Transport switch

@@ -811,6 +811,60 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Replay_ErroredCopy_WhenSiblingAlreadyApplied_DoesNotRunAgain()
+    {
+        long erroredId;
+        await using (var c = _factory.Create())
+        {
+            var now = _factory.Clock.UtcNow;
+            var errored = new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Inbound,
+                MessageType = "ADT",
+                TriggerEvent = "A01",
+                MessageControlId = "CTRL-SIB",
+                RawMessage = Adt("CTRL-SIB", "HL7-SIB", "Later", "Copy"),
+                Status = Hl7MessageStatus.Errored,
+                ReceivedUtc = now.AddMinutes(-5),
+                ErrorDetail = "Earlier copy failed."
+            };
+            c.Hl7Messages.Add(errored);
+            c.Hl7Messages.Add(new Hl7MessageLog
+            {
+                Direction = Hl7Direction.Inbound,
+                MessageType = "ADT",
+                TriggerEvent = "A01",
+                MessageControlId = "CTRL-SIB",
+                RawMessage = "already applied",
+                Status = Hl7MessageStatus.Processed,
+                ReceivedUtc = now,
+                ProcessedUtc = now
+            });
+            c.InterfaceErrorQueue.Add(new InterfaceErrorQueueItem
+            {
+                Hl7Message = errored,
+                ErrorType = "Mapping",
+                ErrorDetail = "Earlier copy failed.",
+                Resolved = false
+            });
+            await c.SaveChangesAsync();
+            erroredId = errored.Id;
+
+            var replay = await Processor(c).ReplayAsync(erroredId);
+            Assert.NotNull(replay);
+            Assert.False(replay!.Accepted);
+            Assert.Equal(Hl7InboundProcessor.AlreadyAppliedMessage, replay.AckMessage);
+            Assert.Equal(erroredId, replay.Log.Id);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.False(await verify.Patients.AnyAsync(p => p.MedicalRecordNumber == "HL7-SIB"));
+        Assert.Equal(Hl7MessageStatus.Errored, (await verify.Hl7Messages.SingleAsync(m => m.Id == erroredId)).Status);
+        Assert.Equal(2, await verify.Hl7Messages.CountAsync(m => m.MessageControlId == "CTRL-SIB"));
+        Assert.True(await verify.InterfaceErrorQueue.AnyAsync(e => e.Hl7MessageId == erroredId && !e.Resolved));
+    }
+
+    [Fact]
     public async Task Replay_WhenEndpointDisallows_DoesNotReprocess()
     {
         long messageId;
