@@ -1,24 +1,29 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.PatientWorkspace;
 
 public static class OrderLineBuilder
 {
-    public static OrderType MapTestOrderType(string? code) => code?.ToUpperInvariant() switch
+    public static OrderType MapTestOrderType(string? code)
     {
-        "TNS" or "TS" => OrderType.TypeAndScreen,
-        "XM" or "CXM" or "EXM" => OrderType.Crossmatch,
-        "ABORH" => OrderType.AboRh,
-        "ABID" => OrderType.AntibodyIdentification,
-        _ => OrderType.Other
-    };
+        if (IsCrossmatchTestCode(code))
+        {
+            return OrderType.Crossmatch;
+        }
+
+        return code?.ToUpperInvariant() switch
+        {
+            "TNS" or "TS" => OrderType.TypeAndScreen,
+            "ABORH" => OrderType.AboRh,
+            "ABID" => OrderType.AntibodyIdentification,
+            _ => OrderType.Other
+        };
+    }
 
     public static bool IsCrossmatchTestCode(string? code) =>
-        code is not null
-        && (string.Equals(code, "XM", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(code, "CXM", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(code, "EXM", StringComparison.OrdinalIgnoreCase));
+        ExpiredSpecimenOrderDisposition.IsCrossmatchTestCode(code);
 
     public static void ApplyHeaderFromLines(Order order, IReadOnlyList<OrderLine> activeLines)
     {

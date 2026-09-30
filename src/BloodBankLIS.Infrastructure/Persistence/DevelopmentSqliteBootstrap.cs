@@ -152,7 +152,9 @@ public static class DevelopmentSqliteBootstrap
         ("InstrumentInterfaces", "InterpretationMatch", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationMatch" INTEGER NOT NULL DEFAULT 0"""),
         ("InstrumentInterfaces", "InterpretationAnalyteCodes", """ALTER TABLE "InstrumentInterfaces" ADD COLUMN "InterpretationAnalyteCodes" TEXT NULL"""),
         ("UnitBloodAttributes", "TypingSource", """ALTER TABLE "UnitBloodAttributes" ADD COLUMN "TypingSource" INTEGER NOT NULL DEFAULT 1"""),
-        ("Orders", "CancellationReasonCode", """ALTER TABLE "Orders" ADD COLUMN "CancellationReasonCode" TEXT NULL""")
+        ("Orders", "CancellationReasonCode", """ALTER TABLE "Orders" ADD COLUMN "CancellationReasonCode" TEXT NULL"""),
+        ("OrderSpecimens", "UnlinkedUtc", """ALTER TABLE "OrderSpecimens" ADD COLUMN "UnlinkedUtc" TEXT NULL"""),
+        ("OrderSpecimens", "UnlinkReason", """ALTER TABLE "OrderSpecimens" ADD COLUMN "UnlinkReason" TEXT NULL""")
     ];
 
     public static async Task InitializeAsync(

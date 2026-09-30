@@ -1074,7 +1074,8 @@ public static partial class DatabaseSeeder
             ("DUP", "Duplicate order", 10),
             ("ERR", "Entered in error", 20),
             ("NIND", "No longer indicated", 30),
-            ("PTREQ", "Cancelled at patient request", 40)
+            ("PTREQ", "Cancelled at patient request", 40),
+            ("SPEC-EXPIRED", "Specimen expired.", 50)
         };
 
         var changed = false;

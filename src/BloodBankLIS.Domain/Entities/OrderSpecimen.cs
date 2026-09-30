@@ -16,4 +16,12 @@ public class OrderSpecimen : BaseEntity
     public Specimen? Specimen { get; set; }
 
     public bool IsPrimary { get; set; } = true;
+
+    /// <summary>
+    /// When set, the specimen is no longer the active link. The row is kept.
+    /// Active reads ignore it.
+    /// </summary>
+    public DateTime? UnlinkedUtc { get; set; }
+
+    public string? UnlinkReason { get; set; }
 }

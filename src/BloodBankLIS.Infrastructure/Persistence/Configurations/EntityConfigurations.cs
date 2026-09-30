@@ -230,9 +230,12 @@ public sealed class OrderSpecimenConfiguration : IEntityTypeConfiguration<OrderS
         b.Property(os => os.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(os => os.ModifiedBy).HasMaxLength(100);
 
+        b.Property(os => os.UnlinkReason).HasMaxLength(500);
+
         b.HasOne(os => os.Order).WithMany(o => o.OrderSpecimens).HasForeignKey(os => os.OrderId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne(os => os.Specimen).WithMany().HasForeignKey(os => os.SpecimenId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(os => new { os.OrderId, os.SpecimenId }).IsUnique();
+        b.HasQueryFilter(os => os.UnlinkedUtc == null);
     }
 }
 

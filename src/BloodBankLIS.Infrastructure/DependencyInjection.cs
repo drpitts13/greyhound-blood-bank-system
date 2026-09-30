@@ -92,6 +92,7 @@ public static class DependencyInjection
         services.AddScoped<PatientService>();
         services.AddScoped<PatientMergeService>();
         services.AddScoped<SpecimenService>();
+        services.AddScoped<ExpiredSpecimenOrderService>();
         services.AddScoped<OrderingProviderService>();
         services.AddScoped<OrderingLocationService>();
         services.AddScoped<EncounterService>();
