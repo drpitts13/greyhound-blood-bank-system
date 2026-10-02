@@ -20,6 +20,26 @@
         @if (_fromRetro)
         {
             <p class="muted">Prefill from retrospective emergency / MTP follow-up. A compatible result closes the issuing queue through the existing post-issue path.</p>
+            @if (!string.IsNullOrWhiteSpace(_retroCustodyNotice))
+            {
+                <p class="muted">@($"{_retroCustodyNotice}.")</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_retroReleaseReason))
+            {
+                <p class="muted">@_retroReleaseReason</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_retroReleaseAuthorizer))
+            {
+                <p class="muted">@_retroReleaseAuthorizer</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_retroIssueAppearance))
+            {
+                <p class="muted">@_retroIssueAppearance</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_retroPtagNotice))
+            {
+                <p class="muted">@_retroPtagNotice</p>
+            }
         }
         @if (!Session.Has(PermissionCodes.CompatibilityCrossmatch))
         {
@@ -230,6 +250,11 @@
     public string? From { get; set; }
 
     private bool _fromRetro;
+    private string? _retroCustodyNotice;
+    private string? _retroReleaseReason;
+    private string? _retroReleaseAuthorizer;
+    private string? _retroIssueAppearance;
+    private string? _retroPtagNotice;
 
     protected override async Task OnInitializedAsync()
     {
@@ -241,6 +266,16 @@
         }
 
         _fromRetro = string.Equals(From, "retro", StringComparison.OrdinalIgnoreCase);
+        if (_fromRetro && PatientId is long retroPatientId && BloodUnitId is long retroUnitId)
+        {
+            var pending = await Api.GetPendingRetrospectiveCrossmatchesAsync();
+            var match = pending.Value?.FirstOrDefault(row => row.PatientId == retroPatientId && row.BloodUnitId == retroUnitId);
+            _retroCustodyNotice = ReadyToIssueFormCue.RetrospectiveFollowUpNotice(match?.IssuedTo, match?.CoolerId, match?.IssuedToLocation, match?.IssuedBy, match?.SecondVerifier);
+            _retroReleaseReason = ReadyToIssueFormCue.EmergencyReleaseReasonNotice(match?.EmergencyReleaseDetails);
+            _retroReleaseAuthorizer = ReadyToIssueFormCue.EmergencyReleaseAuthorizerNotice(match?.EmergencyReleaseAuthorizer);
+            _retroIssueAppearance = match is null ? null : ReadyToIssueFormCue.IssueAppearanceNotice(match.IssueAppearance);
+            _retroPtagNotice = ReadyToIssueFormCue.PtagNotice(match?.PtagCode);
+        }
 
         if (PatientId is long patientId)
         {

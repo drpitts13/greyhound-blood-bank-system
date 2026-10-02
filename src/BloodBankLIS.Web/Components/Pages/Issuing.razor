@@ -52,7 +52,7 @@
 
     <div class="bb-card">
         <div class="bb-card-title"><h3>Ready to issue</h3></div>
-        <p class="muted">Units reserved to a patient. Issue from the row prefills unit, MRN, and date of birth on the existing issue form. Red cells and whole blood that still need a second concordant ABO/Rh are marked and are not offered as a routine issue. Emergency release stays available for staff who can authorize it. A missing or expired current specimen is marked and is not offered for routine or emergency issue. An outdated unit says Outdated and is not offered for routine or emergency issue. The issue gate is unchanged.</p>
+        <p class="muted">Units reserved to a patient. Issue from the row prefills unit, MRN, and date of birth on the existing issue form. Red cells and whole blood that still need a second concordant ABO/Rh are marked and are not offered as a routine issue. Emergency release stays available for staff who can authorize it. A missing or expired current specimen is marked and is not offered for routine or emergency issue. An outdated unit says Outdated and is not offered for routine or emergency issue. An open antibody-identification workup is marked Open ABID and can still be issued. A unit inside the issue near-expiry window, including the shorter post-thaw window, is marked Expires soon and can still be issued. When electronic crossmatch is not eligible, the row shows the existing blocking reason. Serologic issue is unchanged. A unit that still needs a compatible crossmatch is marked and is not offered as a routine issue. An incompatible crossmatch is marked and can still be issued with the existing override. A unit that fails an active irradiated, CMV-negative, leukoreduced, washed, or antigen-negative requirement is marked Special need and is not offered for routine or emergency issue. A unit that is not antigen-negative for a clinically significant antibody is marked Antigen and can still be issued with the existing override. An unresolved ABO/Rh discrepancy on a crossmatch-required product is marked and is not offered for routine or emergency issue. On a product that does not require a crossmatch, the discrepancy is marked and can still be issued with the existing override. A patient with a recorded transfusion reaction is marked Reaction and can still be issued. Choosing Issue or Emergency repeats those marks on the issue form for that unit and patient. A reserved autologous or directed unit for this patient is marked with that selection cue and can still be issued. The issue gate still refuses another patient's restricted unit. Each reserved unit shows its product name, and that name is repeated on the issue form. Each reserved unit shows when it expires, and that time is repeated on the issue form. Each reserved unit shows its ABO/Rh next to the patient type, and that unit type is repeated on the issue form. When a reserved unit has a current compatible crossmatch, the row shows when that crossmatch expires, and that time is repeated on the issue form. Each reserved unit shows the storage location it is in, and that location is repeated on the issue form. Each reserved unit shows the accession of the current specimen for that issue, and that accession is repeated on the issue form. Each reserved unit shows the latest crossmatch result, and Issue or Emergency repeats that result. A unit with no crossmatch result shows none.</p>
         @if (_readyItems.Count == 0)
         {
             <div class="muted">No reserved units waiting to issue.</div>
@@ -65,7 +65,11 @@
                         <th>Patient</th>
                         <th>MRN</th>
                         <th>Unit</th>
-                        <th>Type</th>
+                        <th>Product</th>
+                        <th>Expires</th>
+                        <th>Unit type</th>
+                        <th>Location</th>
+                        <th>Patient type</th>
                         <th>Antibodies</th>
                         <th>XM</th>
                         <th>Status</th>
@@ -80,12 +84,72 @@
                             <td><a href="@($"/patients/{row.PatientId}?tab=products")">@(row.PatientDisplayName ?? "—")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
                             <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
-                            <td><strong>@(row.CurrentBloodType ?? "—")</strong></td>
+                            <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
+                            <td>@(row.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
+                            <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
+                            <td>@(string.IsNullOrWhiteSpace(row.StorageLocationName) ? "—" : row.StorageLocationName)</td>
+                            <td>@(row.CurrentBloodType ?? "—")</td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
-                            <td>@(row.LatestCrossmatchResult?.ToString() ?? "—")</td>
+                            <td>
+                                @(row.LatestCrossmatchResult is CrossmatchResult readyXm ? readyXm.ToString() : "—")
+                                @if (row.CrossmatchExpiresUtc is DateTime crossmatchExpires)
+                                {
+                                    <div class="muted">@crossmatchExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(row.ElectronicCrossmatchNotice))
+                                {
+                                    <div class="muted">@row.ElectronicCrossmatchNotice</div>
+                                }
+                            </td>
                             <td><span class="@Ui.Badge(row.DisplayStatus)">@Ui.StatusLabel(row.DisplayStatus)</span></td>
-                            <td>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(row.SpecimenAccession))
+                                {
+                                    <div class="mono">@row.SpecimenAccession</div>
+                                }
+                                @SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)
+                            </td>
                             <td class="right nowrap">
+                                @if (row.OpenAntibodyWorkup)
+                                {
+                                    <span class="badge badge-amber" title="@row.OpenAntibodyWorkupNotice">Open ABID</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(row.ReactionNotice))
+                                {
+                                    <span class="badge badge-amber" title="@row.ReactionNotice">Reaction</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(row.DonationRestrictionNotice))
+                                {
+                                    <span class="badge badge-amber" title="@row.DonationRestrictionNotice">@row.DonationRestrictionNotice</span>
+                                }
+                                @if (row.ExpiresSoon)
+                                {
+                                    <span class="badge badge-amber">Expires soon</span>
+                                }
+                                @if (row.CrossmatchBlocksRoutineIssue)
+                                {
+                                    <span class="badge badge-red" title="@row.CrossmatchNotice">Crossmatch</span>
+                                }
+                                else if (!string.IsNullOrWhiteSpace(row.CrossmatchNotice))
+                                {
+                                    <span class="badge badge-amber" title="@row.CrossmatchNotice">XM incompatible</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(row.SpecialRequirementNotice))
+                                {
+                                    <span class="badge badge-red" title="@row.SpecialRequirementNotice">Special need</span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(row.AntigenNotice))
+                                {
+                                    <span class="badge badge-amber" title="@row.AntigenNotice">Antigen</span>
+                                }
+                                @if (row.AboRhDiscrepancyBlocksIssue)
+                                {
+                                    <span class="badge badge-red" title="@row.AboRhDiscrepancyNotice">ABO discrepancy</span>
+                                }
+                                else if (!string.IsNullOrWhiteSpace(row.AboRhDiscrepancyNotice))
+                                {
+                                    <span class="badge badge-amber" title="@row.AboRhDiscrepancyNotice">ABO discrepancy</span>
+                                }
                                 @if (row.SpecimenBlocksIssue)
                                 {
                                     <span class="badge badge-red" title="@row.SpecimenBlockReason">Specimen</span>
@@ -95,10 +159,19 @@
                                 {
                                     <span class="badge badge-red" title="@row.UnitBlockReason">Outdated</span>
                                 }
-                                else if (row.NeedsSecondAbo)
+                                else if (!string.IsNullOrWhiteSpace(row.SpecialRequirementNotice))
                                 {
-                                    <span class="badge badge-amber" title="Routine red-cell issue stays blocked until a second concordant ABO/Rh is on file.">Second ABO</span>
-                                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=tests")">Enter type</a>
+                                }
+                                else if (row.AboRhDiscrepancyBlocksIssue)
+                                {
+                                }
+                                else if (row.NeedsSecondAbo || row.CrossmatchBlocksRoutineIssue)
+                                {
+                                    @if (row.NeedsSecondAbo)
+                                    {
+                                        <span class="badge badge-amber" title="@ReadyToIssueFormCue.SecondAbo">Second ABO</span>
+                                        <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=tests")">Enter type</a>
+                                    }
                                     @if (Session.Has(PermissionCodes.IssueEmergencyRelease))
                                     {
                                         <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectEmergencyIssue(row)">Emergency</button>
@@ -118,7 +191,7 @@
 
     <div class="bb-card">
         <div class="bb-card-title"><h3>Retrospective crossmatch due</h3></div>
-        <p class="muted">Emergency and MTP issues released without a compatible crossmatch stay here until retrospective testing is recorded (21 CFR 606.151(b)).</p>
+        <p class="muted">Emergency and MTP issues released without a compatible crossmatch stay here until retrospective testing is recorded (21 CFR 606.151(b)). Each row shows the product name, when the unit expires, the unit ABO/Rh beside the patient type, the latest crossmatch result, and when a current compatible crossmatch expires. A unit with no crossmatch result shows none. Each row shows the person the unit was issued to. A unit with no issued-to person shows none. Each row shows the cooler or transport id. A unit with no cooler shows none. Each row shows the location the unit was issued to. A unit with no location shows none. Each row shows who issued the unit. The follow-up screen repeats that name. A unit with no issuing user shows none. Each row shows the second verifier recorded at issue. The follow-up screen repeats that name. A blank second verifier shows none. Each row shows the recorded emergency-release reason. The follow-up screen repeats that reason. A row with no reason shows none. Each row shows who authorized the emergency or massive-transfusion release. The follow-up screen repeats that name. A blank authorizer shows none. Each row shows the appearance recorded at issue. The follow-up screen repeats that code. Each row shows the pickup tag scanned at issue. The follow-up screen repeats that code. A blank pickup tag shows none. Retrospective completion is unchanged.</p>
         @if (_retroItems.Count == 0)
         {
             <div class="muted">No retrospective crossmatches pending.</div>
@@ -131,10 +204,23 @@
                         <th>Patient</th>
                         <th>MRN</th>
                         <th>Unit</th>
-                        <th>Type</th>
+                        <th>Product</th>
+                        <th>Expires</th>
+                        <th>Unit type</th>
+                        <th>Patient type</th>
                         <th>Antibodies</th>
                         <th>Specimen</th>
+                        <th>Crossmatch</th>
                         <th>Issue type</th>
+                        <th>Release reason</th>
+                        <th>Authorized by</th>
+                        <th>Cooler</th>
+                        <th>Location</th>
+                        <th>Issued to</th>
+                        <th>Issued by</th>
+                        <th>Second verifier</th>
+                        <th>Appearance</th>
+                        <th>P-tag</th>
                         <th>Issued</th>
                         <th>Due</th>
                         <th></th>
@@ -147,13 +233,32 @@
                             <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
                             <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
-                            <td><strong>@(row.CurrentBloodType ?? "—")</strong></td>
+                            <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
+                            <td>@(row.UnitExpiresUtc is DateTime retroExpires ? retroExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
+                            <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
+                            <td>@(row.CurrentBloodType ?? "—")</td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
                             <td>
                                 @(row.AccessionNumber ?? "—")
                                 <div>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</div>
                             </td>
+                            <td>
+                                @(row.LatestCrossmatchResult is CrossmatchResult retroXm ? retroXm.ToString() : "—")
+                                @if (row.CrossmatchExpiresUtc is DateTime retroXmExpires)
+                                {
+                                    <div class="muted">@retroXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                }
+                            </td>
                             <td>@row.IssueType</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseDetails) ? "—" : row.EmergencyReleaseDetails)</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseAuthorizer) ? "—" : row.EmergencyReleaseAuthorizer)</td>
+                            <td class="mono">@(string.IsNullOrWhiteSpace(row.CoolerId) ? "—" : row.CoolerId)</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</td>
+                            <td>@(row.IssuedBy ?? "—")</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.SecondVerifier) ? "—" : row.SecondVerifier)</td>
+                            <td>@row.IssueAppearance</td>
+                            <td class="mono">@(string.IsNullOrWhiteSpace(row.PtagCode) ? "—" : row.PtagCode)</td>
                             <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
                                 @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
@@ -177,7 +282,7 @@
 
     <div class="bb-card">
         <div class="bb-card-title"><h3>In transit to ward</h3></div>
-        <p class="muted">Issued units in a cooler or courier handoff until the receiving location acknowledges custody (SoftBank remote issue).</p>
+        <p class="muted">Issued units in a cooler or courier handoff until the receiving location acknowledges custody (SoftBank remote issue). Each row shows the product name, when the unit expires, the unit ABO/Rh, the specimen accession, the latest crossmatch result, and when a current compatible crossmatch expires. Receive repeats all five. A unit with no crossmatch result shows none. Each row shows the person the unit was issued to. Receive repeats that person. A unit with no issued-to person shows none. Receive repeats the cooler or transport id. A unit with no cooler shows none. Receive repeats the location the unit was issued to. A unit with no location shows none. Each row shows the recorded issue type. Each row shows the recorded emergency-release reason. Receive repeats that reason. A blank reason shows none. Each row shows who issued the unit. Receive repeats that name. A unit with no issuing user shows none. Each row shows the second verifier recorded at issue. Receive repeats that name. A blank second verifier shows none. Each row shows who authorized an emergency or massive-transfusion release. Receive repeats that name. A blank authorizer shows none. Each row shows the appearance recorded at issue. Receive repeats that code. Each row shows the pickup tag scanned at issue. Receive repeats that code. A blank pickup tag shows none. Each row shows the crossmatch status recorded at issue. Receive repeats that status. The issue gate is unchanged.</p>
         @if (_inTransitItems.Count == 0)
         {
             <div class="muted">No units currently in transit.</div>
@@ -190,11 +295,24 @@
                         <th>Patient</th>
                         <th>MRN</th>
                         <th>Unit</th>
-                        <th>Type</th>
+                        <th>Product</th>
+                        <th>Expires</th>
+                        <th>Unit type</th>
+                        <th>Patient type</th>
                         <th>Antibodies</th>
                         <th>Specimen</th>
+                        <th>Crossmatch</th>
+                        <th>XM at issue</th>
+                        <th>Issue type</th>
+                        <th>Release reason</th>
+                        <th>Authorized by</th>
                         <th>Cooler</th>
                         <th>Location</th>
+                        <th>Issued to</th>
+                        <th>Issued by</th>
+                        <th>Second verifier</th>
+                        <th>Appearance</th>
+                        <th>P-tag</th>
                         <th>Issued</th>
                         <th>Due</th>
                         <th></th>
@@ -207,11 +325,36 @@
                             <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
                             <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
-                            <td><strong>@(row.CurrentBloodType ?? "—")</strong></td>
+                            <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
+                            <td>@(row.UnitExpiresUtc is DateTime transitExpires ? transitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
+                            <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
+                            <td>@(row.CurrentBloodType ?? "—")</td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
-                            <td>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(row.SpecimenAccession))
+                                {
+                                    <div class="mono">@row.SpecimenAccession</div>
+                                }
+                                @SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)
+                            </td>
+                            <td>
+                                @(row.LatestCrossmatchResult is CrossmatchResult transitXm ? transitXm.ToString() : "—")
+                                @if (row.CrossmatchExpiresUtc is DateTime transitXmExpires)
+                                {
+                                    <div class="muted">@transitXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                }
+                            </td>
+                            <td>@row.CrossmatchStatus</td>
+                            <td>@row.IssueType</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseDetails) ? "—" : row.EmergencyReleaseDetails)</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseAuthorizer) ? "—" : row.EmergencyReleaseAuthorizer)</td>
                             <td class="mono">@(row.CoolerId ?? "—")</td>
                             <td>@(row.IssuedToLocation ?? "—")</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</td>
+                            <td>@(row.IssuedBy ?? "—")</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.SecondVerifier) ? "—" : row.SecondVerifier)</td>
+                            <td>@row.IssueAppearance</td>
+                            <td class="mono">@(string.IsNullOrWhiteSpace(row.PtagCode) ? "—" : row.PtagCode)</td>
                             <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
                                 @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
@@ -223,7 +366,7 @@
                             <td>
                                 @if (Session.Has(PermissionCodes.TransfusionDocument))
                                 {
-                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId)">Receive</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
                                 }
                             </td>
                         </tr>
@@ -238,7 +381,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Issued units</h3></div>
-        <p class="muted">Units still Issued — including after ward receipt — so return and transfusion identify the unit by number instead of a raw issue id. Return, ward-receipt, and bedside identity gates are unchanged.</p>
+        <p class="muted">Units still Issued — including after ward receipt — so return and transfusion identify the unit by number instead of a raw issue id. Each issued unit shows its product name, when it expires, its ABO/Rh, the specimen accession, the latest crossmatch result, and when a current compatible crossmatch expires. Return and Document repeat all five. A unit with no crossmatch result shows none. Each row shows the person the unit was issued to. Receive, Return, and Document repeat that person. A unit with no issued-to person shows none. Each row shows the cooler or transport id. Receive, Return, and Document repeat that id. A unit with no cooler shows none. Each row shows the location the unit was issued to. Receive, Return, and Document repeat that location. A unit with no location shows none. Each row shows the recorded issue type, including after ward receipt. Each row shows the recorded emergency-release reason, including after ward receipt. Receive, Return, and Document repeat that reason. A blank reason shows none. Each row shows who issued the unit, including after ward receipt. Receive, Return, and Document repeat that name. A unit with no issuing user shows none. Each row shows the second verifier recorded at issue, including after ward receipt. Receive, Return, and Document repeat that name. A blank second verifier shows none. Each row shows who authorized an emergency or massive-transfusion release, including after ward receipt. Receive, Return, and Document repeat that name. A blank authorizer shows none. Each row shows the appearance recorded at issue, including after ward receipt. Receive, Return, and Document repeat that code. The issue gate is unchanged. Each row shows the appearance recorded at ward receipt after the unit is received. A unit still awaiting receipt shows none. Return and Document repeat that code. The ward-receipt gate is unchanged. Each row shows the pickup tag scanned at issue, including after ward receipt. Receive, Return, and Document repeat that code. A blank pickup tag shows none. Each row shows the crossmatch status recorded at issue, including after ward receipt. Receive, Return, and Document repeat that status. Return, ward-receipt, and bedside identity gates are unchanged.</p>
         @if (_outstandingItems.Count == 0)
         {
             <div class="muted">No outstanding issued units.</div>
@@ -251,10 +394,26 @@
                         <th>Patient</th>
                         <th>MRN</th>
                         <th>Unit</th>
-                        <th>Type</th>
+                        <th>Product</th>
+                        <th>Expires</th>
+                        <th>Unit type</th>
+                        <th>Patient type</th>
                         <th>Antibodies</th>
                         <th>Specimen</th>
+                        <th>Crossmatch</th>
+                        <th>XM at issue</th>
+                        <th>Issue type</th>
+                        <th>Release reason</th>
+                        <th>Authorized by</th>
                         <th>Ward receipt</th>
+                        <th>Ward appearance</th>
+                        <th>Cooler</th>
+                        <th>Location</th>
+                        <th>Issued to</th>
+                        <th>Issued by</th>
+                        <th>Second verifier</th>
+                        <th>Appearance</th>
+                        <th>P-tag</th>
                         <th>Issued</th>
                         <th></th>
                     </tr>
@@ -266,9 +425,29 @@
                             <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
                             <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
-                            <td><strong>@(row.CurrentBloodType ?? "—")</strong></td>
+                            <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
+                            <td>@(row.UnitExpiresUtc is DateTime issuedExpires ? issuedExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
+                            <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
+                            <td>@(row.CurrentBloodType ?? "—")</td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
-                            <td>@SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)</td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(row.SpecimenAccession))
+                                {
+                                    <div class="mono">@row.SpecimenAccession</div>
+                                }
+                                @SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)
+                            </td>
+                            <td>
+                                @(row.LatestCrossmatchResult is CrossmatchResult issuedXm ? issuedXm.ToString() : "—")
+                                @if (row.CrossmatchExpiresUtc is DateTime issuedXmExpires)
+                                {
+                                    <div class="muted">@issuedXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                                }
+                            </td>
+                            <td>@row.CrossmatchStatus</td>
+                            <td>@row.IssueType</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseDetails) ? "—" : row.EmergencyReleaseDetails)</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseAuthorizer) ? "—" : row.EmergencyReleaseAuthorizer)</td>
                             <td>
                                 @if (row.WardReceivedUtc is DateTime received)
                                 {
@@ -279,11 +458,19 @@
                                     <span class="muted">Awaiting</span>
                                 }
                             </td>
+                            <td>@(string.IsNullOrWhiteSpace(row.WardAppearance) ? "—" : row.WardAppearance)</td>
+                            <td class="mono">@(string.IsNullOrWhiteSpace(row.CoolerId) ? "—" : row.CoolerId)</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</td>
+                            <td>@(row.IssuedBy ?? "—")</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.SecondVerifier) ? "—" : row.SecondVerifier)</td>
+                            <td>@row.IssueAppearance</td>
+                            <td class="mono">@(string.IsNullOrWhiteSpace(row.PtagCode) ? "—" : row.PtagCode)</td>
                             <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="right nowrap">
                                 @if (row.WardReceivedUtc is null && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
-                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId)">Receive</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
                                 }
                                 @if (Session.Has(PermissionCodes.IssueReturn))
                                 {
@@ -375,6 +562,18 @@
                 <Outcome Value="_ptagFb" />
             </div>
         }
+        @if (PrefillNotices.Count > 0)
+        {
+            <div class="alert alert-warning">
+                <strong>This reserved unit</strong>
+                <ul>
+                    @foreach (var notice in PrefillNotices)
+                    {
+                        <li>@notice</li>
+                    }
+                </ul>
+            </div>
+        }
         @if (_issueAckRequirements.Count > 0)
         {
             <div class="alert alert-warning" style="margin-top:.75rem;">
@@ -455,6 +654,30 @@
             <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="RecordWardReceiptAsync">Acknowledge receipt</button>
             <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="LoadIssueAsync">Check status</button>
         </div>
+        @if (!string.IsNullOrWhiteSpace(_wardProductName) || !string.IsNullOrWhiteSpace(_wardExpirationNotice) || !string.IsNullOrWhiteSpace(_wardUnitTypeNotice) || !string.IsNullOrWhiteSpace(_wardSpecimenNotice) || !string.IsNullOrWhiteSpace(_wardCrossmatchNotice) || !string.IsNullOrWhiteSpace(_wardIssuedToNotice) || !string.IsNullOrWhiteSpace(_wardCoolerNotice) || !string.IsNullOrWhiteSpace(_wardLocationNotice) || !string.IsNullOrWhiteSpace(_wardIssuedByNotice) || !string.IsNullOrWhiteSpace(_wardSecondVerifierNotice))
+        {
+            <p class="muted" style="margin-top:.75rem;">Receiving @if (!string.IsNullOrWhiteSpace(_wardProductName)) { <strong>@_wardProductName</strong> }@(string.IsNullOrWhiteSpace(_wardExpirationNotice) ? "" : $" · {_wardExpirationNotice}")@(string.IsNullOrWhiteSpace(_wardUnitTypeNotice) ? "" : $" · {_wardUnitTypeNotice}")@(string.IsNullOrWhiteSpace(_wardSpecimenNotice) ? "" : $" · {_wardSpecimenNotice}")@(string.IsNullOrWhiteSpace(_wardCrossmatchNotice) ? "" : $" · {_wardCrossmatchNotice}")@(string.IsNullOrWhiteSpace(_wardIssuedToNotice) ? "" : $" · {_wardIssuedToNotice}")@(string.IsNullOrWhiteSpace(_wardCoolerNotice) ? "" : $" · {_wardCoolerNotice}")@(string.IsNullOrWhiteSpace(_wardLocationNotice) ? "" : $" · {_wardLocationNotice}")@(string.IsNullOrWhiteSpace(_wardIssuedByNotice) ? "" : $" · {_wardIssuedByNotice}")@(string.IsNullOrWhiteSpace(_wardSecondVerifierNotice) ? "" : $" · {_wardSecondVerifierNotice}").</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(_wardReleaseReason))
+        {
+            <p class="muted">@_wardReleaseReason</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(_wardReleaseAuthorizer))
+        {
+            <p class="muted">@_wardReleaseAuthorizer</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(_wardIssueAppearance))
+        {
+            <p class="muted">@_wardIssueAppearance</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(_wardPtagNotice))
+        {
+            <p class="muted">@_wardPtagNotice</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(_wardCrossmatchStatusNotice))
+        {
+            <p class="muted">@_wardCrossmatchStatusNotice</p>
+        }
         @if (_wardIssue is not null)
         {
             <p class="muted" style="margin-top:.75rem;">
@@ -501,7 +724,31 @@
                 </div>
                 @if (_returnUnitNumber is not null)
                 {
-                    <p class="muted" style="margin:0;">Returning <span class="mono">@_returnUnitNumber</span>@(string.IsNullOrWhiteSpace(_returnPatientName) ? "" : $" · {_returnPatientName}").</p>
+                    <p class="muted" style="margin:0;">Returning <span class="mono">@_returnUnitNumber</span>@(string.IsNullOrWhiteSpace(_returnProductName) ? "" : $" · {_returnProductName}")@(string.IsNullOrWhiteSpace(_returnExpirationNotice) ? "" : $" · {_returnExpirationNotice}")@(string.IsNullOrWhiteSpace(_returnUnitTypeNotice) ? "" : $" · {_returnUnitTypeNotice}")@(string.IsNullOrWhiteSpace(_returnSpecimenNotice) ? "" : $" · {_returnSpecimenNotice}")@(string.IsNullOrWhiteSpace(_returnCrossmatchNotice) ? "" : $" · {_returnCrossmatchNotice}")@(string.IsNullOrWhiteSpace(_returnIssuedToNotice) ? "" : $" · {_returnIssuedToNotice}")@(string.IsNullOrWhiteSpace(_returnCoolerNotice) ? "" : $" · {_returnCoolerNotice}")@(string.IsNullOrWhiteSpace(_returnLocationNotice) ? "" : $" · {_returnLocationNotice}")@(string.IsNullOrWhiteSpace(_returnIssuedByNotice) ? "" : $" · {_returnIssuedByNotice}")@(string.IsNullOrWhiteSpace(_returnSecondVerifierNotice) ? "" : $" · {_returnSecondVerifierNotice}")@(string.IsNullOrWhiteSpace(_returnPatientName) ? "" : $" · {_returnPatientName}").</p>
+                    @if (!string.IsNullOrWhiteSpace(_returnReleaseReason))
+                    {
+                        <p class="muted" style="margin:0;">@_returnReleaseReason</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_returnReleaseAuthorizer))
+                    {
+                        <p class="muted" style="margin:0;">@_returnReleaseAuthorizer</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_returnIssueAppearance))
+                    {
+                        <p class="muted" style="margin:0;">@_returnIssueAppearance</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_returnPtagNotice))
+                    {
+                        <p class="muted" style="margin:0;">@_returnPtagNotice</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_returnCrossmatchStatusNotice))
+                    {
+                        <p class="muted" style="margin:0;">@_returnCrossmatchStatusNotice</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(_returnWardAppearance))
+                    {
+                        <p class="muted" style="margin:0;">@_returnWardAppearance</p>
+                    }
                 }
             </div>
             <p class="muted">Record temperature, seal, and visual inspection. A failed seal or appearance cannot return to available stock. Time out of storage is still computed by the return rule.</p>
@@ -552,6 +799,34 @@
                 </div>
             </div>
             <p class="muted">The receiving location must acknowledge the unit (ward receipt) before this can succeed. Patient identifiers must match the issued patient — a checkbox is not positive identification.</p>
+            @if (!string.IsNullOrWhiteSpace(_txProductName) || !string.IsNullOrWhiteSpace(_txExpirationNotice) || !string.IsNullOrWhiteSpace(_txUnitTypeNotice) || !string.IsNullOrWhiteSpace(_txSpecimenNotice) || !string.IsNullOrWhiteSpace(_txCrossmatchNotice) || !string.IsNullOrWhiteSpace(_txIssuedToNotice) || !string.IsNullOrWhiteSpace(_txCoolerNotice) || !string.IsNullOrWhiteSpace(_txLocationNotice) || !string.IsNullOrWhiteSpace(_txIssuedByNotice) || !string.IsNullOrWhiteSpace(_txSecondVerifierNotice))
+            {
+                <p class="muted">Documenting @if (!string.IsNullOrWhiteSpace(_txProductName)) { <strong>@_txProductName</strong> }@(string.IsNullOrWhiteSpace(_txExpirationNotice) ? "" : $" · {_txExpirationNotice}")@(string.IsNullOrWhiteSpace(_txUnitTypeNotice) ? "" : $" · {_txUnitTypeNotice}")@(string.IsNullOrWhiteSpace(_txSpecimenNotice) ? "" : $" · {_txSpecimenNotice}")@(string.IsNullOrWhiteSpace(_txCrossmatchNotice) ? "" : $" · {_txCrossmatchNotice}")@(string.IsNullOrWhiteSpace(_txIssuedToNotice) ? "" : $" · {_txIssuedToNotice}")@(string.IsNullOrWhiteSpace(_txCoolerNotice) ? "" : $" · {_txCoolerNotice}")@(string.IsNullOrWhiteSpace(_txLocationNotice) ? "" : $" · {_txLocationNotice}")@(string.IsNullOrWhiteSpace(_txIssuedByNotice) ? "" : $" · {_txIssuedByNotice}")@(string.IsNullOrWhiteSpace(_txSecondVerifierNotice) ? "" : $" · {_txSecondVerifierNotice}").</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_txReleaseReason))
+            {
+                <p class="muted">@_txReleaseReason</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_txReleaseAuthorizer))
+            {
+                <p class="muted">@_txReleaseAuthorizer</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_txIssueAppearance))
+            {
+                <p class="muted">@_txIssueAppearance</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_txPtagNotice))
+            {
+                <p class="muted">@_txPtagNotice</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_txCrossmatchStatusNotice))
+            {
+                <p class="muted">@_txCrossmatchStatusNotice</p>
+            }
+            @if (!string.IsNullOrWhiteSpace(_txWardAppearance))
+            {
+                <p class="muted">@_txWardAppearance</p>
+            }
             <div class="form-row">
                 <div class="field"><label>Patient ID 1 (MRN)</label><input @bind="_txPatientIdentifier1" /></div>
                 <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label><input @bind="_txPatientIdentifier2" /></div>
@@ -605,6 +880,21 @@
     private string _signatureSecret = string.Empty;
 
     private long _wardIssueId;
+    private string? _wardProductName;
+    private string? _wardExpirationNotice;
+    private string? _wardUnitTypeNotice;
+    private string? _wardSpecimenNotice;
+    private string? _wardCrossmatchNotice;
+    private string? _wardIssuedToNotice;
+    private string? _wardCoolerNotice;
+    private string? _wardLocationNotice;
+    private string? _wardIssuedByNotice;
+    private string? _wardSecondVerifierNotice;
+    private string? _wardReleaseReason;
+    private string? _wardReleaseAuthorizer;
+    private string? _wardIssueAppearance;
+    private string? _wardPtagNotice;
+    private string? _wardCrossmatchStatusNotice;
     private string _wardReceivedBy = string.Empty;
     private UnitAppearance _wardAppearance = UnitAppearance.Acceptable;
     private Feedback? _wardFb;
@@ -620,6 +910,22 @@
     private Feedback? _returnFb;
 
     private long _txIssueId;
+    private string? _txProductName;
+    private string? _txExpirationNotice;
+    private string? _txUnitTypeNotice;
+    private string? _txSpecimenNotice;
+    private string? _txCrossmatchNotice;
+    private string? _txIssuedToNotice;
+    private string? _txCoolerNotice;
+    private string? _txLocationNotice;
+    private string? _txIssuedByNotice;
+    private string? _txSecondVerifierNotice;
+    private string? _txReleaseReason;
+    private string? _txReleaseAuthorizer;
+    private string? _txIssueAppearance;
+    private string? _txPtagNotice;
+    private string? _txCrossmatchStatusNotice;
+    private string? _txWardAppearance;
     private TransfusionDisposition _txDisposition = TransfusionDisposition.Completed;
     private decimal? _txVolume;
     private string? _txTransfusionist;
@@ -640,10 +946,37 @@
     private List<OutstandingIssueWorkItemDto> _outstandingItems = new();
     private List<SecondAboWorkItemDto> _secondAboItems = new();
     private List<ReadyToIssueWorkItemDto> _readyItems = new();
+    private ReadyToIssueWorkItemDto? _prefilledRow;
+
+    private ReadyToIssueWorkItemDto? ActivePrefill =>
+        _prefilledRow is { } row
+        && row.PatientId == _issue.PatientId
+        && row.BloodUnitId == _issue.BloodUnitId
+            ? row
+            : null;
+
+    private IReadOnlyList<string> PrefillNotices =>
+        ActivePrefill is { } row ? ReadyToIssueFormCue.Notices(row) : [];
 
     [SupplyParameterFromQuery(Name = "patientId")] public long? QueryPatientId { get; set; }
     [SupplyParameterFromQuery(Name = "bloodUnitId")] public long? QueryBloodUnitId { get; set; }
     private string? _returnUnitNumber;
+    private string? _returnProductName;
+    private string? _returnExpirationNotice;
+    private string? _returnUnitTypeNotice;
+    private string? _returnSpecimenNotice;
+    private string? _returnCrossmatchNotice;
+    private string? _returnIssuedToNotice;
+    private string? _returnCoolerNotice;
+    private string? _returnLocationNotice;
+    private string? _returnIssuedByNotice;
+    private string? _returnSecondVerifierNotice;
+    private string? _returnReleaseReason;
+    private string? _returnReleaseAuthorizer;
+    private string? _returnIssueAppearance;
+    private string? _returnPtagNotice;
+    private string? _returnCrossmatchStatusNotice;
+    private string? _returnWardAppearance;
     private string? _returnPatientName;
     private long? _returnPatientId;
     private ReturnDto? _lastReturn;
@@ -702,6 +1035,7 @@
         _issue.PatientId = row.PatientId;
         _issue.PatientIdentifier1Value = row.MedicalRecordNumber;
         _issue.PatientIdentifier2Value = row.DateOfBirth;
+        _prefilledRow = row;
         await LoadIssueRequirementsAsync();
         await _issueForm.FocusAsync();
     }
@@ -733,15 +1067,47 @@
         return href;
     }
 
-    private void SelectWardIssue(long issueId)
+    private void SelectWardIssue(long issueId, string? productName, DateTime? unitExpiresUtc, string? unitBloodType, string? specimenAccession, DateTime? crossmatchExpiresUtc, CrossmatchResult? latestCrossmatchResult, string? issuedTo, string? coolerId, string? issuedToLocation, string? issuedBy, string? emergencyReleaseDetails, string? secondVerifier, string? emergencyReleaseAuthorizer, UnitAppearance issueAppearance, string? ptagCode, CrossmatchClinicalStatus crossmatchStatus)
     {
         _wardIssueId = issueId;
+        _wardProductName = productName;
+        _wardExpirationNotice = ReadyToIssueFormCue.ExpirationNotice(unitExpiresUtc);
+        _wardUnitTypeNotice = ReadyToIssueFormCue.UnitTypeNotice(unitBloodType);
+        _wardSpecimenNotice = ReadyToIssueFormCue.SpecimenAccessionNotice(specimenAccession);
+        _wardCrossmatchNotice = ReadyToIssueFormCue.CrossmatchWorklistNotice(latestCrossmatchResult, crossmatchExpiresUtc);
+        _wardIssuedToNotice = ReadyToIssueFormCue.IssuedToNotice(issuedTo);
+        _wardCoolerNotice = ReadyToIssueFormCue.CoolerNotice(coolerId);
+        _wardLocationNotice = ReadyToIssueFormCue.IssuedToLocationNotice(issuedToLocation);
+        _wardIssuedByNotice = ReadyToIssueFormCue.IssuedByNotice(issuedBy);
+        _wardSecondVerifierNotice = ReadyToIssueFormCue.SecondVerifierNotice(secondVerifier);
+        _wardReleaseReason = ReadyToIssueFormCue.EmergencyReleaseReasonNotice(emergencyReleaseDetails);
+        _wardReleaseAuthorizer = ReadyToIssueFormCue.EmergencyReleaseAuthorizerNotice(emergencyReleaseAuthorizer);
+        _wardIssueAppearance = ReadyToIssueFormCue.IssueAppearanceNotice(issueAppearance);
+        _wardPtagNotice = ReadyToIssueFormCue.PtagNotice(ptagCode);
+        _wardCrossmatchStatusNotice = ReadyToIssueFormCue.CrossmatchStatusNotice(crossmatchStatus);
+        _wardIssue = null;
     }
 
     private void SelectReturnIssue(OutstandingIssueWorkItemDto row)
     {
         _returnIssueId = row.IssueId;
         _returnUnitNumber = row.UnitNumber;
+        _returnProductName = row.ProductName;
+        _returnExpirationNotice = ReadyToIssueFormCue.ExpirationNotice(row.UnitExpiresUtc);
+        _returnUnitTypeNotice = ReadyToIssueFormCue.UnitTypeNotice(row.UnitBloodType);
+        _returnSpecimenNotice = ReadyToIssueFormCue.SpecimenAccessionNotice(row.SpecimenAccession);
+        _returnCrossmatchNotice = ReadyToIssueFormCue.CrossmatchWorklistNotice(row.LatestCrossmatchResult, row.CrossmatchExpiresUtc);
+        _returnIssuedToNotice = ReadyToIssueFormCue.IssuedToNotice(row.IssuedTo);
+        _returnCoolerNotice = ReadyToIssueFormCue.CoolerNotice(row.CoolerId);
+        _returnLocationNotice = ReadyToIssueFormCue.IssuedToLocationNotice(row.IssuedToLocation);
+        _returnIssuedByNotice = ReadyToIssueFormCue.IssuedByNotice(row.IssuedBy);
+        _returnSecondVerifierNotice = ReadyToIssueFormCue.SecondVerifierNotice(row.SecondVerifier);
+        _returnReleaseReason = ReadyToIssueFormCue.EmergencyReleaseReasonNotice(row.EmergencyReleaseDetails);
+        _returnReleaseAuthorizer = ReadyToIssueFormCue.EmergencyReleaseAuthorizerNotice(row.EmergencyReleaseAuthorizer);
+        _returnIssueAppearance = ReadyToIssueFormCue.IssueAppearanceNotice(row.IssueAppearance);
+        _returnPtagNotice = ReadyToIssueFormCue.PtagNotice(row.PtagCode);
+        _returnCrossmatchStatusNotice = ReadyToIssueFormCue.CrossmatchStatusNotice(row.CrossmatchStatus);
+        _returnWardAppearance = ReadyToIssueFormCue.WardAppearanceNotice(row.WardAppearance);
         _returnPatientName = row.PatientDisplayName;
         _returnPatientId = row.PatientId;
         _returnTempOk = true;
@@ -765,6 +1131,22 @@
     private void SelectTransfusionIssue(OutstandingIssueWorkItemDto row)
     {
         _txIssueId = row.IssueId;
+        _txProductName = row.ProductName;
+        _txExpirationNotice = ReadyToIssueFormCue.ExpirationNotice(row.UnitExpiresUtc);
+        _txUnitTypeNotice = ReadyToIssueFormCue.UnitTypeNotice(row.UnitBloodType);
+        _txSpecimenNotice = ReadyToIssueFormCue.SpecimenAccessionNotice(row.SpecimenAccession);
+        _txCrossmatchNotice = ReadyToIssueFormCue.CrossmatchWorklistNotice(row.LatestCrossmatchResult, row.CrossmatchExpiresUtc);
+        _txIssuedToNotice = ReadyToIssueFormCue.IssuedToNotice(row.IssuedTo);
+        _txCoolerNotice = ReadyToIssueFormCue.CoolerNotice(row.CoolerId);
+        _txLocationNotice = ReadyToIssueFormCue.IssuedToLocationNotice(row.IssuedToLocation);
+        _txIssuedByNotice = ReadyToIssueFormCue.IssuedByNotice(row.IssuedBy);
+        _txSecondVerifierNotice = ReadyToIssueFormCue.SecondVerifierNotice(row.SecondVerifier);
+        _txReleaseReason = ReadyToIssueFormCue.EmergencyReleaseReasonNotice(row.EmergencyReleaseDetails);
+        _txReleaseAuthorizer = ReadyToIssueFormCue.EmergencyReleaseAuthorizerNotice(row.EmergencyReleaseAuthorizer);
+        _txIssueAppearance = ReadyToIssueFormCue.IssueAppearanceNotice(row.IssueAppearance);
+        _txPtagNotice = ReadyToIssueFormCue.PtagNotice(row.PtagCode);
+        _txCrossmatchStatusNotice = ReadyToIssueFormCue.CrossmatchStatusNotice(row.CrossmatchStatus);
+        _txWardAppearance = ReadyToIssueFormCue.WardAppearanceNotice(row.WardAppearance);
         _txPatientIdentifier1 = row.MedicalRecordNumber;
         _txPatientIdentifier2 = row.DateOfBirth;
     }
@@ -1020,6 +1402,22 @@
         {
             _lastReturn = r.Value;
             _returnUnitNumber = null;
+            _returnProductName = null;
+            _returnExpirationNotice = null;
+            _returnUnitTypeNotice = null;
+            _returnSpecimenNotice = null;
+            _returnCrossmatchNotice = null;
+            _returnIssuedToNotice = null;
+            _returnCoolerNotice = null;
+            _returnLocationNotice = null;
+            _returnIssuedByNotice = null;
+            _returnSecondVerifierNotice = null;
+            _returnReleaseReason = null;
+            _returnReleaseAuthorizer = null;
+            _returnIssueAppearance = null;
+            _returnPtagNotice = null;
+            _returnCrossmatchStatusNotice = null;
+            _returnWardAppearance = null;
             _returnPatientName = null;
             _returnReason = string.Empty;
             _returnTempOk = true;

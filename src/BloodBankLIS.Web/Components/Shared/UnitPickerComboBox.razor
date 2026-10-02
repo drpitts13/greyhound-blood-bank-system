@@ -65,7 +65,7 @@
     }
 
     private static string FormatDisplay(BloodUnitDto u) =>
-        $"{u.UnitNumber} · {Ui.BloodType(u.Abo, u.RhD)} · {u.Status} · expires {u.ExpiresUtc:yyyy-MM-dd}";
+        $"{u.UnitNumber} · {Ui.BloodType(u.Abo, u.RhD)} · {u.Status} · {ReadyToIssueFormCue.ExpirationNotice(u.ExpiresUtc)}";
 
     private static string FormatSearch(BloodUnitDto u) =>
         $"{u.UnitNumber} {u.Din} {u.ComponentIdentity} {u.Id}";

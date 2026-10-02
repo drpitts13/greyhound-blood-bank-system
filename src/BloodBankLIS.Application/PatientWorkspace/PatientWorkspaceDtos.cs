@@ -231,7 +231,19 @@ public sealed record PatientProductHistoryRowDto(
     string? PatientIdentificationMethod = null,
     string? Transfusionist = null,
     long? UnitId = null,
-    long? IssueId = null);
+    long? IssueId = null,
+    DateTime? UnitExpiresUtc = null,
+    string? ReturnReason = null,
+    bool? ReissueEligible = null,
+    string? IssuedTo = null,
+    string? CoolerId = null,
+    string? IssueType = null,
+    string? EmergencyReleaseReason = null,
+    string? SecondVerifier = null,
+    string? EmergencyReleaseAuthorizer = null,
+    string? IssueAppearance = null,
+    string? WardAppearance = null,
+    string? PtagCode = null);
 
 public sealed record PatientTestHistoryRowDto(
     long ResultId,

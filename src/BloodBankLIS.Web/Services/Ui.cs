@@ -1,4 +1,7 @@
+using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Web.Services;
 
@@ -109,5 +112,40 @@ public static class Ui
         var group = abo == AboGroup.Unknown ? "?" : abo.ToString();
         var sign = rh switch { RhType.Positive => "+", RhType.Negative => "\u2212", _ => "?" };
         return $"{group}{sign}";
+    }
+
+    public static string CompatibleUnitChoiceLabel(CompatibleUnitDto u)
+    {
+        var label = $"{u.UnitNumber} · {u.BloodType} · {u.ProductCode} · {ReadyToIssueFormCue.ExpirationNotice(u.ExpiresUtc)}";
+        var stored = ReadyToIssueFormCue.StorageLocationNotice(u.StorageLocationName);
+        if (stored is not null)
+        {
+            label = $"{label} · {stored}";
+        }
+        if (!string.IsNullOrWhiteSpace(u.SelectionCue))
+        {
+            label = $"{label} · {u.SelectionCue}";
+        }
+
+        if (u.ExpiresSoon)
+        {
+            label = $"{label} · expires soon";
+        }
+
+        var xmNotice = ReadyToIssueFormCue.CrossmatchWorklistNotice(
+            u.LatestCrossmatchResult,
+            u.LatestCrossmatchResult == CrossmatchResult.Compatible ? u.CrossmatchExpiresUtc : null);
+        if (xmNotice is not null)
+        {
+            label = $"{label} · {xmNotice}";
+        }
+
+        return u.AntigenNegFlag switch
+        {
+            BloodAttributeCompatibilityRule.UntestedFlag => $"{label} · not tested",
+            BloodAttributeCompatibilityRule.NotNegativeFlag => $"{label} · not antigen-negative",
+            BloodAttributeCompatibilityRule.MixedFlag => $"{label} · antigen exception",
+            _ => label
+        };
     }
 }

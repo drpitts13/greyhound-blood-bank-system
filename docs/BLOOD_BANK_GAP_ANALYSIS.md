@@ -164,6 +164,194 @@ SQL reports are one SELECT against `rpt_*` views. This starter set is
 pending regulatory review and is not an FDA, AABB, or CAP claim. There
 is no reviewer sign-off.
 
+Cycle 80: the compatible-unit list omits another patient's autologous or directed unit, lists this patient's restricted units first, then ABO/Rh-identical stock, then a compatible substitute (RISK-BB-335). Antigen-negative units precede untested units, which precede an antigen-negative override, and shortest expiration still orders each band. This is a selection order. ABO, antigen, and issue gates are unchanged. It does not assign a compatibility grade.
+
+Cycle 81: the compatible-unit list omits a unit at or past expiration (RISK-BB-336). An in-date unit stays listed. Status is unchanged, and `UNIT-EXPIRED` remains the issue-gate hard stop.
+
+Cycle 82: a compatible unit inside the existing facility near-expiry window is marked expires soon (RISK-BB-337). A unit outside that window is not. Both stay listed. `UNIT-NEAR-EXPIRY` remains the issue-gate warning.
+
+Cycle 83: the compatible-unit list omits a unit that fails an active irradiated, CMV-negative, leukoreduced, washed, or antigen-negative requirement (RISK-BB-338). An acknowledgment-only requirement does not remove units. Status is unchanged, and `ISS-SPECIAL-REQ` remains the issue-gate hard stop.
+
+Cycle 84: the patient chart names the latest accepted specimen and warns when that specimen is missing, undated, expired, or inside the 12-hour issue-gate window (RISK-BB-339). An older accepted specimen is not shown as current. The issue gate is unchanged.
+
+Cycle 85: within each selection group, a unit with a current compatible crossmatch for this patient is listed before an unmatched unit and marked Crossmatch compatible (RISK-BB-340). Another patient's crossmatch and an expired crossmatch do not count. Issue uses the same predicate.
+
+Cycle 86: the patient chart says when red-cell issue needs a second concordant ABO/Rh, and says when that type is already on file (RISK-BB-341). The notice follows `Compatibility.RequireSecondAboForCellularIssue`. `ISS-SECOND-ABO` remains the issue-gate hard stop.
+
+Cycle 87: within each selection group, a unit with an incompatible crossmatch for this patient is listed after an unmatched unit and marked Crossmatch incompatible (RISK-BB-342). Another patient's result does not count. A later current compatible crossmatch still ranks first. The unit stays listed. `ISS-XM-REQUIRED` remains the issue-gate warning that requires an override.
+
+Cycle 88: the patient chart header shows the existing electronic-crossmatch blocking reason on every tab (RISK-BB-343). An eligible result shows no notice. Eligibility criteria are unchanged. OCD-001 remains open.
+
+Cycle 89: Ready to issue marks a reserved unit when the patient has an open antibody-identification workup (RISK-BB-344). A completed workup is not marked. The row stays issuable. `ABID-ISSUE-OPEN` remains the issue warning.
+
+Cycle 90: Ready to issue marks Expires soon when a reserved unit is inside the issue near-expiry window, including the shorter post-thaw window (RISK-BB-345). An outdated unit stays Outdated. The row stays issuable. `UNIT-NEAR-EXPIRY` remains the issue-gate warning.
+
+Cycle 91: Ready to issue shows the existing electronic-crossmatch blocking reason on a reserved unit (RISK-BB-346). An eligible patient shows no notice. Serologic issue stays available. Eligibility criteria are unchanged. OCD-001 remains open.
+
+Cycle 92: Ready to issue marks a reserved unit that still needs a current compatible crossmatch and does not offer routine issue (RISK-BB-347). An incompatible result is marked and stays issuable. A current compatible result is not marked. `ISS-XM-REQUIRED` remains the issue-gate rule.
+
+Cycle 93: Ready to issue marks a reserved unit that fails an active irradiated, CMV-negative, leukoreduced, washed, or antigen-negative requirement and does not offer issue (RISK-BB-348). A unit that meets the requirement is not marked. An acknowledgment-only requirement stays on the issue form. `ISS-SPECIAL-REQ` remains the issue-gate hard stop.
+
+Cycle 94: Ready to issue marks a reserved unit that is not antigen-negative for a clinically significant antibody (RISK-BB-349). A unit already antigen-negative is not marked. The row stays issuable. `ISS-ANTIGEN-NEG` remains the issue-gate warning.
+
+Cycle 95: Ready to issue marks an unresolved ABO/Rh discrepancy (RISK-BB-350). A crossmatch-required product is not offered for issue. A product that does not require a crossmatch stays issuable. A concordant history is not marked. `ISS-ABORH-DISCREPANCY` remains the issue-gate rule.
+
+Cycle 96: the patient chart header shows the existing ABO/Rh disagreement warning on every tab (RISK-BB-351). A concordant history shows no notice. The product-specific hard stop stays on issue.
+
+Cycle 97: the patient chart header shows a recorded transfusion reaction on every tab (RISK-BB-352). A history with no suspected reaction shows no notice. Issue eligibility is unchanged.
+
+Cycle 98: Ready to issue shows that same recorded-reaction sentence on a reserved unit (RISK-BB-353). A transfusion that was not a suspected reaction is not marked. The row stays issuable.
+
+Cycle 99: the issue form repeats the existing Ready to issue marks for the unit and patient just selected (RISK-BB-354). A row with no marks adds no notice. Issue eligibility is unchanged.
+
+Cycle 100: Ready to issue shows the existing autologous or directed selection cue when that reserved unit is for this patient (RISK-BB-355). An allogeneic unit is not marked. The row stays issuable. The issue gate still refuses another patient's restricted unit.
+
+Cycle 101: Ready to issue shows the product name of each reserved unit (RISK-BB-356). Choosing Issue or Emergency repeats that name on the issue form. Issue eligibility is unchanged.
+
+Cycle 102: Retrospective crossmatch due, in transit, and issued units show that same product name (RISK-BB-357). Receive, Return, and Document repeat it. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 103: Ready to issue shows when each reserved unit expires (RISK-BB-358). Choosing Issue or Emergency repeats that time on the issue form. The near-expiry mark and the outdated hard stop are unchanged.
+
+Cycle 104: Retrospective crossmatch due, in transit, and issued units show when the issued unit expires (RISK-BB-359). Receive, Return, and Document repeat that time. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 105: The patient product list shows the product name and the unit expiration time (RISK-BB-360). Unit choices use that same time. Allocation and issue eligibility are unchanged.
+
+Cycle 106: Ready to issue shows the unit ABO/Rh beside the patient type (RISK-BB-361). Choosing Issue or Emergency repeats that unit type. Issue eligibility is unchanged.
+
+Cycle 107: Retrospective crossmatch due, in transit, and issued units show the unit ABO/Rh beside the patient type (RISK-BB-362). Receive, Return, and Document repeat that type. Those gates are unchanged.
+
+Cycle 108: The patient product list shows the unit ABO/Rh (RISK-BB-363). Allocation and issue eligibility are unchanged.
+
+Cycle 109: Ready to issue shows when a current compatible crossmatch expires (RISK-BB-364). Choosing Issue or Emergency repeats that time. Issue eligibility is unchanged.
+
+Cycle 110: Ready to issue shows the storage location of each reserved unit (RISK-BB-365). Choosing Issue or Emergency repeats that location. Issue eligibility is unchanged.
+
+Cycle 111: The patient product list and unit choices show the storage location (RISK-BB-366). Allocation and issue eligibility are unchanged.
+
+Cycle 112: Ready to issue shows the accession of the current specimen (RISK-BB-367). Choosing Issue or Emergency repeats that accession. Issue eligibility is unchanged.
+
+Cycle 113: In transit and issued units show the specimen accession (RISK-BB-368). Receive, Return, and Document repeat that accession. Those gates are unchanged.
+
+Cycle 114: Retrospective crossmatch due, in transit, and issued units show when a current compatible crossmatch expires (RISK-BB-369). Receive, Return, and Document repeat that time. A unit with no current compatible crossmatch shows none. Those gates are unchanged.
+
+Cycle 115: The patient product list shows when a current compatible crossmatch expires (RISK-BB-370). A unit with no current compatible crossmatch shows none. Allocation and issue eligibility are unchanged.
+
+Cycle 116: Unit choices show when a current compatible crossmatch expires (RISK-BB-371). Selecting a unit repeats that time. A choice with no current compatible crossmatch shows none. Allocation and issue eligibility are unchanged.
+
+Cycle 117: Retrospective crossmatch due, in transit, and issued units show the latest crossmatch result (RISK-BB-372). Receive, Return, and Document repeat that result. A unit with no crossmatch result shows none. Those gates are unchanged.
+
+Cycle 118: Allocated products on the patient chart show the latest crossmatch result beside any current compatible expiration (RISK-BB-373). A unit with no crossmatch result shows none. Allocation and issue eligibility are unchanged.
+
+Cycle 119: Ready to issue shows the latest crossmatch result beside any current compatible expiration (RISK-BB-374). Issue and Emergency repeat that result. A unit with no crossmatch result shows none. Issue eligibility is unchanged.
+
+Cycle 120: Unit choices and the selected unit show the latest crossmatch result beside any current compatible expiration (RISK-BB-375). A unit with no crossmatch result shows none. Allocation and issue eligibility are unchanged.
+
+Cycle 121: Product history shows the latest crossmatch result on assigned, issued, returned, and transfused rows (RISK-BB-376). A crossmatch event shows that event's result. A unit or event with no crossmatch result shows none. Allocation and issue eligibility are unchanged.
+
+Cycle 122: Product history shows the specimen accession linked to an issued, returned, or transfused unit (RISK-BB-377). A row with no linked specimen shows none. Allocation and issue eligibility are unchanged.
+
+Cycle 123: Product history shows when each unit expires (RISK-BB-378). A row with no unit expiration shows none. Allocation and issue eligibility are unchanged.
+
+Cycle 124: Product history shows who performed each event (RISK-BB-379). A row with no performer shows none. Allocation and issue eligibility are unchanged.
+
+Cycle 125: Product history shows why a unit was returned and whether it was marked eligible to reissue (RISK-BB-380). A row that is not a return shows none for those facts. Allocation, return, and reissue eligibility are unchanged.
+
+Cycle 126: Product history shows the person an issued, returned, or transfused unit was issued to (RISK-BB-381). A row with no issued-to person shows none. Issue eligibility is unchanged.
+
+Cycle 127: The in-transit and issued queues show the person each unit was issued to (RISK-BB-382). A unit with no issued-to person shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 128: Receive, Return, and Document repeat the person the unit was issued to (RISK-BB-383). A unit with no issued-to person shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 129: The retrospective crossmatch queue shows the person the unit was issued to (RISK-BB-384). A unit with no issued-to person shows none. Retrospective crossmatch completion is unchanged.
+
+Cycle 130: Product history shows the cooler or transport id for an issued, returned, or transfused unit (RISK-BB-385). A row with no cooler shows none. In-transit and issue eligibility are unchanged.
+
+Cycle 131: Receive, Return, and Document repeat the cooler or transport id (RISK-BB-386). A unit with no cooler shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 132: The outstanding issued queue shows the cooler or transport id (RISK-BB-387). A unit with no cooler shows none. The id stays after ward receipt. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 133: The retrospective crossmatch queue shows the cooler or transport id (RISK-BB-388). A unit with no cooler shows none. Retrospective completion is unchanged.
+
+Cycle 134: The retrospective crossmatch screen repeats who received the unit and which cooler carried it (RISK-BB-389). A unit with neither shows none. Recording the crossmatch is unchanged.
+
+Cycle 135: The outstanding issued queue shows the location the unit was issued to (RISK-BB-390). A unit with no location shows none. The location stays after ward receipt. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 136: Receive, Return, and Document repeat the location the unit was issued to (RISK-BB-391). A unit with no location shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 137: The retrospective queue and follow-up crossmatch screen show the location the unit was issued to (RISK-BB-392). A unit with no location shows none. Retrospective completion and recording the crossmatch are unchanged.
+
+Cycle 138: Product history shows the recorded issue type on issued, returned, and transfused rows (RISK-BB-393). A row that is not one of those events shows none. Issue eligibility is unchanged.
+
+Cycle 139: The in-transit and outstanding issued queues show the recorded issue type (RISK-BB-394). The type stays after ward receipt. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 140: The in-transit and outstanding issued queues show who issued the unit (RISK-BB-395). The name stays after ward receipt. A blank name shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 141: Receive, Return, and Document repeat who issued the unit (RISK-BB-396). A blank name shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 142: The retrospective crossmatch queue shows who issued the unit (RISK-BB-397). A blank name shows none. Retrospective completion is unchanged.
+
+Cycle 143: The retrospective follow-up screen repeats who issued the unit (RISK-BB-398). A blank name shows none. Recording the crossmatch is unchanged.
+
+Cycle 144: The retrospective crossmatch queue shows the recorded emergency-release reason (RISK-BB-399). A blank reason shows none. Retrospective completion is unchanged.
+
+Cycle 145: The retrospective follow-up screen repeats the recorded emergency-release reason (RISK-BB-400). A blank reason shows none. Recording the crossmatch is unchanged.
+
+Cycle 146: Product history shows the recorded emergency-release reason on issued, returned, and transfused rows (RISK-BB-401). A row that is not one of those events shows none. A blank reason shows none. Issue eligibility is unchanged.
+
+Cycle 147: The in-transit and outstanding issued queues show the recorded emergency-release reason (RISK-BB-402). The reason stays after ward receipt. A blank reason shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 148: Receive, Return, and Document repeat the recorded emergency-release reason (RISK-BB-403). A blank reason shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 149: The in-transit and outstanding issued queues show the second verifier recorded at issue (RISK-BB-404). The name stays after ward receipt. A blank second verifier shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 150: Receive, Return, and Document repeat the second verifier recorded at issue (RISK-BB-405). A blank second verifier shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 151: The retrospective crossmatch queue shows the second verifier recorded at issue (RISK-BB-406). A blank second verifier shows none. Retrospective completion is unchanged.
+
+Cycle 152: The retrospective follow-up screen repeats the second verifier recorded at issue (RISK-BB-407). A blank second verifier shows none. Recording the crossmatch is unchanged.
+
+Cycle 153: Product history shows the second verifier recorded at issue on issued, returned, and transfused rows (RISK-BB-408). Other rows and a blank second verifier show none. Issue eligibility is unchanged.
+
+Cycle 154: The retrospective crossmatch queue shows who authorized the emergency or massive-transfusion release (RISK-BB-409). A blank authorizer shows none. Retrospective completion is unchanged.
+
+Cycle 155: The retrospective follow-up screen repeats who authorized the emergency or massive-transfusion release (RISK-BB-410). A blank authorizer shows none. Recording the crossmatch is unchanged.
+
+Cycle 156: The in-transit and outstanding issued queues show who authorized an emergency or massive-transfusion release (RISK-BB-411). The name stays after ward receipt. A blank authorizer shows none. Return, ward-receipt, and bedside identity gates are unchanged.
+
+Cycle 157: Receive, Return, and Document repeat who authorized an emergency or massive-transfusion release (RISK-BB-412). A blank authorizer shows none. Ward receipt, return, and transfusion documentation gates are unchanged.
+
+Cycle 158: Patient product history shows who authorized an emergency or massive-transfusion release on issued, returned, and transfused rows (RISK-BB-413). Other rows and a blank authorizer show none. Issue eligibility is unchanged.
+
+Cycle 159: The in-transit and outstanding issued queues show the appearance recorded at issue (RISK-BB-414). The appearance stays after ward receipt. The issue gate is unchanged.
+
+Cycle 160: Receive, Return, and Document repeat the appearance recorded at issue (RISK-BB-415). Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
+
+Cycle 161: The retrospective crossmatch queue shows the appearance recorded at issue (RISK-BB-416). Retrospective completion is unchanged.
+
+Cycle 162: The retrospective follow-up screen repeats the appearance recorded at issue (RISK-BB-417). Recording the crossmatch is unchanged.
+
+Cycle 163: Patient product history shows the appearance recorded at issue on issued, returned, and transfused rows (RISK-BB-418). Other rows show none. Issue eligibility is unchanged.
+
+Cycle 164: The outstanding issued queue shows the appearance recorded at ward receipt (RISK-BB-419). A unit still awaiting receipt shows none. The ward-receipt gate is unchanged.
+
+Cycle 165: Return and Document repeat the appearance recorded at ward receipt (RISK-BB-420). A unit that has not been received shows none. Return, transfusion documentation, and the ward-receipt gate are unchanged.
+
+Cycle 166: Patient product history shows the appearance recorded at ward receipt on issued, returned, and transfused rows (RISK-BB-421). Other rows, and a unit that has not been received, show none. The ward-receipt gate is unchanged.
+
+Cycle 167: The in-transit and outstanding issued queues show the pickup tag scanned at issue (RISK-BB-422). The code stays after ward receipt. A blank pickup tag shows none. The issue gate is unchanged.
+
+Cycle 168: Receive, Return, and Document repeat the pickup tag scanned at issue (RISK-BB-423). A blank pickup tag shows none. Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
+
+Cycle 169: The retrospective crossmatch queue shows the pickup tag scanned at issue (RISK-BB-424). A blank pickup tag shows none. Retrospective completion is unchanged.
+
+Cycle 170: The retrospective follow-up screen repeats the pickup tag scanned at issue (RISK-BB-425). A blank pickup tag shows none. Recording the crossmatch is unchanged.
+
+Cycle 171: Patient product history shows the pickup tag scanned at issue on issued, returned, and transfused rows (RISK-BB-426). Other rows and a blank pickup tag show none. The issue gate is unchanged.
+
+Cycle 172: The in-transit and outstanding issued queues show the crossmatch status recorded at issue (RISK-BB-427). The status stays after ward receipt. The issue gate is unchanged.
+
+Cycle 173: Receive, Return, and Document repeat the crossmatch status recorded at issue (RISK-BB-428). Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

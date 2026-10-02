@@ -60,6 +60,7 @@ public sealed class IssuingService
     private readonly IRepository<PtagIdentifier>? _ptagIdentifiers;
     private readonly IRepository<ProductRetypeResult>? _retypes;
     private readonly IRepository<AutoThawRequest>? _autoThawRequests;
+    private readonly ElectronicCrossmatchEligibilityService? _electronicCrossmatch;
 
     public IssuingService(
         IInventoryRepository inventory,
@@ -97,7 +98,8 @@ public sealed class IssuingService
         IRepository<LabelLayout>? labelLayouts = null,
         IRepository<PtagIdentifier>? ptagIdentifiers = null,
         IRepository<ProductRetypeResult>? retypes = null,
-        IRepository<AutoThawRequest>? autoThawRequests = null)
+        IRepository<AutoThawRequest>? autoThawRequests = null,
+        ElectronicCrossmatchEligibilityService? electronicCrossmatch = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -135,6 +137,7 @@ public sealed class IssuingService
         _ptagIdentifiers = ptagIdentifiers;
         _retypes = retypes;
         _autoThawRequests = autoThawRequests;
+        _electronicCrossmatch = electronicCrossmatch;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -200,9 +203,9 @@ public sealed class IssuingService
         var unitCrossmatches = await _crossmatches.ListAsync(
             x => x.BloodProductId == unit.Id && x.PatientId == request.PatientId, ct);
         var hasValidCrossmatch = unitCrossmatches.Any(x =>
-            x.Result == CrossmatchResult.Compatible
-            && (x.ExpiresUtc == null || x.ExpiresUtc > now));
-        var hasIncompatibleCrossmatch = unitCrossmatches.Any(x => x.Result == CrossmatchResult.Incompatible);
+            CrossmatchValidityRule.IsCurrentCompatible(x.Result, x.ExpiresUtc, now));
+        var hasIncompatibleCrossmatch = unitCrossmatches.Any(x =>
+            CrossmatchValidityRule.CountsAsIncompatible(x.Result));
         var bloodAttrs = await _bloodAttributeCompat.LoadAsync(request.PatientId, unit.Id, ct);
         var identity = PatientIdentityMatchRule.Evaluate(
             patient.MedicalRecordNumber,
@@ -549,17 +552,36 @@ public sealed class IssuingService
             && i.Status != IssueStatus.Returned, ct);
 
         var context = await LoadIssueWorklistContextAsync(rows, ct);
+        var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
         return rows
             .OrderBy(i => i.RetrospectiveCrossmatchDueUtc ?? i.IssuedUtc)
             .Select(i =>
             {
                 var row = context.For(i, now);
+                authorizers.TryGetValue(i.OverrideId ?? 0, out var authorizer);
                 return RetrospectiveCrossmatchWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
-                    row.SpecimenId, row.AccessionNumber);
+                    row.SpecimenId, row.AccessionNumber, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType,
+                    row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer);
             })
             .ToList();
+    }
+
+    private async Task<Dictionary<long, string?>> LoadEmergencyReleaseAuthorizersAsync(
+        IReadOnlyList<Issue> rows,
+        CancellationToken ct)
+    {
+        var overrideIds = rows.Where(i => i.OverrideId is long).Select(i => i.OverrideId!.Value).Distinct().ToList();
+        if (overrideIds.Count == 0)
+        {
+            return [];
+        }
+
+        var overrides = await _overrides.ListAsync(o => overrideIds.Contains(o.Id), ct);
+        return overrides.ToDictionary(
+            o => o.Id,
+            o => string.IsNullOrWhiteSpace(o.AuthorizedBy) ? null : o.AuthorizedBy.Trim());
     }
 
     /// <summary>
@@ -572,14 +594,17 @@ public sealed class IssuingService
             i.Status == IssueStatus.Issued && i.WardReceivedUtc == null, ct);
 
         var context = await LoadIssueWorklistContextAsync(rows, ct);
+        var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
         return rows
             .OrderBy(i => i.InTransitDueUtc ?? i.IssuedUtc)
             .Select(i =>
             {
                 var row = context.For(i, now);
+                authorizers.TryGetValue(i.OverrideId ?? 0, out var authorizer);
                 return InTransitWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
-                    row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired);
+                    row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
+                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer);
             })
             .ToList();
     }
@@ -643,14 +668,17 @@ public sealed class IssuingService
         var now = _clock.UtcNow;
         var rows = await _issues.ListAsync(i => i.Status == IssueStatus.Issued, ct);
         var context = await LoadIssueWorklistContextAsync(rows, ct);
+        var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
         return rows
             .OrderBy(i => i.IssuedUtc)
             .Select(i =>
             {
                 var row = context.For(i, now);
+                authorizers.TryGetValue(i.OverrideId ?? 0, out var authorizer);
                 return OutstandingIssueWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.DateOfBirth, row.UnitNumber, row.CurrentBloodType,
-                    row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired);
+                    row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
+                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer);
             })
             .ToList();
     }
@@ -676,6 +704,7 @@ public sealed class IssuingService
             .GroupBy(h => h.PatientId)
             .ToDictionary(g => g.Key, g => g.ToList());
         var requireSecondAbo = await _policy.GetRequireSecondAboForCellularIssueAsync(ct);
+        var nearExpiryWindow = TimeSpan.FromHours(await _policy.GetNearExpiryWarningHoursAsync(ct));
         var antibodies = _antibodies is null
             ? []
             : await _antibodies.ListAsync(a => patientIds.Contains(a.PatientId), ct);
@@ -685,8 +714,17 @@ public sealed class IssuingService
         var specimens = await _specimens.ListAsync(s => patientIds.Contains(s.PatientId), ct);
         var xms = await _crossmatches.ListAsync(
             x => patientIds.Contains(x.PatientId), ct);
+        var openWorkupPatientIds = await OpenAntibodyWorkupPatientIdsAsync(patientIds, ct);
+        var reactionPatientIds = (await _transfusions.ListAsync(
+                t => patientIds.Contains(t.PatientId) && t.ReactionSuspected, ct))
+            .Select(t => t.PatientId)
+            .ToHashSet();
+        var electronicCrossmatchNotices = await ElectronicCrossmatchNoticesAsync(patientIds, ct);
+        var requirementsByPatient = await ReadyToIssueRequirementsByPatientAsync(patientIds, ct);
+        var attributesByProduct = await ProductAttributeCodesByProductTypeAsync(ct);
 
         var items = new List<ReadyToIssueWorkItemDto>();
+        var storageLocationNames = new Dictionary<long, string?>();
         foreach (var allocation in reserved.OrderBy(a => a.AllocatedUtc))
         {
             patients.TryGetValue(allocation.PatientId, out var patient);
@@ -699,13 +737,28 @@ public sealed class IssuingService
                 && cellular
                 && !SecondAboDeterminationRule.HasSecondConcordant(
                     typeRows.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
-            var latestXm = xms
+            var unitCrossmatches = xms
                 .Where(x => x.PatientId == allocation.PatientId && x.BloodProductId == allocation.BloodProductId)
-                .OrderByDescending(x => x.Id)
+                .ToList();
+            var latestXm = unitCrossmatches
+                .OrderByDescending(x => x.PerformedUtc)
+                .ThenByDescending(x => x.Id)
                 .FirstOrDefault();
+            var hasValidCrossmatch = unitCrossmatches.Any(x =>
+                CrossmatchValidityRule.IsCurrentCompatible(x.Result, x.ExpiresUtc, now));
+            var hasIncompatibleCrossmatch = unitCrossmatches.Any(x =>
+                CrossmatchValidityRule.CountsAsIncompatible(x.Result));
             var requiresXm = unit?.ProductType is { } productType
                 ? CrossmatchApplicability.RequiresCrossmatch(productType.ComponentClass, productType.RequiresCrossmatch)
                 : true;
+            var crossmatchCue = CrossmatchValidityRule.DescribeReadyToIssue(
+                requiresXm, hasValidCrossmatch, hasIncompatibleCrossmatch);
+            var discrepancyCue = IssueGate.DescribeAboRhDiscrepancy(
+                IssueGate.HasUnresolvedAboRhDiscrepancy(typeRows.Select(h => (h.BloodType, h.IsCurrent))),
+                requiresXm);
+            var recordedXm = latestXm is { Result: CrossmatchResult.Compatible or CrossmatchResult.Incompatible }
+                ? latestXm.Result
+                : (CrossmatchResult?)null;
             var display = ProductAllocationDisplayStatusRule.Evaluate(
                 requiresXm,
                 latestXm?.Result,
@@ -715,6 +768,33 @@ public sealed class IssuingService
             var specimenExpired = expires is DateTime exp && now >= exp;
             var (specimenBlocksIssue, specimenBlockReason) = DescribeSpecimenBlock(specimen, specimenExpired);
             var unitOutdated = unit is not null && BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, now);
+            var postThaw = unit is not null && await IsPostThawDatingAsync(unit.Id, unit.ExpiresUtc, ct);
+            var expiresSoon = unit is not null && BloodUnitExpirationRule.IsNearExpiry(
+                unit.ExpiresUtc,
+                now,
+                BloodUnitExpirationRule.NearExpiryWindow(postThaw, nearExpiryWindow));
+            var openWorkup = openWorkupPatientIds.Contains(allocation.PatientId);
+            string? specialRequirementNotice = null;
+            string? antigenNotice = null;
+            if (unit is not null)
+            {
+                var bloodAttrs = await _bloodAttributeCompat.LoadAsync(allocation.PatientId, unit.Id, ct);
+                specialRequirementNotice = SpecialTransfusionRequirementRule.ReadyToIssueNotice(
+                    requirementsByPatient.GetValueOrDefault(allocation.PatientId) ?? [],
+                    attributesByProduct.GetValueOrDefault(unit.ProductTypeId)
+                        ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                    bloodAttrs.UnitAntigens,
+                    now);
+                if (unit.ProductType is { } issuedProduct)
+                {
+                    antigenNotice = BloodAttributeCompatibilityRule.ReadyToIssueNotice(
+                        issuedProduct.ComponentClass,
+                        bloodAttrs.PatientSignificantAntibodies,
+                        bloodAttrs.PatientAntigens,
+                        bloodAttrs.UnitSignificantAntibodies,
+                        bloodAttrs.UnitAntigens);
+                }
+            }
             items.Add(new ReadyToIssueWorkItemDto(
                 allocation.Id,
                 allocation.PatientId,
@@ -730,15 +810,94 @@ public sealed class IssuingService
                 specimenExpired,
                 allocation.AllocatedUtc,
                 display,
-                latestXm?.Result,
+                recordedXm,
                 needsSecondAbo,
                 specimenBlocksIssue,
                 specimenBlockReason,
                 unitOutdated,
-                unitOutdated ? "This unit is outdated and cannot be issued." : null));
+                unitOutdated ? "This unit is outdated and cannot be issued." : null,
+                openWorkup,
+                AntibodyIdentificationHistoryPostRule.ReadyToIssueNotice(openWorkup),
+                expiresSoon,
+                electronicCrossmatchNotices.GetValueOrDefault(allocation.PatientId),
+                crossmatchCue.BlocksRoutineIssue,
+                crossmatchCue.Notice,
+                specialRequirementNotice,
+                antigenNotice,
+                discrepancyCue.BlocksIssue,
+                discrepancyCue.Notice,
+                ReactionHistoryBanner.Notice(reactionPatientIds.Contains(allocation.PatientId)),
+                unit is null
+                    ? null
+                    : ProductSelectionOrder.RestrictedUnitCue(
+                        unit.DonationRestriction, unit.ReservedPatientId, allocation.PatientId),
+                unit?.ProductType?.Name,
+                unit?.ExpiresUtc,
+                unit is null ? null : unit.BloodType.ToString(),
+                CrossmatchValidityRule.CurrentCompatibleExpiresUtc(
+                    unitCrossmatches.Select(x => (x.Result, x.ExpiresUtc)),
+                    now),
+                await StorageLocationNameAsync(unit?.CurrentLocationId, storageLocationNames, ct),
+                specimen?.AccessionNumber));
         }
 
         return items;
+    }
+
+    private async Task<string?> StorageLocationNameAsync(
+        long? locationId,
+        Dictionary<long, string?> cache,
+        CancellationToken ct)
+    {
+        if (locationId is not long id)
+        {
+            return null;
+        }
+
+        if (cache.TryGetValue(id, out var cached))
+        {
+            return cached;
+        }
+
+        var location = await _locations.GetByIdAsync(id, ct);
+        var name = ReadyToIssueFormCue.StorageLocationLabel(location?.Name, location?.Code);
+        cache[id] = name;
+        return name;
+    }
+
+    private async Task<Dictionary<long, string?>> ElectronicCrossmatchNoticesAsync(
+        IReadOnlyList<long> patientIds, CancellationToken ct)
+    {
+        var notices = new Dictionary<long, string?>();
+        if (_electronicCrossmatch is null)
+        {
+            return notices;
+        }
+
+        foreach (var patientId in patientIds.Distinct())
+        {
+            var assessment = await _electronicCrossmatch.AssessAsync(patientId, ct);
+            notices[patientId] = assessment is null
+                ? null
+                : ElectronicCrossmatchBanner.Notice(assessment.Eligible, assessment.BlockingReason);
+        }
+
+        return notices;
+    }
+
+    private async Task<HashSet<long>> OpenAntibodyWorkupPatientIdsAsync(
+        IReadOnlyList<long> patientIds, CancellationToken ct)
+    {
+        if (_workups is null || patientIds.Count == 0)
+        {
+            return [];
+        }
+
+        var rows = await _workups.ListAsync(w => patientIds.Contains(w.PatientId), ct);
+        return rows
+            .Where(w => AntibodyIdentificationHistoryPostRule.IsOpen(w.Status))
+            .Select(w => w.PatientId)
+            .ToHashSet();
     }
 
     private static string? FormatReadyToIssueAntibodies(IReadOnlyList<AntibodyHistory>? history)
@@ -1329,6 +1488,47 @@ public sealed class IssuingService
         return SpecialTransfusionRequirementRule.AllMet(results);
     }
 
+    private async Task<Dictionary<long, IReadOnlyList<SpecialTransfusionRequirementRule.RequirementRef>>> ReadyToIssueRequirementsByPatientAsync(
+        IReadOnlyList<long> patientIds, CancellationToken ct)
+    {
+        var rows = await _specialRequirements.ListAsync(
+            r => patientIds.Contains(r.PatientId) && r.IsActive, ct);
+        var definitions = _requirementDefinitions is null
+            ? new Dictionary<long, SpecialRequirementDefinition>()
+            : (await _requirementDefinitions.ListAsync(ct)).ToDictionary(d => d.Id);
+        return rows
+            .GroupBy(r => r.PatientId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<SpecialTransfusionRequirementRule.RequirementRef>)g
+                    .Select(r => ToRequirementRef(r, definitions))
+                    .ToList());
+    }
+
+    private async Task<Dictionary<long, HashSet<string>>> ProductAttributeCodesByProductTypeAsync(CancellationToken ct)
+    {
+        var assignments = await _productAttributeAssignments.ListAsync(a => a.IsActive, ct);
+        var attributes = (await _productAttributes.ListAsync(a => a.IsActive, ct)).ToDictionary(a => a.Id);
+        var byProduct = new Dictionary<long, HashSet<string>>();
+        foreach (var assignment in assignments)
+        {
+            if (!attributes.TryGetValue(assignment.ProductAttributeId, out var attribute))
+            {
+                continue;
+            }
+
+            if (!byProduct.TryGetValue(assignment.ProductTypeId, out var codes))
+            {
+                codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                byProduct[assignment.ProductTypeId] = codes;
+            }
+
+            codes.Add(attribute.Code);
+        }
+
+        return byProduct;
+    }
+
     private static SpecialTransfusionRequirementRule.RequirementRef ToRequirementRef(
         SpecialTransfusionRequirement row,
         IReadOnlyDictionary<long, SpecialRequirementDefinition> definitions)
@@ -1476,16 +1676,7 @@ public sealed class IssuingService
     private async Task<bool> HasUnresolvedAboRhDiscrepancyAsync(long patientId, CancellationToken ct)
     {
         var history = await _bloodTypes.ListAsync(h => h.PatientId == patientId, ct);
-        var current = history.FirstOrDefault(h => h.IsCurrent);
-        if (current is null || !current.BloodType.IsKnown)
-        {
-            return false;
-        }
-
-        return history.Any(h =>
-            !h.IsCurrent
-            && h.BloodType.IsKnown
-            && h.BloodType != current.BloodType);
+        return IssueGate.HasUnresolvedAboRhDiscrepancy(history.Select(h => (h.BloodType, h.IsCurrent)));
     }
 
     /// <summary>
@@ -1671,7 +1862,11 @@ public sealed class IssuingService
             }
         }
 
-        return new IssueWorklistContext(patients, types, antibodies, specimens, allocations, units);
+        var crossmatches = patientIds.Count == 0
+            ? []
+            : await _crossmatches.ListAsync(x => patientIds.Contains(x.PatientId), ct);
+
+        return new IssueWorklistContext(patients, types, antibodies, specimens, allocations, units, crossmatches);
     }
 
     private sealed class IssueWorklistContext(
@@ -1680,7 +1875,8 @@ public sealed class IssuingService
         IReadOnlyList<AntibodyHistory> antibodies,
         IReadOnlyList<Specimen> specimens,
         IReadOnlyList<Allocation> allocations,
-        IReadOnlyDictionary<long, BloodUnit> units)
+        IReadOnlyDictionary<long, BloodUnit> units,
+        IReadOnlyList<Crossmatch> crossmatches)
     {
         private readonly Dictionary<long, Patient> _patients = patients.ToDictionary(p => p.Id);
         private readonly Dictionary<long, PatientBloodTypeHistory> _types = types
@@ -1692,10 +1888,14 @@ public sealed class IssuingService
         private readonly Dictionary<long, Allocation> _allocations = allocations.ToDictionary(a => a.Id);
         private readonly Dictionary<long, Specimen> _specimens = specimens.ToDictionary(s => s.Id);
         private readonly IReadOnlyDictionary<long, BloodUnit> _units = units;
+        private readonly Dictionary<(long PatientId, long UnitId), List<Crossmatch>> _crossmatches = crossmatches
+            .GroupBy(x => (x.PatientId, x.BloodProductId))
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         public (string? Mrn, string? DisplayName, string? DateOfBirth, string? UnitNumber, string? CurrentBloodType,
             bool HasAntibodyHistory, string? AntibodySummary, DateTime? SpecimenExpiresUtc, bool SpecimenExpired,
-            long? SpecimenId, string? AccessionNumber)
+            long? SpecimenId, string? AccessionNumber, string? ProductName, DateTime? UnitExpiresUtc,
+            string? UnitBloodType, DateTime? CrossmatchExpiresUtc, CrossmatchResult? LatestCrossmatchResult)
             For(Issue issue, DateTime clock)
         {
             _patients.TryGetValue(issue.PatientId, out var patient);
@@ -1715,7 +1915,39 @@ public sealed class IssuingService
                 expires,
                 expires is DateTime exp && exp <= clock,
                 specimen?.Id,
-                specimen?.AccessionNumber);
+                specimen?.AccessionNumber,
+                unit?.ProductType?.Name,
+                unit?.ExpiresUtc,
+                unit is null ? null : unit.BloodType.ToString(),
+                CurrentCompatibleCrossmatchExpiresUtc(issue, clock),
+                LatestRecordedCrossmatchResult(issue));
+        }
+
+        private CrossmatchResult? LatestRecordedCrossmatchResult(Issue issue)
+        {
+            if (!_crossmatches.TryGetValue((issue.PatientId, issue.BloodProductId), out var matches)
+                || matches.Count == 0)
+            {
+                return null;
+            }
+
+            var latest = matches
+                .OrderByDescending(x => x.PerformedUtc)
+                .ThenByDescending(x => x.Id)
+                .First();
+            return latest.Result == CrossmatchResult.NotPerformed ? null : latest.Result;
+        }
+
+        private DateTime? CurrentCompatibleCrossmatchExpiresUtc(Issue issue, DateTime clock)
+        {
+            if (!_crossmatches.TryGetValue((issue.PatientId, issue.BloodProductId), out var matches))
+            {
+                return null;
+            }
+
+            return CrossmatchValidityRule.CurrentCompatibleExpiresUtc(
+                matches.Select(x => (x.Result, x.ExpiresUtc)),
+                clock);
         }
 
         private Specimen? ResolveSpecimen(Issue issue)

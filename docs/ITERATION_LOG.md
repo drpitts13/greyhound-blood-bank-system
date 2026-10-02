@@ -2457,3 +2457,2426 @@ still offered Replay on that earlier copy, and replay ran it again.
 
 Next workflow family: HL7 data load. SME items remain: OCD-001
 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 80 — Compatible units rank like commercial selection (2026-09-29)
+
+WellSky alerts when a patient has autologous or directed products. SafeTrace
+and SoftBank put the best usable unit ahead of a flat expiry list. This list
+still offered another patient's restricted unit and ranked a short-dated
+group O unit ahead of type-specific stock.
+
+### Implemented
+
+- Another patient's autologous or directed unit is omitted from the list.
+- This patient's restricted units come first, then ABO/Rh-identical stock,
+  then a compatible substitute.
+- Within a band, antigen-negative precedes untested, which precedes a unit
+  that needs an antigen-negative override. Shortest expiration still orders
+  the band.
+- The Products tab warns when that patient has an available restricted unit.
+  Both unit pickers show the cue.
+- Reserve of another patient's restricted unit still hard-stops.
+
+### Requirements / risk
+
+- URS-BB-233, FRS-BB-268, SRS-BB-230, RISK-BB-335.
+- Does not claim AABB compliance. This is a selection order, not a compatibility grade.
+
+### Tests
+
+- TEST-BB-122 (`PatientAllocationTests.ListCompatibleUnits_RanksOwnRestrictedAndIdenticalBeforeSubstitute`; `ProductSelectionOrderTests`).
+- Full suite green: Domain 1406, Application 38, HL7 63, Printing 21, ASTM 19, Integration 900.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 81 — Outdated units are not offered for selection (2026-09-29)
+
+WellSky, SafeTrace, and SoftBank do not offer an outdated component on the
+selection list. This list still included an Available unit at or past
+expiration. Issue already refused that unit.
+
+### Implemented
+
+- The compatible-unit list omits a unit at or past expiration.
+- An in-date unit stays on the list.
+- The unit status is unchanged.
+- The Products tab says an outdated unit is not offered.
+- `UNIT-EXPIRED` stays the issue-gate hard stop.
+
+### Requirements / risk
+
+- URS-BB-234, FRS-BB-269, SRS-BB-231, RISK-BB-336.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-123 (`PatientAllocationTests.ListCompatibleUnits_OmitsOutdatedUnit`).
+- Full suite green: Domain 1406, Application 38, HL7 63, Printing 21, ASTM 19, Integration 901.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 82 — Short-dated units are marked at selection (2026-09-29)
+
+SafeTrace and SoftBank show a unit that is inside the outdate window while
+the technologist is still choosing it. This list already sorted by expiration
+and the inventory board already used `Inventory.NearExpiryWarningHours`. The
+picker did not say the unit expires soon.
+
+### Implemented
+
+- A compatible unit inside that window is marked expires soon.
+- A unit outside the window is not marked.
+- Both stay on the list. Status is unchanged.
+- The window is the existing facility policy. When policy is absent, it is 24 hours.
+- The Products and Orders pickers show the mark. The Products tab says so.
+- `UNIT-NEAR-EXPIRY` stays the issue-gate warning.
+
+### Requirements / risk
+
+- URS-BB-235, FRS-BB-270, SRS-BB-232, RISK-BB-337.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-124 (`PatientAllocationTests.ListCompatibleUnits_MarksUnitInsideNearExpiryWindow`).
+- Full suite green: Domain 1406, Application 38, HL7 63, Printing 21, ASTM 19, Integration 902.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 83 — Units that fail a special requirement are not offered (2026-09-29)
+
+WellSky, SafeTrace, and SoftBank do not offer a unit that fails an irradiated,
+CMV-negative, leukoreduced, washed, or antigen-negative special need. This list
+still included that unit. Issue already refused it, and that hard stop has no
+override definition.
+
+### Implemented
+
+- The compatible-unit list omits a unit that fails an active product-attribute or antigen-negative requirement.
+- A requirement that is only an issue acknowledgment, an ABO subgroup, or a complex crossmatch does not remove units.
+- The unit status is unchanged.
+- The Products tab says those units are not offered.
+- `ISS-SPECIAL-REQ` stays the issue-gate hard stop.
+
+### Requirements / risk
+
+- URS-BB-236, FRS-BB-271, SRS-BB-233, RISK-BB-338.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-125 (`SpecialTransfusionRequirementRuleTests` unit-selection cases; `PatientAllocationTests.ListCompatibleUnits_OmitsUnitThatFailsSpecialRequirement`; `PatientAllocationTests.ListCompatibleUnits_KeepsUnitForAcknowledgmentOnlyRequirement`).
+- Full suite green: Domain 1408, Application 38, HL7 63, Printing 21, ASTM 19, Integration 904.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 84 — The chart shows the specimen the issue gate will read (2026-09-29)
+
+WellSky and SafeTrace show the current specimen and its expiration on the
+patient banner. Ready to issue already marks a missing or expired specimen.
+The chart header did not.
+
+### Implemented
+
+- The header names the latest accepted specimen.
+- A missing, undated, or expired specimen is a warning that blocks issue.
+- A specimen inside the existing 12-hour issue-gate window says it expires soon.
+- An older accepted specimen is not shown as current.
+- The issue gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-237, FRS-BB-272, SRS-BB-234, RISK-BB-339.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-126 (`CurrentSpecimenBannerTests`).
+- Full suite green: Domain 1412, Application 38, HL7 63, Printing 21, ASTM 19, Integration 904.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 85 — A current crossmatch is listed ahead of unmatched stock (2026-09-29)
+
+SafeTrace and SoftBank put a unit that already has a compatible crossmatch
+in front of unmatched stock. This list still ordered only by expiration
+inside each selection group.
+
+### Implemented
+
+- Within each group, a unit with a current compatible crossmatch for this patient is listed first.
+- The picker says Crossmatch compatible.
+- Another patient's crossmatch does not count.
+- An incompatible result does not count.
+- A crossmatch at or past its expiration does not count.
+- A unit without that crossmatch stays on the list.
+- Issue uses the same predicate.
+
+### Requirements / risk
+
+- URS-BB-238, FRS-BB-273, SRS-BB-235, RISK-BB-340.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-127 (`CrossmatchRuleTests.CurrentCompatible_MatchesTheIssuePredicate`; `PatientAllocationTests.ListCompatibleUnits_ListsCurrentCrossmatchAheadOfShorterDatedUnit`).
+- Full suite green: Domain 1413, Application 38, HL7 63, Printing 21, ASTM 19, Integration 905.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 86 — The chart shows a missing second ABO/Rh (2026-09-29)
+
+SafeTrace and SoftBank show on the patient banner when red-cell issue still
+needs a second concordant ABO/Rh. Ready to issue already badges that.
+The chart header showed only the current type.
+
+### Implemented
+
+- When the facility requires a second ABO/Rh and the current type has no concordant historical row, the chart says red-cell issue needs that type.
+- When the second type is on file, the blood-type stat says so.
+- The notice is absent when the facility requirement is off, and when there is no current type.
+- `ISS-SECOND-ABO` stays the issue-gate hard stop.
+
+### Requirements / risk
+
+- URS-BB-239, FRS-BB-274, SRS-BB-236, RISK-BB-341.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-128 (`SecondAboDeterminationRuleTests.ChartNotice_OnlyWhenRequiredAndCurrentTypeLacksAMatch`).
+- Full suite green: Domain 1414, Application 38, HL7 63, Printing 21, ASTM 19, Integration 905.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 87 — An incompatible crossmatch is listed after unmatched stock (2026-09-30)
+
+SafeTrace and SoftBank keep a unit that already crossmatched incompatible for this patient behind unmatched stock and label it. The compatible list ordered that unit with unmatched stock by expiration.
+
+### Implemented
+
+- A unit with an incompatible crossmatch for this patient, and no current compatible crossmatch, is listed after unmatched units in the same group and marked Crossmatch incompatible.
+- The unit stays on the list. An expired incompatible result still counts.
+- Another patient's incompatible result does not mark or demote the unit.
+- A later current compatible crossmatch still ranks first and is marked Crossmatch compatible.
+- Issue uses the same incompatible predicate. `ISS-XM-REQUIRED` stays the override warning.
+
+### Requirements / risk
+
+- URS-BB-240, FRS-BB-275, SRS-BB-237, RISK-BB-342.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-129 (`CrossmatchRuleTests.CountsAsIncompatible_MatchesTheIssuePredicate`; `PatientAllocationTests.ListCompatibleUnits_ListsIncompatibleCrossmatchAfterUnmatchedUnit`).
+- Full suite green: Domain 1415, Application 38, HL7 63, Printing 21, ASTM 19, Integration 906.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 88 — The chart shows why electronic crossmatch is not eligible (2026-09-30)
+
+SafeTrace and SoftBank show the computer-crossmatch block on the patient banner. This chart badge said Not eligible, and the reason stayed on the Overview tab.
+
+### Implemented
+
+- When electronic crossmatch is not eligible, the chart header shows the existing blocking reason on every tab.
+- An eligible result, or a missing reason, shows no notice.
+- The overview uses the same notice.
+- Eligibility criteria are unchanged. A currently undetectable antibody still blocks electronic crossmatch (OCD-001).
+
+### Requirements / risk
+
+- URS-BB-241, FRS-BB-276, SRS-BB-238, RISK-BB-343.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-130 (`ElectronicCrossmatchBannerTests.Notice_ShowsBlockingReasonOnlyWhenNotEligible`).
+- Full suite green: Domain 1416, Application 38, HL7 63, Printing 21, ASTM 19, Integration 906.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 89 — Ready to issue marks an open antibody identification (2026-09-30)
+
+WellSky and SafeTrace flag an unfinished antibody identification on the issue worklist. Ready to issue showed antibodies, specimen, and second ABO, and the open-workup warning appeared only when issue ran.
+
+### Implemented
+
+- A reserved unit is marked Open ABID when the patient has an open antibody-identification workup.
+- The mark uses the existing `ABID-ISSUE-OPEN` warning. A completed workup is not marked.
+- The row stays on the board and can still be issued.
+- The issue gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-242, FRS-BB-277, SRS-BB-239, RISK-BB-344.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-131 (`AntibodyIdentificationHistoryPostRuleTests.ReadyToIssueNotice_UsesTheIssueWarning`; `Phase4IssuingTests.ListReadyToIssue_FlagsOpenAntibodyWorkupWithoutRemovingTheRow`).
+- Full suite green: Domain 1417, Application 38, HL7 63, Printing 21, ASTM 19, Integration 907.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 90 — Ready to issue marks a short-dated unit (2026-09-30)
+
+WellSky and SafeTrace flag a short-dated unit on the issue worklist. Ready to issue marked only a unit already past expiration.
+
+### Implemented
+
+- A reserved unit inside the facility near-expiry window is marked Expires soon.
+- A completed thaw uses the shorter post-thaw window, the same window issue uses.
+- An outdated unit stays Outdated and is not marked Expires soon.
+- The row stays issuable. `UNIT-NEAR-EXPIRY` stays the issue-gate warning.
+
+### Requirements / risk
+
+- URS-BB-243, FRS-BB-278, SRS-BB-240, RISK-BB-345.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-132 (`Phase4IssuingTests.ListReadyToIssue_MarksUnitInsideTheIssueNearExpiryWindow`).
+- Full suite green: Domain 1417, Application 38, HL7 63, Printing 21, ASTM 19, Integration 908.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 91 — Ready to issue shows why electronic crossmatch is blocked (2026-09-30)
+
+SafeTrace and SoftBank show the computer-crossmatch block on the issue worklist. Ready to issue showed the latest crossmatch result, and the blocking reason stayed on the patient chart.
+
+### Implemented
+
+- A reserved unit shows the existing electronic-crossmatch blocking reason.
+- An eligible patient shows no notice.
+- The row stays issuable for serologic issue.
+- Eligibility criteria are unchanged. A currently undetectable antibody still blocks electronic crossmatch (OCD-001).
+
+### Requirements / risk
+
+- URS-BB-244, FRS-BB-279, SRS-BB-241, RISK-BB-346.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-133 (`Phase4IssuingTests.ListReadyToIssue_ShowsElectronicCrossmatchBlockingReason`).
+- Full suite green: Domain 1417, Application 38, HL7 63, Printing 21, ASTM 19, Integration 909.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 92 — Ready to issue marks a unit that still needs a crossmatch (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show a missing or incompatible crossmatch on the issue worklist. Ready to issue showed the latest result and still offered routine issue.
+
+### Implemented
+
+- A reserved unit with no current compatible crossmatch is marked with the existing standard-issue message and is not offered as a routine issue.
+- An incompatible result is marked and stays issuable. The existing override still applies.
+- A current compatible result, including one recorded after an incompatible result, is not marked. Another patient's result does not count.
+- A product that does not require a crossmatch is not marked.
+- Emergency release and the issue gate are unchanged.
+
+### Requirements / risk
+
+- URS-BB-245, FRS-BB-280, SRS-BB-242, RISK-BB-347.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-134 (`CrossmatchRuleTests.DescribeReadyToIssue_MatchesTheStandardIssueEvaluation`; `Phase4IssuingTests.ListReadyToIssue_MarksMissingCrossmatchAndKeepsIncompatibleIssuable`).
+- Full suite green: Domain 1418, Application 38, HL7 63, Printing 21, ASTM 19, Integration 910.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 93 — Ready to issue marks an unmet special requirement (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show an unmet special need on the issue worklist. Ready to issue still offered routine issue and emergency release for a reserved unit that fails an irradiated, CMV-negative, leukoreduced, washed, or antigen-negative requirement.
+
+### Implemented
+
+- A reserved unit that fails one of those active requirements is marked with the existing hard-stop message.
+- Routine issue and emergency release are not offered. The issue gate already hard-stops both.
+- A unit that meets the requirement is not marked.
+- An acknowledgment-only requirement and an ended requirement are not marked.
+- The issue gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-246, FRS-BB-281, SRS-BB-243, RISK-BB-348.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-135 (`SpecialTransfusionRequirementRuleTests.ReadyToIssueNotice_UsesTheUnitFactHardStop`; `Phase4IssuingTests.ListReadyToIssue_MarksUnmetSpecialRequirementWithoutOfferingIssue`).
+- Full suite green: Domain 1419, Application 38, HL7 63, Printing 21, ASTM 19, Integration 911.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 94 — Ready to issue marks a unit that is not antigen-negative (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank flag an antigen warning on the issue worklist. Ready to issue showed the patient's antibodies and still offered issue without that warning.
+
+### Implemented
+
+- A reserved unit that is not antigen-negative for a clinically significant antibody is marked with the existing warning.
+- The row stays on the board and can still be issued. The existing override still applies.
+- A unit already antigen-negative for that antibody is not marked.
+- A patient without that antibody is not marked.
+- The issue gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-247, FRS-BB-282, SRS-BB-244, RISK-BB-349.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-136 (`BloodAttributeCompatibilityRuleTests.ReadyToIssueNotice_UsesTheIssueWarning`; `Phase4IssuingTests.ListReadyToIssue_MarksAntigenWarningWithoutRemovingTheRow`).
+- Full suite green: Domain 1420, Application 38, HL7 63, Printing 21, ASTM 19, Integration 912.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 95 — Ready to issue marks an unresolved ABO/Rh discrepancy (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show an ABO/Rh discrepancy on the issue worklist. Ready to issue still offered issue when the current type disagreed with the historical record.
+
+### Implemented
+
+- A reserved crossmatch-required unit is marked with the existing hard stop and is not offered for routine or emergency issue.
+- A product that does not require a crossmatch is marked with the existing warning and stays issuable.
+- A concordant history is not marked.
+- The issue gate uses the same discrepancy result and the same history predicate.
+
+### Requirements / risk
+
+- URS-BB-248, FRS-BB-283, SRS-BB-245, RISK-BB-350.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-137 (`IssueGateTests.DescribeAboRhDiscrepancy_MatchesTheIssueGate`; `Phase4IssuingTests.ListReadyToIssue_MarksUnresolvedAboRhDiscrepancy`).
+- Full suite green: Domain 1421, Application 38, HL7 63, Printing 21, ASTM 19, Integration 913.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 96 — The chart shows an unresolved ABO/Rh discrepancy (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show an ABO/Rh discrepancy on the patient banner. This chart showed the disagreement when a result was entered and on the issue desk, and not on the other chart tabs.
+
+### Implemented
+
+- When the current ABO/Rh disagrees with history, the chart header shows the existing warning on every tab.
+- A concordant history shows no notice.
+- The product-specific hard stop stays on issue.
+
+### Requirements / risk
+
+- URS-BB-249, FRS-BB-284, SRS-BB-246, RISK-BB-351.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-138 (`IssueGateTests.PatientBannerNotice_UsesTheDisagreementWarning`).
+- Full suite green: Domain 1422, Application 38, HL7 63, Printing 21, ASTM 19, Integration 913.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 97 — The chart shows a recorded transfusion reaction (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank keep a prior transfusion reaction on the patient banner. This chart showed that fact on product history and not on the other tabs.
+
+### Implemented
+
+- When product history already marks a transfusion reaction suspected, the chart header shows that fact on every tab.
+- A history with no suspected reaction shows no notice.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-250, FRS-BB-285, SRS-BB-247, RISK-BB-352.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-139 (`ReactionHistoryBannerTests.Notice_NamesARecordedReactionAndStaysQuietOtherwise`).
+- Full suite green: Domain 1423, Application 38, HL7 63, Printing 21, ASTM 19, Integration 913.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 98 — Ready to issue shows a recorded transfusion reaction (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show a prior transfusion reaction on the issue queue. This desk showed that fact on the chart and not on Ready to issue.
+
+### Implemented
+
+- When a reserved unit's patient has a transfusion already recorded as reaction suspected, Ready to issue shows the same sentence as the chart.
+- A transfusion that was not a suspected reaction is not marked.
+- The row stays issuable.
+
+### Requirements / risk
+
+- URS-BB-251, FRS-BB-286, SRS-BB-248, RISK-BB-353.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-140 (`Phase4IssuingTests.ListReadyToIssue_MarksRecordedReactionWithoutRemovingTheRow`).
+- Full suite green: Domain 1423, Application 38, HL7 63, Printing 21, ASTM 19, Integration 914.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 99 — The issue form repeats Ready to issue marks (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank keep the unit's warnings on the issue transaction. This desk showed those marks on the queue and not on the form after Issue or Emergency.
+
+### Implemented
+
+- Choosing Issue or Emergency repeats that row's existing marks on the issue form while the same unit and patient stay selected.
+- A row with no marks adds no notice.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-252, FRS-BB-287, SRS-BB-249, RISK-BB-354.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-141 (`ReadyToIssueFormCueTests.Notices_RepeatTheReadyToIssueMarks`).
+- Full suite green: Domain 1423, Application 39, HL7 63, Printing 21, ASTM 19, Integration 914.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 100 — Ready to issue names an autologous or directed unit (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank mark a patient's own autologous or directed unit on the issue queue. This desk showed that cue on the chart picker and not on Ready to issue.
+
+### Implemented
+
+- When a reserved unit is this patient's autologous or directed unit, Ready to issue shows the existing selection cue.
+- An allogeneic unit is not marked.
+- The row stays issuable. The issue gate still refuses another patient's restricted unit.
+- Choosing Issue or Emergency repeats that cue on the issue form.
+
+### Requirements / risk
+
+- URS-BB-253, FRS-BB-288, SRS-BB-250, RISK-BB-355.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-142 (`Phase4IssuingTests.ListReadyToIssue_MarksThisPatientsAutologousAndDirectedUnits`).
+- Full suite green: Domain 1424, Application 39, HL7 63, Printing 21, ASTM 19, Integration 915.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 101 — Ready to issue shows the product name (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the product on the issue queue. This desk showed the unit number and blood type, and not the product name.
+
+### Implemented
+
+- Ready to issue shows the product name of each reserved unit.
+- Choosing Issue or Emergency repeats that name on the issue form.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-254, FRS-BB-289, SRS-BB-251, RISK-BB-356.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-143 (`Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate`).
+- Full suite green: Domain 1424, Application 39, HL7 63, Printing 21, ASTM 19, Integration 915.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 102 — Issued queues show the product name (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank keep the product name on a unit after it leaves the ready queue. Retrospective crossmatch due, in transit, and issued units showed the unit number and blood type, and not the product.
+
+### Implemented
+
+- Those three queues show the product name of the issued unit.
+- Receive repeats that name on ward receipt. Return and Document repeat it on those forms.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-255, FRS-BB-290, SRS-BB-252, RISK-BB-357.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-144 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1424, Application 39, HL7 63, Printing 21, ASTM 19, Integration 915.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 103 — Ready to issue shows when the unit expires (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the unit expiration on the issue queue. This desk marked a unit only after it entered the near-expiry window, and did not show the expiration time.
+
+### Implemented
+
+- Ready to issue shows when each reserved unit expires.
+- Choosing Issue or Emergency repeats that time on the issue form.
+- The near-expiry mark and the outdated hard stop are unchanged.
+
+### Requirements / risk
+
+- URS-BB-256, FRS-BB-291, SRS-BB-253, RISK-BB-358.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-145 (`Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate`).
+- Full suite green: Domain 1424, Application 39, HL7 63, Printing 21, ASTM 19, Integration 915.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 104 — Issued queues show when the unit expires (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank keep the unit expiration visible after it leaves the ready queue. Retrospective crossmatch due, in transit, and issued units showed the product and not when it expires.
+
+### Implemented
+
+- Those three queues show when the issued unit expires.
+- Receive repeats that time on ward receipt. Return and Document repeat it on those forms.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-257, FRS-BB-292, SRS-BB-254, RISK-BB-359.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-146 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1424, Application 39, HL7 63, Printing 21, ASTM 19, Integration 915.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 105 — The chart shows the unit expiration time (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the product and the expiration time when staff review or choose a unit. This chart listed the product code without the name or the expiration, and unit choices showed the date without the time.
+
+### Implemented
+
+- Allocated products show the product name and when the unit expires, including the time.
+- Unit choices use that same expiration sentence.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-258, FRS-BB-293, SRS-BB-255, RISK-BB-360.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-147 (`PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved`).
+- Full suite green: Domain 1424, Application 39, HL7 63, Printing 21, ASTM 19, Integration 915.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 106 — Ready to issue shows the unit ABO/Rh (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the unit ABO/Rh beside the patient type on the issue queue. This desk labeled one Type column, and that column was the patient.
+
+### Implemented
+
+- Ready to issue shows the unit ABO/Rh next to the patient type.
+- Choosing Issue or Emergency repeats that unit type on the issue form.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-259, FRS-BB-294, SRS-BB-256, RISK-BB-361.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-148 (`Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate`).
+- Full suite green: Domain 1424, Application 39, HL7 63, Printing 21, ASTM 19, Integration 915.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 107 — Issued queues show the unit ABO/Rh (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank keep the unit ABO/Rh visible after it leaves the ready queue. Retrospective crossmatch due, in transit, and issued units labeled one Type column, and that column was the patient.
+
+### Implemented
+
+- Those three queues show the unit ABO/Rh beside the patient type.
+- Receive repeats that type on ward receipt. Return and Document repeat it on those forms.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-260, FRS-BB-295, SRS-BB-257, RISK-BB-362.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-149 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1424, Application 39, HL7 63, Printing 21, ASTM 19, Integration 915.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 108 — The chart shows the unit ABO/Rh (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the unit ABO/Rh when staff review a patient's allocated products. This chart listed the product and the expiration, and not the unit type.
+
+### Implemented
+
+- Allocated products show the unit ABO/Rh with the product name and expiration.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-261, FRS-BB-296, SRS-BB-258, RISK-BB-363.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-150 (`PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved`).
+- Full suite green: Domain 1424, Application 39, HL7 63, Printing 21, ASTM 19, Integration 915.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 109 — Ready to issue shows when the crossmatch expires (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show when a current compatible crossmatch expires. This desk showed the crossmatch result and not that time.
+
+### Implemented
+
+- Ready to issue shows the expiration of the current compatible crossmatch. An undated current compatible crossmatch has no clock. A lapsed or incompatible result is not given that time.
+- Choosing Issue or Emergency repeats that time on the issue form.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-262, FRS-BB-297, SRS-BB-259, RISK-BB-364.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-151 (`Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate`).
+- Full suite green: Domain 1425, Application 39, HL7 63, Printing 21, ASTM 19, Integration 915.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 110 — Ready to issue shows where the unit is stored (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the refrigerator or other storage site on the issue worklist. This desk showed the unit number and not that location.
+
+### Implemented
+
+- Ready to issue shows the current storage location of each reserved unit. A blank location name falls back to the location code. A unit with no location shows none.
+- Choosing Issue or Emergency repeats that location on the issue form.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-263, FRS-BB-298, SRS-BB-260, RISK-BB-365.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-152 (`Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 111 — The chart shows where the unit is stored (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the storage site when staff select or review a unit for a patient. This chart showed the unit number and not that location.
+
+### Implemented
+
+- The patient product list shows the current storage location of each allocated unit. A blank location name falls back to the location code. A unit with no location shows none.
+- Unit choices on the chart repeat that location. Selecting a unit shows the same location beside the expiration.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-264, FRS-BB-299, SRS-BB-261, RISK-BB-366.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-153 (`PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 112 — Ready to issue shows the specimen accession (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show which specimen the issue is tied to. This desk showed when that specimen expires and not its accession.
+
+### Implemented
+
+- Ready to issue shows the accession of the current specimen for each reserved unit. A patient with no current specimen shows none.
+- Choosing Issue or Emergency repeats that accession on the issue form.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-265, FRS-BB-300, SRS-BB-262, RISK-BB-367.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-154 (`Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 113 — Issued queues show the specimen accession (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show which specimen an issued unit is tied to. In transit and issued units showed when that specimen expires and not its accession.
+
+### Implemented
+
+- In transit and issued units show the specimen accession tied to that issue. A unit with no linked specimen shows none.
+- Receive repeats that accession on ward receipt. Return and Document repeat it on those forms.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-266, FRS-BB-301, SRS-BB-263, RISK-BB-368.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-155 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 114 — Issued queues show when the crossmatch expires (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank keep the crossmatch expiration visible after a unit leaves the ready queue. Retrospective crossmatch due, in transit, and issued units showed the specimen and not when a current compatible crossmatch ends.
+
+### Implemented
+
+- Those three queues show when a current compatible crossmatch for that patient and unit expires. A unit with no current compatible crossmatch shows none.
+- Receive repeats that time on ward receipt. Return and Document repeat it on those forms.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-267, FRS-BB-302, SRS-BB-264, RISK-BB-369.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-156 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 115 — The chart shows when the crossmatch expires (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show when a crossmatch expires while staff review a patient's allocated products. This chart showed the unit and not that time.
+
+### Implemented
+
+- Allocated products show when a current compatible crossmatch for that unit expires. A unit with no current compatible crossmatch shows none.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-268, FRS-BB-303, SRS-BB-265, RISK-BB-370.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-157 (`PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 116 — Unit choices show when the crossmatch expires (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show when a crossmatch expires while staff choose a unit. This chart marked a choice Crossmatch compatible and did not show when that crossmatch ends.
+
+### Implemented
+
+- Unit choices show when a current compatible crossmatch expires, after the Crossmatch compatible cue. A choice with no current compatible crossmatch shows none.
+- Selecting a unit repeats that time.
+- The orders tab uses the same choice label.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-269, FRS-BB-304, SRS-BB-266, RISK-BB-371.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-158 (`PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 117 — Issued queues show the crossmatch result (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the crossmatch interpretation after a unit leaves the ready queue. Retrospective crossmatch due, in transit, and issued units showed a crossmatch time or a blank, so an incompatible result looked like testing that had not been done.
+
+### Implemented
+
+- Those three queues show the latest crossmatch result for that patient and unit. A unit with no crossmatch result shows none.
+- A current compatible expiration stays beside that result.
+- Receive repeats the result and that expiration. Return and Document repeat them on those forms.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-270, FRS-BB-305, SRS-BB-267, RISK-BB-372.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-159 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 118 — Allocated products show the crossmatch result (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the crossmatch interpretation on the patient product list. Allocated products showed a crossmatch time or a blank, so an incompatible or expired result looked like testing that had not been done.
+
+### Implemented
+
+- Allocated products show the latest crossmatch result for that patient and unit. A unit with no crossmatch result, including NotPerformed, shows none.
+- A current compatible expiration stays beside that result.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-271, FRS-BB-306, SRS-BB-268, RISK-BB-373.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-160 (`PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 119 — Ready to issue repeats the crossmatch result (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank repeat the crossmatch interpretation on the issue form. Ready to issue showed the result on the row, but Issue and Emergency repeated only a crossmatch time, so an incompatible or expired result looked like testing that had not been done once the form opened.
+
+### Implemented
+
+- Ready to issue shows the latest crossmatch result for that patient and unit. A unit with no crossmatch result, including NotPerformed, shows none.
+- A current compatible expiration stays beside that result.
+- Issue and Emergency repeat the result and that expiration.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-272, FRS-BB-307, SRS-BB-269, RISK-BB-374.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-161 (`ReadyToIssueFormCueTests.Notices_RepeatTheReadyToIssueMarks`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 120 — Unit choices show the crossmatch result (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the crossmatch interpretation while a unit is being chosen. Unit choices showed a crossmatch time or a blank, so an incompatible or expired result looked like testing that had not been done.
+
+### Implemented
+
+- Unit choices and the selected unit show the latest crossmatch result for that patient and unit. A unit with no crossmatch result, including NotPerformed, shows none.
+- A current compatible expiration stays beside a compatible result.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-273, FRS-BB-308, SRS-BB-270, RISK-BB-375.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-162 (`PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 121 — Product history shows the crossmatch result (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the crossmatch interpretation on the patient's product history. Assigned, issued, returned, and transfused rows left Compatibility blank, so an incompatible result looked like testing that had not been done.
+
+### Implemented
+
+- Those rows show the latest crossmatch result for that patient and unit. A unit with no crossmatch result, including NotPerformed, shows none.
+- A crossmatch event shows that event's result. A blank event shows none.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-274, FRS-BB-309, SRS-BB-271, RISK-BB-376.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-163 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 122 — Product history shows the linked specimen (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show which specimen was used when staff review what was issued. Product history stored that accession on the allocation and left it off the issued, returned, and transfused rows.
+
+### Implemented
+
+- Issued, returned, and transfused rows show the specimen accession linked through that issue's allocation.
+- A row with no linked specimen shows none.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-275, FRS-BB-310, SRS-BB-272, RISK-BB-377.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-164 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 123 — Product history shows when the unit expires (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the unit outdate when staff review what was issued. Product history stored that expiration on the unit and left it off the history rows.
+
+### Implemented
+
+- Each assigned, issued, returned, transfused, and crossmatch row shows when that unit expires.
+- A row with no unit expiration shows none.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-276, FRS-BB-311, SRS-BB-273, RISK-BB-378.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-165 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 124 — Product history shows who performed the event (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show who issued, assigned, crossmatched, returned, or documented a unit when staff review the patient's product history. That name was stored on the event and left off the chart.
+
+### Implemented
+
+- Each assigned, issued, returned, transfused, and crossmatch row shows who performed that event.
+- A row with no performer shows none.
+- Allocation and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-277, FRS-BB-312, SRS-BB-274, RISK-BB-379.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-166 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 125 — Product history shows the return reason (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show why a unit came back and whether it can be reissued when staff review the patient's product history. That reason and decision were stored on the return and left off the chart.
+
+### Implemented
+
+- A returned row shows the return reason and whether the unit was marked eligible to reissue.
+- A blank reason shows none. A row that is not a return shows none for those facts.
+- Allocation, return, and reissue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-278, FRS-BB-313, SRS-BB-275, RISK-BB-380.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-167 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 126 — Product history shows who the unit was issued to (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the person who received a unit when staff review the patient's product history. Product history showed the location and left that person off the issued, returned, and transfused rows.
+
+### Implemented
+
+- Issued, returned, and transfused rows show the person recorded on the issue.
+- A row with no issued-to person shows none.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-279, FRS-BB-314, SRS-BB-276, RISK-BB-381.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-168 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 127 — Issue queues show who the unit was issued to (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the person who received a unit on the in-transit and issued worklists. Those queues showed the location and left that person off.
+
+### Implemented
+
+- The in-transit and issued queues show the person recorded on the issue.
+- A unit with no issued-to person shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-280, FRS-BB-315, SRS-BB-277, RISK-BB-382.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-169 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 39, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 128 — Receive, Return, and Document name who the unit was issued to (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank repeat the person who received a unit when staff confirm custody, send it back, or document the transfusion. Those forms left that person off.
+
+### Implemented
+
+- Receive, Return, and Document repeat the person recorded on the issue.
+- A unit with no issued-to person shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-281, FRS-BB-316, SRS-BB-278, RISK-BB-383.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-170 (`IssuedToNoticeTests.IssuedToNotice_NamesThePerson`).
+- Full suite green: Domain 1447, Application 40, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 129 — Retrospective crossmatch names who the unit was issued to (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show the person who received an uncrossmatched unit while staff still owe the retrospective crossmatch. That queue left the person off.
+
+### Implemented
+
+- The retrospective crossmatch queue shows the person recorded on the issue.
+- A unit with no issued-to person shows none.
+- Retrospective crossmatch completion is unchanged.
+
+### Requirements / risk
+
+- URS-BB-282, FRS-BB-317, SRS-BB-279, RISK-BB-384.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-171 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1447, Application 40, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 130 — Product history shows the cooler (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show which cooler or transport container left with an issued unit when staff review the patient's product history. That id was stored on the issue and left off the chart.
+
+### Implemented
+
+- Issued, returned, and transfused rows show the cooler or transport id recorded on the issue.
+- A row with no cooler shows none.
+- In-transit and issue eligibility are unchanged.
+
+### Requirements / risk
+
+- URS-BB-283, FRS-BB-318, SRS-BB-280, RISK-BB-385.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-172 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 40, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 131 — Receive, Return, and Document name the cooler (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank repeat the cooler or transport container when staff confirm custody, send a unit back, or document the transfusion. Those forms left that id off.
+
+### Implemented
+
+- Receive, Return, and Document repeat the cooler or transport id recorded on the issue.
+- A unit with no cooler shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-284, FRS-BB-319, SRS-BB-281, RISK-BB-386.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-173 (`CoolerNoticeTests.CoolerNotice_NamesTheContainer`).
+- Full suite green: Domain 1447, Application 41, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 132 — Issued queue shows the cooler (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show which cooler or transport container left with a unit that is still issued. The in-transit queue already showed that id. The outstanding issued queue left it off.
+
+### Implemented
+
+- The issued-units queue shows the cooler or transport id recorded on the issue.
+- A unit with no cooler shows none. The id stays after ward receipt.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-285, FRS-BB-320, SRS-BB-282, RISK-BB-387.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-174 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 41, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 133 — Retrospective queue shows the cooler (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show which cooler or transport container left with an uncrossmatched emergency or MTP unit. The retrospective queue showed who received it and left the container off.
+
+### Implemented
+
+- The retrospective crossmatch queue shows the cooler or transport id recorded on the issue.
+- A unit with no cooler shows none.
+- Retrospective completion is unchanged.
+
+### Requirements / risk
+
+- URS-BB-286, FRS-BB-321, SRS-BB-283, RISK-BB-388.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-175 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1447, Application 41, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 134 — Retrospective crossmatch names custody (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank keep who received an uncrossmatched unit, and which cooler carried it, in front of the technologist recording the follow-up crossmatch. That screen only said the form was prefilled from the retrospective queue.
+
+### Implemented
+
+- The retrospective crossmatch screen repeats the issued-to person and the cooler or transport id from the pending issue.
+- A unit with neither shows none.
+- Recording the crossmatch is unchanged.
+
+### Requirements / risk
+
+- URS-BB-287, FRS-BB-322, SRS-BB-284, RISK-BB-389.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-176 (`RetrospectiveFollowUpNoticeTests.RetrospectiveFollowUpNotice_NamesCustody`).
+- Full suite green: Domain 1447, Application 42, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 135 — Issued queue shows the destination (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show where an outstanding issued unit went. The in-transit queue already showed that location. The issued queue left it off.
+
+### Implemented
+
+- The issued-units queue shows the location recorded on the issue.
+- A unit with no location shows none. The location stays after ward receipt.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-288, FRS-BB-323, SRS-BB-285, RISK-BB-390.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-177 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 42, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 136 — Receive, Return, and Document name the ward (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank repeat the destination when staff confirm custody, send a unit back, or document the transfusion. Those forms left the location off.
+
+### Implemented
+
+- Receive, Return, and Document repeat the location recorded on the issue.
+- A unit with no location shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-289, FRS-BB-324, SRS-BB-286, RISK-BB-391.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-178 (`IssuedToLocationNoticeTests.IssuedToLocationNotice_NamesTheWard`).
+- Full suite green: Domain 1447, Application 43, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 137 — Retrospective follow-up names the ward (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show where an uncrossmatched emergency or MTP unit went while staff follow it up. The retrospective queue and the crossmatch screen left that location off.
+
+### Implemented
+
+- The retrospective queue shows the location recorded on the issue.
+- The follow-up crossmatch screen repeats that location with the person and cooler.
+- A unit with no location shows none.
+- Retrospective completion and recording the crossmatch are unchanged.
+
+### Requirements / risk
+
+- URS-BB-290, FRS-BB-325, SRS-BB-287, RISK-BB-392.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-179 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1447, Application 43, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 138 — Product history shows the issue type (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show whether a unit left as a routine issue, an emergency release, or another recorded issue type when staff review the patient's product history. That history left the type off.
+
+### Implemented
+
+- Issued, returned, and transfused rows show the issue type recorded on the issue.
+- A row that is not one of those events shows none.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-291, FRS-BB-326, SRS-BB-288, RISK-BB-393.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-180 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 43, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 139 — Issued queues show the issue type (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show whether a unit still out was a routine issue, an emergency release, or another recorded issue type. The retrospective queue already showed that type. The in-transit and outstanding issued queues left it off.
+
+### Implemented
+
+- The in-transit and outstanding issued queues show the issue type recorded on the issue.
+- The type stays after ward receipt.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-292, FRS-BB-327, SRS-BB-289, RISK-BB-394.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-181 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 43, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 140 — Issued queues show who released the unit (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show which technologist released a unit that is still out. Product history already names the performer of an issue event. The in-transit and outstanding issued queues left that name off.
+
+### Implemented
+
+- The in-transit and outstanding issued queues show who issued the unit.
+- The name stays after ward receipt. A blank name shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-293, FRS-BB-328, SRS-BB-290, RISK-BB-395.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-182 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 43, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 141 — Receive, Return, and Document name who released the unit (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank repeat the releasing technologist while staff receive, return, or document a unit still out. The in-transit and outstanding issued queues already show that name. Receive, Return, and Document left it off.
+
+### Implemented
+
+- Receive, Return, and Document repeat who issued the unit.
+- A blank name shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-294, FRS-BB-329, SRS-BB-291, RISK-BB-396.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-183 (`IssuedByNoticeTests.IssuedByNotice_NamesTheTechnologist`).
+- Full suite green: Domain 1447, Application 44, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 142 — Retrospective queue shows who released the unit (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show which technologist released an uncrossmatched unit while staff complete the retrospective crossmatch. The in-transit and outstanding issued queues, and Receive, Return, and Document, already show that name. The retrospective queue left it off.
+
+### Implemented
+
+- The retrospective crossmatch queue shows who issued the unit.
+- A blank name shows none.
+- Retrospective completion is unchanged.
+
+### Requirements / risk
+
+- URS-BB-295, FRS-BB-330, SRS-BB-292, RISK-BB-397.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-184 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1447, Application 44, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 143 — Retrospective follow-up names who released the unit (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank repeat the releasing technologist on the screen where staff record the retrospective crossmatch. The retrospective queue already shows that name. The follow-up screen left it off.
+
+### Implemented
+
+- The retrospective follow-up screen repeats who issued the unit, after the recipient, cooler, and ward.
+- A blank name shows none.
+- Recording the crossmatch is unchanged.
+
+### Requirements / risk
+
+- URS-BB-296, FRS-BB-331, SRS-BB-293, RISK-BB-398.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-185 (`RetrospectiveFollowUpNoticeTests.RetrospectiveFollowUpNotice_NamesCustody`).
+- Full suite green: Domain 1447, Application 44, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 144 — Retrospective queue shows the release reason (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show why an uncrossmatched unit was released while staff complete the retrospective crossmatch. The issue already records that reason. The retrospective queue left it off.
+
+### Implemented
+
+- The retrospective crossmatch queue shows the recorded emergency-release reason.
+- A blank reason shows none.
+- Retrospective completion is unchanged.
+
+### Requirements / risk
+
+- URS-BB-297, FRS-BB-332, SRS-BB-294, RISK-BB-399.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-186 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1447, Application 44, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 145 — Retrospective follow-up shows the release reason (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank repeat why an uncrossmatched unit was released on the screen where staff record the retrospective crossmatch. The retrospective queue already shows that reason. The follow-up screen left it off.
+
+### Implemented
+
+- The retrospective follow-up screen repeats the recorded emergency-release reason.
+- A blank reason shows none.
+- Recording the crossmatch is unchanged.
+
+### Requirements / risk
+
+- URS-BB-298, FRS-BB-333, SRS-BB-295, RISK-BB-400.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-187 (`EmergencyReleaseReasonNoticeTests.EmergencyReleaseReasonNotice_NamesTheReason`).
+- Full suite green: Domain 1447, Application 45, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 146 — Product history shows the release reason (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show why an emergency or massive-transfusion unit was released when staff review that patient's product history. The issue already records that reason. Product history showed the issue type and left the reason off.
+
+### Implemented
+
+- Issued, returned, and transfused rows show the recorded emergency-release reason.
+- A row that is not one of those events shows none. A blank reason shows none.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-299, FRS-BB-334, SRS-BB-296, RISK-BB-401.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-188 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 45, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 147 — Issued queues show the release reason (2026-09-30)
+
+WellSky, SafeTrace, and SoftBank show why an emergency or massive-transfusion unit was released while that unit is still issued. The retrospective queue and product history already show that reason. The in-transit and outstanding issued queues showed the issue type and left the reason off.
+
+### Implemented
+
+- Both queues show the recorded emergency-release reason, including after ward receipt.
+- A blank reason shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-300, FRS-BB-335, SRS-BB-297, RISK-BB-402.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-189 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 45, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 148 — Receive, Return, and Document repeat the release reason (2026-10-01)
+
+WellSky, SafeTrace, and SoftBank repeat why an emergency or massive-transfusion unit was released when staff receive, return, or document it. The issued queues already show that reason. Receive, Return, and Document left it off.
+
+### Implemented
+
+- Receive, Return, and Document repeat the recorded emergency-release reason as its own sentence.
+- A blank reason shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-301, FRS-BB-336, SRS-BB-298, RISK-BB-403.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-190 (`EmergencyReleaseReasonNoticeTests.EmergencyReleaseReasonNotice_NamesTheReason`).
+- Full suite green: Domain 1447, Application 45, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 149 — Issued queues show the second verifier (2026-10-01)
+
+WellSky, SafeTrace, and SoftBank show who witnessed a release while that unit is still issued. The issue already records that second verifier. The in-transit and outstanding issued queues showed who issued the unit and left the witness off.
+
+### Implemented
+
+- Both queues show the second verifier recorded at issue, including after ward receipt.
+- A blank second verifier shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-302, FRS-BB-337, SRS-BB-299, RISK-BB-404.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-191 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 45, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Receive, Return, and Document still leave the second verifier off. The retrospective queue and product history do too.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 150 — Receive, Return, and Document name the second verifier (2026-10-01)
+
+WellSky, SafeTrace, and SoftBank repeat who witnessed a release while staff receive, return, or document a unit still out. The issued queues already show that second verifier. Receive, Return, and Document left it off.
+
+### Implemented
+
+- Receive, Return, and Document repeat the second verifier recorded at issue.
+- A blank second verifier shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-303, FRS-BB-338, SRS-BB-300, RISK-BB-405.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-192 (`SecondVerifierNoticeTests.SecondVerifierNotice_NamesTheWitness`).
+- Full suite green: Domain 1447, Application 46, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The retrospective queue and product history still leave the second verifier off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 151 — Retrospective queue shows the second verifier (2026-10-01)
+
+WellSky, SafeTrace, and SoftBank show who witnessed an uncrossmatched release while staff complete the retrospective crossmatch. The issued queues and Receive, Return, and Document already show that second verifier. The retrospective queue left it off.
+
+### Implemented
+
+- The retrospective crossmatch queue shows the second verifier recorded at issue.
+- A blank second verifier shows none.
+- Retrospective completion is unchanged.
+
+### Requirements / risk
+
+- URS-BB-304, FRS-BB-339, SRS-BB-301, RISK-BB-406.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-193 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1447, Application 46, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The retrospective follow-up screen and product history still leave the second verifier off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 152 — Retrospective follow-up names the second verifier (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank repeat who witnessed an uncrossmatched release on the screen where staff record the retrospective crossmatch. The retrospective queue already shows that second verifier. The follow-up screen left it off.
+
+### Implemented
+
+- The retrospective follow-up screen repeats the second verifier recorded at issue, after the recipient, cooler, ward, and issuing technologist.
+- A blank second verifier shows none.
+- Recording the crossmatch is unchanged.
+
+### Requirements / risk
+
+- URS-BB-305, FRS-BB-340, SRS-BB-302, RISK-BB-407.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-194 (`RetrospectiveFollowUpNoticeTests.RetrospectiveFollowUpNotice_NamesCustody`).
+- Full suite green: Domain 1447, Application 46, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Product history still leaves the second verifier off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 153 — Product history shows the second verifier (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show who witnessed a release when staff review that patient's product history. The issue already records that second verifier. Issued queues, custody forms, and the retrospective screens already show it. Product history left it off.
+
+### Implemented
+
+- Issued, returned, and transfused rows show the second verifier recorded at issue.
+- A row that is not one of those events shows none. A blank second verifier shows none.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-306, FRS-BB-341, SRS-BB-303, RISK-BB-408.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-195 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 46, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 154 — Retrospective queue shows who authorized the release (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show who authorized an uncrossmatched emergency or massive-transfusion release while staff complete the retrospective crossmatch. The override already records that person. The retrospective queue showed the reason and the second verifier and left the authorizer off.
+
+### Implemented
+
+- The retrospective crossmatch queue shows who authorized the emergency or massive-transfusion release.
+- A blank authorizer shows none.
+- Retrospective completion is unchanged.
+
+### Requirements / risk
+
+- URS-BB-307, FRS-BB-342, SRS-BB-304, RISK-BB-409.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-196 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1447, Application 46, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The retrospective follow-up screen, issued queues, and product history still leave the release authorizer off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 155 — Retrospective follow-up names who authorized the release (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank repeat who authorized an uncrossmatched release on the screen where staff record the retrospective crossmatch. The retrospective queue already shows that authorizer. The follow-up screen left it off.
+
+### Implemented
+
+- The retrospective follow-up screen repeats who authorized the emergency or massive-transfusion release.
+- A blank authorizer shows none.
+- Recording the crossmatch is unchanged.
+
+### Requirements / risk
+
+- URS-BB-308, FRS-BB-343, SRS-BB-305, RISK-BB-410.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-197 (`EmergencyReleaseAuthorizerNoticeTests.EmergencyReleaseAuthorizerNotice_NamesTheAuthorizer`).
+- Full suite green: Domain 1447, Application 47, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The issued queues and product history still leave the release authorizer off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 156 — Issued queues show who authorized the release (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show who authorized an emergency or massive-transfusion release while that unit is still issued. The retrospective queue and follow-up screen already show that authorizer. The in-transit and outstanding issued queues left it off.
+
+### Implemented
+
+- Both queues show who authorized the emergency or massive-transfusion release, including after ward receipt.
+- A blank authorizer shows none.
+- Return, ward-receipt, and bedside identity gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-309, FRS-BB-344, SRS-BB-306, RISK-BB-411.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-198 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 47, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Receive, Return, Document, and product history still leave the release authorizer off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 157 — Receive, Return, and Document show who authorized the release (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank repeat who authorized an emergency or massive-transfusion release on the forms that receive, return, or document that unit. The issued queues already show the authorizer. Receive, Return, and Document left that name off.
+
+### Implemented
+
+- Receive, Return, and Document repeat who authorized the emergency or massive-transfusion release.
+- A blank authorizer shows none.
+- Ward receipt, return, and transfusion documentation gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-310, FRS-BB-345, SRS-BB-307, RISK-BB-412.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-199 (`EmergencyReleaseAuthorizerNoticeTests.EmergencyReleaseAuthorizerNotice_NamesTheAuthorizer`).
+- Full suite green: Domain 1447, Application 47, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Product history still leaves the release authorizer off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 158 — Product history shows who authorized the release (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show who authorized an emergency or massive-transfusion release on the patient's product history. Issued queues, the follow-up screen, and Receive, Return, and Document already show that authorizer. Issued, returned, and transfused history rows left it off.
+
+### Implemented
+
+- Issued, returned, and transfused product-history rows show who authorized the emergency or massive-transfusion release.
+- Other rows and a blank authorizer show none.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-311, FRS-BB-346, SRS-BB-308, RISK-BB-413.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-200 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 47, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The release authorizer is now shown on the issued queues, the follow-up screen, Receive, Return, and Document, and product history.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 159 — Issued queues show the appearance recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the visual inspection recorded when a unit left the blood bank while that unit is still issued. The issue record already stores that coded appearance. The in-transit and outstanding issued queues left it off.
+
+### Implemented
+
+- Both queues show the appearance recorded at issue, including after ward receipt.
+- The issue gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-312, FRS-BB-347, SRS-BB-309, RISK-BB-414.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-201 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 47, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Receive, Return, Document, the retrospective queue, and product history still leave the appearance recorded at issue off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 160 — Receive, Return, and Document show the appearance recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank repeat the visual inspection recorded when a unit left the blood bank on the forms that receive, return, or document that unit. The issued queues already show that appearance. Receive, Return, and Document left it off.
+
+### Implemented
+
+- Receive, Return, and Document repeat the appearance recorded at issue.
+- Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
+
+### Requirements / risk
+
+- URS-BB-313, FRS-BB-348, SRS-BB-310, RISK-BB-415.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-202 (`IssueAppearanceNoticeTests.IssueAppearanceNotice_NamesTheCode`).
+- Full suite green: Domain 1447, Application 48, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The retrospective queue and product history still leave the appearance recorded at issue off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 161 — Retrospective queue shows the appearance recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the visual inspection recorded when a unit left the blood bank on the retrospective crossmatch queue. The issued queues and Receive, Return, and Document already show that appearance. The retrospective queue left it off.
+
+### Implemented
+
+- The retrospective crossmatch queue shows the appearance recorded at issue.
+- Retrospective completion is unchanged.
+
+### Requirements / risk
+
+- URS-BB-314, FRS-BB-349, SRS-BB-311, RISK-BB-416.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-203 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1447, Application 48, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The follow-up screen and product history still leave the appearance recorded at issue off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 162 — Follow-up screen shows the appearance recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank repeat the visual inspection recorded when a unit left the blood bank on the retrospective follow-up screen. The retrospective queue already shows that appearance. The follow-up screen left it off.
+
+### Implemented
+
+- The retrospective follow-up screen repeats the appearance recorded at issue.
+- Recording the crossmatch is unchanged.
+
+### Requirements / risk
+
+- URS-BB-315, FRS-BB-350, SRS-BB-312, RISK-BB-417.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-204 (`IssueAppearanceNoticeTests.IssueAppearanceNotice_NamesTheCode`).
+- Full suite green: Domain 1447, Application 48, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Product history still leaves the appearance recorded at issue off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 163 — Product history shows the appearance recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the visual inspection recorded when a unit left the blood bank on the patient's product history. Issued queues, Receive, Return, Document, the retrospective queue, and the follow-up screen already show that appearance. Issued, returned, and transfused history rows left it off.
+
+### Implemented
+
+- Issued, returned, and transfused product-history rows show the appearance recorded at issue.
+- Other rows show none.
+- Issue eligibility is unchanged.
+
+### Requirements / risk
+
+- URS-BB-316, FRS-BB-351, SRS-BB-313, RISK-BB-418.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-205 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 48, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The appearance recorded at issue is now shown on the issued queues, Receive, Return, and Document, the retrospective queue, the follow-up screen, and product history.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 164 — Outstanding queue shows the appearance recorded at ward receipt (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the visual inspection recorded when the receiving location acknowledged a unit that is still issued. Ward receipt already stores that coded appearance. The outstanding issued queue left it off.
+
+### Implemented
+
+- The outstanding issued queue shows the appearance recorded at ward receipt after the unit is received.
+- A unit still awaiting receipt shows none.
+- The ward-receipt gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-317, FRS-BB-352, SRS-BB-314, RISK-BB-419.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-206 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 48, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Return, Document, and product history still leave the ward appearance off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 165 — Return and Document show the appearance recorded at ward receipt (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank repeat the visual inspection recorded when the receiving location acknowledged a unit on the forms that return or document that unit. The outstanding issued queue already shows that appearance. Return and Document left it off.
+
+### Implemented
+
+- Return and Document repeat the appearance recorded at ward receipt.
+- A unit that has not been received shows none.
+- Return, transfusion documentation, and the ward-receipt gate are unchanged.
+
+### Requirements / risk
+
+- URS-BB-318, FRS-BB-353, SRS-BB-315, RISK-BB-420.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-207 (`WardAppearanceNoticeTests.WardAppearanceNotice_NamesTheCode`).
+- Full suite green: Domain 1447, Application 49, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Product history still leaves the ward appearance off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 166 — Product history shows the appearance recorded at ward receipt (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the visual inspection recorded when the receiving location acknowledged a unit on the patient's product history. The outstanding issued queue and Return and Document already show that appearance. Issued, returned, and transfused history rows left it off.
+
+### Implemented
+
+- Issued, returned, and transfused product-history rows show the appearance recorded at ward receipt after the unit is received.
+- Other rows, and a unit that has not been received, show none.
+- The ward-receipt gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-319, FRS-BB-354, SRS-BB-316, RISK-BB-421.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-208 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 49, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The ward appearance is now shown on the outstanding issued queue, Return, Document, and product history.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 167 — Issued queues show the pickup tag scanned at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the pickup tag scanned when a unit left the blood bank on the worklists for units still issued. Issue already stores that code. The in-transit and outstanding issued queues left it off.
+
+### Implemented
+
+- The in-transit and outstanding issued queues show the pickup tag scanned at issue.
+- The code stays after ward receipt.
+- A blank pickup tag shows none.
+- The issue gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-320, FRS-BB-355, SRS-BB-317, RISK-BB-422.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-209 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 49, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Receive, Return, Document, the retrospective queue, the follow-up screen, and product history still leave the pickup tag off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 168 — Receive, Return, and Document show the pickup tag scanned at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank repeat the pickup tag scanned when a unit left the blood bank on the forms that receive, return, or document that unit. The in-transit and outstanding issued queues already show that code. Receive, Return, and Document left it off.
+
+### Implemented
+
+- Receive, Return, and Document repeat the pickup tag scanned at issue.
+- A blank pickup tag shows none.
+- Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
+
+### Requirements / risk
+
+- URS-BB-321, FRS-BB-356, SRS-BB-318, RISK-BB-423.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-210 (`PtagNoticeTests.PtagNotice_NamesTheCode`).
+- Full suite green: Domain 1447, Application 50, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The retrospective queue, the follow-up screen, and product history still leave the pickup tag off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 169 — Retrospective queue shows the pickup tag scanned at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the pickup tag scanned when a unit left the blood bank on the retrospective crossmatch worklist. The issued queues and Receive, Return, and Document already show that code. The retrospective queue left it off.
+
+### Implemented
+
+- The retrospective crossmatch queue shows the pickup tag scanned at issue.
+- A blank pickup tag shows none.
+- Retrospective completion is unchanged.
+
+### Requirements / risk
+
+- URS-BB-322, FRS-BB-357, SRS-BB-319, RISK-BB-424.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-211 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1447, Application 50, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The follow-up screen and product history still leave the pickup tag off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 170 — Follow-up screen shows the pickup tag scanned at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank repeat the pickup tag scanned when a unit left the blood bank on the screen where retrospective compatibility is recorded. The retrospective queue already shows that code. The follow-up screen left it off.
+
+### Implemented
+
+- The retrospective follow-up screen repeats the pickup tag scanned at issue.
+- A blank pickup tag shows none.
+- Recording the crossmatch is unchanged.
+
+### Requirements / risk
+
+- URS-BB-323, FRS-BB-358, SRS-BB-320, RISK-BB-425.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-212 (`PtagNoticeTests.PtagNotice_NamesTheCode`).
+- Full suite green: Domain 1447, Application 50, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Product history still leaves the pickup tag off.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 171 — Product history shows the pickup tag scanned at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the pickup tag scanned when a unit left the blood bank on the patient's product history. The issued queues, Receive, Return, Document, the retrospective queue, and the follow-up screen already show that code. Issued, returned, and transfused history rows left it off.
+
+### Implemented
+
+- Issued, returned, and transfused product-history rows show the pickup tag scanned at issue.
+- Other rows and a blank pickup tag show none.
+- The issue gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-324, FRS-BB-359, SRS-BB-321, RISK-BB-426.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-213 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 50, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The pickup tag scanned at issue is now shown on the issued queues, Receive, Return, Document, the retrospective queue, the follow-up screen, and product history.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 172 — Issued queues show the crossmatch status recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the crossmatch status recorded when a unit left the blood bank, separate from the latest crossmatch result. Issue already stores that status. The in-transit and outstanding issued queues left it off.
+
+### Implemented
+
+- The in-transit and outstanding issued queues show the crossmatch status recorded at issue.
+- The status stays after ward receipt.
+- The issue gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-325, FRS-BB-360, SRS-BB-322, RISK-BB-427.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-214 (`Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt`).
+- Full suite green: Domain 1447, Application 50, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Receive, Return, Document, the retrospective queue, the follow-up screen, and product history still leave off the crossmatch status recorded at issue.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 173 — Receive, Return, and Document show the crossmatch status recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank repeat the crossmatch status recorded when a unit left the blood bank on the forms that receive, return, or document that unit. The in-transit and outstanding issued queues already show that status. Receive, Return, and Document left it off.
+
+### Implemented
+
+- Receive, Return, and Document repeat the crossmatch status recorded at issue.
+- Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
+
+### Requirements / risk
+
+- URS-BB-326, FRS-BB-361, SRS-BB-323, RISK-BB-428.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-215 (`CrossmatchStatusNoticeTests.CrossmatchStatusNotice_NamesTheStatus`).
+- Full suite green: Domain 1447, Application 51, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The retrospective queue, the follow-up screen, and product history still leave off the crossmatch status recorded at issue.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).

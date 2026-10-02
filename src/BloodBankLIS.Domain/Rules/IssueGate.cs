@@ -310,17 +310,69 @@ public static class IssueGate
             : RuleResult.HardStop(PatientAboRhCode, "Patient ABO/Rh is not established.");
     }
 
-    private static RuleResult EvaluateDiscrepancy(IssueGateContext c)
+    private static RuleResult EvaluateDiscrepancy(IssueGateContext c) =>
+        EvaluateAboRhDiscrepancy(c.UnresolvedAboRhDiscrepancy, RequiresCrossmatchEffective(c));
+
+    /// <summary>
+    /// Same discrepancy result issue uses. A crossmatch-required product is a hard
+    /// stop. Any other product is an overridable warning.
+    /// </summary>
+    public static RuleResult EvaluateAboRhDiscrepancy(bool unresolved, bool requiresCrossmatch)
     {
-        if (!c.UnresolvedAboRhDiscrepancy)
+        if (!unresolved)
         {
             return RuleResult.Pass(AboRhDiscrepancyCode);
         }
 
-        // An unresolved ABO/Rh discrepancy is a HardStop on a crossmatch-required
-        // product; otherwise an overridable Warning (see docs/safety-rules.md 1 & 6).
-        return RequiresCrossmatchEffective(c)
+        return requiresCrossmatch
             ? RuleResult.HardStop(AboRhDiscrepancyCode, "Unresolved ABO/Rh discrepancy on a crossmatch-required product.")
             : RuleResult.Warning(AboRhDiscrepancyCode, "Current ABO/Rh determination disagrees with the historical record.");
     }
+
+    public readonly record struct AboRhDiscrepancyCue(bool BlocksIssue, string? Notice);
+
+    /// <summary>
+    /// Ready-to-issue cue. Emergency release does not clear a discrepancy hard stop.
+    /// </summary>
+    public static AboRhDiscrepancyCue DescribeAboRhDiscrepancy(bool unresolved, bool requiresCrossmatch)
+    {
+        var result = EvaluateAboRhDiscrepancy(unresolved, requiresCrossmatch);
+        return result.Severity == RuleSeverity.Pass
+            ? new AboRhDiscrepancyCue(false, null)
+            : new AboRhDiscrepancyCue(result.Severity == RuleSeverity.HardStop, result.Message);
+    }
+
+    /// <summary>
+    /// True when the first current known type disagrees with any other known,
+    /// non-current type. This is the issue-gate predicate.
+    /// </summary>
+    public static bool HasUnresolvedAboRhDiscrepancy(IEnumerable<(AboRh Type, bool IsCurrent)> history)
+    {
+        (AboRh Type, bool IsCurrent)? current = null;
+        foreach (var row in history)
+        {
+            if (row.IsCurrent)
+            {
+                current = row;
+                break;
+            }
+        }
+
+        if (current is null || !current.Value.Type.IsKnown)
+        {
+            return false;
+        }
+
+        var currentType = current.Value.Type;
+        return history.Any(row => !row.IsCurrent && row.Type.IsKnown && row.Type != currentType);
+    }
+
+    /// <summary>
+    /// Patient-banner sentence when the current type disagrees with history.
+    /// The product-specific hard stop stays on issue.
+    /// </summary>
+    public static string? PatientBannerNotice(IEnumerable<(AboRh Type, bool IsCurrent)> history) =>
+        HasUnresolvedAboRhDiscrepancy(history)
+            ? EvaluateAboRhDiscrepancy(true, requiresCrossmatch: false).Message
+            : null;
 }

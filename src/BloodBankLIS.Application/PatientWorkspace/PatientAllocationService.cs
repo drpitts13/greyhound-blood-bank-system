@@ -1,7 +1,9 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -42,6 +44,12 @@ public sealed class PatientAllocationService
     private readonly ElectronicCrossmatchEligibilityService? _exmEligibility;
     private readonly IRepository<ProductRetypeResult>? _retypes;
     private readonly AutoThawService? _autoThaw;
+    private readonly FacilityPolicyService? _policy;
+    private readonly IRepository<SpecialTransfusionRequirement>? _specialRequirements;
+    private readonly IRepository<SpecialRequirementDefinition>? _requirementDefinitions;
+    private readonly IRepository<ProductAttributeAssignment>? _productAttributeAssignments;
+    private readonly IRepository<ProductAttribute>? _productAttributes;
+    private readonly IRepository<InventoryLocation>? _locations;
 
     public PatientAllocationService(
         CompatibilityService compatibility,
@@ -73,7 +81,13 @@ public sealed class PatientAllocationService
         IRepository<OrderSpecimen>? orderSpecimens = null,
         IRepository<Issue>? issues = null,
         IRepository<ProductRetypeResult>? retypes = null,
-        AutoThawService? autoThaw = null)
+        AutoThawService? autoThaw = null,
+        FacilityPolicyService? policy = null,
+        IRepository<SpecialTransfusionRequirement>? specialRequirements = null,
+        IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
+        IRepository<ProductAttributeAssignment>? productAttributeAssignments = null,
+        IRepository<ProductAttribute>? productAttributes = null,
+        IRepository<InventoryLocation>? locations = null)
     {
         _compatibility = compatibility;
         _orders = orders;
@@ -105,6 +119,12 @@ public sealed class PatientAllocationService
         _exmEligibility = exmEligibility;
         _retypes = retypes;
         _autoThaw = autoThaw;
+        _policy = policy;
+        _specialRequirements = specialRequirements;
+        _requirementDefinitions = requirementDefinitions;
+        _productAttributeAssignments = productAttributeAssignments;
+        _productAttributes = productAttributes;
+        _locations = locations;
     }
 
     public async Task<IReadOnlyList<PatientAllocationRowDto>> ListActiveAsync(
@@ -139,7 +159,7 @@ public sealed class PatientAllocationService
         var crossmatches = await _crossmatches.ListAsync(x => x.PatientId == patientId, ct);
         var xmByUnit = crossmatches
             .GroupBy(x => x.BloodProductId)
-            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.PerformedUtc).First());
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         var orderIds = allocations.Where(a => a.OrderId.HasValue).Select(a => a.OrderId!.Value).Distinct().ToList();
         var linkedOrderIds = _orderSpecimens is null || orderIds.Count == 0
@@ -169,7 +189,11 @@ public sealed class PatientAllocationService
 
             productTypes.TryGetValue(unit.ProductTypeId, out var product);
             var requiresXm = RequiresCrossmatch(product);
-            xmByUnit.TryGetValue(unit.Id, out var xm);
+            var unitCrossmatches = xmByUnit.GetValueOrDefault(unit.Id) ?? [];
+            var xm = unitCrossmatches
+                .OrderByDescending(x => x.PerformedUtc)
+                .ThenByDescending(x => x.Id)
+                .FirstOrDefault();
             var hasException = await HasCompatibilityExceptionAsync(patientId, unit, product, ct);
 
             var display = ProductAllocationDisplayStatusRule.Evaluate(
@@ -188,7 +212,7 @@ public sealed class PatientAllocationService
                 requiresXm,
                 display,
                 allocation.Status,
-                xm?.Result,
+                RecordedCrossmatchResult(xm?.Result),
                 allocation.OrderId is long xmOrderId && xmCodeByOrder.TryGetValue(xmOrderId, out var xmCode) ? xmCode : null,
                 allocation.OrderId,
                 allocation.EncounterId,
@@ -203,7 +227,13 @@ public sealed class PatientAllocationService
                 pendingAutoThaw.Contains(allocation.Id),
                 thawCode,
                 allocation.OrderId is long linkedOrderId && linkedOrderIds.Contains(linkedOrderId),
-                BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow)));
+                BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow),
+                unit.ExpiresUtc,
+                unit.BloodType.ToString(),
+                await StorageLocationNameAsync(unit.CurrentLocationId, ct),
+                CrossmatchValidityRule.CurrentCompatibleExpiresUtc(
+                    unitCrossmatches.Select(x => (x.Result, x.ExpiresUtc)),
+                    _clock.UtcNow)));
         }
 
         return rows;
@@ -273,11 +303,24 @@ public sealed class PatientAllocationService
         var available = await _inventory.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Available), ct);
         var productTypes = (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id);
         var retypedUnitIds = await ConfirmedRetypeUnitIdsAsync(available.Select(u => u.Id).ToList(), ct);
-        var results = new List<CompatibleUnitDto>();
+        var ranked = new List<RankedCompatibleUnit>();
+        var nearExpiryWindow = await NearExpiryWindowAsync(ct);
+        var specialRequirements = await UnitSelectionRequirementsAsync(patientId, ct);
+        var attributesByProduct = await ProductAttributeCodesByProductTypeAsync(ct);
+        var crossmatchExpires = await CurrentCompatibleCrossmatchExpirationsAsync(patientId, ct);
+        var latestCrossmatchResults = await LatestRecordedCrossmatchResultsAsync(patientId, ct);
+        var crossmatchedUnitIds = crossmatchExpires.Keys.ToHashSet();
+        var incompatibleUnitIds = await IncompatibleCrossmatchUnitIdsAsync(patientId, ct);
+        var locationNames = await StorageLocationNamesAsync(available.Select(u => u.CurrentLocationId), ct);
 
-        foreach (var unit in available.OrderBy(u => u.ExpiresUtc).ThenBy(u => u.UnitNumber))
+        foreach (var unit in available)
         {
             if (!productTypes.TryGetValue(unit.ProductTypeId, out var product) || !unit.BloodType.IsKnown)
+            {
+                continue;
+            }
+
+            if (BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow))
             {
                 continue;
             }
@@ -302,28 +345,239 @@ public sealed class PatientAllocationService
                 continue;
             }
 
+            attributesByProduct.TryGetValue(unit.ProductTypeId, out var attributeCodes);
+            if (SpecialTransfusionRequirementRule.FailsUnitSelection(
+                    specialRequirements,
+                    attributeCodes ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                    bloodAttrs.UnitAntigens,
+                    _clock.UtcNow))
+            {
+                continue;
+            }
+
             var antigenWarnings = eval
                 .Where(r => r.Code == BloodAttributeCompatibilityRule.AntigenNegCode
                             && r.Severity == RuleSeverity.Warning)
                 .ToList();
-            results.Add(new CompatibleUnitDto(
-                unit.Id,
-                unit.UnitNumber,
-                product.Id,
-                product.ProductCode,
-                product.Name,
-                RequiresCrossmatch(product),
-                unit.Abo,
-                unit.RhD,
-                unit.BloodType.ToString(),
+            var antigenFlag = BloodAttributeCompatibilityRule.SummarizeAntigenNegFlag(antigenWarnings);
+            if (!ProductSelectionOrder.TryPlace(
+                    unit.DonationRestriction,
+                    unit.ReservedPatientId,
+                    patientId,
+                    bloodType.BloodType,
+                    unit.BloodType,
+                    antigenFlag,
+                    out var placement))
+            {
+                continue;
+            }
+
+            var crossmatchCompatible = crossmatchedUnitIds.Contains(unit.Id);
+            var crossmatchIncompatible = !crossmatchCompatible && incompatibleUnitIds.Contains(unit.Id);
+            ranked.Add(new RankedCompatibleUnit(
+                new CompatibleUnitDto(
+                    unit.Id,
+                    unit.UnitNumber,
+                    product.Id,
+                    product.ProductCode,
+                    product.Name,
+                    RequiresCrossmatch(product),
+                    unit.Abo,
+                    unit.RhD,
+                    unit.BloodType.ToString(),
+                    unit.ExpiresUtc,
+                    antigenFlag,
+                    antigenWarnings.Count == 0
+                        ? null
+                        : string.Join(" ", antigenWarnings.Select(r => r.Message)),
+                    unit.DonationRestriction,
+                    placement.Cue,
+                    BloodUnitExpirationRule.IsNearExpiry(unit.ExpiresUtc, _clock.UtcNow, nearExpiryWindow),
+                    crossmatchCompatible,
+                    crossmatchIncompatible,
+                    unit.CurrentLocationId is long storedAt && locationNames.TryGetValue(storedAt, out var storedName)
+                        ? storedName
+                        : null,
+                    crossmatchExpires.TryGetValue(unit.Id, out var xmExpires) ? xmExpires : null,
+                    latestCrossmatchResults.TryGetValue(unit.Id, out var latestXm) ? latestXm : null),
+                placement.Band,
+                placement.AntigenBand,
+                crossmatchCompatible ? 0 : crossmatchIncompatible ? 2 : 1,
                 unit.ExpiresUtc,
-                BloodAttributeCompatibilityRule.SummarizeAntigenNegFlag(antigenWarnings),
-                antigenWarnings.Count == 0
-                    ? null
-                    : string.Join(" ", antigenWarnings.Select(r => r.Message))));
+                unit.UnitNumber));
         }
 
+        var results = ranked
+            .OrderBy(r => r.Band)
+            .ThenBy(r => r.AntigenBand)
+            .ThenBy(r => r.CrossmatchBand)
+            .ThenBy(r => r.ExpiresUtc)
+            .ThenBy(r => r.UnitNumber, StringComparer.Ordinal)
+            .Select(r => r.Dto)
+            .ToList();
         return OperationResult<IReadOnlyList<CompatibleUnitDto>>.Ok(results);
+    }
+
+    private async Task<string?> StorageLocationNameAsync(long? locationId, CancellationToken ct)
+    {
+        if (locationId is not long id)
+        {
+            return null;
+        }
+
+        var names = await StorageLocationNamesAsync([id], ct);
+        return names.TryGetValue(id, out var name) ? name : null;
+    }
+
+    private async Task<Dictionary<long, string?>> StorageLocationNamesAsync(
+        IEnumerable<long?> locationIds,
+        CancellationToken ct)
+    {
+        var names = new Dictionary<long, string?>();
+        if (_locations is null)
+        {
+            return names;
+        }
+
+        var ids = locationIds.Where(id => id is not null).Select(id => id!.Value).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return names;
+        }
+
+        foreach (var location in await _locations.ListAsync(l => ids.Contains(l.Id), ct))
+        {
+            names[location.Id] = ReadyToIssueFormCue.StorageLocationLabel(location.Name, location.Code);
+        }
+
+        return names;
+    }
+
+    private async Task<TimeSpan> NearExpiryWindowAsync(CancellationToken ct)
+    {
+        var hours = _policy is null ? 24 : await _policy.GetNearExpiryWarningHoursAsync(ct);
+        if (hours < 1)
+        {
+            hours = 1;
+        }
+
+        return TimeSpan.FromHours(hours);
+    }
+
+    private async Task<Dictionary<long, CrossmatchResult>> LatestRecordedCrossmatchResultsAsync(
+        long patientId, CancellationToken ct)
+    {
+        var rows = await _crossmatches.ListAsync(x => x.PatientId == patientId, ct);
+        var results = new Dictionary<long, CrossmatchResult>();
+        foreach (var group in rows.GroupBy(x => x.BloodProductId))
+        {
+            var latest = group
+                .OrderByDescending(x => x.PerformedUtc)
+                .ThenByDescending(x => x.Id)
+                .First();
+            if (latest.Result is CrossmatchResult.Compatible or CrossmatchResult.Incompatible)
+            {
+                results[group.Key] = latest.Result;
+            }
+        }
+
+        return results;
+    }
+
+    private async Task<Dictionary<long, DateTime?>> CurrentCompatibleCrossmatchExpirationsAsync(
+        long patientId, CancellationToken ct)
+    {
+        var rows = await _crossmatches.ListAsync(
+            x => x.PatientId == patientId && x.Result == CrossmatchResult.Compatible, ct);
+        var now = _clock.UtcNow;
+        var expirations = new Dictionary<long, DateTime?>();
+        foreach (var group in rows.GroupBy(x => x.BloodProductId))
+        {
+            var matches = group.Select(x => (x.Result, x.ExpiresUtc)).ToList();
+            if (!matches.Any(x => CrossmatchValidityRule.IsCurrentCompatible(x.Result, x.ExpiresUtc, now)))
+            {
+                continue;
+            }
+
+            expirations[group.Key] = CrossmatchValidityRule.CurrentCompatibleExpiresUtc(matches, now);
+        }
+
+        return expirations;
+    }
+
+    private async Task<HashSet<long>> IncompatibleCrossmatchUnitIdsAsync(long patientId, CancellationToken ct)
+    {
+        var rows = await _crossmatches.ListAsync(
+            x => x.PatientId == patientId && x.Result == CrossmatchResult.Incompatible, ct);
+        return rows
+            .Where(x => CrossmatchValidityRule.CountsAsIncompatible(x.Result))
+            .Select(x => x.BloodProductId)
+            .ToHashSet();
+    }
+
+    private async Task<IReadOnlyList<SpecialTransfusionRequirementRule.RequirementRef>> UnitSelectionRequirementsAsync(
+        long patientId, CancellationToken ct)
+    {
+        if (_specialRequirements is null)
+        {
+            return [];
+        }
+
+        var rows = await _specialRequirements.ListAsync(r => r.PatientId == patientId && r.IsActive, ct);
+        var definitions = _requirementDefinitions is null
+            ? new Dictionary<long, SpecialRequirementDefinition>()
+            : (await _requirementDefinitions.ListAsync(ct)).ToDictionary(d => d.Id);
+        return rows.Select(row => ToRequirementRef(row, definitions)).ToList();
+    }
+
+    private async Task<Dictionary<long, HashSet<string>>> ProductAttributeCodesByProductTypeAsync(CancellationToken ct)
+    {
+        if (_productAttributeAssignments is null || _productAttributes is null)
+        {
+            return [];
+        }
+
+        var assignments = await _productAttributeAssignments.ListAsync(a => a.IsActive, ct);
+        var attributes = (await _productAttributes.ListAsync(a => a.IsActive, ct))
+            .ToDictionary(a => a.Id);
+        var byProduct = new Dictionary<long, HashSet<string>>();
+        foreach (var assignment in assignments)
+        {
+            if (!attributes.TryGetValue(assignment.ProductAttributeId, out var attribute))
+            {
+                continue;
+            }
+
+            if (!byProduct.TryGetValue(assignment.ProductTypeId, out var codes))
+            {
+                codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                byProduct[assignment.ProductTypeId] = codes;
+            }
+
+            codes.Add(attribute.Code);
+        }
+
+        return byProduct;
+    }
+
+    private static SpecialTransfusionRequirementRule.RequirementRef ToRequirementRef(
+        SpecialTransfusionRequirement row,
+        IReadOnlyDictionary<long, SpecialRequirementDefinition> definitions)
+    {
+        if (row.RequirementDefinitionId is long id && definitions.TryGetValue(id, out var definition))
+        {
+            return new SpecialTransfusionRequirementRule.RequirementRef(
+                definition.Code,
+                definition.EnforcementKind,
+                definition.ProductAttributeCode,
+                row.AntigenCode,
+                row.EffectiveUtc,
+                row.ExpiresUtc,
+                row.IsActive);
+        }
+
+        return SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
+            row.RequirementType, row.AntigenCode, row.EffectiveUtc, row.ExpiresUtc, row.IsActive);
     }
 
     public async Task<IReadOnlyList<CrossmatchTestOptionDto>> ListCrossmatchTestsAsync(CancellationToken ct = default)
@@ -642,9 +896,11 @@ public sealed class PatientAllocationService
         await _unitOfWork.SaveChangesAsync(ct);
 
         var hasException = await HasCompatibilityExceptionAsync(patientId, unit, product, ct);
-        var latestXm = (await _crossmatches.ListAsync(
-                x => x.PatientId == patientId && x.BloodProductId == unit.Id, ct))
+        var unitCrossmatches = await _crossmatches.ListAsync(
+            x => x.PatientId == patientId && x.BloodProductId == unit.Id, ct);
+        var latestXm = unitCrossmatches
             .OrderByDescending(x => x.PerformedUtc)
+            .ThenByDescending(x => x.Id)
             .FirstOrDefault();
 
         var row = new PatientAllocationRowDto(
@@ -656,7 +912,7 @@ public sealed class PatientAllocationService
             RequiresCrossmatch(product),
             ProductAllocationDisplayStatusRule.Evaluate(RequiresCrossmatch(product), latestXm?.Result, hasException),
             allocation.Status,
-            latestXm?.Result,
+            RecordedCrossmatchResult(latestXm?.Result),
             xmTestCode,
             allocation.OrderId,
             allocation.EncounterId,
@@ -673,7 +929,13 @@ public sealed class PatientAllocationService
         {
             AutoThawProductCode = thawCode,
             OrderSpecimenLinked = orderLinked,
-            UnitOutdated = BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow)
+            UnitOutdated = BloodUnitExpirationRule.IsExpired(unit.ExpiresUtc, _clock.UtcNow),
+            UnitExpiresUtc = unit.ExpiresUtc,
+            UnitBloodType = unit.BloodType.ToString(),
+            StorageLocationName = await StorageLocationNameAsync(unit.CurrentLocationId, ct),
+            CrossmatchExpiresUtc = CrossmatchValidityRule.CurrentCompatibleExpiresUtc(
+                unitCrossmatches.Select(x => (x.Result, x.ExpiresUtc)),
+                _clock.UtcNow)
         };
 
         return EvaluationResult<AllocatePatientUnitResultDto>.Ok(
@@ -883,6 +1145,9 @@ public sealed class PatientAllocationService
         return results.Any(r => r.Severity is RuleSeverity.HardStop or RuleSeverity.Warning);
     }
 
+    private static CrossmatchResult? RecordedCrossmatchResult(CrossmatchResult? result) =>
+        result is CrossmatchResult.Compatible or CrossmatchResult.Incompatible ? result : null;
+
     private static bool RequiresCrossmatch(ProductType? product) =>
         product is not null
         && CrossmatchApplicability.RequiresCrossmatch(product.ComponentClass, product.RequiresCrossmatch);
@@ -914,4 +1179,12 @@ public sealed class PatientAllocationService
 
         return codes;
     }
+
+    private readonly record struct RankedCompatibleUnit(
+        CompatibleUnitDto Dto,
+        int Band,
+        int AntigenBand,
+        int CrossmatchBand,
+        DateTime ExpiresUtc,
+        string UnitNumber);
 }

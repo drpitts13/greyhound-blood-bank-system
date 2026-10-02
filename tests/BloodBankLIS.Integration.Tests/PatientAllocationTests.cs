@@ -45,7 +45,10 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Specimen>(c), new EfRepository<OrderingProvider>(c), new EfRepository<ProductType>(c),
             new EfRepository<TestDefinition>(c), new EfRepository<TestGrouper>(c), _factory.Clock, c);
 
-    private PatientAllocationService Allocations(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
+    private PatientAllocationService Allocations(
+        BloodBankDbContext c,
+        IPermissionEvaluator? permissions = null,
+        bool includeSpecialRequirements = false)
     {
         var perms = permissions ?? new FixedPermissionEvaluator(3);
         return new(
@@ -72,7 +75,12 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             orderLines: new EfRepository<OrderLine>(c),
             orderRepo: new EfRepository<Order>(c),
             orderSpecimens: new EfRepository<OrderSpecimen>(c),
-            issues: new EfRepository<Issue>(c));
+            issues: new EfRepository<Issue>(c),
+            specialRequirements: includeSpecialRequirements ? new EfRepository<SpecialTransfusionRequirement>(c) : null,
+            requirementDefinitions: includeSpecialRequirements ? new EfRepository<SpecialRequirementDefinition>(c) : null,
+            productAttributeAssignments: includeSpecialRequirements ? new EfRepository<ProductAttributeAssignment>(c) : null,
+            productAttributes: includeSpecialRequirements ? new EfRepository<ProductAttribute>(c) : null,
+            locations: new EfRepository<InventoryLocation>(c));
     }
 
     private async Task<(Patient Patient, BloodUnit Unit)> SeedAvailableUnitAsync(BloodBankDbContext c, string key)
@@ -280,8 +288,24 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
             Status = UnitStatus.Available
         };
+        var fridge = new InventoryLocation
+        {
+            Code = $"FR-{Guid.NewGuid():N}"[..12],
+            Name = "Main Blood Bank Refrigerator"
+        };
+        c.InventoryLocations.Add(fridge);
         c.BloodUnits.Add(unit);
         await c.SaveChangesAsync();
+        unit.CurrentLocationId = fridge.Id;
+        await c.SaveChangesAsync();
+
+        var choices = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(choices.Succeeded, choices.Error);
+        var choice = Assert.Single(choices.Value!, u => u.BloodUnitId == unit.Id);
+        Assert.Equal("Main Blood Bank Refrigerator", choice.StorageLocationName);
+        Assert.False(choice.CrossmatchCompatible);
+        Assert.Null(choice.CrossmatchExpiresUtc);
+        Assert.Null(choice.LatestCrossmatchResult);
 
         var alloc = await Allocations(c).AllocateAsync(patient.Id, new AllocatePatientUnitRequest(
             unit.Id, enc.Id, null, loc.Id, null, "CXM"));
@@ -294,7 +318,117 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         var list = await Allocations(c).ListActiveAsync(patient.Id);
         Assert.Single(list);
         Assert.Equal(unit.UnitNumber, list[0].UnitNumber);
+        Assert.Equal("RBC", list[0].ProductName);
+        Assert.Equal(unit.ExpiresUtc, list[0].UnitExpiresUtc);
+        Assert.Equal("O+", list[0].UnitBloodType);
+        Assert.Equal("Main Blood Bank Refrigerator", list[0].StorageLocationName);
+        Assert.Equal(unit.ExpiresUtc, alloc.Value.Allocation.UnitExpiresUtc);
+        Assert.Equal("O+", alloc.Value.Allocation.UnitBloodType);
+        Assert.Equal("Main Blood Bank Refrigerator", alloc.Value.Allocation.StorageLocationName);
+        Assert.Null(list[0].CrossmatchExpiresUtc);
+        Assert.Null(list[0].CrossmatchResult);
+        Assert.Null(alloc.Value.Allocation.CrossmatchExpiresUtc);
+        Assert.Null(alloc.Value.Allocation.CrossmatchResult);
         Assert.Equal(ProductAllocationDisplayStatus.Reserved, list[0].DisplayStatus);
+
+        var specimen = new Specimen
+        {
+            AccessionNumber = $"ACC-{Guid.NewGuid():N}"[..12],
+            PatientId = patient.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = _factory.Clock.UtcNow.AddHours(-2),
+            ReceivedUtc = _factory.Clock.UtcNow.AddHours(-1),
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(2),
+            Status = SpecimenStatus.Accepted
+        };
+        c.Specimens.Add(specimen);
+        await c.SaveChangesAsync();
+        var xm = await Compatibility(c).RecordCrossmatchAsync(new RecordCrossmatchRequest(
+            unit.Id, patient.Id, specimen.Id, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
+        Assert.True(xm.Succeeded, xm.Error);
+
+        var afterXm = await Allocations(c).ListActiveAsync(patient.Id);
+        Assert.Equal(CrossmatchResult.Compatible, Assert.Single(afterXm).CrossmatchResult);
+        Assert.Equal(_factory.Clock.UtcNow.AddDays(2), Assert.Single(afterXm).CrossmatchExpiresUtc);
+
+        c.Crossmatches.Add(new Crossmatch
+        {
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            SpecimenId = specimen.Id,
+            Result = CrossmatchResult.Incompatible,
+            PerformedUtc = _factory.Clock.UtcNow.AddMinutes(1),
+            PerformedBy = "tech"
+        });
+        await c.SaveChangesAsync();
+        var afterIncompatible = await Allocations(c).ListActiveAsync(patient.Id);
+        Assert.Equal(CrossmatchResult.Incompatible, Assert.Single(afterIncompatible).CrossmatchResult);
+        Assert.Equal(_factory.Clock.UtcNow.AddDays(2), Assert.Single(afterIncompatible).CrossmatchExpiresUtc);
+
+        c.Crossmatches.Add(new Crossmatch
+        {
+            BloodProductId = unit.Id,
+            PatientId = patient.Id,
+            SpecimenId = specimen.Id,
+            Result = CrossmatchResult.NotPerformed,
+            PerformedUtc = _factory.Clock.UtcNow.AddMinutes(2),
+            PerformedBy = "tech"
+        });
+        await c.SaveChangesAsync();
+        var afterBlank = await Allocations(c).ListActiveAsync(patient.Id);
+        Assert.Null(Assert.Single(afterBlank).CrossmatchResult);
+
+        var openUnit = new BloodUnit
+        {
+            UnitNumber = $"U-OPEN-{Guid.NewGuid():N}"[..16],
+            ProductTypeId = rbc.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(18),
+            Status = UnitStatus.Available,
+            CurrentLocationId = fridge.Id
+        };
+        c.BloodUnits.Add(openUnit);
+        await c.SaveChangesAsync();
+        var openXm = await Compatibility(c).RecordCrossmatchAsync(new RecordCrossmatchRequest(
+            openUnit.Id, patient.Id, specimen.Id, CrossmatchMethod.Serologic, CrossmatchResult.Compatible));
+        Assert.True(openXm.Succeeded, openXm.Error);
+
+        var openChoices = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(openChoices.Succeeded, openChoices.Error);
+        var openChoice = Assert.Single(openChoices.Value!, u => u.BloodUnitId == openUnit.Id);
+        Assert.True(openChoice.CrossmatchCompatible);
+        Assert.Equal(CrossmatchResult.Compatible, openChoice.LatestCrossmatchResult);
+        Assert.Equal(_factory.Clock.UtcNow.AddDays(2), openChoice.CrossmatchExpiresUtc);
+        Assert.DoesNotContain(openChoices.Value!, u => u.BloodUnitId == unit.Id);
+
+        c.Crossmatches.Add(new Crossmatch
+        {
+            BloodProductId = openUnit.Id,
+            PatientId = patient.Id,
+            SpecimenId = specimen.Id,
+            Result = CrossmatchResult.Incompatible,
+            PerformedUtc = _factory.Clock.UtcNow.AddMinutes(3),
+            PerformedBy = "tech"
+        });
+        await c.SaveChangesAsync();
+        var incompatibleChoices = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+        var incompatibleChoice = Assert.Single(incompatibleChoices.Value!, u => u.BloodUnitId == openUnit.Id);
+        Assert.Equal(CrossmatchResult.Incompatible, incompatibleChoice.LatestCrossmatchResult);
+        Assert.Equal(_factory.Clock.UtcNow.AddDays(2), incompatibleChoice.CrossmatchExpiresUtc);
+
+        c.Crossmatches.Add(new Crossmatch
+        {
+            BloodProductId = openUnit.Id,
+            PatientId = patient.Id,
+            SpecimenId = specimen.Id,
+            Result = CrossmatchResult.NotPerformed,
+            PerformedUtc = _factory.Clock.UtcNow.AddMinutes(4),
+            PerformedBy = "tech"
+        });
+        await c.SaveChangesAsync();
+        var blankChoices = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+        Assert.Null(Assert.Single(blankChoices.Value!, u => u.BloodUnitId == openUnit.Id).LatestCrossmatchResult);
     }
 
     [Fact]
@@ -925,6 +1059,476 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         var missing = Assert.Single(result.Value!, u => u.UnitNumber.StartsWith("U-KNONE-", StringComparison.Ordinal));
         Assert.Equal(BloodAttributeCompatibilityRule.UntestedFlag, missing.AntigenNegFlag);
         Assert.Contains("not tested", missing.AntigenNegDetail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ListCompatibleUnits_RanksOwnRestrictedAndIdenticalBeforeSubstitute()
+    {
+        await using var c = _factory.Create();
+        await SeedCrossmatchCatalogAsync(c);
+
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-SEL-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "Rank",
+            DateOfBirth = new DateOnly(1992, 3, 3)
+        };
+        var other = new Patient
+        {
+            MedicalRecordNumber = $"MRN-OTH-{Guid.NewGuid():N}",
+            LastName = "Other",
+            FirstName = "Donor",
+            DateOfBirth = new DateOnly(1985, 4, 4)
+        };
+        c.Patients.AddRange(patient, other);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+
+        var ownAutologous = Unit(rbc.Id, "U-OWN-", AboGroup.A, days: 40, DonationRestriction.Autologous, patient.Id);
+        var ownDirected = Unit(rbc.Id, "U-DIR-", AboGroup.A, days: 5, DonationRestriction.Directed, patient.Id);
+        var identicalSoon = Unit(rbc.Id, "U-SAME-S-", AboGroup.A, days: 12);
+        var identicalLate = Unit(rbc.Id, "U-SAME-L-", AboGroup.A, days: 30);
+        var substitute = Unit(rbc.Id, "U-SUB-", AboGroup.O, days: 1);
+        var otherAutologous = Unit(rbc.Id, "U-OTH-", AboGroup.A, days: 1, DonationRestriction.Autologous, other.Id);
+        var incompatible = Unit(rbc.Id, "U-BAD-", AboGroup.B, days: 10);
+        c.BloodUnits.AddRange(ownAutologous, ownDirected, identicalSoon, identicalLate, substitute, otherAutologous, incompatible);
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(result.Succeeded, result.Error);
+        var listed = result.Value!.Where(u => u.ProductTypeId == rbc.Id).ToList();
+
+        Assert.Equal(
+            [ownAutologous.UnitNumber, ownDirected.UnitNumber, identicalSoon.UnitNumber, identicalLate.UnitNumber, substitute.UnitNumber],
+            listed.Select(u => u.UnitNumber).ToArray());
+        Assert.Equal(ProductSelectionOrder.PatientAutologousCue, listed[0].SelectionCue);
+        Assert.Equal(DonationRestriction.Autologous, listed[0].DonationRestriction);
+        Assert.Equal(ProductSelectionOrder.PatientDirectedCue, listed[1].SelectionCue);
+        Assert.Equal(ProductSelectionOrder.IdenticalCue, listed[2].SelectionCue);
+        Assert.Equal(ProductSelectionOrder.SubstituteCue, listed[4].SelectionCue);
+        Assert.DoesNotContain(listed, u => u.UnitNumber == otherAutologous.UnitNumber);
+        Assert.DoesNotContain(listed, u => u.UnitNumber == incompatible.UnitNumber);
+
+        var blocked = await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(otherAutologous.Id, patient.Id));
+        Assert.Contains(blocked.Evaluation!.HardStops, r => r.Code == AutologousDirectedRule.IssueCode);
+        Assert.Equal(UnitStatus.Available, (await c.BloodUnits.FindAsync(otherAutologous.Id))!.Status);
+    }
+
+    private BloodUnit Unit(
+        long productTypeId,
+        string prefix,
+        AboGroup abo,
+        int days,
+        DonationRestriction restriction = DonationRestriction.Allogeneic,
+        long? reservedPatientId = null) =>
+        new()
+        {
+            UnitNumber = $"{prefix}{Guid.NewGuid():N}"[..16],
+            ProductTypeId = productTypeId,
+            Abo = abo,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(days),
+            Status = UnitStatus.Available,
+            DonationRestriction = restriction,
+            ReservedPatientId = reservedPatientId
+        };
+
+    [Fact]
+    public async Task ListCompatibleUnits_OmitsOutdatedUnit()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-EXP-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "Outdate",
+            DateOfBirth = new DateOnly(1993, 5, 5)
+        };
+        c.Patients.Add(patient);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+
+        var inDate = Unit(rbc.Id, "U-IN-", AboGroup.A, days: 3);
+        var outdated = Unit(rbc.Id, "U-OUT-", AboGroup.A, days: -1);
+        var atNow = Unit(rbc.Id, "U-NOW-", AboGroup.O, days: 1);
+        atNow.ExpiresUtc = _factory.Clock.UtcNow;
+        c.BloodUnits.AddRange(inDate, outdated, atNow);
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(result.Succeeded, result.Error);
+        var listed = result.Value!.Where(u => u.ProductTypeId == rbc.Id).ToList();
+        Assert.Equal([inDate.UnitNumber], listed.Select(u => u.UnitNumber).ToArray());
+        Assert.Equal(UnitStatus.Available, (await c.BloodUnits.FindAsync(outdated.Id))!.Status);
+    }
+
+    [Fact]
+    public async Task ListCompatibleUnits_MarksUnitInsideNearExpiryWindow()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-SOON-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "Soon",
+            DateOfBirth = new DateOnly(1994, 6, 6)
+        };
+        c.Patients.Add(patient);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+
+        var soon = Unit(rbc.Id, "U-SOON-", AboGroup.A, days: 1);
+        soon.ExpiresUtc = _factory.Clock.UtcNow.AddHours(2);
+        var later = Unit(rbc.Id, "U-LATER-", AboGroup.A, days: 3);
+        c.BloodUnits.AddRange(soon, later);
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(result.Succeeded, result.Error);
+        var listed = result.Value!.Where(u => u.ProductTypeId == rbc.Id).ToList();
+        Assert.Equal([soon.UnitNumber, later.UnitNumber], listed.Select(u => u.UnitNumber).ToArray());
+        Assert.True(listed[0].ExpiresSoon);
+        Assert.False(listed[1].ExpiresSoon);
+    }
+
+    [Fact]
+    public async Task ListCompatibleUnits_OmitsUnitThatFailsSpecialRequirement()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-SR-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "Special",
+            DateOfBirth = new DateOnly(1991, 4, 4)
+        };
+        c.Patients.Add(patient);
+        var plain = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        var irradiated = new ProductType
+        {
+            ProductCode = $"IRR-{Guid.NewGuid():N}"[..12],
+            Name = "Irradiated RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        var attr = new ProductAttribute { Code = SpecialRequirementCatalog.Irradiated, Name = "Irradiated" };
+        c.ProductTypes.AddRange(plain, irradiated);
+        c.ProductAttributes.Add(attr);
+        await c.SaveChangesAsync();
+        c.ProductAttributeAssignments.Add(new ProductAttributeAssignment
+        {
+            ProductTypeId = irradiated.Id,
+            ProductAttributeId = attr.Id
+        });
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+        var missing = Unit(plain.Id, "U-PLN-", AboGroup.A, days: 5);
+        var meets = Unit(irradiated.Id, "U-IRR-", AboGroup.A, days: 6);
+        c.BloodUnits.AddRange(missing, meets);
+        c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+        {
+            PatientId = patient.Id,
+            RequirementType = SpecialTransfusionRequirementType.Irradiated,
+            Reason = "Required",
+            EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+            IsActive = true,
+            EnteredBy = "tech-test"
+        });
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c, includeSpecialRequirements: true).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(result.Succeeded, result.Error);
+        var listed = result.Value!.Select(u => u.UnitNumber).ToArray();
+        Assert.Contains(meets.UnitNumber, listed);
+        Assert.DoesNotContain(missing.UnitNumber, listed);
+        Assert.Equal(UnitStatus.Available, (await c.BloodUnits.FindAsync(missing.Id))!.Status);
+    }
+
+    [Fact]
+    public async Task ListCompatibleUnits_KeepsUnitForAcknowledgmentOnlyRequirement()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-ACK-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "Ack",
+            DateOfBirth = new DateOnly(1992, 4, 4)
+        };
+        c.Patients.Add(patient);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+        var unit = Unit(rbc.Id, "U-ACK-", AboGroup.A, days: 4);
+        c.BloodUnits.Add(unit);
+        c.SpecialTransfusionRequirements.Add(new SpecialTransfusionRequirement
+        {
+            PatientId = patient.Id,
+            RequirementType = SpecialTransfusionRequirementType.Other,
+            Reason = "Blood warmer",
+            EffectiveUtc = _factory.Clock.UtcNow.AddDays(-1),
+            IsActive = true,
+            EnteredBy = "tech-test"
+        });
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c, includeSpecialRequirements: true).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Contains(result.Value!, u => u.UnitNumber == unit.UnitNumber);
+    }
+
+    [Fact]
+    public async Task ListCompatibleUnits_ListsCurrentCrossmatchAheadOfShorterDatedUnit()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-XM-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "Crossmatch",
+            DateOfBirth = new DateOnly(1990, 3, 3)
+        };
+        var other = new Patient
+        {
+            MedicalRecordNumber = $"MRN-XM2-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "Other",
+            DateOfBirth = new DateOnly(1990, 3, 4)
+        };
+        c.Patients.AddRange(patient, other);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+
+        var matched = Unit(rbc.Id, "U-XM-", AboGroup.A, days: 10);
+        var shorter = Unit(rbc.Id, "U-NO-", AboGroup.A, days: 2);
+        c.BloodUnits.AddRange(matched, shorter);
+        await c.SaveChangesAsync();
+        c.Crossmatches.AddRange(
+            new Crossmatch
+            {
+                BloodProductId = matched.Id,
+                PatientId = patient.Id,
+                SpecimenId = 0,
+                Result = CrossmatchResult.Compatible,
+                PerformedUtc = _factory.Clock.UtcNow,
+                PerformedBy = "tech",
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(1)
+            },
+            new Crossmatch
+            {
+                BloodProductId = shorter.Id,
+                PatientId = other.Id,
+                SpecimenId = 0,
+                Result = CrossmatchResult.Compatible,
+                PerformedUtc = _factory.Clock.UtcNow,
+                PerformedBy = "tech"
+            },
+            new Crossmatch
+            {
+                BloodProductId = shorter.Id,
+                PatientId = patient.Id,
+                SpecimenId = 0,
+                Result = CrossmatchResult.Compatible,
+                PerformedUtc = _factory.Clock.UtcNow.AddDays(-2),
+                PerformedBy = "tech",
+                ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1)
+            });
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(result.Succeeded, result.Error);
+        var listed = result.Value!.Where(u => u.ProductTypeId == rbc.Id).ToList();
+        Assert.Equal([matched.UnitNumber, shorter.UnitNumber], listed.Select(u => u.UnitNumber).ToArray());
+        Assert.True(listed[0].CrossmatchCompatible);
+        Assert.False(listed[1].CrossmatchCompatible);
+    }
+
+    [Fact]
+    public async Task ListCompatibleUnits_ListsIncompatibleCrossmatchAfterUnmatchedUnit()
+    {
+        await using var c = _factory.Create();
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-INC-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "Incompatible",
+            DateOfBirth = new DateOnly(1991, 4, 4)
+        };
+        var other = new Patient
+        {
+            MedicalRecordNumber = $"MRN-INC2-{Guid.NewGuid():N}",
+            LastName = "Select",
+            FirstName = "Other",
+            DateOfBirth = new DateOnly(1991, 4, 5)
+        };
+        c.Patients.AddRange(patient, other);
+        var rbc = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        c.ProductTypes.Add(rbc);
+        await c.SaveChangesAsync();
+        c.PatientBloodTypeHistory.Add(new PatientBloodTypeHistory
+        {
+            PatientId = patient.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Positive,
+            Source = BloodTypeSource.TestResult,
+            IsCurrent = true
+        });
+
+        var laterCompatible = Unit(rbc.Id, "U-OK-", AboGroup.A, days: 10);
+        var unmatched = Unit(rbc.Id, "U-NO-", AboGroup.A, days: 3);
+        var incompatible = Unit(rbc.Id, "U-BAD-", AboGroup.A, days: 1);
+        c.BloodUnits.AddRange(laterCompatible, unmatched, incompatible);
+        await c.SaveChangesAsync();
+        c.Crossmatches.AddRange(
+            new Crossmatch
+            {
+                BloodProductId = laterCompatible.Id,
+                PatientId = patient.Id,
+                SpecimenId = 0,
+                Result = CrossmatchResult.Incompatible,
+                PerformedUtc = _factory.Clock.UtcNow.AddDays(-2),
+                PerformedBy = "tech",
+                ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1)
+            },
+            new Crossmatch
+            {
+                BloodProductId = laterCompatible.Id,
+                PatientId = patient.Id,
+                SpecimenId = 0,
+                Result = CrossmatchResult.Compatible,
+                PerformedUtc = _factory.Clock.UtcNow,
+                PerformedBy = "tech",
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(1)
+            },
+            new Crossmatch
+            {
+                BloodProductId = unmatched.Id,
+                PatientId = other.Id,
+                SpecimenId = 0,
+                Result = CrossmatchResult.Incompatible,
+                PerformedUtc = _factory.Clock.UtcNow,
+                PerformedBy = "tech"
+            },
+            new Crossmatch
+            {
+                BloodProductId = incompatible.Id,
+                PatientId = patient.Id,
+                SpecimenId = 0,
+                Result = CrossmatchResult.Incompatible,
+                PerformedUtc = _factory.Clock.UtcNow.AddDays(-1),
+                PerformedBy = "tech",
+                ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1)
+            });
+        await c.SaveChangesAsync();
+
+        var result = await Allocations(c).ListCompatibleUnitsAsync(patient.Id);
+        Assert.True(result.Succeeded, result.Error);
+        var listed = result.Value!.Where(u => u.ProductTypeId == rbc.Id).ToList();
+        Assert.Equal(
+            [laterCompatible.UnitNumber, unmatched.UnitNumber, incompatible.UnitNumber],
+            listed.Select(u => u.UnitNumber).ToArray());
+        Assert.True(listed[0].CrossmatchCompatible);
+        Assert.False(listed[0].CrossmatchIncompatible);
+        Assert.False(listed[1].CrossmatchCompatible);
+        Assert.False(listed[1].CrossmatchIncompatible);
+        Assert.False(listed[2].CrossmatchCompatible);
+        Assert.True(listed[2].CrossmatchIncompatible);
     }
 
     [Fact]

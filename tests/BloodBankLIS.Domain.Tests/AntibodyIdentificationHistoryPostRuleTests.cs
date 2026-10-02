@@ -320,6 +320,16 @@ public class AntibodyIdentificationHistoryPostRuleTests
     }
 
     [Fact]
+    public void ReadyToIssueNotice_UsesTheIssueWarning()
+    {
+        var notice = AntibodyIdentificationHistoryPostRule.ReadyToIssueNotice(hasOpenWorkupOnPatient: true);
+        Assert.Equal(
+            AntibodyIdentificationHistoryPostRule.EvaluateIssueOpenWorkup(true).Message,
+            notice);
+        Assert.Null(AntibodyIdentificationHistoryPostRule.ReadyToIssueNotice(hasOpenWorkupOnPatient: false));
+    }
+
+    [Fact]
     public void IssueNoOpenWorkup_Passes()
     {
         var result = AntibodyIdentificationHistoryPostRule.EvaluateIssueOpenWorkup(hasOpenWorkupOnPatient: false);

@@ -36,7 +36,8 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         new(new EfRepository<Allocation>(c), new EfRepository<Crossmatch>(c), new EfRepository<Issue>(c),
             new EfRepository<Return>(c), new EfRepository<TransfusionEvent>(c), new EfRepository<BloodUnit>(c),
             new EfRepository<ProductType>(c), new EfRepository<Encounter>(c), new EfRepository<Order>(c),
-            new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c));
+            new EfRepository<Specimen>(c), new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<Override>(c));
 
     private async Task<(Patient patient, OrderingLocation location)> SeedPatientAsync(BloodBankDbContext c)
     {
@@ -230,6 +231,183 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         Assert.Single(h1);
         Assert.Single(h2);
         Assert.Equal(PatientProductHistoryEventType.Issued, h1[0].EventType);
+        Assert.Null(h1[0].CompatibilityStatus);
+        Assert.Null(h1[0].AccessionNumber);
+        Assert.Equal(unit1.ExpiresUtc, h1[0].UnitExpiresUtc);
+        Assert.Equal("tech", h1[0].PerformedBy);
+        Assert.Null(h1[0].ReturnReason);
+        Assert.Null(h1[0].ReissueEligible);
+        Assert.Null(h1[0].IssuedTo);
+        Assert.Null(h1[0].CoolerId);
+        Assert.Equal(IssueType.Standard.ToString(), h1[0].IssueType);
+        Assert.Null(h1[0].EmergencyReleaseReason);
+        Assert.Null(h1[0].SecondVerifier);
+        Assert.Null(h1[0].EmergencyReleaseAuthorizer);
+        Assert.Equal(UnitAppearance.Acceptable.ToString(), h1[0].IssueAppearance);
+        Assert.Null(h1[0].WardAppearance);
+        Assert.Null(h1[0].PtagCode);
+
+        var specimen = new Specimen
+        {
+            AccessionNumber = "ACC-HIST",
+            PatientId = p1.Id,
+            SpecimenType = "EDTA",
+            CollectedUtc = DateTime.UtcNow.AddHours(-2),
+            ReceivedUtc = DateTime.UtcNow.AddHours(-1),
+            Status = SpecimenStatus.Accepted
+        };
+        c.Specimens.Add(specimen);
+        await c.SaveChangesAsync();
+        var allocation = new Allocation
+        {
+            BloodProductId = unit1.Id,
+            PatientId = p1.Id,
+            SpecimenId = specimen.Id,
+            Status = AllocationStatus.Consumed,
+            AllocatedUtc = DateTime.UtcNow.AddMinutes(-10),
+            AllocatedBy = "tech"
+        };
+        c.Allocations.Add(allocation);
+        await c.SaveChangesAsync();
+        var issued = await c.Issues.SingleAsync(i => i.PatientId == p1.Id);
+        issued.AllocationId = allocation.Id;
+        issued.IssuedTo = "RN Alvarez";
+        issued.CoolerId = "CLR-7";
+        issued.IssueType = IssueType.EmergencyRelease;
+        issued.EmergencyReleaseDetails = " Uncrossmatched release for hemorrhage ";
+        issued.SecondVerifier = " witness-tech ";
+        issued.IssueAppearance = UnitAppearance.Hemolysis;
+        issued.WardReceivedUtc = DateTime.UtcNow;
+        issued.WardAppearance = UnitAppearance.Hemolysis;
+        issued.PtagCode = " PTAG-HIST ";
+        var releaseOverride = new Override
+        {
+            Action = OverrideAction.EmergencyRelease,
+            ContextType = nameof(Issue),
+            ContextId = issued.BloodProductId,
+            RuleCode = "ISS-XM-REQUIRED",
+            Reason = "Uncrossmatched release for hemorrhage",
+            AuthorizedBy = " dr-authorizer ",
+            OverriddenUtc = DateTime.UtcNow
+        };
+        c.Overrides.Add(releaseOverride);
+        await c.SaveChangesAsync();
+        issued.OverrideId = releaseOverride.Id;
+        await c.SaveChangesAsync();
+
+        h1 = (await History(c).ListByPatientAsync(p1.Id)).ToList();
+        Assert.Equal("ACC-HIST", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).AccessionNumber);
+        Assert.Equal("RN Alvarez", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).IssuedTo);
+        Assert.Equal("CLR-7", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).CoolerId);
+        Assert.Equal(IssueType.EmergencyRelease.ToString(), Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).IssueType);
+        Assert.Equal("Uncrossmatched release for hemorrhage", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).EmergencyReleaseReason);
+        Assert.Equal("witness-tech", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).SecondVerifier);
+        Assert.Equal("dr-authorizer", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).EmergencyReleaseAuthorizer);
+        Assert.Equal(UnitAppearance.Hemolysis.ToString(), Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).IssueAppearance);
+        Assert.Equal(UnitAppearance.Hemolysis.ToString(), Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).WardAppearance);
+        Assert.Equal("PTAG-HIST", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).PtagCode);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).CoolerId);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).IssueType);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).EmergencyReleaseReason);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).SecondVerifier);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).EmergencyReleaseAuthorizer);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).IssueAppearance);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).WardAppearance);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).PtagCode);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).IssuedTo);
+        Assert.Equal("ACC-HIST", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).AccessionNumber);
+        Assert.Equal(unit1.ExpiresUtc, Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).UnitExpiresUtc);
+        Assert.Equal("tech", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).PerformedBy);
+
+        c.Returns.Add(new Return
+        {
+            IssueId = issued.Id,
+            BloodProductId = unit1.Id,
+            ReturnedUtc = DateTime.UtcNow,
+            ReturnedBy = "tech-return",
+            Reason = "Not transfused",
+            ReissueEligible = false
+        });
+        await c.SaveChangesAsync();
+        h1 = (await History(c).ListByPatientAsync(p1.Id)).ToList();
+        var returned = Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Returned);
+        Assert.Equal("tech-return", returned.PerformedBy);
+        Assert.Equal("Not transfused", returned.ReturnReason);
+        Assert.False(returned.ReissueEligible);
+        Assert.Equal("RN Alvarez", returned.IssuedTo);
+        Assert.Equal("CLR-7", returned.CoolerId);
+        Assert.Equal(IssueType.EmergencyRelease.ToString(), returned.IssueType);
+        Assert.Equal("Uncrossmatched release for hemorrhage", returned.EmergencyReleaseReason);
+        Assert.Equal("witness-tech", returned.SecondVerifier);
+        Assert.Equal("dr-authorizer", returned.EmergencyReleaseAuthorizer);
+        Assert.Equal(UnitAppearance.Hemolysis.ToString(), returned.IssueAppearance);
+        Assert.Equal(UnitAppearance.Hemolysis.ToString(), returned.WardAppearance);
+        Assert.Equal("PTAG-HIST", returned.PtagCode);
+        issued.SecondVerifier = " ";
+        releaseOverride.AuthorizedBy = " ";
+        issued.IssueAppearance = UnitAppearance.Acceptable;
+        issued.WardReceivedUtc = null;
+        issued.PtagCode = " ";
+        await c.SaveChangesAsync();
+        h1 = (await History(c).ListByPatientAsync(p1.Id)).ToList();
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).SecondVerifier);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Returned).SecondVerifier);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).EmergencyReleaseAuthorizer);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Returned).EmergencyReleaseAuthorizer);
+        Assert.Equal(UnitAppearance.Acceptable.ToString(), Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).IssueAppearance);
+        Assert.Equal(UnitAppearance.Acceptable.ToString(), Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Returned).IssueAppearance);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).WardAppearance);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Returned).WardAppearance);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).PtagCode);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Returned).PtagCode);
+        issued.SecondVerifier = "witness-tech";
+        releaseOverride.AuthorizedBy = "dr-authorizer";
+        issued.IssueAppearance = UnitAppearance.Hemolysis;
+        issued.WardReceivedUtc = DateTime.UtcNow;
+        issued.PtagCode = "PTAG-HIST";
+        await c.SaveChangesAsync();
+
+        c.Crossmatches.Add(new Crossmatch
+        {
+            BloodProductId = unit1.Id,
+            PatientId = p1.Id,
+            SpecimenId = 0,
+            Result = CrossmatchResult.Compatible,
+            PerformedUtc = DateTime.UtcNow.AddMinutes(-5),
+            PerformedBy = "tech"
+        });
+        await c.SaveChangesAsync();
+        h1 = (await History(c).ListByPatientAsync(p1.Id)).ToList();
+        Assert.Equal("Compatible", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).CompatibilityStatus);
+        Assert.Equal("Compatible", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Crossmatched).CompatibilityStatus);
+
+        c.Crossmatches.Add(new Crossmatch
+        {
+            BloodProductId = unit1.Id,
+            PatientId = p1.Id,
+            SpecimenId = 0,
+            Result = CrossmatchResult.Incompatible,
+            PerformedUtc = DateTime.UtcNow.AddMinutes(1),
+            PerformedBy = "tech"
+        });
+        await c.SaveChangesAsync();
+        h1 = (await History(c).ListByPatientAsync(p1.Id)).ToList();
+        Assert.Equal("Incompatible", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).CompatibilityStatus);
+
+        c.Crossmatches.Add(new Crossmatch
+        {
+            BloodProductId = unit1.Id,
+            PatientId = p1.Id,
+            SpecimenId = 0,
+            Result = CrossmatchResult.NotPerformed,
+            PerformedUtc = DateTime.UtcNow.AddMinutes(2),
+            PerformedBy = "tech"
+        });
+        await c.SaveChangesAsync();
+        h1 = (await History(c).ListByPatientAsync(p1.Id)).ToList();
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).CompatibilityStatus);
+        Assert.Contains(h1, h => h.EventType == PatientProductHistoryEventType.Crossmatched && h.CompatibilityStatus == "Compatible");
+        Assert.Contains(h1, h => h.EventType == PatientProductHistoryEventType.Crossmatched && h.CompatibilityStatus is null);
     }
 
     [Fact]

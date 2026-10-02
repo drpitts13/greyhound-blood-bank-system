@@ -1,17 +1,25 @@
-<div class="bb-card">
+    <div class="bb-card">
     <div class="bb-card-title"><h3>Product history</h3></div>
+    <p class="muted">Each assigned, issued, returned, or transfused unit shows the latest crossmatch result for that patient and unit. A crossmatch event shows that event's result. A unit or event with no crossmatch result shows none. Issued, returned, and transfused rows show the specimen accession linked to that issue. A row with no linked specimen shows none. Each row shows when that unit expires. A row with no unit expiration shows none. Each row shows who performed that event. A row with no performer shows none. A returned unit shows why it came back and whether it was marked eligible to reissue. A row that is not a return shows none for those facts. Issued, returned, and transfused rows show the person the unit was issued to. A row with no issued-to person shows none. Those rows also show the cooler or transport id. A row with no cooler shows none. Issued, returned, and transfused rows show the recorded issue type. A row that is not one of those events shows none. Those rows also show the recorded emergency-release reason. A blank reason shows none. Issued, returned, and transfused rows show the second verifier recorded at issue. A row that is not one of those events shows none. A blank second verifier shows none. Those rows also show who authorized an emergency or massive-transfusion release. A row that is not one of those events shows none. A blank authorizer shows none. Issued, returned, and transfused rows show the appearance recorded at issue. A row that is not one of those events shows none. The issue gate is unchanged. Issued, returned, and transfused rows show the appearance recorded at ward receipt after the unit is received. A row that is not one of those events, or a unit that has not been received, shows none. The ward-receipt gate is unchanged. Issued, returned, and transfused rows show the pickup tag scanned at issue. A row that is not one of those events shows none. A blank pickup tag shows none. The issue gate is unchanged.</p>
     @if (Loading) { <div class="loading">Loading product history...</div> }
     else if (Rows.Count == 0) { <div class="empty">No product events.</div> }
     else
     {
         <table class="bb">
-            <thead><tr><th>Date/time</th><th>Event</th><th>Unit</th><th>Product</th><th>Unit type</th><th>Visit</th><th>Order</th><th>Location</th><th>Volume</th><th>Transfusionist</th><th>Compatibility</th><th>Disposition</th><th>Source</th><th></th></tr></thead>
+            <thead><tr><th>Date/time</th><th>Event</th><th>Issue type</th><th>Release reason</th><th>Second verifier</th><th>Authorized by</th><th>Appearance</th><th>Ward appearance</th><th>P-tag</th><th>Unit</th><th>Product</th><th>Unit type</th><th>Expires</th><th>Visit</th><th>Order</th><th>Specimen</th><th>Location</th><th>Issued to</th><th>Cooler</th><th>Volume</th><th>Transfusionist</th><th>Performed by</th><th>Compatibility</th><th>Disposition</th><th>Return reason</th><th>Reissue</th><th>Source</th><th></th></tr></thead>
             <tbody>
                 @foreach (var h in Rows)
                 {
                     <tr class="@HistoryRowClass(h)">
                         <td class="nowrap">@h.EventUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td><strong>@h.EventType</strong></td>
+                        <td>@(string.IsNullOrWhiteSpace(h.IssueType) ? "—" : h.IssueType)</td>
+                        <td>@(string.IsNullOrWhiteSpace(h.EmergencyReleaseReason) ? "—" : h.EmergencyReleaseReason)</td>
+                        <td>@(string.IsNullOrWhiteSpace(h.SecondVerifier) ? "—" : h.SecondVerifier)</td>
+                        <td>@(string.IsNullOrWhiteSpace(h.EmergencyReleaseAuthorizer) ? "—" : h.EmergencyReleaseAuthorizer)</td>
+                        <td>@(string.IsNullOrWhiteSpace(h.IssueAppearance) ? "—" : h.IssueAppearance)</td>
+                        <td>@(string.IsNullOrWhiteSpace(h.WardAppearance) ? "—" : h.WardAppearance)</td>
+                        <td class="mono">@(string.IsNullOrWhiteSpace(h.PtagCode) ? "—" : h.PtagCode)</td>
                         <td class="mono">
                             @if (h.UnitId is long historyUnitId)
                             {
@@ -24,13 +32,20 @@
                         </td>
                         <td>@(h.ProductTypeName ?? "—")</td>
                         <td>@(h.UnitBloodType ?? "—")</td>
+                        <td class="nowrap">@(h.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
                         <td class="mono">@(h.HasMissingVisitContext ? "—" : (h.VisitNumber ?? "—"))</td>
                         <td class="mono">@(h.OrderNumber ?? "—")</td>
+                        <td class="mono">@(h.AccessionNumber ?? "—")</td>
                         <td>@(h.IssuedToLocation ?? "—")</td>
+                        <td>@(string.IsNullOrWhiteSpace(h.IssuedTo) ? "—" : h.IssuedTo)</td>
+                        <td class="mono">@(string.IsNullOrWhiteSpace(h.CoolerId) ? "—" : h.CoolerId)</td>
                         <td class="mono">@(h.VolumeTransfused is { } vol ? vol.ToString("0.###") : "—")</td>
                         <td>@(h.Transfusionist ?? "—")</td>
+                        <td>@(string.IsNullOrWhiteSpace(h.PerformedBy) ? "—" : h.PerformedBy)</td>
                         <td>@(h.CompatibilityStatus ?? "—")</td>
                         <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <a class="badge badge-red" href="@($"/reactions?patientId={PatientId}")">Reaction</a> }</td>
+                        <td>@(string.IsNullOrWhiteSpace(h.ReturnReason) ? "—" : h.ReturnReason)</td>
+                        <td>@(h.ReissueEligible is bool eligible ? (eligible ? "Eligible" : "Not eligible") : "—")</td>
                         <td class="mono">@(h.PatientIdentificationMethod ?? "—")</td>
                         <td class="right nowrap">
                             @if (h.UnitId is long inventoryUnitId)

@@ -31,6 +31,28 @@ public static class SecondAboDeterminationRule
     }
 
     /// <summary>
+    /// Chart notice when routine red-cell issue would hard-stop for a missing
+    /// second concordant type. No notice when the facility does not require it,
+    /// when the second type is on file, or when there is no current type.
+    /// </summary>
+    public static string? MissingCellularIssueNotice(bool required, IReadOnlyList<Determination> history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        if (!required || HasSecondConcordant(history))
+        {
+            return null;
+        }
+
+        var current = history.FirstOrDefault(h => h.IsCurrent && h.BloodType.IsKnown);
+        if (current is null)
+        {
+            return null;
+        }
+
+        return "Red cell and whole-blood issue needs a second concordant ABO/Rh.";
+    }
+
+    /// <summary>
     /// SafeTrace / SoftBank second-sample (or historical type) check for cellular issue.
     /// Emergency and MTP are overridable; routine RBC/WB issue is a hard stop.
     /// </summary>

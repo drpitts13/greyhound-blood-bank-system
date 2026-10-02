@@ -80,6 +80,60 @@ public class SpecialTransfusionRequirementRuleTests
     }
 
     [Fact]
+    public void UnitSelection_OmitsMissingProductAttribute_KeepsAcknowledgmentOnly()
+    {
+        var irradiated = SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
+            SpecialTransfusionRequirementType.Irradiated, null, Now.AddDays(-1), null, true);
+        var warmer = new SpecialTransfusionRequirementRule.RequirementRef(
+            SpecialRequirementCatalog.BloodWarmer,
+            SpecialRequirementEnforcementKind.RequireIssueAcknowledgment,
+            null, null, Now.AddDays(-1), null, true);
+        var none = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var irradiatedCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { SpecialRequirementCatalog.Irradiated };
+
+        Assert.True(SpecialTransfusionRequirementRule.FailsUnitSelection([irradiated], none, [], Now));
+        Assert.False(SpecialTransfusionRequirementRule.FailsUnitSelection([irradiated], irradiatedCodes, [], Now));
+        Assert.False(SpecialTransfusionRequirementRule.FailsUnitSelection([warmer], none, [], Now));
+    }
+
+    [Fact]
+    public void UnitSelection_OmitsUnitThatIsNotAntigenNegative()
+    {
+        var req = SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
+            SpecialTransfusionRequirementType.AntigenNegative, "K", Now.AddDays(-1), null, true);
+        var negative = new BloodAttributeCompatibilityRule.AntigenRef("K", AntigenResult.Negative);
+        var positive = new BloodAttributeCompatibilityRule.AntigenRef("K", AntigenResult.Positive);
+
+        Assert.False(SpecialTransfusionRequirementRule.FailsUnitSelection([req], new HashSet<string>(), [negative], Now));
+        Assert.True(SpecialTransfusionRequirementRule.FailsUnitSelection([req], new HashSet<string>(), [positive], Now));
+        Assert.True(SpecialTransfusionRequirementRule.FailsUnitSelection([req], new HashSet<string>(), [], Now));
+    }
+
+    [Fact]
+    public void ReadyToIssueNotice_UsesTheUnitFactHardStop()
+    {
+        var irradiated = SpecialTransfusionRequirementRule.RequirementRef.FromLegacy(
+            SpecialTransfusionRequirementType.Irradiated, null, Now.AddDays(-1), null, true);
+        var none = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var missing = SpecialTransfusionRequirementRule.ReadyToIssueNotice([irradiated], none, [], Now);
+        var hardStop = SpecialTransfusionRequirementRule.Evaluate([irradiated], none, [], Now)
+            .Single(r => r.Severity == RuleSeverity.HardStop);
+        Assert.Equal(hardStop.Message, missing);
+
+        var met = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { SpecialRequirementCatalog.Irradiated };
+        Assert.Null(SpecialTransfusionRequirementRule.ReadyToIssueNotice([irradiated], met, [], Now));
+
+        var warmer = new SpecialTransfusionRequirementRule.RequirementRef(
+            SpecialRequirementCatalog.BloodWarmer,
+            SpecialRequirementEnforcementKind.RequireIssueAcknowledgment,
+            null, null, Now.AddDays(-1), null, true);
+        Assert.Null(SpecialTransfusionRequirementRule.ReadyToIssueNotice([warmer], none, [], Now));
+
+        var ended = irradiated with { ExpiresUtc = Now };
+        Assert.Null(SpecialTransfusionRequirementRule.ReadyToIssueNotice([ended], none, [], Now));
+    }
+
+    [Fact]
     public void TypeA2_MissingSubgroupOnGroupA_IsHardStop()
     {
         var req = new SpecialTransfusionRequirementRule.RequirementRef(
@@ -283,6 +337,21 @@ public class SecondAboDeterminationRuleTests
     {
         var current = new AboRh(AboGroup.A, RhType.Positive);
         Assert.False(SecondAboDeterminationRule.HasSecondConcordant([new(current, true)]));
+    }
+
+    [Fact]
+    public void ChartNotice_OnlyWhenRequiredAndCurrentTypeLacksAMatch()
+    {
+        var current = new AboRh(AboGroup.O, RhType.Positive);
+        var onlyCurrent = new List<SecondAboDeterminationRule.Determination> { new(current, true) };
+        var matched = new List<SecondAboDeterminationRule.Determination> { new(current, true), new(current, false) };
+
+        Assert.Null(SecondAboDeterminationRule.MissingCellularIssueNotice(required: false, onlyCurrent));
+        Assert.Null(SecondAboDeterminationRule.MissingCellularIssueNotice(required: true, matched));
+        Assert.Null(SecondAboDeterminationRule.MissingCellularIssueNotice(required: true, []));
+        Assert.Equal(
+            "Red cell and whole-blood issue needs a second concordant ABO/Rh.",
+            SecondAboDeterminationRule.MissingCellularIssueNotice(required: true, onlyCurrent));
     }
 
     [Fact]

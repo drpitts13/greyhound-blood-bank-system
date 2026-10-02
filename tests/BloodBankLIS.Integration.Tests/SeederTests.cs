@@ -325,7 +325,8 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
             new EfRepository<Encounter>(verify),
             new EfRepository<Order>(verify),
             new EfRepository<Specimen>(verify),
-            new EfRepository<PatientBloodTypeHistory>(verify)).ListByPatientAsync(helen.Id);
+            new EfRepository<PatientBloodTypeHistory>(verify),
+            new EfRepository<Override>(verify)).ListByPatientAsync(helen.Id);
         var row = Assert.Single(history, h =>
             h.EventType == PatientProductHistoryEventType.Transfused
             && h.UnitNumber == "W000123BPAM001");

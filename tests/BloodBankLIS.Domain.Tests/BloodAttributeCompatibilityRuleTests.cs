@@ -161,4 +161,24 @@ public class BloodAttributeCompatibilityRuleTests
         Assert.Equal(BloodAttributeCompatibilityRule.AntigenNegCode, results[0].Code);
         Assert.Contains("anti-C", results[0].Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ReadyToIssueNotice_UsesTheIssueWarning()
+    {
+        var untested = BloodAttributeCompatibilityRule.ReadyToIssueNotice(
+            ComponentClass.RedBloodCells, [Ab("K", "anti-K")], [], [], []);
+        var warning = BloodAttributeCompatibilityRule.Evaluate(
+            ComponentClass.RedBloodCells, [Ab("K", "anti-K")], [], [], []).Single();
+        Assert.Equal(warning.Message, untested);
+
+        Assert.Null(BloodAttributeCompatibilityRule.ReadyToIssueNotice(
+            ComponentClass.RedBloodCells,
+            [Ab("K", "anti-K")],
+            [],
+            [],
+            [Ag("K", AntigenResult.Negative)]));
+
+        Assert.Null(BloodAttributeCompatibilityRule.ReadyToIssueNotice(
+            ComponentClass.RedBloodCells, [], [], [], []));
+    }
 }

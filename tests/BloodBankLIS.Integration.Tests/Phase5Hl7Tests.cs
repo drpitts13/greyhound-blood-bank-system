@@ -142,7 +142,8 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             new EfRepository<Encounter>(c),
             new EfRepository<Order>(c),
             new EfRepository<Specimen>(c),
-            new EfRepository<PatientBloodTypeHistory>(c));
+            new EfRepository<PatientBloodTypeHistory>(c),
+            new EfRepository<Override>(c));
 
     private PatientMergeService Merge(BloodBankDbContext c) =>
         new(

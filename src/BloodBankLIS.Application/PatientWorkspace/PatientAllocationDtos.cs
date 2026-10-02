@@ -26,7 +26,11 @@ public sealed record PatientAllocationRowDto(
     bool PendingAutoThaw = false,
     string? AutoThawProductCode = null,
     bool OrderSpecimenLinked = false,
-    bool UnitOutdated = false);
+    bool UnitOutdated = false,
+    DateTime? UnitExpiresUtc = null,
+    string? UnitBloodType = null,
+    string? StorageLocationName = null,
+    DateTime? CrossmatchExpiresUtc = null);
 
 public sealed record CompatibleUnitDto(
     long BloodUnitId,
@@ -40,7 +44,15 @@ public sealed record CompatibleUnitDto(
     string BloodType,
     DateTime ExpiresUtc,
     string? AntigenNegFlag = null,
-    string? AntigenNegDetail = null);
+    string? AntigenNegDetail = null,
+    DonationRestriction DonationRestriction = DonationRestriction.Allogeneic,
+    string? SelectionCue = null,
+    bool ExpiresSoon = false,
+    bool CrossmatchCompatible = false,
+    bool CrossmatchIncompatible = false,
+    string? StorageLocationName = null,
+    DateTime? CrossmatchExpiresUtc = null,
+    CrossmatchResult? LatestCrossmatchResult = null);
 
 public sealed record EnsureManualCrossmatchLineRequest(string TestCode);
 

@@ -185,6 +185,46 @@ public class IssueGateTests
     }
 
     [Fact]
+    public void DescribeAboRhDiscrepancy_MatchesTheIssueGate()
+    {
+        var cellular = IssueGate.DescribeAboRhDiscrepancy(true, true);
+        var hardStop = IssueGate.Evaluate(PassingContext() with { UnresolvedAboRhDiscrepancy = true })
+            .HardStops.Single(r => r.Code == IssueGate.AboRhDiscrepancyCode);
+        Assert.True(cellular.BlocksIssue);
+        Assert.Equal(hardStop.Message, cellular.Notice);
+
+        var plasma = IssueGate.DescribeAboRhDiscrepancy(true, false);
+        Assert.False(plasma.BlocksIssue);
+        Assert.Equal(
+            IssueGate.EvaluateAboRhDiscrepancy(true, false).Message,
+            plasma.Notice);
+
+        var clear = IssueGate.DescribeAboRhDiscrepancy(false, true);
+        Assert.False(clear.BlocksIssue);
+        Assert.Null(clear.Notice);
+
+        var known = new AboRh(AboGroup.O, RhType.Positive);
+        var other = new AboRh(AboGroup.A, RhType.Positive);
+        Assert.False(IssueGate.HasUnresolvedAboRhDiscrepancy([]));
+        Assert.False(IssueGate.HasUnresolvedAboRhDiscrepancy([(known, true)]));
+        Assert.False(IssueGate.HasUnresolvedAboRhDiscrepancy([(known, true), (known, false)]));
+        Assert.True(IssueGate.HasUnresolvedAboRhDiscrepancy([(known, true), (other, false)]));
+        Assert.False(IssueGate.HasUnresolvedAboRhDiscrepancy([(new AboRh(AboGroup.Unknown, RhType.Unknown), true), (other, false)]));
+    }
+
+    [Fact]
+    public void PatientBannerNotice_UsesTheDisagreementWarning()
+    {
+        var known = new AboRh(AboGroup.O, RhType.Positive);
+        var other = new AboRh(AboGroup.A, RhType.Positive);
+        Assert.Equal(
+            IssueGate.EvaluateAboRhDiscrepancy(true, false).Message,
+            IssueGate.PatientBannerNotice([(known, true), (other, false)]));
+        Assert.Null(IssueGate.PatientBannerNotice([(known, true), (known, false)]));
+        Assert.Null(IssueGate.PatientBannerNotice([]));
+    }
+
+    [Fact]
     public void IdentityNotConfirmed_IsHardStopped()
     {
         var context = PassingContext() with { IdentityConfirmed = false };

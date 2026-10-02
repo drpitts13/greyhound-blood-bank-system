@@ -130,4 +130,53 @@ public static class SpecialTransfusionRequirementRule
 
     public static bool AllMet(IReadOnlyList<RuleResult> results) =>
         results.All(r => r.Severity == RuleSeverity.Pass);
+
+    /// <summary>
+    /// True when a unit fails an active product-attribute or antigen-negative
+    /// requirement. Acknowledgment, ABO subgroup, and complex crossmatch are not
+    /// unit-selection filters.
+    /// </summary>
+    public static bool FailsUnitSelection(
+        IReadOnlyList<RequirementRef> requirements,
+        IReadOnlySet<string> unitProductAttributeCodes,
+        IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> unitAntigens,
+        DateTime nowUtc)
+    {
+        var unitFacts = requirements
+            .Where(r => r.EnforcementKind is SpecialRequirementEnforcementKind.RequireProductAttribute
+                or SpecialRequirementEnforcementKind.RequireAntigenNegative)
+            .ToList();
+        if (unitFacts.Count == 0)
+        {
+            return false;
+        }
+
+        return Evaluate(unitFacts, unitProductAttributeCodes, unitAntigens, nowUtc)
+            .Any(r => r.Severity == RuleSeverity.HardStop);
+    }
+
+    /// <summary>
+    /// Ready-to-issue notice for a unit-fact special requirement. Acknowledgment,
+    /// ABO subgroup, and complex crossmatch are not unit facts and stay on the
+    /// issue form. A met requirement has no notice.
+    /// </summary>
+    public static string? ReadyToIssueNotice(
+        IReadOnlyList<RequirementRef> requirements,
+        IReadOnlySet<string> unitProductAttributeCodes,
+        IReadOnlyList<BloodAttributeCompatibilityRule.AntigenRef> unitAntigens,
+        DateTime nowUtc)
+    {
+        var unitFacts = requirements
+            .Where(r => r.EnforcementKind is SpecialRequirementEnforcementKind.RequireProductAttribute
+                or SpecialRequirementEnforcementKind.RequireAntigenNegative)
+            .ToList();
+        if (unitFacts.Count == 0)
+        {
+            return null;
+        }
+
+        return Evaluate(unitFacts, unitProductAttributeCodes, unitAntigens, nowUtc)
+            .FirstOrDefault(r => r.Severity == RuleSeverity.HardStop)
+            ?.Message;
+    }
 }

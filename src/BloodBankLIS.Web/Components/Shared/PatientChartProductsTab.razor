@@ -20,7 +20,7 @@
     else
     {
         <table class="bb">
-                    <thead><tr><th>Unit number</th><th>Product code</th><th>Status</th><th>Unit</th><th></th></tr></thead>
+                    <thead><tr><th>Unit number</th><th>Product code</th><th>Product</th><th>Expires</th><th>Unit type</th><th>Location</th><th>Crossmatch</th><th>Status</th><th>Unit</th><th></th></tr></thead>
             <tbody>
                 @foreach (var a in Allocations)
                 {
@@ -36,6 +36,17 @@
                             }
                         </td>
                         <td class="mono">@a.ProductCode</td>
+                        <td>@(string.IsNullOrWhiteSpace(a.ProductName) ? "—" : a.ProductName)</td>
+                        <td class="nowrap">@(a.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
+                        <td><strong>@(string.IsNullOrWhiteSpace(a.UnitBloodType) ? "—" : a.UnitBloodType)</strong></td>
+                        <td>@(string.IsNullOrWhiteSpace(a.StorageLocationName) ? "—" : a.StorageLocationName)</td>
+                        <td class="nowrap">
+                            @(a.CrossmatchResult is CrossmatchResult chartXm ? chartXm.ToString() : "—")
+                            @if (a.CrossmatchExpiresUtc is DateTime chartXmExpires)
+                            {
+                                <div class="muted">@chartXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                            }
+                        </td>
                         <td><span class="@Ui.Badge(a.DisplayStatus)">@DisplayAllocationStatus(a.DisplayStatus)</span></td>
                         <td><span class="@Ui.Badge(a.UnitStatus)">@Ui.StatusLabel(a.UnitStatus)</span></td>
                         <td>
@@ -240,7 +251,7 @@
 {
     <div class="bb-card" style="margin-top:1rem;">
         <div class="bb-card-title"><h3>Allocate unit</h3></div>
-        <p class="muted">Select an open product order and an ABO/Rh-compatible Available unit that has completed retype when the product requires it. Crossmatch-required products attach EXM, XM, or CXM automatically. An unretyped unit can leave inventory only through emergency or MTP issue.</p>
+        <p class="muted">Select an open product order and an in-date ABO/Rh-compatible Available unit that has completed retype when the product requires it. An outdated unit is not offered. A unit that does not meet an active irradiated, CMV-negative, leukoreduced, washed, or antigen-negative requirement is not offered. A unit inside the facility near-expiry window is marked expires soon. A unit that already has a compatible crossmatch for this patient is listed ahead of an unmatched unit in the same group and marked Crossmatch compatible. A unit with an incompatible crossmatch for this patient stays listed, after unmatched units in the same group, and is marked Crossmatch incompatible. Issue of that unit still uses the existing override. Crossmatch-required products attach EXM, XM, or CXM automatically. An unretyped unit can leave inventory only through emergency or MTP issue. Each choice shows the product and when the unit expires, including the time, and where that unit is stored. Allocated products show that same product name and expiration, the unit ABO/Rh, and that storage location. They also show the latest crossmatch result and when a current compatible crossmatch expires. A unit with no crossmatch result shows none. Unit choices and the selected unit show the latest crossmatch result, and a current compatible expiration stays beside that result. A unit with no crossmatch result shows none. Allocation and issue eligibility are unchanged.</p>
         @if (OpenAbidWorkups.Count > 0)
         {
             <div class="alert alert-warning">
@@ -281,18 +292,24 @@
 
         @if (CompatUnitsLoading) { <div class="loading">Loading compatible units...</div> }
         else if (!string.IsNullOrWhiteSpace(CompatUnitsError)) { <div class="alert alert-warning">@CompatUnitsError</div> }
-        else if (CompatibleUnits.Count == 0) { <div class="empty">No ABO/Rh-compatible Available units.</div> }
+        else if (CompatibleUnits.Count == 0) { <div class="empty">No in-date ABO/Rh-compatible Available units.</div> }
         else
         {
+            @if (HasPatientRestrictedUnit)
+            {
+                <div class="alert alert-warning" style="margin-top:.75rem;">
+                    This patient has an available autologous or directed unit. Select that unit before allogeneic stock.
+                </div>
+            }
             <div class="field" style="margin-top:.75rem;">
                 <label>Unit number</label>
                 <FilterableComboBox TItem="CompatibleUnitDto" TValue="long?"
                     Items="CompatibleUnits"
                     Value="SelectedUnitId"
                     ValueChanged="OnAllocUnitChanged"
-                    DisplayText="UnitChoiceLabel"
+                    DisplayText="Ui.CompatibleUnitChoiceLabel"
                     ItemValue="@(u => u.BloodUnitId)"
-                    SearchText="@(u => $"{u.UnitNumber} {u.ProductCode} {u.BloodType} {u.BloodUnitId}")"
+                    SearchText="@(u => $"{u.UnitNumber} {u.ProductCode} {u.BloodType} {u.StorageLocationName} {u.BloodUnitId}")"
                     Clearable="true"
                     Placeholder="Type unit number" />
             </div>
@@ -301,7 +318,17 @@
                 <div class="form-row" style="margin-top:.5rem;">
                     <div class="field"><label>Product</label><div class="mono">@SelectedUnit.ProductCode — @SelectedUnit.ProductName</div></div>
                     <div class="field"><label>ABO/Rh</label><div>@SelectedUnit.BloodType</div></div>
-                    <div class="field"><label>Expires</label><div class="nowrap">@SelectedUnit.ExpiresUtc.ToString("yyyy-MM-dd")</div></div>
+                    <div class="field"><label>Expires</label><div class="nowrap">@SelectedUnit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+                    <div class="field"><label>Location</label><div>@(string.IsNullOrWhiteSpace(SelectedUnit.StorageLocationName) ? "—" : SelectedUnit.StorageLocationName)</div></div>
+                    <div class="field"><label>Crossmatch</label>
+                        <div class="nowrap">
+                            @(SelectedUnit.LatestCrossmatchResult is CrossmatchResult selectedXm ? selectedXm.ToString() : "—")
+                            @if (SelectedUnit.CrossmatchExpiresUtc is DateTime selectedXmExpires)
+                            {
+                                <div class="muted">@selectedXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
+                            }
+                        </div>
+                    </div>
                     <div class="field"><label>Crossmatch required</label><div>@(SelectedUnit.RequiresCrossmatch ? "Yes" : "No")</div></div>
                 </div>
                 @if (NeedsAllocOverride)
@@ -432,17 +459,8 @@
     private bool NeedsAllocOverride =>
         ShowAllocOverride || SelectedUnit?.AntigenNegFlag is not null;
 
-    private static string UnitChoiceLabel(CompatibleUnitDto u)
-    {
-        var label = $"{u.UnitNumber} · {u.BloodType} · {u.ProductCode} · expires {u.ExpiresUtc:yyyy-MM-dd}";
-        return u.AntigenNegFlag switch
-        {
-            BloodAttributeCompatibilityRule.UntestedFlag => $"{label} · not tested",
-            BloodAttributeCompatibilityRule.NotNegativeFlag => $"{label} · not antigen-negative",
-            BloodAttributeCompatibilityRule.MixedFlag => $"{label} · antigen exception",
-            _ => label
-        };
-    }
+    private bool HasPatientRestrictedUnit =>
+        CompatibleUnits.Any(u => u.DonationRestriction is DonationRestriction.Autologous or DonationRestriction.Directed);
 
     private bool PtagScanMissing => PtagRequired && string.IsNullOrWhiteSpace(PtagId);
 

@@ -19,6 +19,14 @@
         <div class="stat" style="text-align:center;padding:.6rem 1rem;">
             <div class="label">Blood type</div>
             <div class="value" style="font-size:1.4rem;">@(CurrentType is null ? "—" : Ui.BloodType(CurrentType.Abo, CurrentType.RhD))</div>
+            @if (RequireSecondAbo && SecondAboOnFile)
+            {
+                <div class="muted" style="font-size:.8rem;">Second ABO on file</div>
+            }
+        </div>
+        <div class="stat" style="text-align:center;padding:.6rem 1rem;">
+            <div class="label">Current specimen</div>
+            <div class="value" style="font-size:1rem;">@(SpecimenCue.AccessionNumber ?? "—")</div>
         </div>
         @if (Exm is not null)
         {
@@ -112,6 +120,44 @@
     </div>
 }
 
+@if (AboDiscrepancyNotice is not null)
+{
+    <div class="alert alert-warning">
+        <strong>@AboDiscrepancyNotice</strong>
+    </div>
+}
+
+@if (ExmNotice is not null)
+{
+    <div class="alert alert-warning">
+        <strong>@ExmNotice</strong>
+    </div>
+}
+
+@if (SecondAboNotice is not null)
+{
+    <div class="alert alert-warning">
+        <strong>@SecondAboNotice</strong>
+        Routine red-cell issue stays blocked until that type is on file. Emergency release can still be authorized.
+    </div>
+}
+
+@if (SpecimenCue.BlocksIssue || SpecimenCue.ExpiresSoon)
+{
+    <div class="alert @(SpecimenCue.BlocksIssue ? "alert-danger" : "alert-warning")">
+        <strong>@SpecimenCue.Message</strong>
+        The issue gate reads this specimen.
+    </div>
+}
+
+@if (ReactionNotice is not null)
+{
+    <div class="alert alert-warning">
+        <strong>@ReactionNotice</strong>
+        <a href="@($"/patients/{Patient.Id}?tab=history")">Product history</a>
+    </div>
+}
+
 @if (AntibodyHistory.Count > 0)
 {
     <div class="alert alert-warning">
@@ -131,6 +177,8 @@
 @code {
     [Parameter, EditorRequired] public PatientDto Patient { get; set; } = default!;
     [Parameter] public BloodTypeDto? CurrentType { get; set; }
+    [Parameter] public IReadOnlyList<BloodTypeDto> TypeHistory { get; set; } = [];
+    [Parameter] public bool RequireSecondAbo { get; set; } = true;
     [Parameter] public ElectronicCrossmatchEligibilityDto? Exm { get; set; }
     [Parameter] public bool Busy { get; set; }
     [Parameter] public bool CanEditDemographics { get; set; }
@@ -144,14 +192,37 @@
     [Parameter] public EventCallback<string> MergeMrnChanged { get; set; }
     [Parameter] public string MergeReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> MergeReasonChanged { get; set; }
+    [Parameter] public bool HasRecordedReaction { get; set; }
     [Parameter] public IReadOnlyList<AntibodyDto> AntibodyHistory { get; set; } = [];
     [Parameter] public IEnumerable<SpecialRequirementDto> ActiveSpecialRequirements { get; set; } = [];
+    [Parameter] public IReadOnlyList<SpecimenDto> Specimens { get; set; } = [];
     [Parameter] public EventCallback OnToggleEdit { get; set; }
     [Parameter] public EventCallback OnToggleMerge { get; set; }
     [Parameter] public EventCallback OnSaveDemo { get; set; }
     [Parameter] public EventCallback OnCancelEdit { get; set; }
     [Parameter] public EventCallback OnMerge { get; set; }
     [Parameter] public EventCallback OnCancelMerge { get; set; }
+
+    private CurrentSpecimenBanner.Cue SpecimenCue =>
+        CurrentSpecimenBanner.Describe(
+            Specimens.Select(s => new CurrentSpecimenBanner.Fact(s.AccessionNumber, s.Status, s.CollectedUtc, s.ExpiresUtc)),
+            DateTime.UtcNow);
+
+    private IReadOnlyList<SecondAboDeterminationRule.Determination> AboHistory =>
+        TypeHistory.Select(h => new SecondAboDeterminationRule.Determination(new AboRh(h.Abo, h.RhD), h.IsCurrent)).ToList();
+
+    private bool SecondAboOnFile => SecondAboDeterminationRule.HasSecondConcordant(AboHistory);
+
+    private string? SecondAboNotice => SecondAboDeterminationRule.MissingCellularIssueNotice(RequireSecondAbo, AboHistory);
+
+    private string? AboDiscrepancyNotice =>
+        IssueGate.PatientBannerNotice(TypeHistory.Select(h => (new AboRh(h.Abo, h.RhD), h.IsCurrent)));
+
+    private string? ReactionNotice => ReactionHistoryBanner.Notice(HasRecordedReaction);
+
+    private string? ExmNotice => Exm is null
+        ? null
+        : ElectronicCrossmatchBanner.Notice(Exm.Eligible, Exm.BlockingReason);
 
     private string RecipientTraceHref =>
         $"/lookback?mrn={Uri.EscapeDataString(Patient.MedicalRecordNumber)}";

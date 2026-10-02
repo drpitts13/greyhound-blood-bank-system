@@ -238,3 +238,97 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-230 | Staff who record a fatal reaction severity start the same fatality follow-up as the fatality checkbox. | P1 | FRS-BB-265 |
 | URS-BB-231 | Staff are not offered another attempt on a lookback call that is already finished. | P1 | FRS-BB-266 |
 | URS-BB-232 | Staff are not offered replay of an errored inbound copy once that control id has already applied. | P1 | FRS-BB-267 |
+| URS-BB-233 | Staff selecting a unit see this patient's autologous and directed units first, then ABO/Rh-identical stock, and are not offered another patient's restricted unit. | P1 | FRS-BB-268 |
+| URS-BB-234 | Staff selecting a unit are not offered a unit that is already outdated. | P1 | FRS-BB-269 |
+| URS-BB-235 | Staff selecting a unit can see when that unit is inside the facility near-expiry window. | P1 | FRS-BB-270 |
+| URS-BB-236 | Staff selecting a unit are not offered a unit that fails an active irradiated, CMV-negative, leukoreduced, washed, or antigen-negative requirement. | P1 | FRS-BB-271 |
+| URS-BB-237 | Staff opening a patient chart can see the specimen the issue gate will read, and whether that specimen already blocks issue. | P1 | FRS-BB-272 |
+| URS-BB-238 | Staff selecting a unit see a unit that already has a compatible crossmatch for this patient ahead of an unmatched unit in the same group. | P1 | FRS-BB-273 |
+| URS-BB-239 | Staff opening a patient chart can see when red-cell issue still needs a second concordant ABO/Rh. | P1 | FRS-BB-274 |
+| URS-BB-240 | Staff selecting a unit can see when that unit already crossmatched incompatible for this patient, and see it after unmatched stock in the same group. | P1 | FRS-BB-275 |
+| URS-BB-241 | Staff opening a patient chart can see why electronic crossmatch is not eligible, on every tab. | P1 | FRS-BB-276 |
+| URS-BB-242 | Staff on the issue desk can see when a reserved unit belongs to a patient with an open antibody-identification workup. | P1 | FRS-BB-277 |
+| URS-BB-243 | Staff on the issue desk can see when a reserved unit is inside the same near-expiry window the issue gate will warn on. | P1 | FRS-BB-278 |
+| URS-BB-244 | Staff on the issue desk can see why electronic crossmatch is not eligible for a reserved unit. | P1 | FRS-BB-279 |
+| URS-BB-245 | Staff on the issue desk can see when a reserved unit still needs a compatible crossmatch, or already has an incompatible one, before they start issue. | P0 | FRS-BB-280 |
+| URS-BB-246 | Staff on the issue desk can see when a reserved unit fails an active irradiated, CMV-negative, leukoreduced, washed, or antigen-negative requirement before they start issue. | P0 | FRS-BB-281 |
+| URS-BB-247 | Staff on the issue desk can see when a reserved unit is not antigen-negative for a clinically significant antibody before they start issue. | P0 | FRS-BB-282 |
+| URS-BB-248 | Staff on the issue desk can see an unresolved ABO/Rh discrepancy on a reserved unit before they start issue. | P0 | FRS-BB-283 |
+| URS-BB-249 | Staff can see on every patient-chart tab when the current ABO/Rh disagrees with the historical record. | P0 | FRS-BB-284 |
+| URS-BB-250 | Staff can see on every patient-chart tab when this patient has a recorded transfusion reaction. | P1 | FRS-BB-285 |
+| URS-BB-251 | Staff on the issue desk can see when a reserved unit belongs to a patient with a recorded transfusion reaction. | P1 | FRS-BB-286 |
+| URS-BB-252 | Staff who start issue from a reserved unit can still see that unit's Ready to issue marks on the issue form. | P1 | FRS-BB-287 |
+| URS-BB-253 | Staff on the issue desk can see when a reserved unit is this patient's autologous or directed unit. | P1 | FRS-BB-288 |
+| URS-BB-254 | Staff on the issue desk can see the product name of a reserved unit before they issue it. | P1 | FRS-BB-289 |
+| URS-BB-255 | Staff on the issue desk can see the product name of a unit that has already been issued, including while it is in transit or waiting for a retrospective crossmatch. | P1 | FRS-BB-290 |
+| URS-BB-256 | Staff on the issue desk can see when a reserved unit expires before they issue it. | P1 | FRS-BB-291 |
+| URS-BB-257 | Staff on the issue desk can see when an issued unit expires, including while it is in transit or waiting for a retrospective crossmatch. | P1 | FRS-BB-292 |
+| URS-BB-258 | Staff choosing or reviewing a unit for a patient can see the product name and the expiration time, not only the date. | P1 | FRS-BB-293 |
+| URS-BB-259 | Staff on the issue desk can see the ABO/Rh of a reserved unit next to the patient's type before they issue it. | P0 | FRS-BB-294 |
+| URS-BB-260 | Staff on the issue desk can see the ABO/Rh of a unit that has already been issued, including while it is in transit or waiting for a retrospective crossmatch. | P0 | FRS-BB-295 |
+| URS-BB-261 | Staff reviewing a patient's allocated products can see the ABO/Rh of each unit. | P0 | FRS-BB-296 |
+| URS-BB-262 | Staff on the issue desk can see when a current compatible crossmatch expires before they issue the unit. | P0 | FRS-BB-297 |
+| URS-BB-263 | Staff on the issue desk can see which storage location holds a reserved unit before they issue it. | P1 | FRS-BB-298 |
+| URS-BB-264 | Staff choosing or reviewing a unit for a patient can see which storage location holds it. | P1 | FRS-BB-299 |
+| URS-BB-265 | Staff on the issue desk can see the accession of the current specimen before they issue a reserved unit. | P0 | FRS-BB-300 |
+| URS-BB-266 | Staff on the issue desk can see the specimen accession of a unit that has already been issued, including while it is in transit. | P0 | FRS-BB-301 |
+| URS-BB-267 | Staff on the issue desk can see when a current compatible crossmatch expires for a unit that has already been issued, including while it is in transit or waiting for a retrospective crossmatch. A unit with no current compatible crossmatch shows none. | P2 | FRS-BB-302 |
+| URS-BB-268 | Staff reviewing a patient's allocated products can see when a current compatible crossmatch for that unit expires. A unit with no current compatible crossmatch shows none. | P2 | FRS-BB-303 |
+| URS-BB-269 | Staff choosing a unit for a patient can see when a current compatible crossmatch for that unit expires. A unit with no current compatible crossmatch shows none. | P2 | FRS-BB-304 |
+| URS-BB-270 | Staff on the issue desk can see the latest crossmatch result for a unit that has already been issued, including while it is in transit or waiting for a retrospective crossmatch. A unit with no crossmatch result shows none. | P2 | FRS-BB-305 |
+| URS-BB-271 | Staff reviewing a patient's allocated products can see the latest crossmatch result for each unit. A unit with no crossmatch result shows none. | P2 | FRS-BB-306 |
+| URS-BB-272 | Staff on the issue desk can see the latest crossmatch result for a reserved unit, and the issue form repeats that result. A unit with no crossmatch result shows none. | P2 | FRS-BB-307 |
+| URS-BB-273 | Staff choosing a unit for a patient can see the latest crossmatch result for that unit. A unit with no crossmatch result shows none. | P2 | FRS-BB-308 |
+| URS-BB-274 | Staff reviewing a patient's product history can see the latest crossmatch result on each assigned, issued, returned, or transfused unit. A unit with no crossmatch result shows none. | P2 | FRS-BB-309 |
+| URS-BB-275 | Staff reviewing a patient's product history can see the specimen accession linked to an issued, returned, or transfused unit. A row with no linked specimen shows none. | P0 | FRS-BB-310 |
+| URS-BB-276 | Staff reviewing a patient's product history can see when each unit expires. A row with no unit expiration shows none. | P0 | FRS-BB-311 |
+| URS-BB-277 | Staff reviewing a patient's product history can see who performed each event. A row with no performer shows none. | P1 | FRS-BB-312 |
+| URS-BB-278 | Staff reviewing a patient's product history can see why a unit was returned and whether it was marked eligible to reissue. A row that is not a return shows none for those facts. | P0 | FRS-BB-313 |
+| URS-BB-279 | Staff reviewing a patient's product history can see the person an issued, returned, or transfused unit was issued to. A row with no issued-to person shows none. | P1 | FRS-BB-314 |
+| URS-BB-280 | Staff reviewing in-transit and issued units can see the person each unit was issued to. A unit with no issued-to person shows none. | P1 | FRS-BB-315 |
+| URS-BB-281 | Staff receiving, returning, or documenting an issued unit can see the person it was issued to. A unit with no issued-to person shows none. | P1 | FRS-BB-316 |
+| URS-BB-282 | Staff reviewing a pending retrospective crossmatch can see the person the unit was issued to. A unit with no issued-to person shows none. | P1 | FRS-BB-317 |
+| URS-BB-283 | Staff reviewing a patient's product history can see the cooler or transport id for an issued, returned, or transfused unit. A row with no cooler shows none. | P1 | FRS-BB-318 |
+| URS-BB-284 | Staff receiving, returning, or documenting an issued unit can see the cooler or transport id. A unit with no cooler shows none. | P1 | FRS-BB-319 |
+| URS-BB-285 | Staff reviewing outstanding issued units can see the cooler or transport id. A unit with no cooler shows none. | P1 | FRS-BB-320 |
+| URS-BB-286 | Staff following an uncrossmatched emergency or MTP issue can see the cooler or transport id. A unit with no cooler shows none. | P1 | FRS-BB-321 |
+| URS-BB-287 | Staff opening a retrospective crossmatch can see who received the unit and which cooler carried it. A unit with neither shows none. | P1 | FRS-BB-322 |
+| URS-BB-288 | Staff reviewing outstanding issued units can see the location the unit was issued to. A unit with no location shows none. | P1 | FRS-BB-323 |
+| URS-BB-289 | Staff receiving, returning, or documenting an issued unit can see the location it was issued to. A unit with no location shows none. | P1 | FRS-BB-324 |
+| URS-BB-290 | Staff following an uncrossmatched emergency or MTP issue can see the location the unit was issued to. A unit with no location shows none. | P1 | FRS-BB-325 |
+| URS-BB-291 | Staff reviewing a patient's product history can see whether an issued, returned, or transfused unit was a routine, emergency, or other recorded issue type. A row that is not one of those events shows none. | P1 | FRS-BB-326 |
+| URS-BB-292 | Staff reviewing units still issued can see the recorded issue type on the in-transit and outstanding issued queues. | P1 | FRS-BB-327 |
+| URS-BB-293 | Staff reviewing units still issued can see who released each unit on the in-transit and outstanding issued queues. | P1 | FRS-BB-328 |
+| URS-BB-294 | Staff receiving, returning, or documenting a unit still issued can see who released it on that form. | P1 | FRS-BB-329 |
+| URS-BB-295 | Staff completing a retrospective crossmatch can see who released the unit on that queue. | P1 | FRS-BB-330 |
+| URS-BB-296 | Staff recording a retrospective crossmatch can see who released the unit on the follow-up screen. | P1 | FRS-BB-331 |
+| URS-BB-297 | Staff completing a retrospective crossmatch can see the recorded reason the unit was released. | P1 | FRS-BB-332 |
+| URS-BB-298 | Staff recording a retrospective crossmatch can see the recorded release reason on the follow-up screen. | P1 | FRS-BB-333 |
+| URS-BB-299 | Staff reviewing a patient's product history can see the recorded reason an issued, returned, or transfused unit was released. | P1 | FRS-BB-334 |
+| URS-BB-300 | Staff reviewing units still issued can see the recorded reason each unit was released on the in-transit and outstanding issued queues. | P1 | FRS-BB-335 |
+| URS-BB-301 | Staff receiving, returning, or documenting a unit still issued can see the recorded reason it was released. | P1 | FRS-BB-336 |
+| URS-BB-302 | Staff reviewing units still issued can see the second verifier recorded at issue on the in-transit and outstanding issued queues. | P1 | FRS-BB-337 |
+| URS-BB-303 | Staff receiving, returning, or documenting a unit still issued can see the second verifier recorded at issue. | P1 | FRS-BB-338 |
+| URS-BB-304 | Staff completing a retrospective crossmatch can see the second verifier recorded at issue on that queue. | P1 | FRS-BB-339 |
+| URS-BB-305 | Staff recording a retrospective crossmatch can see the second verifier recorded at issue on the follow-up screen. | P1 | FRS-BB-340 |
+| URS-BB-306 | Staff reviewing a patient's product history can see the second verifier recorded at issue for an issued, returned, or transfused unit. | P1 | FRS-BB-341 |
+| URS-BB-307 | Staff completing a retrospective crossmatch can see who authorized the emergency or massive-transfusion release. | P1 | FRS-BB-342 |
+| URS-BB-308 | Staff recording a retrospective crossmatch can see who authorized the release on the follow-up screen. | P1 | FRS-BB-343 |
+| URS-BB-309 | Staff reviewing units still issued can see who authorized an emergency or massive-transfusion release on the in-transit and outstanding issued queues. | P1 | FRS-BB-344 |
+| URS-BB-310 | Staff receiving, returning, or documenting a unit can see who authorized an emergency or massive-transfusion release on that form. | P1 | FRS-BB-345 |
+| URS-BB-311 | Staff reviewing a patient's product history can see who authorized an emergency or massive-transfusion release on issued, returned, and transfused rows. | P1 | FRS-BB-346 |
+| URS-BB-312 | Staff reviewing units still issued can see the appearance recorded at issue on the in-transit and outstanding issued queues. | P1 | FRS-BB-347 |
+| URS-BB-313 | Staff receiving, returning, or documenting a unit can see the appearance recorded at issue on that form. | P1 | FRS-BB-348 |
+| URS-BB-314 | Staff completing a retrospective crossmatch can see the appearance recorded at issue on that queue. | P1 | FRS-BB-349 |
+| URS-BB-315 | Staff recording a retrospective crossmatch can see the appearance recorded at issue on the follow-up screen. | P1 | FRS-BB-350 |
+| URS-BB-316 | Staff reviewing a patient's product history can see the appearance recorded at issue on issued, returned, and transfused rows. | P1 | FRS-BB-351 |
+| URS-BB-317 | Staff reviewing units still issued can see the appearance recorded at ward receipt on the outstanding issued queue. | P1 | FRS-BB-352 |
+| URS-BB-318 | Staff returning or documenting a unit can see the appearance recorded at ward receipt on that form. | P1 | FRS-BB-353 |
+| URS-BB-319 | Staff reviewing a patient's product history can see the appearance recorded at ward receipt on issued, returned, and transfused rows. | P1 | FRS-BB-354 |
+| URS-BB-320 | Staff reviewing units still issued can see the pickup tag scanned at issue on the in-transit and outstanding issued queues. | P1 | FRS-BB-355 |
+| URS-BB-321 | Staff receiving, returning, or documenting a unit can see the pickup tag scanned at issue on that form. | P1 | FRS-BB-356 |
+| URS-BB-322 | Staff completing a retrospective crossmatch can see the pickup tag scanned at issue on that queue. | P1 | FRS-BB-357 |
+| URS-BB-323 | Staff recording a retrospective crossmatch can see the pickup tag scanned at issue on the follow-up screen. | P1 | FRS-BB-358 |
+| URS-BB-324 | Staff reviewing a patient's product history can see the pickup tag scanned at issue on issued, returned, and transfused rows. | P1 | FRS-BB-359 |
+| URS-BB-325 | Staff reviewing units still issued can see the crossmatch status recorded at issue on the in-transit and outstanding issued queues. | P1 | FRS-BB-360 |
+| URS-BB-326 | Staff receiving, returning, or documenting a unit can see the crossmatch status recorded at issue on that form. | P1 | FRS-BB-361 |

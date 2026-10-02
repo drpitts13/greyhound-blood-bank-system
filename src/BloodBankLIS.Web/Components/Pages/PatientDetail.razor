@@ -26,6 +26,8 @@ else
     <PatientChartHeader
         Patient="_patient"
         CurrentType="_currentType"
+        TypeHistory="_typeHistory"
+        RequireSecondAbo="_requireSecondAbo"
         Exm="_exm"
         Busy="_busy"
         CanEditDemographics="CanEditDemographics"
@@ -37,8 +39,10 @@ else
         MergeFeedback="_mergeFb"
         @bind-MergeMrn="_mergeMrn"
         @bind-MergeReason="_mergeReason"
+        HasRecordedReaction="_productHistory.Any(h => h.ReactionSuspected)"
         AntibodyHistory="_antibodyHistory"
         ActiveSpecialRequirements="ActiveSpecialRequirements"
+        Specimens="_specimens"
         OnToggleEdit="ToggleEditDemographics"
         OnToggleMerge="ToggleMerge"
         OnSaveDemo="SaveDemographicsAsync"
@@ -472,6 +476,7 @@ else
     private BloodTypeDto? _currentType;
     private ElectronicCrossmatchEligibilityDto? _exm;
     private List<BloodTypeDto> _typeHistory = new();
+    private bool _requireSecondAbo = true;
     private List<AntibodyDto> _antibodyHistory = new();
     private List<AntibodyIdWorkupListItemDto> _abidWorkups = new();
 
@@ -781,6 +786,7 @@ else
         _currentType = (await Api.GetCurrentBloodTypeAsync(Id)).Value;
         _exm = (await Api.GetPatientElectronicCrossmatchEligibilityAsync(Id)).Value;
         _typeHistory = (await Api.GetBloodTypeHistoryAsync(Id)).Value ?? new();
+        await LoadSecondAboPolicyAsync();
         _antibodyHistory = (await Api.GetAntibodyHistoryAsync(Id)).Value ?? new();
         if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
         {
@@ -2700,6 +2706,21 @@ else
         _currentType = (await Api.GetCurrentBloodTypeAsync(Id)).Value;
         _exm = (await Api.GetPatientElectronicCrossmatchEligibilityAsync(Id)).Value;
         _typeHistory = (await Api.GetBloodTypeHistoryAsync(Id)).Value ?? new();
+    }
+
+    private async Task LoadSecondAboPolicyAsync()
+    {
+        var policies = await Api.GetAdminFacilityPoliciesAsync();
+        if (!policies.Succeeded || policies.Value is null)
+        {
+            return;
+        }
+
+        var row = policies.Value.FirstOrDefault(p => p.Key == FacilityPolicyKeys.RequireSecondAboForCellularIssue);
+        if (row is not null && bool.TryParse(row.Value, out var required))
+        {
+            _requireSecondAbo = required;
+        }
     }
 
     private RenderFragment RenderResults(SpecimenDto s) => __builder =>

@@ -130,5 +130,99 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-119 | I | `ReactionInvestigationServiceTests.Update_FatalSeverity_StartsFatalityFollowUp` | URS-BB-230 / FRS-BB-265 / RISK-BB-332 |
 | TEST-BB-120 | I | `LookbackSearchAuthorizationTests.RecordAttempt_FinishedNotification_DoesNotChange` | URS-BB-231 / FRS-BB-266 / RISK-BB-333 |
 | TEST-BB-121 | I | `Phase5Hl7Tests.Replay_ErroredCopy_WhenSiblingAlreadyApplied_DoesNotRunAgain` | URS-BB-232 / FRS-BB-267 / RISK-BB-334 |
+| TEST-BB-122 | D,I | `ProductSelectionOrderTests.OwnRestrictedUnit_PrecedesIdentical_WhichPrecedesSubstitute`; `PatientAllocationTests.ListCompatibleUnits_RanksOwnRestrictedAndIdenticalBeforeSubstitute` | URS-BB-233 / FRS-BB-268 / RISK-BB-335 |
+| TEST-BB-123 | I | `PatientAllocationTests.ListCompatibleUnits_OmitsOutdatedUnit` | URS-BB-234 / FRS-BB-269 / RISK-BB-336 |
+| TEST-BB-124 | I | `PatientAllocationTests.ListCompatibleUnits_MarksUnitInsideNearExpiryWindow` | URS-BB-235 / FRS-BB-270 / RISK-BB-337 |
+| TEST-BB-125 | D,I | `SpecialTransfusionRequirementRuleTests.UnitSelection_OmitsMissingProductAttribute_KeepsAcknowledgmentOnly`; `SpecialTransfusionRequirementRuleTests.UnitSelection_OmitsUnitThatIsNotAntigenNegative`; `PatientAllocationTests.ListCompatibleUnits_OmitsUnitThatFailsSpecialRequirement`; `PatientAllocationTests.ListCompatibleUnits_KeepsUnitForAcknowledgmentOnlyRequirement` | URS-BB-236 / FRS-BB-271 / RISK-BB-338 |
+| TEST-BB-126 | D | `CurrentSpecimenBannerTests` | URS-BB-237 / FRS-BB-272 / RISK-BB-339 |
+| TEST-BB-127 | D,I | `CrossmatchRuleTests.CurrentCompatible_MatchesTheIssuePredicate`; `PatientAllocationTests.ListCompatibleUnits_ListsCurrentCrossmatchAheadOfShorterDatedUnit` | URS-BB-238 / FRS-BB-273 / RISK-BB-340 |
+| TEST-BB-128 | D | `SecondAboDeterminationRuleTests.ChartNotice_OnlyWhenRequiredAndCurrentTypeLacksAMatch` | URS-BB-239 / FRS-BB-274 / RISK-BB-341 |
+| TEST-BB-129 | D,I | `CrossmatchRuleTests.CountsAsIncompatible_MatchesTheIssuePredicate`; `PatientAllocationTests.ListCompatibleUnits_ListsIncompatibleCrossmatchAfterUnmatchedUnit` | URS-BB-240 / FRS-BB-275 / RISK-BB-342 |
+| TEST-BB-130 | D | `ElectronicCrossmatchBannerTests.Notice_ShowsBlockingReasonOnlyWhenNotEligible` | URS-BB-241 / FRS-BB-276 / RISK-BB-343 |
+| TEST-BB-131 | D,I | `AntibodyIdentificationHistoryPostRuleTests.ReadyToIssueNotice_UsesTheIssueWarning`; `Phase4IssuingTests.ListReadyToIssue_FlagsOpenAntibodyWorkupWithoutRemovingTheRow` | URS-BB-242 / FRS-BB-277 / RISK-BB-344 |
+| TEST-BB-132 | I | `Phase4IssuingTests.ListReadyToIssue_MarksUnitInsideTheIssueNearExpiryWindow` | URS-BB-243 / FRS-BB-278 / RISK-BB-345 |
+| TEST-BB-133 | I | `Phase4IssuingTests.ListReadyToIssue_ShowsElectronicCrossmatchBlockingReason` | URS-BB-244 / FRS-BB-279 / RISK-BB-346 |
+| TEST-BB-134 | D, I | `CrossmatchRuleTests.DescribeReadyToIssue_MatchesTheStandardIssueEvaluation`; `Phase4IssuingTests.ListReadyToIssue_MarksMissingCrossmatchAndKeepsIncompatibleIssuable` | URS-BB-245 / FRS-BB-280 / RISK-BB-347 |
+| TEST-BB-135 | D, I | `SpecialTransfusionRequirementRuleTests.ReadyToIssueNotice_UsesTheUnitFactHardStop`; `Phase4IssuingTests.ListReadyToIssue_MarksUnmetSpecialRequirementWithoutOfferingIssue` | URS-BB-246 / FRS-BB-281 / RISK-BB-348 |
+| TEST-BB-136 | D, I | `BloodAttributeCompatibilityRuleTests.ReadyToIssueNotice_UsesTheIssueWarning`; `Phase4IssuingTests.ListReadyToIssue_MarksAntigenWarningWithoutRemovingTheRow` | URS-BB-247 / FRS-BB-282 / RISK-BB-349 |
+| TEST-BB-137 | D, I | `IssueGateTests.DescribeAboRhDiscrepancy_MatchesTheIssueGate`; `Phase4IssuingTests.ListReadyToIssue_MarksUnresolvedAboRhDiscrepancy` | URS-BB-248 / FRS-BB-283 / RISK-BB-350 |
+| TEST-BB-138 | D | `IssueGateTests.PatientBannerNotice_UsesTheDisagreementWarning` | URS-BB-249 / FRS-BB-284 / RISK-BB-351 |
+| TEST-BB-139 | D | `ReactionHistoryBannerTests.Notice_NamesARecordedReactionAndStaysQuietOtherwise` | URS-BB-250 / FRS-BB-285 / RISK-BB-352 |
+| TEST-BB-140 | I | `Phase4IssuingTests.ListReadyToIssue_MarksRecordedReactionWithoutRemovingTheRow` | URS-BB-251 / FRS-BB-286 / RISK-BB-353 |
+| TEST-BB-141 | A | `ReadyToIssueFormCueTests.Notices_RepeatTheReadyToIssueMarks` | URS-BB-252 / FRS-BB-287 / RISK-BB-354 |
+| TEST-BB-142 | I | `Phase4IssuingTests.ListReadyToIssue_MarksThisPatientsAutologousAndDirectedUnits` | URS-BB-253 / FRS-BB-288 / RISK-BB-355 |
+| TEST-BB-143 | I | `Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate` | URS-BB-254 / FRS-BB-289 / RISK-BB-356 |
+| TEST-BB-144 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-255 / FRS-BB-290 / RISK-BB-357 |
+| TEST-BB-145 | I | `Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate` | URS-BB-256 / FRS-BB-291 / RISK-BB-358 |
+| TEST-BB-146 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-257 / FRS-BB-292 / RISK-BB-359 |
+| TEST-BB-147 | I | `PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved` | URS-BB-258 / FRS-BB-293 / RISK-BB-360 |
+| TEST-BB-148 | I | `Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate` | URS-BB-259 / FRS-BB-294 / RISK-BB-361 |
+| TEST-BB-149 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-260 / FRS-BB-295 / RISK-BB-362 |
+| TEST-BB-150 | I | `PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved` | URS-BB-261 / FRS-BB-296 / RISK-BB-363 |
+| TEST-BB-151 | I | `Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate` | URS-BB-262 / FRS-BB-297 / RISK-BB-364 |
+| TEST-BB-152 | I | `Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate` | URS-BB-263 / FRS-BB-298 / RISK-BB-365 |
+| TEST-BB-153 | I | `PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved` | URS-BB-264 / FRS-BB-299 / RISK-BB-366 |
+| TEST-BB-154 | I | `Phase4IssuingTests.ListReadyToIssue_SurfacesUnitPatientAndXmStatusAfterAllocate` | URS-BB-265 / FRS-BB-300 / RISK-BB-367 |
+| TEST-BB-155 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-266 / FRS-BB-301 / RISK-BB-368 |
+| TEST-BB-156 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-267 / FRS-BB-302 / RISK-BB-369 |
+| TEST-BB-157 | I | `PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved` | URS-BB-268 / FRS-BB-303 / RISK-BB-370 |
+| TEST-BB-158 | I | `PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved` | URS-BB-269 / FRS-BB-304 / RISK-BB-371 |
+| TEST-BB-159 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-270 / FRS-BB-305 / RISK-BB-372 |
+| TEST-BB-160 | I | `PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved` | URS-BB-271 / FRS-BB-306 / RISK-BB-373 |
+| TEST-BB-161 | I | `ReadyToIssueFormCueTests.Notices_RepeatTheReadyToIssueMarks` | URS-BB-272 / FRS-BB-307 / RISK-BB-374 |
+| TEST-BB-162 | I | `PatientAllocationTests.Allocate_Rbc_OrdersCxm_AndListsReserved` | URS-BB-273 / FRS-BB-308 / RISK-BB-375 |
+| TEST-BB-163 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-274 / FRS-BB-309 / RISK-BB-376 |
+| TEST-BB-164 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-275 / FRS-BB-310 / RISK-BB-377 |
+| TEST-BB-165 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-276 / FRS-BB-311 / RISK-BB-378 |
+| TEST-BB-166 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-277 / FRS-BB-312 / RISK-BB-379 |
+| TEST-BB-167 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-278 / FRS-BB-313 / RISK-BB-380 |
+| TEST-BB-168 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-279 / FRS-BB-314 / RISK-BB-381 |
+| TEST-BB-169 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-280 / FRS-BB-315 / RISK-BB-382 |
+| TEST-BB-170 | U | `IssuedToNoticeTests.IssuedToNotice_NamesThePerson` | URS-BB-281 / FRS-BB-316 / RISK-BB-383 |
+| TEST-BB-171 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-282 / FRS-BB-317 / RISK-BB-384 |
+| TEST-BB-172 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-283 / FRS-BB-318 / RISK-BB-385 |
+| TEST-BB-173 | U | `CoolerNoticeTests.CoolerNotice_NamesTheContainer` | URS-BB-284 / FRS-BB-319 / RISK-BB-386 |
+| TEST-BB-174 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-285 / FRS-BB-320 / RISK-BB-387 |
+| TEST-BB-175 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-286 / FRS-BB-321 / RISK-BB-388 |
+| TEST-BB-176 | U | `RetrospectiveFollowUpNoticeTests.RetrospectiveFollowUpNotice_NamesCustody` | URS-BB-287 / FRS-BB-322 / RISK-BB-389 |
+| TEST-BB-177 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-288 / FRS-BB-323 / RISK-BB-390 |
+| TEST-BB-178 | U | `IssuedToLocationNoticeTests.IssuedToLocationNotice_NamesTheWard` | URS-BB-289 / FRS-BB-324 / RISK-BB-391 |
+| TEST-BB-179 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-290 / FRS-BB-325 / RISK-BB-392 |
+| TEST-BB-180 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-291 / FRS-BB-326 / RISK-BB-393 |
+| TEST-BB-181 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-292 / FRS-BB-327 / RISK-BB-394 |
+| TEST-BB-182 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-293 / FRS-BB-328 / RISK-BB-395 |
+| TEST-BB-183 | U | `IssuedByNoticeTests.IssuedByNotice_NamesTheTechnologist` | URS-BB-294 / FRS-BB-329 / RISK-BB-396 |
+| TEST-BB-184 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-295 / FRS-BB-330 / RISK-BB-397 |
+| TEST-BB-185 | U | `RetrospectiveFollowUpNoticeTests.RetrospectiveFollowUpNotice_NamesCustody` | URS-BB-296 / FRS-BB-331 / RISK-BB-398 |
+| TEST-BB-186 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-297 / FRS-BB-332 / RISK-BB-399 |
+| TEST-BB-187 | U | `EmergencyReleaseReasonNoticeTests.EmergencyReleaseReasonNotice_NamesTheReason` | URS-BB-298 / FRS-BB-333 / RISK-BB-400 |
+| TEST-BB-188 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-299 / FRS-BB-334 / RISK-BB-401 |
+| TEST-BB-189 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-300 / FRS-BB-335 / RISK-BB-402 |
+| TEST-BB-190 | U | `EmergencyReleaseReasonNoticeTests.EmergencyReleaseReasonNotice_NamesTheReason` | URS-BB-301 / FRS-BB-336 / RISK-BB-403 |
+| TEST-BB-191 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-302 / FRS-BB-337 / RISK-BB-404 |
+| TEST-BB-192 | U | `SecondVerifierNoticeTests.SecondVerifierNotice_NamesTheWitness` | URS-BB-303 / FRS-BB-338 / RISK-BB-405 |
+| TEST-BB-193 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-304 / FRS-BB-339 / RISK-BB-406 |
+| TEST-BB-194 | U | `RetrospectiveFollowUpNoticeTests.RetrospectiveFollowUpNotice_NamesCustody` | URS-BB-305 / FRS-BB-340 / RISK-BB-407 |
+| TEST-BB-195 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-306 / FRS-BB-341 / RISK-BB-408 |
+| TEST-BB-196 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-307 / FRS-BB-342 / RISK-BB-409 |
+| TEST-BB-197 | U | `EmergencyReleaseAuthorizerNoticeTests.EmergencyReleaseAuthorizerNotice_NamesTheAuthorizer` | URS-BB-308 / FRS-BB-343 / RISK-BB-410 |
+| TEST-BB-198 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-309 / FRS-BB-344 / RISK-BB-411 |
+| TEST-BB-199 | U | `EmergencyReleaseAuthorizerNoticeTests.EmergencyReleaseAuthorizerNotice_NamesTheAuthorizer` | URS-BB-310 / FRS-BB-345 / RISK-BB-412 |
+| TEST-BB-200 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-311 / FRS-BB-346 / RISK-BB-413 |
+| TEST-BB-201 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-312 / FRS-BB-347 / RISK-BB-414 |
+| TEST-BB-202 | U | `IssueAppearanceNoticeTests.IssueAppearanceNotice_NamesTheCode` | URS-BB-313 / FRS-BB-348 / RISK-BB-415 |
+| TEST-BB-203 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-314 / FRS-BB-349 / RISK-BB-416 |
+| TEST-BB-204 | U | `IssueAppearanceNoticeTests.IssueAppearanceNotice_NamesTheCode` | URS-BB-315 / FRS-BB-350 / RISK-BB-417 |
+| TEST-BB-205 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-316 / FRS-BB-351 / RISK-BB-418 |
+| TEST-BB-206 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-317 / FRS-BB-352 / RISK-BB-419 |
+| TEST-BB-207 | U | `WardAppearanceNoticeTests.WardAppearanceNotice_NamesTheCode` | URS-BB-318 / FRS-BB-353 / RISK-BB-420 |
+| TEST-BB-208 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-319 / FRS-BB-354 / RISK-BB-421 |
+| TEST-BB-209 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-320 / FRS-BB-355 / RISK-BB-422 |
+| TEST-BB-210 | U | `PtagNoticeTests.PtagNotice_NamesTheCode` | URS-BB-321 / FRS-BB-356 / RISK-BB-423 |
+| TEST-BB-211 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-322 / FRS-BB-357 / RISK-BB-424 |
+| TEST-BB-212 | U | `PtagNoticeTests.PtagNotice_NamesTheCode` | URS-BB-323 / FRS-BB-358 / RISK-BB-425 |
+| TEST-BB-213 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-324 / FRS-BB-359 / RISK-BB-426 |
+| TEST-BB-214 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-325 / FRS-BB-360 / RISK-BB-427 |
+| TEST-BB-215 | U | `CrossmatchStatusNoticeTests.CrossmatchStatusNotice_NamesTheStatus` | URS-BB-326 / FRS-BB-361 / RISK-BB-428 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

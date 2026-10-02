@@ -1,3 +1,5 @@
+using BloodBankLIS.Domain.Enums;
+
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
@@ -32,5 +34,74 @@ public static class CrossmatchValidityRule
         return isEmergencyRelease
             ? RuleResult.Warning(Code, "No compatible, unexpired crossmatch — permitted only via authorized emergency release.")
             : RuleResult.HardStop(Code, "A compatible, unexpired crossmatch is required for this product.");
+    }
+
+    /// <summary>
+    /// Same predicate issue uses for <c>HasValidCrossmatch</c>: compatible, and
+    /// either undated or still after <paramref name="nowUtc"/>.
+    /// </summary>
+    public static bool IsCurrentCompatible(CrossmatchResult result, DateTime? expiresUtc, DateTime nowUtc) =>
+        result == CrossmatchResult.Compatible && (expiresUtc is null || expiresUtc > nowUtc);
+
+    /// <summary>
+    /// Same predicate issue uses for <c>HasIncompatibleCrossmatch</c>: any incompatible
+    /// result, including one whose expiration has passed. A current compatible result
+    /// still satisfies issue on its own.
+    /// </summary>
+    public static bool CountsAsIncompatible(CrossmatchResult result) =>
+        result == CrossmatchResult.Incompatible;
+
+    /// <summary>
+    /// Ready-to-issue cue for the standard issue path. Emergency release and
+    /// electronic issue stay choices on the issue form. A current compatible
+    /// crossmatch has no cue.
+    /// </summary>
+    public readonly record struct ReadyToIssueCue(bool BlocksRoutineIssue, string? Notice);
+
+    public static ReadyToIssueCue DescribeReadyToIssue(
+        bool requiresCrossmatch,
+        bool hasValidCrossmatch,
+        bool hasIncompatibleCrossmatch)
+    {
+        var result = Evaluate(
+            requiresCrossmatch,
+            hasValidCrossmatch,
+            isEmergencyRelease: false,
+            electronicIssueEligible: false,
+            hasIncompatibleCrossmatch);
+        return result.Severity == RuleSeverity.Pass
+            ? new ReadyToIssueCue(false, null)
+            : new ReadyToIssueCue(result.Severity == RuleSeverity.HardStop, result.Message);
+    }
+
+    /// <summary>
+    /// When any current compatible crossmatch is undated, there is no clock.
+    /// Otherwise the latest expiration among current compatible results is the
+    /// time that coverage ends, because any one of them satisfies issue.
+    /// </summary>
+    public static DateTime? CurrentCompatibleExpiresUtc(
+        IEnumerable<(CrossmatchResult Result, DateTime? ExpiresUtc)> crossmatches,
+        DateTime nowUtc)
+    {
+        DateTime? latest = null;
+        foreach (var (result, expiresUtc) in crossmatches)
+        {
+            if (!IsCurrentCompatible(result, expiresUtc, nowUtc))
+            {
+                continue;
+            }
+
+            if (expiresUtc is null)
+            {
+                return null;
+            }
+
+            if (latest is null || expiresUtc > latest)
+            {
+                latest = expiresUtc;
+            }
+        }
+
+        return latest;
     }
 }

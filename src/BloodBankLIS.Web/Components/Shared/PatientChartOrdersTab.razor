@@ -355,7 +355,7 @@
                                                 <option value="">— Select unit —</option>
                                                 @foreach (var u in CompatibleUnits.Where(u => OrderProductTypeIds(o).Contains(u.ProductTypeId)))
                                                 {
-                                                    <option value="@u.BloodUnitId">@u.UnitNumber · @u.BloodType · @u.ProductCode</option>
+                                                    <option value="@u.BloodUnitId">@Ui.CompatibleUnitChoiceLabel(u)</option>
                                                 }
                                             </select>
                                         </div>

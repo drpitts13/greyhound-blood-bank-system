@@ -373,6 +373,16 @@ public static class AntibodyIdentificationHistoryPostRule
             "An open antibody-identification workup is the identification of record. Antigen-negative needs may change when the workup completes. This warning does not identify antibodies or block issue.");
     }
 
+    /// <summary>
+    /// Ready-to-issue copy for the same warning. Null when no workup is open.
+    /// Does not block issue.
+    /// </summary>
+    public static string? ReadyToIssueNotice(bool hasOpenWorkupOnPatient)
+    {
+        var result = EvaluateIssueOpenWorkup(hasOpenWorkupOnPatient);
+        return result.Severity == RuleSeverity.Warning ? result.Message : null;
+    }
+
     public static IReadOnlyList<RuleResult> EvaluateCompletedWorkup(
         bool hasCompletedWorkupInScope,
         IReadOnlyList<string> freeTextSpecificities,

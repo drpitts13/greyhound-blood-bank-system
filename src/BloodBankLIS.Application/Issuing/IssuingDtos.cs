@@ -122,7 +122,22 @@ public sealed record InTransitWorkItemDto(
     bool IsOverdue,
     string? CoolerId,
     string? IssuedToLocation,
-    IssueStatus Status)
+    IssueStatus Status,
+    string? ProductName = null,
+    DateTime? UnitExpiresUtc = null,
+    string? UnitBloodType = null,
+    string? SpecimenAccession = null,
+    DateTime? CrossmatchExpiresUtc = null,
+    CrossmatchResult? LatestCrossmatchResult = null,
+    string? IssuedTo = null,
+    IssueType IssueType = IssueType.Standard,
+    string? IssuedBy = null,
+    string? EmergencyReleaseDetails = null,
+    string? SecondVerifier = null,
+    string? EmergencyReleaseAuthorizer = null,
+    UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
+    string? PtagCode = null,
+    CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed)
 {
     public static InTransitWorkItemDto From(
         Issue i,
@@ -134,12 +149,28 @@ public sealed record InTransitWorkItemDto(
         bool hasAntibodyHistory,
         string? antibodySummary,
         DateTime? specimenExpiresUtc,
-        bool specimenExpired) => new(
+        bool specimenExpired,
+        string? productName = null,
+        DateTime? unitExpiresUtc = null,
+        string? unitBloodType = null,
+        string? specimenAccession = null,
+        DateTime? crossmatchExpiresUtc = null,
+        CrossmatchResult? latestCrossmatchResult = null,
+        string? emergencyReleaseAuthorizer = null) => new(
         i.Id, i.PatientId, mrn, displayName, i.BloodProductId, unitNumber, currentBloodType,
         hasAntibodyHistory, antibodySummary, specimenExpiresUtc, specimenExpired,
         i.IssuedUtc, i.InTransitDueUtc,
         InTransitPendingRule.EvaluateOverdue(i.InTransitDueUtc, now).Severity == RuleSeverity.Warning,
-        i.CoolerId, i.IssuedToLocation, i.Status);
+        i.CoolerId, i.IssuedToLocation, i.Status, productName, unitExpiresUtc, unitBloodType, specimenAccession, crossmatchExpiresUtc, latestCrossmatchResult,
+        string.IsNullOrWhiteSpace(i.IssuedTo) ? null : i.IssuedTo.Trim(),
+        i.IssueType,
+        string.IsNullOrWhiteSpace(i.IssuedBy) ? null : i.IssuedBy.Trim(),
+        string.IsNullOrWhiteSpace(i.EmergencyReleaseDetails) ? null : i.EmergencyReleaseDetails.Trim(),
+        string.IsNullOrWhiteSpace(i.SecondVerifier) ? null : i.SecondVerifier.Trim(),
+        string.IsNullOrWhiteSpace(emergencyReleaseAuthorizer) ? null : emergencyReleaseAuthorizer.Trim(),
+        i.IssueAppearance,
+        string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim(),
+        i.CrossmatchStatus);
 }
 
 public sealed record OutstandingIssueWorkItemDto(
@@ -160,7 +191,23 @@ public sealed record OutstandingIssueWorkItemDto(
     string? WardReceivedBy,
     string? CoolerId,
     string? IssuedToLocation,
-    IssueStatus Status)
+    IssueStatus Status,
+    string? ProductName = null,
+    DateTime? UnitExpiresUtc = null,
+    string? UnitBloodType = null,
+    string? SpecimenAccession = null,
+    DateTime? CrossmatchExpiresUtc = null,
+    CrossmatchResult? LatestCrossmatchResult = null,
+    string? IssuedTo = null,
+    IssueType IssueType = IssueType.Standard,
+    string? IssuedBy = null,
+    string? EmergencyReleaseDetails = null,
+    string? SecondVerifier = null,
+    string? EmergencyReleaseAuthorizer = null,
+    UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
+    string? WardAppearance = null,
+    string? PtagCode = null,
+    CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed)
 {
     public static OutstandingIssueWorkItemDto From(
         Issue i,
@@ -173,10 +220,27 @@ public sealed record OutstandingIssueWorkItemDto(
         bool hasAntibodyHistory,
         string? antibodySummary,
         DateTime? specimenExpiresUtc,
-        bool specimenExpired) => new(
+        bool specimenExpired,
+        string? productName = null,
+        DateTime? unitExpiresUtc = null,
+        string? unitBloodType = null,
+        string? specimenAccession = null,
+        DateTime? crossmatchExpiresUtc = null,
+        CrossmatchResult? latestCrossmatchResult = null,
+        string? emergencyReleaseAuthorizer = null) => new(
         i.Id, i.PatientId, mrn, displayName, dateOfBirth, i.BloodProductId, unitNumber, currentBloodType,
         hasAntibodyHistory, antibodySummary, specimenExpiresUtc, specimenExpired,
-        i.IssuedUtc, i.WardReceivedUtc, i.WardReceivedBy, i.CoolerId, i.IssuedToLocation, i.Status);
+        i.IssuedUtc, i.WardReceivedUtc, i.WardReceivedBy, string.IsNullOrWhiteSpace(i.CoolerId) ? null : i.CoolerId.Trim(), string.IsNullOrWhiteSpace(i.IssuedToLocation) ? null : i.IssuedToLocation.Trim(), i.Status, productName, unitExpiresUtc, unitBloodType, specimenAccession, crossmatchExpiresUtc, latestCrossmatchResult,
+        string.IsNullOrWhiteSpace(i.IssuedTo) ? null : i.IssuedTo.Trim(),
+        i.IssueType,
+        string.IsNullOrWhiteSpace(i.IssuedBy) ? null : i.IssuedBy.Trim(),
+        string.IsNullOrWhiteSpace(i.EmergencyReleaseDetails) ? null : i.EmergencyReleaseDetails.Trim(),
+        string.IsNullOrWhiteSpace(i.SecondVerifier) ? null : i.SecondVerifier.Trim(),
+        string.IsNullOrWhiteSpace(emergencyReleaseAuthorizer) ? null : emergencyReleaseAuthorizer.Trim(),
+        i.IssueAppearance,
+        i.WardReceivedUtc is null ? null : i.WardAppearance.ToString(),
+        string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim(),
+        i.CrossmatchStatus);
 }
 
 public sealed record ReadyToIssueWorkItemDto(
@@ -199,7 +263,25 @@ public sealed record ReadyToIssueWorkItemDto(
     bool SpecimenBlocksIssue = false,
     string? SpecimenBlockReason = null,
     bool UnitOutdated = false,
-    string? UnitBlockReason = null);
+    string? UnitBlockReason = null,
+    bool OpenAntibodyWorkup = false,
+    string? OpenAntibodyWorkupNotice = null,
+    bool ExpiresSoon = false,
+    string? ElectronicCrossmatchNotice = null,
+    bool CrossmatchBlocksRoutineIssue = false,
+    string? CrossmatchNotice = null,
+    string? SpecialRequirementNotice = null,
+    string? AntigenNotice = null,
+    bool AboRhDiscrepancyBlocksIssue = false,
+    string? AboRhDiscrepancyNotice = null,
+    string? ReactionNotice = null,
+    string? DonationRestrictionNotice = null,
+    string? ProductName = null,
+    DateTime? UnitExpiresUtc = null,
+    string? UnitBloodType = null,
+    DateTime? CrossmatchExpiresUtc = null,
+    string? StorageLocationName = null,
+    string? SpecimenAccession = null);
 
 public sealed record SecondAboWorkItemDto(
     long PatientId,
@@ -228,7 +310,20 @@ public sealed record RetrospectiveCrossmatchWorkItemDto(
     IssueStatus Status,
     string? EmergencyReleaseDetails,
     long? SpecimenId = null,
-    string? AccessionNumber = null)
+    string? AccessionNumber = null,
+    string? ProductName = null,
+    DateTime? UnitExpiresUtc = null,
+    string? UnitBloodType = null,
+    DateTime? CrossmatchExpiresUtc = null,
+    CrossmatchResult? LatestCrossmatchResult = null,
+    string? IssuedTo = null,
+    string? CoolerId = null,
+    string? IssuedToLocation = null,
+    string? IssuedBy = null,
+    string? SecondVerifier = null,
+    string? EmergencyReleaseAuthorizer = null,
+    UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
+    string? PtagCode = null)
 {
     public static RetrospectiveCrossmatchWorkItemDto From(
         Issue i,
@@ -242,13 +337,27 @@ public sealed record RetrospectiveCrossmatchWorkItemDto(
         DateTime? specimenExpiresUtc,
         bool specimenExpired,
         long? specimenId = null,
-        string? accessionNumber = null) => new(
+        string? accessionNumber = null,
+        string? productName = null,
+        DateTime? unitExpiresUtc = null,
+        string? unitBloodType = null,
+        DateTime? crossmatchExpiresUtc = null,
+        CrossmatchResult? latestCrossmatchResult = null,
+        string? emergencyReleaseAuthorizer = null) => new(
         i.Id, i.PatientId, mrn, displayName, i.BloodProductId, unitNumber, currentBloodType,
         hasAntibodyHistory, antibodySummary, specimenExpiresUtc, specimenExpired,
         i.IssuedUtc, i.RetrospectiveCrossmatchDueUtc,
         i.RetrospectiveCrossmatchDueUtc is DateTime due && now > due,
-        i.IssueType, i.Status, i.EmergencyReleaseDetails,
-        specimenId, accessionNumber);
+        i.IssueType, i.Status, string.IsNullOrWhiteSpace(i.EmergencyReleaseDetails) ? null : i.EmergencyReleaseDetails.Trim(),
+        specimenId, accessionNumber, productName, unitExpiresUtc, unitBloodType, crossmatchExpiresUtc, latestCrossmatchResult,
+        string.IsNullOrWhiteSpace(i.IssuedTo) ? null : i.IssuedTo.Trim(),
+        string.IsNullOrWhiteSpace(i.CoolerId) ? null : i.CoolerId.Trim(),
+        string.IsNullOrWhiteSpace(i.IssuedToLocation) ? null : i.IssuedToLocation.Trim(),
+        string.IsNullOrWhiteSpace(i.IssuedBy) ? null : i.IssuedBy.Trim(),
+        string.IsNullOrWhiteSpace(i.SecondVerifier) ? null : i.SecondVerifier.Trim(),
+        string.IsNullOrWhiteSpace(emergencyReleaseAuthorizer) ? null : emergencyReleaseAuthorizer.Trim(),
+        i.IssueAppearance,
+        string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim());
 }
 
 public sealed record ReturnDto(

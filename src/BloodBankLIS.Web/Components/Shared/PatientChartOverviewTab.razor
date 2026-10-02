@@ -12,9 +12,9 @@
         {
             <p>
                 <span class="badge @(Exm.Eligible ? "badge-green" : "badge-amber")">@(Exm.Eligible ? "Eligible" : "Not eligible")</span>
-                @if (!Exm.Eligible && !string.IsNullOrWhiteSpace(Exm.BlockingReason))
+                @if (ElectronicCrossmatchBanner.Notice(Exm.Eligible, Exm.BlockingReason) is string exmNotice)
                 {
-                    <span class="muted"> @Exm.BlockingReason</span>
+                    <span class="muted"> @exmNotice</span>
                 }
                 @if (OpenAbidWorkups.Count > 0)
                 {

@@ -182,4 +182,23 @@ public static class BloodAttributeCompatibilityRule
 
         return results;
     }
+
+    /// <summary>
+    /// Ready-to-issue notice for an antigen warning. Uses the same evaluation as
+    /// issue. A unit that is already antigen-negative has no notice. The warning
+    /// stays overridable.
+    /// </summary>
+    public static string? ReadyToIssueNotice(
+        ComponentClass componentClass,
+        IReadOnlyList<AntibodyRef> patientAntibodies,
+        IReadOnlyList<AntigenRef> patientAntigens,
+        IReadOnlyList<AntibodyRef> unitAntibodies,
+        IReadOnlyList<AntigenRef> unitAntigens)
+    {
+        var messages = Evaluate(componentClass, patientAntibodies, patientAntigens, unitAntibodies, unitAntigens)
+            .Where(r => r.Severity == RuleSeverity.Warning)
+            .Select(r => r.Message)
+            .ToList();
+        return messages.Count == 0 ? null : string.Join(" ", messages);
+    }
 }
