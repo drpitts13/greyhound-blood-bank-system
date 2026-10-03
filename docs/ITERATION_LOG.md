@@ -5034,3 +5034,30 @@ The shift dashboard listed outstanding issued units but not units that had left 
 
 The dashboard still does not say how many retrospective crossmatches are already overdue, or how many reaction investigations still need fatality follow-up. Do not add another display-only field on the issue surfaces.
 OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 180 — Dashboard shows overdue retrospective crossmatch and fatality follow-up (2026-10-03)
+
+The dashboard counted retrospective crossmatch and reaction investigations, but a count alone did not separate routine work from items already past due. Both facts are already stored: each retrospective work item carries an overdue flag, and each investigation carries the fatality follow-up cue (`RXN-FATALITY-FOLLOWUP`).
+
+### Implemented
+
+- Retrospective crossmatch due shows how many items are past their stored due time.
+- Reaction investigations shows how many cases still need CBER notification or the written report. A closed case is included, because closing the workup does not clear that follow-up.
+- When nothing is past due, the count looks the same as before.
+- Retrospective completion, reaction close, and the fatality follow-up rule are unchanged.
+
+### Requirements / risk
+
+- URS-BB-333, FRS-BB-368, SRS-BB-330, RISK-BB-435.
+- Does not claim AABB compliance and is not an FDA filing.
+
+### Tests
+
+- TEST-BB-222 (`DashboardDueCountTests.RetrospectiveCountOverdue_IncludesOnlyItemsPastTheStoredDueTime`).
+- TEST-BB-223 (`DashboardDueCountTests.FatalityFollowUpDue_CountsClosedCasesThatStillNeedFollowUp`).
+- Full suite green: Domain 1447, Application 55, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+The dashboard queue chain is complete. Re-rank by safety and operational impact. Do not add another dashboard count or another display-only field on the issue surfaces.
+OCD-004 remains open: do not invent ICCBBA tables.

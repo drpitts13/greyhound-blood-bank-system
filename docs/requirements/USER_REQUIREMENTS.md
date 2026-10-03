@@ -338,3 +338,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-330 | A historically identified antibody that is currently undetectable still precludes electronic crossmatch. | P0 | FRS-BB-365 |
 | URS-BB-331 | Staff opening the dashboard can see the bench queues they are allowed to work. | P1 | FRS-BB-366 |
 | URS-BB-332 | Staff opening the dashboard can see units still in transit, including how many are past the arrival window. | P1 | FRS-BB-367 |
+| URS-BB-333 | Staff opening the dashboard can see which retrospective crossmatches are overdue and which reaction cases still need fatality follow-up. | P1 | FRS-BB-368 |

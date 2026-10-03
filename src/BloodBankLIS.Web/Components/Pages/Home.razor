@@ -32,7 +32,7 @@
 {
     <div class="bb-card" style="margin-top:1.25rem;">
         <div class="bb-card-title"><h3>Needs attention</h3></div>
-        <p class="muted">These are the queues already on the bench. A count does not change an issue, result, or investigation gate. In transit counts units still awaiting ward receipt. An overdue count uses the arrival window already on that queue.</p>
+        <p class="muted">These are the queues already on the bench. A count does not change an issue, result, or investigation gate. In transit counts units still awaiting ward receipt. An overdue count uses the due time already on that queue. Fatality follow-up counts cases still missing CBER notification or the written report, including closed cases.</p>
         <div class="flex gap" style="flex-wrap:wrap;">
             @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
             {
@@ -244,16 +244,21 @@
         || Session.Has(PermissionCodes.ResultVerify)
         || Session.Has(PermissionCodes.ReactionInvestigate);
 
-    private string _retroDueLabel => QueueCount(_retroDue);
+    private int? _retroOverdue;
+    private int? _fatalityFollowUpDue;
+
+    private string _retroDueLabel => WithFlagged(_retroDue, _retroOverdue, "overdue");
     private string _outstandingLabel => QueueCount(_outstandingIssued);
-    private string _inTransitLabel =>
-        _inTransit is not int total
+    private string _inTransitLabel => WithFlagged(_inTransit, _inTransitOverdue, "overdue");
+
+    private static string WithFlagged(int? total, int? flagged, string label) =>
+        total is not int n
             ? "—"
-            : _inTransitOverdue is int overdue && overdue > 0
-                ? $"{total}, {overdue} overdue"
-                : total.ToString();
+            : flagged is int f && f > 0
+                ? $"{n}, {f} {label}"
+                : n.ToString();
     private string _pendingTestsLabel => QueueCount(_pendingTests);
-    private string _openReactionsLabel => QueueCount(_openReactions);
+    private string _openReactionsLabel => WithFlagged(_openReactions, _fatalityFollowUpDue, "fatality follow-up due");
 
     private static string QueueCount(int? count) => count is int n ? n.ToString() : "—";
 
@@ -283,7 +288,11 @@
         if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
         {
             var retro = await Api.GetPendingRetrospectiveCrossmatchesAsync();
-            if (retro.Succeeded) _retroDue = retro.Value!.Count;
+            if (retro.Succeeded)
+            {
+                _retroDue = retro.Value!.Count;
+                _retroOverdue = RetrospectiveCrossmatchAttentionRule.CountOverdue(retro.Value);
+            }
         }
 
         if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.TransfusionDocument))
@@ -311,6 +320,7 @@
             if (reactions.Succeeded)
             {
                 _openReactions = OpenReactionInvestigationRule.Count(reactions.Value!.Select(r => r.Status));
+                _fatalityFollowUpDue = OpenReactionInvestigationRule.CountFatalityFollowUpDue(reactions.Value);
             }
         }
     }

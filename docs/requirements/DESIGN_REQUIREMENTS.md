@@ -333,3 +333,4 @@
 | SRS-BB-327 | `HasAntibodyHistoryAsync` is true for any antibody-history row on the patient, including a deactivated row. Electronic crossmatch eligibility treats that as HardStop `XM-EC-HISTORY`. | FRS-BB-365 |
 | SRS-BB-328 | `OpenReactionInvestigationRule` counts Open and UnderReview and omits Closed. The dashboard links those counts to the existing issuing, test-worklist, and reaction pages. | FRS-BB-366 |
 | SRS-BB-329 | `InTransitAttentionRule` counts work items whose overdue flag is already true. The dashboard links that count to the existing issuing page. | FRS-BB-367 |
+| SRS-BB-330 | `RetrospectiveCrossmatchAttentionRule` counts work items whose `IsOverdue` is true. `OpenReactionInvestigationRule.CountFatalityFollowUpDue` counts investigations whose `FatalityFollowUpDue` is true, regardless of status. | FRS-BB-368 |

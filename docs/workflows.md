@@ -164,6 +164,7 @@ flowchart TD
 - Any antibody-history row, including a deactivated or currently undetectable antibody, permanently blocks electronic crossmatch. Other eligibility criteria are unchanged.
 - The dashboard shows retrospective crossmatch due, outstanding issued units, pending testing, and open or under-review reaction investigations for permissions the user already has. Closed investigations are not counted. Issue, result, and investigation gates are unchanged.
 - The dashboard shows units still awaiting ward receipt, and how many are past the arrival window, for users who can already issue or document transfusion. Ward receipt is unchanged.
+- The dashboard says how many retrospective crossmatches are overdue and how many reaction cases still need fatality follow-up, including closed cases. Completion, close, and the follow-up rule are unchanged.
 - Receive, Return, and Document repeat the pickup tag scanned at issue. A blank pickup tag shows none. Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
 - The retrospective crossmatch queue shows the pickup tag scanned at issue. A blank pickup tag shows none. Retrospective completion is unchanged.
 - The retrospective follow-up screen repeats the pickup tag scanned at issue. A blank pickup tag shows none. Recording the crossmatch is unchanged.

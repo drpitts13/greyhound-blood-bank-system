@@ -13,4 +13,11 @@ public static class OpenReactionInvestigationRule
 
     public static int Count(IEnumerable<ReactionInvestigationStatus> statuses) =>
         statuses.Count(NeedsAttention);
+
+    /// <summary>
+    /// Fatality cases that still need CBER notification or the written report. A closed
+    /// workup can still be counted, because closing it does not clear the follow-up.
+    /// </summary>
+    public static int CountFatalityFollowUpDue(IEnumerable<ReactionInvestigationDto> investigations) =>
+        investigations.Count(static r => r.FatalityFollowUpDue);
 }
