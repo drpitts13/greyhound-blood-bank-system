@@ -161,6 +161,7 @@ flowchart TD
 - The retrospective crossmatch queue shows the crossmatch status recorded at issue. Retrospective completion is unchanged.
 - The retrospective follow-up screen repeats the crossmatch status recorded at issue. Recording the crossmatch is unchanged.
 - Patient product history shows the crossmatch status recorded at issue on issued, returned, and transfused rows. Other rows show none. The issue gate is unchanged.
+- Any antibody-history row, including a deactivated or currently undetectable antibody, permanently blocks electronic crossmatch. Other eligibility criteria are unchanged.
 - Receive, Return, and Document repeat the pickup tag scanned at issue. A blank pickup tag shows none. Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
 - The retrospective crossmatch queue shows the pickup tag scanned at issue. A blank pickup tag shows none. Retrospective completion is unchanged.
 - The retrospective follow-up screen repeats the pickup tag scanned at issue. A blank pickup tag shows none. Recording the crossmatch is unchanged.

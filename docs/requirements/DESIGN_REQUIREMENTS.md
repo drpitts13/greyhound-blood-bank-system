@@ -330,3 +330,4 @@
 | SRS-BB-324 | `RetrospectiveCrossmatchWorkItemDto` carries the crossmatch status recorded at issue. The retrospective queue shows that status in the XM at issue column. | FRS-BB-362 |
 | SRS-BB-325 | `ReadyToIssueFormCue.CrossmatchStatusNotice` names the crossmatch status recorded at issue. The follow-up screen shows that sentence. | FRS-BB-363 |
 | SRS-BB-326 | `PatientProductHistoryRowDto` carries the crossmatch status recorded at issue. Issued, returned, and transfused rows show that status in the XM at issue column. | FRS-BB-364 |
+| SRS-BB-327 | `HasAntibodyHistoryAsync` is true for any antibody-history row on the patient, including a deactivated row. Electronic crossmatch eligibility treats that as HardStop `XM-EC-HISTORY`. | FRS-BB-365 |

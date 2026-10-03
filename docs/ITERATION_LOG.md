@@ -4956,3 +4956,28 @@ WellSky, SafeTrace, and SoftBank show the crossmatch status recorded when a unit
 The crossmatch status recorded at issue is now shown on the issued queues, Receive, Return, Document, the retrospective queue, the follow-up screen, and product history.
 Re-rank the next residual by safety and operational impact. Do not add another display-only field for a fact that is already on those surfaces.
 SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 177 — Keep electronic crossmatch blocked by any antibody history (2026-10-02)
+
+The crossmatch-status display chain is complete. The next ranked residual was OCD-001: whether a historically identified, currently undetectable antibody permanently precludes electronic crossmatch. The decision is to keep the existing hard stop. No eligibility code changed.
+
+### Implemented
+
+- OCD-001 is closed. Any antibody-history row, including a deactivated row, still blocks electronic crossmatch (`XM-EC-HISTORY`).
+- Antigen-negative requirements still evaluate all history rows.
+- Other electronic-crossmatch eligibility criteria are unchanged.
+
+### Requirements / risk
+
+- URS-BB-330, FRS-BB-365, SRS-BB-327, RISK-BB-432.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-219 (`ElectronicXmHistoryRegressionTests.DeactivatedAntibody_BlocksElectronicXm_WithExplainableReason`).
+- Full suite green: Domain 1447, Application 51, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not add another display-only field for a fact already shown on the issue surfaces.
+OCD-004 remains open: do not invent ICCBBA tables.

@@ -37,7 +37,7 @@ them silently and do not invent ICCBBA tables.
 | 14 | P8 | FHIR | Low | HL7 v2 exists |
 | 15 | P1 | Bedside dual-ID / administration device path incomplete | Low (PPID tokens + ISBT scan; RISK-BB-258). Residual: no dedicated administration-device protocol or required vitals (do not invent) | **Implemented Cycle 6** (identity tokens; device path still thin) |
 | 16 | P5 | Downtime reconciliation tooling thin | Low (snapshot; no paper OCR / failover) | **Implemented Cycle 11** |
-| 17 | P2 | Electronic XM policy defaults (OCD-001, OCD-006) | Low (policy off) | **OCD-006 closed 2026-09-18** — off until Facility Policy. OCD-001 (undetectable antibody vs eXM) remains open |
+| 17 | P2 | Electronic XM policy defaults (OCD-001, OCD-006) | Low | **Closed 2026-10-02** — any antibody history, including deactivated, keeps blocking electronic XM (`XM-EC-HISTORY`). OCD-006 stays off until Facility Policy. |
 | 18 | P6 | Broader CSRF / XSS / secrets review | Low (headers + no wildcard CORS; Blazor CSP still allows inline/eval) | **Implemented Cycle 9** |
 | 19 | P5 | Validation packaging: no `TEST-BB-*` IDs; stale “Phase 0” headers; missing iteration log | Low (core safety IDs through TEST-BB-030) | **Implemented Cycle 10**; Cycles 12–13 assigned leftover high-safety class-name citations |
 | 20 | P6 | DevMode auto-admin | Low | Keep Development-only |
@@ -357,6 +357,8 @@ Cycle 174: The retrospective crossmatch queue shows the crossmatch status record
 Cycle 175: The retrospective follow-up screen repeats the crossmatch status recorded at issue (RISK-BB-430). Recording the crossmatch is unchanged. Product history still omits that status.
 
 Cycle 176: Patient product history shows the crossmatch status recorded at issue on issued, returned, and transfused rows (RISK-BB-431). Other rows show none. The issue gate is unchanged.
+
+Cycle 177: Electronic crossmatch stays blocked by any antibody-history row, including a deactivated or currently undetectable antibody (OCD-001, RISK-BB-432). Eligibility is otherwise unchanged.
 
 ## Scoring used for Cycle 1 selection
 

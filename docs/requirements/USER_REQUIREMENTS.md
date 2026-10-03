@@ -335,3 +335,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-327 | Staff completing a retrospective crossmatch can see the crossmatch status recorded at issue on that queue. | P1 | FRS-BB-362 |
 | URS-BB-328 | Staff recording a retrospective crossmatch can see the crossmatch status recorded at issue on the follow-up screen. | P1 | FRS-BB-363 |
 | URS-BB-329 | Staff reviewing a patient's product history can see the crossmatch status recorded at issue on issued, returned, and transfused rows. | P1 | FRS-BB-364 |
+| URS-BB-330 | A historically identified antibody that is currently undetectable still precludes electronic crossmatch. | P0 | FRS-BB-365 |
