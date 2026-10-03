@@ -329,3 +329,4 @@
 | SRS-BB-323 | `ReadyToIssueFormCue.CrossmatchStatusNotice` names the crossmatch status recorded at issue. Receive, Return, and Document show that sentence. | FRS-BB-361 |
 | SRS-BB-324 | `RetrospectiveCrossmatchWorkItemDto` carries the crossmatch status recorded at issue. The retrospective queue shows that status in the XM at issue column. | FRS-BB-362 |
 | SRS-BB-325 | `ReadyToIssueFormCue.CrossmatchStatusNotice` names the crossmatch status recorded at issue. The follow-up screen shows that sentence. | FRS-BB-363 |
+| SRS-BB-326 | `PatientProductHistoryRowDto` carries the crossmatch status recorded at issue. Issued, returned, and transfused rows show that status in the XM at issue column. | FRS-BB-364 |

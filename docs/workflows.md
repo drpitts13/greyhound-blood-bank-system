@@ -160,6 +160,7 @@ flowchart TD
 - Receive, Return, and Document repeat the crossmatch status recorded at issue. Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
 - The retrospective crossmatch queue shows the crossmatch status recorded at issue. Retrospective completion is unchanged.
 - The retrospective follow-up screen repeats the crossmatch status recorded at issue. Recording the crossmatch is unchanged.
+- Patient product history shows the crossmatch status recorded at issue on issued, returned, and transfused rows. Other rows show none. The issue gate is unchanged.
 - Receive, Return, and Document repeat the pickup tag scanned at issue. A blank pickup tag shows none. Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
 - The retrospective crossmatch queue shows the pickup tag scanned at issue. A blank pickup tag shows none. Retrospective completion is unchanged.
 - The retrospective follow-up screen repeats the pickup tag scanned at issue. A blank pickup tag shows none. Recording the crossmatch is unchanged.

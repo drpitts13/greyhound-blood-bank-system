@@ -134,7 +134,7 @@ public sealed class PatientProductHistoryService
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, visit, orderNum, LinkedSpecimenAccession(i, allocationsById, specimens), LatestCrossmatchStatus(latestCrossmatchByUnit, unit?.Id), Person(i.IssuedBy), i.IssuedToLocation,
                 null, null, null, null, i.Status.ToString(), false, missing, isOpen,
-                UnitId: unit?.Id, IssueId: i.Id, UnitExpiresUtc: unit?.ExpiresUtc, IssuedTo: Person(i.IssuedTo), CoolerId: Person(i.CoolerId), IssueType: i.IssueType.ToString(), EmergencyReleaseReason: Person(i.EmergencyReleaseDetails), SecondVerifier: Person(i.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(i, authorizers), IssueAppearance: i.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(i), PtagCode: Person(i.PtagCode)));
+                UnitId: unit?.Id, IssueId: i.Id, UnitExpiresUtc: unit?.ExpiresUtc, IssuedTo: Person(i.IssuedTo), CoolerId: Person(i.CoolerId), IssueType: i.IssueType.ToString(), EmergencyReleaseReason: Person(i.EmergencyReleaseDetails), SecondVerifier: Person(i.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(i, authorizers), IssueAppearance: i.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(i), PtagCode: Person(i.PtagCode), IssueCrossmatchStatus: i.CrossmatchStatus.ToString()));
         }
 
         foreach (var r in await _returns.ListAsync(ct))
@@ -158,7 +158,7 @@ public sealed class PatientProductHistoryService
                 patientBloodType, visit, orderNum, LinkedSpecimenAccession(issue, allocationsById, specimens), LatestCrossmatchStatus(latestCrossmatchByUnit, unit?.Id), Person(r.ReturnedBy), null, r.ReturnedBy,
                 null, null, null, null, false, missing, false,
                 UnitId: unit?.Id, IssueId: r.IssueId, UnitExpiresUtc: unit?.ExpiresUtc,
-                ReturnReason: Person(r.Reason), ReissueEligible: r.ReissueEligible, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode)));
+                ReturnReason: Person(r.Reason), ReissueEligible: r.ReissueEligible, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode), IssueCrossmatchStatus: issue.CrossmatchStatus.ToString()));
         }
 
         foreach (var t in await _transfusions.ListAsync(x => x.PatientId == patientId, ct))
@@ -187,7 +187,7 @@ public sealed class PatientProductHistoryService
                 t.Location ?? issue.IssuedToLocation,
                 null, t.StartUtc, t.StopUtc, t.VolumeTransfused, t.FinalDisposition.ToString(),
                 t.ReactionSuspected, missing, false, t.PatientIdentificationMethod,
-                t.Transfusionist, unit?.Id, t.IssueId, unit?.ExpiresUtc, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode)));
+                t.Transfusionist, unit?.Id, t.IssueId, unit?.ExpiresUtc, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode), IssueCrossmatchStatus: issue.CrossmatchStatus.ToString()));
         }
 
         return rows.OrderByDescending(r => r.EventUtc).ToList();

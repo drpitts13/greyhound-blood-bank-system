@@ -4930,3 +4930,29 @@ WellSky, SafeTrace, and SoftBank repeat the crossmatch status recorded when a un
 Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
 Product history still leaves off the crossmatch status recorded at issue.
 SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 176 — Product history shows the crossmatch status recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the crossmatch status recorded when a unit left the blood bank on the patient's product history, separate from the latest crossmatch result. The issued queues, Receive, Return, Document, the retrospective queue, and the follow-up screen already show that status. Issued, returned, and transfused history rows left it off.
+
+### Implemented
+
+- Issued, returned, and transfused product-history rows show the crossmatch status recorded at issue.
+- Other rows show none.
+- The issue gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-329, FRS-BB-364, SRS-BB-326, RISK-BB-431.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-218 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 51, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+The crossmatch status recorded at issue is now shown on the issued queues, Receive, Return, Document, the retrospective queue, the follow-up screen, and product history.
+Re-rank the next residual by safety and operational impact. Do not add another display-only field for a fact that is already on those surfaces.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
