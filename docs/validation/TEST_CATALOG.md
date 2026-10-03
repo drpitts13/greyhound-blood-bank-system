@@ -225,5 +225,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-214 | I | `Phase4IssuingTests.ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt` | URS-BB-325 / FRS-BB-360 / RISK-BB-427 |
 | TEST-BB-215 | U | `CrossmatchStatusNoticeTests.CrossmatchStatusNotice_NamesTheStatus` | URS-BB-326 / FRS-BB-361 / RISK-BB-428 |
 | TEST-BB-216 | I | `Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm` | URS-BB-327 / FRS-BB-362 / RISK-BB-429 |
+| TEST-BB-217 | U | `CrossmatchStatusNoticeTests.CrossmatchStatusNotice_NamesTheStatus` | URS-BB-328 / FRS-BB-363 / RISK-BB-430 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

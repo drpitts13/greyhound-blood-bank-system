@@ -354,6 +354,8 @@ Cycle 173: Receive, Return, and Document repeat the crossmatch status recorded a
 
 Cycle 174: The retrospective crossmatch queue shows the crossmatch status recorded at issue (RISK-BB-429). Retrospective completion is unchanged. The follow-up screen and product history still omit that status.
 
+Cycle 175: The retrospective follow-up screen repeats the crossmatch status recorded at issue (RISK-BB-430). Recording the crossmatch is unchanged. Product history still omits that status.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |
