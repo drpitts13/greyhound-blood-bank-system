@@ -323,7 +323,8 @@ public sealed record RetrospectiveCrossmatchWorkItemDto(
     string? SecondVerifier = null,
     string? EmergencyReleaseAuthorizer = null,
     UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
-    string? PtagCode = null)
+    string? PtagCode = null,
+    CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed)
 {
     public static RetrospectiveCrossmatchWorkItemDto From(
         Issue i,
@@ -357,7 +358,8 @@ public sealed record RetrospectiveCrossmatchWorkItemDto(
         string.IsNullOrWhiteSpace(i.SecondVerifier) ? null : i.SecondVerifier.Trim(),
         string.IsNullOrWhiteSpace(emergencyReleaseAuthorizer) ? null : emergencyReleaseAuthorizer.Trim(),
         i.IssueAppearance,
-        string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim());
+        string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim(),
+        i.CrossmatchStatus);
 }
 
 public sealed record ReturnDto(

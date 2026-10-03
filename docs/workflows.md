@@ -158,6 +158,7 @@ flowchart TD
 - The in-transit and outstanding issued queues show the pickup tag scanned at issue. The code stays after ward receipt. A blank pickup tag shows none. The issue gate is unchanged.
 - The in-transit and outstanding issued queues show the crossmatch status recorded at issue. The status stays after ward receipt. The issue gate is unchanged.
 - Receive, Return, and Document repeat the crossmatch status recorded at issue. Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
+- The retrospective crossmatch queue shows the crossmatch status recorded at issue. Retrospective completion is unchanged.
 - Receive, Return, and Document repeat the pickup tag scanned at issue. A blank pickup tag shows none. Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
 - The retrospective crossmatch queue shows the pickup tag scanned at issue. A blank pickup tag shows none. Retrospective completion is unchanged.
 - The retrospective follow-up screen repeats the pickup tag scanned at issue. A blank pickup tag shows none. Recording the crossmatch is unchanged.

@@ -327,3 +327,4 @@
 | SRS-BB-321 | `PatientProductHistoryRowDto` carries the trimmed pickup tag scanned at issue. Issued, returned, and transfused rows show that code in the P-tag column. | FRS-BB-359 |
 | SRS-BB-322 | `InTransitWorkItemDto` and `OutstandingIssueWorkItemDto` carry the crossmatch status recorded at issue. Both queues show that status in the XM at issue column. | FRS-BB-360 |
 | SRS-BB-323 | `ReadyToIssueFormCue.CrossmatchStatusNotice` names the crossmatch status recorded at issue. Receive, Return, and Document show that sentence. | FRS-BB-361 |
+| SRS-BB-324 | `RetrospectiveCrossmatchWorkItemDto` carries the crossmatch status recorded at issue. The retrospective queue shows that status in the XM at issue column. | FRS-BB-362 |

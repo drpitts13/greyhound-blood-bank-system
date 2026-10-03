@@ -896,6 +896,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.Equal("dr-authorizer", retro.EmergencyReleaseAuthorizer);
             Assert.Equal(UnitAppearance.Acceptable, retro.IssueAppearance);
             Assert.Null(retro.PtagCode);
+            Assert.Equal(CrossmatchClinicalStatus.NotCrossmatchedEmergency, retro.CrossmatchStatus);
             saved.IssuedBy = " ";
             saved.EmergencyReleaseDetails = " ";
             saved.SecondVerifier = " ";
