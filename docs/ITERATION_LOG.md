@@ -5008,3 +5008,29 @@ The crossmatch-status display chain is complete, and OCD-001 is closed. The next
 
 Next non-SME residual by safety and operational impact. Do not add another display-only field for a fact already shown on the issue surfaces.
 OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 179 — Dashboard shows units still in transit (2026-10-03)
+
+The shift dashboard listed outstanding issued units but not units that had left the bank and were still awaiting ward receipt. Those units already have an arrival window and an overdue flag.
+
+### Implemented
+
+- The dashboard shows an in-transit count for users who can already issue or document transfusion.
+- When any of those units are past the arrival window, the count says how many are overdue.
+- A queue that cannot be loaded shows an em dash instead of zero.
+- Ward receipt is unchanged.
+
+### Requirements / risk
+
+- URS-BB-332, FRS-BB-367, SRS-BB-329, RISK-BB-434.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-221 (`InTransitAttentionRuleTests.CountOverdue_IncludesOnlyFlagsAlreadyPastTheArrivalWindow`).
+- Full suite green: Domain 1447, Application 53, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+The dashboard still does not say how many retrospective crossmatches are already overdue, or how many reaction investigations still need fatality follow-up. Do not add another display-only field on the issue surfaces.
+OCD-004 remains open: do not invent ICCBBA tables.

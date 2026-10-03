@@ -362,6 +362,8 @@ Cycle 177: Electronic crossmatch stays blocked by any antibody-history row, incl
 
 Cycle 178: The dashboard lists retrospective crossmatch due, outstanding issued units, pending testing, and open or under-review reaction investigations for the permissions the signed-in user already has (RISK-BB-433). Closed investigations are not counted. Issue, result, and investigation gates are unchanged.
 
+Cycle 179: The dashboard also lists units still in transit to the ward, and how many of those are past the arrival window already stored on that queue (RISK-BB-434). Ward receipt is unchanged.
+
 ## Scoring used for Cycle 1 selection
 
 | Candidate | Safety | Validation | Integrity | Workflow | Architecture | Impl. risk | Notes |

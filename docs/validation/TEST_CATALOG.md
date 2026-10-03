@@ -229,5 +229,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-218 | I | `Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped` | URS-BB-329 / FRS-BB-364 / RISK-BB-431 |
 | TEST-BB-219 | I | `ElectronicXmHistoryRegressionTests.DeactivatedAntibody_BlocksElectronicXm_WithExplainableReason` | URS-BB-330 / FRS-BB-365 / RISK-BB-432 |
 | TEST-BB-220 | A | `OpenReactionInvestigationRuleTests.Count_IncludesOpenAndUnderReview_AndOmitsClosed` | URS-BB-331 / FRS-BB-366 / RISK-BB-433 |
+| TEST-BB-221 | A | `InTransitAttentionRuleTests.CountOverdue_IncludesOnlyFlagsAlreadyPastTheArrivalWindow` | URS-BB-332 / FRS-BB-367 / RISK-BB-434 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -337,3 +337,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-329 | Staff reviewing a patient's product history can see the crossmatch status recorded at issue on issued, returned, and transfused rows. | P1 | FRS-BB-364 |
 | URS-BB-330 | A historically identified antibody that is currently undetectable still precludes electronic crossmatch. | P0 | FRS-BB-365 |
 | URS-BB-331 | Staff opening the dashboard can see the bench queues they are allowed to work. | P1 | FRS-BB-366 |
+| URS-BB-332 | Staff opening the dashboard can see units still in transit, including how many are past the arrival window. | P1 | FRS-BB-367 |

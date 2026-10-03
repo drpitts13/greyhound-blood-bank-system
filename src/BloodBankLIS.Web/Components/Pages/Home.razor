@@ -32,7 +32,7 @@
 {
     <div class="bb-card" style="margin-top:1.25rem;">
         <div class="bb-card-title"><h3>Needs attention</h3></div>
-        <p class="muted">These are the queues already on the bench. A count does not change an issue, result, or investigation gate.</p>
+        <p class="muted">These are the queues already on the bench. A count does not change an issue, result, or investigation gate. In transit counts units still awaiting ward receipt. An overdue count uses the arrival window already on that queue.</p>
         <div class="flex gap" style="flex-wrap:wrap;">
             @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
             {
@@ -41,6 +41,7 @@
             @if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.TransfusionDocument))
             {
                 <a class="btn btn-secondary" href="/issuing">Outstanding issued @_outstandingLabel</a>
+                <a class="btn btn-secondary" href="/issuing">In transit @_inTransitLabel</a>
             }
             @if (Session.Has(PermissionCodes.ResultEnter) || Session.Has(PermissionCodes.ResultVerify))
             {
@@ -230,6 +231,8 @@
     private AntibodyIdOpenWorklistSummaryDto? _abid;
     private int? _retroDue;
     private int? _outstandingIssued;
+    private int? _inTransit;
+    private int? _inTransitOverdue;
     private int? _pendingTests;
     private int? _openReactions;
 
@@ -243,6 +246,12 @@
 
     private string _retroDueLabel => QueueCount(_retroDue);
     private string _outstandingLabel => QueueCount(_outstandingIssued);
+    private string _inTransitLabel =>
+        _inTransit is not int total
+            ? "—"
+            : _inTransitOverdue is int overdue && overdue > 0
+                ? $"{total}, {overdue} overdue"
+                : total.ToString();
     private string _pendingTestsLabel => QueueCount(_pendingTests);
     private string _openReactionsLabel => QueueCount(_openReactions);
 
@@ -281,6 +290,13 @@
         {
             var issued = await Api.GetOutstandingIssuesAsync();
             if (issued.Succeeded) _outstandingIssued = issued.Value!.Count;
+
+            var transit = await Api.GetInTransitIssuesAsync();
+            if (transit.Succeeded)
+            {
+                _inTransit = transit.Value!.Count;
+                _inTransitOverdue = InTransitAttentionRule.CountOverdue(transit.Value.Select(row => row.IsOverdue));
+            }
         }
 
         if (Session.Has(PermissionCodes.ResultEnter) || Session.Has(PermissionCodes.ResultVerify))
