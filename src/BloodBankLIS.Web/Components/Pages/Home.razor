@@ -28,6 +28,32 @@
     </a>
 </div>
 
+@if (SeesAttentionQueues)
+{
+    <div class="bb-card" style="margin-top:1.25rem;">
+        <div class="bb-card-title"><h3>Needs attention</h3></div>
+        <p class="muted">These are the queues already on the bench. A count does not change an issue, result, or investigation gate.</p>
+        <div class="flex gap" style="flex-wrap:wrap;">
+            @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
+            {
+                <a class="btn btn-secondary" href="/issuing">Retrospective crossmatch due @_retroDueLabel</a>
+            }
+            @if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.TransfusionDocument))
+            {
+                <a class="btn btn-secondary" href="/issuing">Outstanding issued @_outstandingLabel</a>
+            }
+            @if (Session.Has(PermissionCodes.ResultEnter) || Session.Has(PermissionCodes.ResultVerify))
+            {
+                <a class="btn btn-secondary" href="/test-worklist">Pending testing @_pendingTestsLabel</a>
+            }
+            @if (Session.Has(PermissionCodes.ReactionInvestigate))
+            {
+                <a class="btn btn-secondary" href="/reactions">Reaction investigations @_openReactionsLabel</a>
+            }
+        </div>
+    </div>
+}
+
 @if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
 {
     <div class="bb-card" style="margin-top:1.25rem;">
@@ -202,6 +228,25 @@
     private int? _quarantine;
     private int? _pendingCharges;
     private AntibodyIdOpenWorklistSummaryDto? _abid;
+    private int? _retroDue;
+    private int? _outstandingIssued;
+    private int? _pendingTests;
+    private int? _openReactions;
+
+    private bool SeesAttentionQueues =>
+        Session.Has(PermissionCodes.CompatibilityCrossmatch)
+        || Session.Has(PermissionCodes.IssueCreate)
+        || Session.Has(PermissionCodes.TransfusionDocument)
+        || Session.Has(PermissionCodes.ResultEnter)
+        || Session.Has(PermissionCodes.ResultVerify)
+        || Session.Has(PermissionCodes.ReactionInvestigate);
+
+    private string _retroDueLabel => QueueCount(_retroDue);
+    private string _outstandingLabel => QueueCount(_outstandingIssued);
+    private string _pendingTestsLabel => QueueCount(_pendingTests);
+    private string _openReactionsLabel => QueueCount(_openReactions);
+
+    private static string QueueCount(int? count) => count is int n ? n.ToString() : "—";
 
     protected override async Task OnInitializedAsync()
     {
@@ -224,6 +269,33 @@
         {
             var abid = await Api.GetOpenAntibodyIdSummaryAsync();
             if (abid.Succeeded) _abid = abid.Value;
+        }
+
+        if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
+        {
+            var retro = await Api.GetPendingRetrospectiveCrossmatchesAsync();
+            if (retro.Succeeded) _retroDue = retro.Value!.Count;
+        }
+
+        if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.TransfusionDocument))
+        {
+            var issued = await Api.GetOutstandingIssuesAsync();
+            if (issued.Succeeded) _outstandingIssued = issued.Value!.Count;
+        }
+
+        if (Session.Has(PermissionCodes.ResultEnter) || Session.Has(PermissionCodes.ResultVerify))
+        {
+            var tests = await Api.GetPendingTestWorklistAsync();
+            if (tests.Succeeded) _pendingTests = tests.Value!.Count;
+        }
+
+        if (Session.Has(PermissionCodes.ReactionInvestigate))
+        {
+            var reactions = await Api.GetReactionInvestigationsAsync();
+            if (reactions.Succeeded)
+            {
+                _openReactions = OpenReactionInvestigationRule.Count(reactions.Value!.Select(r => r.Status));
+            }
         }
     }
 

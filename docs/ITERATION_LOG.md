@@ -4981,3 +4981,30 @@ The crossmatch-status display chain is complete. The next ranked residual was OC
 
 Next non-SME residual by safety and operational impact. Do not add another display-only field for a fact already shown on the issue surfaces.
 OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 178 — Dashboard shows the bench queues (2026-10-03)
+
+The crossmatch-status display chain is complete, and OCD-001 is closed. The next operational gap is the start of a shift: the dashboard counted patients and inventory but did not show the queues a technologist still has to clear.
+
+### Implemented
+
+- The dashboard shows retrospective crossmatch due, outstanding issued units, pending testing, and reaction investigations that are open or under review.
+- Each queue appears only when the signed-in user already has the matching permission.
+- A closed investigation is not counted.
+- A queue that cannot be loaded shows an em dash instead of zero.
+- Issue, result, and investigation gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-331, FRS-BB-366, SRS-BB-328, RISK-BB-433.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-220 (`OpenReactionInvestigationRuleTests.Count_IncludesOpenAndUnderReview_AndOmitsClosed`).
+- Full suite green: Domain 1447, Application 52, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not add another display-only field for a fact already shown on the issue surfaces.
+OCD-004 remains open: do not invent ICCBBA tables.
