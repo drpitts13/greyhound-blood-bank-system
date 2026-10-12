@@ -336,6 +336,8 @@ Enforced by `UnitModificationEligibilityRule` and `ModificationExpirationRule` i
 | `MOD-RESTRICTION-RECIPIENT` | An autologous or directed source has an intended recipient before it is modified | HardStop |
 | `MOD-DIVIDE-MIN-TARGETS` | Divide requests at least two result units | HardStop |
 | `MOD-DIVIDE-VOLUME-REQUIRED` | Every divide result unit has a volume greater than zero | HardStop |
+| `MOD-ALIQUOT-VOLUME` | An aliquot volume is greater than zero | HardStop |
+| `MOD-ALIQUOT-PARENT-VOLUME` | The parent has a recorded volume, and the aliquot is strictly less than that volume so the parent remains | HardStop |
 | `MOD-VOLUME-EXCEEDS-SOURCE` | Divide child volumes do not exceed the source unit's volume | HardStop |
 | `MOD-DIVIDE-LEVEL-EXCEEDED` | Source division is still at the first ISBT level (`00` or `0A`/`0B`); second-level codes (`Aa`) cannot be subdivided without extended division | HardStop |
 | `MOD-DIVIDE-DIVISION-EXHAUSTED` | Unused ISBT division codes remain for the donation + PDC + collection type | HardStop |

@@ -848,4 +848,61 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.Equal(DonationRestriction.Directed, pooled.DonationRestriction);
         Assert.Equal(8803, pooled.ReservedPatientId);
     }
+
+    [Fact]
+    public async Task Aliquot_KeepsParentAvailable_ReducesVolume_AndCopiesTyping()
+    {
+        var (sourceProductId, _) = await EnsureProductTypesAsync("ALIQISBT", "E0336", "E0336");
+        var ruleId = await CreateRuleAsync(sourceProductId, sourceProductId, ModificationType.Aliquot, "5D");
+        var sourceId = await CreateIsbtUnitAsync("W123425222222", "E0336V00", sourceProductId, 300m);
+        await AddAttributeAsync(sourceId, definitionId: 9201, AntigenResult.Negative);
+        await using (var setup = _factory.Create())
+        {
+            var parent = (await setup.BloodUnits.FindAsync(sourceId))!;
+            parent.DonationRestriction = DonationRestriction.Autologous;
+            parent.ReservedPatientId = 8810;
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.AliquotAsync(sourceId, new PerformAliquotRequest(ruleId, 50m, "Pediatric aliquot"));
+
+        Assert.True(result.Succeeded, result.Error);
+        var child = Assert.Single(result.ResultUnits!);
+        Assert.Equal(50m, child.Volume);
+        Assert.Equal("E0336V0A", child.ProductCodeData);
+        Assert.Equal(UnitStatus.Quarantine, child.Status);
+        Assert.Equal(DonationRestriction.Autologous, child.DonationRestriction);
+        Assert.Equal(8810, child.ReservedPatientId);
+
+        await using var verify = _factory.Create();
+        var parentAfter = (await verify.BloodUnits.FindAsync(sourceId))!;
+        Assert.Equal(UnitStatus.Available, parentAfter.Status);
+        Assert.Equal(250m, parentAfter.Volume);
+        Assert.Equal("E0336V00", parentAfter.ProductCodeData);
+        var copied = Assert.Single(await verify.UnitBloodAttributes.Where(a => a.BloodProductId == child.Id).ToListAsync());
+        Assert.Equal(9201, copied.BloodAttributeDefinitionId);
+        Assert.Equal(AntigenResult.Negative, copied.Result);
+    }
+
+    [Fact]
+    public async Task Aliquot_VolumeNotLessThanParent_IsHardStopped()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("ALIQVOL");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Aliquot, "5D");
+        var sourceId = await CreateUnitAsync("U-ALIQVOL", sourceProductId, volume: 100m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.AliquotAsync(sourceId, new PerformAliquotRequest(ruleId, 100m, "Take the whole unit"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, stop => stop.Code == UnitModificationEligibilityRule.AliquotParentVolumeCode);
+
+        await using var verify = _factory.Create();
+        var parent = (await verify.BloodUnits.FindAsync(sourceId))!;
+        Assert.Equal(UnitStatus.Available, parent.Status);
+        Assert.Equal(100m, parent.Volume);
+    }
 }

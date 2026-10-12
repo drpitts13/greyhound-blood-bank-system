@@ -710,7 +710,10 @@ public enum ModificationType
     Leukoreduction = 5,
 
     /// <summary>Saline washing to remove plasma proteins, for example for IgA deficient recipients.</summary>
-    Wash = 6
+    Wash = 6,
+
+    /// <summary>Removes part of the volume into a new unit and leaves the parent available.</summary>
+    Aliquot = 7
 }
 
 /// <summary>Catalog category for a clinical <c>ActionDefinition</c>.</summary>

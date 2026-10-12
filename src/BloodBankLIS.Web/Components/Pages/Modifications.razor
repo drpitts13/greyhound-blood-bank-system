@@ -9,9 +9,9 @@
 <InventoryDeskRibbon Current="InventoryDeskRibbon.Desk.Modify" />
 <h1>Modify Blood Products</h1>
 <p class="muted">
-    Divide, pool, irradiate, thaw, volume-reduce, or leukoreduce a unit into a new product under an
-    admin-configured modification rule. Standalone modifications retire the source into Quarantine.
-    An order-linked 1:1 modification keeps the reservation on the new unit so issue can continue.
+    Divide, pool, irradiate, thaw, volume-reduce, leukoreduce, wash, or aliquot a unit under an
+    admin-configured modification rule. Divide, pool, and the other modifications retire the source.
+    An aliquot leaves the parent available and reduces its volume.
 </p>
 @if (OrderActionId is > 0)
 {
@@ -147,6 +147,14 @@
                     }
                 </tbody>
             </table>
+        }
+        else if (_selectedRule.ModificationType == ModificationType.Aliquot)
+        {
+            <div class="field">
+                <label>Aliquot volume (mL)</label>
+                <input type="number" step="0.01" min="0.01" @bind="_singleResultVolume" />
+                <div class="muted">The parent stays available. Its volume is reduced by this amount, and the aliquot is a new unit that keeps the parent's typing and reservation.</div>
+            </div>
         }
         else
         {
@@ -471,6 +479,10 @@
             sourceIds.AddRange(_poolUnits.Select(p => p.Id));
             r = await Api.PoolUnitsAsync(new PerformPoolRequest(sourceIds, _selectedRule.RuleId, _reason));
         }
+        else if (_selectedRule.ModificationType == ModificationType.Aliquot)
+        {
+            r = await Api.AliquotUnitAsync(_unit.Id, new PerformAliquotRequest(_selectedRule.RuleId, _singleResultVolume, _reason));
+        }
         else
         {
             r = await Api.ApplyModificationAsync(
@@ -484,7 +496,16 @@
         {
             _lastResult = r.Value;
             _reason = string.Empty;
+            _singleResultVolume = null;
             _poolUnits.Clear();
+            if (_selectedRule.ModificationType == ModificationType.Aliquot)
+            {
+                var refreshed = await Api.GetUnitAsync(_unit.Id);
+                if (refreshed.Succeeded && refreshed.Value is not null)
+                {
+                    _unit = refreshed.Value;
+                }
+            }
             var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
             _history = history.Value ?? new();
             if (!string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith("/", StringComparison.Ordinal))

@@ -1436,6 +1436,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ModificationResultVm>> ApplyModificationAsync(long unitId, PerformSingleModificationRequest req, CancellationToken ct = default) =>
         SendAsync<ModificationResultVm>(HttpMethod.Post, $"api/inventory/units/{unitId}/modifications/apply", req, ct);
 
+    public Task<ApiResult<ModificationResultVm>> AliquotUnitAsync(long unitId, PerformAliquotRequest req, CancellationToken ct = default) =>
+        SendAsync<ModificationResultVm>(HttpMethod.Post, $"api/inventory/units/{unitId}/modifications/aliquot", req, ct);
+
     // ---- Admin: Modification rules ----
     public Task<ApiResult<List<ModificationRuleDto>>> GetAdminModificationRulesAsync(bool includeInactive = true, CancellationToken ct = default) =>
         SendAsync<List<ModificationRuleDto>>(HttpMethod.Get, $"api/admin/modification-rules?includeInactive={includeInactive.ToString().ToLowerInvariant()}", ct: ct);

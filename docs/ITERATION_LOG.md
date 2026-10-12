@@ -5285,3 +5285,28 @@ Divide, pool, irradiate, and the other modifications created the result as allog
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Keeping a parent unit after an aliquot is still open.
+
+## Iteration 190 — Aliquot leaves the parent (2026-10-12)
+
+Every modification retired the source. Removing a pediatric aliquot therefore took the remaining volume out of available inventory.
+
+### Implemented
+
+- `ModificationType.Aliquot` and `EvaluateAliquot` require a volume greater than zero and strictly less than the parent volume.
+- The parent stays `Available`. Its volume is reduced, its product code stays, and a status note records the volume change. The aliquot is a new quarantined unit.
+- The aliquot inherits tested typing and an autologous or directed reservation. An ISBT parent keeps its division code; the aliquot receives the next code.
+- `POST /api/inventory/units/{id}/modifications/aliquot` requires `inventory.modify`. The modify page collects the volume and refreshes the parent volume after success.
+
+### Requirements / risk
+
+- URS-BB-343, FRS-BB-378, SRS-BB-340, RISK-BB-445.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-233 (`UnitModificationEligibilityRuleTests` aliquot cases; `BloodProductModificationServiceTests.Aliquot_KeepsParentAvailable_ReducesVolume_AndCopiesTyping`; `BloodProductModificationServiceTests.Aliquot_VolumeNotLessThanParent_IsHardStopped`).
+- Domain aliquot rules and the two Integration aliquot tests green (3 + 2).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.

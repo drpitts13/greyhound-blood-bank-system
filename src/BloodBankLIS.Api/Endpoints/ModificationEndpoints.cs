@@ -34,6 +34,10 @@ public static class ModificationEndpoints
         group.MapPost("/units/{id:long}/modifications/apply", async (long id, PerformSingleModificationRequest request, BloodProductModificationService svc, CancellationToken ct) =>
             ToHttpResult(await svc.ApplySingleAsync(id, request, ct)))
             .RequirePermission(PermissionCodes.InventoryModify);
+
+        group.MapPost("/units/{id:long}/modifications/aliquot", async (long id, PerformAliquotRequest request, BloodProductModificationService svc, CancellationToken ct) =>
+            ToHttpResult(await svc.AliquotAsync(id, request, ct)))
+            .RequirePermission(PermissionCodes.InventoryModify);
     }
 
     private static IResult ToHttpResult(ModificationActionResult result)

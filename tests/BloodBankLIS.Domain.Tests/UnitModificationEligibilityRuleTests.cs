@@ -169,4 +169,30 @@ public class UnitModificationEligibilityRuleTests
         Assert.True(eval.IsHardStopped);
         Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeRequiredCode);
     }
+
+    [Fact]
+    public void EvaluateAliquot_VolumeLessThanParent_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateAliquot(sourceVolume: 300m, aliquotVolume: 50m);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluateAliquot_VolumeNotLessThanParent_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateAliquot(sourceVolume: 300m, aliquotVolume: 300m);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.AliquotParentVolumeCode);
+    }
+
+    [Fact]
+    public void EvaluateAliquot_MissingVolume_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateAliquot(sourceVolume: 300m, aliquotVolume: null);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.AliquotVolumeCode);
+    }
 }

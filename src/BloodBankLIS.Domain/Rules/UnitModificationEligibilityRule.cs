@@ -17,6 +17,8 @@ public static class UnitModificationEligibilityRule
     public const string DivideMinTargetsCode = "MOD-DIVIDE-MIN-TARGETS";
     public const string VolumeRequiredCode = "MOD-DIVIDE-VOLUME-REQUIRED";
     public const string VolumeExceedsSourceCode = "MOD-VOLUME-EXCEEDS-SOURCE";
+    public const string AliquotVolumeCode = "MOD-ALIQUOT-VOLUME";
+    public const string AliquotParentVolumeCode = "MOD-ALIQUOT-PARENT-VOLUME";
 
     public readonly record struct SourceUnitSnapshot(
         long Id,
@@ -123,5 +125,42 @@ public static class UnitModificationEligibilityRule
         }
 
         return new RuleEvaluation(results);
+    }
+
+    /// <summary>
+    /// An aliquot removes a positive volume that is strictly less than the parent volume,
+    /// so the parent remains in inventory.
+    /// </summary>
+    public static RuleEvaluation EvaluateAliquot(decimal? sourceVolume, decimal? aliquotVolume)
+    {
+        if (aliquotVolume is null or <= 0m)
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(AliquotVolumeCode, "An aliquot volume must be greater than zero.")
+            });
+        }
+
+        if (sourceVolume is null or <= 0m)
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(
+                    AliquotParentVolumeCode,
+                    "The parent unit needs a recorded volume before an aliquot can be removed.")
+            });
+        }
+
+        if (aliquotVolume >= sourceVolume)
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(
+                    AliquotParentVolumeCode,
+                    "Aliquot volume must be less than the parent volume so the parent remains.")
+            });
+        }
+
+        return new RuleEvaluation(new[] { RuleResult.Pass(AliquotVolumeCode) });
     }
 }

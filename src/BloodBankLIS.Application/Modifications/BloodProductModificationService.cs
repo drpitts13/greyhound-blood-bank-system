@@ -11,7 +11,7 @@ namespace BloodBankLIS.Application.Modifications;
 /// <summary>
 /// Performs blood-product modifications (Divide, Pool, Irradiate, Thaw, Volume
 /// Reduction, Leukoreduction) under an admin-configured <see cref="ModificationRule"/>.
-/// Every modification retires its source unit(s) into the terminal <see cref="UnitStatus.Modified"/>
+/// Every modification except aliquot retires its source unit(s) into the terminal <see cref="UnitStatus.Modified"/>
 /// status and produces new result unit(s) in <see cref="UnitStatus.Quarantine"/>, linked
 /// via a <see cref="UnitModification"/> header + <see cref="UnitModificationUnit"/> rows.
 /// A dangerous action: requires a reason and records a named <see cref="AuditEventType.Modify"/>
@@ -232,6 +232,68 @@ public sealed class BloodProductModificationService
         return await ExecuteAsync(new[] { source }, rule, specs, request.Reason, ct, inheritedAttributes: inherited.Attributes);
     }
 
+    /// <summary>Removes part of the parent volume into one new unit and leaves the parent available.</summary>
+    public async Task<ModificationActionResult> AliquotAsync(long sourceUnitId, PerformAliquotRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return ModificationActionResult.Fail("A reason is required to perform a modification.");
+        }
+
+        var rule = await _rules.GetByIdAsync(request.RuleId, ct);
+        if (rule is null || !rule.IsActive)
+        {
+            return ModificationActionResult.Fail("Modification rule not found or inactive.");
+        }
+
+        if (rule.ModificationType != ModificationType.Aliquot)
+        {
+            return ModificationActionResult.Fail("The selected rule is not an Aliquot rule.");
+        }
+
+        var source = await _inventory.GetUnitAsync(sourceUnitId, ct);
+        if (source is null)
+        {
+            return ModificationActionResult.Fail("Source unit not found.");
+        }
+
+        var aliquotEval = UnitModificationEligibilityRule.EvaluateAliquot(source.Volume, request.Volume);
+        if (aliquotEval.IsHardStopped)
+        {
+            return ModificationActionResult.Blocked(aliquotEval);
+        }
+
+        var sourceEval = UnitModificationEligibilityRule.EvaluateSource(ToSnapshot(source), rule.SourceProductTypeId, _clock.UtcNow);
+        if (sourceEval.IsHardStopped)
+        {
+            return ModificationActionResult.Blocked(sourceEval);
+        }
+
+        var inherited = await InheritAttributesAsync(new[] { source }, ct);
+        if (inherited.Blocked is not null)
+        {
+            return inherited.Blocked;
+        }
+
+        var specs = new List<(string? Suffix, decimal? Volume)> { (null, request.Volume) };
+        return await ExecuteAsync(
+            new[] { source },
+            rule,
+            specs,
+            request.Reason,
+            ct,
+            inheritedAttributes: inherited.Attributes,
+            keepParent: true);
+    }
+
     /// <summary>Pools two or more source units of the same product/ABO/Rh into one result unit of the rule's target product.</summary>
     public async Task<ModificationActionResult> PoolAsync(PerformPoolRequest request, CancellationToken ct = default)
     {
@@ -319,9 +381,9 @@ public sealed class BloodProductModificationService
             return ModificationActionResult.Fail("Modification rule not found or inactive.");
         }
 
-        if (rule.ModificationType is ModificationType.Divide or ModificationType.Pool)
+        if (rule.ModificationType is ModificationType.Divide or ModificationType.Pool or ModificationType.Aliquot)
         {
-            return ModificationActionResult.Fail("Use the divide or pool operation for this modification type.");
+            return ModificationActionResult.Fail("Use the divide, pool, or aliquot operation for this modification type.");
         }
 
         var source = await _inventory.GetUnitAsync(sourceUnitId, ct);
@@ -453,7 +515,8 @@ public sealed class BloodProductModificationService
         string reason,
         CancellationToken ct,
         OrderLinkedContext? orderLink = null,
-        IReadOnlyList<UnitModificationAttributeRule.InheritedAttribute>? inheritedAttributes = null)
+        IReadOnlyList<UnitModificationAttributeRule.InheritedAttribute>? inheritedAttributes = null,
+        bool keepParent = false)
     {
         var restriction = UnitModificationRestrictionRule.Evaluate(
             sources.Select(source => new UnitModificationRestrictionRule.RestrictionFact(
@@ -473,6 +536,11 @@ public sealed class BloodProductModificationService
 
         foreach (var source in sources)
         {
+            if (keepParent)
+            {
+                continue;
+            }
+
             var transition = InventoryStatusTransition.Evaluate(source.Status, UnitStatus.Modified);
             if (transition.Severity == RuleSeverity.HardStop)
             {
@@ -497,6 +565,30 @@ public sealed class BloodProductModificationService
         var originalExpiresUtc = ModificationExpirationRule.EarliestExpiration(sources.Select(s => s.ExpiresUtc));
         var resultExpiresUtc = ModificationExpirationRule.ComputeNewExpiresUtc(anchorUtc, expCode.ToOffset(), originalExpiresUtc);
 
+        var primarySource = sources[0];
+        var singleSource = sources.Count == 1;
+        decimal? parentVolumeBefore = null;
+        decimal? parentVolumeAfter = null;
+        if (keepParent)
+        {
+            if (sources.Count != 1 || resultSpecs.Count != 1 || resultSpecs[0].Volume is not decimal aliquotVolume)
+            {
+                return ModificationActionResult.Fail("An aliquot removes one volume from one parent unit.");
+            }
+
+            parentVolumeBefore = primarySource.Volume;
+            parentVolumeAfter = parentVolumeBefore - aliquotVolume;
+            if (parentVolumeAfter is null or <= 0m)
+            {
+                return ModificationActionResult.Blocked(new RuleEvaluation(new[]
+                {
+                    RuleResult.HardStop(
+                        UnitModificationEligibilityRule.AliquotParentVolumeCode,
+                        "Aliquot volume must be less than the parent volume so the parent remains.")
+                }));
+            }
+        }
+
         var header = new UnitModification
         {
             ModificationRuleId = rule.Id,
@@ -509,23 +601,30 @@ public sealed class BloodProductModificationService
         };
         await _modifications.AddAsync(header, ct);
 
-        var primarySource = sources[0];
-        var singleSource = sources.Count == 1;
         var sortOrder = 0;
 
         foreach (var source in sources)
         {
             var fromStatus = source.Status;
-            source.Status = UnitStatus.Modified;
+            if (keepParent)
+            {
+                source.Volume = parentVolumeAfter;
+            }
+            else
+            {
+                source.Status = UnitStatus.Modified;
+            }
 
             _inventory.AddStatusHistory(new InventoryStatusHistory
             {
                 BloodProductId = source.Id,
                 FromStatus = fromStatus,
-                ToStatus = UnitStatus.Modified,
+                ToStatus = source.Status,
                 FromLocationId = source.CurrentLocationId,
                 ToLocationId = source.CurrentLocationId,
-                Reason = reason,
+                Reason = keepParent
+                    ? $"Aliquot removed {resultSpecs[0].Volume} mL. Parent volume is now {parentVolumeAfter} mL. {reason}"
+                    : reason,
                 ChangedBy = _currentUser.UserName,
                 ChangedUtc = now,
                 RelatedEntityType = nameof(UnitModification)
@@ -548,7 +647,7 @@ public sealed class BloodProductModificationService
         IReadOnlyList<string>? divideDivisions = null;
         string? dividePdc = null;
         string? divideCollection = null;
-        if (rule.ModificationType == ModificationType.Divide && singleSource)
+        if (rule.ModificationType is ModificationType.Divide or ModificationType.Aliquot && singleSource)
         {
             var planned = await PlanDivideCodesAsync(primarySource, targetProduct, resultSpecs.Count, ct);
             if (!planned.Succeeded)
@@ -673,7 +772,9 @@ public sealed class BloodProductModificationService
                     .Select(attribute => attribute.DefinitionId)
                     .ToArray(),
                 restriction.Restriction,
-                restriction.ReservedPatientId
+                restriction.ReservedPatientId,
+                ParentVolumeBefore = parentVolumeBefore,
+                ParentVolumeAfter = parentVolumeAfter
             },
             reason: reason);
 
