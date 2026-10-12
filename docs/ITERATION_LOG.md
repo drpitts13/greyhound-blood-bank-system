@@ -5061,3 +5061,179 @@ The dashboard counted retrospective crossmatch and reaction investigations, but 
 
 The dashboard queue chain is complete. Re-rank by safety and operational impact. Do not add another dashboard count or another display-only field on the issue surfaces.
 OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 181 — Pending specimens can be received and accepted (2026-10-04)
+
+The dashboard queue chain is complete. The next operational gap is the tube that has been drawn but is not yet usable for testing. Accession always wrote Accepted. Collected and Received existed for antibody-identification scope, with no receive, accept, or worklist.
+
+### Implemented
+
+- Accession can record collection without accepting (`AcceptImmediately=false`).
+- Receive moves Collected to Received. Accept moves Received to Accepted.
+- An expired tube cannot be received or accepted. Reject remains available.
+- `/test-worklist` Specimens tab lists pending tubes and Receive / Accept / Reject from the row. Scan or type an accession to filter.
+- The patient Specimens tab has the same actions. In-lab accession still accepts immediately unless Accept now is unchecked.
+- Result entry and order linking still require Accepted.
+- Demo seed `ACC-PEND-COL` and `ACC-PEND-RCV` on Patricia Demo.
+
+### Requirements / risk
+
+- URS-BB-334, FRS-BB-369, SRS-BB-331, RISK-BB-436.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-224 (`SpecimenReceiptRuleTests`; `Phase3ServicesTests.ReceiveThenAccept_MovesCollectedToAccepted_AndLeavesTheBoard`; `Phase3ServicesTests.Receive_ExpiredCollected_IsHardStopped`).
+- Full suite green: Domain 1454, Application 55, HL7 63, Printing 21, ASTM 19, Integration 930.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not add another dashboard count or another display-only field on the issue surfaces.
+Shift handoff is still missing. Relabeling is still thin. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 182 — Shift handoff packet with acknowledgment (2026-10-04)
+
+Pending specimen receipt is in place. The next operational gap is the end of a shift: dashboard counts existed, but there was no signed packet the incoming technologist could acknowledge.
+
+### Implemented
+
+- `ShiftHandoff` stores a required note and a snapshot of retrospective XM, outstanding issued, in transit, pending tests, pending specimens, and open reactions.
+- Recording and acknowledgment require `audit.read`. The recorder cannot acknowledge. Double acknowledgment HardStops.
+- `/handoff` records and lists packets. The dashboard shows an open handoff.
+- Audit events use `AuditEventType.ShiftHandoff`.
+- Clinical gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-335, FRS-BB-370, SRS-BB-332, RISK-BB-437.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-225 (`ShiftHandoffRuleTests`; `ShiftHandoffServiceTests.Create_WritesSnapshotAndAudit`; `ShiftHandoffServiceTests.Acknowledge_SameUser_IsHardStopped`).
+- Domain and Integration handoff slices green (5 + 5).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Relabeling is still thin. Supervisor acknowledgment queues beyond handoff remain open. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 183 — Controlled specimen barcode relabel (2026-10-04)
+
+Shift handoff is in place. The next identification gap is specimen barcode: collection metadata edit could change the barcode without a dedicated reason.
+
+### Implemented
+
+- `SpecimenRelabelRule` HardStops unusable status, blank barcode, blank reason, and unchanged barcode.
+- `SpecimenService.RelabelAsync` requires `specimen.edit`, uniqueness, and audits old/new barcode with reason.
+- `UpdateAsync` HardStops barcode deltas; the chart Edit panel shows barcode as read-only.
+- Chart Relabel panel on Collected, Received, or Accepted specimens. Accession number stays immutable.
+- Clinical gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-336, FRS-BB-371, SRS-BB-333, RISK-BB-438.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-226 (`SpecimenRelabelRuleTests`; `Phase3ServicesTests.Relabel_WritesBarcode_WithReason`; `Phase3ServicesTests.Update_BarcodeChange_IsHardStopped`; `Phase3ServicesTests.Relabel_RejectedSpecimen_IsHardStopped`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Supervisor acknowledgment queues beyond handoff remain open. Elution is not a first-class workup. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 184 — Supervisor worklist (2026-10-04)
+
+Specimen relabel is in place. The next operational gap is a single supervisor desk for ABID review, result verification, and quarantine release that otherwise sit on separate specialty pages.
+
+### Implemented
+
+- `SupervisorQueueRule` HardStops access unless the caller has `immuno.override`, `result.verify`, or `inventory.release`.
+- `SupervisorQueueService` lists only the kinds those permissions allow and deep-links to existing workflows.
+- `/supervisor` and nav/dashboard entry points. Clinical gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-337, FRS-BB-372, SRS-BB-334, RISK-BB-439.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-227 (`SupervisorQueueRuleTests`; `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesQuarantineUnit`; `SupervisorQueueServiceTests.List_WithResultVerifyOnly_OmitsQuarantine`; `SupervisorQueueServiceTests.List_WithoutSupervisorPermissions_IsHardStopped`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Elution is not a first-class workup. Historical aliases remain thin. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 185 — Historical patient name aliases (2026-10-04)
+
+Supervisor queue is in place. The next identification gap is demographics name edit: the previous name was overwritten without a retained alias or required reason.
+
+### Implemented
+
+- `IdentityTokenType.PriorFullName` stores the former display name on name change.
+- `PatientHistoricalAliasRule` HardStops a blank name-change reason.
+- Patient list and chart show prior names and prior MRNs; search matches those aliases.
+- MRN remains immutable from demographics edit. Clinical gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-338, FRS-BB-373, SRS-BB-335, RISK-BB-440.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-228 (`PatientHistoricalAliasRuleTests`; `PatientServiceTests.Update_WritesDemographics_AndLeavesMrnUnchanged`; `PatientServiceTests.Update_NameChangeWithoutReason_IsHardStopped`; `PatientServiceTests.ListDtos_SearchMatchesPriorNameAlias`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Elution is not a first-class workup. Unmerge is not implemented. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 186 — ADT prior-name archive (2026-10-04)
+
+Chart name changes retain `PriorFullName`. The remaining identification gap is inbound ADT, which still overwrote a stated name without archiving the previous display name.
+
+### Implemented
+
+- `PatientHistoricalAliasWriter` is shared by chart edit and inbound ADT.
+- ADT archives the previous display name before applying a stated name change and audits with `HL7 ADT demographics name change.`
+- Sparse ADT blanks do not clear or archive names. Clinical gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-339, FRS-BB-374, SRS-BB-336, RISK-BB-441.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-229 (`Phase5Hl7Tests.InboundAdt_Update_ChangesDemographicsWithoutDuplicating`; `Phase5Hl7Tests.InboundAdt_SparseA08_DoesNotArchiveWhenNameUnchanged`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Elution is not a first-class workup. Unmerge is not implemented. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 187 — Reversible patient merge (2026-10-12)
+
+A wrong merge reassigned orders, specimens, and antibodies onto the survivor and kept no list of what moved. Undoing it by guessing could attach the wrong history to a later transfusion.
+
+### Implemented
+
+- `PatientMerge` and `PatientMergeMove` record moved, skipped, and demoted rows, plus the survivor deceased and pregnancy values before and after the merge.
+- Merge also reassigns DAT/elution studies, pickup tags, and compatibility decisions. Rule execution logs stay on the original patient.
+- Unmerge requires `patient.merge` and a reason. It restores the ledger, deactivates the prior-MRN alias created for that merge, and audits old and new status.
+- Unmerge HardStops when the survivor has new clinical activity since the merge, when a moved row was edited, when a snapshotted survivor field changed, or when the merge has no ledger.
+- The merged-record banner collects the reason. There is no HL7 unmerge message.
+
+### Requirements / risk
+
+- URS-BB-340, FRS-BB-375, SRS-BB-337, RISK-BB-442.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-230 (`PatientUnmergeRuleTests`; `PatientMergeServiceTests` unmerge success and failure paths).
+- Domain unmerge rules and Integration `PatientMergeServiceTests` green (7 + 16).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.

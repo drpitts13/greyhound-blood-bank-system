@@ -76,8 +76,12 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<SpecialTransfusionRequirement> SpecialTransfusionRequirements => Set<SpecialTransfusionRequirement>();
     public DbSet<SpecialRequirementDefinition> SpecialRequirementDefinitions => Set<SpecialRequirementDefinition>();
     public DbSet<PatientIdentifier> PatientIdentifiers => Set<PatientIdentifier>();
+    public DbSet<PatientMerge> PatientMerges => Set<PatientMerge>();
+    public DbSet<PatientMergeMove> PatientMergeMoves => Set<PatientMergeMove>();
     public DbSet<LookbackNotification> LookbackNotifications => Set<LookbackNotification>();
     public DbSet<Deviation> Deviations => Set<Deviation>();
+    public DbSet<ShiftHandoff> ShiftHandoffs => Set<ShiftHandoff>();
+    public DbSet<DatElutionWorkup> DatElutionWorkups => Set<DatElutionWorkup>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<Override> Overrides => Set<Override>();
     public DbSet<InterfaceEndpoint> InterfaceEndpoints => Set<InterfaceEndpoint>();

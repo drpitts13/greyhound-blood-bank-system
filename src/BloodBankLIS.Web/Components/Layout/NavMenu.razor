@@ -71,8 +71,15 @@
             <NavLink href="instruments/simulator" ActiveClass="active">Simulator</NavLink>
         </details>
     }
+    @if (Session.Has(PermissionCodes.ImmunoOverride)
+        || Session.Has(PermissionCodes.ResultVerify)
+        || Session.Has(PermissionCodes.InventoryRelease))
+    {
+        <NavLink href="supervisor" ActiveClass="active">Supervisor Queue</NavLink>
+    }
     @if (Session.Has(PermissionCodes.AuditRead))
     {
+        <NavLink href="handoff" ActiveClass="active">Shift Handoff</NavLink>
         <NavLink href="audit" ActiveClass="active">Audit Trail</NavLink>
         <NavLink href="downtime" ActiveClass="active">Downtime Snapshot</NavLink>
     }

@@ -51,11 +51,16 @@
                 <div class="field"><label>Identifier 1 (MRN)</label><input @bind="Accession.Identifier1Value" placeholder="Defaults to patient MRN" /></div>
                 <div class="field"><label>Identifier 2 (DOB yyyy-MM-dd)</label><input @bind="Accession.Identifier2Value" placeholder="Defaults to patient DOB" /></div>
             </div>
-            <div class="field">
-                <label>Comment</label>
-                <CodedCommentField Page="CommentPage.Specimen" @bind-Value="Accession.Comment" />
-            </div>
-            <button class="btn btn-primary" disabled="@Busy" @onclick="OnAccession">Accession</button>
+                <div class="field">
+                    <label>Comment</label>
+                    <CodedCommentField Page="CommentPage.Specimen" @bind-Value="Accession.Comment" />
+                </div>
+                <label class="flex gap" style="align-items:center;">
+                    <input type="checkbox" @bind="Accession.AcceptImmediately" />
+                    Accept now — specimen is already in the blood bank
+                </label>
+                <p class="muted" style="margin:.25rem 0 .75rem;">Leave unchecked to record collection only. Receive and accept from the pending-specimens worklist. Result entry still requires Accepted.</p>
+                <button class="btn btn-primary" disabled="@Busy" @onclick="OnAccession">Accession</button>
         </div>
     }
 
@@ -87,7 +92,21 @@
                             {
                                 <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginEdit.InvokeAsync(s)">@(EditId == s.Id ? "Cancel edit" : "Edit")</button>
                             }
-                            @if (s.Status == SpecimenStatus.Accepted && Session.Has(PermissionCodes.SpecimenReject))
+                            @if ((s.Status is SpecimenStatus.Collected or SpecimenStatus.Received or SpecimenStatus.Accepted)
+                                && Session.Has(PermissionCodes.SpecimenEdit))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginRelabel.InvokeAsync(s)">@(RelabelId == s.Id ? "Cancel relabel" : "Relabel")</button>
+                            }
+                            @if (s.Status == SpecimenStatus.Collected && Session.Has(PermissionCodes.SpecimenAccession))
+                            {
+                                <button class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnReceive.InvokeAsync(s.Id)">Receive</button>
+                            }
+                            @if (s.Status == SpecimenStatus.Received && Session.Has(PermissionCodes.SpecimenAccession))
+                            {
+                                <button class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnAccept.InvokeAsync(s.Id)">Accept</button>
+                            }
+                            @if (s.Status is SpecimenStatus.Collected or SpecimenStatus.Received or SpecimenStatus.Accepted
+                                && Session.Has(PermissionCodes.SpecimenReject))
                             {
                                 <button class="btn btn-ghost btn-sm" @onclick="() => OnBeginReject.InvokeAsync(s)">Reject</button>
                             }
@@ -108,7 +127,7 @@
                                     <div class="field"><label>Accession #</label><input value="@s.AccessionNumber" disabled /></div>
                                     <div class="field"><label>Specimen type</label><input value="@(s.SpecimenTypeDescription ?? s.SpecimenType)" disabled /></div>
                                     <div class="field"><label>Collected (UTC)</label><input type="datetime-local" @bind="Edit.CollectedLocal" @bind:after="OnCollectedChanged" /></div>
-                                    <div class="field"><label>Barcode</label><input @bind="Edit.Barcode" /></div>
+                                    <div class="field"><label>Barcode</label><input value="@(s.Barcode ?? "—")" disabled /><span class="muted">Use Relabel to change.</span></div>
                                     <div class="field"><label>Draw location</label><input @bind="Edit.DrawLocation" /></div>
                                     <div class="field"><label>Collector</label><input @bind="Edit.Collector" /></div>
                                     <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="Edit.ExpiresLocal" @bind:after="OnExpiresChanged" /></div>
@@ -138,6 +157,23 @@
                                 <div class="flex gap">
                                     <button class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnSaveEdit.InvokeAsync(s.Id)">Save</button>
                                     <button class="btn btn-secondary btn-sm" @onclick="OnCancelEdit">Cancel</button>
+                                </div>
+                            </div>
+                        </td></tr>
+                    }
+                    @if (RelabelId == s.Id)
+                    {
+                        <tr><td colspan="7">
+                            <div class="alert alert-info" style="margin:0;">
+                                <p class="muted" style="margin:0 0 .5rem;">Change the specimen barcode. Accession number stays the same. A reason is required and is audited.</p>
+                                <div class="form-row">
+                                    <div class="field"><label>Current barcode</label><input value="@(s.Barcode ?? "—")" disabled /></div>
+                                    <div class="field"><label>New barcode</label><input @bind="RelabelBarcode" @bind:after="() => RelabelBarcodeChanged.InvokeAsync(RelabelBarcode)" /></div>
+                                    <div class="field" style="grid-column:1/-1;"><label>Reason</label><input @bind="RelabelReason" @bind:after="() => RelabelReasonChanged.InvokeAsync(RelabelReason)" /></div>
+                                </div>
+                                <div class="flex gap">
+                                    <button class="btn btn-primary btn-sm" disabled="@(Busy || string.IsNullOrWhiteSpace(RelabelBarcode) || string.IsNullOrWhiteSpace(RelabelReason))" @onclick="() => OnRelabel.InvokeAsync(s.Id)">Save relabel</button>
+                                    <button class="btn btn-secondary btn-sm" @onclick="OnCancelRelabel">Cancel</button>
                                 </div>
                             </div>
                         </td></tr>
@@ -209,6 +245,11 @@
     [Parameter] public IReadOnlyList<SpecimenDto> Specimens { get; set; } = [];
     [Parameter] public long? SelectedId { get; set; }
     [Parameter] public long? EditId { get; set; }
+    [Parameter] public long? RelabelId { get; set; }
+    [Parameter] public string RelabelBarcode { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> RelabelBarcodeChanged { get; set; }
+    [Parameter] public string RelabelReason { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> RelabelReasonChanged { get; set; }
     [Parameter] public long? RejectId { get; set; }
     [Parameter] public string RejectReason { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> RejectReasonChanged { get; set; }
@@ -221,11 +262,16 @@
     [Parameter] public EventCallback OnAccession { get; set; }
     [Parameter] public EventCallback<SpecimenDto> OnSelect { get; set; }
     [Parameter] public EventCallback<SpecimenDto> OnBeginEdit { get; set; }
+    [Parameter] public EventCallback<SpecimenDto> OnBeginRelabel { get; set; }
     [Parameter] public EventCallback<SpecimenDto> OnBeginReject { get; set; }
     [Parameter] public EventCallback<long> OnSaveEdit { get; set; }
     [Parameter] public EventCallback OnCancelEdit { get; set; }
+    [Parameter] public EventCallback<long> OnRelabel { get; set; }
+    [Parameter] public EventCallback OnCancelRelabel { get; set; }
     [Parameter] public EventCallback<long> OnReject { get; set; }
     [Parameter] public EventCallback OnCancelReject { get; set; }
+    [Parameter] public EventCallback<long> OnReceive { get; set; }
+    [Parameter] public EventCallback<long> OnAccept { get; set; }
     [Parameter] public EventCallback OnOpenOrders { get; set; }
     [Parameter] public int ExceptionMinLevel { get; set; } = 2;
 

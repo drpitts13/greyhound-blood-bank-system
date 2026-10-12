@@ -67,6 +67,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<PatientDto>> MergePatientAsync(long survivorId, MergePatientsRequest req, CancellationToken ct = default) =>
         SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{survivorId}/merge", req, ct);
 
+    public Task<ApiResult<PatientDto>> UnmergePatientAsync(long duplicateId, UnmergePatientRequest req, CancellationToken ct = default) =>
+        SendAsync<PatientDto>(HttpMethod.Post, $"api/patients/{duplicateId}/unmerge", req, ct);
+
     // ---- Patient workspace ----
     public Task<ApiResult<List<EncounterDto>>> GetPatientEncountersAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<EncounterDto>>(HttpMethod.Get, $"api/patients/{patientId}/encounters", ct: ct);
@@ -239,11 +242,23 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<SpecimenDto>> UpdateSpecimenAsync(long id, UpdateSpecimenRequest req, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Put, $"api/specimens/{id}", req, ct);
 
+    public Task<ApiResult<SpecimenDto>> RelabelSpecimenAsync(long id, RelabelSpecimenRequest req, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/relabel", req, ct);
+
     public Task<ApiResult<SpecimenDto>> GetSpecimenAsync(long id, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Get, $"api/specimens/{id}", ct: ct);
 
     public Task<ApiResult<SpecimenDto>> RejectSpecimenAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/reject", new ReasonRequestVm(reason), ct);
+
+    public Task<ApiResult<List<PendingSpecimenWorkItemDto>>> GetPendingSpecimensAsync(CancellationToken ct = default) =>
+        SendAsync<List<PendingSpecimenWorkItemDto>>(HttpMethod.Get, "api/specimens/pending", ct: ct);
+
+    public Task<ApiResult<SpecimenDto>> ReceiveSpecimenAsync(long id, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/receive", ct: ct);
+
+    public Task<ApiResult<SpecimenDto>> AcceptSpecimenAsync(long id, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/accept", ct: ct);
 
     public Task<ApiResult<List<SpecimenDto>>> GetPatientSpecimensAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<SpecimenDto>>(HttpMethod.Get, $"api/patients/{patientId}/specimens", ct: ct);
@@ -324,6 +339,23 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<AntibodyDto>> DeactivateAntibodyAsync(long antibodyId, string reason, CancellationToken ct = default) =>
         SendAsync<AntibodyDto>(HttpMethod.Post, $"api/antibodies/{antibodyId}/deactivate", new ReasonRequestVm(reason), ct);
+
+    public Task<ApiResult<List<DatElutionWorkupDto>>> GetDatElutionWorkupsAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<DatElutionWorkupDto>>(HttpMethod.Get, $"api/patients/{patientId}/dat-elution", ct: ct);
+
+    public Task<ApiResult<DatElutionWorkupDto>> CreateDatElutionWorkupAsync(
+        long patientId, CreateDatElutionWorkupRequest req, CancellationToken ct = default) =>
+        SendAsync<DatElutionWorkupDto>(HttpMethod.Post, $"api/patients/{patientId}/dat-elution", req, ct);
+
+    public Task<ApiResult<DatElutionWorkupDto>> UpdateDatElutionWorkupAsync(
+        long id, UpdateDatElutionWorkupRequest req, CancellationToken ct = default) =>
+        SendAsync<DatElutionWorkupDto>(HttpMethod.Put, $"api/dat-elution/{id}", req, ct);
+
+    public Task<ApiResult<DatElutionWorkupDto>> CompleteDatElutionWorkupAsync(long id, CancellationToken ct = default) =>
+        SendAsync<DatElutionWorkupDto>(HttpMethod.Post, $"api/dat-elution/{id}/complete", ct: ct);
+
+    public Task<ApiResult<DatElutionWorkupDto>> VoidDatElutionWorkupAsync(long id, string reason, CancellationToken ct = default) =>
+        SendAsync<DatElutionWorkupDto>(HttpMethod.Post, $"api/dat-elution/{id}/void", new VoidDatElutionWorkupRequest(reason), ct);
 
     public Task<ApiResult<List<AntigenProfileDto>>> GetAntigenProfilesAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<AntigenProfileDto>>(HttpMethod.Get, $"api/patients/{patientId}/antigen-profiles", ct: ct);
@@ -766,6 +798,22 @@ public sealed class BloodBankApiClient
         CancellationToken ct = default) =>
         SendAsync<DowntimeReconciliationSnapshot>(
             HttpMethod.Get, "api/compliance/downtime-reconciliation", ct: ct);
+
+    public Task<ApiResult<List<ShiftHandoffDto>>> GetShiftHandoffsAsync(CancellationToken ct = default) =>
+        SendAsync<List<ShiftHandoffDto>>(HttpMethod.Get, "api/shift-handoffs", ct: ct);
+
+    public Task<ApiResult<ShiftHandoffDto?>> GetOpenShiftHandoffAsync(CancellationToken ct = default) =>
+        SendAsync<ShiftHandoffDto?>(HttpMethod.Get, "api/shift-handoffs/open", ct: ct);
+
+    public Task<ApiResult<ShiftHandoffDto>> CreateShiftHandoffAsync(
+        CreateShiftHandoffRequest req, CancellationToken ct = default) =>
+        SendAsync<ShiftHandoffDto>(HttpMethod.Post, "api/shift-handoffs", req, ct);
+
+    public Task<ApiResult<ShiftHandoffDto>> AcknowledgeShiftHandoffAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ShiftHandoffDto>(HttpMethod.Post, $"api/shift-handoffs/{id}/acknowledge", ct: ct);
+
+    public Task<ApiResult<List<SupervisorQueueItemDto>>> GetSupervisorQueueAsync(CancellationToken ct = default) =>
+        SendAsync<List<SupervisorQueueItemDto>>(HttpMethod.Get, "api/supervisor-queue", ct: ct);
 
     public Task<ApiResult<List<SpecialRequirementDto>>> GetSpecialRequirementsAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<SpecialRequirementDto>>(HttpMethod.Get, $"api/patients/{patientId}/special-requirements", ct: ct);

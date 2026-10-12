@@ -1,7 +1,5 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Patients;
-using BloodBankLIS.Application.Services;
-using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Api.Endpoints;
@@ -12,22 +10,19 @@ public static class PatientEndpoints
     {
         var group = app.MapGroup("/api/patients").WithTags("Patients").RequireAuthenticatedUser();
 
-        group.MapGet("/", async (EntityCrudService<Patient> service, CancellationToken ct) =>
-        {
-            var patients = await service.ListAsync(ct);
-            return Results.Ok(patients.Select(PatientDto.From));
-        });
+        group.MapGet("/", async (PatientService patients, CancellationToken ct) =>
+            Results.Ok(await patients.ListDtosAsync(ct)));
 
-        group.MapGet("/{id:long}", async (long id, EntityCrudService<Patient> service, PatientService patients, CancellationToken ct) =>
+        group.MapGet("/{id:long}", async (long id, PatientService patients, CancellationToken ct) =>
         {
-            var patient = await service.GetAsync(id, ct);
+            var patient = await patients.GetDtoAsync(id, ct);
             if (patient is null)
             {
                 return Results.NotFound();
             }
 
             await patients.RecordAccessAsync(id, ct);
-            return Results.Ok(PatientDto.From(patient));
+            return Results.Ok(patient);
         });
 
         group.MapPost("/", async (CreatePatientRequest request, PatientService patients, CancellationToken ct) =>
@@ -42,7 +37,7 @@ public static class PatientEndpoints
             CancellationToken ct) =>
         {
             var result = await patients.UpdateAsync(id, request, ct);
-            return EndpointResults.From(result, PatientDto.From);
+            return EndpointResults.From(result, p => PatientDto.From(p));
         }).RequirePermission(PermissionCodes.PatientWrite);
 
         group.MapPost("/{id:long}/merge", async (
@@ -68,7 +63,22 @@ public static class PatientEndpoints
             }
 
             var result = await merges.MergeAsync(id, duplicate.Id, request.Reason, ct);
-            return EndpointResults.From(result, PatientDto.From);
+            return EndpointResults.From(result, p => PatientDto.From(p));
+        }).RequirePermission(PermissionCodes.PatientMerge);
+
+        group.MapPost("/{id:long}/unmerge", async (
+            long id,
+            UnmergePatientRequest request,
+            PatientMergeService merges,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Reason))
+            {
+                return Results.BadRequest(new { error = "A reason is required to undo a patient merge." });
+            }
+
+            var result = await merges.UnmergeAsync(id, request.Reason, ct);
+            return EndpointResults.From(result, p => PatientDto.From(p));
         }).RequirePermission(PermissionCodes.PatientMerge);
     }
 }

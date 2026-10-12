@@ -102,12 +102,34 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `RES-VERIFY-PERM` | Caller has `result.verify` when verifying a test result, or when confirming a leftover Entered unit retype | HardStop when a permission evaluator is present and the privilege is missing |
 | `RES-ENTER-PERM` | Caller has `result.enter` when entering or updating an unverified result or recording a unit retype | HardStop when a permission evaluator is present and the privilege is missing |
 | `RES-CORRECT-PERM` | Caller has `result.correct` when correcting a verified result | HardStop when a permission evaluator is present and the privilege is missing |
-| `SPEC-ACC-PERM` | Caller has `specimen.accession` when accessioning a specimen | HardStop when a permission evaluator is present and the privilege is missing |
-| `SPEC-EDIT-PERM` | Caller has `specimen.edit` when editing specimen collection metadata | HardStop when a permission evaluator is present and the privilege is missing |
+| `SPEC-ACC-PERM` | Caller has `specimen.accession` when accessioning a specimen, or when receiving or accepting a collected/received specimen | HardStop when a permission evaluator is present and the privilege is missing |
+| `SPEC-RCV-STATUS` | Only a Collected specimen can be received into the blood bank | HardStop |
+| `SPEC-RCV-EXPIRED` | An expired specimen cannot be received | HardStop (reject instead) |
+| `SPEC-ACCEPT-STATUS` | Only a Received specimen can be accepted for testing | HardStop |
+| `SPEC-ACCEPT-EXPIRED` | An expired specimen cannot be accepted | HardStop (reject instead) |
+| `SHIFT-HANDOFF-PERM` | Caller has `audit.read` when recording or acknowledging a shift handoff | HardStop when a permission evaluator is present and the privilege is missing |
+| `SHIFT-HANDOFF-NOTES` | Shift handoff note is required | HardStop |
+| `SHIFT-HANDOFF-SELF` | The user who recorded a handoff cannot acknowledge it | HardStop |
+| `SHIFT-HANDOFF-ACKED` | An already acknowledged handoff cannot be acknowledged again | HardStop |
+| `SUP-QUEUE-PERM` | Caller has `immuno.override`, `result.verify`, or `inventory.release` when listing the supervisor queue | HardStop when a permission evaluator is present and none of those privileges are granted |
+| `SPEC-EDIT-PERM` | Caller has `specimen.edit` when editing specimen collection metadata or relabeling a specimen barcode | HardStop when a permission evaluator is present and the privilege is missing |
+| `SPEC-RELABEL-STATUS` | Only Collected, Received, or Accepted specimens can be relabeled | HardStop |
+| `SPEC-RELABEL-BARCODE` | A non-blank barcode is required to relabel | HardStop |
+| `SPEC-RELABEL-REASON` | A reason is required to relabel a specimen barcode | HardStop |
+| `SPEC-RELABEL-SAME` | The new barcode must differ from the current barcode | HardStop |
 | `SPEC-REJ-PERM` | Caller has `specimen.reject` when rejecting a specimen | HardStop when a permission evaluator is present and the privilege is missing |
 | `PAT-WRITE-PERM` | Caller has `patient.write` when updating patient demographics | HardStop when a permission evaluator is present and the privilege is missing. Update writes `PatientAccess` with old/new. |
+| `PAT-ALIAS-REASON` | A reason is required when changing first, middle, or last name; the previous display name is retained as `PriorFullName` | HardStop when the name changes and the reason is blank |
+| ADT prior-name archive | Inbound ADT that changes a stated name retains the previous display name as `PriorFullName` with reason `HL7 ADT demographics name change.` | Informational audit; does not HardStop the ADT |
 | `PAT-CREATE-PERM` | Caller has `patient.write` when creating a patient record | HardStop when a permission evaluator is present and the privilege is missing. Create writes `PatientAccess`. |
 | `PAT-MERGE-PERM` | Caller has `patient.merge` when merging a duplicate into a survivor from the workspace | HardStop when a permission evaluator is present and the privilege is missing |
+| `PAT-UNMERGE-PERM` | Caller has `patient.merge` when undoing a patient merge | HardStop when a permission evaluator is present and the privilege is missing |
+| `PAT-UNMERGE-REASON` | A reason is required to undo a patient merge | HardStop |
+| `PAT-UNMERGE-STATUS` | The record is still merged, and this merge has not already been undone | HardStop |
+| `PAT-UNMERGE-LEDGER` | The merge has a move ledger. Merges recorded before the ledger cannot be reversed automatically | HardStop |
+| `PAT-UNMERGE-ACTIVITY` | The survivor has no new order, specimen, result, crossmatch, allocation, issue, or transfusion since the merge | HardStop |
+| `PAT-UNMERGE-CHANGED` | A row the merge moved still belongs to the survivor and was not edited after the merge | HardStop |
+| `PAT-UNMERGE-DRIFT` | Survivor deceased status and pregnancy date still match the values stored at merge | HardStop |
 | `USR-CREATE-PERM` | Caller has `admin.users.manage` when creating a directory user | HardStop when a permission evaluator is present and the privilege is missing. Create/update writes `UserRole`. |
 | `USR-UPD-PERM` | Caller has `admin.users.manage` when updating a directory user | HardStop when a permission evaluator is present and the privilege is missing |
 | `USR-ASSIGN-PERM` | Caller has `admin.users.manage` when assigning roles | HardStop when a permission evaluator is present and the privilege is missing |

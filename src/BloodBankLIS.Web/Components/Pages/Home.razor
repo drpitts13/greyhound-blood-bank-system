@@ -1,6 +1,7 @@
 @page "/"
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@inject NavigationManager Nav
 
 <PageTitle>Dashboard &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -10,197 +11,34 @@
 </div>
 
 <div class="bb-grid cols-4">
-    <a class="stat" href="/patients">
+    <div class="stat">
         <div class="label">Patients</div>
-        <div class="value">@(_patients?.ToString() ?? "?")</div>
-    </a>
-    <a class="stat" href="/inventory">
+        <div class="value">@(_patients?.ToString() ?? "�")</div>
+    </div>
+    <div class="stat">
         <div class="label">Available units</div>
-        <div class="value">@(_available?.ToString() ?? "?")</div>
-    </a>
-    <a class="stat" href="/inventory#quality-quarantine">
+        <div class="value">@(_available?.ToString() ?? "�")</div>
+    </div>
+    <div class="stat">
         <div class="label">In quarantine</div>
-        <div class="value">@(_quarantine?.ToString() ?? "?")</div>
-    </a>
-    <a class="stat" href="/billing">
+        <div class="value">@(_quarantine?.ToString() ?? "�")</div>
+    </div>
+    <div class="stat">
         <div class="label">Charges to review</div>
-        <div class="value">@(_pendingCharges?.ToString() ?? "?")</div>
-    </a>
+        <div class="value">@(_pendingCharges?.ToString() ?? "�")</div>
+    </div>
 </div>
-
-@if (SeesAttentionQueues)
-{
-    <div class="bb-card" style="margin-top:1.25rem;">
-        <div class="bb-card-title"><h3>Needs attention</h3></div>
-        <p class="muted">These are the queues already on the bench. A count does not change an issue, result, or investigation gate. In transit counts units still awaiting ward receipt. An overdue count uses the due time already on that queue. Fatality follow-up counts cases still missing CBER notification or the written report, including closed cases.</p>
-        <div class="flex gap" style="flex-wrap:wrap;">
-            @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
-            {
-                <a class="btn btn-secondary" href="/issuing">Retrospective crossmatch due @_retroDueLabel</a>
-            }
-            @if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.TransfusionDocument))
-            {
-                <a class="btn btn-secondary" href="/issuing">Outstanding issued @_outstandingLabel</a>
-                <a class="btn btn-secondary" href="/issuing">In transit @_inTransitLabel</a>
-            }
-            @if (Session.Has(PermissionCodes.ResultEnter) || Session.Has(PermissionCodes.ResultVerify))
-            {
-                <a class="btn btn-secondary" href="/test-worklist">Pending testing @_pendingTestsLabel</a>
-            }
-            @if (Session.Has(PermissionCodes.ReactionInvestigate))
-            {
-                <a class="btn btn-secondary" href="/reactions">Reaction investigations @_openReactionsLabel</a>
-            }
-        </div>
-    </div>
-}
-
-@if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
-{
-    <div class="bb-card" style="margin-top:1.25rem;">
-        <div class="bb-card-title">
-            <h3>Open antibody identification</h3>
-            <a class="btn btn-secondary btn-sm" href="/antibody-id">Worklist</a>
-        </div>
-        @if (_abid is null)
-        {
-            <p class="muted">Open workups could not be loaded.</p>
-        }
-        else if (_abid.OpenCount == 0)
-        {
-            <p class="muted">No open antibody-identification workups. Assistance does not identify antibodies.</p>
-        }
-        else
-        {
-            <p>
-                <strong>@_abid.OpenCount</strong> open.
-                @if (_abid.RecordReactionsCount > 0)
-                {
-                    <a class="btn btn-ghost btn-sm" href="/antibody-id?action=reactions">
-                        @_abid.RecordReactionsCount need reactions.
-                    </a>
-                }
-                @if (_abid.InterpretCount > 0)
-                {
-                    <a class="btn btn-ghost btn-sm" href="/antibody-id?action=interpret">
-                        @_abid.InterpretCount need interpretation.
-                    </a>
-                }
-                @if (_abid.ReviewCount > 0)
-                {
-                    <a class="btn btn-ghost btn-sm" href="/antibody-id?action=review">
-                        @_abid.ReviewCount need supervisor review.
-                    </a>
-                }
-                @if (_abid.WithdrawnJudgmentCount > 0)
-                {
-                    <a class="btn btn-ghost btn-sm" href="/antibody-id?withdrawn=1">
-                        @_abid.WithdrawnJudgmentCount have withdrawn judgment.
-                    </a>
-                }
-                @if (_abid.PendingTypeCorrectionCount > 0)
-                {
-                    <a class="btn btn-ghost btn-sm" href="/antibody-id?typePending=1">
-                        @_abid.PendingTypeCorrectionCount have a pending type correction.
-                    </a>
-                }
-                @if (_abid.ReservedOrIssuedUnitCount > 0)
-                {
-                    <a class="btn btn-ghost btn-sm" href="/antibody-id?products=1">
-                        @_abid.ReservedOrIssuedUnitCount have reserved or issued units.
-                    </a>
-                }
-            </p>
-            @if (_abid.UnusableSpecimenCount > 0)
-            {
-                <p>
-                    <a class="btn btn-ghost btn-sm" href="/antibody-id?unusable=1">
-                        <span class="badge badge-red">@_abid.UnusableSpecimenCount rejected/cancelled specimen</span>
-                    </a>
-                </p>
-                <p class="muted">Open the worklist filtered to those workups. Void or re-link them. They remain the identification of record for the patient. This does not identify antibodies.</p>
-            }
-            @if (_abid.NotReadySpecimenCount > 0)
-            {
-                <p>
-                    <a class="btn btn-ghost btn-sm" href="/antibody-id?notready=1">
-                        <span class="badge badge-red">@_abid.NotReadySpecimenCount not-yet-received specimen</span>
-                    </a>
-                </p>
-                <p class="muted">Open the worklist filtered to those workups. Receive the specimen, void, or re-link. Complete HardStops. They remain the identification of record for the patient. This does not identify antibodies.</p>
-            }
-            @if (_abid.ExpiredSpecimenCount > 0)
-            {
-                <p>
-                    <a class="btn btn-ghost btn-sm" href="/antibody-id?expired=1">
-                        <span class="badge badge-amber">@_abid.ExpiredSpecimenCount expired specimen</span>
-                    </a>
-                </p>
-                <p class="muted">Open the worklist filtered to those workups. Complete with acknowledgment, void, or re-link. They remain the identification of record for the patient. This does not identify antibodies.</p>
-            }
-            @if (_abid.UnacceptedSpecimenCount > 0)
-            {
-                <p>
-                    <a class="btn btn-ghost btn-sm" href="/antibody-id?unaccepted=1">
-                        <span class="badge badge-blue">@_abid.UnacceptedSpecimenCount not-yet-accepted specimen</span>
-                    </a>
-                </p>
-                <p class="muted">Open the worklist filtered to those workups. Accept the specimen, complete with acknowledgment, void, or re-link. They remain the identification of record for the patient. This does not identify antibodies.</p>
-            }
-            @if (_abid.InactiveLotCount > 0 || _abid.ExpiredLotCount > 0)
-            {
-                <p>
-                    @if (_abid.InactiveLotCount > 0)
-                    {
-                        <a class="btn btn-ghost btn-sm" href="/antibody-id?lotAttention=1">
-                            <span class="badge badge-red">@_abid.InactiveLotCount inactive lot</span>
-                        </a>
-                    }
-                    @if (_abid.ExpiredLotCount > 0)
-                    {
-                        <a class="btn btn-ghost btn-sm" href="/antibody-id?lotAttention=1">
-                            <span class="badge badge-amber">@_abid.ExpiredLotCount expired lot</span>
-                        </a>
-                    }
-                </p>
-                <p class="muted">Count badges open every workup with a withdrawn or expired lot. Named lots open that reagent only. This does not identify antibodies.</p>
-                <div class="flex gap" style="flex-wrap:wrap;">
-                    @foreach (var lot in _abid.InactiveLotNumbers ?? [])
-                    {
-                        <a class="btn btn-ghost btn-sm" href="@LotWorklistHref(lot)">
-                            <span class="badge badge-red">Inactive @lot</span>
-                        </a>
-                    }
-                    @foreach (var lot in _abid.ExpiredLotNumbers ?? [])
-                    {
-                        <a class="btn btn-ghost btn-sm" href="@LotWorklistHref(lot)">
-                            <span class="badge badge-amber">Expired @lot</span>
-                        </a>
-                    }
-                </div>
-            }
-        }
-    </div>
-}
 
 <div class="bb-card" style="margin-top:1.25rem;">
     <div class="bb-card-title"><h3>Quick actions</h3></div>
     <div class="flex gap" style="flex-wrap:wrap;">
-        <a class="btn btn-secondary" href="/patients">Find a patient</a>
-        <a class="btn btn-secondary" href="/inventory">Search inventory</a>
-        @if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
-        {
-            <a class="btn btn-secondary" href="/antibody-id">Antibody identification</a>
-        }
-        <a class="btn btn-secondary" href="/compatibility">Crossmatch &amp; allocate</a>
-        <a class="btn btn-secondary" href="/issuing">Issue a unit</a>
-        @if (Session.Has(PermissionCodes.LookbackManage))
-        {
-            <a class="btn btn-secondary" href="/lookback">Lookback / traceback</a>
-        }
+        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/patients")'>Find a patient</button>
+        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/inventory")'>Search inventory</button>
+        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/compatibility")'>Crossmatch &amp; allocate</button>
+        <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/issuing")'>Issue a unit</button>
         @if (Session.Has(PermissionCodes.Hl7Manage))
         {
-            <a class="btn btn-secondary" href="/hl7">HL7 interface</a>
+            <button class="btn btn-secondary" @onclick='() => Nav.NavigateTo("/hl7")'>HL7 interface</button>
         }
     </div>
 </div>
@@ -228,39 +66,6 @@
     private int? _available;
     private int? _quarantine;
     private int? _pendingCharges;
-    private AntibodyIdOpenWorklistSummaryDto? _abid;
-    private int? _retroDue;
-    private int? _outstandingIssued;
-    private int? _inTransit;
-    private int? _inTransitOverdue;
-    private int? _pendingTests;
-    private int? _openReactions;
-
-    private bool SeesAttentionQueues =>
-        Session.Has(PermissionCodes.CompatibilityCrossmatch)
-        || Session.Has(PermissionCodes.IssueCreate)
-        || Session.Has(PermissionCodes.TransfusionDocument)
-        || Session.Has(PermissionCodes.ResultEnter)
-        || Session.Has(PermissionCodes.ResultVerify)
-        || Session.Has(PermissionCodes.ReactionInvestigate);
-
-    private int? _retroOverdue;
-    private int? _fatalityFollowUpDue;
-
-    private string _retroDueLabel => WithFlagged(_retroDue, _retroOverdue, "overdue");
-    private string _outstandingLabel => QueueCount(_outstandingIssued);
-    private string _inTransitLabel => WithFlagged(_inTransit, _inTransitOverdue, "overdue");
-
-    private static string WithFlagged(int? total, int? flagged, string label) =>
-        total is not int n
-            ? "—"
-            : flagged is int f && f > 0
-                ? $"{n}, {f} {label}"
-                : n.ToString();
-    private string _pendingTestsLabel => QueueCount(_pendingTests);
-    private string _openReactionsLabel => WithFlagged(_openReactions, _fatalityFollowUpDue, "fatality follow-up due");
-
-    private static string QueueCount(int? count) => count is int n ? n.ToString() : "—";
 
     protected override async Task OnInitializedAsync()
     {
@@ -278,53 +83,5 @@
             var charges = await Api.GetBillingQueueAsync();
             if (charges.Succeeded) _pendingCharges = charges.Value!.Count;
         }
-
-        if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
-        {
-            var abid = await Api.GetOpenAntibodyIdSummaryAsync();
-            if (abid.Succeeded) _abid = abid.Value;
-        }
-
-        if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
-        {
-            var retro = await Api.GetPendingRetrospectiveCrossmatchesAsync();
-            if (retro.Succeeded)
-            {
-                _retroDue = retro.Value!.Count;
-                _retroOverdue = RetrospectiveCrossmatchAttentionRule.CountOverdue(retro.Value);
-            }
-        }
-
-        if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.TransfusionDocument))
-        {
-            var issued = await Api.GetOutstandingIssuesAsync();
-            if (issued.Succeeded) _outstandingIssued = issued.Value!.Count;
-
-            var transit = await Api.GetInTransitIssuesAsync();
-            if (transit.Succeeded)
-            {
-                _inTransit = transit.Value!.Count;
-                _inTransitOverdue = InTransitAttentionRule.CountOverdue(transit.Value.Select(row => row.IsOverdue));
-            }
-        }
-
-        if (Session.Has(PermissionCodes.ResultEnter) || Session.Has(PermissionCodes.ResultVerify))
-        {
-            var tests = await Api.GetPendingTestWorklistAsync();
-            if (tests.Succeeded) _pendingTests = tests.Value!.Count;
-        }
-
-        if (Session.Has(PermissionCodes.ReactionInvestigate))
-        {
-            var reactions = await Api.GetReactionInvestigationsAsync();
-            if (reactions.Succeeded)
-            {
-                _openReactions = OpenReactionInvestigationRule.Count(reactions.Value!.Select(r => r.Status));
-                _fatalityFollowUpDue = OpenReactionInvestigationRule.CountFatalityFollowUpDue(reactions.Value);
-            }
-        }
     }
-
-    private static string LotWorklistHref(string lotNumber) =>
-        $"/antibody-id?lot={Uri.EscapeDataString(lotNumber)}";
 }

@@ -72,7 +72,13 @@
                 {
                     <tr>
                         <td class="mono"><a href="@($"/patients/{p.Id}")">@p.MedicalRecordNumber</a></td>
-                        <td><a href="@($"/patients/{p.Id}")">@p.LastName, @p.FirstName @p.MiddleName</a></td>
+                        <td>
+                            <a href="@($"/patients/{p.Id}")">@p.LastName, @p.FirstName @p.MiddleName</a>
+                            @if (p.Aliases is { Count: > 0 })
+                            {
+                                <div class="muted" style="font-size:.85rem;">Also: @string.Join("; ", p.Aliases.Select(a => a.Value))</div>
+                            }
+                        </td>
                         <td>@p.DateOfBirth.ToString("yyyy-MM-dd")</td>
                         <td>@p.Sex</td>
                         <td><span class="badge badge-gray">@p.Status</span></td>
@@ -103,10 +109,7 @@
 
     private List<PatientDto> Filtered => string.IsNullOrWhiteSpace(_filter)
         ? _patients
-        : _patients.Where(p =>
-            p.MedicalRecordNumber.Contains(_filter, StringComparison.OrdinalIgnoreCase) ||
-            p.LastName.Contains(_filter, StringComparison.OrdinalIgnoreCase) ||
-            p.FirstName.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+        : _patients.Where(p => p.MatchesSearch(_filter)).ToList();
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

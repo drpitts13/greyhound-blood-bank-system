@@ -47,6 +47,46 @@ public static class SpecimenEndpoints
                     payload => payload!);
         }).RequirePermission(PermissionCodes.SpecimenEdit);
 
+        group.MapGet("/pending", async (SpecimenService service, CancellationToken ct) =>
+            Results.Ok(await service.ListPendingReceiptAsync(ct)))
+            .RequirePermission(PermissionCodes.SpecimenAccession);
+
+        group.MapPost("/{id:long}/relabel", async (long id, RelabelSpecimenRequest request, SpecimenService service, CancellationToken ct) =>
+        {
+            var result = await service.RelabelAsync(id, request, ct);
+            if (!result.Succeeded)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            var dto = await service.GetAsync(result.Value!.Id, ct);
+            return dto is null ? Results.NotFound() : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.SpecimenEdit);
+
+        group.MapPost("/{id:long}/receive", async (long id, SpecimenService service, CancellationToken ct) =>
+        {
+            var result = await service.ReceiveAsync(id, ct);
+            if (!result.Succeeded)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            var dto = await service.GetAsync(result.Value!.Id, ct);
+            return dto is null ? Results.NotFound() : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.SpecimenAccession);
+
+        group.MapPost("/{id:long}/accept", async (long id, SpecimenService service, CancellationToken ct) =>
+        {
+            var result = await service.AcceptAsync(id, ct);
+            if (!result.Succeeded)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            var dto = await service.GetAsync(result.Value!.Id, ct);
+            return dto is null ? Results.NotFound() : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.SpecimenAccession);
+
         group.MapPost("/{id:long}/reject", async (long id, RejectSpecimenRequest request, SpecimenService service, CancellationToken ct) =>
         {
             var result = await service.RejectAsync(id, request.Reason, ct);

@@ -16,7 +16,8 @@ public sealed record AccessionSpecimenRequest(
     string? Identifier1Value = null,
     IdentityTokenType? Identifier2Type = null,
     string? Identifier2Value = null,
-    string? Comment = null);
+    string? Comment = null,
+    bool AcceptImmediately = true);
 
 public sealed record UpdateSpecimenRequest(
     DateTime CollectedUtc,
@@ -28,6 +29,8 @@ public sealed record UpdateSpecimenRequest(
     DateTime? ExpiresUtc = null,
     string? OverrideReason = null,
     string? AuthorizedBy = null);
+
+public sealed record RelabelSpecimenRequest(string Barcode, string Reason);
 
 public sealed record SpecimenDto(
     long Id,
@@ -50,4 +53,31 @@ public sealed record SpecimenDto(
         s.Id, s.AccessionNumber, s.PatientId, s.SpecimenType, typeDescription, s.Barcode,
         s.DrawLocation, s.Collector, s.CollectedUtc, s.ReceivedUtc, s.ExpiresUtc, s.Status, s.RejectionReason,
         s.Comment, hasCompletedTypeAndScreen);
+}
+
+public sealed record PendingSpecimenWorkItemDto(
+    long SpecimenId,
+    long PatientId,
+    string PatientName,
+    string Mrn,
+    string AccessionNumber,
+    string SpecimenType,
+    DateTime CollectedUtc,
+    DateTime? ReceivedUtc,
+    DateTime? ExpiresUtc,
+    SpecimenStatus Status,
+    bool IsExpired)
+{
+    public static PendingSpecimenWorkItemDto From(Specimen s, Patient? patient, DateTime now) => new(
+        s.Id,
+        s.PatientId,
+        patient is null ? "—" : $"{patient.LastName}, {patient.FirstName}",
+        patient?.MedicalRecordNumber ?? "—",
+        s.AccessionNumber,
+        s.SpecimenType,
+        s.CollectedUtc,
+        s.ReceivedUtc,
+        s.ExpiresUtc,
+        s.Status,
+        s.ExpiresUtc is DateTime expires && expires <= now);
 }

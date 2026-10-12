@@ -32,13 +32,16 @@ else
         Busy="_busy"
         CanEditDemographics="CanEditDemographics"
         CanMergePatients="CanMergePatients"
+        CanUnmerge="CanUnmerge"
         EditingDemographics="_editingDemographics"
         ShowMerge="_showMerge"
         Demo="_demo"
         DemoFeedback="_demoFb"
         MergeFeedback="_mergeFb"
+        UnmergeFeedback="_unmergeFb"
         @bind-MergeMrn="_mergeMrn"
         @bind-MergeReason="_mergeReason"
+        @bind-UnmergeReason="_unmergeReason"
         HasRecordedReaction="_productHistory.Any(h => h.ReactionSuspected)"
         AntibodyHistory="_antibodyHistory"
         ActiveSpecialRequirements="ActiveSpecialRequirements"
@@ -48,7 +51,8 @@ else
         OnSaveDemo="SaveDemographicsAsync"
         OnCancelEdit="() => _editingDemographics = false"
         OnMerge="MergeDuplicateAsync"
-        OnCancelMerge="() => _showMerge = false" />
+        OnCancelMerge="() => _showMerge = false"
+        OnUnmerge="UnmergeAsync" />
 
     <PatientWorkflowRibbon Steps="WorkflowSteps" OnStepSelected="OpenWorkflowStepAsync" />
     <PatientChartTabBar Current="_tab" OnSelect="SelectTab" />
@@ -251,6 +255,9 @@ else
             Specimens="_specimens"
             SelectedId="_selectedSpecimen?.Id"
             EditId="_editId"
+            RelabelId="_relabelId"
+            @bind-RelabelBarcode="_relabelBarcode"
+            @bind-RelabelReason="_relabelReason"
             RejectId="_rejectId"
             @bind-RejectReason="_rejectReason"
             SpecimenWorklist="_specimenWorklist"
@@ -262,11 +269,16 @@ else
             OnAccession="AccessionAsync"
             OnSelect="SelectSpecimen"
             OnBeginEdit="BeginEdit"
+            OnBeginRelabel="BeginRelabel"
             OnBeginReject="BeginReject"
             OnSaveEdit="SaveEditAsync"
             OnCancelEdit="() => _editId = null"
+            OnRelabel="RelabelAsync"
+            OnCancelRelabel="() => _relabelId = null"
             OnReject="RejectAsync"
             OnCancelReject="() => _rejectId = null"
+            OnReceive="ReceiveSpecimenAsync"
+            OnAccept="AcceptSpecimenAsync"
             OnOpenOrders="OpenAddOrderWithAccessionAsync"
             ExceptionMinLevel="_specimenExpMinLevel" />
     }
@@ -472,7 +484,9 @@ else
     private bool _showMerge;
     private string _mergeMrn = string.Empty;
     private string _mergeReason = string.Empty;
+    private string _unmergeReason = string.Empty;
     private Feedback? _mergeFb;
+    private Feedback? _unmergeFb;
     private BloodTypeDto? _currentType;
     private ElectronicCrossmatchEligibilityDto? _exm;
     private List<BloodTypeDto> _typeHistory = new();
@@ -613,6 +627,9 @@ else
     private long? _rejectId;
     private string _rejectReason = string.Empty;
     private long? _editId;
+    private long? _relabelId;
+    private string _relabelBarcode = string.Empty;
+    private string _relabelReason = string.Empty;
     private PatientSpecimenEditForm _edit = new();
     private Feedback? _editFb;
     private int _specimenExpMinLevel = 2;
@@ -726,7 +743,7 @@ else
 
     private static readonly HashSet<string> KnownTabs = new(StringComparer.OrdinalIgnoreCase)
     {
-        "overview", "visits", "orders", "specimens", "tests", "test-history", "products", "history"
+        "overview", "visits", "orders", "specimens", "tests", "test-history", "dat-elution", "products", "history"
     };
 
     private bool _tabFromQueryApplied;
@@ -2221,6 +2238,25 @@ else
         && _patient.Status != PatientStatus.Merged
         && Session.Has(PermissionCodes.PatientMerge);
 
+    private bool CanUnmerge =>
+        _patient is not null
+        && _patient.Status == PatientStatus.Merged
+        && Session.Has(PermissionCodes.PatientMerge);
+
+    private async Task UnmergeAsync()
+    {
+        if (_patient is null) return;
+        _busy = true;
+        var r = await Api.UnmergePatientAsync(Id, new UnmergePatientRequest(_unmergeReason));
+        _busy = false;
+        _unmergeFb = r.ToFeedback("Merge undone. This record is active again.");
+        if (r.Succeeded)
+        {
+            _unmergeReason = string.Empty;
+            await LoadAsync();
+        }
+    }
+
     private void ToggleMerge()
     {
         if (_patient is null) return;
@@ -2283,7 +2319,8 @@ else
             _demo.Sex,
             _demo.Status,
             RecentPregnancyUtc: _patient.RecentPregnancyUtc,
-            Comment: _demo.Comment));
+            Comment: _demo.Comment,
+            NameChangeReason: string.IsNullOrWhiteSpace(_demo.NameChangeReason) ? null : _demo.NameChangeReason));
         _busy = false;
         _demoFb = r.ToFeedback("Demographics updated.");
         if (r.Succeeded)
@@ -2306,6 +2343,24 @@ else
         if (r.Succeeded) await LoadAsync();
     }
 
+    private async Task ReceiveSpecimenAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.ReceiveSpecimenAsync(specimenId);
+        _busy = false;
+        _accessionFb = r.ToFeedback("Specimen received in the blood bank.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private async Task AcceptSpecimenAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.AcceptSpecimenAsync(specimenId);
+        _busy = false;
+        _accessionFb = r.ToFeedback("Specimen accepted for testing.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
     private async Task AccessionAsync()
     {
         _busy = true;
@@ -2313,18 +2368,52 @@ else
             DateTime.SpecifyKind(_acc.CollectedLocal, DateTimeKind.Utc), ValidityHours: _acc.ValidityHours,
             Identifier1Value: string.IsNullOrWhiteSpace(_acc.Identifier1Value) ? null : _acc.Identifier1Value,
             Identifier2Value: string.IsNullOrWhiteSpace(_acc.Identifier2Value) ? null : _acc.Identifier2Value,
-            Comment: string.IsNullOrWhiteSpace(_acc.Comment) ? null : _acc.Comment);
+            Comment: string.IsNullOrWhiteSpace(_acc.Comment) ? null : _acc.Comment,
+            AcceptImmediately: _acc.AcceptImmediately);
         var r = await Api.AccessionSpecimenAsync(req);
         _busy = false;
-        _accessionFb = r.ToFeedback("Specimen accessioned.");
+        _accessionFb = r.ToFeedback(_acc.AcceptImmediately
+            ? "Specimen accessioned."
+            : "Specimen collected. Receive it on the pending-specimens worklist.");
         if (r.Succeeded) { _acc = new(); _showAccession = false; await LoadAsync(); }
     }
 
     private void BeginReject(SpecimenDto s)
     {
         _editId = null;
+        _relabelId = null;
         _rejectId = s.Id;
         _rejectReason = string.Empty;
+    }
+
+    private void BeginRelabel(SpecimenDto s)
+    {
+        if (_relabelId == s.Id)
+        {
+            _relabelId = null;
+            return;
+        }
+
+        _editId = null;
+        _rejectId = null;
+        _relabelId = s.Id;
+        _relabelBarcode = string.Empty;
+        _relabelReason = string.Empty;
+        _editFb = null;
+    }
+
+    private async Task RelabelAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.RelabelSpecimenAsync(specimenId, new RelabelSpecimenRequest(_relabelBarcode, _relabelReason));
+        _busy = false;
+        _editFb = r.ToFeedback("Specimen relabeled.");
+        _accessionFb = _editFb;
+        if (r.Succeeded)
+        {
+            _relabelId = null;
+            await LoadAsync();
+        }
     }
 
     private async Task BeginEdit(SpecimenDto s)
@@ -2341,6 +2430,7 @@ else
         var hours = Math.Max(1, (int)Math.Round((policyExpires - s.CollectedUtc).TotalHours));
 
         _rejectId = null;
+        _relabelId = null;
         _editId = s.Id;
         _editFb = null;
         _edit = new PatientSpecimenEditForm

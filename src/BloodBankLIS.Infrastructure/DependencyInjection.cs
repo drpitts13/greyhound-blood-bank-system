@@ -82,6 +82,9 @@ public static class DependencyInjection
         services.AddScoped<LookbackService>();
         services.AddScoped<ReactionInvestigationService>();
         services.AddScoped<DeviationService>();
+        services.AddScoped<ShiftHandoffService>();
+        services.AddScoped<SupervisorQueueService>();
+        services.AddScoped<DatElutionWorkupService>();
         services.AddScoped<DowntimeReconciliationService>();
         services.AddScoped<IsbtLookupCatalog>();
         services.AddScoped<IsbtParsingService>();
@@ -89,6 +92,7 @@ public static class DependencyInjection
         services.AddScoped<ManualComponentEntryService>();
         services.AddScoped<ComponentIdentityCorrectionService>();
         services.AddScoped<CompatibilityRulesEngine>();
+        services.AddScoped<PatientHistoricalAliasWriter>();
         services.AddScoped<PatientService>();
         services.AddScoped<PatientMergeService>();
         services.AddScoped<SpecimenService>();

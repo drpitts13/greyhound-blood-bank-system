@@ -56,6 +56,26 @@ public enum PatientStatus
     Inactive = 2
 }
 
+/// <summary>A recorded patient merge that can still be undone, or one that already was.</summary>
+public enum PatientMergeStatus
+{
+    Active = 0,
+    Unmerged = 1
+}
+
+/// <summary>How a chart row was treated when two patient records were combined.</summary>
+public enum PatientMergeMoveAction
+{
+    /// <summary>The row was moved from the duplicate onto the survivor.</summary>
+    Reassigned = 0,
+
+    /// <summary>The survivor already had the same fact, so the duplicate row was left in place.</summary>
+    SkippedDuplicate = 1,
+
+    /// <summary>The row was moved and its current ABO/Rh flag was cleared because the survivor already had a current type.</summary>
+    BloodTypeDemoted = 2
+}
+
 public enum SpecimenStatus
 {
     Collected = 0,
@@ -651,7 +671,16 @@ public enum AuditEventType
     Print = 40,
 
     /// <summary>A saved or ad-hoc operational report was run. File export uses <see cref="Export"/>.</summary>
-    ReportRun = 41
+    ReportRun = 41,
+
+    /// <summary>End-of-shift handoff packet created or acknowledged.</summary>
+    ShiftHandoff = 42,
+
+    /// <summary>Patient DAT/elution workup created, updated, completed, or voided.</summary>
+    DatElution = 43,
+
+    /// <summary>A patient merge was undone and history was restored to the duplicate record.</summary>
+    Unmerge = 44
 }
 
 /// <summary>
@@ -893,6 +922,8 @@ public enum IdentityTokenType
     FullName = 2,
     AccountNumber = 3,
     PriorMedicalRecordNumber = 4,
+    /// <summary>Former legal or chart name retained after a demographics name change.</summary>
+    PriorFullName = 5,
     Other = 99
 }
 
@@ -927,6 +958,16 @@ public enum DatWorkupResult
     Negative = 1,
     Positive = 2,
     NotPerformed = 3
+}
+
+/// <summary>
+/// Standalone patient DAT/elution study. Does not identify antibodies.
+/// </summary>
+public enum DatElutionWorkupStatus
+{
+    Open = 0,
+    Completed = 1,
+    Voided = 2
 }
 
 public enum LookbackNotificationStatus

@@ -19,6 +19,42 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
+## Capability matrix (Cycle 187)
+
+Status is relative to a mature transfusion-service LIS. Present means a
+working path exists; Partial means the domain exists but a bench workflow
+is incomplete. Do not treat Present as AABB/FDA certification.
+
+| Area | Status | Notes |
+|---|---|---|
+| Patient demographics, MRN, visits, location, provider | Present | Chart + ADT |
+| Alternate identifiers, aliases | Present | Cycle 185–186: prior name on chart edit and ADT; prior MRN from merge; search matches aliases |
+| Duplicate handling / merge | Present | Merge + reason; Cycle 187 unmerge restores the ledger when nothing new has happened since. Pre-ledger merges cannot be undone |
+| Orders, priority, ordering location | Present | Test and product orders |
+| Specimen collection / receipt / accept | Present | Cycle 181: Collected → Received → Accepted; in-lab accession still accepts immediately |
+| Specimen rejection, expiration, multiple/historical | Present | Reject; expiry gates; patient list |
+| Relabeling controls | Present | Cycle 183: specimen barcode Relabel with required reason; metadata edit cannot change barcode |
+| ABO/Rh, ABS, ABID, DAT, antigen, XM | Present | Workup + result paths |
+| Elution / special / reflex | Partial | Chart DAT/elution workup exists. Eluate findings are not posted as structured antibody history; do not invent that rule |
+| Result review, correction, invalidation | Present | Versioned; instrument pending verification |
+| ISBT identifiers, codes, attributes, locations | Partial | Parser + import; licensed ICCBBA extract not loaded (OCD-004) |
+| Divisions, modifications, pooling, aliquots, irradiate, wash, thaw | Partial | Modification rules present; pooling/aliquot coverage varies |
+| Expiration calculations, status history, transfer | Present | |
+| Selection, reserve, assign, XM, issue, emergency, MTP | Present | IssueGate |
+| Return, reissue, transfusion, discard, reaction | Present | |
+| Compatibility, special requirements, eXM, warning vs hard-stop | Present | OCD-001 closed |
+| Antibody/antigen history, phenotype, genotype, alerts | Present | Genotype vs phenotype tokens (OCD-024) |
+| Worklists: tests, retype, near-expiry, issue, reactions, inbound | Present | Pending specimens Cycle 181; supervisor queue Cycle 184 |
+| Assigned products / outstanding transfusions | Present | Ready to issue; outstanding issued |
+| Shift handoff / supervisor queues | Present | Cycle 182 handoff; Cycle 184 permission-scoped supervisor worklist |
+| Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033) |
+| HL7 ADT/ORM/ORU, BPAM, retry/error, downtime snapshot | Partial | v2 present; FHIR absent; MLLP transport-trust |
+| Audit of clinically important actions | Present | Append-only hash chain; no purge |
+
+Cycle 186 implemented ADT prior-name archive on inbound demographics updates (RISK-BB-441).
+
+Cycle 187 records a patient-merge ledger and lets staff with `patient.merge` undo that merge when the survivor has had no new clinical activity (RISK-BB-442). Merges already in the database have no ledger and cannot be reversed.
+
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|
 | 1 | P0 via P6 | API identity spoofing: `X-User` trusted after login; empty password hash signs in | Low (Bearer session; RISK-BB-254) | **Implemented Cycle 1** |
@@ -365,6 +401,20 @@ Cycle 178: The dashboard lists retrospective crossmatch due, outstanding issued 
 Cycle 179: The dashboard also lists units still in transit to the ward, and how many of those are past the arrival window already stored on that queue (RISK-BB-434). Ward receipt is unchanged.
 
 Cycle 180: The dashboard says how many retrospective crossmatches are past their stored due time, and how many reaction investigations still need fatality follow-up, including closed cases (RISK-BB-435). Retrospective completion, reaction close, and the fatality follow-up rule are unchanged.
+
+Cycle 181: Collection can stay Collected. Receive and Accept move a tube to Received then Accepted from the pending-specimens worklist (RISK-BB-436). An expired tube cannot be received or accepted. In-lab accession still accepts immediately. Result entry and order linking still require Accepted.
+
+Cycle 182: Staff with `audit.read` record a shift handoff with a required note and a snapshot of the bench queues; a different user acknowledges (RISK-BB-437). Self-acknowledge and double-acknowledge HardStop. Clinical gates are unchanged.
+
+Cycle 183: Specimen barcode changes require Relabel with a required reason and `specimen.edit` (RISK-BB-438). Accession number stays immutable. Rejected, cancelled, and expired tubes cannot be relabeled. Collection metadata edit cannot change the barcode. Clinical gates are unchanged.
+
+Cycle 184: Staff with `immuno.override`, `result.verify`, or `inventory.release` open a supervisor worklist of ABID reviews, pending verifications, and quarantine releases for those permissions (RISK-BB-439). Rows open the existing workflows. Clinical gates are unchanged.
+
+Cycle 185: Changing first, middle, or last name requires a reason and retains the previous display name as `PriorFullName` (RISK-BB-440). Patient list search matches prior names and prior MRNs. Clinical gates are unchanged.
+
+Cycle 186: Inbound ADT that changes a stated name retains the previous display name as `PriorFullName` and audits the change (RISK-BB-441). Sparse ADT blanks do not clear or archive names. Clinical gates are unchanged.
+
+Cycle 187: A new merge writes a ledger of moved, skipped, and demoted rows, including DAT/elution studies, pickup tags, and compatibility decisions. Unmerge requires `patient.merge` and a reason. It restores those rows and deactivates the prior-MRN alias this merge added. A new order, specimen, result, crossmatch, allocation, issue, or transfusion on the survivor since the merge HardStops, as does an edited moved row or a changed deceased or pregnancy field. Merges without a ledger cannot be undone. Rule execution logs stay on the original patient.
 
 ## Scoring used for Cycle 1 selection
 

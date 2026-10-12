@@ -339,3 +339,10 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-331 | Staff opening the dashboard can see the bench queues they are allowed to work. | P1 | FRS-BB-366 |
 | URS-BB-332 | Staff opening the dashboard can see units still in transit, including how many are past the arrival window. | P1 | FRS-BB-367 |
 | URS-BB-333 | Staff opening the dashboard can see which retrospective crossmatches are overdue and which reaction cases still need fatality follow-up. | P1 | FRS-BB-368 |
+| URS-BB-334 | Staff can receive a collected specimen into the blood bank and accept a received specimen before testing, from a pending-specimens worklist. | P0 | FRS-BB-369 |
+| URS-BB-335 | Staff ending a shift can record a handoff packet with a required note and a snapshot of the current bench queues, and the incoming technologist can acknowledge it. | P1 | FRS-BB-370 |
+| URS-BB-336 | Staff can change a specimen barcode only through a controlled relabel that requires a reason; collection metadata edit does not change the barcode. | P0 | FRS-BB-371 |
+| URS-BB-337 | Supervisors can open one worklist of antibody-identification reviews, posted results awaiting verification, and quarantined units awaiting release for the permissions they already have. | P1 | FRS-BB-372 |
+| URS-BB-338 | Staff changing a patient's name must give a reason, and the previous name remains searchable as a historical alias. | P0 | FRS-BB-373 |
+| URS-BB-339 | When an inbound ADT changes a patient's stated name, the previous name remains as a searchable historical alias. | P0 | FRS-BB-374 |
+| URS-BB-340 | Staff who merged the wrong patient records can undo that merge, and the history returns to the duplicate, when nothing new has been done on the survivor since the merge. | P0 | FRS-BB-375 |

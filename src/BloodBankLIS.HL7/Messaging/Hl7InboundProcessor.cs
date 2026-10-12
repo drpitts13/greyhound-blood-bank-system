@@ -33,6 +33,7 @@ public sealed class Hl7InboundProcessor
     private readonly IRepository<Hl7MessageLog> _logs;
     private readonly IRepository<InterfaceErrorQueueItem> _errors;
     private readonly IRepository<Patient> _patients;
+    private readonly PatientHistoricalAliasWriter? _aliasWriter;
     private readonly IRepository<Order> _orders;
     private readonly IRepository<OrderingLocation> _locationRepo;
     private readonly EncounterService _encounters;
@@ -73,11 +74,13 @@ public sealed class Hl7InboundProcessor
         IRepository<OrderSpecimen>? orderSpecimens = null,
         IRepository<Specimen>? specimens = null,
         ICurrentUser? currentUser = null,
-        IAuditWriter? audit = null)
+        IAuditWriter? audit = null,
+        PatientHistoricalAliasWriter? aliasWriter = null)
     {
         _logs = logs;
         _errors = errors;
         _patients = patients;
+        _aliasWriter = aliasWriter;
         _orders = orders;
         _locationRepo = locationRepo;
         _encounters = encounters;
@@ -364,7 +367,7 @@ public sealed class Hl7InboundProcessor
         }
         else
         {
-            ApplyPresentDemographics(patient, data);
+            await ApplyPresentDemographicsAsync(patient, data, ct);
             _patients.Update(patient);
         }
 
@@ -424,7 +427,7 @@ public sealed class Hl7InboundProcessor
         }
         else
         {
-            ApplyPresentDemographics(survivor, data);
+            await ApplyPresentDemographicsAsync(survivor, data, ct);
             _patients.Update(survivor);
         }
 
@@ -464,9 +467,43 @@ public sealed class Hl7InboundProcessor
     /// <summary>
     /// A later ADT may omit name, date of birth, or sex. Those blanks do not
     /// replace a value already on the chart. A stated value still updates it.
+    /// When a stated name differs from the chart name, the previous display name
+    /// is retained as <see cref="IdentityTokenType.PriorFullName"/>.
     /// </summary>
-    private static void ApplyPresentDemographics(Patient patient, Hl7PatientData data)
+    private async Task ApplyPresentDemographicsAsync(
+        Patient patient,
+        Hl7PatientData data,
+        CancellationToken ct)
     {
+        var nextLast = !string.IsNullOrWhiteSpace(data.LastName) ? data.LastName.Trim() : patient.LastName;
+        var nextFirst = !string.IsNullOrWhiteSpace(data.FirstName) ? data.FirstName.Trim() : patient.FirstName;
+        var nextMiddle = !string.IsNullOrWhiteSpace(data.MiddleName) ? data.MiddleName.Trim() : patient.MiddleName;
+
+        if (_aliasWriter is not null)
+        {
+            var archived = await _aliasWriter.ArchivePriorNameIfChangedAsync(
+                patient.Id,
+                patient.LastName, patient.FirstName, patient.MiddleName,
+                nextLast, nextFirst, nextMiddle,
+                ct);
+            if (archived is not null)
+            {
+                _audit?.Record(
+                    AuditEventType.PatientAccess,
+                    nameof(Patient),
+                    patient.Id,
+                    oldValue: new { patient.LastName, patient.FirstName, patient.MiddleName },
+                    newValue: new
+                    {
+                        LastName = nextLast,
+                        FirstName = nextFirst,
+                        MiddleName = nextMiddle,
+                        ArchivedPriorName = archived
+                    },
+                    reason: PatientHistoricalAliasRule.AdtArchiveReason);
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(data.LastName))
         {
             patient.LastName = data.LastName.Trim();
