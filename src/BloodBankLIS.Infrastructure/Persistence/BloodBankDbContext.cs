@@ -65,6 +65,8 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<BloodUnit> BloodUnits => Set<BloodUnit>();
     public DbSet<ProductRetypeResult> ProductRetypeResults => Set<ProductRetypeResult>();
     public DbSet<ProductType> ProductTypes => Set<ProductType>();
+    public DbSet<ProductAboCompatibility> ProductAboCompatibilities => Set<ProductAboCompatibility>();
+    public DbSet<ProductRhCompatibility> ProductRhCompatibilities => Set<ProductRhCompatibility>();
     public DbSet<InventoryLocation> InventoryLocations => Set<InventoryLocation>();
     public DbSet<InventoryStatusHistory> InventoryStatusHistory => Set<InventoryStatusHistory>();
     public DbSet<Crossmatch> Crossmatches => Set<Crossmatch>();

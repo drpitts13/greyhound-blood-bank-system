@@ -357,6 +357,38 @@ public sealed class ProductTypeConfiguration : IEntityTypeConfiguration<ProductT
     }
 }
 
+public sealed class ProductAboCompatibilityConfiguration : IEntityTypeConfiguration<ProductAboCompatibility>
+{
+    public void Configure(EntityTypeBuilder<ProductAboCompatibility> b)
+    {
+        b.ToTable("ProductAboCompatibilities");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasOne(x => x.ProductType)
+            .WithMany(t => t.AboCompatibilities)
+            .HasForeignKey(x => x.ProductTypeId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => new { x.ProductTypeId, x.PatientAbo, x.UnitAbo }).IsUnique();
+    }
+}
+
+public sealed class ProductRhCompatibilityConfiguration : IEntityTypeConfiguration<ProductRhCompatibility>
+{
+    public void Configure(EntityTypeBuilder<ProductRhCompatibility> b)
+    {
+        b.ToTable("ProductRhCompatibilities");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasOne(x => x.ProductType)
+            .WithMany(t => t.RhCompatibilities)
+            .HasForeignKey(x => x.ProductTypeId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => new { x.ProductTypeId, x.SexGroup, x.PatientRh, x.UnitRh }).IsUnique();
+    }
+}
+
 public sealed class InventoryLocationConfiguration : IEntityTypeConfiguration<InventoryLocation>
 {
     public void Configure(EntityTypeBuilder<InventoryLocation> b)

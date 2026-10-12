@@ -37,7 +37,9 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             BloodAttrCompat(c), AntibodyScreenCompat(c), c, _factory.Clock, _factory.CurrentUser,
             permissions: permissions,
             exceptionDefinitions: new EfRepository<ExceptionDefinition>(c),
-            overrides: new EfRepository<Override>(c));
+            overrides: new EfRepository<Override>(c),
+            aboCompatibilities: new EfRepository<ProductAboCompatibility>(c),
+            rhCompatibilities: new EfRepository<ProductRhCompatibility>(c));
 
     private OrderService Orders(BloodBankDbContext c) =>
         new(new EfRepository<Order>(c), new EfRepository<OrderLine>(c), new EfRepository<OrderSpecimen>(c),
@@ -80,7 +82,9 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
             requirementDefinitions: includeSpecialRequirements ? new EfRepository<SpecialRequirementDefinition>(c) : null,
             productAttributeAssignments: includeSpecialRequirements ? new EfRepository<ProductAttributeAssignment>(c) : null,
             productAttributes: includeSpecialRequirements ? new EfRepository<ProductAttribute>(c) : null,
-            locations: new EfRepository<InventoryLocation>(c));
+            locations: new EfRepository<InventoryLocation>(c),
+            aboCompatibilities: new EfRepository<ProductAboCompatibility>(c),
+            rhCompatibilities: new EfRepository<ProductRhCompatibility>(c));
     }
 
     private async Task<(Patient Patient, BloodUnit Unit)> SeedAvailableUnitAsync(BloodBankDbContext c, string key)
@@ -1558,5 +1562,135 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         var list = await Allocations(c).ListAllocatableOrdersForUnitAsync(unit.Id);
         Assert.Contains(list, o => o.OrderId == created.Value!.Id);
         Assert.Equal(patient.Id, list[0].PatientId);
+    }
+
+    [Fact]
+    public async Task AlternateRh_OPositiveRbc_IsAllocatableForMale_NotFemale()
+    {
+        await using var c = _factory.Create();
+        var product = new ProductType
+        {
+            ProductCode = $"RBC-{Guid.NewGuid():N}"[..12],
+            Name = "RBC alternate",
+            ComponentClass = ComponentClass.RedBloodCells,
+            RequiresCrossmatch = true
+        };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+
+        var policy = StandardProductAboRhPolicy.For(ComponentClass.RedBloodCells)
+            .WithRh(RhCompatibilitySex.Male, RhType.Negative, RhType.Positive, true);
+        foreach (var cell in policy.AboCells)
+        {
+            c.ProductAboCompatibilities.Add(new ProductAboCompatibility
+            {
+                ProductTypeId = product.Id,
+                PatientAbo = cell.PatientAbo,
+                UnitAbo = cell.UnitAbo,
+                IsAllowed = cell.IsAllowed
+            });
+        }
+
+        foreach (var cell in policy.RhCells)
+        {
+            c.ProductRhCompatibilities.Add(new ProductRhCompatibility
+            {
+                ProductTypeId = product.Id,
+                SexGroup = cell.SexGroup,
+                PatientRh = cell.PatientRh,
+                UnitRh = cell.UnitRh,
+                IsAllowed = cell.IsAllowed
+            });
+        }
+
+        var male = new Patient
+        {
+            MedicalRecordNumber = $"MRN-M-{Guid.NewGuid():N}"[..16],
+            LastName = "Male",
+            FirstName = "Alt",
+            Sex = Sex.Male,
+            DateOfBirth = new DateOnly(1980, 1, 1)
+        };
+        var female = new Patient
+        {
+            MedicalRecordNumber = $"MRN-F-{Guid.NewGuid():N}"[..16],
+            LastName = "Female",
+            FirstName = "Alt",
+            Sex = Sex.Female,
+            DateOfBirth = new DateOnly(1982, 1, 1)
+        };
+        c.Patients.AddRange(male, female);
+        await c.SaveChangesAsync();
+
+        c.PatientBloodTypeHistory.AddRange(
+            new PatientBloodTypeHistory
+            {
+                PatientId = male.Id,
+                Abo = AboGroup.A,
+                RhD = RhType.Negative,
+                Source = BloodTypeSource.ManualEntry,
+                IsCurrent = true
+            },
+            new PatientBloodTypeHistory
+            {
+                PatientId = female.Id,
+                Abo = AboGroup.A,
+                RhD = RhType.Negative,
+                Source = BloodTypeSource.ManualEntry,
+                IsCurrent = true
+            });
+
+        var alternate = new BloodUnit
+        {
+            UnitNumber = $"U-ALT-{Guid.NewGuid():N}"[..16],
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Available
+        };
+        var typeSpecific = new BloodUnit
+        {
+            UnitNumber = $"U-TS-{Guid.NewGuid():N}"[..16],
+            ProductTypeId = product.Id,
+            Abo = AboGroup.A,
+            RhD = RhType.Negative,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Available
+        };
+        c.BloodUnits.AddRange(alternate, typeSpecific);
+        await c.SaveChangesAsync();
+
+        var maleChoices = await Allocations(c).ListCompatibleUnitsAsync(male.Id);
+        Assert.True(maleChoices.Succeeded, maleChoices.Error);
+        Assert.Contains(maleChoices.Value!, u => u.BloodUnitId == alternate.Id);
+        Assert.Contains(maleChoices.Value!, u => u.BloodUnitId == typeSpecific.Id);
+
+        var femaleChoices = await Allocations(c).ListCompatibleUnitsAsync(female.Id);
+        Assert.True(femaleChoices.Succeeded, femaleChoices.Error);
+        Assert.DoesNotContain(femaleChoices.Value!, u => u.BloodUnitId == alternate.Id);
+        Assert.Contains(femaleChoices.Value!, u => u.BloodUnitId == typeSpecific.Id);
+
+        var reserved = await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(alternate.Id, male.Id));
+        Assert.True(reserved.Succeeded, reserved.Error);
+
+        var blocked = await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(typeSpecific.Id, female.Id));
+        Assert.True(blocked.Succeeded, blocked.Error);
+
+        var oPositiveForFemale = new BloodUnit
+        {
+            UnitNumber = $"U-F-{Guid.NewGuid():N}"[..16],
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Available
+        };
+        c.BloodUnits.Add(oPositiveForFemale);
+        await c.SaveChangesAsync();
+
+        var denied = await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(oPositiveForFemale.Id, female.Id));
+        Assert.False(denied.Succeeded);
+        Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == AboCompatibilityRule.RhCode);
     }
 }

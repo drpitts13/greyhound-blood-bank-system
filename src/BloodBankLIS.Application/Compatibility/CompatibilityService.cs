@@ -6,6 +6,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Compatibility;
 
@@ -41,6 +42,8 @@ public sealed class CompatibilityService
     private readonly IRepository<ProductRetypeResult>? _retypes;
     private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
     private readonly IRepository<Override>? _overrides;
+    private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
+    private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
 
     public CompatibilityService(
         IInventoryRepository inventory,
@@ -63,7 +66,9 @@ public sealed class CompatibilityService
         CrossmatchSettingsReader? crossmatchSettings = null,
         IRepository<ProductRetypeResult>? retypes = null,
         IRepository<ExceptionDefinition>? exceptionDefinitions = null,
-        IRepository<Override>? overrides = null)
+        IRepository<Override>? overrides = null,
+        IRepository<ProductAboCompatibility>? aboCompatibilities = null,
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
     {
         _inventory = inventory;
         _crossmatches = crossmatches;
@@ -86,6 +91,8 @@ public sealed class CompatibilityService
         _retypes = retypes;
         _exceptionDefinitions = exceptionDefinitions;
         _overrides = overrides;
+        _aboCompatibilities = aboCompatibilities;
+        _rhCompatibilities = rhCompatibilities;
     }
 
     public Task<EvaluationResult<Crossmatch>> RecordCrossmatchAsync(
@@ -289,7 +296,8 @@ public sealed class CompatibilityService
 
         if (bloodType is not null && productType is not null && unit.BloodType.IsKnown)
         {
-            results.AddRange(AboCompatibilityRule.Evaluate(bloodType.BloodType, unit.BloodType, productType.ComponentClass));
+            results.AddRange(await EvaluateAboRhAsync(
+                request.PatientId, bloodType.BloodType, unit.BloodType, productType, ct));
         }
 
         if (productType is not null)
@@ -360,7 +368,8 @@ public sealed class CompatibilityService
 
         if (bloodType is not null && productType is not null && unit.BloodType.IsKnown)
         {
-            results.AddRange(AboCompatibilityRule.Evaluate(bloodType.BloodType, unit.BloodType, productType.ComponentClass));
+            results.AddRange(await EvaluateAboRhAsync(
+                request.PatientId, bloodType.BloodType, unit.BloodType, productType, ct));
         }
 
         if (productType is not null)
@@ -662,6 +671,20 @@ public sealed class CompatibilityService
         }
 
         return null;
+    }
+
+    private async Task<IReadOnlyList<RuleResult>> EvaluateAboRhAsync(
+        long patientId,
+        AboRh patientType,
+        AboRh unitType,
+        ProductType product,
+        CancellationToken ct)
+    {
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        var policy = await ProductAboRhPolicyLoader.ForProductAsync(
+            _aboCompatibilities, _rhCompatibilities, product.Id, ct);
+        return AboCompatibilityRule.Evaluate(
+            patientType, unitType, product.ComponentClass, patient?.Sex ?? Sex.Unknown, policy);
     }
 
     private async Task<EvaluationResult<T>?> RejectMergedPatientAsync<T>(long patientId, CancellationToken ct)

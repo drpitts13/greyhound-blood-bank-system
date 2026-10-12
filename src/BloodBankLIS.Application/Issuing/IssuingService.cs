@@ -61,6 +61,8 @@ public sealed class IssuingService
     private readonly IRepository<ProductRetypeResult>? _retypes;
     private readonly IRepository<AutoThawRequest>? _autoThawRequests;
     private readonly ElectronicCrossmatchEligibilityService? _electronicCrossmatch;
+    private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
+    private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
 
     public IssuingService(
         IInventoryRepository inventory,
@@ -99,7 +101,9 @@ public sealed class IssuingService
         IRepository<PtagIdentifier>? ptagIdentifiers = null,
         IRepository<ProductRetypeResult>? retypes = null,
         IRepository<AutoThawRequest>? autoThawRequests = null,
-        ElectronicCrossmatchEligibilityService? electronicCrossmatch = null)
+        ElectronicCrossmatchEligibilityService? electronicCrossmatch = null,
+        IRepository<ProductAboCompatibility>? aboCompatibilities = null,
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -138,6 +142,8 @@ public sealed class IssuingService
         _retypes = retypes;
         _autoThawRequests = autoThawRequests;
         _electronicCrossmatch = electronicCrossmatch;
+        _aboCompatibilities = aboCompatibilities;
+        _rhCompatibilities = rhCompatibilities;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -289,6 +295,10 @@ public sealed class IssuingService
             RequireSecondAboForCellularIssue = requireSecondAbo,
             HasSecondConcordantAboRh = secondAbo,
             PatientSex = patient.Sex,
+            AboRhPolicy = productType is null
+                ? null
+                : await ProductAboRhPolicyLoader.ForProductAsync(
+                    _aboCompatibilities, _rhCompatibilities, productType.Id, ct),
             PatientAgeYears = AgeYears(patient.DateOfBirth, now),
             UncrossmatchedMustBeGroupO = uncrossmatchedGroupO,
             UncrossmatchedONegForChildbearing = uncrossmatchedONeg,

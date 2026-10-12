@@ -49,6 +49,17 @@ public enum RhType
     Negative = 2
 }
 
+/// <summary>
+/// Sex column on a product Rh compatibility grid. Unknown and Other share the
+/// stricter column so an unsexed patient does not inherit a male-only allowance.
+/// </summary>
+public enum RhCompatibilitySex
+{
+    Male = 1,
+    Female = 2,
+    UnknownOrOther = 3
+}
+
 public enum PatientStatus
 {
     Active = 0,

@@ -50,6 +50,8 @@ public sealed class PatientAllocationService
     private readonly IRepository<ProductAttributeAssignment>? _productAttributeAssignments;
     private readonly IRepository<ProductAttribute>? _productAttributes;
     private readonly IRepository<InventoryLocation>? _locations;
+    private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
+    private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
 
     public PatientAllocationService(
         CompatibilityService compatibility,
@@ -87,7 +89,9 @@ public sealed class PatientAllocationService
         IRepository<SpecialRequirementDefinition>? requirementDefinitions = null,
         IRepository<ProductAttributeAssignment>? productAttributeAssignments = null,
         IRepository<ProductAttribute>? productAttributes = null,
-        IRepository<InventoryLocation>? locations = null)
+        IRepository<InventoryLocation>? locations = null,
+        IRepository<ProductAboCompatibility>? aboCompatibilities = null,
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
     {
         _compatibility = compatibility;
         _orders = orders;
@@ -125,6 +129,8 @@ public sealed class PatientAllocationService
         _productAttributeAssignments = productAttributeAssignments;
         _productAttributes = productAttributes;
         _locations = locations;
+        _aboCompatibilities = aboCompatibilities;
+        _rhCompatibilities = rhCompatibilities;
     }
 
     public async Task<IReadOnlyList<PatientAllocationRowDto>> ListActiveAsync(
@@ -288,7 +294,8 @@ public sealed class PatientAllocationService
     public async Task<OperationResult<IReadOnlyList<CompatibleUnitDto>>> ListCompatibleUnitsAsync(
         long patientId, CancellationToken ct = default)
     {
-        if (await _patients.GetByIdAsync(patientId, ct) is null)
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        if (patient is null)
         {
             return OperationResult<IReadOnlyList<CompatibleUnitDto>>.Fail("Patient not found.");
         }
@@ -302,6 +309,8 @@ public sealed class PatientAllocationService
 
         var available = await _inventory.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Available), ct);
         var productTypes = (await _productTypes.ListAsync(ct)).ToDictionary(p => p.Id);
+        var aboRhPolicies = await ProductAboRhPolicyLoader.ForProductsAsync(
+            _aboCompatibilities, _rhCompatibilities, productTypes.Keys.ToList(), ct);
         var retypedUnitIds = await ConfirmedRetypeUnitIdsAsync(available.Select(u => u.Id).ToList(), ct);
         var ranked = new List<RankedCompatibleUnit>();
         var nearExpiryWindow = await NearExpiryWindowAsync(ct);
@@ -332,7 +341,9 @@ public sealed class PatientAllocationService
             }
 
             var eval = new List<RuleResult>();
-            eval.AddRange(AboCompatibilityRule.Evaluate(bloodType.BloodType, unit.BloodType, product.ComponentClass));
+            aboRhPolicies.TryGetValue(product.Id, out var aboRhPolicy);
+            eval.AddRange(AboCompatibilityRule.Evaluate(
+                bloodType.BloodType, unit.BloodType, product.ComponentClass, patient.Sex, aboRhPolicy));
             var bloodAttrs = await _bloodAttributeCompat.LoadAsync(patientId, unit.Id, ct);
             eval.AddRange(BloodAttributeCompatibilityRule.Evaluate(
                 product.ComponentClass,
@@ -1128,10 +1139,14 @@ public sealed class PatientAllocationService
         }
 
         var bloodType = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == patientId && h.IsCurrent, ct);
+        var patient = await _patients.GetByIdAsync(patientId, ct);
+        var aboRhPolicy = await ProductAboRhPolicyLoader.ForProductAsync(
+            _aboCompatibilities, _rhCompatibilities, product.Id, ct);
         var results = new List<RuleResult>();
         if (bloodType is not null && unit.BloodType.IsKnown)
         {
-            results.AddRange(AboCompatibilityRule.Evaluate(bloodType.BloodType, unit.BloodType, product.ComponentClass));
+            results.AddRange(AboCompatibilityRule.Evaluate(
+                bloodType.BloodType, unit.BloodType, product.ComponentClass, patient?.Sex ?? Sex.Unknown, aboRhPolicy));
         }
 
         var bloodAttrs = await _bloodAttributeCompat.LoadAsync(patientId, unit.Id, ct);

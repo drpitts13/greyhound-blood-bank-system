@@ -70,4 +70,8 @@ public class ProductType : BaseEntity
     public ICollection<BloodUnit> Units { get; set; } = new List<BloodUnit>();
 
     public ICollection<ProductAttributeAssignment> AttributeAssignments { get; set; } = new List<ProductAttributeAssignment>();
+
+    public ICollection<ProductAboCompatibility> AboCompatibilities { get; set; } = new List<ProductAboCompatibility>();
+
+    public ICollection<ProductRhCompatibility> RhCompatibilities { get; set; } = new List<ProductRhCompatibility>();
 }

@@ -288,9 +288,19 @@ public sealed record ProductDefinitionDto(
     string? RhPositiveRetypeTestName = null,
     long? RhNegativeRetypeTestId = null,
     string? RhNegativeRetypeTestCode = null,
-    string? RhNegativeRetypeTestName = null);
+    string? RhNegativeRetypeTestName = null,
+    IReadOnlyList<ProductAboCompatibilityDto>? AboCompatibilities = null,
+    IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null);
 
 public sealed record ProductAttributeAssignmentDto(long AttributeId, string Code, string Name, bool IsRequired);
+
+public sealed record ProductAboCompatibilityDto(AboGroup PatientAbo, AboGroup UnitAbo, bool IsAllowed);
+
+public sealed record ProductRhCompatibilityDto(
+    RhCompatibilitySex SexGroup,
+    RhType PatientRh,
+    RhType UnitRh,
+    bool IsAllowed);
 
 public sealed record SaveProductDefinitionRequest(
     string ProductCode,
@@ -311,7 +321,9 @@ public sealed record SaveProductDefinitionRequest(
     IReadOnlyList<ProductAttributeSelection>? Attributes,
     string? ChangeReason,
     long? RhPositiveRetypeTestId = null,
-    long? RhNegativeRetypeTestId = null);
+    long? RhNegativeRetypeTestId = null,
+    IReadOnlyList<ProductAboCompatibilityDto>? AboCompatibilities = null,
+    IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null);
 
 public sealed record ProductAttributeSelection(long AttributeId, bool IsRequired);
 

@@ -94,6 +94,11 @@ public sealed record IssueGateContext
 
     public Sex PatientSex { get; init; }
 
+    /// <summary>
+    /// Product ABO/Rh table. When null or empty, the built-in component-class rule is used.
+    /// </summary>
+    public ProductAboRhPolicy? AboRhPolicy { get; init; }
+
     public int? PatientAgeYears { get; init; }
 
     public bool UncrossmatchedMustBeGroupO { get; init; } = true;
@@ -256,7 +261,8 @@ public static class IssueGate
         // Complex XM (3) is enforced at allocation/order time; compatible XM (4) above.
         if (c.PatientBloodTypeKnown && c.UnitAboRh.IsKnown)
         {
-            var abo = AboCompatibilityRule.Evaluate(c.PatientAboRh, c.UnitAboRh, c.ComponentClass);
+            var abo = AboCompatibilityRule.Evaluate(
+                c.PatientAboRh, c.UnitAboRh, c.ComponentClass, c.PatientSex, c.AboRhPolicy);
             results.AddRange(c.IsEmergencyRelease
                 ? abo.Select(r => r.Severity == RuleSeverity.HardStop
                     ? RuleResult.Warning(r.Code, r.Message)
