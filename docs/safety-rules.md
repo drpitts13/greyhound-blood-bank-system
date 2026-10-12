@@ -332,6 +332,8 @@ Enforced by `UnitModificationEligibilityRule` and `ModificationExpirationRule` i
 | `MOD-POOL-MIN-SOURCES` | Pool has at least two source units | HardStop |
 | `MOD-POOL-ABO-MISMATCH` | All pooled source units share the same product type, ABO, and Rh(D) | HardStop |
 | `MOD-POOL-ATTR-DISCORDANT` | Pooled units do not disagree on a tested antigen or antibody. A positive on any source is copied. A negative is copied only when every source was typed negative | HardStop |
+| `MOD-RESTRICTION-DISCORDANT` | Pooled units share the same allogeneic, autologous, or directed reservation, including the same reserved patient when one is required | HardStop |
+| `MOD-RESTRICTION-RECIPIENT` | An autologous or directed source has an intended recipient before it is modified | HardStop |
 | `MOD-DIVIDE-MIN-TARGETS` | Divide requests at least two result units | HardStop |
 | `MOD-DIVIDE-VOLUME-REQUIRED` | Every divide result unit has a volume greater than zero | HardStop |
 | `MOD-VOLUME-EXCEEDS-SOURCE` | Divide child volumes do not exceed the source unit's volume | HardStop |

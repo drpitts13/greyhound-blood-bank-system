@@ -347,3 +347,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-339 | When an inbound ADT changes a patient's stated name, the previous name remains as a searchable historical alias. | P0 | FRS-BB-374 |
 | URS-BB-340 | Staff who merged the wrong patient records can undo that merge, and the history returns to the duplicate, when nothing new has been done on the survivor since the merge. | P0 | FRS-BB-375 |
 | URS-BB-341 | When a unit is divided, pooled, or otherwise modified, recorded antigen and antibody typing stays on the result, and a pool of units that disagree on a typing cannot be made. | P0 | FRS-BB-376 |
+| URS-BB-342 | When a unit is divided, pooled, or otherwise modified, an autologous or directed reservation stays on the result, and units reserved for different people cannot be pooled. | P0 | FRS-BB-377 |

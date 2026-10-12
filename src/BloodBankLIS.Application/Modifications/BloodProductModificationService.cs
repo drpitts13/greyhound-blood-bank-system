@@ -455,6 +455,15 @@ public sealed class BloodProductModificationService
         OrderLinkedContext? orderLink = null,
         IReadOnlyList<UnitModificationAttributeRule.InheritedAttribute>? inheritedAttributes = null)
     {
+        var restriction = UnitModificationRestrictionRule.Evaluate(
+            sources.Select(source => new UnitModificationRestrictionRule.RestrictionFact(
+                source.DonationRestriction,
+                source.ReservedPatientId)).ToList());
+        if (restriction.Evaluation.IsHardStopped)
+        {
+            return ModificationActionResult.Blocked(restriction.Evaluation);
+        }
+
         var expCode = await _expirationCodes.GetByIdAsync(rule.ExpirationModificationCodeId, ct);
         if (expCode is null)
         {
@@ -585,6 +594,8 @@ public sealed class BloodProductModificationService
                 DivisionCode = division,
                 Abo = primarySource.Abo,
                 RhD = primarySource.RhD,
+                DonationRestriction = restriction.Restriction,
+                ReservedPatientId = restriction.ReservedPatientId,
                 ExpiresUtc = resultExpiresUtc,
                 CurrentLocationId = primarySource.CurrentLocationId,
                 Volume = spec.Volume,
@@ -660,7 +671,9 @@ public sealed class BloodProductModificationService
                 ResultExpiresUtc = resultExpiresUtc,
                 InheritedAttributeDefinitionIds = (inheritedAttributes ?? [])
                     .Select(attribute => attribute.DefinitionId)
-                    .ToArray()
+                    .ToArray(),
+                restriction.Restriction,
+                restriction.ReservedPatientId
             },
             reason: reason);
 

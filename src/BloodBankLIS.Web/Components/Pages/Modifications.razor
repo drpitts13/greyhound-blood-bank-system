@@ -93,7 +93,7 @@
         {
             <div class="field"><label>Number of result units</label>
                 <input type="number" min="2" @bind="_childCount" @bind:after="SyncChildRows" />
-                <div class="muted">Recorded antigen and antibody typing on the source is copied onto each result unit.</div>
+                <div class="muted">Recorded antigen and antibody typing on the source is copied onto each result unit. An autologous or directed reservation is copied with it.</div>
             </div>
             @if (_children.Count > 0)
             {
@@ -118,7 +118,8 @@
             <p class="muted">
                 Add two or more units of the same product, ABO, and Rh(D) to pool (the selected unit above is
                 included automatically as the first source). Antigen typing follows the sources: a positive on
-                any unit makes the pool positive, and conflicting results stop the pool.
+                any unit makes the pool positive, and conflicting results stop the pool. Autologous and directed
+                units pool only when they share the same reservation.
             </p>
             <div class="field">
                 <label>Additional unit number</label>

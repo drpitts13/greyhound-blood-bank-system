@@ -124,7 +124,9 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         RhType rh = RhType.Positive,
         DateTime? expiresUtc = null,
         decimal? volume = null,
-        DateTime? collectedUtc = null)
+        DateTime? collectedUtc = null,
+        DonationRestriction donationRestriction = DonationRestriction.Allogeneic,
+        long? reservedPatientId = null)
     {
         await using var context = _factory.Create();
         var unit = new BloodUnit
@@ -136,7 +138,9 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             ExpiresUtc = expiresUtc ?? _factory.Clock.UtcNow.AddDays(30),
             Status = status,
             Volume = volume,
-            CollectedUtc = collectedUtc
+            CollectedUtc = collectedUtc,
+            DonationRestriction = donationRestriction,
+            ReservedPatientId = reservedPatientId
         };
         context.BloodUnits.Add(unit);
         await context.SaveChangesAsync();
@@ -776,5 +780,72 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             TypingSource = UnitAttributeTypingSource.InHouse
         });
         await context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Divide_CopiesAutologousReservationOntoEachChild()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("DIVAUTO");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Divide, "5D");
+        var sourceId = await CreateUnitAsync(
+            "U-DIVAUTO", sourceProductId, volume: 200m,
+            donationRestriction: DonationRestriction.Autologous, reservedPatientId: 8801);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.DivideAsync(
+            sourceId,
+            new PerformDivideRequest(ruleId, [new DivideChildSpec("A", 100m), new DivideChildSpec("B", 100m)], "Split autologous"));
+
+        Assert.True(result.Succeeded);
+        Assert.All(result.ResultUnits!, child =>
+        {
+            Assert.Equal(DonationRestriction.Autologous, child.DonationRestriction);
+            Assert.Equal(8801, child.ReservedPatientId);
+        });
+    }
+
+    [Fact]
+    public async Task Pool_AutologousWithAllogeneic_IsHardStoppedAndSourcesStayAvailable()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLREST");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var autologousId = await CreateUnitAsync(
+            "U-POOLREST-A", sourceProductId, volume: 200m,
+            donationRestriction: DonationRestriction.Autologous, reservedPatientId: 8802);
+        var allogeneicId = await CreateUnitAsync("U-POOLREST-G", sourceProductId, volume: 200m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([autologousId, allogeneicId], ruleId, "Pool mixed restriction"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, stop => stop.Code == UnitModificationRestrictionRule.DiscordantCode);
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(autologousId))!.Status);
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(allogeneicId))!.Status);
+    }
+
+    [Fact]
+    public async Task Pool_SameDirectedPatient_CopiesReservation()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLDIR");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var firstId = await CreateUnitAsync(
+            "U-POOLDIR-1", sourceProductId, volume: 200m,
+            donationRestriction: DonationRestriction.Directed, reservedPatientId: 8803);
+        var secondId = await CreateUnitAsync(
+            "U-POOLDIR-2", sourceProductId, volume: 200m,
+            donationRestriction: DonationRestriction.Directed, reservedPatientId: 8803);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool directed"));
+
+        Assert.True(result.Succeeded);
+        var pooled = Assert.Single(result.ResultUnits!);
+        Assert.Equal(DonationRestriction.Directed, pooled.DonationRestriction);
+        Assert.Equal(8803, pooled.ReservedPatientId);
     }
 }

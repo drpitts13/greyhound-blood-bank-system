@@ -5261,3 +5261,27 @@ Divide, pool, irradiate, and the other modifications created a new unit with ABO
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Keeping a parent unit after an aliquot is still open.
+
+## Iteration 189 — Modification donation restriction (2026-10-12)
+
+Divide, pool, irradiate, and the other modifications created the result as allogeneic. An autologous or directed unit could be modified and then issued to someone else, because issue only blocks that when the reservation is still on the unit.
+
+### Implemented
+
+- `UnitModificationRestrictionRule` copies a shared autologous or directed reservation onto each result. Allogeneic results stay allogeneic.
+- A pool HardStops when the sources do not share the restriction and reserved patient (`MOD-RESTRICTION-DISCORDANT`), or when a restricted source has no recipient (`MOD-RESTRICTION-RECIPIENT`). The check runs before the source status changes.
+- The modify audit records the restriction and reserved patient. The pool and divide panels state the rule.
+
+### Requirements / risk
+
+- URS-BB-342, FRS-BB-377, SRS-BB-339, RISK-BB-444.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-232 (`UnitModificationRestrictionRuleTests`; `BloodProductModificationServiceTests` autologous divide, mixed pool, and same-patient directed pool).
+- Domain restriction rules and Integration `BloodProductModificationServiceTests` green (6 + 34).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Keeping a parent unit after an aliquot is still open.
