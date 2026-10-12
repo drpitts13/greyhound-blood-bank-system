@@ -37,6 +37,7 @@ public sealed class BloodProductModificationService
     private readonly IRepository<Allocation>? _allocations;
     private readonly IRepository<Crossmatch>? _crossmatches;
     private readonly BillingService? _billing;
+    private readonly IRepository<UnitBloodAttribute>? _unitAttributes;
 
     public BloodProductModificationService(
         IInventoryRepository inventory,
@@ -56,7 +57,8 @@ public sealed class BloodProductModificationService
         IRepository<OrderLine>? orderLines = null,
         IRepository<Allocation>? allocations = null,
         IRepository<Crossmatch>? crossmatches = null,
-        BillingService? billing = null)
+        BillingService? billing = null,
+        IRepository<UnitBloodAttribute>? unitAttributes = null)
     {
         _inventory = inventory;
         _rules = rules;
@@ -76,6 +78,7 @@ public sealed class BloodProductModificationService
         _allocations = allocations;
         _crossmatches = crossmatches;
         _billing = billing;
+        _unitAttributes = unitAttributes;
     }
 
     /// <summary>Active modification rules whose source product matches the unit's current product type.</summary>
@@ -219,8 +222,14 @@ public sealed class BloodProductModificationService
             return ModificationActionResult.Blocked(sourceEval);
         }
 
+        var inherited = await InheritAttributesAsync(new[] { source }, ct);
+        if (inherited.Blocked is not null)
+        {
+            return inherited.Blocked;
+        }
+
         var specs = children.Select(c => (Suffix: c.UnitNumberSuffix, Volume: c.Volume)).ToList();
-        return await ExecuteAsync(new[] { source }, rule, specs, request.Reason, ct);
+        return await ExecuteAsync(new[] { source }, rule, specs, request.Reason, ct, inheritedAttributes: inherited.Attributes);
     }
 
     /// <summary>Pools two or more source units of the same product/ABO/Rh into one result unit of the rule's target product.</summary>
@@ -277,9 +286,15 @@ public sealed class BloodProductModificationService
             return ModificationActionResult.Blocked(poolEval);
         }
 
+        var inherited = await InheritAttributesAsync(sources, ct);
+        if (inherited.Blocked is not null)
+        {
+            return inherited.Blocked;
+        }
+
         var totalVolume = sources.All(s => s.Volume.HasValue) ? sources.Sum(s => s.Volume!.Value) : (decimal?)null;
         var specs = new List<(string? Suffix, decimal? Volume)> { (null, totalVolume) };
-        return await ExecuteAsync(sources, rule, specs, request.Reason, ct);
+        return await ExecuteAsync(sources, rule, specs, request.Reason, ct, inheritedAttributes: inherited.Attributes);
     }
 
     /// <summary>Performs a 1-source/1-result modification: Irradiate, Thaw, Volume Reduction, or Leukoreduction.</summary>
@@ -331,8 +346,21 @@ public sealed class BloodProductModificationService
             return ModificationActionResult.Blocked(sourceEval);
         }
 
+        var inherited = await InheritAttributesAsync(new[] { source }, ct);
+        if (inherited.Blocked is not null)
+        {
+            return inherited.Blocked;
+        }
+
         var specs = new List<(string? Suffix, decimal? Volume)> { (null, request.ResultVolume ?? source.Volume) };
-        return await ExecuteAsync(new[] { source }, rule, specs, request.Reason, ct, orderLink.Context);
+        return await ExecuteAsync(
+            new[] { source },
+            rule,
+            specs,
+            request.Reason,
+            ct,
+            orderLink.Context,
+            inherited.Attributes);
     }
 
     private async Task<(OrderLinkedContext? Context, string? Error)> ResolveOrderLinkAsync(
@@ -388,13 +416,44 @@ public sealed class BloodProductModificationService
         Order Order,
         Allocation Allocation);
 
+    private async Task<(ModificationActionResult? Blocked, IReadOnlyList<UnitModificationAttributeRule.InheritedAttribute> Attributes)> InheritAttributesAsync(
+        IReadOnlyList<BloodUnit> sources,
+        CancellationToken ct)
+    {
+        if (_unitAttributes is null || sources.Count == 0)
+        {
+            return (null, Array.Empty<UnitModificationAttributeRule.InheritedAttribute>());
+        }
+
+        var facts = new List<IReadOnlyList<UnitModificationAttributeRule.AttributeFact>>();
+        foreach (var source in sources)
+        {
+            var rows = await _unitAttributes.ListAsync(attribute => attribute.BloodProductId == source.Id, ct);
+            facts.Add(rows.Select(row => new UnitModificationAttributeRule.AttributeFact(
+                row.BloodAttributeDefinitionId,
+                row.AttributeKind,
+                row.Result,
+                row.TypingSource,
+                row.SourceResultId)).ToList());
+        }
+
+        var inheritance = UnitModificationAttributeRule.Evaluate(facts);
+        if (inheritance.Evaluation.IsHardStopped)
+        {
+            return (ModificationActionResult.Blocked(inheritance.Evaluation), Array.Empty<UnitModificationAttributeRule.InheritedAttribute>());
+        }
+
+        return (null, inheritance.Inherited);
+    }
+
     private async Task<ModificationActionResult> ExecuteAsync(
         IReadOnlyList<BloodUnit> sources,
         ModificationRule rule,
         IReadOnlyList<(string? Suffix, decimal? Volume)> resultSpecs,
         string reason,
         CancellationToken ct,
-        OrderLinkedContext? orderLink = null)
+        OrderLinkedContext? orderLink = null,
+        IReadOnlyList<UnitModificationAttributeRule.InheritedAttribute>? inheritedAttributes = null)
     {
         var expCode = await _expirationCodes.GetByIdAsync(rule.ExpirationModificationCodeId, ct);
         if (expCode is null)
@@ -598,9 +657,31 @@ public sealed class BloodProductModificationService
                 rule.ModificationType,
                 ResultUnitIds = resultUnits.Select(u => u.Id).ToArray(),
                 ResultUnitNumbers = resultUnits.Select(u => u.UnitNumber).ToArray(),
-                ResultExpiresUtc = resultExpiresUtc
+                ResultExpiresUtc = resultExpiresUtc,
+                InheritedAttributeDefinitionIds = (inheritedAttributes ?? [])
+                    .Select(attribute => attribute.DefinitionId)
+                    .ToArray()
             },
             reason: reason);
+
+        if (_unitAttributes is not null)
+        {
+            foreach (var result in resultUnits)
+            {
+                foreach (var inherited in inheritedAttributes ?? [])
+                {
+                    await _unitAttributes.AddAsync(new UnitBloodAttribute
+                    {
+                        BloodProductId = result.Id,
+                        BloodAttributeDefinitionId = inherited.DefinitionId,
+                        AttributeKind = inherited.Kind,
+                        Result = inherited.Result,
+                        TypingSource = inherited.TypingSource,
+                        SourceResultId = inherited.SourceResultId
+                    }, ct);
+                }
+            }
+        }
 
         await _unitOfWork.SaveChangesAsync(ct);
 

@@ -5237,3 +5237,27 @@ A wrong merge reassigned orders, specimens, and antibodies onto the survivor and
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 188 — Modification antigen inheritance (2026-10-12)
+
+Divide, pool, irradiate, and the other modifications created a new unit with ABO and Rh only. Antigen and antibody typing on the source stayed behind, so a later selection could treat the result as untyped. A pool of a positive unit and a negative unit could also hide the conflict.
+
+### Implemented
+
+- `UnitModificationAttributeRule` copies a positive when any source is positive, copies a negative only when every source was typed negative, and HardStops when sources disagree (`MOD-POOL-ATTR-DISCORDANT`).
+- Divide, pool, and single modifications write the inherited rows onto each result unit and list the definition ids on the modify audit.
+- The pool and divide panels state that typing follows the sources. Discordant pools leave the source units available.
+
+### Requirements / risk
+
+- URS-BB-341, FRS-BB-376, SRS-BB-338, RISK-BB-443.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-231 (`UnitModificationAttributeRuleTests`; `BloodProductModificationServiceTests` divide copy, discordant pool, and partial-negative pool).
+- Domain attribute rules and Integration `BloodProductModificationServiceTests` green (5 + 31).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Keeping a parent unit after an aliquot is still open.

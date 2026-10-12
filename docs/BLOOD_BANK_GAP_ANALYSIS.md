@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 187)
+## Capability matrix (Cycle 188)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -38,7 +38,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Elution / special / reflex | Partial | Chart DAT/elution workup exists. Eluate findings are not posted as structured antibody history; do not invent that rule |
 | Result review, correction, invalidation | Present | Versioned; instrument pending verification |
 | ISBT identifiers, codes, attributes, locations | Partial | Parser + import; licensed ICCBBA extract not loaded (OCD-004) |
-| Divisions, modifications, pooling, aliquots, irradiate, wash, thaw | Partial | Modification rules present; pooling/aliquot coverage varies |
+| Divisions, modifications, pooling, aliquots, irradiate, wash, thaw | Partial | Cycle 188 copies concordant antigen and antibody typing onto result units and HardStops a pool when sources disagree. A negative is copied only when every source was typed negative. Keeping a parent unit after aliquot is still not implemented |
 | Expiration calculations, status history, transfer | Present | |
 | Selection, reserve, assign, XM, issue, emergency, MTP | Present | IssueGate |
 | Return, reissue, transfusion, discard, reaction | Present | |
@@ -54,6 +54,8 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 Cycle 186 implemented ADT prior-name archive on inbound demographics updates (RISK-BB-441).
 
 Cycle 187 records a patient-merge ledger and lets staff with `patient.merge` undo that merge when the survivor has had no new clinical activity (RISK-BB-442). Merges already in the database have no ledger and cannot be reversed.
+
+Cycle 188 copies recorded unit antigen and antibody typing onto divide, pool, and single-modification results (RISK-BB-443). A pool stops when sources disagree. A negative result is copied only when every source was typed negative.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|

@@ -34,7 +34,8 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             _factory.Clock,
             _factory.CurrentUser,
             audit,
-            permissions: permissions);
+            permissions: permissions,
+            unitAttributes: new EfRepository<UnitBloodAttribute>(context));
     }
 
     private async Task<(long SourceProductId, long TargetProductId)> EnsureProductTypesAsync(
@@ -691,5 +692,89 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.False(only.IsAvailable);
         Assert.True(only.RequiresCollectionDate);
         Assert.Null(only.PreviewExpiresUtc);
+    }
+
+    [Fact]
+    public async Task Divide_CopiesSourceAntigenTypingOntoEachChild()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("DIVATTR");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Divide, "5D");
+        var sourceId = await CreateUnitAsync("U-DIVATTR", sourceProductId, volume: 200m);
+        await AddAttributeAsync(sourceId, definitionId: 9101, AntigenResult.Negative);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.DivideAsync(
+            sourceId,
+            new PerformDivideRequest(ruleId, [new DivideChildSpec("A", 100m), new DivideChildSpec("B", 100m)], "Split typed unit"));
+
+        Assert.True(result.Succeeded);
+        await using var verify = _factory.Create();
+        foreach (var child in result.ResultUnits!)
+        {
+            var copied = Assert.Single(await verify.UnitBloodAttributes.Where(a => a.BloodProductId == child.Id).ToListAsync());
+            Assert.Equal(9101, copied.BloodAttributeDefinitionId);
+            Assert.Equal(AntigenResult.Negative, copied.Result);
+        }
+    }
+
+    [Fact]
+    public async Task Pool_DiscordantAntigen_IsHardStoppedAndSourcesStayAvailable()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLATTR");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var positiveId = await CreateUnitAsync("U-POOLATTR-P", sourceProductId, volume: 200m);
+        var negativeId = await CreateUnitAsync("U-POOLATTR-N", sourceProductId, volume: 200m);
+        await AddAttributeAsync(positiveId, definitionId: 9102, AntigenResult.Positive);
+        await AddAttributeAsync(negativeId, definitionId: 9102, AntigenResult.Negative);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([positiveId, negativeId], ruleId, "Pool typed platelets"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, stop => stop.Code == UnitModificationAttributeRule.DiscordantCode);
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(positiveId))!.Status);
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(negativeId))!.Status);
+    }
+
+    [Fact]
+    public async Task Pool_PositiveAndUntyped_CopiesPositive_AndDoesNotClaimAPartialNegative()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLINH");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var typedId = await CreateUnitAsync("U-POOLINH-T", sourceProductId, volume: 200m);
+        var untypedId = await CreateUnitAsync("U-POOLINH-U", sourceProductId, volume: 200m);
+        await AddAttributeAsync(typedId, definitionId: 9103, AntigenResult.Positive);
+        await AddAttributeAsync(typedId, definitionId: 9104, AntigenResult.Negative);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([typedId, untypedId], ruleId, "Pool mixed typing"));
+
+        Assert.True(result.Succeeded);
+        await using var verify = _factory.Create();
+        var copied = await verify.UnitBloodAttributes
+            .Where(a => a.BloodProductId == result.ResultUnits!.Single().Id)
+            .ToListAsync();
+        var only = Assert.Single(copied);
+        Assert.Equal(9103, only.BloodAttributeDefinitionId);
+        Assert.Equal(AntigenResult.Positive, only.Result);
+    }
+
+    private async Task AddAttributeAsync(long unitId, long definitionId, AntigenResult result)
+    {
+        await using var context = _factory.Create();
+        context.UnitBloodAttributes.Add(new UnitBloodAttribute
+        {
+            BloodProductId = unitId,
+            BloodAttributeDefinitionId = definitionId,
+            AttributeKind = BloodAttributeKind.Antigen,
+            Result = result,
+            TypingSource = UnitAttributeTypingSource.InHouse
+        });
+        await context.SaveChangesAsync();
     }
 }
