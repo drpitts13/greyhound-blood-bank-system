@@ -5430,3 +5430,27 @@ History named the refrigerator where a pool was prepared. After the unit moved t
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history names the current place after a move, but not when the unit was moved or why.
+
+## Iteration 196 — When and why a result left (2026-10-14)
+
+History said a result was now at the issue bench. It did not say when that move was recorded or why.
+
+### Implemented
+
+- When the current location differs from where the result was made, history reads the latest status row whose destination is that current location.
+- The history cell adds that time and reason. A blank reason is left off.
+- A current location with no such row still names the new place and does not invent a time or reason. A unit still where it was made has neither.
+
+### Requirements / risk
+
+- URS-BB-349, FRS-BB-384, SRS-BB-346, RISK-BB-451.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-239 (`BloodProductModificationServiceTests.GetHistory_ShowsWhereTheResultWasMade_AfterItIsMoved`; `BloodProductModificationServiceTests.GetHistory_MoveWithoutAStatusRow_ShowsTheNewPlaceWithoutATimeOrReason`; `BloodProductModificationServiceTests.GetHistory_StillAtTheCreationLocation_DoesNotMarkAMove`).
+- History tests green (5).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history names when and why a result was moved, but not who moved it.

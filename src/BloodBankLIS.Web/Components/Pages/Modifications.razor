@@ -417,7 +417,24 @@
         var now = string.IsNullOrWhiteSpace(unit.CurrentLocationName)
             ? FormatLocation(unit.CurrentLocationId)
             : unit.CurrentLocationName;
-        return $"{made}; now at {now}";
+        var when = unit.LocationLeftUtc?.ToString("yyyy-MM-dd HH:mm");
+        var why = string.IsNullOrWhiteSpace(unit.LocationLeftReason) ? null : unit.LocationLeftReason.Trim();
+        if (when is null && why is null)
+        {
+            return $"{made}; now at {now}";
+        }
+
+        if (why is null)
+        {
+            return $"{made}; now at {now} ({when})";
+        }
+
+        if (when is null)
+        {
+            return $"{made}; now at {now} ({why})";
+        }
+
+        return $"{made}; now at {now} ({when}, {why})";
     }
 
     private Task OnSourceIdChanged(long? id)

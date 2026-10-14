@@ -154,6 +154,7 @@ public sealed class BloodProductModificationService
             .ToList();
         var createdAt = new Dictionary<long, long?>();
         var currentAt = new Dictionary<long, long?>();
+        var leftAt = new Dictionary<long, (DateTime Utc, string? Reason)>();
         foreach (var resultId in resultIds)
         {
             var history = await _inventory.GetHistoryAsync(resultId, ct);
@@ -161,14 +162,32 @@ public sealed class BloodProductModificationService
                 .Where(row => row.FromStatus is null && row.RelatedEntityType == nameof(UnitModification))
                 .OrderBy(row => row.ChangedUtc)
                 .FirstOrDefault();
+            long? createdLocationId = null;
             if (created is not null)
             {
-                createdAt[resultId] = created.ToLocationId;
+                createdLocationId = created.ToLocationId;
+                createdAt[resultId] = createdLocationId;
             }
 
+            long? currentLocationId = null;
             if (unitById.TryGetValue(resultId, out var resultUnit))
             {
-                currentAt[resultId] = resultUnit.CurrentLocationId;
+                currentLocationId = resultUnit.CurrentLocationId;
+                currentAt[resultId] = currentLocationId;
+            }
+
+            if (createdLocationId == currentLocationId)
+            {
+                continue;
+            }
+
+            var move = history
+                .Where(row => row.FromLocationId != row.ToLocationId && row.ToLocationId == currentLocationId)
+                .OrderByDescending(row => row.ChangedUtc)
+                .FirstOrDefault();
+            if (move is not null)
+            {
+                leftAt[resultId] = (move.ChangedUtc, string.IsNullOrWhiteSpace(move.Reason) ? null : move.Reason.Trim());
             }
         }
 
@@ -226,6 +245,7 @@ public sealed class BloodProductModificationService
                         }
 
                         var isResult = l.Role == ModificationUnitRole.Result;
+                        leftAt.TryGetValue(l.BloodProductId, out var left);
                         return new ModificationUnitSummaryDto(
                             l.BloodProductId,
                             unit?.UnitNumber ?? string.Empty,
@@ -235,7 +255,9 @@ public sealed class BloodProductModificationService
                             isResult ? createdLocationId : null,
                             isResult ? locationName : null,
                             isResult ? currentLocationId : null,
-                            isResult ? currentLocationName : null);
+                            isResult ? currentLocationName : null,
+                            isResult && leftAt.ContainsKey(l.BloodProductId) ? left.Utc : null,
+                            isResult ? left.Reason : null);
                     }).ToList());
             })
             .ToList();
