@@ -12,6 +12,7 @@
          for compile-time safety, per the architecture's "shares C# models" decision. -->
     <ProjectReference Include="..\BloodBankLIS.Application\BloodBankLIS.Application.csproj" />
     <ProjectReference Include="..\BloodBankLIS.Domain\BloodBankLIS.Domain.csproj" />
+    <ProjectReference Include="..\BloodBankLIS.Help\BloodBankLIS.Help.csproj" />
   </ItemGroup>
 
 </Project>

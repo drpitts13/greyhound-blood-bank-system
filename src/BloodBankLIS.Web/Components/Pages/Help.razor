@@ -1,0 +1,51 @@
+@page "/help"
+@inject HelpCatalog Catalog
+
+<PageTitle>Help &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<div class="flex-between">
+    <h1>Help</h1>
+</div>
+<p class="muted">The Clinical User Guide and the Administrator Guide. Search covers titles and the full text. The PDF downloads are the same topics.</p>
+
+<input class="bb-help-search" placeholder="Search help" @bind="_query" @bind:event="oninput" />
+
+<div class="bb-help-actions">
+    <a class="btn btn-primary" href="/downloads/manuals/clinical" data-enhance-nav="false">Download clinical guide</a>
+    <a class="btn btn-secondary" href="/downloads/manuals/admin" data-enhance-nav="false">Download administrator guide</a>
+</div>
+
+@if (Visible.Count == 0)
+{
+    <div class="empty">No topics match that search.</div>
+}
+else
+{
+    @foreach (var guide in HelpGuides.All)
+    {
+        var topics = Visible.Where(topic => topic.Guide == guide).ToList();
+        if (topics.Count == 0)
+            continue;
+
+        <h2>@HelpGuides.Title(guide)</h2>
+        string? chapter = null;
+        @foreach (var topic in topics)
+        {
+            if (!string.Equals(chapter, topic.Chapter, StringComparison.Ordinal))
+            {
+                chapter = topic.Chapter;
+                <h3 class="bb-help-chapter">@chapter</h3>
+            }
+            <a class="bb-help-topic" href="@($"/help/{topic.Guide}/{topic.Slug}")">
+                <strong>@topic.Title</strong>
+                <span class="muted">@topic.Summary</span>
+            </a>
+        }
+    }
+}
+
+@code {
+    private string _query = string.Empty;
+
+    private IReadOnlyList<BloodBankLIS.Help.HelpTopic> Visible => Catalog.Search(_query);
+}

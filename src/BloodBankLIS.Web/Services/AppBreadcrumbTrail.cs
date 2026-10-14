@@ -70,6 +70,7 @@ public static class AppBreadcrumbTrail
         ["specimens"] = "Specimens",
         ["tests"] = "Tests",
         ["test-history"] = "Test History",
+        ["dat-elution"] = "DAT / Elution",
         ["products"] = "Products",
         ["history"] = "Product History"
     };
@@ -91,6 +92,18 @@ public static class AppBreadcrumbTrail
         crumbs.Add(new("Dashboard", "/"));
 
         var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (parts[0].Equals("help", StringComparison.OrdinalIgnoreCase))
+        {
+            crumbs.Add(new("Help", "/help"));
+            if (parts.Length >= 2 && parts[1].Equals("clinical", StringComparison.OrdinalIgnoreCase))
+                crumbs.Add(new("Clinical User Guide", "/help"));
+            else if (parts.Length >= 2 && parts[1].Equals("admin", StringComparison.OrdinalIgnoreCase))
+                crumbs.Add(new("Administrator Guide", "/help"));
+            if (parts.Length >= 3)
+                crumbs.Add(new(TitleCase(parts[2]), null));
+            return Finalize(crumbs);
+        }
 
         if (parts[0].Equals("patients", StringComparison.OrdinalIgnoreCase))
         {
