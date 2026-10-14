@@ -255,5 +255,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-244 | D | `ModificationResultNextStepTests.RetiredSourceCue_ConfirmedSources_NamesEachStatus`; `ModificationResultNextStepTests.RetiredSourceCue_UnconfirmedSource_DoesNotInventModified`; `ModificationResultNextStepTests.RetiredSourceCue_ReportsTheStatusItWasGiven` | URS-BB-354 / FRS-BB-389 / RISK-BB-456 |
 | TEST-BB-245 | I | `UnitModificationEligibilityRuleTests.OfferModification_Available_IsOffered`; `UnitModificationEligibilityRuleTests.OfferModification_Assigned_OnlyWhileCompletingAnOrder`; `UnitModificationEligibilityRuleTests.OfferModification_RetiredOrHeld_IsNotOffered`; `BloodProductModificationServiceTests.GetEligibleModifications_ModifiedUnit_ReturnsNone`; `BloodProductModificationServiceTests.GetEligibleModifications_AssignedUnit_StillListsRules` | URS-BB-355 / FRS-BB-390 / RISK-BB-457 |
 | TEST-BB-246 | I | `InventoryServiceTests.ListQuarantine_NamesTheStorageLocation` | URS-BB-356 / FRS-BB-391 / RISK-BB-458 |
+| TEST-BB-247 | I | `InventoryServiceTests.ListQuarantine_ShowsRecordedVolume_AndDoesNotInventOne` | URS-BB-357 / FRS-BB-392 / RISK-BB-459 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

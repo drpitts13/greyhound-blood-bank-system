@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 203)
+## Capability matrix (Cycle 204)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -38,7 +38,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Elution / special / reflex | Partial | Chart DAT/elution workup exists. Eluate findings are not posted as structured antibody history; do not invent that rule |
 | Result review, correction, invalidation | Present | Versioned; instrument pending verification |
 | ISBT identifiers, codes, attributes, locations | Partial | Parser + import; licensed ICCBBA extract not loaded (OCD-004) |
-| Divisions, modifications, pooling, aliquots, irradiate, wash, thaw | Partial | Cycle 188 copies concordant typing. Cycle 189 copies an autologous or directed reservation. Cycle 190 aliquot leaves the parent available and reduces its volume. Cycle 191 requires a known source volume to be fully assigned on divide, and refuses a result volume larger than the source. Cycle 192 refuses a pool that would drop a known source volume. Cycle 193 refuses a pool whose sources are not in the same storage location. Cycle 194 shows the location where a modification result was made, including after the unit is moved. Cycle 195 also says when that result is no longer there. Cycle 196 adds when that move was recorded and why, when a status row says so. Cycle 197 adds who recorded that move. Cycle 198 shows the storage location name on the selected unit and on each pool source. A missing name stays the location id. Cycle 199 shows that same place on each new unit and points a quarantined result at release. Cycle 200 says an aliquot parent stayed in place and names the volume left on it. Cycle 201 names each retired source and the status just read, and does not claim Modified when that read fails. Cycle 202 closes the modify form for a unit that is no longer available. Cycle 203 shows the storage location name on the quality-quarantine board. A negative is copied only when every source was typed negative | |
+| Divisions, modifications, pooling, aliquots, irradiate, wash, thaw | Partial | Cycle 188 copies concordant typing. Cycle 189 copies an autologous or directed reservation. Cycle 190 aliquot leaves the parent available and reduces its volume. Cycle 191 requires a known source volume to be fully assigned on divide, and refuses a result volume larger than the source. Cycle 192 refuses a pool that would drop a known source volume. Cycle 193 refuses a pool whose sources are not in the same storage location. Cycle 194 shows the location where a modification result was made, including after the unit is moved. Cycle 195 also says when that result is no longer there. Cycle 196 adds when that move was recorded and why, when a status row says so. Cycle 197 adds who recorded that move. Cycle 198 shows the storage location name on the selected unit and on each pool source. A missing name stays the location id. Cycle 199 shows that same place on each new unit and points a quarantined result at release. Cycle 200 says an aliquot parent stayed in place and names the volume left on it. Cycle 201 names each retired source and the status just read, and does not claim Modified when that read fails. Cycle 202 closes the modify form for a unit that is no longer available. Cycle 203 shows the storage location name on the quality-quarantine board. Cycle 204 shows the recorded volume there too, and does not invent one when it was never recorded. A negative is copied only when every source was typed negative | |
 | Expiration calculations, status history, transfer | Present | |
 | Selection, reserve, assign, XM, issue, emergency, MTP | Present | IssueGate |
 | Return, reissue, transfusion, discard, reaction | Present | |
@@ -86,6 +86,8 @@ Cycle 201 says, after a divide, pool, or other retiring modification, that each 
 Cycle 202 stops offering another modification after the source is retired (RISK-BB-457). A Modified unit has no eligibility list. An assigned unit stays listed for a product-order action and is not offered from the ordinary modify screen. If the retired unit cannot be reread, the form closes and does not keep the previous rules.
 
 Cycle 203 shows the storage location name on each quality-quarantine row, including the release row (RISK-BB-458). A blank name stays the location id. A unit with no location says none is recorded. A missing location record does not invent a name.
+
+Cycle 204 shows the recorded volume on each quality-quarantine row and on the release row (RISK-BB-459). A unit with no volume says so. A zero volume is shown as recorded.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|

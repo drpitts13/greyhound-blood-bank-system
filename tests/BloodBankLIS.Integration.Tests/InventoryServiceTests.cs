@@ -372,6 +372,39 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListQuarantine_ShowsRecordedVolume_AndDoesNotInventOne()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var measured = await service.ReceiveUnitAsync(NewUnitRequest($"U-Q-VOL-{key}", productTypeId));
+        var unmeasured = await service.ReceiveUnitAsync(NewUnitRequest($"U-Q-NOVOL-{key}", productTypeId));
+        var zero = await service.ReceiveUnitAsync(NewUnitRequest($"U-Q-ZERO-{key}", productTypeId));
+        Assert.True(measured.Succeeded, measured.Error);
+        Assert.True(unmeasured.Succeeded, unmeasured.Error);
+        Assert.True(zero.Succeeded, zero.Error);
+
+        var unit = (await context.BloodUnits.FindAsync(measured.Unit!.Id))!;
+        unit.Volume = 150.5m;
+        var zeroUnit = (await context.BloodUnits.FindAsync(zero.Unit!.Id))!;
+        zeroUnit.Volume = 0m;
+        await context.SaveChangesAsync();
+
+        var list = await service.ListQuarantineAsync();
+        var measuredRow = Assert.Single(list, row => row.UnitNumber == $"U-Q-VOL-{key}");
+        var unmeasuredRow = Assert.Single(list, row => row.UnitNumber == $"U-Q-NOVOL-{key}");
+        var zeroRow = Assert.Single(list, row => row.UnitNumber == $"U-Q-ZERO-{key}");
+
+        Assert.Equal(150.5m, measuredRow.Volume);
+        Assert.Equal("150.5 mL", measuredRow.VolumeLabel);
+        Assert.Null(unmeasuredRow.Volume);
+        Assert.Equal("Volume not recorded", unmeasuredRow.VolumeLabel);
+        Assert.Equal(0m, zeroRow.Volume);
+        Assert.Equal("0 mL", zeroRow.VolumeLabel);
+    }
+
+    [Fact]
     public async Task ListQuarantine_SurfacesRetypeMismatch()
     {
         var productTypeId = await EnsureProductTypeAsync();

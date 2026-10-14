@@ -125,9 +125,15 @@ public sealed record QuarantineWorkItemDto(
     RhType? RetypeInterpretedRh = null,
     bool RetypeMismatch = false,
     long? CurrentLocationId = null,
-    string? CurrentLocationName = null)
+    string? CurrentLocationName = null,
+    decimal? Volume = null)
 {
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public string VolumeLabel =>
+        Volume is decimal volume
+            ? $"{volume.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} mL"
+            : "Volume not recorded";
 
     public string ReleasePlaceSentence =>
         LocationLabel == StorageLocationLabel.None
@@ -146,7 +152,8 @@ public sealed record QuarantineWorkItemDto(
         latestRetype?.InterpretedRh,
         latestRetype is { MatchesLabel: false },
         u.CurrentLocationId,
-        string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
+        string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim(),
+        u.Volume);
 }
 
 public sealed record DiscrepancyWorkItemDto(

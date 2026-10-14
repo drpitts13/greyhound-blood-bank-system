@@ -5627,3 +5627,26 @@ A new modification result is released from the quality-quarantine board. That bo
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The quality-quarantine board does not show volume, so two divided units of the same product and blood type are distinguished only by unit number.
+
+## Iteration 204 — Volume on quality quarantine (2026-10-14)
+
+Two divided units of the same product and blood type can sit in quarantine together. The board showed the unit number and not the volume.
+
+### Implemented
+
+- Each quarantine row shows the recorded volume. The release row repeats it.
+- A unit with no volume says it is not recorded. A zero volume is shown as recorded.
+
+### Requirements / risk
+
+- URS-BB-357, FRS-BB-392, SRS-BB-354, RISK-BB-459.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-247 (`InventoryServiceTests.ListQuarantine_ShowsRecordedVolume_AndDoesNotInventOne`).
+- Quarantine volume test green (1).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The inventory discrepancy board shows a location code, not the storage location name, so a missing or damaged unit is harder to find than a quarantined one.

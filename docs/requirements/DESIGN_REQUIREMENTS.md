@@ -357,3 +357,4 @@
 | SRS-BB-351 | `RetiredSourceCue` is shown after a retiring modification. Each source is reread. An unconfirmed source does not get a status. | FRS-BB-389 |
 | SRS-BB-352 | `OfferModification` gates the modify form. `MayListModificationRules` gates the eligibility list. A retiring success clears the selected rule. | FRS-BB-390 |
 | SRS-BB-353 | `ListQuarantineAsync` loads the location name onto `QuarantineWorkItemDto`. `LocationLabel` uses `StorageLocationLabel`. | FRS-BB-391 |
+| SRS-BB-354 | `VolumeLabel` formats `BloodUnit.Volume`. Null stays "Volume not recorded". | FRS-BB-392 |

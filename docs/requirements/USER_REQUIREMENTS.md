@@ -362,3 +362,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-354 | Staff who just retired a unit by modification can see that the source is no longer available. | P1 | FRS-BB-389 |
 | URS-BB-355 | Staff cannot start another modification on a unit that modification just retired. | P1 | FRS-BB-390 |
 | URS-BB-356 | Staff releasing a quarantined unit can see the storage location by name. | P1 | FRS-BB-391 |
+| URS-BB-357 | Staff releasing a quarantined unit can see its recorded volume. | P1 | FRS-BB-392 |
