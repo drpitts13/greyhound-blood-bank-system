@@ -93,7 +93,7 @@
         {
             <div class="field"><label>Number of result units</label>
                 <input type="number" min="2" @bind="_childCount" @bind:after="SyncChildRows" />
-                <div class="muted">Recorded antigen and antibody typing on the source is copied onto each result unit. An autologous or directed reservation is copied with it.</div>
+                <div class="muted">Recorded antigen and antibody typing on the source is copied onto each result unit. An autologous or directed reservation is copied with it. When the source has a volume, the result volumes must add up to it.</div>
             </div>
             @if (_children.Count > 0)
             {
@@ -111,6 +111,17 @@
                         }
                     </tbody>
                 </table>
+                @if (_unit.Volume is decimal sourceVolume)
+                {
+                    <div class="muted">
+                        Result volumes @DivideVolumeSum.ToString("0.##") of @sourceVolume.ToString("0.##") mL.
+                        They must add up to the source volume. A remainder belongs on another result, or use Aliquot to leave the parent available.
+                    </div>
+                }
+                else
+                {
+                    <div class="muted">This source has no recorded volume, so the result volumes are stored as entered.</div>
+                }
             }
         }
         else if (_selectedRule.ModificationType == ModificationType.Pool)
@@ -158,8 +169,9 @@
         }
         else
         {
-            <div class="field"><label>Result volume (optional; defaults to source volume)</label>
-                <input type="number" step="0.01" @bind="_singleResultVolume" />
+            <div class="field"><label>Result volume (optional)</label>
+                <input type="number" step="0.01" min="0.01" @bind="_singleResultVolume" />
+                <div class="muted">Leave blank to keep the source volume. A result volume cannot be larger than the source.</div>
             </div>
         }
 
@@ -255,6 +267,8 @@
             : _poolUnits.Select(p => p.Id).Append(_unit.Id);
 
     private decimal? _singleResultVolume;
+
+    private decimal DivideVolumeSum => _children.Sum(c => c.Volume ?? 0m);
 
     private string _reason = string.Empty;
     private Feedback? _actionFb;
@@ -470,6 +484,24 @@
                 return;
             }
 
+            if (_unit.Volume is decimal divideSourceVolume)
+            {
+                var sum = DivideVolumeSum;
+                if (sum > divideSourceVolume)
+                {
+                    _busy = false;
+                    _actionFb = Feedback.Fail($"Requested child volumes ({sum}) exceed the source unit's volume ({divideSourceVolume}).");
+                    return;
+                }
+
+                if (sum < divideSourceVolume)
+                {
+                    _busy = false;
+                    _actionFb = Feedback.Fail($"Requested child volumes ({sum}) leave {divideSourceVolume - sum} mL of the source unit unaccounted. Record the remaining volume as another result, or remove an aliquot instead of dividing.");
+                    return;
+                }
+            }
+
             var children = _children.Select(c => new DivideChildSpec(null, c.Volume)).ToList();
             r = await Api.DivideUnitAsync(_unit.Id, new PerformDivideRequest(_selectedRule.RuleId, children, _reason));
         }
@@ -485,6 +517,22 @@
         }
         else
         {
+            if (_singleResultVolume is decimal resultVolume && resultVolume <= 0m)
+            {
+                _busy = false;
+                _actionFb = Feedback.Fail("A result volume must be greater than zero.");
+                return;
+            }
+
+            if (_singleResultVolume is decimal requestedVolume
+                && _unit.Volume is decimal singleSourceVolume
+                && requestedVolume > singleSourceVolume)
+            {
+                _busy = false;
+                _actionFb = Feedback.Fail($"Result volume ({requestedVolume}) exceeds the source unit's volume ({singleSourceVolume}).");
+                return;
+            }
+
             r = await Api.ApplyModificationAsync(
                 _unit.Id,
                 new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId));

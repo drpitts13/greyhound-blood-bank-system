@@ -162,6 +162,57 @@ public class UnitModificationEligibilityRuleTests
     }
 
     [Fact]
+    public void EvaluateDivide_VolumesShortOfSource_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateDivide(childCount: 2, sourceVolume: 300m, childVolumes: [150m, 100m]);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeUnaccountedCode);
+    }
+
+    [Fact]
+    public void EvaluateDivide_UnknownSourceVolume_DoesNotRequireAFullSum()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateDivide(childCount: 2, sourceVolume: null, childVolumes: [150m, 100m]);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluateResultVolume_WithinSource_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateResultVolume(sourceVolume: 300m, resultVolume: 250m);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluateResultVolume_Omitted_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateResultVolume(sourceVolume: 300m, resultVolume: null);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluateResultVolume_ExceedsSource_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateResultVolume(sourceVolume: 300m, resultVolume: 301m);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeExceedsSourceCode);
+    }
+
+    [Fact]
+    public void EvaluateResultVolume_NonPositive_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateResultVolume(sourceVolume: 300m, resultVolume: 0m);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.ResultVolumeCode);
+    }
+
+    [Fact]
     public void EvaluateDivide_PartialVolumes_HardStops()
     {
         var eval = UnitModificationEligibilityRule.EvaluateDivide(childCount: 2, sourceVolume: 100m, childVolumes: [150m, null]);

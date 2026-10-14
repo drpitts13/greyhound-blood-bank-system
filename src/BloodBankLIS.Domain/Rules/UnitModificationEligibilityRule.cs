@@ -17,6 +17,8 @@ public static class UnitModificationEligibilityRule
     public const string DivideMinTargetsCode = "MOD-DIVIDE-MIN-TARGETS";
     public const string VolumeRequiredCode = "MOD-DIVIDE-VOLUME-REQUIRED";
     public const string VolumeExceedsSourceCode = "MOD-VOLUME-EXCEEDS-SOURCE";
+    public const string VolumeUnaccountedCode = "MOD-VOLUME-UNACCOUNTED";
+    public const string ResultVolumeCode = "MOD-RESULT-VOLUME";
     public const string AliquotVolumeCode = "MOD-ALIQUOT-VOLUME";
     public const string AliquotParentVolumeCode = "MOD-ALIQUOT-PARENT-VOLUME";
 
@@ -93,7 +95,10 @@ public static class UnitModificationEligibilityRule
         return new RuleEvaluation(results);
     }
 
-    /// <summary>Checks for a Divide: at least two result children, every child has a volume, and the volumes do not exceed the source.</summary>
+    /// <summary>
+    /// Checks for a Divide: at least two result children, every child has a volume, and a known
+    /// source volume is fully assigned to those children.
+    /// </summary>
     public static RuleEvaluation EvaluateDivide(int childCount, decimal? sourceVolume, IReadOnlyList<decimal?> childVolumes)
     {
         var results = new List<RuleResult>();
@@ -117,6 +122,11 @@ public static class UnitModificationEligibilityRule
                 results.Add(RuleResult.HardStop(VolumeExceedsSourceCode,
                     $"Requested child volumes ({sum}) exceed the source unit's volume ({sourceVolume})."));
             }
+            else if (sum < sourceVolume)
+            {
+                results.Add(RuleResult.HardStop(VolumeUnaccountedCode,
+                    $"Requested child volumes ({sum}) leave {sourceVolume - sum} mL of the source unit unaccounted. Record the remaining volume as another result, or remove an aliquot instead of dividing."));
+            }
         }
 
         if (results.Count == 0)
@@ -125,6 +135,38 @@ public static class UnitModificationEligibilityRule
         }
 
         return new RuleEvaluation(results);
+    }
+
+    /// <summary>
+    /// A supplied result volume must be positive and cannot exceed a known source volume.
+    /// Omitting the volume keeps the source volume.
+    /// </summary>
+    public static RuleEvaluation EvaluateResultVolume(decimal? sourceVolume, decimal? resultVolume)
+    {
+        if (resultVolume is null)
+        {
+            return new RuleEvaluation(new[] { RuleResult.Pass(ResultVolumeCode) });
+        }
+
+        if (resultVolume <= 0m)
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(ResultVolumeCode, "A result volume must be greater than zero.")
+            });
+        }
+
+        if (sourceVolume is not null && resultVolume > sourceVolume)
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(
+                    VolumeExceedsSourceCode,
+                    $"Result volume ({resultVolume}) exceeds the source unit's volume ({sourceVolume}).")
+            });
+        }
+
+        return new RuleEvaluation(new[] { RuleResult.Pass(ResultVolumeCode) });
     }
 
     /// <summary>

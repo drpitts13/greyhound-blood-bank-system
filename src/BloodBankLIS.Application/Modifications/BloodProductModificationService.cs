@@ -408,6 +408,12 @@ public sealed class BloodProductModificationService
             return ModificationActionResult.Blocked(sourceEval);
         }
 
+        var volumeEval = UnitModificationEligibilityRule.EvaluateResultVolume(source.Volume, request.ResultVolume);
+        if (volumeEval.IsHardStopped)
+        {
+            return ModificationActionResult.Blocked(volumeEval);
+        }
+
         var inherited = await InheritAttributesAsync(new[] { source }, ct);
         if (inherited.Blocked is not null)
         {

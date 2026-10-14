@@ -5310,3 +5310,27 @@ Every modification retired the source. Removing a pediatric aliquot therefore to
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 191 — Modification volume accounting (2026-10-14)
+
+A divide could retire a 300 mL unit after recording only 250 mL of results. The missing 50 mL left inventory with no unit. A single modification could also store a result volume larger than the source.
+
+### Implemented
+
+- `EvaluateDivide` HardStops `MOD-VOLUME-UNACCOUNTED` when a known source volume is not fully assigned to the result units. An oversized sum still HardStops `MOD-VOLUME-EXCEEDS-SOURCE`. A source with no recorded volume stores the entered child volumes.
+- `EvaluateResultVolume` HardStops a non-positive result volume (`MOD-RESULT-VOLUME`) and a result volume larger than the source. Omitting the volume still keeps the source volume.
+- Both checks run before the source status changes. The modify page shows the running divide total against the source volume and names Aliquot when a remainder should stay on the parent.
+
+### Requirements / risk
+
+- URS-BB-344, FRS-BB-379, SRS-BB-341, RISK-BB-446.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-234 (`UnitModificationEligibilityRuleTests` short divide and result-volume cases; `BloodProductModificationServiceTests.Divide_VolumesShortOfSource_IsBlocked`; `BloodProductModificationServiceTests.ApplySingle_ResultVolumeExceedsSource_IsBlocked`; `BloodProductModificationServiceTests.ApplySingle_ResultVolumeWithinSource_Succeeds`).
+- Domain eligibility rules and Integration `BloodProductModificationServiceTests` green (24 + 39). The aliquot ISBT case uses its own donation number so a product-change divide on another unit cannot consume its division codes.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A pool still drops known source volumes when any pooled unit has no recorded volume.

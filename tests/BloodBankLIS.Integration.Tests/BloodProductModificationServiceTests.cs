@@ -395,6 +395,68 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     }
 
     [Fact]
+    public async Task Divide_VolumesShortOfSource_IsBlocked()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("DIVIDESHORT");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Divide);
+        var sourceId = await CreateUnitAsync("U-DIVIDESHORT-SRC", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var children = new[] { new DivideChildSpec("A", 150m), new DivideChildSpec("B", 100m) };
+        var result = await service.DivideAsync(sourceId, new PerformDivideRequest(ruleId, children, "attempt"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeUnaccountedCode);
+
+        await using var verify = _factory.Create();
+        var source = await verify.BloodUnits.FindAsync(sourceId);
+        Assert.Equal(UnitStatus.Available, source!.Status);
+        Assert.Equal(300m, source.Volume);
+    }
+
+    [Fact]
+    public async Task ApplySingle_ResultVolumeWithinSource_Succeeds()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("SINGLEVOL");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.VolumeReduction, "24H");
+        var sourceId = await CreateUnitAsync("U-SINGLEVOL-SRC", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.ApplySingleAsync(
+            sourceId, new PerformSingleModificationRequest(ruleId, 220m, "Volume reduced for pediatric aliquot alternative"));
+
+        Assert.True(result.Succeeded);
+        var resultUnit = Assert.Single(result.ResultUnits!);
+        Assert.Equal(220m, resultUnit.Volume);
+    }
+
+    [Fact]
+    public async Task ApplySingle_ResultVolumeExceedsSource_IsBlocked()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("SINGLEVOLX");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var sourceId = await CreateUnitAsync("U-SINGLEVOLX-SRC", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.ApplySingleAsync(
+            sourceId, new PerformSingleModificationRequest(ruleId, 350m, "attempt"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeExceedsSourceCode);
+
+        await using var verify = _factory.Create();
+        var source = await verify.BloodUnits.FindAsync(sourceId);
+        Assert.Equal(UnitStatus.Available, source!.Status);
+        Assert.Equal(300m, source.Volume);
+    }
+
+    [Fact]
     public async Task Divide_MissingChildVolume_IsBlocked()
     {
         var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("DIVIDEMISS");
@@ -854,7 +916,7 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     {
         var (sourceProductId, _) = await EnsureProductTypesAsync("ALIQISBT", "E0336", "E0336");
         var ruleId = await CreateRuleAsync(sourceProductId, sourceProductId, ModificationType.Aliquot, "5D");
-        var sourceId = await CreateIsbtUnitAsync("W123425222222", "E0336V00", sourceProductId, 300m);
+        var sourceId = await CreateIsbtUnitAsync("W123425555555", "E0336V00", sourceProductId, 300m);
         await AddAttributeAsync(sourceId, definitionId: 9201, AntigenResult.Negative);
         await using (var setup = _factory.Create())
         {
