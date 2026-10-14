@@ -59,4 +59,11 @@ public static class StorageLocationLabel
 
         return Format(id, name);
     }
+
+    /// <summary>
+    /// Label for the unit chart. Same rule as the inventory search list:
+    /// the catalog name, never the location code as a fallback.
+    /// </summary>
+    public static string ForUnitChart(long? locationId, IEnumerable<CatalogLocation>? catalog) =>
+        ForInventoryList(locationId, catalog);
 }

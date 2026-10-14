@@ -65,4 +65,39 @@ public class StorageLocationLabelTests
 
         Assert.Equal(StorageLocationLabel.None, StorageLocationLabel.ForInventoryList(null, catalog));
     }
+
+    [Fact]
+    public void ForUnitChart_NamedLocation_UsesTheNameNotTheCode()
+    {
+        var catalog = new[]
+        {
+            new StorageLocationLabel.CatalogLocation(12, "  Outdate fridge  ", "FR-OUT")
+        };
+
+        Assert.Equal("Outdate fridge", StorageLocationLabel.ForUnitChart(12, catalog));
+    }
+
+    [Fact]
+    public void ForUnitChart_BlankName_DoesNotFallBackToTheCode()
+    {
+        var catalog = new[]
+        {
+            new StorageLocationLabel.CatalogLocation(12, "   ", "FR-OUT")
+        };
+
+        Assert.Equal("Location 12", StorageLocationLabel.ForUnitChart(12, catalog));
+        Assert.Equal("Location 18", StorageLocationLabel.ForUnitChart(18, catalog));
+        Assert.Equal("Location 4", StorageLocationLabel.ForUnitChart(4, catalog: null));
+    }
+
+    [Fact]
+    public void ForUnitChart_NoLocation_DoesNotInventOne()
+    {
+        var catalog = new[]
+        {
+            new StorageLocationLabel.CatalogLocation(12, "Outdate fridge", "FR-OUT")
+        };
+
+        Assert.Equal(StorageLocationLabel.None, StorageLocationLabel.ForUnitChart(null, catalog));
+    }
 }

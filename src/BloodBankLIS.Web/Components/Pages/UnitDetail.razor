@@ -663,7 +663,9 @@ else
         _productTypes.FirstOrDefault(t => t.Id == productTypeId)?.Name ?? "—";
 
     private string LocationName(long? id) =>
-        id is null ? "—" : (_locations.FirstOrDefault(l => l.Id == id)?.Code ?? id.Value.ToString());
+        StorageLocationLabel.ForUnitChart(
+            id,
+            _locations.Select(l => new StorageLocationLabel.CatalogLocation(l.Id, l.Name, l.Code)));
 
     private string RecipientLabel(long patientId)
     {

@@ -362,3 +362,4 @@
 | SRS-BB-356 | `ListOnHoldAsync` loads the location name onto `OnHoldWorkItemDto`. `LocationLabel` uses `StorageLocationLabel`. | FRS-BB-394 |
 | SRS-BB-357 | The inventory search list labels each unit with `StorageLocationLabel.ForInventoryList`, using the location catalog name. The location code is not a fallback. | FRS-BB-395 |
 | SRS-BB-358 | `ListNearExpiryAsync` loads the location name onto `NearExpiryWorkItemDto`. `LocationLabel` uses `StorageLocationLabel`. | FRS-BB-396 |
+| SRS-BB-359 | The unit chart labels the current location with `StorageLocationLabel.ForUnitChart`, using the location catalog name. The location code is not a fallback. | FRS-BB-397 |

@@ -5748,3 +5748,28 @@ The near-expiry board listed the unit, product, and expiration. Staff discarding
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit chart still shows a location code, not the storage location name, so opening a unit from search or near expiry labels it differently from those boards.
+
+## Iteration 209 — Storage location name on the unit chart (2026-10-14)
+
+Opening a unit from search or near expiry showed a location code on the chart. The boards already show the storage location name.
+
+### Implemented
+
+- The unit chart header and the unit identity show the storage location name.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none. A location code is not used when the name is missing.
+- A location list that cannot be loaded does not invent names.
+
+### Requirements / risk
+
+- URS-BB-362, FRS-BB-397, SRS-BB-359, RISK-BB-464.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-252 (`StorageLocationLabelTests.ForUnitChart_NamedLocation_UsesTheNameNotTheCode`; `StorageLocationLabelTests.ForUnitChart_BlankName_DoesNotFallBackToTheCode`; `StorageLocationLabelTests.ForUnitChart_NoLocation_DoesNotInventOne`).
+- Unit-chart location tests green (3).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit status history names the status change and not the storage location, so a transfer is visible as a status line and the refrigerator is not on the timeline.
