@@ -37,7 +37,9 @@ public sealed record ModificationUnitSummaryDto(
     string UnitNumber,
     ModificationUnitRole Role,
     string? ProductCodeData = null,
-    decimal? Volume = null);
+    decimal? Volume = null,
+    long? ResultLocationId = null,
+    string? ResultLocationName = null);
 
 public sealed record UnitModificationDto(
     long Id,

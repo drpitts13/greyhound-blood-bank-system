@@ -247,7 +247,7 @@
     <div class="bb-card">
         <div class="bb-card-title"><h3>Modification history for this unit</h3></div>
         <table class="bb">
-            <thead><tr><th>Type</th><th>Source</th><th>Target</th><th>Results</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+            <thead><tr><th>Type</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
             <tbody>
                 @foreach (var h in _history)
                 {
@@ -256,6 +256,7 @@
                         <td class="mono">@h.SourceProductCode</td>
                         <td class="mono">@h.TargetProductCode</td>
                         <td class="mono">@FormatHistoryResults(h)</td>
+                        <td>@FormatHistoryLocations(h)</td>
                         <td class="mono">@h.ExpirationOffsetCodeApplied</td>
                         <td class="nowrap">@h.ResultExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@h.Reason</td>
@@ -384,6 +385,34 @@
             })
             .ToList();
         return parts.Count == 0 ? "—" : string.Join(", ", parts);
+    }
+
+    private static string FormatHistoryLocations(UnitModificationDto history)
+    {
+        var results = history.Units.Where(unit => unit.Role == ModificationUnitRole.Result).ToList();
+        if (results.Count == 0)
+        {
+            return "—";
+        }
+
+        var labels = results
+            .Select(unit => string.IsNullOrWhiteSpace(unit.ResultLocationName)
+                ? FormatLocation(unit.ResultLocationId)
+                : unit.ResultLocationName)
+            .Distinct()
+            .ToList();
+        if (labels.Count == 1)
+        {
+            return labels[0];
+        }
+
+        return string.Join(", ", results.Select(unit =>
+        {
+            var place = string.IsNullOrWhiteSpace(unit.ResultLocationName)
+                ? FormatLocation(unit.ResultLocationId)
+                : unit.ResultLocationName;
+            return $"{unit.UnitNumber}: {place}";
+        }));
     }
 
     private Task OnSourceIdChanged(long? id)

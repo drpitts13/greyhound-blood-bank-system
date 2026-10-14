@@ -5382,3 +5382,27 @@ A pool of units in different refrigerators was stored at the first unit's locati
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history for a unit still does not show the storage location of the result.
+
+## Iteration 194 — Modification history location (2026-10-14)
+
+Modification history named the result unit and its volume. After the unit was moved, that history did not say where it had been made.
+
+### Implemented
+
+- History reads the creation status row for each result and shows that location name. A later transfer does not change it.
+- A result with no location shows none. Source rows do not show a result location.
+- The creation status row stores the modification id once the header id exists.
+
+### Requirements / risk
+
+- URS-BB-347, FRS-BB-382, SRS-BB-344, RISK-BB-449.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-237 (`BloodProductModificationServiceTests.GetHistory_ShowsWhereTheResultWasMade_AfterItIsMoved`; `BloodProductModificationServiceTests.GetHistory_WithoutALocation_ShowsNone`).
+- Integration `BloodProductModificationServiceTests` green (45).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history does not say when a result has since left the location where it was made.

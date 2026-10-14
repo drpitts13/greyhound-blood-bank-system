@@ -35,7 +35,8 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             _factory.CurrentUser,
             audit,
             permissions: permissions,
-            unitAttributes: new EfRepository<UnitBloodAttribute>(context));
+            unitAttributes: new EfRepository<UnitBloodAttribute>(context),
+            locations: new EfRepository<InventoryLocation>(context));
     }
 
     private async Task<(long SourceProductId, long TargetProductId)> EnsureProductTypesAsync(
@@ -715,6 +716,79 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.Contains("SourceLocationIds", auditEvent.OldValueJson);
         Assert.Contains(fridgeId.ToString(), auditEvent.OldValueJson);
         Assert.Contains("ResultLocationIds", auditEvent.NewValueJson);
+    }
+
+    [Fact]
+    public async Task GetHistory_ShowsWhereTheResultWasMade_AfterItIsMoved()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTLOC");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("HISTLOC-A", "Fridge A");
+        var benchId = await CreateLocationAsync("HISTLOC-B", "Issue bench");
+        var firstId = await CreateUnitAsync("U-HISTLOC-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-HISTLOC-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, fridgeId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var pooled = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool in fridge"));
+        Assert.True(pooled.Succeeded, pooled.Error);
+        var resultId = Assert.Single(pooled.ResultUnits!).Id;
+
+        await using (var move = _factory.Create())
+        {
+            var resultUnit = (await move.BloodUnits.FindAsync(resultId))!;
+            resultUnit.CurrentLocationId = benchId;
+            move.InventoryStatusHistory.Add(new InventoryStatusHistory
+            {
+                BloodProductId = resultId,
+                FromStatus = UnitStatus.Quarantine,
+                ToStatus = UnitStatus.Quarantine,
+                FromLocationId = fridgeId,
+                ToLocationId = benchId,
+                Reason = "Moved to the issue bench",
+                ChangedBy = "mover",
+                ChangedUtc = _factory.Clock.UtcNow.AddMinutes(5),
+                RelatedEntityType = "Transfer"
+            });
+            await move.SaveChangesAsync();
+        }
+
+        await using var read = _factory.Create();
+        var history = await CreateService(read).GetHistoryAsync(firstId);
+        var row = Assert.Single(history);
+        var resultSummary = Assert.Single(row.Units, unit => unit.Role == ModificationUnitRole.Result);
+        Assert.Equal(fridgeId, resultSummary.ResultLocationId);
+        Assert.Equal("Fridge A", resultSummary.ResultLocationName);
+        Assert.All(row.Units.Where(unit => unit.Role == ModificationUnitRole.Source), unit =>
+        {
+            Assert.Null(unit.ResultLocationId);
+            Assert.Null(unit.ResultLocationName);
+        });
+
+        var created = await read.InventoryStatusHistory
+            .SingleAsync(item => item.BloodProductId == resultId && item.FromStatus == null);
+        Assert.Equal(pooled.Modification!.Id, created.RelatedEntityId);
+    }
+
+    [Fact]
+    public async Task GetHistory_WithoutALocation_ShowsNone()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTNONE");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var firstId = await CreateUnitAsync("U-HISTNONE-1", sourceProductId, volume: 100m);
+        var secondId = await CreateUnitAsync("U-HISTNONE-2", sourceProductId, volume: 80m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var pooled = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool with no location"));
+        Assert.True(pooled.Succeeded, pooled.Error);
+
+        var history = await service.GetHistoryAsync(firstId);
+        var resultSummary = Assert.Single(Assert.Single(history).Units, unit => unit.Role == ModificationUnitRole.Result);
+        Assert.Null(resultSummary.ResultLocationId);
+        Assert.Null(resultSummary.ResultLocationName);
     }
 
     [Fact]

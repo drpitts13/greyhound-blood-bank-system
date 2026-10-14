@@ -38,6 +38,7 @@ public sealed class BloodProductModificationService
     private readonly IRepository<Crossmatch>? _crossmatches;
     private readonly BillingService? _billing;
     private readonly IRepository<UnitBloodAttribute>? _unitAttributes;
+    private readonly IRepository<InventoryLocation>? _locations;
 
     public BloodProductModificationService(
         IInventoryRepository inventory,
@@ -58,7 +59,8 @@ public sealed class BloodProductModificationService
         IRepository<Allocation>? allocations = null,
         IRepository<Crossmatch>? crossmatches = null,
         BillingService? billing = null,
-        IRepository<UnitBloodAttribute>? unitAttributes = null)
+        IRepository<UnitBloodAttribute>? unitAttributes = null,
+        IRepository<InventoryLocation>? locations = null)
     {
         _inventory = inventory;
         _rules = rules;
@@ -79,6 +81,7 @@ public sealed class BloodProductModificationService
         _crossmatches = crossmatches;
         _billing = billing;
         _unitAttributes = unitAttributes;
+        _locations = locations;
     }
 
     /// <summary>Active modification rules whose source product matches the unit's current product type.</summary>
@@ -144,6 +147,41 @@ public sealed class BloodProductModificationService
 
         var unitById = units.ToDictionary(u => u.Id);
         var ruleById = rules.ToDictionary(r => r.Id);
+        var resultIds = allLinks
+            .Where(link => link.Role == ModificationUnitRole.Result)
+            .Select(link => link.BloodProductId)
+            .Distinct()
+            .ToList();
+        var createdAt = new Dictionary<long, long?>();
+        foreach (var resultId in resultIds)
+        {
+            var history = await _inventory.GetHistoryAsync(resultId, ct);
+            var created = history
+                .Where(row => row.FromStatus is null && row.RelatedEntityType == nameof(UnitModification))
+                .OrderBy(row => row.ChangedUtc)
+                .FirstOrDefault();
+            if (created is not null)
+            {
+                createdAt[resultId] = created.ToLocationId;
+            }
+        }
+
+        var locationNames = new Dictionary<long, string>();
+        if (_locations is not null)
+        {
+            var locationIds = createdAt.Values.OfType<long>().Distinct().ToList();
+            if (locationIds.Count > 0)
+            {
+                var locations = await _locations.ListAsync(location => locationIds.Contains(location.Id), ct);
+                foreach (var location in locations)
+                {
+                    if (!string.IsNullOrWhiteSpace(location.Name))
+                    {
+                        locationNames[location.Id] = location.Name;
+                    }
+                }
+            }
+        }
 
         return mods
             .OrderByDescending(m => m.PerformedUtc)
@@ -164,12 +202,21 @@ public sealed class BloodProductModificationService
                     links.Select(l =>
                     {
                         unitById.TryGetValue(l.BloodProductId, out var unit);
+                        createdAt.TryGetValue(l.BloodProductId, out var createdLocationId);
+                        string? locationName = null;
+                        if (createdLocationId is long locationId)
+                        {
+                            locationNames.TryGetValue(locationId, out locationName);
+                        }
+
                         return new ModificationUnitSummaryDto(
                             l.BloodProductId,
                             unit?.UnitNumber ?? string.Empty,
                             l.Role,
                             unit?.ProductCodeData,
-                            unit?.Volume);
+                            unit?.Volume,
+                            l.Role == ModificationUnitRole.Result ? createdLocationId : null,
+                            l.Role == ModificationUnitRole.Result ? locationName : null);
                     }).ToList());
             })
             .ToList();
@@ -626,6 +673,7 @@ public sealed class BloodProductModificationService
         var sortOrder = 0;
         var sourceVolumesBefore = sources.Select(source => source.Volume).ToArray();
         var sourceLocationIdsBefore = sources.Select(source => source.CurrentLocationId).ToArray();
+        var modificationHistory = new List<InventoryStatusHistory>();
 
         foreach (var source in sources)
         {
@@ -639,7 +687,7 @@ public sealed class BloodProductModificationService
                 source.Status = UnitStatus.Modified;
             }
 
-            _inventory.AddStatusHistory(new InventoryStatusHistory
+            var sourceHistory = new InventoryStatusHistory
             {
                 BloodProductId = source.Id,
                 FromStatus = fromStatus,
@@ -652,7 +700,9 @@ public sealed class BloodProductModificationService
                 ChangedBy = _currentUser.UserName,
                 ChangedUtc = now,
                 RelatedEntityType = nameof(UnitModification)
-            });
+            };
+            _inventory.AddStatusHistory(sourceHistory);
+            modificationHistory.Add(sourceHistory);
 
             await _modificationUnits.AddAsync(new UnitModificationUnit
             {
@@ -748,7 +798,7 @@ public sealed class BloodProductModificationService
 
             await _inventory.AddUnitAsync(result, ct);
 
-            _inventory.AddStatusHistory(new InventoryStatusHistory
+            var createdHistory = new InventoryStatusHistory
             {
                 Unit = result,
                 FromStatus = null,
@@ -760,7 +810,9 @@ public sealed class BloodProductModificationService
                 ChangedBy = _currentUser.UserName,
                 ChangedUtc = now,
                 RelatedEntityType = nameof(UnitModification)
-            });
+            };
+            _inventory.AddStatusHistory(createdHistory);
+            modificationHistory.Add(createdHistory);
 
             await _modificationUnits.AddAsync(new UnitModificationUnit
             {
@@ -776,6 +828,11 @@ public sealed class BloodProductModificationService
         // First save assigns Ids to the header and every unit; the named audit event
         // below needs those Ids, so it is staged and committed in a second save.
         await _unitOfWork.SaveChangesAsync(ct);
+
+        foreach (var row in modificationHistory)
+        {
+            row.RelatedEntityId = header.Id;
+        }
 
         _audit.Record(
             AuditEventType.Modify,
