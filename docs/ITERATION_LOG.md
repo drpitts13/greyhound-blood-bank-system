@@ -5478,3 +5478,27 @@ History said when a result left and why. It did not say who recorded that move.
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The modify page still labels a selected unit and the pool sources as `Location {id}` instead of the storage location name, so staff comparing places before a pool have to recognize the number.
+
+## Iteration 198 — Storage location names on the modify page (2026-10-14)
+
+The selected unit and the pool list showed `Location 12`. Staff had to recognize the number before they could tell two units apart.
+
+### Implemented
+
+- The modify page loads storage location names and shows the name on the selected unit and on each pool source.
+- A blank or unknown name stays `Location {id}`. A unit with no location still shows none.
+- A location list that cannot be loaded does not invent names. Pooling still compares location ids.
+
+### Requirements / risk
+
+- URS-BB-351, FRS-BB-386, SRS-BB-348, RISK-BB-453.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-241 (`StorageLocationLabelTests.Format_NamedLocation_UsesTheName`; `StorageLocationLabelTests.Format_BlankOrUnknownName_KeepsTheLocationId`; `StorageLocationLabelTests.Format_NoLocation_DoesNotInventOne`).
+- Label tests green (3).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After a modification, the result card shows the new unit as Quarantine and offers Open unit, but it does not show where that new unit is stored or point staff to release it.

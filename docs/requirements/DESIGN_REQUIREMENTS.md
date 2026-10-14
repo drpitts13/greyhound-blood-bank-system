@@ -351,3 +351,4 @@
 | SRS-BB-345 | `ModificationUnitSummaryDto` also carries the result's current location. `ResultHasLeftCreationLocation` is true only when those location ids differ. The history cell appends `now at` for that case. | FRS-BB-383 |
 | SRS-BB-346 | `LocationLeftUtc` and `LocationLeftReason` come from the latest status row whose `ToLocationId` is the current location and whose from and to locations differ. The history cell appends that time and reason. | FRS-BB-384 |
 | SRS-BB-347 | `LocationLeftBy` comes from that same row's `ChangedBy`. A blank name is stored as null. The history cell appends `by` that name. | FRS-BB-385 |
+| SRS-BB-348 | `StorageLocationLabel` prefers the location name. The modify page loads location names and uses them for the selected unit and the pool table. | FRS-BB-386 |
