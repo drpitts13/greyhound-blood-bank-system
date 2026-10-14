@@ -86,4 +86,39 @@ public class ModificationResultNextStepTests
 
         Assert.Equal("W1234 stayed Quarantine with 40 mL remaining.", cue);
     }
+
+    [Fact]
+    public void RetiredSourceCue_ConfirmedSources_NamesEachStatus()
+    {
+        var cue = ModificationResultNextStep.RetiredSourceCue(
+        [
+            new ModificationResultNextStep.RetiredSourceFact("W1", true, UnitStatus.Modified),
+            new ModificationResultNextStep.RetiredSourceFact(" W2 ", true, UnitStatus.Modified)
+        ]);
+
+        Assert.Equal("W1 is Modified. W2 is Modified.", cue);
+    }
+
+    [Fact]
+    public void RetiredSourceCue_UnconfirmedSource_DoesNotInventModified()
+    {
+        var cue = ModificationResultNextStep.RetiredSourceCue(
+        [
+            new ModificationResultNextStep.RetiredSourceFact("W1", false, UnitStatus.Modified)
+        ]);
+
+        Assert.Equal("W1 was retired. Its current status could not be confirmed.", cue);
+    }
+
+    [Fact]
+    public void RetiredSourceCue_ReportsTheStatusItWasGiven()
+    {
+        var cue = ModificationResultNextStep.RetiredSourceCue(
+        [
+            new ModificationResultNextStep.RetiredSourceFact("W1", true, UnitStatus.Available)
+        ]);
+
+        Assert.Equal("W1 is Available.", cue);
+        Assert.Null(ModificationResultNextStep.RetiredSourceCue([]));
+    }
 }

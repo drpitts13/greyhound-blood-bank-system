@@ -359,3 +359,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-351 | Staff preparing a pool can see each source unit's storage location by name. | P1 | FRS-BB-386 |
 | URS-BB-352 | Staff who just modified a unit can see where the new unit is and how to release it from quarantine. | P1 | FRS-BB-387 |
 | URS-BB-353 | Staff who just made an aliquot can see that the parent stayed in place and how much volume remains. | P1 | FRS-BB-388 |
+| URS-BB-354 | Staff who just retired a unit by modification can see that the source is no longer available. | P1 | FRS-BB-389 |

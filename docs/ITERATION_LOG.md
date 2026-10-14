@@ -5551,3 +5551,29 @@ An aliquot leaves the parent available at a reduced volume. The result card list
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After a divide, pool, or other modification that retires the source, the result card lists the new units and does not say the source is now Modified, so staff can keep looking for it as available.
+
+## Iteration 201 — Retired sources on the result card (2026-10-14)
+
+Divide, pool, and the other retiring modifications set the source to Modified. The result card listed only the new units, so staff could keep looking for the source as available.
+
+### Implemented
+
+- After a retiring modification, the result card names each source and the status from a fresh read.
+- A failed read says that source was retired and does not claim it is Modified.
+- A read that is not Modified is shown as that status. The card does not rewrite it.
+- An aliquot keeps the parent line from the previous cycle and does not use this retired-source line.
+- The selected unit card is updated from that same read when the primary source can be reread.
+
+### Requirements / risk
+
+- URS-BB-354, FRS-BB-389, SRS-BB-351, RISK-BB-456.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-244 (`ModificationResultNextStepTests.RetiredSourceCue_ConfirmedSources_NamesEachStatus`; `ModificationResultNextStepTests.RetiredSourceCue_UnconfirmedSource_DoesNotInventModified`; `ModificationResultNextStepTests.RetiredSourceCue_ReportsTheStatusItWasGiven`).
+- Retired-source tests green (15 in `ModificationResultNextStepTests`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After a source is retired, the modify form can still offer another modification on that unit until the page is reloaded.

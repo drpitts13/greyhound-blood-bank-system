@@ -216,6 +216,10 @@
         {
             <p>@AliquotParentCue</p>
         }
+        else if (RetiredSourceCue is not null)
+        {
+            <p>@RetiredSourceCue</p>
+        }
         <table class="bb">
             <thead><tr><th>New unit #</th><th>Product code</th><th>Volume</th><th>ABO/Rh</th><th>Status</th><th>Location</th><th>Expires</th><th></th></tr></thead>
             <tbody>
@@ -339,6 +343,7 @@
     private ModificationResultVm? _lastResult;
     private bool _lastWasAliquot;
     private bool _aliquotParentConfirmed;
+    private List<ModificationResultNextStep.RetiredSourceFact> _retiredSources = new();
 
     private List<UnitModificationDto> _history = new();
 
@@ -544,7 +549,11 @@
         _lastResult = null;
         _lastWasAliquot = false;
         _aliquotParentConfirmed = false;
+        _retiredSources = new();
     }
+
+    private string? RetiredSourceCue =>
+        _lastWasAliquot ? null : ModificationResultNextStep.RetiredSourceCue(_retiredSources);
 
     private string AliquotParentCue =>
         ModificationResultNextStep.AliquotParentCue(
@@ -699,8 +708,19 @@
             _lastResult = r.Value;
             _lastWasAliquot = _selectedRule.ModificationType == ModificationType.Aliquot;
             _aliquotParentConfirmed = false;
+            _retiredSources = new();
             _reason = string.Empty;
             _singleResultVolume = null;
+            var retiredSources = new List<(long Id, string? Number)>();
+            if (!_lastWasAliquot && _unit is not null)
+            {
+                retiredSources.Add((_unit.Id, _unit.UnitNumber));
+                foreach (var pooled in _poolUnits)
+                {
+                    retiredSources.Add((pooled.Id, pooled.UnitNumber));
+                }
+            }
+
             _poolUnits.Clear();
             if (_lastWasAliquot)
             {
@@ -710,6 +730,31 @@
                     _unit = refreshed.Value;
                     _aliquotParentConfirmed = true;
                 }
+            }
+            else
+            {
+                var facts = new List<ModificationResultNextStep.RetiredSourceFact>();
+                foreach (var source in retiredSources)
+                {
+                    var refreshed = await Api.GetUnitAsync(source.Id);
+                    if (refreshed.Succeeded && refreshed.Value is not null)
+                    {
+                        facts.Add(new ModificationResultNextStep.RetiredSourceFact(
+                            refreshed.Value.UnitNumber,
+                            true,
+                            refreshed.Value.Status));
+                        if (_unit?.Id == source.Id)
+                        {
+                            _unit = refreshed.Value;
+                        }
+                    }
+                    else
+                    {
+                        facts.Add(new ModificationResultNextStep.RetiredSourceFact(source.Number, false, null));
+                    }
+                }
+
+                _retiredSources = facts;
             }
             var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
             _history = history.Value ?? new();

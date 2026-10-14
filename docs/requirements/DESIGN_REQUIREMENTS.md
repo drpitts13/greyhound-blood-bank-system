@@ -354,3 +354,4 @@
 | SRS-BB-348 | `StorageLocationLabel` prefers the location name. The modify page loads location names and uses them for the selected unit and the pool table. | FRS-BB-386 |
 | SRS-BB-349 | `ModificationResultNextStep` builds the quarantine cue and the release link. The inventory board opens the release row only when that unit is on the quarantine list. | FRS-BB-387 |
 | SRS-BB-350 | `AliquotParentCue` is shown only after an aliquot. Confirmed facts come from the reread parent. An unconfirmed reread uses a fixed sentence with no status and no volume. | FRS-BB-388 |
+| SRS-BB-351 | `RetiredSourceCue` is shown after a retiring modification. Each source is reread. An unconfirmed source does not get a status. | FRS-BB-389 |

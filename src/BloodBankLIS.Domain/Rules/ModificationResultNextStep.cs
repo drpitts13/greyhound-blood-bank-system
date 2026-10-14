@@ -59,4 +59,27 @@ public static class ModificationResultNextStep
 
         return $"{number} stayed {status} with {remainingVolume.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} mL remaining.";
     }
+
+    public readonly record struct RetiredSourceFact(string? UnitNumber, bool Confirmed, UnitStatus? Status);
+
+    public static string? RetiredSourceCue(IReadOnlyList<RetiredSourceFact> sources)
+    {
+        if (sources.Count == 0)
+        {
+            return null;
+        }
+
+        return string.Join(" ", sources.Select(DescribeRetiredSource));
+    }
+
+    private static string DescribeRetiredSource(RetiredSourceFact source)
+    {
+        var number = string.IsNullOrWhiteSpace(source.UnitNumber) ? "A source" : source.UnitNumber.Trim();
+        if (!source.Confirmed || source.Status is null)
+        {
+            return $"{number} was retired. Its current status could not be confirmed.";
+        }
+
+        return $"{number} is {source.Status}.";
+    }
 }

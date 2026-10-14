@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 200)
+## Capability matrix (Cycle 201)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -38,7 +38,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Elution / special / reflex | Partial | Chart DAT/elution workup exists. Eluate findings are not posted as structured antibody history; do not invent that rule |
 | Result review, correction, invalidation | Present | Versioned; instrument pending verification |
 | ISBT identifiers, codes, attributes, locations | Partial | Parser + import; licensed ICCBBA extract not loaded (OCD-004) |
-| Divisions, modifications, pooling, aliquots, irradiate, wash, thaw | Partial | Cycle 188 copies concordant typing. Cycle 189 copies an autologous or directed reservation. Cycle 190 aliquot leaves the parent available and reduces its volume. Cycle 191 requires a known source volume to be fully assigned on divide, and refuses a result volume larger than the source. Cycle 192 refuses a pool that would drop a known source volume. Cycle 193 refuses a pool whose sources are not in the same storage location. Cycle 194 shows the location where a modification result was made, including after the unit is moved. Cycle 195 also says when that result is no longer there. Cycle 196 adds when that move was recorded and why, when a status row says so. Cycle 197 adds who recorded that move. Cycle 198 shows the storage location name on the selected unit and on each pool source. A missing name stays the location id. Cycle 199 shows that same place on each new unit and points a quarantined result at release. Cycle 200 says an aliquot parent stayed in place and names the volume left on it. A negative is copied only when every source was typed negative | |
+| Divisions, modifications, pooling, aliquots, irradiate, wash, thaw | Partial | Cycle 188 copies concordant typing. Cycle 189 copies an autologous or directed reservation. Cycle 190 aliquot leaves the parent available and reduces its volume. Cycle 191 requires a known source volume to be fully assigned on divide, and refuses a result volume larger than the source. Cycle 192 refuses a pool that would drop a known source volume. Cycle 193 refuses a pool whose sources are not in the same storage location. Cycle 194 shows the location where a modification result was made, including after the unit is moved. Cycle 195 also says when that result is no longer there. Cycle 196 adds when that move was recorded and why, when a status row says so. Cycle 197 adds who recorded that move. Cycle 198 shows the storage location name on the selected unit and on each pool source. A missing name stays the location id. Cycle 199 shows that same place on each new unit and points a quarantined result at release. Cycle 200 says an aliquot parent stayed in place and names the volume left on it. Cycle 201 names each retired source and the status just read, and does not claim Modified when that read fails. A negative is copied only when every source was typed negative | |
 | Expiration calculations, status history, transfer | Present | |
 | Selection, reserve, assign, XM, issue, emergency, MTP | Present | IssueGate |
 | Return, reissue, transfusion, discard, reaction | Present | |
@@ -80,6 +80,8 @@ Cycle 198 shows the storage location name for the selected unit and for each uni
 Cycle 199 shows that place on each new modification result and, when the result is in quarantine, says to release it before issue (RISK-BB-454). Staff who can release get a link that opens that unit's release row. An assigned result does not get a release step. A unit that is not on the quarantine board does not open a release row.
 
 Cycle 200 says, after an aliquot, that the parent stayed in place and how much volume remains (RISK-BB-455). The status and volume come from a fresh read of the parent. A missing volume is not invented. If that read fails, the card does not invent a status or a remaining volume.
+
+Cycle 201 says, after a divide, pool, or other retiring modification, that each source was retired and shows the status just read (RISK-BB-456). A failed read does not claim the source is Modified. An aliquot does not use this line.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|
