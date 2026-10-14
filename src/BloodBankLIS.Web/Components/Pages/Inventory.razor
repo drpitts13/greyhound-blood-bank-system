@@ -247,13 +247,14 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Near expiry</h3></div>
-        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). Discard from the row with the same reason and second verifier as the unit page, before the expiration sweep.</p>
+        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). The location is the storage location name. A missing name stays the location id. A unit with no location says none. Discard from the row with the same reason and second verifier as the unit page, before the expiration sweep.</p>
         <table class="bb">
             <thead>
                 <tr>
                     <th>Unit</th>
                     <th>ABO/Rh</th>
                     <th>Product</th>
+                    <th>Location</th>
                     <th>Status</th>
                     <th>Expires</th>
                     <th></th>
@@ -266,6 +267,7 @@
                         <td class="mono">@row.UnitNumber</td>
                         <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                         <td>@ProductName(row.ProductTypeId)</td>
+                        <td>@row.LocationLabel</td>
                         <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
                         <td class="nowrap">
                             @row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")
@@ -284,10 +286,10 @@
                     @if (_discardingNearExpiryId == row.UnitId && Session.Has(PermissionCodes.InventoryDiscard))
                     {
                         <tr>
-                            <td colspan="6">
+                            <td colspan="7">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">
-                                        Discard <span class="mono">@row.UnitNumber</span>. A reason and a different second verifier are required.
+                                        Discard <span class="mono">@row.UnitNumber</span>. It is at @row.LocationLabel. A reason and a different second verifier are required.
                                     </p>
                                     <Outcome Value="_actionFb" />
                                     <div class="flex gap" style="flex-wrap:wrap;align-items:flex-end;">

@@ -285,6 +285,51 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListNearExpiry_NamesTheStorageLocation()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var fridge = new InventoryLocation
+        {
+            Code = $"NEAR-FR-{key}",
+            Name = " Outdate fridge ",
+            LocationType = LocationType.Refrigerator
+        };
+        var blank = new InventoryLocation
+        {
+            Code = $"NEAR-BL-{key}",
+            Name = "   ",
+            LocationType = LocationType.Refrigerator
+        };
+        context.InventoryLocations.AddRange(fridge, blank);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var expires = _factory.Clock.UtcNow.AddHours(10);
+        var named = await service.ReceiveUnitAsync(NewUnitRequest($"U-NEAR-LOC-{key}", productTypeId, expires) with { LocationId = fridge.Id });
+        var unnamed = await service.ReceiveUnitAsync(NewUnitRequest($"U-NEAR-NONE-{key}", productTypeId, expires));
+        var blankNamed = await service.ReceiveUnitAsync(NewUnitRequest($"U-NEAR-BLANK-{key}", productTypeId, expires) with { LocationId = blank.Id });
+        Assert.True(named.Succeeded, named.Error);
+        Assert.True(unnamed.Succeeded, unnamed.Error);
+        Assert.True(blankNamed.Succeeded, blankNamed.Error);
+
+        var list = await service.ListNearExpiryAsync();
+        var namedRow = Assert.Single(list, row => row.UnitNumber == $"U-NEAR-LOC-{key}");
+        var unnamedRow = Assert.Single(list, row => row.UnitNumber == $"U-NEAR-NONE-{key}");
+        var blankRow = Assert.Single(list, row => row.UnitNumber == $"U-NEAR-BLANK-{key}");
+
+        Assert.Equal(fridge.Id, namedRow.CurrentLocationId);
+        Assert.Equal("Outdate fridge", namedRow.LocationLabel);
+        Assert.Null(unnamedRow.CurrentLocationId);
+        Assert.Equal(StorageLocationLabel.None, unnamedRow.LocationLabel);
+        Assert.Equal(blank.Id, blankRow.CurrentLocationId);
+        Assert.Equal($"Location {blank.Id}", blankRow.LocationLabel);
+        Assert.DoesNotContain(blank.Code, blankRow.LocationLabel, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ListNearExpiry_ExcludesExpectedAndExpired()
     {
         var productTypeId = await EnsureProductTypeAsync();

@@ -105,10 +105,16 @@ public sealed record NearExpiryWorkItemDto(
     UnitStatus Status,
     AboGroup Abo,
     RhType RhD,
-    long ProductTypeId)
+    long ProductTypeId,
+    long? CurrentLocationId = null,
+    string? CurrentLocationName = null)
 {
-    public static NearExpiryWorkItemDto From(BloodUnit u) => new(
-        u.Id, u.UnitNumber, u.ExpiresUtc, u.Status, u.Abo, u.RhD, u.ProductTypeId);
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public static NearExpiryWorkItemDto From(BloodUnit u, string? locationName = null) => new(
+        u.Id, u.UnitNumber, u.ExpiresUtc, u.Status, u.Abo, u.RhD, u.ProductTypeId,
+        u.CurrentLocationId,
+        string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
 }
 
 public sealed record QuarantineWorkItemDto(

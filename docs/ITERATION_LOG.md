@@ -5723,3 +5723,28 @@ The main inventory search list showed a location code. A searched unit was label
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The near-expiry board does not say where the unit is stored, so staff discarding an expiring unit still have to open it to find the refrigerator.
+
+## Iteration 208 — Storage location name on near expiry (2026-10-14)
+
+The near-expiry board listed the unit, product, and expiration. Staff discarding an expiring unit still had to open it to find the refrigerator.
+
+### Implemented
+
+- Each near-expiry row shows the storage location name.
+- The discard row repeats that place.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none. A missing location record does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-361, FRS-BB-396, SRS-BB-358, RISK-BB-463.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-251 (`InventoryServiceTests.ListNearExpiry_NamesTheStorageLocation`).
+- Near-expiry location test green (1).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit chart still shows a location code, not the storage location name, so opening a unit from search or near expiry labels it differently from those boards.

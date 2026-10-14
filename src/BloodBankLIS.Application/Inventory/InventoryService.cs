@@ -125,12 +125,24 @@ public sealed class InventoryService
         var window = TimeSpan.FromHours(hours);
         var rows = await _repository.SearchAsync(
             new InventorySearchCriteria(ExpiringBeforeUtc: now.Add(window).AddSeconds(1)), ct);
-
-        return rows
+        var near = rows
             .Where(u => NearExpiryStatuses.Contains(u.Status)
                         && BloodUnitExpirationRule.IsNearExpiry(u.ExpiresUtc, now, window))
             .OrderBy(u => u.ExpiresUtc)
-            .Select(NearExpiryWorkItemDto.From)
+            .ToList();
+        var locationNames = await LoadLocationNamesAsync(near.Select(u => u.CurrentLocationId).OfType<long>(), ct);
+
+        return near
+            .Select(u =>
+            {
+                string? locationName = null;
+                if (u.CurrentLocationId is long locationId)
+                {
+                    locationNames.TryGetValue(locationId, out locationName);
+                }
+
+                return NearExpiryWorkItemDto.From(u, locationName);
+            })
             .ToList();
     }
 

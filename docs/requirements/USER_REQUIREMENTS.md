@@ -366,3 +366,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-358 | Staff looking for a missing or damaged unit can see the storage location by name. | P1 | FRS-BB-393 |
 | URS-BB-359 | Staff releasing a unit from operational hold can see the storage location by name. | P1 | FRS-BB-394 |
 | URS-BB-360 | Staff searching inventory can see each unit's storage location by name. | P1 | FRS-BB-395 |
+| URS-BB-361 | Staff discarding a unit that is near expiry can see the storage location by name. | P1 | FRS-BB-396 |
