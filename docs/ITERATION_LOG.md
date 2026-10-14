@@ -5773,3 +5773,28 @@ Opening a unit from search or near expiry showed a location code on the chart. T
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit status history names the status change and not the storage location, so a transfer is visible as a status line and the refrigerator is not on the timeline.
+
+## Iteration 210 — Storage location on a unit status move (2026-10-14)
+
+Unit status history named the status change and the reason. A transfer was visible as a status line, and the refrigerator was not on the timeline.
+
+### Implemented
+
+- A status row whose recorded location changed names the storage locations.
+- A blank or unknown name stays `Location {id}`.
+- A row that stays in the same place, including both unassigned, does not say it moved.
+- A missing destination is not invented. A location list that cannot be loaded does not invent names.
+
+### Requirements / risk
+
+- URS-BB-363, FRS-BB-398, SRS-BB-360, RISK-BB-465.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-253 (`StatusHistoryLocationCueTests`; `InventoryServiceTests.UnitActivity_NamesTheStorageLocationsOnAMove`).
+- Status-move location tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an issue and still says patient #id on an allocation, so staff tracing who the unit was set aside for have to leave the chart.

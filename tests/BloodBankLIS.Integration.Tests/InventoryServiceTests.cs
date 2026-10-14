@@ -330,6 +330,78 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task UnitActivity_NamesTheStorageLocationsOnAMove()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var fromFridge = new InventoryLocation
+        {
+            Code = $"MOVE-FR-{key}",
+            Name = " Paperwork fridge ",
+            LocationType = LocationType.Refrigerator
+        };
+        var toFridge = new InventoryLocation
+        {
+            Code = $"MOVE-TO-{key}",
+            Name = "Outdate fridge",
+            LocationType = LocationType.Refrigerator
+        };
+        var blank = new InventoryLocation
+        {
+            Code = $"MOVE-BL-{key}",
+            Name = "   ",
+            LocationType = LocationType.Refrigerator
+        };
+        context.InventoryLocations.AddRange(fromFridge, toFridge, blank);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var placed = await service.ReceiveUnitAsync(
+            NewUnitRequest($"U-MOVE-LOC-{key}", productTypeId) with { LocationId = fromFridge.Id });
+        var unplaced = await service.ReceiveUnitAsync(NewUnitRequest($"U-MOVE-NONE-{key}", productTypeId));
+        var blankNamed = await service.ReceiveUnitAsync(
+            NewUnitRequest($"U-MOVE-BLANK-{key}", productTypeId) with { LocationId = blank.Id });
+        Assert.True(placed.Succeeded, placed.Error);
+        Assert.True(unplaced.Succeeded, unplaced.Error);
+        Assert.True(blankNamed.Succeeded, blankNamed.Error);
+        Assert.True((await service.TransferAsync(placed.Unit!.Id, toFridge.Id, "Move to outdate")).Succeeded);
+        Assert.True((await service.TransferAsync(blankNamed.Unit!.Id, toFridge.Id, "Move from an unnamed place")).Succeeded);
+
+        var activity = new UnitActivityService(
+            new InventoryRepository(context),
+            new EfRepository<Allocation>(context),
+            new EfRepository<Crossmatch>(context),
+            new EfRepository<Issue>(context),
+            new EfRepository<Return>(context),
+            new EfRepository<TransfusionEvent>(context),
+            new EfRepository<OrderAction>(context),
+            new EfRepository<ActionDefinition>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<Patient>(context),
+            new EfRepository<InventoryLocation>(context));
+
+        var placedTrail = await activity.ListAsync(placed.Unit.Id);
+        var intake = Assert.Single(placedTrail, row => row.Summary.Contains("Initial intake", StringComparison.Ordinal));
+        var move = Assert.Single(placedTrail, row => row.Summary.Contains("Move to outdate", StringComparison.Ordinal));
+        Assert.Contains("to Paperwork fridge", intake.Summary, StringComparison.Ordinal);
+        Assert.Contains("from Paperwork fridge to Outdate fridge", move.Summary, StringComparison.Ordinal);
+        Assert.DoesNotContain(fromFridge.Code, intake.Summary, StringComparison.Ordinal);
+        Assert.DoesNotContain(toFridge.Code, move.Summary, StringComparison.Ordinal);
+
+        var unplacedTrail = await activity.ListAsync(unplaced.Unit!.Id);
+        var unplacedIntake = Assert.Single(unplacedTrail, row => row.EventType == "Status");
+        Assert.DoesNotContain(" · ", unplacedIntake.Summary, StringComparison.Ordinal);
+
+        var blankTrail = await activity.ListAsync(blankNamed.Unit!.Id);
+        var blankMove = Assert.Single(blankTrail, row => row.Summary.Contains("Move from an unnamed place", StringComparison.Ordinal));
+        Assert.Contains($"from Location {blank.Id} to Outdate fridge", blankMove.Summary, StringComparison.Ordinal);
+        Assert.DoesNotContain(blank.Code, blankMove.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ListNearExpiry_ExcludesExpectedAndExpired()
     {
         var productTypeId = await EnsureProductTypeAsync();

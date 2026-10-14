@@ -46,7 +46,7 @@ flowchart TD
 - Inventory discrepancy worklist (`GET /api/inventory/units/discrepancy`) lists `Missing` and `Damaged` units with product, ABO/Rh, and the storage location name awaiting locate or inspect (SoftBank/SafeTrace physical inventory; 21 CFR 606.165). A blank or unknown name stays the location id. No location says none. `/inventory` Locates or Inspects from the row with the same `inventory.release` gates as Manage.
 - Operational-hold worklist (`GET /api/inventory/units/on-hold`) lists `OnHold` units with product, ABO/Rh, hold reason, and the storage location name. A blank or unknown name stays the location id. No location says none. `/inventory` Releases from the row through existing `ReleaseFromHoldAsync` (`INV-HOLD-PERM`). It is not a quality-quarantine board.
 - Inventory search on `/inventory` lists matching units with the storage location name. A blank or unknown name stays the location id. No location says none. A location code is not shown when the name is missing.
-- The unit chart (`/inventory/units/{id}`) shows that same storage location name on the header and on the unit identity. A blank or unknown name stays the location id. No location says none. A location code is not shown when the name is missing.
+- The unit chart (`/inventory/units/{id}`) shows that same storage location name on the header and on the unit identity. A blank or unknown name stays the location id. No location says none. A location code is not shown when the name is missing. Status history names the storage locations when the recorded place changed. A row that stays in the same place does not say it moved. A missing destination is not invented.
 - Audit: `Create` (unit), `Update` (status change) with location.
 
 ---

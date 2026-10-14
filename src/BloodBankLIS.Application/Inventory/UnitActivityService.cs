@@ -2,6 +2,7 @@ using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Inventory;
 
@@ -22,6 +23,7 @@ public sealed class UnitActivityService
     private readonly IRepository<UnitModificationUnit> _modificationUnits;
     private readonly IRepository<UnitModification> _modifications;
     private readonly IRepository<Patient> _patients;
+    private readonly IRepository<InventoryLocation>? _locations;
 
     public UnitActivityService(
         IInventoryRepository inventory,
@@ -34,7 +36,8 @@ public sealed class UnitActivityService
         IRepository<ActionDefinition> actionDefinitions,
         IRepository<UnitModificationUnit> modificationUnits,
         IRepository<UnitModification> modifications,
-        IRepository<Patient> patients)
+        IRepository<Patient> patients,
+        IRepository<InventoryLocation>? locations = null)
     {
         _inventory = inventory;
         _allocations = allocations;
@@ -47,19 +50,25 @@ public sealed class UnitActivityService
         _modificationUnits = modificationUnits;
         _modifications = modifications;
         _patients = patients;
+        _locations = locations;
     }
 
     public async Task<IReadOnlyList<UnitActivityDto>> ListAsync(long unitId, CancellationToken ct = default)
     {
         var rows = new List<UnitActivityDto>();
+        var history = await _inventory.GetHistoryAsync(unitId, ct);
+        var locationNames = await LoadLocationNamesAsync(history, ct);
 
-        foreach (var h in await _inventory.GetHistoryAsync(unitId, ct))
+        foreach (var h in history)
         {
             var from = h.FromStatus?.ToString() ?? "—";
+            var place = StatusHistoryLocationCue.Format(h.FromLocationId, h.ToLocationId, locationNames);
+            var reason = string.IsNullOrWhiteSpace(h.Reason) ? "" : $" — {h.Reason}";
+            var location = place is null ? "" : $" · {place}";
             rows.Add(new UnitActivityDto(
                 h.ChangedUtc,
                 "Status",
-                $"{from} → {h.ToStatus}{(string.IsNullOrWhiteSpace(h.Reason) ? "" : $" — {h.Reason}")}",
+                $"{from} → {h.ToStatus}{location}{reason}",
                 h.ChangedBy,
                 h.RelatedEntityType,
                 h.RelatedEntityId));
@@ -190,5 +199,33 @@ public sealed class UnitActivityService
             .OrderBy(r => r.WhenUtc)
             .ThenBy(r => r.EventType)
             .ToList();
+    }
+
+    private async Task<Dictionary<long, string?>> LoadLocationNamesAsync(
+        IReadOnlyList<InventoryStatusHistory> history,
+        CancellationToken ct)
+    {
+        var names = new Dictionary<long, string?>();
+        if (_locations is null)
+        {
+            return names;
+        }
+
+        var ids = history
+            .SelectMany(row => new long?[] { row.FromLocationId, row.ToLocationId })
+            .OfType<long>()
+            .Distinct()
+            .ToList();
+        if (ids.Count == 0)
+        {
+            return names;
+        }
+
+        foreach (var location in await _locations.ListAsync(location => ids.Contains(location.Id), ct))
+        {
+            names[location.Id] = location.Name;
+        }
+
+        return names;
     }
 }
