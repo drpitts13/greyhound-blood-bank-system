@@ -5603,3 +5603,27 @@ A divide, pool, or other retiring modification set the source to Modified. The f
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The quality-quarantine board, where a new modification result is released, lists the unit and the reason and does not show the storage location name.
+
+## Iteration 203 — Storage location on quality quarantine (2026-10-14)
+
+A new modification result is released from the quality-quarantine board. That board listed the unit and the reason and did not say where the unit was stored.
+
+### Implemented
+
+- Each quarantine row shows the storage location name. The release row repeats it.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none is recorded. A missing location record does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-356, FRS-BB-391, SRS-BB-353, RISK-BB-458.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-246 (`InventoryServiceTests.ListQuarantine_NamesTheStorageLocation`).
+- Quarantine location test green (1).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The quality-quarantine board does not show volume, so two divided units of the same product and blood type are distinguished only by unit number.

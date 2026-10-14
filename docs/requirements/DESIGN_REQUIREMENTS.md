@@ -356,3 +356,4 @@
 | SRS-BB-350 | `AliquotParentCue` is shown only after an aliquot. Confirmed facts come from the reread parent. An unconfirmed reread uses a fixed sentence with no status and no volume. | FRS-BB-388 |
 | SRS-BB-351 | `RetiredSourceCue` is shown after a retiring modification. Each source is reread. An unconfirmed source does not get a status. | FRS-BB-389 |
 | SRS-BB-352 | `OfferModification` gates the modify form. `MayListModificationRules` gates the eligibility list. A retiring success clears the selected rule. | FRS-BB-390 |
+| SRS-BB-353 | `ListQuarantineAsync` loads the location name onto `QuarantineWorkItemDto`. `LocationLabel` uses `StorageLocationLabel`. | FRS-BB-391 |

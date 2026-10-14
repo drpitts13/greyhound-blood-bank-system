@@ -123,18 +123,30 @@ public sealed record QuarantineWorkItemDto(
     string? ProductCode = null,
     AboGroup? RetypeInterpretedAbo = null,
     RhType? RetypeInterpretedRh = null,
-    bool RetypeMismatch = false)
+    bool RetypeMismatch = false,
+    long? CurrentLocationId = null,
+    string? CurrentLocationName = null)
 {
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public string ReleasePlaceSentence =>
+        LocationLabel == StorageLocationLabel.None
+            ? "No storage location is recorded."
+            : $"It is at {LocationLabel}.";
+
     public static QuarantineWorkItemDto From(
         BloodUnit u,
         string? productCode = null,
-        ProductRetypeResult? latestRetype = null) => new(
+        ProductRetypeResult? latestRetype = null,
+        string? locationName = null) => new(
         u.Id, u.UnitNumber, u.QuarantineReasonCode, u.QuarantineReason, u.Abo, u.RhD, u.ExpiresUtc,
         u.ProductTypeId,
         productCode ?? u.ProductType?.ProductCode,
         latestRetype?.InterpretedAbo,
         latestRetype?.InterpretedRh,
-        latestRetype is { MatchesLabel: false });
+        latestRetype is { MatchesLabel: false },
+        u.CurrentLocationId,
+        string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
 }
 
 public sealed record DiscrepancyWorkItemDto(

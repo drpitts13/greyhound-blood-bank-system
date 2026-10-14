@@ -151,6 +151,16 @@ public sealed class InventoryService
             : (await _retypeResults.ListAsync(r => unitIds.Contains(r.BloodProductId), ct))
                 .GroupBy(r => r.BloodProductId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Id).First());
+        var locationIds = rows.Select(u => u.CurrentLocationId).OfType<long>().Distinct().ToList();
+        var locationNames = new Dictionary<long, string?>();
+        if (_locations is not null && locationIds.Count > 0)
+        {
+            var locations = await _locations.ListAsync(location => locationIds.Contains(location.Id), ct);
+            foreach (var location in locations)
+            {
+                locationNames[location.Id] = location.Name;
+            }
+        }
 
         return rows
             .OrderBy(u => u.CreatedUtc)
@@ -158,7 +168,13 @@ public sealed class InventoryService
             {
                 products.TryGetValue(u.ProductTypeId, out var product);
                 retypes.TryGetValue(u.Id, out var latest);
-                return QuarantineWorkItemDto.From(u, product?.ProductCode, latest);
+                string? locationName = null;
+                if (u.CurrentLocationId is long locationId)
+                {
+                    locationNames.TryGetValue(locationId, out locationName);
+                }
+
+                return QuarantineWorkItemDto.From(u, product?.ProductCode, latest, locationName);
             })
             .ToList();
     }

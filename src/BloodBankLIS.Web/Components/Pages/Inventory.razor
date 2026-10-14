@@ -322,7 +322,7 @@
 {
     <div class="bb-card" id="quality-quarantine">
         <div class="bb-card-title"><h3>Quality quarantine</h3></div>
-        <p class="muted">Units held for quality disposition with a coded reason (SoftBank/SafeTrace). The board shows product and any ABO/Rh retype mismatch. Release from the row with the same second-verifier gate as Manage.</p>
+        <p class="muted">Units held for quality disposition with a coded reason (SoftBank/SafeTrace). The board shows product, the storage location name, and any ABO/Rh retype mismatch. A missing name stays the location id. Release from the row with the same second-verifier gate as Manage.</p>
         @if (_quarantineItems.Count == 0)
         {
             <div class="muted">No units in quality quarantine.</div>
@@ -334,6 +334,7 @@
                     <tr>
                         <th>Unit</th>
                         <th>Product</th>
+                        <th>Location</th>
                         <th>ABO/Rh</th>
                         <th>Retype</th>
                         <th>Reason</th>
@@ -348,6 +349,7 @@
                         <tr>
                             <td class="mono">@row.UnitNumber</td>
                             <td class="mono">@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
+                            <td>@row.LocationLabel</td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td>
                                 @if (row.RetypeMismatch && row.RetypeInterpretedAbo is AboGroup interp)
@@ -379,10 +381,10 @@
                         @if (_releasingQuarantineId == row.UnitId && Session.Has(PermissionCodes.InventoryRelease))
                         {
                             <tr>
-                                <td colspan="8">
+                                <td colspan="9">
                                     <div class="alert alert-info" style="margin:.25rem 0;">
                                         <p class="muted" style="margin:0 0 .5rem;">
-                                            Release <span class="mono">@row.UnitNumber</span> with the same second-verifier gate as Manage.
+                                            Release <span class="mono">@row.UnitNumber</span> with the same second-verifier gate as Manage. @row.ReleasePlaceSentence
                                             @if (row.RetypeMismatch)
                                             {
                                                 <span> This unit was quarantined after an ABO/Rh retype mismatch.</span>

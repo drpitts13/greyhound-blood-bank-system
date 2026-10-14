@@ -48,6 +48,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             new EfRepository<User>(context),
             new FacilityPolicyService(new EfRepository<SystemSetting>(context)),
             new EfRepository<Patient>(context),
+            locations: new EfRepository<InventoryLocation>(context),
             productTypes: new EfRepository<ProductType>(context),
             permissions: permissions,
             retype: retype,
@@ -321,6 +322,53 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("RBC-TEST", receivedRow.ProductCode);
         Assert.False(receivedRow.RetypeMismatch);
         Assert.DoesNotContain(list, i => i.UnitNumber == "U-Q-ASN");
+    }
+
+    [Fact]
+    public async Task ListQuarantine_NamesTheStorageLocation()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var fridge = new InventoryLocation
+        {
+            Code = $"Q-FRIDGE-{key}",
+            Name = " Fridge A ",
+            LocationType = LocationType.Refrigerator
+        };
+        var blank = new InventoryLocation
+        {
+            Code = $"Q-BLANK-{key}",
+            Name = "  ",
+            LocationType = LocationType.Refrigerator
+        };
+        context.InventoryLocations.AddRange(fridge, blank);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var named = await service.ReceiveUnitAsync(NewUnitRequest($"U-Q-LOC-{key}", productTypeId));
+        var unnamed = await service.ReceiveUnitAsync(NewUnitRequest($"U-Q-NONE-{key}", productTypeId));
+        var blankNamed = await service.ReceiveUnitAsync(NewUnitRequest($"U-Q-BLANK-{key}", productTypeId));
+        Assert.True(named.Succeeded, named.Error);
+        Assert.True(unnamed.Succeeded, unnamed.Error);
+        Assert.True(blankNamed.Succeeded, blankNamed.Error);
+        Assert.True((await service.TransferAsync(named.Unit!.Id, fridge.Id, "Move the new result")).Succeeded);
+        Assert.True((await service.TransferAsync(blankNamed.Unit!.Id, blank.Id, "Move to an unnamed place")).Succeeded);
+
+        var list = await service.ListQuarantineAsync();
+        var namedRow = Assert.Single(list, row => row.UnitNumber == $"U-Q-LOC-{key}");
+        var unnamedRow = Assert.Single(list, row => row.UnitNumber == $"U-Q-NONE-{key}");
+        var blankRow = Assert.Single(list, row => row.UnitNumber == $"U-Q-BLANK-{key}");
+
+        Assert.Equal(fridge.Id, namedRow.CurrentLocationId);
+        Assert.Equal("Fridge A", namedRow.LocationLabel);
+        Assert.Equal("It is at Fridge A.", namedRow.ReleasePlaceSentence);
+        Assert.Null(unnamedRow.CurrentLocationId);
+        Assert.Equal(StorageLocationLabel.None, unnamedRow.LocationLabel);
+        Assert.Equal("No storage location is recorded.", unnamedRow.ReleasePlaceSentence);
+        Assert.Equal(blank.Id, blankRow.CurrentLocationId);
+        Assert.Equal($"Location {blank.Id}", blankRow.LocationLabel);
+        Assert.Equal($"It is at Location {blank.Id}.", blankRow.ReleasePlaceSentence);
     }
 
     [Fact]
