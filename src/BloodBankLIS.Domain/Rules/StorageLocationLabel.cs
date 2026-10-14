@@ -28,4 +28,35 @@ public static class StorageLocationLabel
 
         return Format(locationId, name);
     }
+
+    /// <summary>
+    /// Label for the main inventory search list. Prefer the catalog name.
+    /// A location code is not a substitute when the name is blank or the row is missing.
+    /// </summary>
+    public readonly record struct CatalogLocation(long Id, string? Name, string? Code);
+
+    public static string ForInventoryList(long? locationId, IEnumerable<CatalogLocation>? catalog)
+    {
+        if (locationId is not long id)
+        {
+            return Format(null, name: null);
+        }
+
+        string? name = null;
+        if (catalog is not null)
+        {
+            foreach (var location in catalog)
+            {
+                if (location.Id != id)
+                {
+                    continue;
+                }
+
+                name = location.Name;
+                break;
+            }
+        }
+
+        return Format(id, name);
+    }
 }

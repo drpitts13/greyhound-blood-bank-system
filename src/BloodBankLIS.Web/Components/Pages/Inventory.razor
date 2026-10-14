@@ -562,6 +562,7 @@
 
 <div class="bb-card">
     <div class="bb-card-title"><h3>Search</h3></div>
+    <p class="muted">The location column is the storage location name. A missing name stays the location id. A unit with no location says none.</p>
     <div class="form-row">
         <div class="field"><label>Unit number</label><input @bind="_searchUnit" /></div>
         <div class="field"><label>Status</label>
@@ -764,7 +765,10 @@
     private string ProductName(long productTypeId) =>
         _productTypes.FirstOrDefault(t => t.Id == productTypeId)?.Name ?? "—";
 
-    private string LocationName(long? id) => id is null ? "—" : (_locations.FirstOrDefault(l => l.Id == id)?.Code ?? id.Value.ToString());
+    private string LocationName(long? id) =>
+        StorageLocationLabel.ForInventoryList(
+            id,
+            _locations.Select(l => new StorageLocationLabel.CatalogLocation(l.Id, l.Name, l.Code)));
 
     private async Task SearchAsync()
     {

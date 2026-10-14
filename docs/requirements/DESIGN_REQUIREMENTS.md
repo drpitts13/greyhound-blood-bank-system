@@ -360,3 +360,4 @@
 | SRS-BB-354 | `VolumeLabel` formats `BloodUnit.Volume`. Null stays "Volume not recorded". | FRS-BB-392 |
 | SRS-BB-355 | `ListDiscrepancyAsync` loads the location name onto `DiscrepancyWorkItemDto`. `LocationLabel` uses `StorageLocationLabel`. | FRS-BB-393 |
 | SRS-BB-356 | `ListOnHoldAsync` loads the location name onto `OnHoldWorkItemDto`. `LocationLabel` uses `StorageLocationLabel`. | FRS-BB-394 |
+| SRS-BB-357 | The inventory search list labels each unit with `StorageLocationLabel.ForInventoryList`, using the location catalog name. The location code is not a fallback. | FRS-BB-395 |

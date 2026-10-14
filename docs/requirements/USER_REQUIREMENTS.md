@@ -365,3 +365,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-357 | Staff releasing a quarantined unit can see its recorded volume. | P1 | FRS-BB-392 |
 | URS-BB-358 | Staff looking for a missing or damaged unit can see the storage location by name. | P1 | FRS-BB-393 |
 | URS-BB-359 | Staff releasing a unit from operational hold can see the storage location by name. | P1 | FRS-BB-394 |
+| URS-BB-360 | Staff searching inventory can see each unit's storage location by name. | P1 | FRS-BB-395 |

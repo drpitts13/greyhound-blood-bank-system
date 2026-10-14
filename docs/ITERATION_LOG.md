@@ -5698,3 +5698,28 @@ A unit on operational hold cannot be issued. The hold board did not say where it
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The main inventory list still shows a location code, not the storage location name, so a searched unit is labeled differently from quarantine, discrepancy, and hold.
+
+## Iteration 207 — Storage location name on the inventory search list (2026-10-14)
+
+The main inventory search list showed a location code. A searched unit was labeled differently from quarantine, discrepancy, and hold, which already show the storage location name.
+
+### Implemented
+
+- Each search row shows the storage location name.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none. A location code is not used when the name is missing.
+- A location list that cannot be loaded does not invent names.
+
+### Requirements / risk
+
+- URS-BB-360, FRS-BB-395, SRS-BB-357, RISK-BB-462.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-250 (`StorageLocationLabelTests.ForInventoryList_NamedLocation_UsesTheNameNotTheCode`; `StorageLocationLabelTests.ForInventoryList_BlankName_DoesNotFallBackToTheCode`; `StorageLocationLabelTests.ForInventoryList_NoLocation_DoesNotInventOne`).
+- Inventory-list location tests green (3).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The near-expiry board does not say where the unit is stored, so staff discarding an expiring unit still have to open it to find the refrigerator.

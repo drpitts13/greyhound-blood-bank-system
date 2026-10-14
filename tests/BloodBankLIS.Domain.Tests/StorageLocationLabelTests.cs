@@ -30,4 +30,39 @@ public class StorageLocationLabelTests
         Assert.Equal(StorageLocationLabel.None, StorageLocationLabel.Format(null, namesById: null));
         Assert.Equal("No location", StorageLocationLabel.Format(null, "   "));
     }
+
+    [Fact]
+    public void ForInventoryList_NamedLocation_UsesTheNameNotTheCode()
+    {
+        var catalog = new[]
+        {
+            new StorageLocationLabel.CatalogLocation(12, "  Paperwork fridge  ", "FR-HOLD")
+        };
+
+        Assert.Equal("Paperwork fridge", StorageLocationLabel.ForInventoryList(12, catalog));
+    }
+
+    [Fact]
+    public void ForInventoryList_BlankName_DoesNotFallBackToTheCode()
+    {
+        var catalog = new[]
+        {
+            new StorageLocationLabel.CatalogLocation(12, "   ", "FR-HOLD")
+        };
+
+        Assert.Equal("Location 12", StorageLocationLabel.ForInventoryList(12, catalog));
+        Assert.Equal("Location 18", StorageLocationLabel.ForInventoryList(18, catalog));
+        Assert.Equal("Location 4", StorageLocationLabel.ForInventoryList(4, catalog: null));
+    }
+
+    [Fact]
+    public void ForInventoryList_NoLocation_DoesNotInventOne()
+    {
+        var catalog = new[]
+        {
+            new StorageLocationLabel.CatalogLocation(12, "Paperwork fridge", "FR-HOLD")
+        };
+
+        Assert.Equal(StorageLocationLabel.None, StorageLocationLabel.ForInventoryList(null, catalog));
+    }
 }
