@@ -130,7 +130,8 @@
                 Add two or more units of the same product, ABO, and Rh(D) to pool (the selected unit above is
                 included automatically as the first source). Antigen typing follows the sources: a positive on
                 any unit makes the pool positive, and conflicting results stop the pool. Autologous and directed
-                units pool only when they share the same reservation.
+                units pool only when they share the same reservation. When any unit has a volume, every unit
+                needs one so the pool total can include each source.
             </p>
             <div class="field">
                 <label>Additional unit number</label>
@@ -141,11 +142,12 @@
                     ExcludeIds="PoolExcludeIds" />
             </div>
             <table class="bb" style="margin-top:.6rem;">
-                <thead><tr><th>Unit #</th><th>ABO/Rh</th><th></th></tr></thead>
+                <thead><tr><th>Unit #</th><th>ABO/Rh</th><th class="right">Volume</th><th></th></tr></thead>
                 <tbody>
                     <tr>
                         <td class="mono">@_unit.UnitNumber</td>
                         <td>@Ui.BloodType(_unit.Abo, _unit.RhD)</td>
+                        <td class="right">@FormatVolume(_unit.Volume)</td>
                         <td class="muted">primary</td>
                     </tr>
                     @foreach (var p in _poolUnits)
@@ -153,11 +155,24 @@
                         <tr>
                             <td class="mono">@p.UnitNumber</td>
                             <td>@Ui.BloodType(p.Abo, p.RhD)</td>
+                            <td class="right">@FormatVolume(p.Volume)</td>
                             <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => _poolUnits.Remove(p)">Remove</button></td>
                         </tr>
                     }
                 </tbody>
             </table>
+            @if (PoolVolumeGap)
+            {
+                <div class="muted">Every pooled unit needs a recorded volume greater than zero so the pool total can include each source.</div>
+            }
+            else if (PoolVolumeSum is decimal poolSum)
+            {
+                <div class="muted">Pool volume will be @poolSum.ToString("0.##") mL, the sum of these units.</div>
+            }
+            else
+            {
+                <div class="muted">None of these units has a recorded volume, so the pool volume stays unrecorded.</div>
+            }
         }
         else if (_selectedRule.ModificationType == ModificationType.Aliquot)
         {
@@ -269,6 +284,19 @@
     private decimal? _singleResultVolume;
 
     private decimal DivideVolumeSum => _children.Sum(c => c.Volume ?? 0m);
+
+    private IReadOnlyList<decimal?> PoolVolumes =>
+        _unit is null
+            ? Array.Empty<decimal?>()
+            : new[] { _unit.Volume }.Concat(_poolUnits.Select(unit => unit.Volume)).ToList();
+
+    private bool PoolVolumeGap =>
+        PoolVolumes.Any(volume => volume is not null) && PoolVolumes.Any(volume => volume is null or <= 0m);
+
+    private decimal? PoolVolumeSum =>
+        PoolVolumeGap || PoolVolumes.Count == 0 || PoolVolumes.All(volume => volume is null)
+            ? null
+            : PoolVolumes.Sum(volume => volume!.Value);
 
     private string _reason = string.Empty;
     private Feedback? _actionFb;
@@ -507,6 +535,14 @@
         }
         else if (_selectedRule.ModificationType == ModificationType.Pool)
         {
+            var poolVolumeEval = UnitModificationEligibilityRule.EvaluatePoolVolumes(PoolVolumes);
+            if (poolVolumeEval.IsHardStopped)
+            {
+                _busy = false;
+                _actionFb = Feedback.Fail(poolVolumeEval.HardStops[0].Message);
+                return;
+            }
+
             var sourceIds = new List<long> { _unit.Id };
             sourceIds.AddRange(_poolUnits.Select(p => p.Id));
             r = await Api.PoolUnitsAsync(new PerformPoolRequest(sourceIds, _selectedRule.RuleId, _reason));

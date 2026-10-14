@@ -14,6 +14,7 @@ public static class UnitModificationEligibilityRule
     public const string ProductMismatchCode = "MOD-PRODUCT-MISMATCH";
     public const string PoolMinSourcesCode = "MOD-POOL-MIN-SOURCES";
     public const string PoolAboMismatchCode = "MOD-POOL-ABO-MISMATCH";
+    public const string PoolVolumeCode = "MOD-POOL-VOLUME";
     public const string DivideMinTargetsCode = "MOD-DIVIDE-MIN-TARGETS";
     public const string VolumeRequiredCode = "MOD-DIVIDE-VOLUME-REQUIRED";
     public const string VolumeExceedsSourceCode = "MOD-VOLUME-EXCEEDS-SOURCE";
@@ -93,6 +94,31 @@ public static class UnitModificationEligibilityRule
         }
 
         return new RuleEvaluation(results);
+    }
+
+    /// <summary>
+    /// When any pooled unit has a recorded volume, every source must have a volume greater
+    /// than zero so the pool total can include each one. Units with no volumes at all stay unrecorded.
+    /// </summary>
+    public static RuleEvaluation EvaluatePoolVolumes(IReadOnlyList<decimal?> volumes)
+    {
+        var list = volumes ?? Array.Empty<decimal?>();
+        if (list.All(volume => volume is null))
+        {
+            return new RuleEvaluation(new[] { RuleResult.Pass(PoolVolumeCode) });
+        }
+
+        if (list.Any(volume => volume is null or <= 0m))
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(
+                    PoolVolumeCode,
+                    "Every pooled unit needs a recorded volume greater than zero so the pool total can include each source. A missing volume would drop the volumes that are already known.")
+            });
+        }
+
+        return new RuleEvaluation(new[] { RuleResult.Pass(PoolVolumeCode) });
     }
 
     /// <summary>

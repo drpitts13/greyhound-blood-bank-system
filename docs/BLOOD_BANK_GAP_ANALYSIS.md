@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 191)
+## Capability matrix (Cycle 192)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -38,7 +38,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Elution / special / reflex | Partial | Chart DAT/elution workup exists. Eluate findings are not posted as structured antibody history; do not invent that rule |
 | Result review, correction, invalidation | Present | Versioned; instrument pending verification |
 | ISBT identifiers, codes, attributes, locations | Partial | Parser + import; licensed ICCBBA extract not loaded (OCD-004) |
-| Divisions, modifications, pooling, aliquots, irradiate, wash, thaw | Partial | Cycle 188 copies concordant typing. Cycle 189 copies an autologous or directed reservation. Cycle 190 aliquot leaves the parent available and reduces its volume. Cycle 191 requires a known source volume to be fully assigned on divide, and refuses a result volume larger than the source. A negative is copied only when every source was typed negative |
+| Divisions, modifications, pooling, aliquots, irradiate, wash, thaw | Partial | Cycle 188 copies concordant typing. Cycle 189 copies an autologous or directed reservation. Cycle 190 aliquot leaves the parent available and reduces its volume. Cycle 191 requires a known source volume to be fully assigned on divide, and refuses a result volume larger than the source. Cycle 192 refuses a pool that would drop a known source volume. A negative is copied only when every source was typed negative |
 | Expiration calculations, status history, transfer | Present | |
 | Selection, reserve, assign, XM, issue, emergency, MTP | Present | IssueGate |
 | Return, reissue, transfusion, discard, reaction | Present | |
@@ -62,6 +62,8 @@ Cycle 189 copies an autologous or directed reservation onto each modification re
 Cycle 190 removes an aliquot from a parent unit without retiring the parent (RISK-BB-445). The parent stays available at the reduced volume. The aliquot is a new unit.
 
 Cycle 191 refuses a divide that would retire a source while leaving recorded volume unassigned, and refuses a single modification whose result volume is larger than the source (RISK-BB-446). The source stays available. A source with no recorded volume still stores the volumes that were entered.
+
+Cycle 192 refuses a pool that mixes a recorded volume with a missing or non-positive volume (RISK-BB-447). The sources stay available. When every source has a volume, the pool volume is the sum. When none do, the pool volume stays unrecorded. The modify audit records the source volumes and the result volumes.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|

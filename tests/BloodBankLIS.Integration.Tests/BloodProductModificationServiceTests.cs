@@ -593,6 +593,56 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     }
 
     [Fact]
+    public async Task Pool_MissingVolumeAmongKnownVolumes_IsBlocked()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLVOLX");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var knownId = await CreateUnitAsync("U-POOLVOLX-1", sourceProductId, volume: 200m);
+        var missingId = await CreateUnitAsync("U-POOLVOLX-2", sourceProductId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([knownId, missingId], ruleId, "attempt"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, stop => stop.Code == UnitModificationEligibilityRule.PoolVolumeCode);
+
+        await using var verify = _factory.Create();
+        var known = (await verify.BloodUnits.FindAsync(knownId))!;
+        var missing = (await verify.BloodUnits.FindAsync(missingId))!;
+        Assert.Equal(UnitStatus.Available, known.Status);
+        Assert.Equal(200m, known.Volume);
+        Assert.Equal(UnitStatus.Available, missing.Status);
+        Assert.Null(missing.Volume);
+    }
+
+    [Fact]
+    public async Task Pool_RecordedVolumes_SumOntoTheResult_AndAuditKeepsTheSources()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLVOL");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var firstId = await CreateUnitAsync("U-POOLVOL-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-POOLVOL-2", sourceProductId, volume: 150m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool recorded volumes"));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(350m, Assert.Single(result.ResultUnits!).Volume);
+
+        await using var verify = _factory.Create();
+        var auditEvent = await verify.AuditEvents
+            .Where(a => a.EntityType == nameof(UnitModification) && a.EntityId == result.Modification!.Id && a.EventType == AuditEventType.Modify)
+            .SingleAsync();
+        Assert.Contains("SourceVolumes", auditEvent.OldValueJson);
+        Assert.Contains("200", auditEvent.OldValueJson);
+        Assert.Contains("150", auditEvent.OldValueJson);
+        Assert.Contains("ResultVolumes", auditEvent.NewValueJson);
+        Assert.Contains("350", auditEvent.NewValueJson);
+    }
+
+    [Fact]
     public async Task Pool_SingleSource_IsBlocked()
     {
         var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOL1");

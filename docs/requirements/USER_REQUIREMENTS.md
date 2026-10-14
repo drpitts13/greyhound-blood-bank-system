@@ -350,3 +350,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-342 | When a unit is divided, pooled, or otherwise modified, an autologous or directed reservation stays on the result, and units reserved for different people cannot be pooled. | P0 | FRS-BB-377 |
 | URS-BB-343 | Staff can remove an aliquot from a unit and leave the parent available at the reduced volume. | P0 | FRS-BB-378 |
 | URS-BB-344 | Staff dividing a unit, or recording a result volume on another modification, cannot create or discard volume that the source record does not support. | P0 | FRS-BB-379 |
+| URS-BB-345 | Staff pooling units cannot lose a recorded source volume because another unit in the pool has none. | P0 | FRS-BB-380 |

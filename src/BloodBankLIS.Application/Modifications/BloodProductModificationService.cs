@@ -348,13 +348,22 @@ public sealed class BloodProductModificationService
             return ModificationActionResult.Blocked(poolEval);
         }
 
+        var poolVolumes = sources.Select(source => source.Volume).ToList();
+        var poolVolumeEval = UnitModificationEligibilityRule.EvaluatePoolVolumes(poolVolumes);
+        if (poolVolumeEval.IsHardStopped)
+        {
+            return ModificationActionResult.Blocked(poolVolumeEval);
+        }
+
         var inherited = await InheritAttributesAsync(sources, ct);
         if (inherited.Blocked is not null)
         {
             return inherited.Blocked;
         }
 
-        var totalVolume = sources.All(s => s.Volume.HasValue) ? sources.Sum(s => s.Volume!.Value) : (decimal?)null;
+        var totalVolume = poolVolumes.All(volume => volume is null)
+            ? (decimal?)null
+            : poolVolumes.Sum(volume => volume!.Value);
         var specs = new List<(string? Suffix, decimal? Volume)> { (null, totalVolume) };
         return await ExecuteAsync(sources, rule, specs, request.Reason, ct, inheritedAttributes: inherited.Attributes);
     }
@@ -608,6 +617,7 @@ public sealed class BloodProductModificationService
         await _modifications.AddAsync(header, ct);
 
         var sortOrder = 0;
+        var sourceVolumesBefore = sources.Select(source => source.Volume).ToArray();
 
         foreach (var source in sources)
         {
@@ -766,13 +776,15 @@ public sealed class BloodProductModificationService
             oldValue: new
             {
                 SourceUnitIds = sources.Select(s => s.Id).ToArray(),
-                SourceUnitNumbers = sources.Select(s => s.UnitNumber).ToArray()
+                SourceUnitNumbers = sources.Select(s => s.UnitNumber).ToArray(),
+                SourceVolumes = sourceVolumesBefore
             },
             newValue: new
             {
                 rule.ModificationType,
                 ResultUnitIds = resultUnits.Select(u => u.Id).ToArray(),
                 ResultUnitNumbers = resultUnits.Select(u => u.UnitNumber).ToArray(),
+                ResultVolumes = resultSpecs.Select(spec => spec.Volume).ToArray(),
                 ResultExpiresUtc = resultExpiresUtc,
                 InheritedAttributeDefinitionIds = (inheritedAttributes ?? [])
                     .Select(attribute => attribute.DefinitionId)

@@ -5334,3 +5334,27 @@ A divide could retire a 300 mL unit after recording only 250 mL of results. The 
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A pool still drops known source volumes when any pooled unit has no recorded volume.
+
+## Iteration 192 — Pool volume accounting (2026-10-14)
+
+Pooling a measured unit with an unmeasured unit stored a blank volume on the pool. The known volume left the record when both sources were retired.
+
+### Implemented
+
+- `EvaluatePoolVolumes` HardStops `MOD-POOL-VOLUME` when any source has a recorded volume and another is missing or not greater than zero. The sources stay available.
+- When every source has a volume, the pool volume is the sum. When none have a volume, the pool volume stays unrecorded.
+- The modify page lists each source volume and the sum. The modify audit records the source volumes from before the change and the result volumes.
+
+### Requirements / risk
+
+- URS-BB-345, FRS-BB-380, SRS-BB-342, RISK-BB-447.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-235 (`UnitModificationEligibilityRuleTests` pool-volume cases; `BloodProductModificationServiceTests.Pool_MissingVolumeAmongKnownVolumes_IsBlocked`; `BloodProductModificationServiceTests.Pool_RecordedVolumes_SumOntoTheResult_AndAuditKeepsTheSources`).
+- Domain eligibility rules and Integration `BloodProductModificationServiceTests` green (28 + 41).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A pool result is stored at the first source location even when another source is somewhere else, with no confirmation those units were brought together.
