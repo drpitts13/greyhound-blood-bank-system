@@ -5358,3 +5358,27 @@ Pooling a measured unit with an unmeasured unit stored a blank volume on the poo
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A pool result is stored at the first source location even when another source is somewhere else, with no confirmation those units were brought together.
+
+## Iteration 193 — Pool location agreement (2026-10-14)
+
+A pool of units in different refrigerators was stored at the first unit's location. The other unit was retired without a record that it had been somewhere else.
+
+### Implemented
+
+- `EvaluatePoolLocations` HardStops `MOD-POOL-LOCATION` when the sources do not share one storage location, including a mix of a location and no location. The sources stay available.
+- Units that share a location, or that are all unassigned, can still be pooled. The result stays at that location.
+- The modify page shows each location and tells staff to transfer the units first. The modify audit records the source location ids and the result location ids.
+
+### Requirements / risk
+
+- URS-BB-346, FRS-BB-381, SRS-BB-343, RISK-BB-448.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-236 (`UnitModificationEligibilityRuleTests` pool-location cases; `BloodProductModificationServiceTests.Pool_DifferentLocations_IsBlocked`; `BloodProductModificationServiceTests.Pool_SameLocation_KeepsThatLocationOnTheResult`).
+- Domain eligibility rules and Integration `BloodProductModificationServiceTests` green (32 + 43).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history for a unit still does not show the storage location of the result.

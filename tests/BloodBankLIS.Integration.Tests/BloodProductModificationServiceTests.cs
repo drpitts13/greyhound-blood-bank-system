@@ -147,6 +147,28 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         return unit.Id;
     }
 
+    private async Task<long> CreateLocationAsync(string code, string name)
+    {
+        await using var context = _factory.Create();
+        var location = new InventoryLocation
+        {
+            Code = code,
+            Name = name,
+            LocationType = LocationType.Refrigerator
+        };
+        context.InventoryLocations.Add(location);
+        await context.SaveChangesAsync();
+        return location.Id;
+    }
+
+    private async Task SetLocationAsync(long unitId, long locationId)
+    {
+        await using var context = _factory.Create();
+        var unit = (await context.BloodUnits.FindAsync(unitId))!;
+        unit.CurrentLocationId = locationId;
+        await context.SaveChangesAsync();
+    }
+
     private async Task<long> CreateIsbtUnitAsync(
         string din,
         string productCodeData,
@@ -640,6 +662,59 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.Contains("150", auditEvent.OldValueJson);
         Assert.Contains("ResultVolumes", auditEvent.NewValueJson);
         Assert.Contains("350", auditEvent.NewValueJson);
+    }
+
+    [Fact]
+    public async Task Pool_DifferentLocations_IsBlocked()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLLOCX");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("POOLLOCX-A", "Fridge A");
+        var freezerId = await CreateLocationAsync("POOLLOCX-B", "Freezer B");
+        var firstId = await CreateUnitAsync("U-POOLLOCX-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-POOLLOCX-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, freezerId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "attempt"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, stop => stop.Code == UnitModificationEligibilityRule.PoolLocationCode);
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(firstId))!.Status);
+        Assert.Equal(fridgeId, (await verify.BloodUnits.FindAsync(firstId))!.CurrentLocationId);
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(secondId))!.Status);
+        Assert.Equal(freezerId, (await verify.BloodUnits.FindAsync(secondId))!.CurrentLocationId);
+    }
+
+    [Fact]
+    public async Task Pool_SameLocation_KeepsThatLocationOnTheResult()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLLOC");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("POOLLOC-A", "Fridge A");
+        var firstId = await CreateUnitAsync("U-POOLLOC-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-POOLLOC-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, fridgeId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool in one fridge"));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(fridgeId, Assert.Single(result.ResultUnits!).CurrentLocationId);
+
+        await using var verify = _factory.Create();
+        var auditEvent = await verify.AuditEvents
+            .Where(a => a.EntityType == nameof(UnitModification) && a.EntityId == result.Modification!.Id && a.EventType == AuditEventType.Modify)
+            .SingleAsync();
+        Assert.Contains("SourceLocationIds", auditEvent.OldValueJson);
+        Assert.Contains(fridgeId.ToString(), auditEvent.OldValueJson);
+        Assert.Contains("ResultLocationIds", auditEvent.NewValueJson);
     }
 
     [Fact]

@@ -40,6 +40,7 @@
             <div class="field"><label>Unit number</label><div class="mono">@_unit.UnitNumber</div></div>
             <div class="field"><label>Product code</label><div class="mono">@(SourceProductCode ?? "—")</div></div>
             <div class="field"><label>Volume</label><div>@FormatVolume(_unit.Volume)</div></div>
+            <div class="field"><label>Location</label><div>@FormatLocation(_unit.CurrentLocationId)</div></div>
             <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
             <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@_unit.Status</span></div></div>
             <div class="field"><label>Expires</label><div>@_unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
@@ -131,7 +132,8 @@
                 included automatically as the first source). Antigen typing follows the sources: a positive on
                 any unit makes the pool positive, and conflicting results stop the pool. Autologous and directed
                 units pool only when they share the same reservation. When any unit has a volume, every unit
-                needs one so the pool total can include each source.
+                needs one so the pool total can include each source. Units must already be in the same
+                storage location; transfer them together before pooling.
             </p>
             <div class="field">
                 <label>Additional unit number</label>
@@ -142,11 +144,12 @@
                     ExcludeIds="PoolExcludeIds" />
             </div>
             <table class="bb" style="margin-top:.6rem;">
-                <thead><tr><th>Unit #</th><th>ABO/Rh</th><th class="right">Volume</th><th></th></tr></thead>
+                <thead><tr><th>Unit #</th><th>ABO/Rh</th><th>Location</th><th class="right">Volume</th><th></th></tr></thead>
                 <tbody>
                     <tr>
                         <td class="mono">@_unit.UnitNumber</td>
                         <td>@Ui.BloodType(_unit.Abo, _unit.RhD)</td>
+                        <td>@FormatLocation(_unit.CurrentLocationId)</td>
                         <td class="right">@FormatVolume(_unit.Volume)</td>
                         <td class="muted">primary</td>
                     </tr>
@@ -155,12 +158,17 @@
                         <tr>
                             <td class="mono">@p.UnitNumber</td>
                             <td>@Ui.BloodType(p.Abo, p.RhD)</td>
+                            <td>@FormatLocation(p.CurrentLocationId)</td>
                             <td class="right">@FormatVolume(p.Volume)</td>
                             <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => _poolUnits.Remove(p)">Remove</button></td>
                         </tr>
                     }
                 </tbody>
             </table>
+            @if (PoolLocationGap)
+            {
+                <div class="muted">These units are not in the same storage location. Transfer them to one location before pooling.</div>
+            }
             @if (PoolVolumeGap)
             {
                 <div class="muted">Every pooled unit needs a recorded volume greater than zero so the pool total can include each source.</div>
@@ -290,6 +298,14 @@
             ? Array.Empty<decimal?>()
             : new[] { _unit.Volume }.Concat(_poolUnits.Select(unit => unit.Volume)).ToList();
 
+    private IReadOnlyList<long?> PoolLocationIds =>
+        _unit is null
+            ? Array.Empty<long?>()
+            : new[] { _unit.CurrentLocationId }.Concat(_poolUnits.Select(unit => unit.CurrentLocationId)).ToList();
+
+    private bool PoolLocationGap =>
+        UnitModificationEligibilityRule.EvaluatePoolLocations(PoolLocationIds).IsHardStopped;
+
     private bool PoolVolumeGap =>
         PoolVolumes.Any(volume => volume is not null) && PoolVolumes.Any(volume => volume is null or <= 0m);
 
@@ -353,6 +369,9 @@
 
     private static string FormatVolume(decimal? volume) =>
         volume is null ? "—" : $"{volume.Value:0.##} mL";
+
+    private static string FormatLocation(long? locationId) =>
+        locationId is long id ? $"Location {id}" : "No location";
 
     private static string FormatHistoryResults(UnitModificationDto history)
     {
@@ -540,6 +559,14 @@
             {
                 _busy = false;
                 _actionFb = Feedback.Fail(poolVolumeEval.HardStops[0].Message);
+                return;
+            }
+
+            var poolLocationEval = UnitModificationEligibilityRule.EvaluatePoolLocations(PoolLocationIds);
+            if (poolLocationEval.IsHardStopped)
+            {
+                _busy = false;
+                _actionFb = Feedback.Fail(poolLocationEval.HardStops[0].Message);
                 return;
             }
 

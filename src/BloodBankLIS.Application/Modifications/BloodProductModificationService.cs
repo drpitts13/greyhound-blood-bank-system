@@ -355,6 +355,13 @@ public sealed class BloodProductModificationService
             return ModificationActionResult.Blocked(poolVolumeEval);
         }
 
+        var poolLocationEval = UnitModificationEligibilityRule.EvaluatePoolLocations(
+            sources.Select(source => source.CurrentLocationId).ToList());
+        if (poolLocationEval.IsHardStopped)
+        {
+            return ModificationActionResult.Blocked(poolLocationEval);
+        }
+
         var inherited = await InheritAttributesAsync(sources, ct);
         if (inherited.Blocked is not null)
         {
@@ -618,6 +625,7 @@ public sealed class BloodProductModificationService
 
         var sortOrder = 0;
         var sourceVolumesBefore = sources.Select(source => source.Volume).ToArray();
+        var sourceLocationIdsBefore = sources.Select(source => source.CurrentLocationId).ToArray();
 
         foreach (var source in sources)
         {
@@ -777,7 +785,8 @@ public sealed class BloodProductModificationService
             {
                 SourceUnitIds = sources.Select(s => s.Id).ToArray(),
                 SourceUnitNumbers = sources.Select(s => s.UnitNumber).ToArray(),
-                SourceVolumes = sourceVolumesBefore
+                SourceVolumes = sourceVolumesBefore,
+                SourceLocationIds = sourceLocationIdsBefore
             },
             newValue: new
             {
@@ -785,6 +794,7 @@ public sealed class BloodProductModificationService
                 ResultUnitIds = resultUnits.Select(u => u.Id).ToArray(),
                 ResultUnitNumbers = resultUnits.Select(u => u.UnitNumber).ToArray(),
                 ResultVolumes = resultSpecs.Select(spec => spec.Volume).ToArray(),
+                ResultLocationIds = resultUnits.Select(unit => unit.CurrentLocationId).ToArray(),
                 ResultExpiresUtc = resultExpiresUtc,
                 InheritedAttributeDefinitionIds = (inheritedAttributes ?? [])
                     .Select(attribute => attribute.DefinitionId)

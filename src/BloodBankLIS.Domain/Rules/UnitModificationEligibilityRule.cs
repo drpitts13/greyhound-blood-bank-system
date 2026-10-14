@@ -15,6 +15,7 @@ public static class UnitModificationEligibilityRule
     public const string PoolMinSourcesCode = "MOD-POOL-MIN-SOURCES";
     public const string PoolAboMismatchCode = "MOD-POOL-ABO-MISMATCH";
     public const string PoolVolumeCode = "MOD-POOL-VOLUME";
+    public const string PoolLocationCode = "MOD-POOL-LOCATION";
     public const string DivideMinTargetsCode = "MOD-DIVIDE-MIN-TARGETS";
     public const string VolumeRequiredCode = "MOD-DIVIDE-VOLUME-REQUIRED";
     public const string VolumeExceedsSourceCode = "MOD-VOLUME-EXCEEDS-SOURCE";
@@ -119,6 +120,26 @@ public static class UnitModificationEligibilityRule
         }
 
         return new RuleEvaluation(new[] { RuleResult.Pass(PoolVolumeCode) });
+    }
+
+    /// <summary>
+    /// Pooled units must already share one storage location, including all being unassigned.
+    /// A mix would record the pool at the first unit's location.
+    /// </summary>
+    public static RuleEvaluation EvaluatePoolLocations(IReadOnlyList<long?> locationIds)
+    {
+        var list = locationIds ?? Array.Empty<long?>();
+        if (list.Select(locationId => locationId).Distinct().Count() <= 1)
+        {
+            return new RuleEvaluation(new[] { RuleResult.Pass(PoolLocationCode) });
+        }
+
+        return new RuleEvaluation(new[]
+        {
+            RuleResult.HardStop(
+                PoolLocationCode,
+                "Pooled units are not in the same storage location. Transfer them to one location before pooling so the pool is not recorded somewhere a source unit never was.")
+        });
     }
 
     /// <summary>

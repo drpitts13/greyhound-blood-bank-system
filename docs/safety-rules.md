@@ -332,6 +332,7 @@ Enforced by `UnitModificationEligibilityRule` and `ModificationExpirationRule` i
 | `MOD-POOL-MIN-SOURCES` | Pool has at least two source units | HardStop |
 | `MOD-POOL-ABO-MISMATCH` | All pooled source units share the same product type, ABO, and Rh(D) | HardStop |
 | `MOD-POOL-VOLUME` | When any pooled unit has a recorded volume, every source has a volume greater than zero so the pool total includes each source. Sources with no volumes at all stay unrecorded | HardStop |
+| `MOD-POOL-LOCATION` | Pooled units already share one storage location, including all being unassigned. A mix is not recorded at the first unit's location | HardStop |
 | `MOD-POOL-ATTR-DISCORDANT` | Pooled units do not disagree on a tested antigen or antibody. A positive on any source is copied. A negative is copied only when every source was typed negative | HardStop |
 | `MOD-RESTRICTION-DISCORDANT` | Pooled units share the same allogeneic, autologous, or directed reservation, including the same reserved patient when one is required | HardStop |
 | `MOD-RESTRICTION-RECIPIENT` | An autologous or directed source has an intended recipient before it is modified | HardStop |

@@ -161,6 +161,40 @@ public class UnitModificationEligibilityRuleTests
     }
 
     [Fact]
+    public void EvaluatePoolLocations_SameLocation_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolLocations([4L, 4L]);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluatePoolLocations_AllUnassigned_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolLocations([null, null]);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluatePoolLocations_DifferentLocations_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolLocations([4L, 9L]);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.PoolLocationCode);
+    }
+
+    [Fact]
+    public void EvaluatePoolLocations_AssignedAndUnassigned_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolLocations([4L, null]);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.PoolLocationCode);
+    }
+
+    [Fact]
     public void EvaluateDivide_TwoChildrenNoVolumes_HardStops()
     {
         var eval = UnitModificationEligibilityRule.EvaluateDivide(childCount: 2, sourceVolume: null, childVolumes: []);
