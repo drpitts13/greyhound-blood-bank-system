@@ -1837,6 +1837,57 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListDiscrepancy_NamesTheStorageLocation()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var fridge = new InventoryLocation
+        {
+            Code = $"DISC-FR-{key}",
+            Name = " Issue fridge ",
+            LocationType = LocationType.Refrigerator
+        };
+        var blank = new InventoryLocation
+        {
+            Code = $"DISC-BL-{key}",
+            Name = "   ",
+            LocationType = LocationType.Refrigerator
+        };
+        context.InventoryLocations.AddRange(fridge, blank);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var named = await service.ReceiveUnitAsync(NewUnitRequest($"U-DISC-LOC-{key}", productTypeId));
+        var unnamed = await service.ReceiveUnitAsync(NewUnitRequest($"U-DISC-NONE-{key}", productTypeId));
+        var blankNamed = await service.ReceiveUnitAsync(NewUnitRequest($"U-DISC-BLANK-{key}", productTypeId));
+        Assert.True(named.Succeeded, named.Error);
+        Assert.True(unnamed.Succeeded, unnamed.Error);
+        Assert.True(blankNamed.Succeeded, blankNamed.Error);
+        Assert.True((await service.ReleaseFromQuarantineAsync(named.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await service.ReleaseFromQuarantineAsync(unnamed.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await service.ReleaseFromQuarantineAsync(blankNamed.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await service.TransferAsync(named.Unit.Id, fridge.Id, "Move before it went missing")).Succeeded);
+        Assert.True((await service.TransferAsync(blankNamed.Unit.Id, blank.Id, "Move to an unnamed place")).Succeeded);
+        Assert.True((await service.MarkMissingAsync(named.Unit.Id, "Not on the named shelf")).Succeeded);
+        Assert.True((await service.MarkMissingAsync(unnamed.Unit.Id, "Not on any shelf")).Succeeded);
+        Assert.True((await service.MarkDamagedAsync(blankNamed.Unit.Id, "Leaking in an unnamed place")).Succeeded);
+
+        var list = await service.ListDiscrepancyAsync();
+        var namedRow = Assert.Single(list, row => row.UnitNumber == $"U-DISC-LOC-{key}");
+        var unnamedRow = Assert.Single(list, row => row.UnitNumber == $"U-DISC-NONE-{key}");
+        var blankRow = Assert.Single(list, row => row.UnitNumber == $"U-DISC-BLANK-{key}");
+
+        Assert.Equal(fridge.Id, namedRow.CurrentLocationId);
+        Assert.Equal("Issue fridge", namedRow.LocationLabel);
+        Assert.Null(unnamedRow.CurrentLocationId);
+        Assert.Equal(StorageLocationLabel.None, unnamedRow.LocationLabel);
+        Assert.Equal(blank.Id, blankRow.CurrentLocationId);
+        Assert.Equal($"Location {blank.Id}", blankRow.LocationLabel);
+    }
+
+    [Fact]
     public async Task ListOnHold_SurfacesProductAndHoldReason()
     {
         var productTypeId = await EnsureProductTypeAsync();

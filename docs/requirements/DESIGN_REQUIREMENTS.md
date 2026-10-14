@@ -358,3 +358,4 @@
 | SRS-BB-352 | `OfferModification` gates the modify form. `MayListModificationRules` gates the eligibility list. A retiring success clears the selected rule. | FRS-BB-390 |
 | SRS-BB-353 | `ListQuarantineAsync` loads the location name onto `QuarantineWorkItemDto`. `LocationLabel` uses `StorageLocationLabel`. | FRS-BB-391 |
 | SRS-BB-354 | `VolumeLabel` formats `BloodUnit.Volume`. Null stays "Volume not recorded". | FRS-BB-392 |
+| SRS-BB-355 | `ListDiscrepancyAsync` loads the location name onto `DiscrepancyWorkItemDto`. `LocationLabel` uses `StorageLocationLabel`. | FRS-BB-393 |

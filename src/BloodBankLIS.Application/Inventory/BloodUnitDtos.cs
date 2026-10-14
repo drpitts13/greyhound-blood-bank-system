@@ -165,14 +165,18 @@ public sealed record DiscrepancyWorkItemDto(
     RhType RhD,
     long? CurrentLocationId,
     long ProductTypeId = 0,
-    string? ProductCode = null)
+    string? ProductCode = null,
+    string? CurrentLocationName = null)
 {
-    public static DiscrepancyWorkItemDto From(BloodUnit u, string? productCode = null) => new(
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public static DiscrepancyWorkItemDto From(BloodUnit u, string? productCode = null, string? locationName = null) => new(
         u.Id, u.UnitNumber, u.Status,
         u.Status == UnitStatus.Missing ? u.MissingReason : u.DamagedReason,
         u.Abo, u.RhD, u.CurrentLocationId,
         u.ProductTypeId,
-        productCode ?? u.ProductType?.ProductCode);
+        productCode ?? u.ProductType?.ProductCode,
+        string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
 }
 
 public sealed record OnHoldWorkItemDto(

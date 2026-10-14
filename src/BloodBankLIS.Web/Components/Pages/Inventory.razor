@@ -420,7 +420,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Inventory discrepancy</h3></div>
-        <p class="muted">Missing and damaged units awaiting locate or inspect (SoftBank/SafeTrace physical inventory). They cannot be issued.</p>
+        <p class="muted">Missing and damaged units awaiting locate or inspect (SoftBank/SafeTrace physical inventory). They cannot be issued. The location is the storage location name. A missing name stays the location id. A unit with no location says none.</p>
         @if (_discrepancyItems.Count == 0)
         {
             <div class="muted">No missing or damaged units.</div>
@@ -448,7 +448,7 @@
                             <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
                             <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
                             <td>@(row.Reason ?? "—")</td>
-                            <td>@LocationName(row.CurrentLocationId)</td>
+                            <td>@row.LocationLabel</td>
                             <td class="right nowrap">
                                 @if (Session.Has(PermissionCodes.InventoryRelease) && row.Status == UnitStatus.Missing)
                                 {

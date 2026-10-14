@@ -152,15 +152,7 @@ public sealed class InventoryService
                 .GroupBy(r => r.BloodProductId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Id).First());
         var locationIds = rows.Select(u => u.CurrentLocationId).OfType<long>().Distinct().ToList();
-        var locationNames = new Dictionary<long, string?>();
-        if (_locations is not null && locationIds.Count > 0)
-        {
-            var locations = await _locations.ListAsync(location => locationIds.Contains(location.Id), ct);
-            foreach (var location in locations)
-            {
-                locationNames[location.Id] = location.Name;
-            }
-        }
+        var locationNames = await LoadLocationNamesAsync(locationIds, ct);
 
         return rows
             .OrderBy(u => u.CreatedUtc)
@@ -189,13 +181,20 @@ public sealed class InventoryService
         var damaged = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Damaged), ct);
         var rows = missing.Concat(damaged).ToList();
         var products = await LoadProductsAsync(rows, ct);
+        var locationNames = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
         return rows
             .OrderBy(u => u.Status)
             .ThenBy(u => u.UnitNumber)
             .Select(u =>
             {
                 products.TryGetValue(u.ProductTypeId, out var product);
-                return DiscrepancyWorkItemDto.From(u, product?.ProductCode);
+                string? locationName = null;
+                if (u.CurrentLocationId is long locationId)
+                {
+                    locationNames.TryGetValue(locationId, out locationName);
+                }
+
+                return DiscrepancyWorkItemDto.From(u, product?.ProductCode, locationName);
             })
             .ToList();
     }
@@ -228,6 +227,26 @@ public sealed class InventoryService
         }
 
         return (await _productTypes.ListAsync(p => productIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+    }
+
+    private async Task<Dictionary<long, string?>> LoadLocationNamesAsync(
+        IEnumerable<long> locationIds,
+        CancellationToken ct)
+    {
+        var ids = locationIds.Distinct().ToList();
+        var names = new Dictionary<long, string?>();
+        if (_locations is null || ids.Count == 0)
+        {
+            return names;
+        }
+
+        var locations = await _locations.ListAsync(location => ids.Contains(location.Id), ct);
+        foreach (var location in locations)
+        {
+            names[location.Id] = location.Name;
+        }
+
+        return names;
     }
 
     public Task<BloodUnit?> GetAsync(long id, CancellationToken ct = default) =>

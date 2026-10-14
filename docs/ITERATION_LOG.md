@@ -5650,3 +5650,27 @@ Two divided units of the same product and blood type can sit in quarantine toget
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The inventory discrepancy board shows a location code, not the storage location name, so a missing or damaged unit is harder to find than a quarantined one.
+
+## Iteration 205 — Storage location name on inventory discrepancy (2026-10-14)
+
+The discrepancy board showed a location code. A missing or damaged unit was harder to find than a quarantined one, which already shows the storage location name.
+
+### Implemented
+
+- Each discrepancy row shows the storage location name.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none. A missing location record does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-358, FRS-BB-393, SRS-BB-355, RISK-BB-460.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-248 (`InventoryServiceTests.ListDiscrepancy_NamesTheStorageLocation`).
+- Discrepancy location test green (1). Quarantine location still green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The operational-hold board does not show where the unit is stored, so a unit that cannot be issued is harder to find than a quarantined or missing one.
