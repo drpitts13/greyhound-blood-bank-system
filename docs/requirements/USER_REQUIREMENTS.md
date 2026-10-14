@@ -360,3 +360,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-352 | Staff who just modified a unit can see where the new unit is and how to release it from quarantine. | P1 | FRS-BB-387 |
 | URS-BB-353 | Staff who just made an aliquot can see that the parent stayed in place and how much volume remains. | P1 | FRS-BB-388 |
 | URS-BB-354 | Staff who just retired a unit by modification can see that the source is no longer available. | P1 | FRS-BB-389 |
+| URS-BB-355 | Staff cannot start another modification on a unit that modification just retired. | P1 | FRS-BB-390 |

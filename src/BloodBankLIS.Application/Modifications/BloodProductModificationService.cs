@@ -88,7 +88,7 @@ public sealed class BloodProductModificationService
     public async Task<IReadOnlyList<EligibleModificationDto>> GetEligibleModificationsAsync(long unitId, CancellationToken ct = default)
     {
         var unit = await _inventory.GetUnitAsync(unitId, ct);
-        if (unit is null)
+        if (unit is null || !UnitModificationEligibilityRule.MayListModificationRules(unit.Status))
         {
             return Array.Empty<EligibleModificationDto>();
         }

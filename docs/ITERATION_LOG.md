@@ -5577,3 +5577,29 @@ Divide, pool, and the other retiring modifications set the source to Modified. T
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After a source is retired, the modify form can still offer another modification on that unit until the page is reloaded.
+
+## Iteration 202 — Close the modify form after a source is retired (2026-10-14)
+
+A divide, pool, or other retiring modification set the source to Modified. The form on that page still offered another modification until it was reloaded.
+
+### Implemented
+
+- The modify form offers a rule for an available unit, and for an assigned unit only while a product-order action is open.
+- The eligibility list is empty for a Modified unit, and for quarantine, issued, and the other statuses that cannot be modified.
+- An assigned unit still has rules listed so a product-order action can use them.
+- After a retiring modification, the selected rule is cleared. If the unit cannot be reread, the previous rules are cleared too.
+- An aliquot leaves the parent form in place.
+
+### Requirements / risk
+
+- URS-BB-355, FRS-BB-390, SRS-BB-352, RISK-BB-457.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-245 (`UnitModificationEligibilityRuleTests.OfferModification_Available_IsOffered`; `UnitModificationEligibilityRuleTests.OfferModification_Assigned_OnlyWhileCompletingAnOrder`; `UnitModificationEligibilityRuleTests.OfferModification_RetiredOrHeld_IsNotOffered`; `BloodProductModificationServiceTests.GetEligibleModifications_ModifiedUnit_ReturnsNone`; `BloodProductModificationServiceTests.GetEligibleModifications_AssignedUnit_StillListsRules`).
+- Offer tests green (5). Eligibility tests green (4).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The quality-quarantine board, where a new modification result is released, lists the unit and the reason and does not show the storage location name.

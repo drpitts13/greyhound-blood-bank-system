@@ -51,6 +51,32 @@ public class UnitModificationEligibilityRuleTests
     }
 
     [Fact]
+    public void OfferModification_Available_IsOffered()
+    {
+        Assert.True(UnitModificationEligibilityRule.OfferModification(UnitStatus.Available));
+        Assert.True(UnitModificationEligibilityRule.MayListModificationRules(UnitStatus.Available));
+    }
+
+    [Fact]
+    public void OfferModification_Assigned_OnlyWhileCompletingAnOrder()
+    {
+        Assert.False(UnitModificationEligibilityRule.OfferModification(UnitStatus.Assigned));
+        Assert.True(UnitModificationEligibilityRule.OfferModification(UnitStatus.Assigned, orderLinked: true));
+        Assert.True(UnitModificationEligibilityRule.MayListModificationRules(UnitStatus.Assigned));
+    }
+
+    [Theory]
+    [InlineData(UnitStatus.Modified)]
+    [InlineData(UnitStatus.Quarantine)]
+    [InlineData(UnitStatus.Issued)]
+    public void OfferModification_RetiredOrHeld_IsNotOffered(UnitStatus status)
+    {
+        Assert.False(UnitModificationEligibilityRule.OfferModification(status));
+        Assert.False(UnitModificationEligibilityRule.OfferModification(status, orderLinked: true));
+        Assert.False(UnitModificationEligibilityRule.MayListModificationRules(status));
+    }
+
+    [Fact]
     public void EvaluateSource_Expired_HardStops()
     {
         var unit = MakeUnit(expiresUtc: NowUtc.AddDays(-1));

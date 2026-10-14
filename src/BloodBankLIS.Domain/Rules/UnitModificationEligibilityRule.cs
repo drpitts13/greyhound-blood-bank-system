@@ -34,6 +34,21 @@ public static class UnitModificationEligibilityRule
         decimal? Volume);
 
     /// <summary>
+    /// Whether the modify form may offer a rule. Available units can be modified.
+    /// An assigned unit can be modified only while completing a product order.
+    /// A retired unit is not offered again.
+    /// </summary>
+    public static bool OfferModification(UnitStatus status, bool orderLinked = false) =>
+        status == UnitStatus.Available || (orderLinked && status == UnitStatus.Assigned);
+
+    /// <summary>
+    /// Whether the eligibility list may contain rules. Assigned stays listed so a product-order
+    /// action can still modify that unit. Modified, quarantine, and the other statuses do not.
+    /// </summary>
+    public static bool MayListModificationRules(UnitStatus status) =>
+        status is UnitStatus.Available or UnitStatus.Assigned;
+
+    /// <summary>
     /// Checks a single source unit against the rule's expected source product and the clock.
     /// Standalone modify requires <see cref="UnitStatus.Available"/>. Order-linked 1:1
     /// modify also accepts <see cref="UnitStatus.Assigned"/>.

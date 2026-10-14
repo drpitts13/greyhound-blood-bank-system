@@ -993,6 +993,44 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     }
 
     [Fact]
+    public async Task GetEligibleModifications_ModifiedUnit_ReturnsNone()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("ELIGMOD");
+        await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate);
+        var unitId = await CreateUnitAsync("U-ELIGMOD-1", sourceProductId);
+        await using (var update = _factory.Create())
+        {
+            var unit = (await update.BloodUnits.FindAsync(unitId))!;
+            unit.Status = UnitStatus.Modified;
+            await update.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var eligible = await CreateService(context).GetEligibleModificationsAsync(unitId);
+
+        Assert.Empty(eligible);
+    }
+
+    [Fact]
+    public async Task GetEligibleModifications_AssignedUnit_StillListsRules()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("ELIGASN");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate);
+        var unitId = await CreateUnitAsync("U-ELIGASN-1", sourceProductId);
+        await using (var update = _factory.Create())
+        {
+            var unit = (await update.BloodUnits.FindAsync(unitId))!;
+            unit.Status = UnitStatus.Assigned;
+            await update.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var eligible = await CreateService(context).GetEligibleModificationsAsync(unitId);
+
+        Assert.Equal(ruleId, Assert.Single(eligible).RuleId);
+    }
+
+    [Fact]
     public async Task GetHistory_ReturnsModificationForBothSourceAndResultUnits()
     {
         var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTORY");

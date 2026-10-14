@@ -46,7 +46,15 @@
             <div class="field"><label>Expires</label><div>@_unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
         </div>
 
-        @if (_eligible.Count == 0)
+        @if (_retiredOfferClosed)
+        {
+            <div class="empty">This unit was retired and cannot be modified again. Its current status could not be confirmed.</div>
+        }
+        else if (!CanOfferModification)
+        {
+            <div class="empty">This unit is @_unit.Status and is not eligible for modification.</div>
+        }
+        else if (_eligible.Count == 0)
         {
             <div class="empty">No active modification rules apply to this unit's current product.</div>
         }
@@ -67,7 +75,7 @@
     </div>
 }
 
-@if (_unit is not null && _selectedRule is not null && !_selectedRule.IsAvailable)
+@if (_unit is not null && CanOfferModification && _selectedRule is not null && !_selectedRule.IsAvailable)
 {
     <div class="bb-card">
         <div class="empty">
@@ -76,7 +84,7 @@
     </div>
 }
 
-@if (_unit is not null && _selectedRule is not null && _selectedRule.IsAvailable)
+@if (_unit is not null && CanOfferModification && _selectedRule is not null && _selectedRule.IsAvailable)
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>3. Modification details</h3></div>
@@ -343,6 +351,7 @@
     private ModificationResultVm? _lastResult;
     private bool _lastWasAliquot;
     private bool _aliquotParentConfirmed;
+    private bool _retiredOfferClosed;
     private List<ModificationResultNextStep.RetiredSourceFact> _retiredSources = new();
 
     private List<UnitModificationDto> _history = new();
@@ -517,6 +526,7 @@
         _unit = u;
         _selectedRuleId = 0;
         _selectedRule = null;
+        _retiredOfferClosed = false;
         ClearLastResult();
         _actionFb = null;
         _poolUnits.Clear();
@@ -551,6 +561,11 @@
         _aliquotParentConfirmed = false;
         _retiredSources = new();
     }
+
+    private bool CanOfferModification =>
+        _unit is not null
+        && !_retiredOfferClosed
+        && UnitModificationEligibilityRule.OfferModification(_unit.Status, OrderActionId is > 0);
 
     private string? RetiredSourceCue =>
         _lastWasAliquot ? null : ModificationResultNextStep.RetiredSourceCue(_retiredSources);
@@ -734,6 +749,7 @@
             else
             {
                 var facts = new List<ModificationResultNextStep.RetiredSourceFact>();
+                var primaryReread = false;
                 foreach (var source in retiredSources)
                 {
                     var refreshed = await Api.GetUnitAsync(source.Id);
@@ -746,6 +762,7 @@
                         if (_unit?.Id == source.Id)
                         {
                             _unit = refreshed.Value;
+                            primaryReread = true;
                         }
                     }
                     else
@@ -755,6 +772,20 @@
                 }
 
                 _retiredSources = facts;
+                _retiredOfferClosed = !primaryReread
+                    || _unit is null
+                    || !UnitModificationEligibilityRule.OfferModification(_unit.Status, OrderActionId is > 0);
+                _selectedRule = null;
+                _selectedRuleId = 0;
+                if (_retiredOfferClosed || _unit is null)
+                {
+                    _eligible.Clear();
+                }
+                else
+                {
+                    var eligible = await Api.GetEligibleModificationsAsync(_unit.Id);
+                    _eligible = eligible.Succeeded ? eligible.Value ?? new() : new();
+                }
             }
             var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
             _history = history.Value ?? new();
