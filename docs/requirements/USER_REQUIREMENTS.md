@@ -357,3 +357,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-349 | Staff reading modification history can see when a result was moved and why, when that was recorded. | P1 | FRS-BB-384 |
 | URS-BB-350 | Staff reading modification history can see who recorded a result's move, when that person was recorded. | P1 | FRS-BB-385 |
 | URS-BB-351 | Staff preparing a pool can see each source unit's storage location by name. | P1 | FRS-BB-386 |
+| URS-BB-352 | Staff who just modified a unit can see where the new unit is and how to release it from quarantine. | P1 | FRS-BB-387 |

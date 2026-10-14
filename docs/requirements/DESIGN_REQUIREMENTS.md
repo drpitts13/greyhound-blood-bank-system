@@ -352,3 +352,4 @@
 | SRS-BB-346 | `LocationLeftUtc` and `LocationLeftReason` come from the latest status row whose `ToLocationId` is the current location and whose from and to locations differ. The history cell appends that time and reason. | FRS-BB-384 |
 | SRS-BB-347 | `LocationLeftBy` comes from that same row's `ChangedBy`. A blank name is stored as null. The history cell appends `by` that name. | FRS-BB-385 |
 | SRS-BB-348 | `StorageLocationLabel` prefers the location name. The modify page loads location names and uses them for the selected unit and the pool table. | FRS-BB-386 |
+| SRS-BB-349 | `ModificationResultNextStep` builds the quarantine cue and the release link. The inventory board opens the release row only when that unit is on the quarantine list. | FRS-BB-387 |

@@ -5502,3 +5502,27 @@ The selected unit and the pool list showed `Location 12`. Staff had to recognize
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After a modification, the result card shows the new unit as Quarantine and offers Open unit, but it does not show where that new unit is stored or point staff to release it.
+
+## Iteration 199 — Where a new unit is, and how to release it (2026-10-14)
+
+A modification result started in quarantine. The result card showed the status and an Open unit link. It did not say where the unit was stored, or that it has to be released before issue.
+
+### Implemented
+
+- Each new unit on the result card shows its storage location name. A missing name stays the location id. No location stays none.
+- A quarantined result says to release it before issue. Staff with `inventory.release` get a link to that unit's quarantine row.
+- The inventory board opens the release row only when that unit is on the quarantine list. An assigned result, including one tied to a product order, does not get a release step.
+
+### Requirements / risk
+
+- URS-BB-352, FRS-BB-387, SRS-BB-349, RISK-BB-454.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-242 (`ModificationResultNextStepTests`).
+- Next-step tests green (8).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After an aliquot, the result card lists only the new unit. It does not say the parent stayed available or what volume remains on the parent, so the new unit can be read as a replacement.

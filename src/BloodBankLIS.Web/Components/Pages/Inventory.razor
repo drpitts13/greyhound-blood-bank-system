@@ -716,6 +716,17 @@
             return;
         }
 
+        if (string.Equals(Board, "quarantine", StringComparison.OrdinalIgnoreCase))
+        {
+            _boardQueryApplied = true;
+            _releasingQuarantineId = ModificationResultNextStep.QuarantineReleaseTarget(
+                Board,
+                UnitId,
+                _quarantineItems.Select(item => item.UnitId));
+            _releaseSecondVerifier = null;
+            return;
+        }
+
         if (UnitId is long manageId)
         {
             _boardQueryApplied = true;

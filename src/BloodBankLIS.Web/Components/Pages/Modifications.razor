@@ -213,19 +213,33 @@
     <div class="bb-card">
         <div class="bb-card-title"><h3>Result</h3></div>
         <table class="bb">
-            <thead><tr><th>New unit #</th><th>Product code</th><th>Volume</th><th>ABO/Rh</th><th>Status</th><th>Expires</th><th></th></tr></thead>
+            <thead><tr><th>New unit #</th><th>Product code</th><th>Volume</th><th>ABO/Rh</th><th>Status</th><th>Location</th><th>Expires</th><th></th></tr></thead>
             <tbody>
                 @foreach (var u in _lastResult.ResultUnits)
                 {
+                    var location = FormatUnitLocation(u.CurrentLocationId);
+                    var releaseCue = ModificationResultNextStep.ReleaseCue(u.Status, location);
+                    var releaseHref = ModificationResultNextStep.ReleaseHref(u.Status, u.Id, Session.Has(PermissionCodes.InventoryRelease));
                     <tr>
                         <td class="mono">@u.UnitNumber</td>
                         <td class="mono">@(u.ProductCodeData ?? u.Isbt128ProductCode ?? "—")</td>
                         <td>@FormatVolume(u.Volume)</td>
                         <td>@Ui.BloodType(u.Abo, u.RhD)</td>
-                        <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
+                        <td>
+                            <span class="@Ui.Badge(u.Status)">@u.Status</span>
+                            @if (releaseCue is not null)
+                            {
+                                <div class="muted">@releaseCue</div>
+                            }
+                        </td>
+                        <td>@location</td>
                         <td class="nowrap">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="right nowrap">
                             <a class="btn btn-secondary btn-sm" href="@InventoryUrls.Unit(u.Id)">Open unit</a>
+                            @if (releaseHref is not null)
+                            {
+                                <a class="btn btn-primary btn-sm" href="@releaseHref">Release from quarantine</a>
+                            }
                             @if (u.Status == UnitStatus.Received)
                             {
                                 <a class="btn btn-ghost btn-sm" href="@($"/inventory?board=retype&unitId={u.Id}#pending-retype")">Open retype desk</a>

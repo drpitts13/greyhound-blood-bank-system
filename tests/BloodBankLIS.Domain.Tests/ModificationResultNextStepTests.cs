@@ -1,0 +1,57 @@
+using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
+
+namespace BloodBankLIS.Domain.Tests;
+
+public class ModificationResultNextStepTests
+{
+    [Fact]
+    public void ReleaseCue_Quarantine_NamesThePlaceAndTheRelease()
+    {
+        var cue = ModificationResultNextStep.ReleaseCue(UnitStatus.Quarantine, "Fridge A");
+
+        Assert.Equal("In quarantine at Fridge A. Release it before it can be issued.", cue);
+    }
+
+    [Fact]
+    public void ReleaseCue_QuarantineWithoutALocation_DoesNotInventAPlace()
+    {
+        var cue = ModificationResultNextStep.ReleaseCue(UnitStatus.Quarantine, StorageLocationLabel.None);
+
+        Assert.Equal("In quarantine. No storage location is recorded. Release it before it can be issued.", cue);
+    }
+
+    [Theory]
+    [InlineData(UnitStatus.Assigned)]
+    [InlineData(UnitStatus.Available)]
+    [InlineData(UnitStatus.Received)]
+    public void ReleaseCue_NotQuarantine_HasNoReleaseStep(UnitStatus status)
+    {
+        Assert.Null(ModificationResultNextStep.ReleaseCue(status, "Fridge A"));
+        Assert.Null(ModificationResultNextStep.ReleaseHref(status, 15, canRelease: true));
+    }
+
+    [Fact]
+    public void ReleaseHref_QuarantineWithPermission_OpensThatUnitsReleaseRow()
+    {
+        Assert.Equal(
+            "/inventory?board=quarantine&unitId=15#quality-quarantine",
+            ModificationResultNextStep.ReleaseHref(UnitStatus.Quarantine, 15, canRelease: true));
+    }
+
+    [Fact]
+    public void ReleaseHref_WithoutPermission_DoesNotOfferRelease()
+    {
+        Assert.Null(ModificationResultNextStep.ReleaseHref(UnitStatus.Quarantine, 15, canRelease: false));
+        Assert.Null(ModificationResultNextStep.ReleaseHref(UnitStatus.Quarantine, 0, canRelease: true));
+    }
+
+    [Fact]
+    public void QuarantineReleaseTarget_OpensOnlyAUnitOnTheBoard()
+    {
+        Assert.Equal(15, ModificationResultNextStep.QuarantineReleaseTarget("quarantine", 15, [15, 16]));
+        Assert.Null(ModificationResultNextStep.QuarantineReleaseTarget("quarantine", 99, [15, 16]));
+        Assert.Null(ModificationResultNextStep.QuarantineReleaseTarget("retype", 15, [15]));
+        Assert.Null(ModificationResultNextStep.QuarantineReleaseTarget(null, 15, [15]));
+    }
+}
