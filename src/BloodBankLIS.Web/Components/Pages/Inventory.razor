@@ -472,7 +472,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Operational hold</h3></div>
-        <p class="muted">Units that cannot be issued until hold is released (paperwork or pending review — not quality quarantine). Release uses the same <code>inventory.release</code> gate as Manage.</p>
+        <p class="muted">Units that cannot be issued until hold is released (paperwork or pending review — not quality quarantine). The location is the storage location name. A missing name stays the location id. A unit with no location says none. Release uses the same <code>inventory.release</code> gate as Manage.</p>
         @if (_onHoldItems.Count == 0)
         {
             <div class="muted">No units on operational hold.</div>
@@ -485,6 +485,7 @@
                         <th>Unit</th>
                         <th>ABO/Rh</th>
                         <th>Product</th>
+                        <th>Location</th>
                         <th>Reason</th>
                         <th>Expires</th>
                         <th></th>
@@ -497,6 +498,7 @@
                             <td class="mono">@row.UnitNumber</td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
+                            <td>@row.LocationLabel</td>
                             <td>@(row.HoldReason ?? "—")</td>
                             <td>@row.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td class="right nowrap">

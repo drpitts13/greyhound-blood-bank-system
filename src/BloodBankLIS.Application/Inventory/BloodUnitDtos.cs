@@ -187,10 +187,16 @@ public sealed record OnHoldWorkItemDto(
     RhType RhD,
     DateTime ExpiresUtc,
     long ProductTypeId = 0,
-    string? ProductCode = null)
+    string? ProductCode = null,
+    long? CurrentLocationId = null,
+    string? CurrentLocationName = null)
 {
-    public static OnHoldWorkItemDto From(BloodUnit u, string? productCode = null) => new(
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public static OnHoldWorkItemDto From(BloodUnit u, string? productCode = null, string? locationName = null) => new(
         u.Id, u.UnitNumber, u.HoldReason, u.Abo, u.RhD, u.ExpiresUtc,
         u.ProductTypeId,
-        productCode ?? u.ProductType?.ProductCode);
+        productCode ?? u.ProductType?.ProductCode,
+        u.CurrentLocationId,
+        string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
 }

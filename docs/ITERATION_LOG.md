@@ -5674,3 +5674,27 @@ The discrepancy board showed a location code. A missing or damaged unit was hard
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The operational-hold board does not show where the unit is stored, so a unit that cannot be issued is harder to find than a quarantined or missing one.
+
+## Iteration 206 — Storage location name on operational hold (2026-10-14)
+
+A unit on operational hold cannot be issued. The hold board did not say where it was stored.
+
+### Implemented
+
+- Each operational-hold row shows the storage location name.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none. A missing location record does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-359, FRS-BB-394, SRS-BB-356, RISK-BB-461.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-249 (`InventoryServiceTests.ListOnHold_NamesTheStorageLocation`).
+- Hold location tests green (2).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The main inventory list still shows a location code, not the storage location name, so a searched unit is labeled differently from quarantine, discrepancy, and hold.

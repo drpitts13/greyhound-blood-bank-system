@@ -257,5 +257,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-246 | I | `InventoryServiceTests.ListQuarantine_NamesTheStorageLocation` | URS-BB-356 / FRS-BB-391 / RISK-BB-458 |
 | TEST-BB-247 | I | `InventoryServiceTests.ListQuarantine_ShowsRecordedVolume_AndDoesNotInventOne` | URS-BB-357 / FRS-BB-392 / RISK-BB-459 |
 | TEST-BB-248 | I | `InventoryServiceTests.ListDiscrepancy_NamesTheStorageLocation` | URS-BB-358 / FRS-BB-393 / RISK-BB-460 |
+| TEST-BB-249 | I | `InventoryServiceTests.ListOnHold_NamesTheStorageLocation` | URS-BB-359 / FRS-BB-394 / RISK-BB-461 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

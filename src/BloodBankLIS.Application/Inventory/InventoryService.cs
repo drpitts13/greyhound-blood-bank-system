@@ -206,12 +206,19 @@ public sealed class InventoryService
     {
         var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.OnHold), ct);
         var products = await LoadProductsAsync(rows, ct);
+        var locationNames = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
         return rows
             .OrderBy(u => u.UnitNumber)
             .Select(u =>
             {
                 products.TryGetValue(u.ProductTypeId, out var product);
-                return OnHoldWorkItemDto.From(u, product?.ProductCode);
+                string? locationName = null;
+                if (u.CurrentLocationId is long locationId)
+                {
+                    locationNames.TryGetValue(locationId, out locationName);
+                }
+
+                return OnHoldWorkItemDto.From(u, product?.ProductCode, locationName);
             })
             .ToList();
     }

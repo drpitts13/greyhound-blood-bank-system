@@ -1919,6 +1919,57 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListOnHold_NamesTheStorageLocation()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var fridge = new InventoryLocation
+        {
+            Code = $"HOLD-FR-{key}",
+            Name = " Paperwork fridge ",
+            LocationType = LocationType.Refrigerator
+        };
+        var blank = new InventoryLocation
+        {
+            Code = $"HOLD-BL-{key}",
+            Name = "   ",
+            LocationType = LocationType.Refrigerator
+        };
+        context.InventoryLocations.AddRange(fridge, blank);
+        await context.SaveChangesAsync();
+
+        var service = CreateService(context);
+        var named = await service.ReceiveUnitAsync(NewUnitRequest($"U-HOLD-LOC-{key}", productTypeId));
+        var unnamed = await service.ReceiveUnitAsync(NewUnitRequest($"U-HOLD-NONE-{key}", productTypeId));
+        var blankNamed = await service.ReceiveUnitAsync(NewUnitRequest($"U-HOLD-BLANK-{key}", productTypeId));
+        Assert.True(named.Succeeded, named.Error);
+        Assert.True(unnamed.Succeeded, unnamed.Error);
+        Assert.True(blankNamed.Succeeded, blankNamed.Error);
+        Assert.True((await service.ReleaseFromQuarantineAsync(named.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await service.ReleaseFromQuarantineAsync(unnamed.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await service.ReleaseFromQuarantineAsync(blankNamed.Unit!.Id, "tech2")).Succeeded);
+        Assert.True((await service.TransferAsync(named.Unit.Id, fridge.Id, "Move before hold")).Succeeded);
+        Assert.True((await service.TransferAsync(blankNamed.Unit.Id, blank.Id, "Move to an unnamed place")).Succeeded);
+        Assert.True((await service.HoldAsync(named.Unit.Id, "Pending packing slip")).Succeeded);
+        Assert.True((await service.HoldAsync(unnamed.Unit.Id, "Pending review")).Succeeded);
+        Assert.True((await service.HoldAsync(blankNamed.Unit.Id, "Pending paperwork")).Succeeded);
+
+        var list = await service.ListOnHoldAsync();
+        var namedRow = Assert.Single(list, row => row.UnitNumber == $"U-HOLD-LOC-{key}");
+        var unnamedRow = Assert.Single(list, row => row.UnitNumber == $"U-HOLD-NONE-{key}");
+        var blankRow = Assert.Single(list, row => row.UnitNumber == $"U-HOLD-BLANK-{key}");
+
+        Assert.Equal(fridge.Id, namedRow.CurrentLocationId);
+        Assert.Equal("Paperwork fridge", namedRow.LocationLabel);
+        Assert.Null(unnamedRow.CurrentLocationId);
+        Assert.Equal(StorageLocationLabel.None, unnamedRow.LocationLabel);
+        Assert.Equal(blank.Id, blankRow.CurrentLocationId);
+        Assert.Equal($"Location {blank.Id}", blankRow.LocationLabel);
+    }
+
+    [Fact]
     public async Task ReturnToSupplier_WithoutReason_Fails()
     {
         var productTypeId = await EnsureProductTypeAsync();
