@@ -43,7 +43,8 @@ public sealed record ModificationUnitSummaryDto(
     long? CurrentLocationId = null,
     string? CurrentLocationName = null,
     DateTime? LocationLeftUtc = null,
-    string? LocationLeftReason = null)
+    string? LocationLeftReason = null,
+    string? LocationLeftBy = null)
 {
     public bool ResultHasLeftCreationLocation =>
         Role == ModificationUnitRole.Result && ResultLocationId != CurrentLocationId;

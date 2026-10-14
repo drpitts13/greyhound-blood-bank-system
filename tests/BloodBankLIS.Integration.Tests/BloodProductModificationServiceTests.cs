@@ -766,10 +766,12 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.True(resultSummary.ResultHasLeftCreationLocation);
         Assert.Equal(_factory.Clock.UtcNow.AddMinutes(5), resultSummary.LocationLeftUtc);
         Assert.Equal("Moved to the issue bench", resultSummary.LocationLeftReason);
+        Assert.Equal("mover", resultSummary.LocationLeftBy);
         Assert.All(row.Units.Where(unit => unit.Role == ModificationUnitRole.Source), unit =>
         {
             Assert.Null(unit.ResultLocationId);
             Assert.Null(unit.ResultLocationName);
+            Assert.Null(unit.LocationLeftBy);
         });
 
         var created = await read.InventoryStatusHistory
@@ -804,6 +806,52 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.True(resultSummary.ResultHasLeftCreationLocation);
         Assert.Null(resultSummary.LocationLeftUtc);
         Assert.Null(resultSummary.LocationLeftReason);
+        Assert.Null(resultSummary.LocationLeftBy);
+    }
+
+    [Fact]
+    public async Task GetHistory_MoveWithoutAPerson_ShowsTimeAndReasonWithoutAName()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTWHO");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("HISTWHO-A", "Fridge A");
+        var benchId = await CreateLocationAsync("HISTWHO-B", "Issue bench");
+        var firstId = await CreateUnitAsync("U-HISTWHO-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-HISTWHO-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, fridgeId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var pooled = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool then move without a name"));
+        Assert.True(pooled.Succeeded, pooled.Error);
+        var resultId = Assert.Single(pooled.ResultUnits!).Id;
+
+        await using (var move = _factory.Create())
+        {
+            var resultUnit = (await move.BloodUnits.FindAsync(resultId))!;
+            resultUnit.CurrentLocationId = benchId;
+            move.InventoryStatusHistory.Add(new InventoryStatusHistory
+            {
+                BloodProductId = resultId,
+                FromStatus = UnitStatus.Quarantine,
+                ToStatus = UnitStatus.Quarantine,
+                FromLocationId = fridgeId,
+                ToLocationId = benchId,
+                Reason = "Moved to the issue bench",
+                ChangedBy = "  ",
+                ChangedUtc = _factory.Clock.UtcNow.AddMinutes(5),
+                RelatedEntityType = "Transfer"
+            });
+            await move.SaveChangesAsync();
+        }
+
+        await using var read = _factory.Create();
+        var history = await CreateService(read).GetHistoryAsync(firstId);
+        var resultSummary = Assert.Single(Assert.Single(history).Units, unit => unit.Role == ModificationUnitRole.Result);
+        Assert.Equal(_factory.Clock.UtcNow.AddMinutes(5), resultSummary.LocationLeftUtc);
+        Assert.Equal("Moved to the issue bench", resultSummary.LocationLeftReason);
+        Assert.Null(resultSummary.LocationLeftBy);
     }
 
     [Fact]
@@ -830,6 +878,7 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.False(resultSummary.ResultHasLeftCreationLocation);
         Assert.Null(resultSummary.LocationLeftUtc);
         Assert.Null(resultSummary.LocationLeftReason);
+        Assert.Null(resultSummary.LocationLeftBy);
     }
 
     [Fact]
@@ -853,6 +902,7 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.False(resultSummary.ResultHasLeftCreationLocation);
         Assert.Null(resultSummary.LocationLeftUtc);
         Assert.Null(resultSummary.LocationLeftReason);
+        Assert.Null(resultSummary.LocationLeftBy);
     }
 
     [Fact]

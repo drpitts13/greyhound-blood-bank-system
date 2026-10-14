@@ -5454,3 +5454,27 @@ History said a result was now at the issue bench. It did not say when that move 
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history names when and why a result was moved, but not who moved it.
+
+## Iteration 197 — Who moved a result (2026-10-14)
+
+History said when a result left and why. It did not say who recorded that move.
+
+### Implemented
+
+- The same status row that supplies the time and reason also supplies `ChangedBy`.
+- The history cell appends `by` that name. A blank name is left off.
+- A move with no status row still names the new place and does not invent a person. A unit still where it was made has no mover.
+
+### Requirements / risk
+
+- URS-BB-350, FRS-BB-385, SRS-BB-347, RISK-BB-452.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-240 (`BloodProductModificationServiceTests.GetHistory_ShowsWhereTheResultWasMade_AfterItIsMoved`; `BloodProductModificationServiceTests.GetHistory_MoveWithoutAPerson_ShowsTimeAndReasonWithoutAName`; `BloodProductModificationServiceTests.GetHistory_MoveWithoutAStatusRow_ShowsTheNewPlaceWithoutATimeOrReason`).
+- History tests green (6).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The modify page still labels a selected unit and the pool sources as `Location {id}` instead of the storage location name, so staff comparing places before a pool have to recognize the number.

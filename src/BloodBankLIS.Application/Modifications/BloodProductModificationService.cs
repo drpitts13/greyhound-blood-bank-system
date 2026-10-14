@@ -154,7 +154,7 @@ public sealed class BloodProductModificationService
             .ToList();
         var createdAt = new Dictionary<long, long?>();
         var currentAt = new Dictionary<long, long?>();
-        var leftAt = new Dictionary<long, (DateTime Utc, string? Reason)>();
+        var leftAt = new Dictionary<long, (DateTime Utc, string? Reason, string? By)>();
         foreach (var resultId in resultIds)
         {
             var history = await _inventory.GetHistoryAsync(resultId, ct);
@@ -187,7 +187,10 @@ public sealed class BloodProductModificationService
                 .FirstOrDefault();
             if (move is not null)
             {
-                leftAt[resultId] = (move.ChangedUtc, string.IsNullOrWhiteSpace(move.Reason) ? null : move.Reason.Trim());
+                leftAt[resultId] = (
+                    move.ChangedUtc,
+                    string.IsNullOrWhiteSpace(move.Reason) ? null : move.Reason.Trim(),
+                    string.IsNullOrWhiteSpace(move.ChangedBy) ? null : move.ChangedBy.Trim());
             }
         }
 
@@ -257,7 +260,8 @@ public sealed class BloodProductModificationService
                             isResult ? currentLocationId : null,
                             isResult ? currentLocationName : null,
                             isResult && leftAt.ContainsKey(l.BloodProductId) ? left.Utc : null,
-                            isResult ? left.Reason : null);
+                            isResult ? left.Reason : null,
+                            isResult && leftAt.ContainsKey(l.BloodProductId) ? left.By : null);
                     }).ToList());
             })
             .ToList();

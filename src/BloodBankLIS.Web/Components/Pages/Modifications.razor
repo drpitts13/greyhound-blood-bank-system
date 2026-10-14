@@ -419,22 +419,14 @@
             : unit.CurrentLocationName;
         var when = unit.LocationLeftUtc?.ToString("yyyy-MM-dd HH:mm");
         var why = string.IsNullOrWhiteSpace(unit.LocationLeftReason) ? null : unit.LocationLeftReason.Trim();
-        if (when is null && why is null)
+        var who = string.IsNullOrWhiteSpace(unit.LocationLeftBy) ? null : $"by {unit.LocationLeftBy.Trim()}";
+        var details = new[] { when, why, who }.Where(part => part is not null).Cast<string>().ToList();
+        if (details.Count == 0)
         {
             return $"{made}; now at {now}";
         }
 
-        if (why is null)
-        {
-            return $"{made}; now at {now} ({when})";
-        }
-
-        if (when is null)
-        {
-            return $"{made}; now at {now} ({why})";
-        }
-
-        return $"{made}; now at {now} ({when}, {why})";
+        return $"{made}; now at {now} ({string.Join(", ", details)})";
     }
 
     private Task OnSourceIdChanged(long? id)
