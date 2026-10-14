@@ -43,4 +43,20 @@ public static class ModificationResultNextStep
 
         return quarantineUnitIds.Contains(id) ? id : null;
     }
+
+    public static string AliquotParentCue(bool confirmed, string? unitNumber, UnitStatus status, decimal? remainingVolume)
+    {
+        if (!confirmed)
+        {
+            return "The parent was left in place. Its remaining status and volume could not be confirmed.";
+        }
+
+        var number = string.IsNullOrWhiteSpace(unitNumber) ? "The parent" : unitNumber.Trim();
+        if (remainingVolume is null)
+        {
+            return $"{number} stayed {status}. Its volume is not recorded.";
+        }
+
+        return $"{number} stayed {status} with {remainingVolume.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} mL remaining.";
+    }
 }

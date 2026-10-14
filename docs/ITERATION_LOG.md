@@ -5526,3 +5526,28 @@ A modification result started in quarantine. The result card showed the status a
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After an aliquot, the result card lists only the new unit. It does not say the parent stayed available or what volume remains on the parent, so the new unit can be read as a replacement.
+
+## Iteration 200 — Aliquot parent stays on the result card (2026-10-14)
+
+An aliquot leaves the parent available at a reduced volume. The result card listed only the new unit, so that new unit could be read as a replacement.
+
+### Implemented
+
+- After an aliquot, the result card names the parent, the status from a fresh read, and the volume remaining.
+- A parent with no recorded volume says so. The card does not invent a number.
+- If the parent cannot be reread, the card says the parent was left in place and does not invent a status or a remaining volume.
+- Divide, pool, and other modifications do not show this parent line.
+
+### Requirements / risk
+
+- URS-BB-353, FRS-BB-388, SRS-BB-350, RISK-BB-455.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-243 (`ModificationResultNextStepTests.AliquotParentCue_ConfirmedParent_NamesStatusAndRemainingVolume`; `ModificationResultNextStepTests.AliquotParentCue_UnrecordedVolume_DoesNotInventOne`; `ModificationResultNextStepTests.AliquotParentCue_UnconfirmedParent_DoesNotInventStatusOrVolume`; `ModificationResultNextStepTests.AliquotParentCue_ReportsTheParentStatusItWasGiven`).
+- Parent-cue tests green (12 in `ModificationResultNextStepTests`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After a divide, pool, or other modification that retires the source, the result card lists the new units and does not say the source is now Modified, so staff can keep looking for it as available.

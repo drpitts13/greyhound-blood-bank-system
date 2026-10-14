@@ -54,4 +54,36 @@ public class ModificationResultNextStepTests
         Assert.Null(ModificationResultNextStep.QuarantineReleaseTarget("retype", 15, [15]));
         Assert.Null(ModificationResultNextStep.QuarantineReleaseTarget(null, 15, [15]));
     }
+
+    [Fact]
+    public void AliquotParentCue_ConfirmedParent_NamesStatusAndRemainingVolume()
+    {
+        var cue = ModificationResultNextStep.AliquotParentCue(true, " W1234 ", UnitStatus.Available, 150.5m);
+
+        Assert.Equal("W1234 stayed Available with 150.5 mL remaining.", cue);
+    }
+
+    [Fact]
+    public void AliquotParentCue_UnrecordedVolume_DoesNotInventOne()
+    {
+        var cue = ModificationResultNextStep.AliquotParentCue(true, "W1234", UnitStatus.Available, null);
+
+        Assert.Equal("W1234 stayed Available. Its volume is not recorded.", cue);
+    }
+
+    [Fact]
+    public void AliquotParentCue_UnconfirmedParent_DoesNotInventStatusOrVolume()
+    {
+        var cue = ModificationResultNextStep.AliquotParentCue(false, "W1234", UnitStatus.Available, 150m);
+
+        Assert.Equal("The parent was left in place. Its remaining status and volume could not be confirmed.", cue);
+    }
+
+    [Fact]
+    public void AliquotParentCue_ReportsTheParentStatusItWasGiven()
+    {
+        var cue = ModificationResultNextStep.AliquotParentCue(true, "W1234", UnitStatus.Quarantine, 40m);
+
+        Assert.Equal("W1234 stayed Quarantine with 40 mL remaining.", cue);
+    }
 }

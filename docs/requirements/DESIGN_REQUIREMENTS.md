@@ -353,3 +353,4 @@
 | SRS-BB-347 | `LocationLeftBy` comes from that same row's `ChangedBy`. A blank name is stored as null. The history cell appends `by` that name. | FRS-BB-385 |
 | SRS-BB-348 | `StorageLocationLabel` prefers the location name. The modify page loads location names and uses them for the selected unit and the pool table. | FRS-BB-386 |
 | SRS-BB-349 | `ModificationResultNextStep` builds the quarantine cue and the release link. The inventory board opens the release row only when that unit is on the quarantine list. | FRS-BB-387 |
+| SRS-BB-350 | `AliquotParentCue` is shown only after an aliquot. Confirmed facts come from the reread parent. An unconfirmed reread uses a fixed sentence with no status and no volume. | FRS-BB-388 |

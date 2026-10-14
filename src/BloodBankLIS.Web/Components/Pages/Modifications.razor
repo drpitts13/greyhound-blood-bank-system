@@ -212,6 +212,10 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Result</h3></div>
+        @if (_lastWasAliquot)
+        {
+            <p>@AliquotParentCue</p>
+        }
         <table class="bb">
             <thead><tr><th>New unit #</th><th>Product code</th><th>Volume</th><th>ABO/Rh</th><th>Status</th><th>Location</th><th>Expires</th><th></th></tr></thead>
             <tbody>
@@ -333,6 +337,8 @@
     private string _reason = string.Empty;
     private Feedback? _actionFb;
     private ModificationResultVm? _lastResult;
+    private bool _lastWasAliquot;
+    private bool _aliquotParentConfirmed;
 
     private List<UnitModificationDto> _history = new();
 
@@ -506,7 +512,7 @@
         _unit = u;
         _selectedRuleId = 0;
         _selectedRule = null;
-        _lastResult = null;
+        ClearLastResult();
         _actionFb = null;
         _poolUnits.Clear();
         _reason = string.Empty;
@@ -533,11 +539,25 @@
         _history = history.Value ?? new();
     }
 
+    private void ClearLastResult()
+    {
+        _lastResult = null;
+        _lastWasAliquot = false;
+        _aliquotParentConfirmed = false;
+    }
+
+    private string AliquotParentCue =>
+        ModificationResultNextStep.AliquotParentCue(
+            _aliquotParentConfirmed && _unit is not null,
+            _unit?.UnitNumber,
+            _unit?.Status ?? UnitStatus.Available,
+            _unit?.Volume);
+
     private void OnRuleChanged()
     {
         _selectedRule = _eligible.FirstOrDefault(e => e.RuleId == _selectedRuleId);
         _actionFb = null;
-        _lastResult = null;
+        ClearLastResult();
         _childCount = 2;
         SyncChildRows();
     }
@@ -677,15 +697,18 @@
         if (r.Succeeded)
         {
             _lastResult = r.Value;
+            _lastWasAliquot = _selectedRule.ModificationType == ModificationType.Aliquot;
+            _aliquotParentConfirmed = false;
             _reason = string.Empty;
             _singleResultVolume = null;
             _poolUnits.Clear();
-            if (_selectedRule.ModificationType == ModificationType.Aliquot)
+            if (_lastWasAliquot)
             {
                 var refreshed = await Api.GetUnitAsync(_unit.Id);
                 if (refreshed.Succeeded && refreshed.Value is not null)
                 {
                     _unit = refreshed.Value;
+                    _aliquotParentConfirmed = true;
                 }
             }
             var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
