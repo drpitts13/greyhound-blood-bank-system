@@ -5406,3 +5406,27 @@ Modification history named the result unit and its volume. After the unit was mo
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history does not say when a result has since left the location where it was made.
+
+## Iteration 195 — Result has left where it was made (2026-10-14)
+
+History named the refrigerator where a pool was prepared. After the unit moved to the issue bench, the row still read as if it were there.
+
+### Implemented
+
+- A result row keeps the creation location and carries the current location.
+- `ResultHasLeftCreationLocation` is true only when those location ids differ. The history cell then adds `now at` the current place.
+- A unit still at the creation location, including one that was never assigned a location, does not get that note.
+
+### Requirements / risk
+
+- URS-BB-348, FRS-BB-383, SRS-BB-345, RISK-BB-450.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-238 (`BloodProductModificationServiceTests.GetHistory_ShowsWhereTheResultWasMade_AfterItIsMoved`; `BloodProductModificationServiceTests.GetHistory_StillAtTheCreationLocation_DoesNotMarkAMove`; `BloodProductModificationServiceTests.GetHistory_WithoutALocation_ShowsNone`).
+- Those history tests green (4, including the moved, still-there, and unassigned cases).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history names the current place after a move, but not when the unit was moved or why.

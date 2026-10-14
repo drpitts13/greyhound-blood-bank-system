@@ -395,24 +395,29 @@
             return "—";
         }
 
-        var labels = results
-            .Select(unit => string.IsNullOrWhiteSpace(unit.ResultLocationName)
-                ? FormatLocation(unit.ResultLocationId)
-                : unit.ResultLocationName)
-            .Distinct()
-            .ToList();
+        var labels = results.Select(FormatHistoryLocation).Distinct().ToList();
         if (labels.Count == 1)
         {
             return labels[0];
         }
 
-        return string.Join(", ", results.Select(unit =>
+        return string.Join(", ", results.Select(unit => $"{unit.UnitNumber}: {FormatHistoryLocation(unit)}"));
+    }
+
+    private static string FormatHistoryLocation(ModificationUnitSummaryDto unit)
+    {
+        var made = string.IsNullOrWhiteSpace(unit.ResultLocationName)
+            ? FormatLocation(unit.ResultLocationId)
+            : unit.ResultLocationName;
+        if (!unit.ResultHasLeftCreationLocation)
         {
-            var place = string.IsNullOrWhiteSpace(unit.ResultLocationName)
-                ? FormatLocation(unit.ResultLocationId)
-                : unit.ResultLocationName;
-            return $"{unit.UnitNumber}: {place}";
-        }));
+            return made;
+        }
+
+        var now = string.IsNullOrWhiteSpace(unit.CurrentLocationName)
+            ? FormatLocation(unit.CurrentLocationId)
+            : unit.CurrentLocationName;
+        return $"{made}; now at {now}";
     }
 
     private Task OnSourceIdChanged(long? id)

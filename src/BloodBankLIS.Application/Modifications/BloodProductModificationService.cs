@@ -153,6 +153,7 @@ public sealed class BloodProductModificationService
             .Distinct()
             .ToList();
         var createdAt = new Dictionary<long, long?>();
+        var currentAt = new Dictionary<long, long?>();
         foreach (var resultId in resultIds)
         {
             var history = await _inventory.GetHistoryAsync(resultId, ct);
@@ -164,12 +165,20 @@ public sealed class BloodProductModificationService
             {
                 createdAt[resultId] = created.ToLocationId;
             }
+
+            if (unitById.TryGetValue(resultId, out var resultUnit))
+            {
+                currentAt[resultId] = resultUnit.CurrentLocationId;
+            }
         }
 
         var locationNames = new Dictionary<long, string>();
         if (_locations is not null)
         {
-            var locationIds = createdAt.Values.OfType<long>().Distinct().ToList();
+            var locationIds = createdAt.Values.OfType<long>()
+                .Concat(currentAt.Values.OfType<long>())
+                .Distinct()
+                .ToList();
             if (locationIds.Count > 0)
             {
                 var locations = await _locations.ListAsync(location => locationIds.Contains(location.Id), ct);
@@ -203,20 +212,30 @@ public sealed class BloodProductModificationService
                     {
                         unitById.TryGetValue(l.BloodProductId, out var unit);
                         createdAt.TryGetValue(l.BloodProductId, out var createdLocationId);
+                        currentAt.TryGetValue(l.BloodProductId, out var currentLocationId);
                         string? locationName = null;
+                        string? currentLocationName = null;
                         if (createdLocationId is long locationId)
                         {
                             locationNames.TryGetValue(locationId, out locationName);
                         }
 
+                        if (currentLocationId is long currentId)
+                        {
+                            locationNames.TryGetValue(currentId, out currentLocationName);
+                        }
+
+                        var isResult = l.Role == ModificationUnitRole.Result;
                         return new ModificationUnitSummaryDto(
                             l.BloodProductId,
                             unit?.UnitNumber ?? string.Empty,
                             l.Role,
                             unit?.ProductCodeData,
                             unit?.Volume,
-                            l.Role == ModificationUnitRole.Result ? createdLocationId : null,
-                            l.Role == ModificationUnitRole.Result ? locationName : null);
+                            isResult ? createdLocationId : null,
+                            isResult ? locationName : null,
+                            isResult ? currentLocationId : null,
+                            isResult ? currentLocationName : null);
                     }).ToList());
             })
             .ToList();

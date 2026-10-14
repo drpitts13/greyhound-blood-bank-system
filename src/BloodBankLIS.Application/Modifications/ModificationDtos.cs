@@ -39,7 +39,13 @@ public sealed record ModificationUnitSummaryDto(
     string? ProductCodeData = null,
     decimal? Volume = null,
     long? ResultLocationId = null,
-    string? ResultLocationName = null);
+    string? ResultLocationName = null,
+    long? CurrentLocationId = null,
+    string? CurrentLocationName = null)
+{
+    public bool ResultHasLeftCreationLocation =>
+        Role == ModificationUnitRole.Result && ResultLocationId != CurrentLocationId;
+}
 
 public sealed record UnitModificationDto(
     long Id,

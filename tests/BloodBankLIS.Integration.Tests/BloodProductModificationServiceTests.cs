@@ -761,6 +761,9 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         var resultSummary = Assert.Single(row.Units, unit => unit.Role == ModificationUnitRole.Result);
         Assert.Equal(fridgeId, resultSummary.ResultLocationId);
         Assert.Equal("Fridge A", resultSummary.ResultLocationName);
+        Assert.Equal(benchId, resultSummary.CurrentLocationId);
+        Assert.Equal("Issue bench", resultSummary.CurrentLocationName);
+        Assert.True(resultSummary.ResultHasLeftCreationLocation);
         Assert.All(row.Units.Where(unit => unit.Role == ModificationUnitRole.Source), unit =>
         {
             Assert.Null(unit.ResultLocationId);
@@ -770,6 +773,30 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         var created = await read.InventoryStatusHistory
             .SingleAsync(item => item.BloodProductId == resultId && item.FromStatus == null);
         Assert.Equal(pooled.Modification!.Id, created.RelatedEntityId);
+    }
+
+    [Fact]
+    public async Task GetHistory_StillAtTheCreationLocation_DoesNotMarkAMove()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTSTAY");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("HISTSTAY-A", "Fridge A");
+        var firstId = await CreateUnitAsync("U-HISTSTAY-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-HISTSTAY-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, fridgeId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var pooled = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool and leave it"));
+        Assert.True(pooled.Succeeded, pooled.Error);
+
+        var history = await service.GetHistoryAsync(firstId);
+        var resultSummary = Assert.Single(Assert.Single(history).Units, unit => unit.Role == ModificationUnitRole.Result);
+        Assert.Equal(fridgeId, resultSummary.ResultLocationId);
+        Assert.Equal(fridgeId, resultSummary.CurrentLocationId);
+        Assert.Equal("Fridge A", resultSummary.CurrentLocationName);
+        Assert.False(resultSummary.ResultHasLeftCreationLocation);
     }
 
     [Fact]
@@ -789,6 +816,8 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         var resultSummary = Assert.Single(Assert.Single(history).Units, unit => unit.Role == ModificationUnitRole.Result);
         Assert.Null(resultSummary.ResultLocationId);
         Assert.Null(resultSummary.ResultLocationName);
+        Assert.Null(resultSummary.CurrentLocationId);
+        Assert.False(resultSummary.ResultHasLeftCreationLocation);
     }
 
     [Fact]
