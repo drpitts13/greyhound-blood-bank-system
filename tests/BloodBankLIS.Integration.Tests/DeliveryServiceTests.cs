@@ -64,6 +64,52 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task BlankSupplierName_ShowsTheSupplierIdAndDoesNotWriteItOnTheUnit()
+    {
+        await using var context = _factory.Create();
+        await SeedProductCodeAsync(context);
+        var supplier = new BloodSupplier
+        {
+            Code = "BLANKSUP",
+            Name = "   ",
+            Registration = "REG-BLANKSUP",
+            IsActive = true
+        };
+        context.BloodSuppliers.Add(supplier);
+        await context.SaveChangesAsync();
+
+        var productTypeId = await SeedProductAsync(context, "RBC-DEL-BLANK");
+        var deliveries = CreateDeliveryService(context);
+        var created = await deliveries.CreateAsync(new CreateDeliveryRequest(
+            supplier.Id,
+            _factory.Clock.UtcNow.AddHours(-1),
+            null,
+            [new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 1)]));
+        Assert.True(created.Succeeded, created.Error);
+        var deliveryId = created.Value!.Id;
+
+        var open = Assert.Single(await deliveries.ListOpenAsync(), d => d.Id == deliveryId);
+        Assert.Equal("   ", open.SupplierName);
+        Assert.Equal($"Supplier {supplier.Id}", open.SupplierNameLabel);
+        Assert.DoesNotContain("BLANKSUP", open.SupplierNameLabel);
+
+        var detail = await deliveries.GetAsync(deliveryId);
+        Assert.Equal("   ", detail!.SupplierName);
+        Assert.Equal($"Supplier {supplier.Id}", detail.SupplierNameLabel);
+
+        var receive = await deliveries.ResolveForReceiveAsync(deliveryId, productTypeId);
+        Assert.True(receive.Succeeded, receive.Error);
+        Assert.Equal("   ", receive.Value!.SupplierName);
+        Assert.DoesNotContain("Supplier", receive.Value.SupplierName);
+
+        var inventory = CreateInventory(context, deliveries);
+        var unit = await inventory.ReceiveUnitAsync(UnitRequest("U-BLANK-SUP", productTypeId, deliveryId));
+        Assert.True(unit.Succeeded, unit.Error);
+        Assert.Equal("   ", unit.Unit!.Supplier);
+        Assert.Equal("   ", unit.Unit.CollectionFacility);
+    }
+
+    [Fact]
     public async Task Receive_RequiresOpenDeliveryLine_AndCountsUnits()
     {
         await using var context = _factory.Create();

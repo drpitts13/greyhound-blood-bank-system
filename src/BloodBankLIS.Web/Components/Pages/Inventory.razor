@@ -522,7 +522,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Open deliveries</h3></div>
-        <p class="muted">Open a delivery to review it, or enter the units that arrived. Each delivery has one supplier and expected counts by product, such as RBC or FFP.</p>
+        <p class="muted">Open a delivery to review it, or enter the units that arrived. Each delivery has one supplier and expected counts by product, such as RBC or FFP. A blank supplier name stays the supplier id.</p>
         @if (_openDeliveries.Count == 0)
         {
             <div class="muted">No open deliveries.</div>
@@ -547,7 +547,7 @@
                     {
                         <tr>
                             <td class="mono"><a href="@($"/inventory/deliveries/{delivery.Id}")">@delivery.Id</a></td>
-                            <td>@delivery.SupplierName</td>
+                            <td>@delivery.SupplierNameLabel</td>
                             <td class="mono">@(delivery.PackingListNumber ?? "—")</td>
                             <td>@delivery.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td>@delivery.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</td>

@@ -6292,3 +6292,28 @@ The blood-supplier catalog showed a blank name as an empty name beside the code.
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. An open delivery and the unit-entry page still show a blank supplier name as empty, so staff can miss which supplier sent the blood. Show Supplier {id} there. Do not write that label onto the unit. The stored name stays unchanged.
+
+## Iteration 230 — Supplier id on an open delivery (2026-10-15)
+
+An open delivery and unit entry showed a blank supplier name as empty. Staff could miss which supplier sent the blood.
+
+### Implemented
+
+- An open delivery shows `Supplier {id}` when the name is blank.
+- Unit entry on a delivery and ISBT receipt show the same label.
+- The name written on the unit stays the recorded supplier name.
+- The stored supplier name is unchanged.
+
+### Requirements / risk
+
+- URS-BB-383, FRS-BB-418, SRS-BB-380, RISK-BB-485.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-273 (`DeliverySupplierLabelTests.SupplierNameLabel_KeepsTheSupplierIdWhenTheNameIsBlank`; `DeliveryServiceTests.BlankSupplierName_ShowsTheSupplierIdAndDoesNotWriteItOnTheUnit`).
+- Open-delivery supplier-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A unit received from a supplier with a blank name still shows that blank name on the unit. When the delivery names that supplier, show Supplier {id} on the unit. Do not rewrite the stored supplier or collection facility.

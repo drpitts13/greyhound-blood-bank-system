@@ -33,7 +33,8 @@ else
     <div class="bb-card">
         <div class="form-row">
             <div class="field"><label>Delivery</label><div class="mono">@_delivery.Id</div></div>
-            <div class="field"><label>Supplier</label><div>@_delivery.SupplierName</div></div>
+            <div class="field"><label>Supplier</label><div>@_delivery.SupplierNameLabel</div></div>
+            <p class="muted">A blank supplier name stays the supplier id. The name stored on each unit stays the recorded supplier name.</p>
             <div class="field"><label>Packing list</label><div class="mono">@(_delivery.PackingListNumber ?? "—")</div></div>
         </div>
         <table class="bb">

@@ -388,3 +388,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-380 | Staff saving an ordering location can leave the name blank without the code being stored as the name. | P1 | FRS-BB-415 |
 | URS-BB-381 | Staff choosing a blood supplier for a delivery can select it by code and still read a blank name as the supplier id. | P1 | FRS-BB-416 |
 | URS-BB-382 | Staff reading the blood-supplier catalog can see a blank name as the supplier id while the code stays in the catalog. | P1 | FRS-BB-417 |
+| URS-BB-383 | Staff reviewing an open delivery or entering units can read a blank supplier name as the supplier id. | P1 | FRS-BB-418 |

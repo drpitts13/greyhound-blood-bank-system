@@ -55,6 +55,7 @@ public sealed class DeliveryService
             var detail = await BuildDetailAsync(delivery, ct);
             results.Add(new OpenDeliveryDto(
                 detail.Id,
+                detail.BloodSupplierId,
                 detail.SupplierCode,
                 detail.SupplierName,
                 detail.PackingListNumber,
