@@ -6241,3 +6241,29 @@ Saving an ordering location stored the location code as the name when the name w
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A blood supplier choice still joins the code and the name, so a blank name can leave the code looking like the place. Keep the code available for selection, and do not use the code as the name.
+
+## Iteration 228 — Supplier id on a delivery choice (2026-10-15)
+
+A delivery supplier choice joined the code and the name. A blank name could leave the code looking like the supplier.
+
+### Implemented
+
+- The choice keeps the supplier code.
+- A blank name stays `Supplier {id}`.
+- A recorded name stays that name.
+- The stored name is unchanged.
+- A locked delivery shows the same label.
+
+### Requirements / risk
+
+- URS-BB-381, FRS-BB-416, SRS-BB-378, RISK-BB-483.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-271 (`BloodSupplierLabelTests.ForChoice_KeepsTheCodeAndTheSupplierIdWhenTheNameIsBlank`; `BloodSupplierChoiceTests.DisplayName_KeepsTheCodeAndTheSupplierIdWhenTheNameIsBlank`).
+- Supplier-choice tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The blood-supplier catalog still shows a blank name as an empty name beside the code, so the code can be read as the supplier. Keep the code in the catalog, and show Supplier {id} when the name is blank. The stored name and the edit form stay unchanged.

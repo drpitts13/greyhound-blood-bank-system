@@ -279,5 +279,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-268 | D | `StorageLocationLabelTests.ForPicker_KeepsTheCodeAndTheLocationIdWhenTheNameIsBlank` | URS-BB-378 / FRS-BB-413 / RISK-BB-480 |
 | TEST-BB-269 | A | `InventoryLocationAdminDtoTests.NameLabel_KeepsTheLocationIdWhenTheNameIsBlank` | URS-BB-379 / FRS-BB-414 / RISK-BB-481 |
 | TEST-BB-270 | I | `OrderingLocationAuthorizationTests.Create_BlankName_DoesNotStoreTheCodeAsTheName`; `OrderingLocationAuthorizationTests.Hl7_BlankName_DoesNotStoreTheCodeAsTheName`; `AdminCatalogTests.CreateLocation_CodeOnly_DoesNotStoreTheCodeAsTheName` | URS-BB-380 / FRS-BB-415 / RISK-BB-482 |
+| TEST-BB-271 | A | `BloodSupplierLabelTests.ForChoice_KeepsTheCodeAndTheSupplierIdWhenTheNameIsBlank`; `BloodSupplierChoiceTests.DisplayName_KeepsTheCodeAndTheSupplierIdWhenTheNameIsBlank` | URS-BB-381 / FRS-BB-416 / RISK-BB-483 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

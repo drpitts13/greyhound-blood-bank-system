@@ -30,11 +30,12 @@
 else
 {
     <div class="bb-card">
+        <p class="muted">The supplier list keeps the code. A blank name stays the supplier id.</p>
         <div class="form-row">
             <div class="field"><label>Supplier</label>
                 @if (_delivery.SupplierLocked || _delivery.Status != DeliveryStatus.Open)
                 {
-                    <div>@_delivery.SupplierCode — @_delivery.SupplierName</div>
+                    <div>@BloodSupplierLabel.ForChoice(_delivery.BloodSupplierId, _delivery.SupplierCode, _delivery.SupplierName)</div>
                 }
                 else
                 {

@@ -48,7 +48,8 @@ public sealed record InventoryLocationDto(
 public sealed record BloodSupplierRefDto(long Id, string Code, string Name, string Registration, string DisplayName)
 {
     public static BloodSupplierRefDto From(BloodSupplier supplier) => new(
-        supplier.Id, supplier.Code, supplier.Name, supplier.Registration, $"{supplier.Code} — {supplier.Name}");
+        supplier.Id, supplier.Code, supplier.Name, supplier.Registration,
+        BloodSupplierLabel.ForChoice(supplier.Id, supplier.Code, supplier.Name));
 }
 
 public sealed record OrderingLocationRefDto(long Id, string Code, string? Name, string? Department, bool IsActive, string DisplayName)
