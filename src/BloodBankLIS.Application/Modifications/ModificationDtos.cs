@@ -60,4 +60,5 @@ public sealed record UnitModificationDto(
     string Reason,
     string PerformedBy,
     DateTime PerformedUtc,
-    IReadOnlyList<ModificationUnitSummaryDto> Units);
+    IReadOnlyList<ModificationUnitSummaryDto> Units,
+    string PatientLabel);

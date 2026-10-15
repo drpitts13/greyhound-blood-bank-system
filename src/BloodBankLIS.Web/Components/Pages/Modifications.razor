@@ -276,13 +276,15 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Modification history for this unit</h3></div>
+        <p class="muted">The patient is named when a product order points at the modification, including the medical record number when it is recorded. A missing or blank name stays the patient id. No product order says so. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one.</p>
         <table class="bb">
-            <thead><tr><th>Type</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+            <thead><tr><th>Type</th><th>Patient</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
             <tbody>
                 @foreach (var h in _history)
                 {
                     <tr>
                         <td>@h.ModificationType</td>
+                        <td>@h.PatientLabel</td>
                         <td class="mono">@h.SourceProductCode</td>
                         <td class="mono">@h.TargetProductCode</td>
                         <td class="mono">@FormatHistoryResults(h)</td>

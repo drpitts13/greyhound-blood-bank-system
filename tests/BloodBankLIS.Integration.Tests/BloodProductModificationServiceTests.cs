@@ -1057,6 +1057,178 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     }
 
     [Fact]
+    public async Task GetHistory_NamesThePatientWhenAnOrderPointsAtTheModification()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync($"HISTPT{key}");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate);
+        var sourceId = await CreateUnitAsync($"U-HISTPT-{key}", sourceProductId);
+
+        long namedModificationId;
+        await using (var context = _factory.Create())
+        {
+            var service = CreateService(context);
+            var applied = await service.ApplySingleAsync(
+                sourceId, new PerformSingleModificationRequest(ruleId, null, "Named order"));
+            Assert.True(applied.Succeeded, applied.Error);
+            namedModificationId = applied.Modification!.Id;
+        }
+
+        await using var arrange = _factory.Create();
+        UnitModification MakeModification(ModificationType type, string reason) => new()
+        {
+            ModificationRuleId = ruleId,
+            ModificationType = type,
+            ExpirationOffsetCodeApplied = "24H",
+            ResultExpiresUtc = _factory.Clock.UtcNow.AddHours(24),
+            Reason = reason,
+            PerformedBy = "tech",
+            PerformedUtc = _factory.Clock.UtcNow
+        };
+        var unlinked = MakeModification(ModificationType.Wash, "Bench only");
+        var blankName = MakeModification(ModificationType.Thaw, "Blank name");
+        var disagree = MakeModification(ModificationType.Pool, "Two orders");
+        arrange.UnitModifications.AddRange(unlinked, blankName, disagree);
+        await arrange.SaveChangesAsync();
+        arrange.UnitModificationUnits.AddRange(
+            new UnitModificationUnit { UnitModificationId = unlinked.Id, BloodProductId = sourceId, Role = ModificationUnitRole.Source },
+            new UnitModificationUnit { UnitModificationId = blankName.Id, BloodProductId = sourceId, Role = ModificationUnitRole.Source },
+            new UnitModificationUnit { UnitModificationId = disagree.Id, BloodProductId = sourceId, Role = ModificationUnitRole.Source });
+
+        var named = new Patient
+        {
+            MedicalRecordNumber = $"MRN-HIST-{key}",
+            LastName = " Poe ",
+            FirstName = " Ann ",
+            DateOfBirth = new DateOnly(1988, 9, 9),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        var blank = new Patient
+        {
+            MedicalRecordNumber = $"MRN-HIST-BL-{key}",
+            LastName = "   ",
+            FirstName = " ",
+            DateOfBirth = new DateOnly(1989, 10, 10),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        var other = new Patient
+        {
+            MedicalRecordNumber = $"MRN-HIST-OT-{key}",
+            LastName = "Lee",
+            FirstName = "Sam",
+            DateOfBirth = new DateOnly(1990, 1, 1),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        arrange.Patients.AddRange(named, blank, other);
+        await arrange.SaveChangesAsync();
+        var encounter = new Encounter
+        {
+            PatientId = named.Id,
+            VisitNumber = $"VIS-HIST-{key}",
+            EncounterType = EncounterType.Inpatient,
+            Status = EncounterStatus.Active,
+            AdmitUtc = _factory.Clock.UtcNow
+        };
+        var location = new OrderingLocation { Code = $"LOC-HIST-{key}", Name = "Ward", IsActive = true };
+        arrange.Encounters.Add(encounter);
+        arrange.OrderingLocations.Add(location);
+        await arrange.SaveChangesAsync();
+
+        Order MakeOrder(string number, long patientId) => new()
+        {
+            OrderNumber = number,
+            OrderName = "Modify red cells",
+            PatientId = patientId,
+            EncounterId = encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product,
+            ProductTypeId = sourceProductId,
+            Status = OrderStatus.InProcess,
+            OrderedUtc = _factory.Clock.UtcNow
+        };
+        var namedOrder = MakeOrder($"ORD-HIST-{key}", named.Id);
+        var blankOrder = MakeOrder($"ORD-HIST-BL-{key}", blank.Id);
+        var otherOrder = MakeOrder($"ORD-HIST-OT-{key}", other.Id);
+        var definition = new ActionDefinition
+        {
+            Code = $"IRRAD-{key}",
+            Name = "Irradiate",
+            Category = ActionCategory.Modification,
+            ModificationType = ModificationType.Irradiate,
+            IsActive = true
+        };
+        arrange.Orders.AddRange(namedOrder, blankOrder, otherOrder);
+        arrange.ActionDefinitions.Add(definition);
+        await arrange.SaveChangesAsync();
+        arrange.OrderActions.AddRange(
+            new OrderAction
+            {
+                OrderId = namedOrder.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = sourceId,
+                UnitModificationId = namedModificationId
+            },
+            new OrderAction
+            {
+                OrderId = blankOrder.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = sourceId,
+                UnitModificationId = blankName.Id
+            },
+            new OrderAction
+            {
+                OrderId = namedOrder.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = sourceId,
+                UnitModificationId = disagree.Id
+            },
+            new OrderAction
+            {
+                OrderId = otherOrder.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = sourceId,
+                UnitModificationId = disagree.Id
+            });
+        await arrange.SaveChangesAsync();
+
+        var history = await CreateHistoryService(arrange).GetHistoryAsync(sourceId);
+        Assert.Equal($"Poe, Ann ({named.MedicalRecordNumber})", Assert.Single(history, row => row.Id == namedModificationId).PatientLabel);
+        Assert.Equal($"patient #{blank.Id} ({blank.MedicalRecordNumber})", Assert.Single(history, row => row.Id == blankName.Id).PatientLabel);
+        Assert.Equal("No patient order was recorded.", Assert.Single(history, row => row.Id == unlinked.Id).PatientLabel);
+        Assert.Equal("The linked orders do not name one patient.", Assert.Single(history, row => row.Id == disagree.Id).PatientLabel);
+
+        var unread = await CreateHistoryService(arrange, includeOrders: false).GetHistoryAsync(sourceId);
+        Assert.All(unread, row => Assert.Equal("The order could not be read.", row.PatientLabel));
+    }
+
+    private BloodProductModificationService CreateHistoryService(BloodBankDbContext context, bool includeOrders = true)
+    {
+        var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser);
+        return new BloodProductModificationService(
+            new InventoryRepository(context),
+            new EfRepository<ModificationRule>(context),
+            new EfRepository<ProductType>(context),
+            new EfRepository<ExpirationModificationCode>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            context,
+            _factory.Clock,
+            _factory.CurrentUser,
+            audit,
+            orderActions: includeOrders ? new EfRepository<OrderAction>(context) : null,
+            orders: includeOrders ? new EfRepository<Order>(context) : null,
+            locations: new EfRepository<InventoryLocation>(context),
+            patients: includeOrders ? new EfRepository<Patient>(context) : null);
+    }
+
+    [Fact]
     public async Task ApplySingle_CollectionRelative_DatesFromCollection()
     {
         var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("COLREL");

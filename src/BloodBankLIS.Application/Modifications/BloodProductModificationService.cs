@@ -39,6 +39,7 @@ public sealed class BloodProductModificationService
     private readonly BillingService? _billing;
     private readonly IRepository<UnitBloodAttribute>? _unitAttributes;
     private readonly IRepository<InventoryLocation>? _locations;
+    private readonly IRepository<Patient>? _patients;
 
     public BloodProductModificationService(
         IInventoryRepository inventory,
@@ -60,7 +61,8 @@ public sealed class BloodProductModificationService
         IRepository<Crossmatch>? crossmatches = null,
         BillingService? billing = null,
         IRepository<UnitBloodAttribute>? unitAttributes = null,
-        IRepository<InventoryLocation>? locations = null)
+        IRepository<InventoryLocation>? locations = null,
+        IRepository<Patient>? patients = null)
     {
         _inventory = inventory;
         _rules = rules;
@@ -82,6 +84,7 @@ public sealed class BloodProductModificationService
         _billing = billing;
         _unitAttributes = unitAttributes;
         _locations = locations;
+        _patients = patients;
     }
 
     /// <summary>Active modification rules whose source product matches the unit's current product type.</summary>
@@ -214,6 +217,8 @@ public sealed class BloodProductModificationService
             }
         }
 
+        var patientLabels = await LoadPatientLabelsAsync(modIds, ct);
+
         return mods
             .OrderByDescending(m => m.PerformedUtc)
             .Select(m =>
@@ -262,9 +267,84 @@ public sealed class BloodProductModificationService
                             isResult && leftAt.ContainsKey(l.BloodProductId) ? left.Utc : null,
                             isResult ? left.Reason : null,
                             isResult && leftAt.ContainsKey(l.BloodProductId) ? left.By : null);
-                    }).ToList());
+                    }).ToList(),
+                    patientLabels.TryGetValue(m.Id, out var patientLabel)
+                        ? patientLabel
+                        : ModificationHistoryPatientCue.Format(null, orderCouldNotBeRead: true));
             })
             .ToList();
+    }
+
+    private async Task<Dictionary<long, string>> LoadPatientLabelsAsync(
+        IReadOnlyList<long> modificationIds,
+        CancellationToken ct)
+    {
+        var labels = new Dictionary<long, string>();
+        if (_orderActions is null || _orders is null || _patients is null)
+        {
+            foreach (var id in modificationIds)
+            {
+                labels[id] = ModificationHistoryPatientCue.Format(null, orderCouldNotBeRead: true);
+            }
+
+            return labels;
+        }
+
+        var actions = await _orderActions.ListAsync(
+            action => action.UnitModificationId != null && modificationIds.Contains(action.UnitModificationId.Value),
+            ct);
+        var orderIds = actions.Select(action => action.OrderId).Distinct().ToList();
+        var orders = orderIds.Count == 0
+            ? new Dictionary<long, Order>()
+            : (await _orders.ListAsync(order => orderIds.Contains(order.Id), ct)).ToDictionary(order => order.Id);
+        var patientIds = orders.Values.Select(order => order.PatientId).Distinct().ToList();
+        var patients = patientIds.Count == 0
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(patient => patientIds.Contains(patient.Id), ct)).ToDictionary(patient => patient.Id);
+
+        var linked = new HashSet<long>();
+        foreach (var group in actions
+                     .Where(action => action.UnitModificationId is long id && id > 0)
+                     .GroupBy(action => action.UnitModificationId!.Value))
+        {
+            linked.Add(group.Key);
+            string? label = null;
+            var disagree = false;
+            foreach (var action in group)
+            {
+                if (!orders.TryGetValue(action.OrderId, out var order))
+                {
+                    continue;
+                }
+
+                patients.TryGetValue(order.PatientId, out var patient);
+                var next = PatientActivityLabel.Format(
+                    order.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
+                if (label is null)
+                {
+                    label = next;
+                }
+                else if (!string.Equals(label, next, StringComparison.Ordinal))
+                {
+                    disagree = true;
+                }
+            }
+
+            labels[group.Key] = ModificationHistoryPatientCue.Format(
+                label,
+                orderCouldNotBeRead: label is null,
+                linkedOrdersDisagree: disagree);
+        }
+
+        foreach (var id in modificationIds)
+        {
+            if (!linked.Contains(id))
+            {
+                labels[id] = ModificationHistoryPatientCue.Format(null);
+            }
+        }
+
+        return labels;
     }
 
     /// <summary>Divides one source unit into two or more result units of the rule's target product.</summary>
