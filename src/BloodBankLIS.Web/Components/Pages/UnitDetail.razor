@@ -330,7 +330,8 @@ else
                 @if (Session.Has(PermissionCodes.InventoryTransfer))
                 {
                     <div class="flex gap">
-                        <select @bind="_transferTo"><option value="0">— location —</option>@foreach (var l in _locations) { <option value="@l.Id">@l.Code — @l.Name</option> }</select>
+                        <select @bind="_transferTo"><option value="0">— location —</option>@foreach (var l in _locations) { <option value="@l.Id">@l.ChoiceLabel</option> }</select>
+                        <p class="muted">The location code stays on the choice. A blank name stays the location id.</p>
                         <input @bind="_transferReason" placeholder="Reason (optional)" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || _transferTo == 0)" @onclick="() => TransferAsync(_unit.Id)">Transfer</button>
                     </div>

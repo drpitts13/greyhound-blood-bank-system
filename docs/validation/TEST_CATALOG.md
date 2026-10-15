@@ -276,5 +276,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-265 | I | `ComplianceWorkflowTests.Lookback_NamesTheStorageLocationWhenThePlaceIsALocationCode` | URS-BB-375 / FRS-BB-410 / RISK-BB-477 |
 | TEST-BB-266 | U | `IssuedToLocationNoticeTests.IssuedToLocationNotice_NamesTheWard`; `RetrospectiveFollowUpNoticeTests.RetrospectiveFollowUpNotice_NamesCustody` | URS-BB-376 / FRS-BB-411 / RISK-BB-478 |
 | TEST-BB-267 | I | `StorageLocationCueTests.StorageLocationLabel_KeepsTheLocationIdWhenTheNameIsBlank`; `Phase4IssuingTests.ListReadyToIssue_KeepsTheLocationIdWhenTheNameIsBlank`; `PatientAllocationTests.CompatibleAndReserved_KeepTheLocationIdWhenTheNameIsBlank` | URS-BB-377 / FRS-BB-412 / RISK-BB-479 |
+| TEST-BB-268 | D | `StorageLocationLabelTests.ForPicker_KeepsTheCodeAndTheLocationIdWhenTheNameIsBlank` | URS-BB-378 / FRS-BB-413 / RISK-BB-480 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

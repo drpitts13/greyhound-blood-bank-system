@@ -66,4 +66,20 @@ public static class StorageLocationLabel
     /// </summary>
     public static string ForUnitChart(long? locationId, IEnumerable<CatalogLocation>? catalog) =>
         ForInventoryList(locationId, catalog);
+
+    /// <summary>
+    /// Choice label for a transfer or delivery location.
+    /// The code stays so staff can select the site. A blank name stays the location id
+    /// and is not replaced by the code.
+    /// </summary>
+    public static string ForPicker(long locationId, string? code, string? name)
+    {
+        var place = Format(locationId, name);
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return place;
+        }
+
+        return $"{code.Trim()} — {place}";
+    }
 }

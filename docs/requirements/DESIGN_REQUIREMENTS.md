@@ -378,3 +378,4 @@
 | SRS-BB-372 | Lookback rows use `IssueDestinationCue`. A single code match uses `StorageLocationLabel`. The stored issued-to place is not rewritten. | FRS-BB-410 |
 | SRS-BB-373 | `IssuedToLocationNotice` returns a trimmed place that already starts with `Location `. Any other place is prefixed once. A blank place stays omitted. | FRS-BB-411 |
 | SRS-BB-374 | Ready-to-issue and reserved-product labels use `StorageLocationLabel.Format`. A blank name stays the location id. The location code is not a label. No location id stays omitted. | FRS-BB-412 |
+| SRS-BB-375 | Transfer and delivery-receipt choices use `StorageLocationLabel.ForPicker`. The code stays on the choice. A blank name stays the location id. | FRS-BB-413 |

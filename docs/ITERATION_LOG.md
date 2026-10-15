@@ -6165,3 +6165,28 @@ Ready to issue and reserved products showed a location code when the storage loc
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A unit transfer and a delivery receipt still list a storage location as code and name. A blank name on that picker can leave the code looking like the place. Keep the code available for selection, and show Location {id} when the name is blank.
+
+## Iteration 225 — Location id on a transfer or delivery choice (2026-10-15)
+
+A unit transfer and a delivery receipt listed a storage location as code and name. A blank name left the code looking like the place.
+
+### Implemented
+
+- The transfer choice keeps the location code and the storage location name.
+- The delivery-receipt choice uses that same label.
+- A blank name stays `Location {id}` and is not replaced by the code.
+- A missing code stays the place alone.
+
+### Requirements / risk
+
+- URS-BB-378, FRS-BB-413, SRS-BB-375, RISK-BB-480.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-268 (`StorageLocationLabelTests.ForPicker_KeepsTheCodeAndTheLocationIdWhenTheNameIsBlank`).
+- Transfer and delivery location-choice tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The location admin list still shows a blank storage location name as an empty name beside the code, so the code can be read as the place. Keep the code in the catalog, and show Location {id} when the name is blank.

@@ -1,6 +1,7 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Reference;
 
@@ -37,6 +38,8 @@ public sealed record InventoryLocationDto(
     bool RequiresSecondVerifier = false,
     bool IsSatellite = false)
 {
+    public string ChoiceLabel => StorageLocationLabel.ForPicker(Id, Code, Name);
+
     public static InventoryLocationDto From(InventoryLocation l) => new(
         l.Id, l.Code, l.Name, l.LocationType, l.IsActive,
         l.AllowsIssue, l.AllowsRemoteIssue, l.AllowsElectronicIssue, l.RequiresSecondVerifier, l.IsSatellite);

@@ -100,4 +100,13 @@ public class StorageLocationLabelTests
 
         Assert.Equal(StorageLocationLabel.None, StorageLocationLabel.ForUnitChart(null, catalog));
     }
+
+    [Fact]
+    public void ForPicker_KeepsTheCodeAndTheLocationIdWhenTheNameIsBlank()
+    {
+        Assert.Equal("FR1 — Issue fridge", StorageLocationLabel.ForPicker(9, " FR1 ", " Issue fridge "));
+        Assert.Equal("FR1 — Location 9", StorageLocationLabel.ForPicker(9, " FR1 ", "   "));
+        Assert.DoesNotContain("FR1 — FR1", StorageLocationLabel.ForPicker(9, "FR1", "   "));
+        Assert.Equal("Location 9", StorageLocationLabel.ForPicker(9, "  ", null));
+    }
 }
