@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 228)
+## Capability matrix (Cycle 229)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -47,7 +47,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Worklists: tests, retype, near-expiry, issue, reactions, inbound | Present | Pending specimens Cycle 181; supervisor queue Cycle 184 |
 | Assigned products / outstanding transfusions | Present | Ready to issue; outstanding issued. Cycle 224 keeps a blank storage location name as the location id on Ready to issue and on reserved products. A location code is not shown. A unit with no location stays omitted. A location list that cannot be loaded does not invent a name. |
 | Shift handoff / supervisor queues | Present | Cycle 182 handoff; Cycle 184 permission-scoped supervisor worklist |
-| Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033). Cycle 226 keeps the code in the inventory-location catalog. A blank name on that list stays the location id. The stored name and the edit form are unchanged. |
+| Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033). Cycle 226 keeps the code in the inventory-location catalog. A blank name on that list stays the location id. The stored name and the edit form are unchanged. Cycle 229 keeps the code in the blood-supplier catalog. A blank name on that list stays the supplier id. The stored name and the edit form are unchanged. |
 | HL7 ADT/ORM/ORU, BPAM, retry/error, downtime snapshot | Partial | v2 present; FHIR absent; MLLP transport-trust |
 | Audit of clinically important actions | Present | Append-only hash chain; no purge |
 
@@ -136,6 +136,8 @@ Cycle 226 keeps the code in the inventory-location catalog (RISK-BB-481). A blan
 Cycle 227 does not store an ordering-location code as the name when the name is blank (RISK-BB-482). The list and the visit or order choice show the location id. A recorded name stays that name. An HL7 mapping code still uses the location code when none was sent. A name already stored as the code is not rewritten.
 
 Cycle 228 keeps the supplier code on a delivery choice (RISK-BB-483). A blank name stays the supplier id and is not replaced by the code. A recorded name stays that name. The stored name is unchanged.
+
+Cycle 229 keeps the code in the blood-supplier catalog (RISK-BB-484). A blank name on that list stays the supplier id. The stored name and the edit form are unchanged.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|

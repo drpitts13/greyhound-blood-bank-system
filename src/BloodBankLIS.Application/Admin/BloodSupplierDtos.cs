@@ -12,6 +12,8 @@ public sealed record BloodSupplierDto(
     bool IsActive,
     string DisplayName)
 {
+    public string NameLabel => BloodSupplierLabel.Name(Id, Name);
+
     public static BloodSupplierDto From(BloodSupplier supplier) => new(
         supplier.Id,
         supplier.Code,

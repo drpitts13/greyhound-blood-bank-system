@@ -21,6 +21,20 @@ public class BloodSupplierChoiceTests
         Assert.DoesNotContain("ARC — ARC", BloodSupplierRefDto.From(blank).DisplayName);
     }
 
+    [Fact]
+    public void NameLabel_KeepsTheSupplierIdWhenTheNameIsBlank()
+    {
+        var named = BloodSupplierDto.From(Supplier(9, "ARC", " American Red Cross "));
+        Assert.Equal("American Red Cross", named.NameLabel);
+        Assert.Equal("ARC", named.Code);
+
+        var blank = BloodSupplierDto.From(Supplier(9, "ARC", "   "));
+        Assert.Equal("Supplier 9", blank.NameLabel);
+        Assert.Equal("   ", blank.Name);
+        Assert.Equal("ARC", blank.Code);
+        Assert.DoesNotContain("ARC", blank.NameLabel);
+    }
+
     private static BloodSupplier Supplier(long id, string code, string name) => new()
     {
         Id = id,

@@ -382,3 +382,4 @@
 | SRS-BB-376 | The inventory-location list uses `InventoryLocationAdminDto.NameLabel`. The code column stays the stored code. A blank name stays the location id. The stored name is not rewritten. | FRS-BB-414 |
 | SRS-BB-377 | A blank ordering-location name is stored empty. Display uses `StorageLocationLabel.Format`. The HL7 mapping code still falls back to the location code. An existing stored name is not rewritten. | FRS-BB-415 |
 | SRS-BB-378 | A delivery supplier choice uses `BloodSupplierLabel.ForChoice`. The code stays on the choice. A blank name stays the supplier id. The stored name is not rewritten. | FRS-BB-416 |
+| SRS-BB-379 | The blood-supplier list uses `BloodSupplierDto.NameLabel`. The code column stays the stored code. A blank name stays the supplier id. The stored name is not rewritten. | FRS-BB-417 |

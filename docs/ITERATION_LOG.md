@@ -6267,3 +6267,28 @@ A delivery supplier choice joined the code and the name. A blank name could leav
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The blood-supplier catalog still shows a blank name as an empty name beside the code, so the code can be read as the supplier. Keep the code in the catalog, and show Supplier {id} when the name is blank. The stored name and the edit form stay unchanged.
+
+## Iteration 229 — Supplier id on the blood-supplier list (2026-10-15)
+
+The blood-supplier catalog showed a blank name as an empty name beside the code. The code could be read as the supplier.
+
+### Implemented
+
+- The list keeps the supplier code in the code column.
+- A blank name on that list stays `Supplier {id}`.
+- The stored name is unchanged.
+- The edit form still shows the stored name.
+
+### Requirements / risk
+
+- URS-BB-382, FRS-BB-417, SRS-BB-379, RISK-BB-484.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-272 (`BloodSupplierLabelTests.Name_KeepsTheSupplierIdWhenTheNameIsBlank`; `BloodSupplierChoiceTests.NameLabel_KeepsTheSupplierIdWhenTheNameIsBlank`).
+- Supplier-catalog name-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. An open delivery and the unit-entry page still show a blank supplier name as empty, so staff can miss which supplier sent the blood. Show Supplier {id} there. Do not write that label onto the unit. The stored name stays unchanged.
