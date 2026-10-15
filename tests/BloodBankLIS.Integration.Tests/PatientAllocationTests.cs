@@ -1693,4 +1693,56 @@ public class PatientAllocationTests : IClassFixture<SqliteContextFactory>
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == AboCompatibilityRule.RhCode);
     }
+
+    [Fact]
+    public async Task CompatibleAndReserved_KeepTheLocationIdWhenTheNameIsBlank()
+    {
+        const string code = "F2ALLOC224";
+        long locationId;
+        long patientId;
+        long unitId;
+        string unitNumber;
+        await using (var c = _factory.Create())
+        {
+            var (patient, unit) = await SeedAvailableUnitAsync(c, "ALLOC224");
+            var location = new InventoryLocation { Code = code, Name = "   " };
+            c.InventoryLocations.Add(location);
+            await c.SaveChangesAsync();
+            locationId = location.Id;
+            unit.CurrentLocationId = location.Id;
+            await c.SaveChangesAsync();
+            patientId = patient.Id;
+            unitId = unit.Id;
+            unitNumber = unit.UnitNumber;
+        }
+
+        await using var read = _factory.Create();
+        var choices = await Allocations(read).ListCompatibleUnitsAsync(patientId);
+        Assert.True(choices.Succeeded, choices.Error);
+        var choice = Assert.Single(choices.Value!, row => row.BloodUnitId == unitId);
+        Assert.Equal($"Location {locationId}", choice.StorageLocationName);
+        Assert.DoesNotContain(code, choice.StorageLocationName, StringComparison.OrdinalIgnoreCase);
+
+        await SeedCrossmatchCatalogAsync(read);
+        var loc = new OrderingLocation { Code = "L224", Name = "BB", IsActive = true };
+        var enc = new Encounter
+        {
+            PatientId = patientId,
+            VisitNumber = "VIS-224",
+            EncounterType = EncounterType.Inpatient,
+            Status = EncounterStatus.Active,
+            AdmitUtc = _factory.Clock.UtcNow.AddHours(-2)
+        };
+        read.OrderingLocations.Add(loc);
+        read.Encounters.Add(enc);
+        await read.SaveChangesAsync();
+
+        var alloc = await Allocations(read).AllocateAsync(patientId, new AllocatePatientUnitRequest(
+            unitId, enc.Id, null, loc.Id, null, "CXM"));
+        Assert.True(alloc.Succeeded, alloc.Error);
+        Assert.Equal($"Location {locationId}", alloc.Value!.Allocation.StorageLocationName);
+        var reserved = Assert.Single(await Allocations(read).ListActiveAsync(patientId), row => row.UnitNumber == unitNumber);
+        Assert.Equal($"Location {locationId}", reserved.StorageLocationName);
+        Assert.DoesNotContain(code, reserved.StorageLocationName!, StringComparison.OrdinalIgnoreCase);
+    }
 }

@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 223)
+## Capability matrix (Cycle 224)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -45,7 +45,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Compatibility, special requirements, eXM, warning vs hard-stop | Present | OCD-001 closed. Per-product ABO and Rh grids apply at issue and allocation |
 | Antibody/antigen history, phenotype, genotype, alerts | Present | Genotype vs phenotype tokens (OCD-024) |
 | Worklists: tests, retype, near-expiry, issue, reactions, inbound | Present | Pending specimens Cycle 181; supervisor queue Cycle 184 |
-| Assigned products / outstanding transfusions | Present | Ready to issue; outstanding issued |
+| Assigned products / outstanding transfusions | Present | Ready to issue; outstanding issued. Cycle 224 keeps a blank storage location name as the location id on Ready to issue and on reserved products. A location code is not shown. A unit with no location stays omitted. A location list that cannot be loaded does not invent a name. |
 | Shift handoff / supervisor queues | Present | Cycle 182 handoff; Cycle 184 permission-scoped supervisor worklist |
 | Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033) |
 | HL7 ADT/ORM/ORU, BPAM, retry/error, downtime snapshot | Partial | v2 present; FHIR absent; MLLP transport-trust |
@@ -126,6 +126,8 @@ Cycle 221 names that storage location on the issuing board and on patient produc
 Cycle 222 names that storage location on lookback (RISK-BB-477). A blank name stays the location id. A place that is not one location code stays as typed. A code that is also another location's name stays as typed. A missing location list does not invent a name. The recorded place is unchanged.
 
 Cycle 223 keeps a place that already says Location {id} on a receive, return, or transfusion notice (RISK-BB-478). It does not prefix Location again. A ward name or a storage location name still says Location before that place. A blank notice stays omitted.
+
+Cycle 224 keeps a blank storage location name as the location id on Ready to issue and on reserved products (RISK-BB-479). A location code is not shown. A unit with no location stays omitted. A location list that cannot be loaded does not invent a name.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|

@@ -62,13 +62,14 @@ public static class ReadyToIssueFormCue
         return notices.Count == 0 ? null : string.Join(" · ", notices);
     }
 
-    public static string? StorageLocationLabel(string? name, string? code)
+    public static string? StorageLocationLabel(long? locationId, string? name)
     {
-        if (!string.IsNullOrWhiteSpace(name))
-            return name.Trim();
-        if (!string.IsNullOrWhiteSpace(code))
-            return code.Trim();
-        return null;
+        if (locationId is not long id)
+        {
+            return null;
+        }
+
+        return BloodBankLIS.Domain.Rules.StorageLocationLabel.Format(id, name);
     }
 
     public static string? StorageLocationNotice(string? locationName) =>

@@ -2494,6 +2494,31 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListReadyToIssue_KeepsTheLocationIdWhenTheNameIsBlank()
+    {
+        var s = await SeedAsync("RDYBLANK");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        long locationId;
+        const string code = "F2RDYBLANK";
+        await using (var placed = _factory.Create())
+        {
+            var location = new InventoryLocation { Code = code, Name = "   " };
+            placed.InventoryLocations.Add(location);
+            await placed.SaveChangesAsync();
+            locationId = location.Id;
+            var stored = await placed.BloodUnits.FindAsync(s.UnitId);
+            stored!.CurrentLocationId = location.Id;
+            await placed.SaveChangesAsync();
+        }
+
+        await using var read = _factory.Create();
+        var row = Assert.Single(await Issuing(read).ListReadyToIssueAllocationsAsync(), r => r.BloodUnitId == s.UnitId);
+        Assert.Equal($"Location {locationId}", row.StorageLocationName);
+        Assert.DoesNotContain(code, row.StorageLocationName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt()
     {
         var s = await SeedAsync("OUTISS");

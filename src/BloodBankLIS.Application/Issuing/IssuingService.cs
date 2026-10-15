@@ -873,7 +873,7 @@ public sealed class IssuingService
         }
 
         var location = await _locations.GetByIdAsync(id, ct);
-        var name = ReadyToIssueFormCue.StorageLocationLabel(location?.Name, location?.Code);
+        var name = ReadyToIssueFormCue.StorageLocationLabel(id, location?.Name);
         cache[id] = name;
         return name;
     }

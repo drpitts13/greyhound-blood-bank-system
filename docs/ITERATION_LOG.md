@@ -6139,3 +6139,29 @@ A receive, return, or transfusion notice prefixed Location onto a place that alr
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Ready to issue and reserved products still show a location code when the storage location name is blank, so the code can be read as the name. A blank name should stay Location {id}. Do not invent a name.
+
+## Iteration 224 — Location id when a reserved unit's place has no name (2026-10-15)
+
+Ready to issue and reserved products showed a location code when the storage location name was blank. The code could be read as the name.
+
+### Implemented
+
+- A blank storage location name stays `Location {id}` on Ready to issue.
+- A compatible unit choice and a reserved product use that same label.
+- A location code is not shown.
+- A unit with no location stays omitted.
+- A location list that cannot be loaded does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-377, FRS-BB-412, SRS-BB-374, RISK-BB-479.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-267 (`StorageLocationCueTests.StorageLocationLabel_KeepsTheLocationIdWhenTheNameIsBlank`; `Phase4IssuingTests.ListReadyToIssue_KeepsTheLocationIdWhenTheNameIsBlank`; `PatientAllocationTests.CompatibleAndReserved_KeepTheLocationIdWhenTheNameIsBlank`).
+- Blank storage-location label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A unit transfer and a delivery receipt still list a storage location as code and name. A blank name on that picker can leave the code looking like the place. Keep the code available for selection, and show Location {id} when the name is blank.

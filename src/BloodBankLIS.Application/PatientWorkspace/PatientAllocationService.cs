@@ -456,9 +456,14 @@ public sealed class PatientAllocationService
             return names;
         }
 
+        foreach (var id in ids)
+        {
+            names[id] = ReadyToIssueFormCue.StorageLocationLabel(id, null);
+        }
+
         foreach (var location in await _locations.ListAsync(l => ids.Contains(l.Id), ct))
         {
-            names[location.Id] = ReadyToIssueFormCue.StorageLocationLabel(location.Name, location.Code);
+            names[location.Id] = ReadyToIssueFormCue.StorageLocationLabel(location.Id, location.Name);
         }
 
         return names;

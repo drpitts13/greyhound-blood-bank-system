@@ -382,3 +382,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-374 | Staff reading the issuing board or patient product history can see the storage location name when the issued-to place is a location code. | P1 | FRS-BB-409 |
 | URS-BB-375 | Staff reading lookback can see the storage location name when the issued-to place is a location code. | P1 | FRS-BB-410 |
 | URS-BB-376 | Staff receiving, returning, or documenting a unit can read a blank storage location as Location {id} without a second Location prefix. | P1 | FRS-BB-411 |
+| URS-BB-377 | Staff choosing a reserved unit can read a blank storage location as the location id. | P1 | FRS-BB-412 |

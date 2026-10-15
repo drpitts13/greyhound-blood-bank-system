@@ -57,7 +57,8 @@ public class ReadyToIssueFormCueTests
             "Crossmatch incompatible",
             ReadyToIssueFormCue.CrossmatchWorklistNotice(CrossmatchResult.Incompatible, null));
         Assert.Null(ReadyToIssueFormCue.CrossmatchWorklistNotice(null, null));
-        Assert.Equal("FRIDGE-1", ReadyToIssueFormCue.StorageLocationLabel("  ", "FRIDGE-1"));
+        Assert.Equal("Location 9", ReadyToIssueFormCue.StorageLocationLabel(9, "  "));
+        Assert.Null(ReadyToIssueFormCue.StorageLocationLabel(null, "Issue fridge"));
         Assert.Null(ReadyToIssueFormCue.StorageLocationNotice(null));
 
         Assert.Empty(ReadyToIssueFormCue.Notices(Row()));
@@ -92,6 +93,18 @@ public class ReadyToIssueFormCueTests
             CrossmatchExpiresUtc: crossmatchExpiresUtc,
             StorageLocationName: storageLocationName,
             SpecimenAccession: specimenAccession);
+}
+
+public class StorageLocationCueTests
+{
+    [Fact]
+    public void StorageLocationLabel_KeepsTheLocationIdWhenTheNameIsBlank()
+    {
+        Assert.Equal("Issue fridge", ReadyToIssueFormCue.StorageLocationLabel(4, " Issue fridge "));
+        Assert.Equal("Location 9", ReadyToIssueFormCue.StorageLocationLabel(9, "   "));
+        Assert.Equal("Location 9", ReadyToIssueFormCue.StorageLocationLabel(9, null));
+        Assert.Null(ReadyToIssueFormCue.StorageLocationLabel(null, "Issue fridge"));
+    }
 }
 
 public class IssuedToNoticeTests
