@@ -75,12 +75,20 @@ public sealed class UnitActivityService
         }
 
         var allocations = await _allocations.ListAsync(x => x.BloodProductId == unitId, ct);
+        var issues = await _issues.ListAsync(i => i.BloodProductId == unitId, ct);
+        var patientIds = allocations.Select(a => a.PatientId).Concat(issues.Select(i => i.PatientId)).Distinct().ToList();
+        var patients = patientIds.Count == 0
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+
         foreach (var a in allocations)
         {
+            patients.TryGetValue(a.PatientId, out var patient);
+            var who = PatientActivityLabel.Format(a.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
             rows.Add(new UnitActivityDto(
                 a.AllocatedUtc,
                 "Allocation",
-                $"{a.Status} to patient #{a.PatientId}",
+                $"{a.Status} to {who}",
                 a.AllocatedBy,
                 nameof(Allocation),
                 a.Id));
@@ -103,16 +111,11 @@ public sealed class UnitActivityService
                 xm.Id));
         }
 
-        var issues = await _issues.ListAsync(i => i.BloodProductId == unitId, ct);
         var issueIds = issues.Select(i => i.Id).ToHashSet();
-        var patients = issues.Count == 0
-            ? new Dictionary<long, Patient>()
-            : (await _patients.ListAsync(p => issues.Select(i => i.PatientId).Contains(p.Id), ct))
-                .ToDictionary(p => p.Id);
         foreach (var i in issues)
         {
             patients.TryGetValue(i.PatientId, out var patient);
-            var who = patient is null ? $"patient #{i.PatientId}" : $"{patient.LastName}, {patient.FirstName}";
+            var who = PatientActivityLabel.Format(i.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
             rows.Add(new UnitActivityDto(
                 i.IssuedUtc,
                 "Issue",

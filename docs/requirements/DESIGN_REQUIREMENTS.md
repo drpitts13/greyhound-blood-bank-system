@@ -364,3 +364,4 @@
 | SRS-BB-358 | `ListNearExpiryAsync` loads the location name onto `NearExpiryWorkItemDto`. `LocationLabel` uses `StorageLocationLabel`. | FRS-BB-396 |
 | SRS-BB-359 | The unit chart labels the current location with `StorageLocationLabel.ForUnitChart`, using the location catalog name. The location code is not a fallback. | FRS-BB-397 |
 | SRS-BB-360 | `UnitActivityService` appends `StatusHistoryLocationCue` to a status summary when `FromLocationId` and `ToLocationId` differ. Names come from the location catalog. | FRS-BB-398 |
+| SRS-BB-361 | Allocation and issue rows use `PatientActivityLabel`. The patient is loaded with the allocation. A missing row does not invent a name or a medical record number. | FRS-BB-399 |

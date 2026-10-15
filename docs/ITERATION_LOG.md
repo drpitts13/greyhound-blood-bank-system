@@ -5798,3 +5798,27 @@ Unit status history named the status change and the reason. A transfer was visib
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an issue and still says patient #id on an allocation, so staff tracing who the unit was set aside for have to leave the chart.
+
+## Iteration 211 — Patient name on a unit allocation (2026-10-14)
+
+The unit timeline named the patient on an issue and still said patient #id on an allocation. Staff tracing who the unit was set aside for had to leave the chart.
+
+### Implemented
+
+- An allocation names the patient the same way an issue does.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-364, FRS-BB-399, SRS-BB-361, RISK-BB-466.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-254 (`PatientActivityLabelTests`; `InventoryServiceTests.UnitActivity_NamesThePatientOnAnAllocation`).
+- Allocation patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an allocation and an issue, and a crossmatch still shows only the method and result, so staff cannot see who that crossmatch was for without leaving the chart.

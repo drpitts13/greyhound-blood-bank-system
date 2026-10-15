@@ -369,3 +369,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-361 | Staff discarding a unit that is near expiry can see the storage location by name. | P1 | FRS-BB-396 |
 | URS-BB-362 | Staff opening a unit can see its storage location by name. | P1 | FRS-BB-397 |
 | URS-BB-363 | Staff reading a unit timeline can see the storage locations when a status row records a move. | P1 | FRS-BB-398 |
+| URS-BB-364 | Staff reading a unit timeline can see who a unit was allocated to by name. | P1 | FRS-BB-399 |

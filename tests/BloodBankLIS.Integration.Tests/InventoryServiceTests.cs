@@ -402,6 +402,88 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task UnitActivity_NamesThePatientOnAnAllocation()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest($"U-ALLOC-NAME-{key}", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var named = new Patient
+        {
+            MedicalRecordNumber = $"MRN-ALLOC-{key}",
+            LastName = " Doe ",
+            FirstName = " Jane ",
+            DateOfBirth = new DateOnly(1980, 1, 1),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        var blank = new Patient
+        {
+            MedicalRecordNumber = $"MRN-ALLOC-BL-{key}",
+            LastName = "   ",
+            FirstName = " ",
+            DateOfBirth = new DateOnly(1981, 2, 2),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        context.Patients.AddRange(named, blank);
+        await context.SaveChangesAsync();
+
+        var missingPatientId = 9_000_000_000 + named.Id;
+        context.Allocations.AddRange(
+            new Allocation
+            {
+                BloodProductId = received.Unit!.Id,
+                PatientId = named.Id,
+                Status = AllocationStatus.Released,
+                AllocatedUtc = _factory.Clock.UtcNow.AddMinutes(-5),
+                AllocatedBy = "tech"
+            },
+            new Allocation
+            {
+                BloodProductId = received.Unit.Id,
+                PatientId = missingPatientId,
+                Status = AllocationStatus.Expired,
+                AllocatedUtc = _factory.Clock.UtcNow.AddMinutes(-4),
+                AllocatedBy = "tech"
+            },
+            new Allocation
+            {
+                BloodProductId = received.Unit.Id,
+                PatientId = blank.Id,
+                Status = AllocationStatus.Consumed,
+                AllocatedUtc = _factory.Clock.UtcNow.AddMinutes(-3),
+                AllocatedBy = "tech"
+            });
+        await context.SaveChangesAsync();
+
+        var activity = new UnitActivityService(
+            new InventoryRepository(context),
+            new EfRepository<Allocation>(context),
+            new EfRepository<Crossmatch>(context),
+            new EfRepository<Issue>(context),
+            new EfRepository<Return>(context),
+            new EfRepository<TransfusionEvent>(context),
+            new EfRepository<OrderAction>(context),
+            new EfRepository<ActionDefinition>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<Patient>(context));
+        var trail = await activity.ListAsync(received.Unit.Id);
+        var namedRow = Assert.Single(trail, row => row.Summary.StartsWith("Released to ", StringComparison.Ordinal));
+        var missingRow = Assert.Single(trail, row => row.Summary.StartsWith("Expired to ", StringComparison.Ordinal));
+        var blankRow = Assert.Single(trail, row => row.Summary.StartsWith("Consumed to ", StringComparison.Ordinal));
+
+        Assert.Equal($"Released to Doe, Jane ({named.MedicalRecordNumber})", namedRow.Summary);
+        Assert.Equal($"Expired to patient #{missingPatientId}", missingRow.Summary);
+        Assert.Equal($"Consumed to patient #{blank.Id} ({blank.MedicalRecordNumber})", blankRow.Summary);
+    }
+
+    [Fact]
     public async Task ListNearExpiry_ExcludesExpectedAndExpired()
     {
         var productTypeId = await EnsureProductTypeAsync();
