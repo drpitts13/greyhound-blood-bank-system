@@ -66,7 +66,7 @@ public sealed class OrderingLocationService
         var location = new OrderingLocation
         {
             Code = normalized,
-            Name = string.IsNullOrWhiteSpace(name) ? normalized : name.Trim(),
+            Name = string.IsNullOrWhiteSpace(name) ? string.Empty : name.Trim(),
             Department = string.IsNullOrWhiteSpace(department) ? null : department.Trim(),
             Hl7MappingCode = normalized,
             IsActive = true

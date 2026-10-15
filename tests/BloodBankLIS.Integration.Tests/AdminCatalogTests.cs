@@ -242,7 +242,7 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
-    public async Task CreateLocation_CodeOnly_UsesCodeAsName()
+    public async Task CreateLocation_CodeOnly_DoesNotStoreTheCodeAsTheName()
     {
         await using var c = _factory.Create();
         var svc = CreateLocationService(c);
@@ -251,8 +251,10 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
         Assert.True(result.Succeeded);
 
         var row = await c.OrderingLocations.FirstAsync(l => l.Code == "WARD-9");
-        Assert.Equal("WARD-9", row.Name);
+        Assert.Equal(string.Empty, row.Name);
         Assert.Equal("Med/Surg", row.Department);
+        Assert.Equal($"Location {row.Id}", result.Value!.DisplayName);
+        Assert.DoesNotContain("WARD-9", result.Value.DisplayName);
     }
 
     private ChargeCodeAdminService CreateChargeCodeService(BloodBankDbContext context)

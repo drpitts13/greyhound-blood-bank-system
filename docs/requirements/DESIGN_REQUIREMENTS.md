@@ -380,3 +380,4 @@
 | SRS-BB-374 | Ready-to-issue and reserved-product labels use `StorageLocationLabel.Format`. A blank name stays the location id. The location code is not a label. No location id stays omitted. | FRS-BB-412 |
 | SRS-BB-375 | Transfer and delivery-receipt choices use `StorageLocationLabel.ForPicker`. The code stays on the choice. A blank name stays the location id. | FRS-BB-413 |
 | SRS-BB-376 | The inventory-location list uses `InventoryLocationAdminDto.NameLabel`. The code column stays the stored code. A blank name stays the location id. The stored name is not rewritten. | FRS-BB-414 |
+| SRS-BB-377 | A blank ordering-location name is stored empty. Display uses `StorageLocationLabel.Format`. The HL7 mapping code still falls back to the location code. An existing stored name is not rewritten. | FRS-BB-415 |

@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Admin;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -92,5 +93,40 @@ public class OrderingLocationAuthorizationTests : IClassFixture<SqliteContextFac
             .Where(a => a.EntityType == nameof(OrderingLocation) && a.EntityId == created.Value.Id)
             .ToListAsync();
         Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
+    }
+
+    [Fact]
+    public async Task Create_BlankName_DoesNotStoreTheCodeAsTheName()
+    {
+        await using var c = _factory.Create();
+        var code = $"L{Guid.NewGuid():N}"[..8].ToUpperInvariant();
+        var created = await Locations(c).CreateAsync(new SaveOrderingLocationRequest(code, "  ", "Med/Surg", "  "));
+        Assert.True(created.Succeeded, created.Error);
+        Assert.Equal(code, created.Value!.Code);
+        Assert.Equal(string.Empty, created.Value.Name);
+        Assert.Equal($"Location {created.Value.Id}", created.Value.DisplayName);
+        Assert.DoesNotContain(code, created.Value.DisplayName);
+        Assert.Equal(code, created.Value.Hl7MappingCode);
+
+        var stored = await c.OrderingLocations.SingleAsync(e => e.Id == created.Value.Id);
+        Assert.Equal(string.Empty, stored.Name);
+
+        var named = await Locations(c).UpdateAsync(created.Value.Id, new SaveOrderingLocationRequest(code, " ICU ", "Med/Surg", code));
+        Assert.True(named.Succeeded, named.Error);
+        Assert.Equal("ICU", named.Value!.Name);
+        Assert.Equal("ICU", named.Value.DisplayName);
+    }
+
+    [Fact]
+    public async Task Hl7_BlankName_DoesNotStoreTheCodeAsTheName()
+    {
+        await using var c = _factory.Create();
+        var created = await new OrderingLocationService(new EfRepository<OrderingLocation>(c), c)
+            .EnsureFromHl7Async("or1", "  ", "ED");
+        Assert.NotNull(created);
+        Assert.Equal("OR1", created!.Code);
+        Assert.Equal(string.Empty, created.Name);
+        Assert.Equal($"Location {created.Id}", OrderingLocationDto.From(created).DisplayName);
+        Assert.DoesNotContain("OR1", OrderingLocationDto.From(created).DisplayName);
     }
 }

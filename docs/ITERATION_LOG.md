@@ -6215,3 +6215,29 @@ The inventory-location list showed a blank name as an empty name beside the code
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Saving an ordering location still stores the location code as the name when the name is left blank, so the code is kept as the place. Do not invent a name from the code.
+
+## Iteration 227 — Do not store an ordering-location code as the name (2026-10-15)
+
+Saving an ordering location stored the location code as the name when the name was left blank. The code was kept as the place.
+
+### Implemented
+
+- A blank name is stored empty on an admin save and on an HL7 location that sends no name.
+- The list and the visit or order choice show `Location {id}`.
+- A recorded name stays that name.
+- An HL7 mapping code still uses the location code when none was sent.
+- A name already stored as the code is not rewritten.
+
+### Requirements / risk
+
+- URS-BB-380, FRS-BB-415, SRS-BB-377, RISK-BB-482.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-270 (`OrderingLocationAuthorizationTests.Create_BlankName_DoesNotStoreTheCodeAsTheName`; `OrderingLocationAuthorizationTests.Hl7_BlankName_DoesNotStoreTheCodeAsTheName`; `AdminCatalogTests.CreateLocation_CodeOnly_DoesNotStoreTheCodeAsTheName`).
+- Ordering-location blank-name tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A blood supplier choice still joins the code and the name, so a blank name can leave the code looking like the place. Keep the code available for selection, and do not use the code as the name.

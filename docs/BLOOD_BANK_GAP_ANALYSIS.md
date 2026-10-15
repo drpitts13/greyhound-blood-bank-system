@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 226)
+## Capability matrix (Cycle 227)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -27,7 +27,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 
 | Area | Status | Notes |
 |---|---|---|
-| Patient demographics, MRN, visits, location, provider | Present | Chart + ADT |
+| Patient demographics, MRN, visits, location, provider | Present | Chart + ADT. Cycle 227 does not store an ordering-location code as the name when the name is blank. The list shows the location id. A recorded name stays that name. An HL7 mapping code still uses the location code when none was sent. |
 | Alternate identifiers, aliases | Present | Cycle 185–186: prior name on chart edit and ADT; prior MRN from merge; search matches aliases |
 | Duplicate handling / merge | Present | Merge + reason; Cycle 187 unmerge restores the ledger when nothing new has happened since. Pre-ledger merges cannot be undone |
 | Orders, priority, ordering location | Present | Test and product orders |
@@ -132,6 +132,8 @@ Cycle 224 keeps a blank storage location name as the location id on Ready to iss
 Cycle 225 keeps the location code on a transfer choice and on a delivery-receipt choice (RISK-BB-480). A blank name stays the location id and is not replaced by the code. A missing code stays the place alone.
 
 Cycle 226 keeps the code in the inventory-location catalog (RISK-BB-481). A blank name on that list stays the location id. The stored name and the edit form are unchanged.
+
+Cycle 227 does not store an ordering-location code as the name when the name is blank (RISK-BB-482). The list and the visit or order choice show the location id. A recorded name stays that name. An HL7 mapping code still uses the location code when none was sent. A name already stored as the code is not rewritten.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|

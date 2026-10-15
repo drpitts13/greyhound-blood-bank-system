@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Admin;
 
@@ -18,7 +19,7 @@ public sealed record OrderingLocationDto(
         l.Department,
         l.Hl7MappingCode,
         l.IsActive,
-        DisplayName: string.IsNullOrWhiteSpace(l.Name) ? l.Code : l.Name);
+        DisplayName: StorageLocationLabel.Format(l.Id, l.Name));
 }
 
 public sealed record SaveOrderingLocationRequest(

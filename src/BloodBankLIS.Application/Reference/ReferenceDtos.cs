@@ -55,7 +55,7 @@ public sealed record OrderingLocationRefDto(long Id, string Code, string? Name, 
 {
     public static OrderingLocationRefDto From(OrderingLocation l) => new(
         l.Id, l.Code, l.Name, l.Department, l.IsActive,
-        string.IsNullOrWhiteSpace(l.Name) ? l.Code : l.Name);
+        StorageLocationLabel.Format(l.Id, l.Name));
 }
 
 public sealed record OrderingProviderRefDto(long Id, string ProviderId, string Name, string? Specialty, string? Location)
