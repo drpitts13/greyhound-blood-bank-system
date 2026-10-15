@@ -9,7 +9,7 @@
         <div class="field"><label>Expires</label><div class="nowrap">@Unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
         <div class="field"><label>Location</label><div>@LocationName</div></div>
         <div class="field"><label>Volume</label><div>@(Unit.Volume is { } vol ? vol.ToString("0.###") : "—")</div></div>
-        <div class="field"><label>Supplier</label><div>@(string.IsNullOrWhiteSpace(Unit.Supplier) ? "—" : Unit.Supplier)</div></div>
+        <div class="field"><label>Supplier</label><div>@(Unit.SupplierLabel ?? "—")</div></div>
         <div class="field"><label>Collection facility</label><div>@(string.IsNullOrWhiteSpace(Unit.CollectionFacility) ? "—" : Unit.CollectionFacility)</div></div>
     </div>
 </div>

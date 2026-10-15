@@ -389,3 +389,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-381 | Staff choosing a blood supplier for a delivery can select it by code and still read a blank name as the supplier id. | P1 | FRS-BB-416 |
 | URS-BB-382 | Staff reading the blood-supplier catalog can see a blank name as the supplier id while the code stays in the catalog. | P1 | FRS-BB-417 |
 | URS-BB-383 | Staff reviewing an open delivery or entering units can read a blank supplier name as the supplier id. | P1 | FRS-BB-418 |
+| URS-BB-384 | Staff reading a unit can see a blank supplier name as the supplier id when the delivery names that supplier. | P1 | FRS-BB-419 |

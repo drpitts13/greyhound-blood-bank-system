@@ -110,6 +110,46 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task UnitChart_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName()
+    {
+        await using var context = _factory.Create();
+        await SeedProductCodeAsync(context);
+        var supplier = new BloodSupplier
+        {
+            Code = "BLANKCHART",
+            Name = "   ",
+            Registration = "REG-BLANKCHART",
+            IsActive = true
+        };
+        context.BloodSuppliers.Add(supplier);
+        await context.SaveChangesAsync();
+
+        var productTypeId = await SeedProductAsync(context, "RBC-DEL-CHART");
+        var deliveries = CreateDeliveryService(context);
+        var created = await deliveries.CreateAsync(new CreateDeliveryRequest(
+            supplier.Id,
+            _factory.Clock.UtcNow.AddHours(-1),
+            null,
+            [new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 1)]));
+        Assert.True(created.Succeeded, created.Error);
+        var deliveryId = created.Value!.Id;
+
+        var inventory = CreateInventory(context, deliveries);
+        var received = await inventory.ReceiveUnitAsync(UnitRequest("U-BLANK-CHART", productTypeId, deliveryId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var chart = await inventory.GetChartAsync(received.Unit!.Id);
+        Assert.Equal("   ", chart!.Supplier);
+        Assert.Equal("   ", chart.CollectionFacility);
+        Assert.Equal($"Supplier {supplier.Id}", chart.SupplierLabel);
+        Assert.DoesNotContain("BLANKCHART", chart.SupplierLabel);
+
+        var stored = await context.BloodUnits.SingleAsync(u => u.Id == received.Unit.Id);
+        Assert.Equal("   ", stored.Supplier);
+        Assert.Equal("   ", stored.CollectionFacility);
+    }
+
+    [Fact]
     public async Task Receive_RequiresOpenDeliveryLine_AndCountsUnits()
     {
         await using var context = _factory.Create();

@@ -271,6 +271,27 @@ public sealed class InventoryService
     public Task<BloodUnit?> GetAsync(long id, CancellationToken ct = default) =>
         _repository.GetUnitAsync(id, ct);
 
+    public async Task<BloodUnitDto?> GetChartAsync(long id, CancellationToken ct = default)
+    {
+        var unit = await GetAsync(id, ct);
+        return unit is null ? null : await ToChartDtoAsync(unit, ct);
+    }
+
+    private async Task<BloodUnitDto> ToChartDtoAsync(BloodUnit unit, CancellationToken ct)
+    {
+        long? supplierId = null;
+        if (unit.DeliveryId is long deliveryId && _deliveries is not null)
+        {
+            var delivery = await _deliveries.GetAsync(deliveryId, ct);
+            if (delivery is not null)
+            {
+                supplierId = delivery.BloodSupplierId;
+            }
+        }
+
+        return BloodUnitDto.From(unit) with { BloodSupplierId = supplierId };
+    }
+
     public Task<IReadOnlyList<InventoryStatusHistory>> GetHistoryAsync(long unitId, CancellationToken ct = default) =>
         _repository.GetHistoryAsync(unitId, ct);
 

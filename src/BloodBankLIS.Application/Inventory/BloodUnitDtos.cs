@@ -63,6 +63,18 @@ public sealed record BloodUnitDto(
     string? ProcessingFacilityCode = null,
     long? DeliveryId = null)
 {
+    public long? BloodSupplierId { get; init; }
+
+    /// <summary>
+    /// Staff-facing supplier. A recorded name stays that name.
+    /// A blank name stays the supplier id when the delivery names that supplier.
+    /// The stored supplier and collection facility are not rewritten.
+    /// </summary>
+    public string? SupplierLabel =>
+        string.IsNullOrWhiteSpace(Supplier)
+            ? BloodSupplierId is long id ? BloodSupplierLabel.Name(id, Supplier) : null
+            : Supplier.Trim();
+
     public static BloodUnitDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
         u.ProductDescriptionCode, u.Isbt128ProductCode, u.AboRhdCode,

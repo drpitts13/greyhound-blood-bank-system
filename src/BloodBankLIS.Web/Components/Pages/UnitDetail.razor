@@ -58,7 +58,7 @@ else
                 <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@Ui.StatusLabel(_unit.Status)</span></div></div>
                 <div class="field"><label>Location</label><div>@LocationName(_unit.CurrentLocationId)</div></div>
                 <div class="field"><label>Volume</label><div>@(_unit.Volume is { } vol ? vol.ToString("0.###") : "—")</div></div>
-                <div class="field"><label>Supplier</label><div>@(string.IsNullOrWhiteSpace(_unit.Supplier) ? "—" : _unit.Supplier)</div></div>
+                <div class="field"><label>Supplier</label><div>@(_unit.SupplierLabel ?? "—")</div></div>
                 <div class="field"><label>Collection facility</label><div>@(string.IsNullOrWhiteSpace(_unit.CollectionFacility) ? "—" : _unit.CollectionFacility)</div></div>
                 <div class="field"><label>Collected</label><div>@(_unit.CollectionDateTime?.ToString("yyyy-MM-dd HH:mm") ?? "—")</div></div>
                 <div class="field"><label>Processing facility</label><div>@(string.IsNullOrWhiteSpace(_unit.ProcessingFacilityCode) ? "—" : _unit.ProcessingFacilityCode)</div></div>
@@ -66,6 +66,7 @@ else
                 <div class="field"><label>Delivery</label><div class="mono">@if (_unit.DeliveryId is long deliveryId) { <a href="@($"/inventory/deliveries/{deliveryId}")">@deliveryId</a> } else { <span>—</span> }</div></div>
                 <div class="field"><label>Donation</label><div>@_unit.DonationRestriction@(_unit.ReservedPatientId is long pid ? $" — {RecipientLabel(pid)}" : "")</div></div>
             </div>
+            <p class="muted">A blank supplier name stays the supplier id when the delivery names that supplier. The stored supplier and collection facility are unchanged.</p>
             @if (!string.IsNullOrWhiteSpace(_unit.HoldReason) || _unit.QuarantineReasonCode != UnitQuarantineReason.Unspecified || !string.IsNullOrWhiteSpace(_unit.QuarantineReason) || !string.IsNullOrWhiteSpace(_unit.MissingReason) || !string.IsNullOrWhiteSpace(_unit.DamagedReason) || !string.IsNullOrWhiteSpace(_unit.SupplierReturnReason) || !string.IsNullOrWhiteSpace(_unit.ReceiveVisualNotes) || _unit.ReceiveAppearance != UnitAppearance.Acceptable || _unit.ReceiveTemperatureCelsius is not null || !string.IsNullOrWhiteSpace(_unit.DirectedConversionReason) || _unit.ExpectedArrivalDueUtc is not null)
             {
                 <p class="muted">
