@@ -1387,6 +1387,131 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task UnitActivity_NamesTheStorageLocationOnAnIssue()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest($"U-ISSUE-LOC-{key}", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var namedCode = $"F1{key}";
+        var blankCode = $"F2{key}";
+        var ambiguousCode = $"OR{key}";
+        var fridge = new InventoryLocation { Code = namedCode, Name = " Issue fridge ", LocationType = LocationType.Refrigerator };
+        var blankName = new InventoryLocation { Code = blankCode, Name = "   ", LocationType = LocationType.Refrigerator };
+        var codePlace = new InventoryLocation { Code = ambiguousCode, Name = "OR fridge", LocationType = LocationType.Refrigerator };
+        var namePlace = new InventoryLocation { Code = $"BX{key}", Name = ambiguousCode, LocationType = LocationType.Refrigerator };
+        context.InventoryLocations.AddRange(fridge, blankName, codePlace, namePlace);
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-ISSUE-{key}",
+            LastName = " Poe ",
+            FirstName = " Ann ",
+            DateOfBirth = new DateOnly(1988, 9, 9),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        context.Patients.Add(patient);
+        await context.SaveChangesAsync();
+
+        context.Issues.AddRange(
+            new Issue
+            {
+                BloodProductId = received.Unit!.Id,
+                PatientId = patient.Id,
+                IssuedToLocation = $" {namedCode.ToLowerInvariant()} ",
+                IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-4),
+                IssuedBy = "tech",
+                Status = IssueStatus.Returned
+            },
+            new Issue
+            {
+                BloodProductId = received.Unit.Id,
+                PatientId = patient.Id,
+                IssuedToLocation = blankCode,
+                IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-3),
+                IssuedBy = "tech",
+                Status = IssueStatus.Transfused
+            },
+            new Issue
+            {
+                BloodProductId = received.Unit.Id,
+                PatientId = patient.Id,
+                IssuedToLocation = " 4W Med/Surg ",
+                IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-2),
+                IssuedBy = "tech",
+                Status = IssueStatus.Issued
+            },
+            new Issue
+            {
+                BloodProductId = received.Unit.Id,
+                PatientId = patient.Id,
+                IssuedToLocation = "   ",
+                IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-1),
+                IssuedBy = "tech",
+                Status = IssueStatus.Returned
+            },
+            new Issue
+            {
+                BloodProductId = received.Unit.Id,
+                PatientId = patient.Id,
+                IssuedToLocation = ambiguousCode,
+                IssuedUtc = _factory.Clock.UtcNow,
+                IssuedBy = "tech",
+                Status = IssueStatus.Returned
+            });
+        await context.SaveChangesAsync();
+
+        var activity = new UnitActivityService(
+            new InventoryRepository(context),
+            new EfRepository<Allocation>(context),
+            new EfRepository<Crossmatch>(context),
+            new EfRepository<Issue>(context),
+            new EfRepository<Return>(context),
+            new EfRepository<TransfusionEvent>(context),
+            new EfRepository<OrderAction>(context),
+            new EfRepository<ActionDefinition>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<Patient>(context),
+            locations: new EfRepository<InventoryLocation>(context));
+        var trail = await activity.ListAsync(received.Unit.Id);
+        var issues = trail.Where(row => row.EventType == "Issue").Select(row => row.Summary).ToList();
+        var who = $"Poe, Ann ({patient.MedicalRecordNumber})";
+
+        Assert.Contains($"Issued to {who} · Issue fridge", issues);
+        Assert.Contains($"Issued to {who} · Location {blankName.Id}", issues);
+        Assert.Contains($"Issued to {who} · 4W Med/Surg", issues);
+        Assert.Contains($"Issued to {who}", issues.Where(summary => summary == $"Issued to {who}"));
+        Assert.Contains($"Issued to {who} · {ambiguousCode}", issues);
+        Assert.DoesNotContain(issues, summary => summary.Contains(namedCode, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(issues, summary => summary.Contains(blankCode, StringComparison.Ordinal));
+
+        var stored = await context.Issues.Select(issue => issue.IssuedToLocation).ToListAsync();
+        Assert.Contains($" {namedCode.ToLowerInvariant()} ", stored);
+
+        var unread = new UnitActivityService(
+            new InventoryRepository(context),
+            new EfRepository<Allocation>(context),
+            new EfRepository<Crossmatch>(context),
+            new EfRepository<Issue>(context),
+            new EfRepository<Return>(context),
+            new EfRepository<TransfusionEvent>(context),
+            new EfRepository<OrderAction>(context),
+            new EfRepository<ActionDefinition>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<Patient>(context));
+        var unreadTrail = await unread.ListAsync(received.Unit.Id);
+        Assert.Contains(
+            unreadTrail,
+            row => row.EventType == "Issue" && row.Summary == $"Issued to {who} · {namedCode.ToLowerInvariant()}");
+    }
+
+    [Fact]
     public async Task ListNearExpiry_ExcludesExpectedAndExpired()
     {
         var productTypeId = await EnsureProductTypeAsync();

@@ -6029,3 +6029,31 @@ Modification history named the patient when a product order pointed at the modif
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. An issue on the unit timeline still shows the issued-to place exactly as it was typed, so a location code can be read as the storage location name.
+
+## Iteration 220 — Storage location name on an issue (2026-10-15)
+
+An issue on the unit timeline showed the issued-to place exactly as it was typed. A storage-location code could be read as the location name.
+
+### Implemented
+
+- An issue names the storage location when the issued-to place is exactly one location code.
+- A blank location name stays `Location {id}` and does not show the code.
+- A place that is not one location code stays as typed.
+- A code that is also another location's name stays as typed.
+- A blank place is omitted.
+- The recorded place is unchanged.
+- A location list that cannot be loaded does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-373, FRS-BB-408, SRS-BB-370, RISK-BB-475.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-263 (`IssueDestinationCueTests`; `InventoryServiceTests.UnitActivity_NamesTheStorageLocationOnAnIssue`).
+- Issue destination tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The issuing board and the patient product history still show the issued-to place exactly as it was typed, so a location code can be read as the storage location name.

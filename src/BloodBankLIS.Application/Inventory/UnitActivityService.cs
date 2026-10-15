@@ -143,14 +143,23 @@ public sealed class UnitActivityService
                 xm.Id));
         }
 
+        IReadOnlyList<StorageLocationLabel.CatalogLocation>? issuePlaces = null;
+        if (_locations is not null && issues.Any(issue => !string.IsNullOrWhiteSpace(issue.IssuedToLocation)))
+        {
+            issuePlaces = (await _locations.ListAsync(ct))
+                .Select(location => new StorageLocationLabel.CatalogLocation(location.Id, location.Name, location.Code))
+                .ToList();
+        }
+
         foreach (var i in issues)
         {
             patients.TryGetValue(i.PatientId, out var patient);
             var who = PatientActivityLabel.Format(i.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
+            var place = IssueDestinationCue.Format(i.IssuedToLocation, issuePlaces);
             rows.Add(new UnitActivityDto(
                 i.IssuedUtc,
                 "Issue",
-                $"Issued to {who}{(string.IsNullOrWhiteSpace(i.IssuedToLocation) ? "" : $" · {i.IssuedToLocation}")}",
+                $"Issued to {who}{(place is null ? "" : $" · {place}")}",
                 i.IssuedBy,
                 nameof(Issue),
                 i.Id));

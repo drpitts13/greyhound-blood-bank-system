@@ -378,3 +378,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-370 | Staff reading a unit timeline can see who a bench modification was for when a product order points at it. | P1 | FRS-BB-405 |
 | URS-BB-371 | Staff reading modification history can see who an order-linked modification was for. | P1 | FRS-BB-406 |
 | URS-BB-372 | Staff reading a unit status row can see who a modification was for when it is linked to that modification. | P1 | FRS-BB-407 |
+| URS-BB-373 | Staff reading an issue on the unit timeline can see the storage location name when the issued-to place is a location code. | P1 | FRS-BB-408 |
