@@ -374,3 +374,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-366 | Staff reading a unit timeline can see who received a transfusion by name. | P1 | FRS-BB-401 |
 | URS-BB-367 | Staff reading a unit timeline can see who a returned unit was issued to by name. | P1 | FRS-BB-402 |
 | URS-BB-368 | Staff reading a unit timeline can see who an order-linked modification was for by name. | P1 | FRS-BB-403 |
+| URS-BB-369 | Staff reading a unit timeline can see that a bench modification had no patient order. | P1 | FRS-BB-404 |

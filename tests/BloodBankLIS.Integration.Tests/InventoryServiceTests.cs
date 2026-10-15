@@ -9,6 +9,7 @@ using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Isbt128;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -913,6 +914,172 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal($"Irradiate Completed for Poe, Ann ({named.MedicalRecordNumber})", namedRow.Summary);
         Assert.Equal($"Wash Pending for patient #{blank.Id} ({blank.MedicalRecordNumber})", blankRow.Summary);
         Assert.DoesNotContain("could not be read", namedRow.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task UnitActivity_SaysWhenABenchModificationHasNoPatientOrder()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest($"U-BENCH-{key}", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var expiration = new ExpirationModificationCode
+        {
+            Code = $"24H-{key}",
+            OffsetAmount = 24,
+            OffsetUnit = ExpirationOffsetUnit.Hours,
+            RelativeTo = ExpirationRelativeTo.ModificationDateTime,
+            IsActive = true
+        };
+        context.ExpirationModificationCodes.Add(expiration);
+        await context.SaveChangesAsync();
+        var rule = new ModificationRule
+        {
+            ModificationCode = $"BENCH-{key}",
+            SourceProductTypeId = productTypeId,
+            TargetProductTypeId = productTypeId,
+            ModificationType = ModificationType.Wash,
+            ExpirationModificationCodeId = expiration.Id,
+            IsActive = true
+        };
+        context.ModificationRules.Add(rule);
+        await context.SaveChangesAsync();
+
+        var bench = new UnitModification
+        {
+            ModificationRuleId = rule.Id,
+            ModificationType = ModificationType.Wash,
+            ExpirationOffsetCodeApplied = "24H",
+            ResultExpiresUtc = _factory.Clock.UtcNow.AddHours(24),
+            Reason = " Clinical need ",
+            PerformedBy = "tech",
+            PerformedUtc = _factory.Clock.UtcNow.AddMinutes(-30)
+        };
+        var blankReason = new UnitModification
+        {
+            ModificationRuleId = rule.Id,
+            ModificationType = ModificationType.Irradiate,
+            ExpirationOffsetCodeApplied = "24H",
+            ResultExpiresUtc = _factory.Clock.UtcNow.AddHours(24),
+            Reason = "   ",
+            PerformedBy = "tech",
+            PerformedUtc = _factory.Clock.UtcNow.AddMinutes(-20)
+        };
+        var linked = new UnitModification
+        {
+            ModificationRuleId = rule.Id,
+            ModificationType = ModificationType.Pool,
+            ExpirationOffsetCodeApplied = "24H",
+            ResultExpiresUtc = _factory.Clock.UtcNow.AddHours(24),
+            Reason = "For the order",
+            PerformedBy = "tech",
+            PerformedUtc = _factory.Clock.UtcNow.AddMinutes(-10)
+        };
+        context.UnitModifications.AddRange(bench, blankReason, linked);
+        await context.SaveChangesAsync();
+        context.UnitModificationUnits.AddRange(
+            new UnitModificationUnit
+            {
+                UnitModificationId = bench.Id,
+                BloodProductId = received.Unit!.Id,
+                Role = ModificationUnitRole.Source
+            },
+            new UnitModificationUnit
+            {
+                UnitModificationId = blankReason.Id,
+                BloodProductId = received.Unit.Id,
+                Role = ModificationUnitRole.Result
+            },
+            new UnitModificationUnit
+            {
+                UnitModificationId = linked.Id,
+                BloodProductId = received.Unit.Id,
+                Role = ModificationUnitRole.Source
+            });
+
+        var patient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-BENCH-{key}",
+            LastName = "Poe",
+            FirstName = "Ann",
+            DateOfBirth = new DateOnly(1988, 9, 9),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        context.Patients.Add(patient);
+        await context.SaveChangesAsync();
+        var encounter = new Encounter
+        {
+            PatientId = patient.Id,
+            VisitNumber = $"VIS-BENCH-{key}",
+            EncounterType = EncounterType.Inpatient,
+            Status = EncounterStatus.Active,
+            AdmitUtc = _factory.Clock.UtcNow
+        };
+        var location = new OrderingLocation { Code = $"LOC-BENCH-{key}", Name = "Ward", IsActive = true };
+        context.Encounters.Add(encounter);
+        context.OrderingLocations.Add(location);
+        await context.SaveChangesAsync();
+        var order = new Order
+        {
+            OrderNumber = $"ORD-BENCH-{key}",
+            OrderName = "Pool platelets",
+            PatientId = patient.Id,
+            EncounterId = encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product,
+            ProductTypeId = productTypeId,
+            Status = OrderStatus.InProcess,
+            OrderedUtc = _factory.Clock.UtcNow
+        };
+        var definition = new ActionDefinition
+        {
+            Code = $"POOL-{key}",
+            Name = "Pool",
+            Category = ActionCategory.Modification,
+            ModificationType = ModificationType.Pool,
+            IsActive = true
+        };
+        context.Orders.Add(order);
+        context.ActionDefinitions.Add(definition);
+        await context.SaveChangesAsync();
+        context.OrderActions.Add(new OrderAction
+        {
+            OrderId = order.Id,
+            ActionDefinitionId = definition.Id,
+            Status = OrderActionStatus.Completed,
+            SourceBloodUnitId = received.Unit.Id,
+            UnitModificationId = linked.Id,
+            CompletedUtc = _factory.Clock.UtcNow,
+            CompletedBy = "tech"
+        });
+        await context.SaveChangesAsync();
+
+        var activity = new UnitActivityService(
+            new InventoryRepository(context),
+            new EfRepository<Allocation>(context),
+            new EfRepository<Crossmatch>(context),
+            new EfRepository<Issue>(context),
+            new EfRepository<Return>(context),
+            new EfRepository<TransfusionEvent>(context),
+            new EfRepository<OrderAction>(context),
+            new EfRepository<ActionDefinition>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<Patient>(context),
+            orders: new EfRepository<Order>(context));
+        var trail = await activity.ListAsync(received.Unit.Id);
+        var benchRows = trail.Where(row => row.RelatedEntityType == nameof(UnitModification)).ToList();
+
+        Assert.Contains(benchRows, row => row.Summary == "Wash (Source) — Clinical need. No patient order was recorded.");
+        Assert.Contains(benchRows, row => row.Summary == "Irradiate (Result). No patient order was recorded.");
+        var linkedRow = Assert.Single(benchRows, row => row.Summary.StartsWith("Pool (", StringComparison.Ordinal));
+        Assert.Equal("Pool (Source) — For the order", linkedRow.Summary);
+        Assert.DoesNotContain("No patient order was recorded", linkedRow.Summary, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -188,6 +188,10 @@ public sealed class UnitActivityService
                  || a.ResultBloodUnitId == unitId
                  || (allocationOrderIds.Count > 0 && allocationOrderIds.Contains(a.OrderId)),
             ct);
+        var linkedModificationIds = actions
+            .Select(action => action.UnitModificationId)
+            .OfType<long>()
+            .ToHashSet();
         if (actions.Count > 0)
         {
             var defIds = actions.Select(a => a.ActionDefinitionId).Distinct().ToList();
@@ -248,7 +252,11 @@ public sealed class UnitActivityService
                 rows.Add(new UnitActivityDto(
                     mod.PerformedUtc,
                     "Modification",
-                    $"{mod.ModificationType} ({link.Role}) — {mod.Reason}",
+                    BenchModificationActivityCue.Format(
+                        mod.ModificationType.ToString(),
+                        link.Role.ToString(),
+                        mod.Reason,
+                        linkedModificationIds.Contains(mod.Id)),
                     mod.PerformedBy,
                     nameof(UnitModification),
                     mod.Id));
