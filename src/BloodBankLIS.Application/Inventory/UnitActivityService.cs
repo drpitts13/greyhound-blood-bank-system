@@ -188,19 +188,20 @@ public sealed class UnitActivityService
                  || a.ResultBloodUnitId == unitId
                  || (allocationOrderIds.Count > 0 && allocationOrderIds.Contains(a.OrderId)),
             ct);
-        var linkedModificationIds = actions
-            .Select(action => action.UnitModificationId)
-            .OfType<long>()
-            .ToHashSet();
+        var orders = new Dictionary<long, Order>();
+        var benchLabels = new Dictionary<long, string>();
+        var benchUnreadable = new HashSet<long>();
+        var benchDisagree = new HashSet<long>();
         if (actions.Count > 0)
         {
             var defIds = actions.Select(a => a.ActionDefinitionId).Distinct().ToList();
             var defs = (await _actionDefinitions.ListAsync(d => defIds.Contains(d.Id), ct))
                 .ToDictionary(d => d.Id);
             var orderIds = actions.Select(a => a.OrderId).Distinct().ToList();
-            var orders = _orders is null || orderIds.Count == 0
-                ? new Dictionary<long, Order>()
-                : (await _orders.ListAsync(o => orderIds.Contains(o.Id), ct)).ToDictionary(o => o.Id);
+            if (_orders is not null && orderIds.Count > 0)
+            {
+                orders = (await _orders.ListAsync(o => orderIds.Contains(o.Id), ct)).ToDictionary(o => o.Id);
+            }
             var missingPatientIds = orders.Values
                 .Select(o => o.PatientId)
                 .Where(id => !patients.ContainsKey(id))
@@ -234,6 +235,46 @@ public sealed class UnitActivityService
                     nameof(OrderAction),
                     action.Id));
             }
+
+            foreach (var group in actions
+                         .Where(action => action.UnitModificationId is long id && id > 0)
+                         .GroupBy(action => action.UnitModificationId!.Value))
+            {
+                string? label = null;
+                var disagree = false;
+                foreach (var action in group)
+                {
+                    if (!orders.TryGetValue(action.OrderId, out var order))
+                    {
+                        continue;
+                    }
+
+                    patients.TryGetValue(order.PatientId, out var patient);
+                    var next = PatientActivityLabel.Format(
+                        order.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
+                    if (label is null)
+                    {
+                        label = next;
+                    }
+                    else if (!string.Equals(label, next, StringComparison.Ordinal))
+                    {
+                        disagree = true;
+                    }
+                }
+
+                if (disagree)
+                {
+                    benchDisagree.Add(group.Key);
+                }
+                else if (label is not null)
+                {
+                    benchLabels[group.Key] = label;
+                }
+                else
+                {
+                    benchUnreadable.Add(group.Key);
+                }
+            }
         }
 
         var links = await _modificationUnits.ListAsync(u => u.BloodProductId == unitId, ct);
@@ -256,7 +297,9 @@ public sealed class UnitActivityService
                         mod.ModificationType.ToString(),
                         link.Role.ToString(),
                         mod.Reason,
-                        linkedModificationIds.Contains(mod.Id)),
+                        benchLabels.TryGetValue(mod.Id, out var patientLabel) ? patientLabel : null,
+                        orderCouldNotBeRead: benchUnreadable.Contains(mod.Id),
+                        linkedOrdersDisagree: benchDisagree.Contains(mod.Id)),
                     mod.PerformedBy,
                     nameof(UnitModification),
                     mod.Id));

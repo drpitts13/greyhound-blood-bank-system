@@ -375,3 +375,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-367 | Staff reading a unit timeline can see who a returned unit was issued to by name. | P1 | FRS-BB-402 |
 | URS-BB-368 | Staff reading a unit timeline can see who an order-linked modification was for by name. | P1 | FRS-BB-403 |
 | URS-BB-369 | Staff reading a unit timeline can see that a bench modification had no patient order. | P1 | FRS-BB-404 |
+| URS-BB-370 | Staff reading a unit timeline can see who a bench modification was for when a product order points at it. | P1 | FRS-BB-405 |

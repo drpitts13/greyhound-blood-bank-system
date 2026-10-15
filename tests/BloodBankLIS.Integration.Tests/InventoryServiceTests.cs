@@ -979,7 +979,17 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             PerformedBy = "tech",
             PerformedUtc = _factory.Clock.UtcNow.AddMinutes(-10)
         };
-        context.UnitModifications.AddRange(bench, blankReason, linked);
+        var blankName = new UnitModification
+        {
+            ModificationRuleId = rule.Id,
+            ModificationType = ModificationType.Thaw,
+            ExpirationOffsetCodeApplied = "24H",
+            ResultExpiresUtc = _factory.Clock.UtcNow.AddHours(24),
+            Reason = "   ",
+            PerformedBy = "tech",
+            PerformedUtc = _factory.Clock.UtcNow.AddMinutes(-5)
+        };
+        context.UnitModifications.AddRange(bench, blankReason, linked, blankName);
         await context.SaveChangesAsync();
         context.UnitModificationUnits.AddRange(
             new UnitModificationUnit
@@ -999,18 +1009,33 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
                 UnitModificationId = linked.Id,
                 BloodProductId = received.Unit.Id,
                 Role = ModificationUnitRole.Source
+            },
+            new UnitModificationUnit
+            {
+                UnitModificationId = blankName.Id,
+                BloodProductId = received.Unit.Id,
+                Role = ModificationUnitRole.Result
             });
 
         var patient = new Patient
         {
             MedicalRecordNumber = $"MRN-BENCH-{key}",
-            LastName = "Poe",
-            FirstName = "Ann",
+            LastName = " Poe ",
+            FirstName = " Ann ",
             DateOfBirth = new DateOnly(1988, 9, 9),
             Sex = Sex.Unknown,
             Status = PatientStatus.Active
         };
-        context.Patients.Add(patient);
+        var blankPatient = new Patient
+        {
+            MedicalRecordNumber = $"MRN-BENCH-BL-{key}",
+            LastName = "   ",
+            FirstName = " ",
+            DateOfBirth = new DateOnly(1989, 10, 10),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        context.Patients.AddRange(patient, blankPatient);
         await context.SaveChangesAsync();
         var encounter = new Encounter
         {
@@ -1036,6 +1061,18 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             Status = OrderStatus.InProcess,
             OrderedUtc = _factory.Clock.UtcNow
         };
+        var blankOrder = new Order
+        {
+            OrderNumber = $"ORD-BENCH-BL-{key}",
+            OrderName = "Thaw plasma",
+            PatientId = blankPatient.Id,
+            EncounterId = encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product,
+            ProductTypeId = productTypeId,
+            Status = OrderStatus.InProcess,
+            OrderedUtc = _factory.Clock.UtcNow
+        };
         var definition = new ActionDefinition
         {
             Code = $"POOL-{key}",
@@ -1044,19 +1081,30 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             ModificationType = ModificationType.Pool,
             IsActive = true
         };
-        context.Orders.Add(order);
+        context.Orders.AddRange(order, blankOrder);
         context.ActionDefinitions.Add(definition);
         await context.SaveChangesAsync();
-        context.OrderActions.Add(new OrderAction
-        {
-            OrderId = order.Id,
-            ActionDefinitionId = definition.Id,
-            Status = OrderActionStatus.Completed,
-            SourceBloodUnitId = received.Unit.Id,
-            UnitModificationId = linked.Id,
-            CompletedUtc = _factory.Clock.UtcNow,
-            CompletedBy = "tech"
-        });
+        context.OrderActions.AddRange(
+            new OrderAction
+            {
+                OrderId = order.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = received.Unit.Id,
+                UnitModificationId = linked.Id,
+                CompletedUtc = _factory.Clock.UtcNow,
+                CompletedBy = "tech"
+            },
+            new OrderAction
+            {
+                OrderId = blankOrder.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = received.Unit.Id,
+                UnitModificationId = blankName.Id,
+                CompletedUtc = _factory.Clock.UtcNow,
+                CompletedBy = "tech"
+            });
         await context.SaveChangesAsync();
 
         var activity = new UnitActivityService(
@@ -1078,8 +1126,27 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(benchRows, row => row.Summary == "Wash (Source) — Clinical need. No patient order was recorded.");
         Assert.Contains(benchRows, row => row.Summary == "Irradiate (Result). No patient order was recorded.");
         var linkedRow = Assert.Single(benchRows, row => row.Summary.StartsWith("Pool (", StringComparison.Ordinal));
-        Assert.Equal("Pool (Source) — For the order", linkedRow.Summary);
-        Assert.DoesNotContain("No patient order was recorded", linkedRow.Summary, StringComparison.Ordinal);
+        var blankRow = Assert.Single(benchRows, row => row.Summary.StartsWith("Thaw (", StringComparison.Ordinal));
+        Assert.Equal($"Pool (Source) — For the order for Poe, Ann ({patient.MedicalRecordNumber})", linkedRow.Summary);
+        Assert.Equal($"Thaw (Result) for patient #{blankPatient.Id} ({blankPatient.MedicalRecordNumber})", blankRow.Summary);
+        Assert.DoesNotContain("could not be read", linkedRow.Summary, StringComparison.Ordinal);
+
+        var unread = new UnitActivityService(
+            new InventoryRepository(context),
+            new EfRepository<Allocation>(context),
+            new EfRepository<Crossmatch>(context),
+            new EfRepository<Issue>(context),
+            new EfRepository<Return>(context),
+            new EfRepository<TransfusionEvent>(context),
+            new EfRepository<OrderAction>(context),
+            new EfRepository<ActionDefinition>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<Patient>(context));
+        var unreadTrail = await unread.ListAsync(received.Unit.Id);
+        var unreadBench = unreadTrail.Where(row => row.RelatedEntityType == nameof(UnitModification)).ToList();
+        Assert.Contains(unreadBench, row => row.Summary == "Pool (Source) — For the order. The order could not be read.");
+        Assert.Contains(unreadBench, row => row.Summary == "Wash (Source) — Clinical need. No patient order was recorded.");
     }
 
     [Fact]

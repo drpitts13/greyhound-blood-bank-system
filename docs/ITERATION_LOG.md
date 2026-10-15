@@ -5946,3 +5946,30 @@ The unit timeline named the patient on an order-linked modification. A bench mod
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A bench modification that a product order points at still names only the type, role, and reason, so the source or result row does not say who that order was for.
+
+## Iteration 217 — Patient name on a linked bench modification (2026-10-14)
+
+The unit timeline said when a bench modification had no patient order. A source or result row that a product order did point at still named only the type, role, and reason, so staff could not see who that order was for without leaving the chart.
+
+### Implemented
+
+- A bench modification that a product order points at names the patient from that order.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+- A missing order does not invent a patient.
+- Linked orders that do not name one patient do not pick one.
+- A blank reason is still omitted. A bench modification with no product order is unchanged.
+
+### Requirements / risk
+
+- URS-BB-370, FRS-BB-405, SRS-BB-367, RISK-BB-472.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-260 (`BenchModificationActivityCueTests`; `InventoryServiceTests.UnitActivity_SaysWhenABenchModificationHasNoPatientOrder`).
+- Linked bench-modification patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history still names only the type, reason, and units, so staff reading that history cannot see who an order-linked modification was for.

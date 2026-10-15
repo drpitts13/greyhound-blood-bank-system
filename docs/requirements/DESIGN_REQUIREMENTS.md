@@ -370,3 +370,4 @@
 | SRS-BB-364 | Return rows use `ReturnActivityCue` and the patient on the linked issue. A missing issue uses a fixed sentence and does not invent a patient. | FRS-BB-402 |
 | SRS-BB-365 | Order-action rows use `ModificationActivityCue` and the patient on the linked order. A missing order uses a fixed sentence and does not invent a patient. Unit-modification rows are unchanged. | FRS-BB-403 |
 | SRS-BB-366 | Unit-modification rows use `BenchModificationActivityCue`. The sentence is added only when no order action stores that modification id. A blank reason is omitted. | FRS-BB-404 |
+| SRS-BB-367 | When order actions store the modification id, the unit-modification row uses the patient on those orders. One shared label is shown. A missing order uses a fixed sentence. Disagreeing labels use a fixed sentence and do not pick a patient. | FRS-BB-405 |
