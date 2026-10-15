@@ -375,3 +375,4 @@
 | SRS-BB-369 | Status rows whose related entity is a unit modification append `ModificationHistoryPatientCue` to the displayed summary. The stored reason is not rewritten. A missing modification id adds nothing. | FRS-BB-407 |
 | SRS-BB-370 | Issue rows use `IssueDestinationCue`. A single code match uses `StorageLocationLabel`. The stored issued-to place is not rewritten. | FRS-BB-408 |
 | SRS-BB-371 | Issuing-board and patient-history rows use `IssueDestinationCue`. A single code match uses `StorageLocationLabel`. The stored issued-to place is not rewritten. The issue form keeps the typed place. | FRS-BB-409 |
+| SRS-BB-372 | Lookback rows use `IssueDestinationCue`. A single code match uses `StorageLocationLabel`. The stored issued-to place is not rewritten. | FRS-BB-410 |

@@ -273,5 +273,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-262 | I | `InventoryServiceTests.UnitActivity_NamesThePatientOnAModificationStatusRow` | URS-BB-372 / FRS-BB-407 / RISK-BB-474 |
 | TEST-BB-263 | I | `IssueDestinationCueTests`; `InventoryServiceTests.UnitActivity_NamesTheStorageLocationOnAnIssue` | URS-BB-373 / FRS-BB-408 / RISK-BB-475 |
 | TEST-BB-264 | I | `Phase4IssuingTests.IssuedBoards_NameTheStorageLocationWhenThePlaceIsALocationCode` | URS-BB-374 / FRS-BB-409 / RISK-BB-476 |
+| TEST-BB-265 | I | `ComplianceWorkflowTests.Lookback_NamesTheStorageLocationWhenThePlaceIsALocationCode` | URS-BB-375 / FRS-BB-410 / RISK-BB-477 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -6086,3 +6086,31 @@ The issuing board and the patient product history showed the issued-to place exa
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Lookback still shows the issued-to place exactly as it was typed, so a location code can be read as the storage location name. The issue form still shows the place as typed.
+
+## Iteration 222 — Storage location name on lookback (2026-10-15)
+
+Lookback showed the issued-to place exactly as it was typed. A storage-location code could be read as the location name.
+
+### Implemented
+
+- A DIN recipient row names the storage location when the issued-to place is exactly one location code.
+- A recipient trace uses that same name.
+- A blank location name stays `Location {id}` and does not show the code.
+- A place that is not one location code stays as typed.
+- A code that is also another location's name stays as typed.
+- The recorded place is unchanged.
+- A missing location list does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-375, FRS-BB-410, SRS-BB-372, RISK-BB-477.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-265 (`ComplianceWorkflowTests.Lookback_NamesTheStorageLocationWhenThePlaceIsALocationCode`).
+- Lookback location tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A receive, return, or transfusion notice still prefixes Location onto a place that may already name the storage location, so a blank location name can read as Location Location {id}. The issue form still shows the place as typed.
