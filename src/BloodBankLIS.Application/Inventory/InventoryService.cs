@@ -102,10 +102,38 @@ public sealed class InventoryService
     {
         var now = _clock.UtcNow;
         var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Expected), ct);
+        var supplierIds = await SupplierIdsByDeliveryAsync(rows, ct);
         return rows
             .OrderBy(u => u.ExpectedArrivalDueUtc ?? u.CreatedUtc)
-            .Select(u => ExpectedInboundWorkItemDto.From(u, now))
+            .Select(u => ExpectedInboundWorkItemDto.From(u, now) with
+            {
+                BloodSupplierId = u.DeliveryId is long deliveryId && supplierIds.TryGetValue(deliveryId, out var supplierId)
+                    ? supplierId
+                    : null
+            })
             .ToList();
+    }
+
+    private async Task<Dictionary<long, long>> SupplierIdsByDeliveryAsync(
+        IEnumerable<BloodUnit> units,
+        CancellationToken ct)
+    {
+        var map = new Dictionary<long, long>();
+        if (_deliveries is null)
+        {
+            return map;
+        }
+
+        foreach (var deliveryId in units.Select(u => u.DeliveryId).OfType<long>().Distinct())
+        {
+            var supplierId = await _deliveries.GetSupplierIdAsync(deliveryId, ct);
+            if (supplierId is long id)
+            {
+                map[deliveryId] = id;
+            }
+        }
+
+        return map;
     }
 
     /// <summary>

@@ -6342,3 +6342,28 @@ A unit received from a supplier with a blank name still showed that blank name. 
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The expected-inbound board still shows a blank supplier name as empty. When that unit's delivery names the supplier, show Supplier {id}. Do not rewrite the stored supplier or collection facility. A unit with no delivery does not invent a supplier.
+
+## Iteration 232 — Supplier id on expected inbound (2026-10-15)
+
+The expected-inbound board showed a blank supplier name as empty. Staff could miss which supplier was expected.
+
+### Implemented
+
+- The board shows `Supplier {id}` when the name is blank and the delivery names that supplier.
+- A recorded name stays that name.
+- The stored supplier and collection facility are unchanged.
+- A unit with no delivery does not invent a supplier.
+
+### Requirements / risk
+
+- URS-BB-385, FRS-BB-420, SRS-BB-382, RISK-BB-487.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-275 (`ExpectedInboundSupplierLabelTests.SupplierLabel_KeepsTheSupplierIdWhenTheDeliveryNamesABlankSupplier`; `DeliveryServiceTests.ExpectedInbound_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName`).
+- Expected-inbound supplier-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A product choice still joins the code and the name, so a blank name can leave the code looking like the product. Keep the code available for selection, and do not use the code as the name.

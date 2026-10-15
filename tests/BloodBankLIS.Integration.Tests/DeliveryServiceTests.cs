@@ -150,6 +150,59 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ExpectedInbound_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName()
+    {
+        await using var context = _factory.Create();
+        await SeedProductCodeAsync(context);
+        var supplier = new BloodSupplier
+        {
+            Code = "BLANKEXP",
+            Name = "   ",
+            Registration = "REG-BLANKEXP",
+            IsActive = true
+        };
+        context.BloodSuppliers.Add(supplier);
+        await context.SaveChangesAsync();
+
+        var productTypeId = await SeedProductAsync(context, "RBC-DEL-EXP");
+        var deliveries = CreateDeliveryService(context);
+        var created = await deliveries.CreateAsync(new CreateDeliveryRequest(
+            supplier.Id,
+            _factory.Clock.UtcNow.AddHours(-1),
+            null,
+            [new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 1)]));
+        Assert.True(created.Succeeded, created.Error);
+        var deliveryId = created.Value!.Id;
+
+        var inventory = CreateInventory(context, deliveries);
+        var linked = await inventory.ExpectUnitAsync(
+            UnitRequest("U-EXP-LINK", productTypeId) with { Supplier = "   ", CollectionFacility = " Lab " });
+        Assert.True(linked.Succeeded, linked.Error);
+        var linkedId = linked.Unit!.Id;
+        var linkedUnit = await context.BloodUnits.SingleAsync(u => u.Id == linkedId);
+        linkedUnit.DeliveryId = deliveryId;
+        await context.SaveChangesAsync();
+
+        var loose = await inventory.ExpectUnitAsync(
+            UnitRequest("U-EXP-NONE", productTypeId) with { Supplier = "   ", CollectionFacility = "   " });
+        Assert.True(loose.Succeeded, loose.Error);
+
+        var list = await inventory.ListExpectedAsync();
+        var linkedRow = Assert.Single(list, i => i.UnitNumber == "U-EXP-LINK");
+        Assert.Equal("   ", linkedRow.Supplier);
+        Assert.Equal($"Supplier {supplier.Id}", linkedRow.SupplierLabel);
+        Assert.DoesNotContain("BLANKEXP", linkedRow.SupplierLabel);
+
+        var looseRow = Assert.Single(list, i => i.UnitNumber == "U-EXP-NONE");
+        Assert.Null(looseRow.SupplierLabel);
+        Assert.Equal("   ", looseRow.Supplier);
+
+        var stored = await context.BloodUnits.SingleAsync(u => u.Id == linkedId);
+        Assert.Equal("   ", stored.Supplier);
+        Assert.Equal(" Lab ", stored.CollectionFacility);
+    }
+
+    [Fact]
     public async Task Receive_RequiresOpenDeliveryLine_AndCountsUnits()
     {
         await using var context = _factory.Create();

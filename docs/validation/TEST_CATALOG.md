@@ -283,5 +283,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-272 | A | `BloodSupplierLabelTests.Name_KeepsTheSupplierIdWhenTheNameIsBlank`; `BloodSupplierChoiceTests.NameLabel_KeepsTheSupplierIdWhenTheNameIsBlank` | URS-BB-382 / FRS-BB-417 / RISK-BB-484 |
 | TEST-BB-273 | I | `DeliverySupplierLabelTests.SupplierNameLabel_KeepsTheSupplierIdWhenTheNameIsBlank`; `DeliveryServiceTests.BlankSupplierName_ShowsTheSupplierIdAndDoesNotWriteItOnTheUnit` | URS-BB-383 / FRS-BB-418 / RISK-BB-485 |
 | TEST-BB-274 | I | `BloodUnitSupplierLabelTests.SupplierLabel_KeepsTheSupplierIdWhenTheDeliveryNamesABlankSupplier`; `DeliveryServiceTests.UnitChart_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName` | URS-BB-384 / FRS-BB-419 / RISK-BB-486 |
+| TEST-BB-275 | I | `ExpectedInboundSupplierLabelTests.SupplierLabel_KeepsTheSupplierIdWhenTheDeliveryNamesABlankSupplier`; `DeliveryServiceTests.ExpectedInbound_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName` | URS-BB-385 / FRS-BB-420 / RISK-BB-487 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

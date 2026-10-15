@@ -31,7 +31,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Expected inbound</h3></div>
-        <p class="muted">Packing-list units that have not arrived. Confirm arrival here with appearance, cooler temperature, and a second verifier — the same receive gates as the Manage drawer. A unit that fails appearance or temperature is returned to the supplier from this row. An outdated unit says Outdated and is not received; return it to the supplier. Overdue after the facility arrival window (default 24 hours). Late arrival is still allowed.</p>
+        <p class="muted">Packing-list units that have not arrived. Confirm arrival here with appearance, cooler temperature, and a second verifier — the same receive gates as the Manage drawer. A unit that fails appearance or temperature is returned to the supplier from this row. An outdated unit says Outdated and is not received; return it to the supplier. Overdue after the facility arrival window (default 24 hours). Late arrival is still allowed. A blank supplier name stays the supplier id when the delivery names that supplier. A unit with no delivery does not invent a supplier.</p>
         @if (_expectedItems.Count == 0)
         {
             <div class="muted">No expected inbound units.</div>
@@ -59,7 +59,7 @@
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td>@ProductName(row.ProductTypeId)</td>
                             <td class="mono">@(row.ShipmentId ?? "—")</td>
-                            <td>@(row.Supplier ?? "—")</td>
+                            <td>@(row.SupplierLabel ?? "—")</td>
                             <td>@row.CreatedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                             <td>
                                 @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")

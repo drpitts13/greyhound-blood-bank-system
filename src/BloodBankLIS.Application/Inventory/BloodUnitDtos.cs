@@ -103,6 +103,18 @@ public sealed record ExpectedInboundWorkItemDto(
     long ProductTypeId,
     bool IsOutdated = false)
 {
+    public long? BloodSupplierId { get; init; }
+
+    /// <summary>
+    /// Staff-facing supplier on the expected-inbound board.
+    /// A recorded name stays that name. A blank name stays the supplier id
+    /// when the delivery names that supplier. No delivery does not invent one.
+    /// </summary>
+    public string? SupplierLabel =>
+        string.IsNullOrWhiteSpace(Supplier)
+            ? BloodSupplierId is long id ? BloodSupplierLabel.Name(id, Supplier) : null
+            : Supplier.Trim();
+
     public static ExpectedInboundWorkItemDto From(BloodUnit u, DateTime now) => new(
         u.Id, u.UnitNumber, u.CreatedUtc, u.ExpectedArrivalDueUtc,
         ExpectedArrivalPendingRule.EvaluateOverdue(u.ExpectedArrivalDueUtc, now).Severity == RuleSeverity.Warning,

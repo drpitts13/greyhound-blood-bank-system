@@ -385,3 +385,4 @@
 | SRS-BB-379 | The blood-supplier list uses `BloodSupplierDto.NameLabel`. The code column stays the stored code. A blank name stays the supplier id. The stored name is not rewritten. | FRS-BB-417 |
 | SRS-BB-380 | Open-delivery and unit-entry labels use `BloodSupplierLabel.Name`. `DeliveryReceiveContext.SupplierName` stays the stored name and is what is written on the unit. | FRS-BB-418 |
 | SRS-BB-381 | The unit chart uses `BloodUnitDto.SupplierLabel`. A blank name uses the delivery's supplier id. The stored supplier and collection facility are not rewritten. No delivery adds no supplier. | FRS-BB-419 |
+| SRS-BB-382 | The expected-inbound board uses `ExpectedInboundWorkItemDto.SupplierLabel`. A blank name uses the delivery's supplier id. The stored supplier and collection facility are not rewritten. No delivery adds no supplier. | FRS-BB-420 |
