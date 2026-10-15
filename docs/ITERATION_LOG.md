@@ -6000,3 +6000,32 @@ The unit timeline named the patient on an order-linked modification. Modificatio
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The status row that records a new modification still says only that it was created, so staff reading status history cannot see who an order-linked modification was for.
+
+## Iteration 219 — Patient name on a modification status row (2026-10-15)
+
+Modification history named the patient when a product order pointed at the modification. The status row that recorded the new unit still said only that it was created, so staff reading status history could not see who it was for.
+
+### Implemented
+
+- A status row linked to a modification names the patient from the product order that points at it.
+- The recorded reason is not changed.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+- No product order says so.
+- A missing order does not invent a patient.
+- A status row with no modification id does not invent a patient.
+- Linked orders that do not name one patient do not pick one.
+
+### Requirements / risk
+
+- URS-BB-372, FRS-BB-407, SRS-BB-369, RISK-BB-474.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-262 (`InventoryServiceTests.UnitActivity_NamesThePatientOnAModificationStatusRow`).
+- Modification status-row patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. An issue on the unit timeline still shows the issued-to place exactly as it was typed, so a location code can be read as the storage location name.

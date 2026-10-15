@@ -61,6 +61,11 @@ public sealed class UnitActivityService
         var rows = new List<UnitActivityDto>();
         var history = await _inventory.GetHistoryAsync(unitId, ct);
         var locationNames = await LoadLocationNamesAsync(history, ct);
+        var modificationIds = history
+            .Where(row => row.RelatedEntityType == nameof(UnitModification) && row.RelatedEntityId is > 0)
+            .Select(row => row.RelatedEntityId!.Value)
+            .Distinct()
+            .ToList();
 
         foreach (var h in history)
         {
@@ -186,7 +191,8 @@ public sealed class UnitActivityService
         var actions = await _orderActions.ListAsync(
             a => a.SourceBloodUnitId == unitId
                  || a.ResultBloodUnitId == unitId
-                 || (allocationOrderIds.Count > 0 && allocationOrderIds.Contains(a.OrderId)),
+                 || (allocationOrderIds.Count > 0 && allocationOrderIds.Contains(a.OrderId))
+                 || (a.UnitModificationId != null && modificationIds.Contains(a.UnitModificationId.Value)),
             ct);
         var orders = new Dictionary<long, Order>();
         var benchLabels = new Dictionary<long, string>();
@@ -304,6 +310,24 @@ public sealed class UnitActivityService
                     nameof(UnitModification),
                     mod.Id));
             }
+        }
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var row = rows[i];
+            if (row.EventType != "Status"
+                || row.RelatedEntityType != nameof(UnitModification)
+                || row.RelatedEntityId is not long modificationId
+                || modificationId <= 0)
+            {
+                continue;
+            }
+
+            var phrase = ModificationHistoryPatientCue.Format(
+                benchLabels.TryGetValue(modificationId, out var patientLabel) ? patientLabel : null,
+                orderCouldNotBeRead: benchUnreadable.Contains(modificationId),
+                linkedOrdersDisagree: benchDisagree.Contains(modificationId));
+            rows[i] = row with { Summary = $"{row.Summary} · {phrase}" };
         }
 
         return rows

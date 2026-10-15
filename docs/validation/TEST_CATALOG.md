@@ -270,5 +270,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-259 | I | `BenchModificationActivityCueTests`; `InventoryServiceTests.UnitActivity_SaysWhenABenchModificationHasNoPatientOrder` | URS-BB-369 / FRS-BB-404 / RISK-BB-471 |
 | TEST-BB-260 | I | `BenchModificationActivityCueTests`; `InventoryServiceTests.UnitActivity_SaysWhenABenchModificationHasNoPatientOrder` | URS-BB-370 / FRS-BB-405 / RISK-BB-472 |
 | TEST-BB-261 | I | `ModificationHistoryPatientCueTests`; `BloodProductModificationServiceTests.GetHistory_NamesThePatientWhenAnOrderPointsAtTheModification` | URS-BB-371 / FRS-BB-406 / RISK-BB-473 |
+| TEST-BB-262 | I | `InventoryServiceTests.UnitActivity_NamesThePatientOnAModificationStatusRow` | URS-BB-372 / FRS-BB-407 / RISK-BB-474 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
