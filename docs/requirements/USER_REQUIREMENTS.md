@@ -372,3 +372,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-364 | Staff reading a unit timeline can see who a unit was allocated to by name. | P1 | FRS-BB-399 |
 | URS-BB-365 | Staff reading a unit timeline can see who a crossmatch was for by name. | P1 | FRS-BB-400 |
 | URS-BB-366 | Staff reading a unit timeline can see who received a transfusion by name. | P1 | FRS-BB-401 |
+| URS-BB-367 | Staff reading a unit timeline can see who a returned unit was issued to by name. | P1 | FRS-BB-402 |

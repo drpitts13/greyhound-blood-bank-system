@@ -81,10 +81,22 @@ public sealed class UnitActivityService
         var transfusions = issueIds.Count == 0
             ? Array.Empty<TransfusionEvent>()
             : await _transfusions.ListAsync(x => issueIds.Contains(x.IssueId), ct);
+        var returns = await _returns.ListAsync(x => x.BloodProductId == unitId, ct);
+        var issuesById = issues.ToDictionary(i => i.Id);
+        var extraIssueIds = returns.Select(r => r.IssueId).Where(id => !issuesById.ContainsKey(id)).Distinct().ToList();
+        if (extraIssueIds.Count > 0)
+        {
+            foreach (var issue in await _issues.ListAsync(i => extraIssueIds.Contains(i.Id), ct))
+            {
+                issuesById[issue.Id] = issue;
+            }
+        }
+
         var patientIds = allocations.Select(a => a.PatientId)
             .Concat(issues.Select(i => i.PatientId))
             .Concat(crossmatches.Select(x => x.PatientId))
             .Concat(transfusions.Select(t => t.PatientId))
+            .Concat(returns.Select(r => issuesById.TryGetValue(r.IssueId, out var issue) ? issue.PatientId : (long?)null).OfType<long>())
             .Distinct()
             .ToList();
         var patients = patientIds.Count == 0
@@ -136,12 +148,20 @@ public sealed class UnitActivityService
                 i.Id));
         }
 
-        foreach (var r in await _returns.ListAsync(x => x.BloodProductId == unitId, ct))
+        foreach (var r in returns)
         {
+            string? patientLabel = null;
+            if (issuesById.TryGetValue(r.IssueId, out var issue))
+            {
+                patients.TryGetValue(issue.PatientId, out var patient);
+                patientLabel = PatientActivityLabel.Format(
+                    issue.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
+            }
+
             rows.Add(new UnitActivityDto(
                 r.ReturnedUtc,
                 "Return",
-                r.ReissueEligible ? $"Returned (reissue eligible) — {r.Reason}" : $"Returned — {r.Reason}",
+                ReturnActivityCue.Format(r.ReissueEligible, r.Reason, patientLabel),
                 r.ReturnedBy,
                 nameof(Return),
                 r.Id));

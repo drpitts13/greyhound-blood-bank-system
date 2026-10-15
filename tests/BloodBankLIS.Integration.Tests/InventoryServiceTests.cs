@@ -684,6 +684,119 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task UnitActivity_NamesThePatientOnAReturn()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest($"U-RET-NAME-{key}", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var named = new Patient
+        {
+            MedicalRecordNumber = $"MRN-RET-{key}",
+            LastName = " Poe ",
+            FirstName = " Ann ",
+            DateOfBirth = new DateOnly(1986, 7, 7),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        var blank = new Patient
+        {
+            MedicalRecordNumber = $"MRN-RET-BL-{key}",
+            LastName = "   ",
+            FirstName = " ",
+            DateOfBirth = new DateOnly(1987, 8, 8),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        context.Patients.AddRange(named, blank);
+        await context.SaveChangesAsync();
+
+        var missingPatientId = 9_000_000_000 + named.Id;
+        var namedIssue = new Issue
+        {
+            BloodProductId = received.Unit!.Id,
+            PatientId = named.Id,
+            IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-10),
+            IssuedBy = "tech",
+            Status = IssueStatus.Returned
+        };
+        var blankIssue = new Issue
+        {
+            BloodProductId = received.Unit.Id,
+            PatientId = blank.Id,
+            IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-9),
+            IssuedBy = "tech",
+            Status = IssueStatus.Transfused
+        };
+        var missingIssue = new Issue
+        {
+            BloodProductId = received.Unit.Id,
+            PatientId = missingPatientId,
+            IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-8),
+            IssuedBy = "tech",
+            Status = IssueStatus.Returned
+        };
+        context.Issues.AddRange(namedIssue, blankIssue, missingIssue);
+        await context.SaveChangesAsync();
+
+        context.Returns.AddRange(
+            new Return
+            {
+                IssueId = namedIssue.Id,
+                BloodProductId = received.Unit.Id,
+                ReturnedUtc = _factory.Clock.UtcNow.AddMinutes(-6),
+                ReturnedBy = "tech",
+                Reason = " Unused ",
+                ReissueEligible = false
+            },
+            new Return
+            {
+                IssueId = blankIssue.Id,
+                BloodProductId = received.Unit.Id,
+                ReturnedUtc = _factory.Clock.UtcNow.AddMinutes(-5),
+                ReturnedBy = "tech",
+                Reason = "Cooler intact",
+                ReissueEligible = true
+            },
+            new Return
+            {
+                IssueId = missingIssue.Id,
+                BloodProductId = received.Unit.Id,
+                ReturnedUtc = _factory.Clock.UtcNow.AddMinutes(-4),
+                ReturnedBy = "tech",
+                Reason = "Not given",
+                ReissueEligible = false
+            });
+        await context.SaveChangesAsync();
+
+        var activity = new UnitActivityService(
+            new InventoryRepository(context),
+            new EfRepository<Allocation>(context),
+            new EfRepository<Crossmatch>(context),
+            new EfRepository<Issue>(context),
+            new EfRepository<Return>(context),
+            new EfRepository<TransfusionEvent>(context),
+            new EfRepository<OrderAction>(context),
+            new EfRepository<ActionDefinition>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<Patient>(context));
+        var trail = await activity.ListAsync(received.Unit.Id);
+        var namedRow = Assert.Single(trail, row => row.EventType == "Return" && row.Summary.StartsWith("Returned — Unused from ", StringComparison.Ordinal));
+        var blankRow = Assert.Single(trail, row => row.EventType == "Return" && row.Summary.StartsWith("Returned (reissue eligible) — Cooler intact from ", StringComparison.Ordinal));
+        var missingRow = Assert.Single(trail, row => row.EventType == "Return" && row.Summary.StartsWith("Returned — Not given from ", StringComparison.Ordinal));
+
+        Assert.Equal($"Returned — Unused from Poe, Ann ({named.MedicalRecordNumber})", namedRow.Summary);
+        Assert.Equal($"Returned (reissue eligible) — Cooler intact from patient #{blank.Id} ({blank.MedicalRecordNumber})", blankRow.Summary);
+        Assert.Equal($"Returned — Not given from patient #{missingPatientId}", missingRow.Summary);
+        Assert.DoesNotContain("could not be read", namedRow.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ListNearExpiry_ExcludesExpectedAndExpired()
     {
         var productTypeId = await EnsureProductTypeAsync();

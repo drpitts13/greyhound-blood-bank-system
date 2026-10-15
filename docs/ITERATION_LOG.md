@@ -5870,3 +5870,28 @@ The unit timeline named the patient on an allocation, an issue, and a crossmatch
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an allocation, an issue, a crossmatch, and a transfusion, and a return still names only the reason, so staff cannot see who the unit was issued to without leaving the chart.
+
+## Iteration 214 — Patient name on a unit return (2026-10-14)
+
+The unit timeline named the patient on an allocation, an issue, a crossmatch, and a transfusion. A return still named only the reason, so staff could not see who the unit was issued to without leaving the chart.
+
+### Implemented
+
+- A return names the patient from the issue that return belongs to.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+- A return whose issue cannot be read does not invent a patient.
+
+### Requirements / risk
+
+- URS-BB-367, FRS-BB-402, SRS-BB-364, RISK-BB-469.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-257 (`ReturnActivityCueTests`; `InventoryServiceTests.UnitActivity_NamesThePatientOnAReturn`).
+- Return patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an allocation, an issue, a crossmatch, a transfusion, and a return, and a modification still names only the action, so staff cannot see who that product order was for without leaving the chart.
