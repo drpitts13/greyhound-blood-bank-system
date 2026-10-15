@@ -266,5 +266,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-255 | I | `InventoryServiceTests.UnitActivity_NamesThePatientOnACrossmatch` | URS-BB-365 / FRS-BB-400 / RISK-BB-467 |
 | TEST-BB-256 | I | `InventoryServiceTests.UnitActivity_NamesThePatientOnATransfusion` | URS-BB-366 / FRS-BB-401 / RISK-BB-468 |
 | TEST-BB-257 | I | `ReturnActivityCueTests`; `InventoryServiceTests.UnitActivity_NamesThePatientOnAReturn` | URS-BB-367 / FRS-BB-402 / RISK-BB-469 |
+| TEST-BB-258 | I | `ModificationActivityCueTests`; `InventoryServiceTests.UnitActivity_NamesThePatientOnAnOrderModification` | URS-BB-368 / FRS-BB-403 / RISK-BB-470 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -797,6 +797,125 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task UnitActivity_NamesThePatientOnAnOrderModification()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest($"U-MOD-NAME-{key}", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var named = new Patient
+        {
+            MedicalRecordNumber = $"MRN-MOD-{key}",
+            LastName = " Poe ",
+            FirstName = " Ann ",
+            DateOfBirth = new DateOnly(1988, 9, 9),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        var blank = new Patient
+        {
+            MedicalRecordNumber = $"MRN-MOD-BL-{key}",
+            LastName = "   ",
+            FirstName = " ",
+            DateOfBirth = new DateOnly(1989, 10, 10),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        context.Patients.AddRange(named, blank);
+        await context.SaveChangesAsync();
+        var encounter = new Encounter
+        {
+            PatientId = named.Id,
+            VisitNumber = $"VIS-MOD-{key}",
+            EncounterType = EncounterType.Inpatient,
+            Status = EncounterStatus.Active,
+            AdmitUtc = _factory.Clock.UtcNow
+        };
+        var location = new OrderingLocation { Code = $"LOC-MOD-{key}", Name = "Ward", IsActive = true };
+        context.Encounters.Add(encounter);
+        context.OrderingLocations.Add(location);
+        await context.SaveChangesAsync();
+
+        Order MakeOrder(string number, long patientId) => new()
+        {
+            OrderNumber = number,
+            OrderName = "Irradiate red cells",
+            PatientId = patientId,
+            EncounterId = encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product,
+            ProductTypeId = productTypeId,
+            Status = OrderStatus.InProcess,
+            OrderedUtc = _factory.Clock.UtcNow
+        };
+        var namedOrder = MakeOrder($"ORD-MOD-{key}", named.Id);
+        var blankOrder = MakeOrder($"ORD-MOD-BL-{key}", blank.Id);
+        context.Orders.AddRange(namedOrder, blankOrder);
+        var irradiate = new ActionDefinition
+        {
+            Code = $"IRRAD-{key}",
+            Name = "Irradiate",
+            Category = ActionCategory.Modification,
+            ModificationType = ModificationType.Irradiate,
+            IsActive = true
+        };
+        var wash = new ActionDefinition
+        {
+            Code = $"WASH-{key}",
+            Name = "Wash",
+            Category = ActionCategory.Modification,
+            ModificationType = ModificationType.Wash,
+            IsActive = true
+        };
+        context.ActionDefinitions.AddRange(irradiate, wash);
+        await context.SaveChangesAsync();
+
+        context.OrderActions.AddRange(
+            new OrderAction
+            {
+                OrderId = namedOrder.Id,
+                ActionDefinitionId = irradiate.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = received.Unit!.Id,
+                CompletedUtc = _factory.Clock.UtcNow.AddMinutes(-5),
+                CompletedBy = "tech"
+            },
+            new OrderAction
+            {
+                OrderId = blankOrder.Id,
+                ActionDefinitionId = wash.Id,
+                Status = OrderActionStatus.Pending,
+                SourceBloodUnitId = received.Unit.Id
+            });
+        await context.SaveChangesAsync();
+
+        var activity = new UnitActivityService(
+            new InventoryRepository(context),
+            new EfRepository<Allocation>(context),
+            new EfRepository<Crossmatch>(context),
+            new EfRepository<Issue>(context),
+            new EfRepository<Return>(context),
+            new EfRepository<TransfusionEvent>(context),
+            new EfRepository<OrderAction>(context),
+            new EfRepository<ActionDefinition>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<Patient>(context),
+            orders: new EfRepository<Order>(context));
+        var trail = await activity.ListAsync(received.Unit.Id);
+        var namedRow = Assert.Single(trail, row => row.Summary.StartsWith("Irradiate Completed for ", StringComparison.Ordinal));
+        var blankRow = Assert.Single(trail, row => row.Summary.StartsWith("Wash Pending for ", StringComparison.Ordinal));
+
+        Assert.Equal($"Irradiate Completed for Poe, Ann ({named.MedicalRecordNumber})", namedRow.Summary);
+        Assert.Equal($"Wash Pending for patient #{blank.Id} ({blank.MedicalRecordNumber})", blankRow.Summary);
+        Assert.DoesNotContain("could not be read", namedRow.Summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ListNearExpiry_ExcludesExpectedAndExpired()
     {
         var productTypeId = await EnsureProductTypeAsync();

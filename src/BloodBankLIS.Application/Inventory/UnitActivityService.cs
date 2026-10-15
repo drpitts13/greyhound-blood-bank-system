@@ -24,6 +24,7 @@ public sealed class UnitActivityService
     private readonly IRepository<UnitModification> _modifications;
     private readonly IRepository<Patient> _patients;
     private readonly IRepository<InventoryLocation>? _locations;
+    private readonly IRepository<Order>? _orders;
 
     public UnitActivityService(
         IInventoryRepository inventory,
@@ -37,7 +38,8 @@ public sealed class UnitActivityService
         IRepository<UnitModificationUnit> modificationUnits,
         IRepository<UnitModification> modifications,
         IRepository<Patient> patients,
-        IRepository<InventoryLocation>? locations = null)
+        IRepository<InventoryLocation>? locations = null,
+        IRepository<Order>? orders = null)
     {
         _inventory = inventory;
         _allocations = allocations;
@@ -51,6 +53,7 @@ public sealed class UnitActivityService
         _modifications = modifications;
         _patients = patients;
         _locations = locations;
+        _orders = orders;
     }
 
     public async Task<IReadOnlyList<UnitActivityDto>> ListAsync(long unitId, CancellationToken ct = default)
@@ -190,15 +193,39 @@ public sealed class UnitActivityService
             var defIds = actions.Select(a => a.ActionDefinitionId).Distinct().ToList();
             var defs = (await _actionDefinitions.ListAsync(d => defIds.Contains(d.Id), ct))
                 .ToDictionary(d => d.Id);
+            var orderIds = actions.Select(a => a.OrderId).Distinct().ToList();
+            var orders = _orders is null || orderIds.Count == 0
+                ? new Dictionary<long, Order>()
+                : (await _orders.ListAsync(o => orderIds.Contains(o.Id), ct)).ToDictionary(o => o.Id);
+            var missingPatientIds = orders.Values
+                .Select(o => o.PatientId)
+                .Where(id => !patients.ContainsKey(id))
+                .Distinct()
+                .ToList();
+            if (missingPatientIds.Count > 0)
+            {
+                foreach (var patient in await _patients.ListAsync(p => missingPatientIds.Contains(p.Id), ct))
+                {
+                    patients[patient.Id] = patient;
+                }
+            }
+
             foreach (var action in actions)
             {
                 defs.TryGetValue(action.ActionDefinitionId, out var def);
-                var name = def?.Name ?? "Modification";
+                string? patientLabel = null;
+                if (orders.TryGetValue(action.OrderId, out var order))
+                {
+                    patients.TryGetValue(order.PatientId, out var patient);
+                    patientLabel = PatientActivityLabel.Format(
+                        order.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
+                }
+
                 var when = action.CompletedUtc ?? action.ModifiedUtc ?? action.CreatedUtc;
                 rows.Add(new UnitActivityDto(
                     when,
                     "Modification",
-                    $"{name} {action.Status}",
+                    ModificationActivityCue.Format(def?.Name, action.Status.ToString(), patientLabel),
                     action.CompletedBy ?? action.ModifiedBy ?? action.CreatedBy,
                     nameof(OrderAction),
                     action.Id));

@@ -5895,3 +5895,29 @@ The unit timeline named the patient on an allocation, an issue, a crossmatch, an
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an allocation, an issue, a crossmatch, a transfusion, and a return, and a modification still names only the action, so staff cannot see who that product order was for without leaving the chart.
+
+## Iteration 215 — Patient name on an order-linked modification (2026-10-14)
+
+The unit timeline named the patient on an allocation, an issue, a crossmatch, a transfusion, and a return. A modification still named only the action, so staff could not see who that product order was for without leaving the chart.
+
+### Implemented
+
+- An order-linked modification names the patient from that product order.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+- A modification whose order cannot be read does not invent a patient.
+- A bench modification that is not tied to an order is unchanged.
+
+### Requirements / risk
+
+- URS-BB-368, FRS-BB-403, SRS-BB-365, RISK-BB-470.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-258 (`ModificationActivityCueTests`; `InventoryServiceTests.UnitActivity_NamesThePatientOnAnOrderModification`).
+- Order-modification patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline now names the patient on the order-linked rows, and a bench modification that is not tied to an order still reads like an unnamed product order, so staff cannot tell that no patient order was recorded.
