@@ -484,6 +484,94 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task UnitActivity_NamesThePatientOnACrossmatch()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        await EnsureSecondVerifierAsync();
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var received = await service.ReceiveUnitAsync(NewUnitRequest($"U-XM-NAME-{key}", productTypeId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var named = new Patient
+        {
+            MedicalRecordNumber = $"MRN-XM-{key}",
+            LastName = " Roe ",
+            FirstName = " Sam ",
+            DateOfBirth = new DateOnly(1982, 3, 3),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        var blank = new Patient
+        {
+            MedicalRecordNumber = $"MRN-XM-BL-{key}",
+            LastName = "   ",
+            FirstName = " ",
+            DateOfBirth = new DateOnly(1983, 4, 4),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        context.Patients.AddRange(named, blank);
+        await context.SaveChangesAsync();
+
+        var missingPatientId = 9_000_000_000 + named.Id;
+        context.Crossmatches.AddRange(
+            new Crossmatch
+            {
+                BloodProductId = received.Unit!.Id,
+                PatientId = named.Id,
+                SpecimenId = 1,
+                Method = CrossmatchMethod.Serologic,
+                Result = CrossmatchResult.Compatible,
+                PerformedUtc = _factory.Clock.UtcNow.AddMinutes(-5),
+                PerformedBy = "tech"
+            },
+            new Crossmatch
+            {
+                BloodProductId = received.Unit.Id,
+                PatientId = missingPatientId,
+                SpecimenId = 2,
+                Method = CrossmatchMethod.Electronic,
+                Result = CrossmatchResult.Compatible,
+                PerformedUtc = _factory.Clock.UtcNow.AddMinutes(-4),
+                PerformedBy = "tech"
+            },
+            new Crossmatch
+            {
+                BloodProductId = received.Unit.Id,
+                PatientId = blank.Id,
+                SpecimenId = 3,
+                Method = CrossmatchMethod.ImmediateSpin,
+                Result = CrossmatchResult.Incompatible,
+                PerformedUtc = _factory.Clock.UtcNow.AddMinutes(-3),
+                PerformedBy = "tech"
+            });
+        await context.SaveChangesAsync();
+
+        var activity = new UnitActivityService(
+            new InventoryRepository(context),
+            new EfRepository<Allocation>(context),
+            new EfRepository<Crossmatch>(context),
+            new EfRepository<Issue>(context),
+            new EfRepository<Return>(context),
+            new EfRepository<TransfusionEvent>(context),
+            new EfRepository<OrderAction>(context),
+            new EfRepository<ActionDefinition>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<Patient>(context));
+        var trail = await activity.ListAsync(received.Unit.Id);
+        var namedRow = Assert.Single(trail, row => row.Summary.StartsWith("Serologic Compatible for ", StringComparison.Ordinal));
+        var missingRow = Assert.Single(trail, row => row.Summary.StartsWith("Electronic Compatible for ", StringComparison.Ordinal));
+        var blankRow = Assert.Single(trail, row => row.Summary.StartsWith("ImmediateSpin Incompatible for ", StringComparison.Ordinal));
+
+        Assert.Equal($"Serologic Compatible for Roe, Sam ({named.MedicalRecordNumber})", namedRow.Summary);
+        Assert.Equal($"Electronic Compatible for patient #{missingPatientId}", missingRow.Summary);
+        Assert.Equal($"ImmediateSpin Incompatible for patient #{blank.Id} ({blank.MedicalRecordNumber})", blankRow.Summary);
+    }
+
+    [Fact]
     public async Task ListNearExpiry_ExcludesExpectedAndExpired()
     {
         var productTypeId = await EnsureProductTypeAsync();

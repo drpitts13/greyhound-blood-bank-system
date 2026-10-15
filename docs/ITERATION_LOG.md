@@ -5822,3 +5822,27 @@ The unit timeline named the patient on an issue and still said patient #id on an
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an allocation and an issue, and a crossmatch still shows only the method and result, so staff cannot see who that crossmatch was for without leaving the chart.
+
+## Iteration 212 — Patient name on a unit crossmatch (2026-10-14)
+
+The unit timeline named the patient on an allocation and an issue. A crossmatch still showed only the method and result, so staff could not see who that crossmatch was for without leaving the chart.
+
+### Implemented
+
+- A crossmatch names the patient the same way an allocation and an issue do.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-365, FRS-BB-400, SRS-BB-362, RISK-BB-467.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-255 (`InventoryServiceTests.UnitActivity_NamesThePatientOnACrossmatch`).
+- Crossmatch patient-label test green (1).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an allocation, an issue, and a crossmatch, and a transfusion still shows only the disposition, so staff cannot see who received the unit without leaving the chart.

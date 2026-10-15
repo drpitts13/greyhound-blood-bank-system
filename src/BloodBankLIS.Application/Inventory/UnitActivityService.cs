@@ -76,7 +76,12 @@ public sealed class UnitActivityService
 
         var allocations = await _allocations.ListAsync(x => x.BloodProductId == unitId, ct);
         var issues = await _issues.ListAsync(i => i.BloodProductId == unitId, ct);
-        var patientIds = allocations.Select(a => a.PatientId).Concat(issues.Select(i => i.PatientId)).Distinct().ToList();
+        var crossmatches = await _crossmatches.ListAsync(x => x.BloodProductId == unitId, ct);
+        var patientIds = allocations.Select(a => a.PatientId)
+            .Concat(issues.Select(i => i.PatientId))
+            .Concat(crossmatches.Select(x => x.PatientId))
+            .Distinct()
+            .ToList();
         var patients = patientIds.Count == 0
             ? new Dictionary<long, Patient>()
             : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
@@ -100,12 +105,14 @@ public sealed class UnitActivityService
             .Distinct()
             .ToList();
 
-        foreach (var xm in await _crossmatches.ListAsync(x => x.BloodProductId == unitId, ct))
+        foreach (var xm in crossmatches)
         {
+            patients.TryGetValue(xm.PatientId, out var patient);
+            var who = PatientActivityLabel.Format(xm.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
             rows.Add(new UnitActivityDto(
                 xm.PerformedUtc,
                 "Crossmatch",
-                $"{xm.Method} {xm.Result}",
+                $"{xm.Method} {xm.Result} for {who}",
                 xm.PerformedBy,
                 nameof(Crossmatch),
                 xm.Id));
