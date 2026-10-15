@@ -6190,3 +6190,28 @@ A unit transfer and a delivery receipt listed a storage location as code and nam
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The location admin list still shows a blank storage location name as an empty name beside the code, so the code can be read as the place. Keep the code in the catalog, and show Location {id} when the name is blank.
+
+## Iteration 226 — Location id on the inventory-location list (2026-10-15)
+
+The inventory-location list showed a blank name as an empty name beside the code. The code could be read as the place.
+
+### Implemented
+
+- The list keeps the location code in the code column.
+- A blank name on that list stays `Location {id}`.
+- The stored name is unchanged.
+- The edit form still shows the stored name.
+
+### Requirements / risk
+
+- URS-BB-379, FRS-BB-414, SRS-BB-376, RISK-BB-481.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-269 (`InventoryLocationAdminDtoTests.NameLabel_KeepsTheLocationIdWhenTheNameIsBlank`).
+- Inventory-location name-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Saving an ordering location still stores the location code as the name when the name is left blank, so the code is kept as the place. Do not invent a name from the code.

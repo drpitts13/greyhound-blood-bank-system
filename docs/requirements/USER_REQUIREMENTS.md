@@ -384,3 +384,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-376 | Staff receiving, returning, or documenting a unit can read a blank storage location as Location {id} without a second Location prefix. | P1 | FRS-BB-411 |
 | URS-BB-377 | Staff choosing a reserved unit can read a blank storage location as the location id. | P1 | FRS-BB-412 |
 | URS-BB-378 | Staff transferring a unit or receiving a delivery can select a location by its code and still read a blank name as the location id. | P1 | FRS-BB-413 |
+| URS-BB-379 | Staff reading the inventory-location catalog can see a blank name as the location id while the code stays in the catalog. | P1 | FRS-BB-414 |

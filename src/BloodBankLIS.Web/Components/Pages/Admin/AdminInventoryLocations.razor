@@ -17,7 +17,7 @@
         }
     </div>
 </div>
-<p class="muted">SafeTrace / SoftBank storage sites: refrigerator, freezer, platelet incubator, satellite fridge, and issue window. Storage class, remote/electronic issue, and second-verifier policy are enforced at transfer and issue (AABB 5.1.8, 5.11, 5.16; 21 CFR 606.160).</p>
+<p class="muted">SafeTrace / SoftBank storage sites: refrigerator, freezer, platelet incubator, satellite fridge, and issue window. Storage class, remote/electronic issue, and second-verifier policy are enforced at transfer and issue (AABB 5.1.8, 5.11, 5.16; 21 CFR 606.160). The code stays in the catalog. A blank name on this list stays the location id. The edit form still shows the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -55,7 +55,7 @@
                 {
                     <tr>
                         <td class="mono">@loc.Code</td>
-                        <td>@loc.Name</td>
+                        <td>@loc.NameLabel</td>
                         <td>
                             @loc.LocationType
                             @if (loc.IsSatellite)
@@ -159,6 +159,7 @@
             : _list.Where(l =>
                 l.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || l.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || l.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || (l.Department?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
 
     protected override async Task OnInitializedAsync() => await LoadAsync();

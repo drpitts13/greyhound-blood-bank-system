@@ -1,5 +1,6 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Admin;
 
@@ -25,6 +26,8 @@ public sealed record InventoryLocationAdminDto(
     int? DefaultInTransitHours,
     string? Notes)
 {
+    public string NameLabel => StorageLocationLabel.Format(Id, Name);
+
     public static InventoryLocationAdminDto From(InventoryLocation l) => new(
         l.Id, l.Code, l.Name, l.LocationType, l.IsActive, l.Department,
         l.AllowsIssue, l.AllowsRemoteIssue, l.AllowsElectronicIssue, l.RequiresSecondVerifier, l.IsSatellite,

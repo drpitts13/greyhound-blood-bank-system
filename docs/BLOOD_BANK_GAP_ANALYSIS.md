@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 225)
+## Capability matrix (Cycle 226)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -47,7 +47,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Worklists: tests, retype, near-expiry, issue, reactions, inbound | Present | Pending specimens Cycle 181; supervisor queue Cycle 184 |
 | Assigned products / outstanding transfusions | Present | Ready to issue; outstanding issued. Cycle 224 keeps a blank storage location name as the location id on Ready to issue and on reserved products. A location code is not shown. A unit with no location stays omitted. A location list that cannot be loaded does not invent a name. |
 | Shift handoff / supervisor queues | Present | Cycle 182 handoff; Cycle 184 permission-scoped supervisor worklist |
-| Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033) |
+| Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033). Cycle 226 keeps the code in the inventory-location catalog. A blank name on that list stays the location id. The stored name and the edit form are unchanged. |
 | HL7 ADT/ORM/ORU, BPAM, retry/error, downtime snapshot | Partial | v2 present; FHIR absent; MLLP transport-trust |
 | Audit of clinically important actions | Present | Append-only hash chain; no purge |
 
@@ -130,6 +130,8 @@ Cycle 223 keeps a place that already says Location {id} on a receive, return, or
 Cycle 224 keeps a blank storage location name as the location id on Ready to issue and on reserved products (RISK-BB-479). A location code is not shown. A unit with no location stays omitted. A location list that cannot be loaded does not invent a name.
 
 Cycle 225 keeps the location code on a transfer choice and on a delivery-receipt choice (RISK-BB-480). A blank name stays the location id and is not replaced by the code. A missing code stays the place alone.
+
+Cycle 226 keeps the code in the inventory-location catalog (RISK-BB-481). A blank name on that list stays the location id. The stored name and the edit form are unchanged.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|
