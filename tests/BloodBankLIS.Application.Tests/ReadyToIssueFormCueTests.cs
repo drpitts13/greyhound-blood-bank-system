@@ -137,6 +137,12 @@ public class RetrospectiveFollowUpNoticeTests
             ReadyToIssueFormCue.RetrospectiveFollowUpNotice("RN Alvarez", "CLR-TRAUMA-1", "Trauma Bay 2", "tech2", " witness-tech "));
         Assert.Equal("Issued by tech2", ReadyToIssueFormCue.RetrospectiveFollowUpNotice(null, " ", null, "tech2"));
         Assert.Equal("Second verifier witness-tech", ReadyToIssueFormCue.RetrospectiveFollowUpNotice(null, " ", null, " ", "witness-tech"));
+        Assert.Equal(
+            "Location 9",
+            ReadyToIssueFormCue.RetrospectiveFollowUpNotice(null, null, " Location 9 "));
+        Assert.DoesNotContain(
+            "Location Location",
+            ReadyToIssueFormCue.RetrospectiveFollowUpNotice("RN Alvarez", "CLR-TRAUMA-1", "Location 9")!);
         Assert.Null(ReadyToIssueFormCue.RetrospectiveFollowUpNotice(" ", null));
     }
 }
@@ -147,6 +153,9 @@ public class IssuedToLocationNoticeTests
     public void IssuedToLocationNotice_NamesTheWard()
     {
         Assert.Equal("Location Trauma Bay 2", ReadyToIssueFormCue.IssuedToLocationNotice(" Trauma Bay 2 "));
+        Assert.Equal("Location Issue fridge", ReadyToIssueFormCue.IssuedToLocationNotice(" Issue fridge "));
+        Assert.Equal("Location 9", ReadyToIssueFormCue.IssuedToLocationNotice(" Location 9 "));
+        Assert.DoesNotContain("Location Location", ReadyToIssueFormCue.IssuedToLocationNotice(" Location 9 "));
         Assert.Null(ReadyToIssueFormCue.IssuedToLocationNotice("  "));
         Assert.Null(ReadyToIssueFormCue.IssuedToLocationNotice(null));
     }

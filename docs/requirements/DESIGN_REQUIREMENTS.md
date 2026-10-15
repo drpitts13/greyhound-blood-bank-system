@@ -376,3 +376,4 @@
 | SRS-BB-370 | Issue rows use `IssueDestinationCue`. A single code match uses `StorageLocationLabel`. The stored issued-to place is not rewritten. | FRS-BB-408 |
 | SRS-BB-371 | Issuing-board and patient-history rows use `IssueDestinationCue`. A single code match uses `StorageLocationLabel`. The stored issued-to place is not rewritten. The issue form keeps the typed place. | FRS-BB-409 |
 | SRS-BB-372 | Lookback rows use `IssueDestinationCue`. A single code match uses `StorageLocationLabel`. The stored issued-to place is not rewritten. | FRS-BB-410 |
+| SRS-BB-373 | `IssuedToLocationNotice` returns a trimmed place that already starts with `Location `. Any other place is prefixed once. A blank place stays omitted. | FRS-BB-411 |

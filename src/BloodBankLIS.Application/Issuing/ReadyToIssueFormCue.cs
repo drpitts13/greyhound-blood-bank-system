@@ -80,8 +80,21 @@ public static class ReadyToIssueFormCue
     public static string? IssuedToNotice(string? issuedTo) =>
         string.IsNullOrWhiteSpace(issuedTo) ? null : $"Issued to {issuedTo.Trim()}";
 
-    public static string? IssuedToLocationNotice(string? location) =>
-        string.IsNullOrWhiteSpace(location) ? null : $"Location {location.Trim()}";
+    public static string? IssuedToLocationNotice(string? location)
+    {
+        if (string.IsNullOrWhiteSpace(location))
+        {
+            return null;
+        }
+
+        var place = location.Trim();
+        if (place.StartsWith("Location ", StringComparison.Ordinal))
+        {
+            return place;
+        }
+
+        return $"Location {place}";
+    }
 
     public static string? CoolerNotice(string? coolerId) =>
         string.IsNullOrWhiteSpace(coolerId) ? null : $"Cooler {coolerId.Trim()}";

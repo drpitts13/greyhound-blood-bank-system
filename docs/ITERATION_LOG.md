@@ -6114,3 +6114,28 @@ Lookback showed the issued-to place exactly as it was typed. A storage-location 
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A receive, return, or transfusion notice still prefixes Location onto a place that may already name the storage location, so a blank location name can read as Location Location {id}. The issue form still shows the place as typed.
+
+## Iteration 223 — One Location prefix on a custody notice (2026-10-15)
+
+A receive, return, or transfusion notice prefixed Location onto a place that already said Location {id}. A blank storage location name could be read as Location Location {id}.
+
+### Implemented
+
+- A place that already says Location {id} stays as that place.
+- A ward name or a storage location name still says Location before that place.
+- A blank place is omitted.
+- The same rule applies to the retrospective follow-up notice.
+
+### Requirements / risk
+
+- URS-BB-376, FRS-BB-411, SRS-BB-373, RISK-BB-478.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-266 (`IssuedToLocationNoticeTests.IssuedToLocationNotice_NamesTheWard`; `RetrospectiveFollowUpNoticeTests.RetrospectiveFollowUpNotice_NamesCustody`).
+- Custody-notice location tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Ready to issue and reserved products still show a location code when the storage location name is blank, so the code can be read as the name. A blank name should stay Location {id}. Do not invent a name.
