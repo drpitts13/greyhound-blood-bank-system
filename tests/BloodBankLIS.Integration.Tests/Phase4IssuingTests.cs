@@ -6,6 +6,7 @@ using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Entities.Identity;
@@ -3003,5 +3004,147 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             DocumentJson = JsonSerializer.Serialize(document, LabelFields.JsonOptions)
         });
         await c.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task IssuedBoards_NameTheStorageLocationWhenThePlaceIsALocationCode()
+    {
+        const string key = "LOC221";
+        long blankId;
+        long namedIssueId;
+        await using (var c = _factory.Create())
+        {
+            var patient = new Patient
+            {
+                MedicalRecordNumber = $"MRN-{key}",
+                LastName = "Poe",
+                FirstName = "Ann",
+                DateOfBirth = new DateOnly(1975, 6, 1)
+            };
+            var product = new ProductType
+            {
+                ProductCode = $"RBC-{key}",
+                Name = "Test RBC",
+                ComponentClass = ComponentClass.RedBloodCells
+            };
+            c.Patients.Add(patient);
+            c.ProductTypes.Add(product);
+            var named = new InventoryLocation { Code = $"F1{key}", Name = " Issue fridge " };
+            var blank = new InventoryLocation { Code = $"F2{key}", Name = "   " };
+            var coded = new InventoryLocation { Code = $"OR{key}", Name = "Main OR" };
+            var alsoNamed = new InventoryLocation { Code = $"X{key}", Name = $"OR{key}" };
+            c.InventoryLocations.AddRange(named, blank, coded, alsoNamed);
+            await c.SaveChangesAsync();
+            blankId = blank.Id;
+
+            BloodUnit Unit(string suffix) => new()
+            {
+                UnitNumber = $"U-{key}-{suffix}",
+                ProductTypeId = product.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+                Status = UnitStatus.Issued
+            };
+
+            var fridgeUnit = Unit("FR");
+            var blankUnit = Unit("BL");
+            var wardUnit = Unit("WD");
+            var ambiguousUnit = Unit("AM");
+            var transfusedUnit = Unit("TX");
+            c.BloodUnits.AddRange(fridgeUnit, blankUnit, wardUnit, ambiguousUnit, transfusedUnit);
+            await c.SaveChangesAsync();
+
+            Issue Issued(BloodUnit unit, string place, bool retrospective = false) => new()
+            {
+                BloodProductId = unit.Id,
+                PatientId = patient.Id,
+                IssuedUtc = _factory.Clock.UtcNow,
+                IssuedBy = "tech",
+                IssuedToLocation = place,
+                Status = IssueStatus.Issued,
+                TestsIncompleteAtIssue = retrospective,
+                CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed
+            };
+
+            var fridgeIssue = Issued(fridgeUnit, $" f1{key.ToLower()} ", retrospective: true);
+            var blankIssue = Issued(blankUnit, $"F2{key}");
+            var wardIssue = Issued(wardUnit, " 4W Med/Surg ");
+            var ambiguousIssue = Issued(ambiguousUnit, $"or{key.ToLower()}");
+            var transfusedIssue = new Issue
+            {
+                BloodProductId = transfusedUnit.Id,
+                PatientId = patient.Id,
+                IssuedUtc = _factory.Clock.UtcNow,
+                IssuedBy = "tech",
+                IssuedToLocation = "4W Oncology",
+                Status = IssueStatus.Transfused
+            };
+            c.Issues.AddRange(fridgeIssue, blankIssue, wardIssue, ambiguousIssue, transfusedIssue);
+            await c.SaveChangesAsync();
+            namedIssueId = fridgeIssue.Id;
+            c.TransfusionEvents.Add(new TransfusionEvent
+            {
+                IssueId = transfusedIssue.Id,
+                BloodProductId = transfusedUnit.Id,
+                PatientId = patient.Id,
+                Location = $" f1{key.ToLower()} ",
+                DocumentedBy = "tech",
+                FinalDisposition = TransfusionDisposition.Completed
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using var read = _factory.Create();
+        var issuing = Issuing(read);
+        var outstanding = await issuing.ListOutstandingIssuedAsync();
+        var inTransit = await issuing.ListInTransitAsync();
+        var retrospective = await issuing.ListPendingRetrospectiveCrossmatchesAsync();
+
+        OutstandingIssueWorkItemDto Board(string suffix) =>
+            Assert.Single(outstanding, row => row.UnitNumber == $"U-{key}-{suffix}");
+
+        var fridge = Board("FR");
+        var blankRow = Board("BL");
+        var ward = Board("WD");
+        var ambiguous = Board("AM");
+        Assert.Equal("Issue fridge", fridge.IssuedToLocation);
+        Assert.DoesNotContain($"F1{key}", fridge.IssuedToLocation, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal($"Location {blankId}", blankRow.IssuedToLocation);
+        Assert.DoesNotContain($"F2{key}", blankRow.IssuedToLocation, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("4W Med/Surg", ward.IssuedToLocation);
+        Assert.Equal($"or{key.ToLower()}", ambiguous.IssuedToLocation);
+        Assert.Equal("Issue fridge", Assert.Single(inTransit, row => row.UnitNumber == $"U-{key}-FR").IssuedToLocation);
+        Assert.Equal("Issue fridge", Assert.Single(retrospective, row => row.UnitNumber == $"U-{key}-FR").IssuedToLocation);
+        Assert.Equal($" f1{key.ToLower()} ", (await read.Issues.FindAsync(namedIssueId))!.IssuedToLocation);
+
+        PatientProductHistoryService History(BloodBankDbContext db, bool withLocations) => new(
+            new EfRepository<Allocation>(db),
+            new EfRepository<Crossmatch>(db),
+            new EfRepository<Issue>(db),
+            new EfRepository<Return>(db),
+            new EfRepository<TransfusionEvent>(db),
+            new EfRepository<BloodUnit>(db),
+            new EfRepository<ProductType>(db),
+            new EfRepository<Encounter>(db),
+            new EfRepository<Order>(db),
+            new EfRepository<Specimen>(db),
+            new EfRepository<PatientBloodTypeHistory>(db),
+            new EfRepository<Override>(db),
+            withLocations ? new EfRepository<InventoryLocation>(db) : null);
+
+        var patientId = fridge.PatientId;
+        var namedHistory = await History(read, withLocations: true).ListByPatientAsync(patientId);
+        Assert.Equal("Issue fridge", Assert.Single(namedHistory, row => row.UnitNumber == $"U-{key}-FR" && row.EventType == PatientProductHistoryEventType.Issued).IssuedToLocation);
+        Assert.Equal($"Location {blankId}", Assert.Single(namedHistory, row => row.UnitNumber == $"U-{key}-BL").IssuedToLocation);
+        Assert.Equal("4W Med/Surg", Assert.Single(namedHistory, row => row.UnitNumber == $"U-{key}-WD").IssuedToLocation);
+        Assert.Equal($"or{key.ToLower()}", Assert.Single(namedHistory, row => row.UnitNumber == $"U-{key}-AM").IssuedToLocation);
+        Assert.Equal("Issue fridge", Assert.Single(namedHistory, row => row.EventType == PatientProductHistoryEventType.Transfused).IssuedToLocation);
+        Assert.Equal("4W Oncology", Assert.Single(namedHistory, row => row.UnitNumber == $"U-{key}-TX" && row.EventType == PatientProductHistoryEventType.Issued).IssuedToLocation);
+
+        var unread = await History(read, withLocations: false).ListByPatientAsync(patientId);
+        var unreadFridge = Assert.Single(unread, row => row.UnitNumber == $"U-{key}-FR" && row.EventType == PatientProductHistoryEventType.Issued);
+        Assert.Equal($"f1{key.ToLower()}", unreadFridge.IssuedToLocation);
+        Assert.DoesNotContain("Issue fridge", unreadFridge.IssuedToLocation);
     }
 }

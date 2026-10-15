@@ -1,6 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.PatientWorkspace;
@@ -22,6 +23,7 @@ public sealed class PatientProductHistoryService
     private readonly IRepository<Specimen> _specimens;
     private readonly IRepository<PatientBloodTypeHistory> _bloodTypes;
     private readonly IRepository<Override> _overrides;
+    private readonly IRepository<InventoryLocation>? _locations;
 
     public PatientProductHistoryService(
         IRepository<Allocation> allocations,
@@ -35,7 +37,8 @@ public sealed class PatientProductHistoryService
         IRepository<Order> orders,
         IRepository<Specimen> specimens,
         IRepository<PatientBloodTypeHistory> bloodTypes,
-        IRepository<Override> overrides)
+        IRepository<Override> overrides,
+        IRepository<InventoryLocation>? locations = null)
     {
         _allocations = allocations;
         _crossmatches = crossmatches;
@@ -49,6 +52,7 @@ public sealed class PatientProductHistoryService
         _specimens = specimens;
         _bloodTypes = bloodTypes;
         _overrides = overrides;
+        _locations = locations;
     }
 
     public async Task<IReadOnlyList<PatientProductHistoryRowDto>> ListByPatientAsync(
@@ -105,6 +109,7 @@ public sealed class PatientProductHistoryService
         }
 
         var issues = await _issues.ListAsync(x => x.PatientId == patientId, ct);
+        var issuePlaces = await LoadIssuePlacesAsync(ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(issues, ct);
         var issueIds = issues.Select(i => i.Id).ToHashSet();
         var returnsByIssue = (await _returns.ListAsync(ct))
@@ -132,7 +137,7 @@ public sealed class PatientProductHistoryService
             rows.Add(new PatientProductHistoryRowDto(
                 i.Id, nameof(Issue), PatientProductHistoryEventType.Issued, i.IssuedUtc,
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
-                patientBloodType, visit, orderNum, LinkedSpecimenAccession(i, allocationsById, specimens), LatestCrossmatchStatus(latestCrossmatchByUnit, unit?.Id), Person(i.IssuedBy), i.IssuedToLocation,
+                patientBloodType, visit, orderNum, LinkedSpecimenAccession(i, allocationsById, specimens), LatestCrossmatchStatus(latestCrossmatchByUnit, unit?.Id), Person(i.IssuedBy), IssueDestinationCue.Format(i.IssuedToLocation, issuePlaces),
                 null, null, null, null, i.Status.ToString(), false, missing, isOpen,
                 UnitId: unit?.Id, IssueId: i.Id, UnitExpiresUtc: unit?.ExpiresUtc, IssuedTo: Person(i.IssuedTo), CoolerId: Person(i.CoolerId), IssueType: i.IssueType.ToString(), EmergencyReleaseReason: Person(i.EmergencyReleaseDetails), SecondVerifier: Person(i.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(i, authorizers), IssueAppearance: i.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(i), PtagCode: Person(i.PtagCode), IssueCrossmatchStatus: i.CrossmatchStatus.ToString()));
         }
@@ -184,7 +189,7 @@ public sealed class PatientProductHistoryService
                 t.Id, nameof(TransfusionEvent), eventType, t.StartUtc ?? t.CreatedUtc,
                 unit?.UnitNumber, GetProductName(unit, productTypes), FormatBloodType(unit?.Abo, unit?.RhD),
                 patientBloodType, visit, orderNum, LinkedSpecimenAccession(issue, allocationsById, specimens), LatestCrossmatchStatus(latestCrossmatchByUnit, unit?.Id), Person(t.DocumentedBy),
-                t.Location ?? issue.IssuedToLocation,
+                IssueDestinationCue.Format(t.Location ?? issue.IssuedToLocation, issuePlaces),
                 null, t.StartUtc, t.StopUtc, t.VolumeTransfused, t.FinalDisposition.ToString(),
                 t.ReactionSuspected, missing, false, t.PatientIdentificationMethod,
                 t.Transfusionist, unit?.Id, t.IssueId, unit?.ExpiresUtc, IssuedTo: Person(issue.IssuedTo), CoolerId: Person(issue.CoolerId), IssueType: issue.IssueType.ToString(), EmergencyReleaseReason: Person(issue.EmergencyReleaseDetails), SecondVerifier: Person(issue.SecondVerifier), EmergencyReleaseAuthorizer: Authorizer(issue, authorizers), IssueAppearance: issue.IssueAppearance.ToString(), WardAppearance: WardReceiptAppearance(issue), PtagCode: Person(issue.PtagCode), IssueCrossmatchStatus: issue.CrossmatchStatus.ToString()));
@@ -282,6 +287,19 @@ public sealed class PatientProductHistoryService
 
     private static string? WardReceiptAppearance(Issue issue) =>
         issue.WardReceivedUtc is null ? null : issue.WardAppearance.ToString();
+
+    private async Task<IReadOnlyList<StorageLocationLabel.CatalogLocation>?> LoadIssuePlacesAsync(CancellationToken ct)
+    {
+        if (_locations is null)
+        {
+            return null;
+        }
+
+        var locations = await _locations.ListAsync(ct);
+        return locations
+            .Select(location => new StorageLocationLabel.CatalogLocation(location.Id, location.Name, location.Code))
+            .ToList();
+    }
 
     private static string? Person(string? name) =>
         string.IsNullOrWhiteSpace(name) ? null : name.Trim();

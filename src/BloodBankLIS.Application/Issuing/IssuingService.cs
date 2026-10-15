@@ -563,6 +563,7 @@ public sealed class IssuingService
 
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
+        var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
         return rows
             .OrderBy(i => i.RetrospectiveCrossmatchDueUtc ?? i.IssuedUtc)
             .Select(i =>
@@ -573,7 +574,7 @@ public sealed class IssuingService
                     i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
                     row.SpecimenId, row.AccessionNumber, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType,
-                    row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer);
+                    row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces);
             })
             .ToList();
     }
@@ -605,6 +606,7 @@ public sealed class IssuingService
 
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
+        var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
         return rows
             .OrderBy(i => i.InTransitDueUtc ?? i.IssuedUtc)
             .Select(i =>
@@ -614,7 +616,7 @@ public sealed class IssuingService
                 return InTransitWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
-                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer);
+                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces);
             })
             .ToList();
     }
@@ -679,6 +681,7 @@ public sealed class IssuingService
         var rows = await _issues.ListAsync(i => i.Status == IssueStatus.Issued, ct);
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
+        var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
         return rows
             .OrderBy(i => i.IssuedUtc)
             .Select(i =>
@@ -688,7 +691,7 @@ public sealed class IssuingService
                 return OutstandingIssueWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.DateOfBirth, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
-                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer);
+                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces);
             })
             .ToList();
     }
@@ -1835,6 +1838,21 @@ public sealed class IssuingService
         }
 
         return (await _ptagIdentifiers.GetByIdAsync(match.Id, ct), null);
+    }
+
+    private async Task<IReadOnlyList<StorageLocationLabel.CatalogLocation>?> LoadIssuePlacesAsync(
+        IReadOnlyList<Issue> rows,
+        CancellationToken ct)
+    {
+        if (!rows.Any(row => !string.IsNullOrWhiteSpace(row.IssuedToLocation)))
+        {
+            return null;
+        }
+
+        var locations = await _locations.ListAsync(ct);
+        return locations
+            .Select(location => new StorageLocationLabel.CatalogLocation(location.Id, location.Name, location.Code))
+            .ToList();
     }
 
     private async Task<IssueWorklistContext> LoadIssueWorklistContextAsync(
