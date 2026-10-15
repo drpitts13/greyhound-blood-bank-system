@@ -366,3 +366,4 @@
 | SRS-BB-360 | `UnitActivityService` appends `StatusHistoryLocationCue` to a status summary when `FromLocationId` and `ToLocationId` differ. Names come from the location catalog. | FRS-BB-398 |
 | SRS-BB-361 | Allocation and issue rows use `PatientActivityLabel`. The patient is loaded with the allocation. A missing row does not invent a name or a medical record number. | FRS-BB-399 |
 | SRS-BB-362 | Crossmatch rows use `PatientActivityLabel`. The patient is loaded with the crossmatch. A missing row does not invent a name or a medical record number. | FRS-BB-400 |
+| SRS-BB-363 | Transfusion rows use `PatientActivityLabel`. The patient is loaded with the transfusion. A missing row does not invent a name or a medical record number. | FRS-BB-401 |

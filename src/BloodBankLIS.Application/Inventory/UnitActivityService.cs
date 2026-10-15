@@ -77,9 +77,14 @@ public sealed class UnitActivityService
         var allocations = await _allocations.ListAsync(x => x.BloodProductId == unitId, ct);
         var issues = await _issues.ListAsync(i => i.BloodProductId == unitId, ct);
         var crossmatches = await _crossmatches.ListAsync(x => x.BloodProductId == unitId, ct);
+        var issueIds = issues.Select(i => i.Id).ToHashSet();
+        var transfusions = issueIds.Count == 0
+            ? Array.Empty<TransfusionEvent>()
+            : await _transfusions.ListAsync(x => issueIds.Contains(x.IssueId), ct);
         var patientIds = allocations.Select(a => a.PatientId)
             .Concat(issues.Select(i => i.PatientId))
             .Concat(crossmatches.Select(x => x.PatientId))
+            .Concat(transfusions.Select(t => t.PatientId))
             .Distinct()
             .ToList();
         var patients = patientIds.Count == 0
@@ -118,7 +123,6 @@ public sealed class UnitActivityService
                 xm.Id));
         }
 
-        var issueIds = issues.Select(i => i.Id).ToHashSet();
         foreach (var i in issues)
         {
             patients.TryGetValue(i.PatientId, out var patient);
@@ -143,18 +147,17 @@ public sealed class UnitActivityService
                 r.Id));
         }
 
-        if (issueIds.Count > 0)
+        foreach (var t in transfusions)
         {
-            foreach (var t in await _transfusions.ListAsync(x => issueIds.Contains(x.IssueId), ct))
-            {
-                rows.Add(new UnitActivityDto(
-                    t.StopUtc ?? t.StartUtc ?? t.CreatedUtc,
-                    "Transfusion",
-                    t.FinalDisposition.ToString(),
-                    t.Transfusionist ?? t.CreatedBy,
-                    nameof(TransfusionEvent),
-                    t.Id));
-            }
+            patients.TryGetValue(t.PatientId, out var patient);
+            var who = PatientActivityLabel.Format(t.PatientId, patient?.LastName, patient?.FirstName, patient?.MedicalRecordNumber);
+            rows.Add(new UnitActivityDto(
+                t.StopUtc ?? t.StartUtc ?? t.CreatedUtc,
+                "Transfusion",
+                $"{t.FinalDisposition} for {who}",
+                t.Transfusionist ?? t.CreatedBy,
+                nameof(TransfusionEvent),
+                t.Id));
         }
 
         var actions = await _orderActions.ListAsync(

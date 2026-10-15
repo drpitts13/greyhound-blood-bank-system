@@ -371,3 +371,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-363 | Staff reading a unit timeline can see the storage locations when a status row records a move. | P1 | FRS-BB-398 |
 | URS-BB-364 | Staff reading a unit timeline can see who a unit was allocated to by name. | P1 | FRS-BB-399 |
 | URS-BB-365 | Staff reading a unit timeline can see who a crossmatch was for by name. | P1 | FRS-BB-400 |
+| URS-BB-366 | Staff reading a unit timeline can see who received a transfusion by name. | P1 | FRS-BB-401 |
