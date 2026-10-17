@@ -1,4 +1,5 @@
 @page "/"
+@using BloodBankLIS.Application.Compliance
 @inject BloodBankApiClient Api
 @inject UserSession Session
 @inject NavigationManager Nav
@@ -10,23 +11,44 @@
     <span class="muted">Signed in as <strong>@Session.DisplayName</strong></span>
 </div>
 
-<div class="bb-grid cols-4">
-    <div class="stat">
+@if (_cards.Count > 0)
+{
+    <h2 style="font-size:1rem;margin:0 0 .75rem;">Your work</h2>
+    <div class="bb-grid cols-4">
+        @foreach (var card in _cards)
+        {
+            <a class="stat" href="@card.Href">
+                <div class="label">@card.Label</div>
+                <div class="value">@CountText(card.Key)</div>
+                @if (Note(card.Key) is { } note)
+                {
+                    <div class="detail">@note</div>
+                }
+            </a>
+        }
+    </div>
+}
+
+<div class="bb-grid cols-4" style="margin-top:1.25rem;">
+    <a class="stat" href="/patients">
         <div class="label">Patients</div>
-        <div class="value">@(_patients?.ToString() ?? "�")</div>
-    </div>
-    <div class="stat">
+        <div class="value">@Format(_patients)</div>
+    </a>
+    <a class="stat" href="/inventory">
         <div class="label">Available units</div>
-        <div class="value">@(_available?.ToString() ?? "�")</div>
-    </div>
-    <div class="stat">
+        <div class="value">@Format(_available)</div>
+    </a>
+    <a class="stat" href="/inventory?board=quarantine">
         <div class="label">In quarantine</div>
-        <div class="value">@(_quarantine?.ToString() ?? "�")</div>
-    </div>
-    <div class="stat">
-        <div class="label">Charges to review</div>
-        <div class="value">@(_pendingCharges?.ToString() ?? "�")</div>
-    </div>
+        <div class="value">@Format(_quarantine)</div>
+    </a>
+    @if (Session.Has(PermissionCodes.BillingReview))
+    {
+        <a class="stat" href="/billing">
+            <div class="label">Charges to review</div>
+            <div class="value">@Format(_pendingCharges)</div>
+        </a>
+    }
 </div>
 
 <div class="bb-card" style="margin-top:1.25rem;">
@@ -62,6 +84,11 @@
 </div>
 
 @code {
+    private const string Missing = "\u2014";
+
+    private IReadOnlyList<DashboardQueueCatalog.Card> _cards = [];
+    private readonly Dictionary<string, int> _counts = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _notes = new(StringComparer.Ordinal);
     private int? _patients;
     private int? _available;
     private int? _quarantine;
@@ -69,19 +96,137 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _cards = DashboardQueueCatalog.Select(Session.Has);
+        var loads = _cards.Select(LoadCardAsync).ToList();
+        loads.Add(LoadSnapshotAsync());
+        var loaded = await Task.WhenAll(loads);
+        foreach (var item in loaded)
+        {
+            if (item.Count is int count)
+            {
+                _counts[item.Key] = count;
+            }
+
+            if (!string.IsNullOrWhiteSpace(item.Note))
+            {
+                _notes[item.Key] = item.Note;
+            }
+        }
+    }
+
+    private string CountText(string key) =>
+        _counts.TryGetValue(key, out var count) ? count.ToString() : Missing;
+
+    private string? Note(string key) =>
+        _notes.TryGetValue(key, out var note) ? note : null;
+
+    private static string Format(int? value) => value?.ToString() ?? Missing;
+
+    private async Task<(string Key, int? Count, string? Note)> LoadSnapshotAsync()
+    {
         var patients = await Api.GetPatientsAsync();
-        if (patients.Succeeded) _patients = patients.Value!.Count;
+        if (patients.Succeeded)
+        {
+            _patients = patients.Value!.Count;
+        }
 
         var available = await Api.SearchUnitsAsync(new InventorySearchCriteria(Status: UnitStatus.Available));
-        if (available.Succeeded) _available = available.Value!.Count;
+        if (available.Succeeded)
+        {
+            _available = available.Value!.Count;
+        }
 
         var quarantine = await Api.SearchUnitsAsync(new InventorySearchCriteria(Status: UnitStatus.Quarantine));
-        if (quarantine.Succeeded) _quarantine = quarantine.Value!.Count;
+        if (quarantine.Succeeded)
+        {
+            _quarantine = quarantine.Value!.Count;
+        }
 
         if (Session.Has(PermissionCodes.BillingReview))
         {
             var charges = await Api.GetBillingQueueAsync();
-            if (charges.Succeeded) _pendingCharges = charges.Value!.Count;
+            if (charges.Succeeded)
+            {
+                _pendingCharges = charges.Value!.Count;
+            }
         }
+
+        return ("snapshot", null, null);
+    }
+
+    private async Task<(string Key, int? Count, string? Note)> LoadCardAsync(DashboardQueueCatalog.Card card)
+    {
+        switch (card.Key)
+        {
+            case DashboardQueueCatalog.Ready:
+                return await CountList(card.Key, Api.GetReadyToIssueAllocationsAsync());
+            case DashboardQueueCatalog.SecondAbo:
+                return await CountList(card.Key, Api.GetPendingSecondAboAsync());
+            case DashboardQueueCatalog.Retrospective:
+            {
+                var result = await Api.GetPendingRetrospectiveCrossmatchesAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var overdue = RetrospectiveCrossmatchAttentionRule.CountOverdue(result.Value);
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.AttentionNote(overdue, "past due", "past due"));
+            }
+            case DashboardQueueCatalog.InTransit:
+            {
+                var result = await Api.GetInTransitIssuesAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var overdue = InTransitAttentionRule.CountOverdue(result.Value.Select(item => item.IsOverdue));
+                return (card.Key, result.Value.Count, DashboardQueueCatalog.AttentionNote(overdue, "past the arrival window", "past the arrival window"));
+            }
+            case DashboardQueueCatalog.Outstanding:
+                return await CountList(card.Key, Api.GetOutstandingIssuesAsync());
+            case DashboardQueueCatalog.Disposition:
+                return await CountList(card.Key, Api.GetOverdueDispositionAsync());
+            case DashboardQueueCatalog.PendingTests:
+                return await CountList(card.Key, Api.GetPendingTestWorklistAsync());
+            case DashboardQueueCatalog.PendingSpecimens:
+                return await CountList(card.Key, Api.GetPendingSpecimensAsync());
+            case DashboardQueueCatalog.Reactions:
+            {
+                var result = await Api.GetReactionInvestigationsAsync();
+                if (!result.Succeeded || result.Value is null)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var open = OpenReactionInvestigationRule.Count(result.Value.Select(item => item.Status));
+                var followUp = OpenReactionInvestigationRule.CountFatalityFollowUpDue(result.Value);
+                return (card.Key, open, DashboardQueueCatalog.AttentionNote(followUp, "fatality follow-up", "fatality follow-ups"));
+            }
+            case DashboardQueueCatalog.Supervisor:
+                return await CountList(card.Key, Api.GetSupervisorQueueAsync());
+            case DashboardQueueCatalog.Handoff:
+            {
+                var result = await Api.GetOpenShiftHandoffAsync();
+                if (!result.Succeeded)
+                {
+                    return (card.Key, null, null);
+                }
+
+                var open = result.Value is not null;
+                return (card.Key, open ? 1 : 0, DashboardQueueCatalog.HandoffNote(open));
+            }
+            default:
+                return (card.Key, null, null);
+        }
+    }
+
+    private static async Task<(string Key, int? Count, string? Note)> CountList<T>(string key, Task<ApiResult<List<T>>> call)
+    {
+        var result = await call;
+        return result.Succeeded && result.Value is not null
+            ? (key, result.Value.Count, null)
+            : (key, null, null);
     }
 }

@@ -432,6 +432,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-156 / FRS-BB-190 | Read-only downtime reconciliation snapshot; no paper OCR or failover | `DowntimeReconciliationService`; `DowntimeReconciliationAuthorizationRule` | TEST-BB-018; TEST-BB-019 | D,A,I | RISK-BB-263 |
 | URS-BB-157 / FRS-BB-191 | Core issue-gate, merge, eXM, and lookback tests have TEST-BB IDs; catalog classes must exist on disk | `docs/validation/TEST_CATALOG.md` | TEST-BB-020; TEST-BB-021; TEST-BB-022; TEST-BB-023; TEST-BB-024; TEST-BB-025 | I | RISK-BB-264 |
 | URS-BB-158 / FRS-BB-192 | Uniqueness, merge, retype, emergency-issue, and immuno-privilege tests have TEST-BB IDs | `docs/validation/TEST_CATALOG.md` | TEST-BB-026; TEST-BB-027; TEST-BB-028; TEST-BB-029; TEST-BB-030 | D,I | RISK-BB-265 |
+| URS-BB-396 / FRS-BB-431 | Dashboard lists the bench queues the signed-in user can already open | `DashboardQueueCatalog`; `IssuingDeskQuery`; `Home.razor` | TEST-BB-286 | A | Does not claim AABB compliance. Issue, ward receipt, result, and investigation gates are unchanged |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

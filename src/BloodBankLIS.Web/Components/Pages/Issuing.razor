@@ -1042,6 +1042,7 @@
 
     [SupplyParameterFromQuery(Name = "patientId")] public long? QueryPatientId { get; set; }
     [SupplyParameterFromQuery(Name = "bloodUnitId")] public long? QueryBloodUnitId { get; set; }
+    [SupplyParameterFromQuery(Name = "desk")] public string? DeskQuery { get; set; }
     private string? _returnUnitNumber;
     private string? _returnProductName;
     private string? _returnExpirationNotice;
@@ -1079,10 +1080,14 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (QueryPatientId is not null || QueryBloodUnitId is not null)
-        {
-            _desk = "issue";
-        }
+        _desk = IssuingDeskQuery.Resolve(
+            DeskQuery,
+            Session.Has(PermissionCodes.IssueCreate),
+            Session.Has(PermissionCodes.IssueCreate)
+                || Session.Has(PermissionCodes.IssueReturn)
+                || Session.Has(PermissionCodes.TransfusionDocument),
+            QueryPatientId is not null || QueryBloodUnitId is not null,
+            _desk);
 
         if (Session.Has(PermissionCodes.PrintLabel))
         {

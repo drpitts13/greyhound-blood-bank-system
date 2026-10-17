@@ -6576,3 +6576,29 @@ Available stock was not compared with a minimum.
 ### Next ranked residual
 
 The competitor-gap queue is empty. Excluded items stay excluded. Do not invent ICCBBA tables, RhIG indications, a device or FHIR contract, a multi-facility database, or a numeric antigen-match grade.
+
+## Iteration 243 — Dashboard shows the queues you can work (2026-10-17)
+
+The home screen counted patients and inventory. Retrospective crossmatch, in transit, outstanding issued units, pending tests, reactions, shift handoff, and the supervisor queue already existed on their own pages. A technologist had to remember which page held the next action.
+
+### Implemented
+
+- **Your work** lists ready to issue, second ABO/Rh, retrospective crossmatch, in transit, outstanding issued, final disposition, pending tests, pending specimens, reaction investigations, the supervisor queue, and an open shift handoff.
+- Each card is shown only when the signed-in user can already open that queue, and the card opens it.
+- A failed load shows an em dash. Closed investigations stay out of the reaction count.
+- Retrospective items past their stored due time, in-transit units past the arrival window, and fatality follow-up including closed cases are named only when that count is above zero.
+- `/issuing?desk=` opens the named board. A patient or unit prefill still opens Issue.
+- Issue, ward receipt, result, and investigation gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-396, FRS-BB-431, SRS-BB-393, RISK-BB-498.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-286 (`DashboardQueueCatalogTests`).
+
+### Next ranked residual
+
+A new or edited order still lists a test by its stored name. A blank name leaves an empty label beside the code, and a missing catalog name is stored as the code. Keep the code available, and show a stable test id when the name is blank. Do not rewrite a name that is already stored. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.

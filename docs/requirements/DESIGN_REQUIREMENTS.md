@@ -396,3 +396,4 @@
 | SRS-BB-390 | `UnitModification.SupplyDescription` and `SupplyLot` are optional. `ExecuteAsync` audits them and history returns them. `Modification.RequireSupplyLot` defaults off. | FRS-BB-428 |
 | SRS-BB-391 | `ApplyBatchAsync` preflights every unit and calls `ExecuteAsync` only when every unit is eligible. | FRS-BB-429 |
 | SRS-BB-392 | `StockParLevel` stores product, optional ABO, and minimum. `StockParService` counts available units and returns the shortfall. | FRS-BB-430 |
+| SRS-BB-393 | `DashboardQueueCatalog.Select` builds the home-screen cards from the caller's permissions. `Home.razor` loads the existing queue endpoints and uses the existing overdue rules for the notes. `IssuingDeskQuery` applies `desk` on `/issuing`. | FRS-BB-431 |
