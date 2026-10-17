@@ -63,4 +63,13 @@ public static class FacilityPolicyKeys
 
     /// <summary>When true, product charges fire on transfusion; when false, they fire on issue.</summary>
     public const string ProductChargeOnTransfuse = "Billing.ProductChargeOnTransfuse";
+
+    /// <summary>When true, patient result entry is blocked while reagent QC work is open. Default off.</summary>
+    public const string BlockResultsWhenReagentQcOpen = "Result.BlockWhenReagentQcOpen";
+
+    /// <summary>Hours after issue before an open unit is listed on the final-disposition board. Operational only.</summary>
+    public const string FinalDispositionDueHours = "Issue.FinalDispositionDueHours";
+
+    /// <summary>When true, a modification requires a supply lot. Default off.</summary>
+    public const string RequireModificationSupplyLot = "Modification.RequireSupplyLot";
 }

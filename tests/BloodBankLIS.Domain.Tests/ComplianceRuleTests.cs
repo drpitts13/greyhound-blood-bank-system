@@ -299,6 +299,19 @@ public class ReturnReissueRuleTests
         Assert.False(ReturnReissueRule.IsWithinReturnToAvailableWindow(
             issued, issued.AddMinutes(30).AddSeconds(1), ReturnReissueRule.DefaultReturnToAvailableMinutes));
     }
+
+    [Fact]
+    public void ExemptDevice_DoesNotFailTheWindow()
+    {
+        var issued = new DateTime(2026, 5, 30, 12, 0, 0, DateTimeKind.Utc);
+        var later = issued.AddMinutes(31);
+        Assert.True(ReturnReissueRule.TimeOutAcceptable(locationGoverned: false, issued, later, 30));
+        Assert.False(ReturnReissueRule.TimeOutAcceptable(locationGoverned: true, issued, later, 30));
+        Assert.True(ReturnReissueRule.TimeOutAcceptable(locationGoverned: true, issued, issued.AddMinutes(30), 30));
+        Assert.Equal("Exempt", ReturnReissueRule.TimeOutLabel(false, true));
+        Assert.Equal("Window elapsed", ReturnReissueRule.TimeOutLabel(true, false));
+        Assert.Equal("Governed", ReturnReissueRule.TimeOutLabel(true, true));
+    }
 }
 
 public class SelfVerifyRuleTests

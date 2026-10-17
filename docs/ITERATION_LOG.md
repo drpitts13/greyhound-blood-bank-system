@@ -6439,4 +6439,140 @@ A new or edited order listed each product by name only. A blank name left an emp
 
 ### Next ranked residual
 
-Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Receiving a delivery or an ISBT unit still lists a product by name only, so a blank name leaves an empty choice. Keep the code available, and show Product {id} when the name is blank. Do not use the code as the name. The stored name stays unchanged.
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 236 — Computer-evaluated storage time out (2026-10-16)
+
+A caller could still be recorded as deciding whether time out of storage was acceptable. WellSky treats a storage device as governed by, or exempt from, that limit.
+
+### Implemented
+
+- `InventoryLocation.TimeOutGoverned` defaults to governed.
+- Return uses `ReturnReissueRule.TimeOutAcceptable`. A missing location is governed. An exempt location does not fail the existing window. A caller flag cannot override the computer.
+- The inventory-location screen and the issued-units board show Governed, Exempt, or Window elapsed.
+
+### Requirements / risk
+
+- URS-BB-389, FRS-BB-424, SRS-BB-386, RISK-BB-491.
+- Does not claim AABB compliance. The 30-minute window is unchanged.
+
+### Tests
+
+- TEST-BB-279.
+
+### Next ranked residual
+
+Modification result label check. A quarantine release of a modification result still does not require a matching unit-number scan.
+
+## Iteration 237 — Modification result label check (2026-10-16)
+
+A modification result could leave quarantine without a check that the new label is the result unit.
+
+### Implemented
+
+- `ModificationLabelVerificationRule` hard-stops a blank or different unit-number scan when the quarantined unit is a modification result.
+- The quarantine board and the unit chart collect that scan. Other quarantine releases do not.
+
+### Requirements / risk
+
+- URS-BB-390, FRS-BB-425, SRS-BB-387, RISK-BB-492.
+- Does not invent ICCBBA codes. Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-280.
+
+### Next ranked residual
+
+Reagent lot and daily QC. Patient resulting stays unblocked unless a facility policy is turned on. That policy stays off.
+
+## Iteration 238 — Reagent lot and daily QC (2026-10-16)
+
+Daily reagent QC was outside the record.
+
+### Implemented
+
+- Reagent, lot, and daily QC records. Review must be a different user.
+- The worklist shows overdue, failed, and unreviewed rows.
+- Patient resulting is blocked only when `Result.BlockWhenReagentQcOpen` is on. It ships off.
+
+### Requirements / risk
+
+- URS-BB-391, FRS-BB-426, SRS-BB-388, RISK-BB-493.
+- Does not invent a CLIA hold. Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-281.
+
+## Iteration 239 — Overdue final disposition (2026-10-16)
+
+Open issues were not aged to a final fate.
+
+### Implemented
+
+- A warning board of issued units past `Issue.FinalDispositionDueHours` (default 24) with no transfusion document, return, or discard.
+- The board does not block issue or documentation.
+
+### Requirements / risk
+
+- URS-BB-392, FRS-BB-427, SRS-BB-389, RISK-BB-494.
+
+### Tests
+
+- TEST-BB-282.
+
+## Iteration 240 — Supply lot on a modification (2026-10-16)
+
+Modification history did not record the supply used.
+
+### Implemented
+
+- Optional supply description and lot on `UnitModification`, audited and shown on history.
+- `Modification.RequireSupplyLot` can require the lot and ships off.
+
+### Requirements / risk
+
+- URS-BB-393, FRS-BB-428, SRS-BB-390, RISK-BB-495.
+
+### Tests
+
+- TEST-BB-283.
+
+## Iteration 241 — Batch modification (2026-10-16)
+
+One modification rule could be applied to only one unit at a time.
+
+### Implemented
+
+- `ApplyBatchAsync` uses one reason and one existing rule for several units.
+- If any unit is ineligible, none are modified.
+
+### Requirements / risk
+
+- URS-BB-394, FRS-BB-429, SRS-BB-391, RISK-BB-496.
+
+### Tests
+
+- TEST-BB-284.
+
+## Iteration 242 — Par-level stock board (2026-10-16)
+
+Available stock was not compared with a minimum.
+
+### Implemented
+
+- A configurable minimum by product and optional ABO.
+- The board shows on-hand and the shortfall. It does not place a blood-center order.
+
+### Requirements / risk
+
+- URS-BB-395, FRS-BB-430, SRS-BB-392, RISK-BB-497.
+
+### Tests
+
+- TEST-BB-285.
+
+### Next ranked residual
+
+The competitor-gap queue is empty. Excluded items stay excluded. Do not invent ICCBBA tables, RhIG indications, a device or FHIR contract, a multi-facility database, or a numeric antigen-match grade.

@@ -9,12 +9,14 @@
     @if (Session.Has(PermissionCodes.ResultEnter))
     {
         <NavLink href="test-worklist" ActiveClass="active">Test Worklist</NavLink>
+        <NavLink href="reagents" ActiveClass="active">Reagent QC</NavLink>
     }
     @if (Session.Has(PermissionCodes.ImmunoRecord) || Session.Has(PermissionCodes.ImmunoOverride))
     {
         <NavLink href="antibody-id" ActiveClass="active">Antibody ID</NavLink>
     }
     <NavLink href="inventory" ActiveClass="active">Inventory</NavLink>
+    <NavLink href="inventory/par" ActiveClass="active">Stock par</NavLink>
     @if (Session.HasAny(PermissionCodes.InventoryReceive, PermissionCodes.InventoryModify))
     {
         <details class="nav-group" open="@InventoryDeskOpen()">

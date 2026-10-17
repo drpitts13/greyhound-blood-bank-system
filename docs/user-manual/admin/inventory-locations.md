@@ -14,4 +14,6 @@ routes:
 
 Create a location before you transfer a unit there. A transfer to an unknown place is not a location. Mark remote-issue locations explicitly so electronic or remote issue rules apply only where you intended.
 
+**Time-out governed** is on for a new location. A governed device uses the facility return-to-available window, which ships at 30 minutes. Clear the box only for a storage device the facility has exempted from that window. An exempt device does not fail the window. The return desk still checks temperature, seal, and appearance. This setting is facility policy. It is not an FDA, AABB, or CAP determination.
+
 Inactivate a location that is out of service so new transfers cannot select it. Units still sitting there remain visible until you transfer them.

@@ -208,7 +208,9 @@ public sealed record OutstandingIssueWorkItemDto(
     UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
     string? WardAppearance = null,
     string? PtagCode = null,
-    CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed)
+    CrossmatchClinicalStatus CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed,
+    bool StorageTimeOutGoverned = true,
+    bool StorageTimeOutAcceptable = true)
 {
     public static OutstandingIssueWorkItemDto From(
         Issue i,
@@ -229,7 +231,9 @@ public sealed record OutstandingIssueWorkItemDto(
         DateTime? crossmatchExpiresUtc = null,
         CrossmatchResult? latestCrossmatchResult = null,
         string? emergencyReleaseAuthorizer = null,
-        IReadOnlyList<StorageLocationLabel.CatalogLocation>? issuePlaces = null) => new(
+        IReadOnlyList<StorageLocationLabel.CatalogLocation>? issuePlaces = null,
+        bool storageTimeOutGoverned = true,
+        bool storageTimeOutAcceptable = true) => new(
         i.Id, i.PatientId, mrn, displayName, dateOfBirth, i.BloodProductId, unitNumber, currentBloodType,
         hasAntibodyHistory, antibodySummary, specimenExpiresUtc, specimenExpired,
         i.IssuedUtc, i.WardReceivedUtc, i.WardReceivedBy, string.IsNullOrWhiteSpace(i.CoolerId) ? null : i.CoolerId.Trim(), IssueDestinationCue.Format(i.IssuedToLocation, issuePlaces), i.Status, productName, unitExpiresUtc, unitBloodType, specimenAccession, crossmatchExpiresUtc, latestCrossmatchResult,
@@ -242,7 +246,9 @@ public sealed record OutstandingIssueWorkItemDto(
         i.IssueAppearance,
         i.WardReceivedUtc is null ? null : i.WardAppearance.ToString(),
         string.IsNullOrWhiteSpace(i.PtagCode) ? null : i.PtagCode.Trim(),
-        i.CrossmatchStatus);
+        i.CrossmatchStatus,
+        storageTimeOutGoverned,
+        storageTimeOutAcceptable);
 }
 
 public sealed record ReadyToIssueWorkItemDto(

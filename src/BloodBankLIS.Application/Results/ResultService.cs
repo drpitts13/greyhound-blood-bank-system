@@ -63,6 +63,7 @@ public sealed class ResultService
     private readonly IRepository<AntibodyIdentificationFinding>? _antibodyFindings;
     private readonly CrossmatchAttachmentService? _crossmatchAttachment;
     private readonly IRepository<OrderSpecimen>? _orderSpecimens;
+    private readonly ReagentQcService? _reagentQc;
 
     public ResultService(
         IRepository<TestResult> results,
@@ -95,7 +96,8 @@ public sealed class ResultService
         IRepository<AntibodyIdentificationWorkup>? antibodyWorkups = null,
         IRepository<AntibodyIdentificationFinding>? antibodyFindings = null,
         CrossmatchAttachmentService? crossmatchAttachment = null,
-        IRepository<OrderSpecimen>? orderSpecimens = null)
+        IRepository<OrderSpecimen>? orderSpecimens = null,
+        ReagentQcService? reagentQc = null)
     {
         _ruleEngine = ruleEngine;
         _allocations = allocations;
@@ -127,6 +129,7 @@ public sealed class ResultService
         _antibodyWorkups = antibodyWorkups;
         _antibodyFindings = antibodyFindings;
         _crossmatchAttachment = crossmatchAttachment;
+        _reagentQc = reagentQc;
         _orderSpecimens = orderSpecimens;
     }
 
@@ -136,9 +139,28 @@ public sealed class ResultService
     public Task<IReadOnlyList<TestResult>> GetBySpecimenAsync(long specimenId, CancellationToken ct = default) =>
         _results.ListAsync(r => r.SpecimenId == specimenId, ct);
 
+    private async Task<RuleEvaluation?> ReagentResultGateAsync(CancellationToken ct)
+    {
+        if (_policy is null || _reagentQc is null)
+        {
+            return null;
+        }
+
+        var policyOn = await _policy.GetBlockResultsWhenReagentQcOpenAsync(ct);
+        var workOpen = policyOn && await _reagentQc.HasOpenWorkAsync(ct);
+        var gate = ReagentQcResultGate.Evaluate(policyOn, workOpen);
+        return gate.Severity == RuleSeverity.HardStop ? new RuleEvaluation([gate]) : null;
+    }
+
     public async Task<EvaluationResult<TestResult>> SaveTestResultAsync(SaveTestResultRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var reagentGate = await ReagentResultGateAsync(ct);
+        if (reagentGate is not null)
+        {
+            return EvaluationResult<TestResult>.Blocked(reagentGate);
+        }
 
         var gate = await ValidateSpecimenForEntryAsync(request.SpecimenId, request.TestCode, ct);
         if (!gate.Succeeded)
@@ -408,6 +430,12 @@ public sealed class ResultService
     public async Task<OperationResult<TestResult>> EnterAboRhAsync(EnterAboRhRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        var reagentGate = await ReagentResultGateAsync(ct);
+        if (reagentGate is not null)
+        {
+            return OperationResult<TestResult>.Fail(string.Join("; ", reagentGate.HardStops.Select(stop => stop.Message)));
+        }
 
         string value;
         IReadOnlyList<RuleResult> panelWarnings = Array.Empty<RuleResult>();

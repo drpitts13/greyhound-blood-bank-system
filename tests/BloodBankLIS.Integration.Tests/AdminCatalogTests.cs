@@ -431,6 +431,7 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
             Assert.False(result.Value.AllowsIssue);
             Assert.True(result.Value.AllowsRbc);
             Assert.False(result.Value.AllowsPlatelets);
+            Assert.True(result.Value.TimeOutGoverned);
             id = result.Value.Id;
         }
 
@@ -452,8 +453,9 @@ public class AdminCatalogTests : IClassFixture<SqliteContextFactory>
         await using var c = _factory.Create();
         var svc = CreateInventoryLocationService(c);
 
-        var first = await svc.CreateAsync(new SaveInventoryLocationRequest("BB-FR", "Fridge", LocationType.Refrigerator));
+        var first = await svc.CreateAsync(new SaveInventoryLocationRequest("BB-FR", "Fridge", LocationType.Refrigerator, TimeOutGoverned: false));
         Assert.True(first.Succeeded);
+        Assert.False(first.Value!.TimeOutGoverned);
 
         var dup = await svc.CreateAsync(new SaveInventoryLocationRequest("bb-fr", "Other", LocationType.Refrigerator));
         Assert.False(dup.Succeeded);

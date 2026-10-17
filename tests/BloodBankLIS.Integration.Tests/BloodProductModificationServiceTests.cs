@@ -1,4 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Application.Modifications;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -20,7 +23,8 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
 
     private BloodProductModificationService CreateService(
         BloodBankDbContext context,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        FacilityPolicyService? policy = null)
     {
         var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser);
         return new BloodProductModificationService(
@@ -36,7 +40,8 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             audit,
             permissions: permissions,
             unitAttributes: new EfRepository<UnitBloodAttribute>(context),
-            locations: new EfRepository<InventoryLocation>(context));
+            locations: new EfRepository<InventoryLocation>(context),
+            policy: policy);
     }
 
     private async Task<(long SourceProductId, long TargetProductId)> EnsureProductTypesAsync(
@@ -1489,5 +1494,126 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         var parent = (await verify.BloodUnits.FindAsync(sourceId))!;
         Assert.Equal(UnitStatus.Available, parent.Status);
         Assert.Equal(100m, parent.Volume);
+    }
+
+    [Fact]
+    public async Task ReleaseModificationResult_RequiresAMatchingUnitNumberScan()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("LABEL");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var sourceId = await CreateUnitAsync("U-LABEL-SRC", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var modified = await CreateService(context).ApplySingleAsync(
+            sourceId, new PerformSingleModificationRequest(ruleId, null, "Label check"));
+        var resultUnit = Assert.Single(modified.ResultUnits!);
+        var inventory = ReleaseService(context);
+
+        var blank = await inventory.ReleaseFromQuarantineAsync(resultUnit.Id, "tech2", null);
+        Assert.False(blank.Succeeded);
+        Assert.Contains(blank.Evaluation!.HardStops, stop => stop.Code == ModificationLabelVerificationRule.Code);
+
+        var wrong = await inventory.ReleaseFromQuarantineAsync(resultUnit.Id, "tech2", "NOT-THIS-UNIT");
+        Assert.False(wrong.Succeeded);
+        Assert.Contains(wrong.Evaluation!.HardStops, stop => stop.Code == ModificationLabelVerificationRule.Code);
+        Assert.Equal(UnitStatus.Quarantine, (await context.BloodUnits.FindAsync(resultUnit.Id))!.Status);
+
+        var matched = await inventory.ReleaseFromQuarantineAsync(resultUnit.Id, "tech2", resultUnit.UnitNumber);
+        Assert.True(matched.Succeeded, matched.Error);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(resultUnit.Id))!.Status);
+    }
+
+    [Fact]
+    public async Task ApplySingle_RecordsOptionalSupplyLot_OnHistory()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("SUPPLY");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var sourceId = await CreateUnitAsync("U-SUPPLY", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ApplySingleAsync(
+            sourceId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", SupplyDescription: "Irradiation indicator", SupplyLot: "LOT-17"));
+        Assert.True(result.Succeeded, result.Error);
+        var history = await CreateService(context).GetHistoryAsync(sourceId);
+        var row = Assert.Single(history);
+        Assert.Equal("Irradiation indicator", row.SupplyDescription);
+        Assert.Equal("LOT-17", row.SupplyLot);
+    }
+
+    [Fact]
+    public async Task ApplySingle_RequiredSupplyLot_BlocksWhenMissing()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("SUPREQ");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var sourceId = await CreateUnitAsync("U-SUPREQ", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RequireModificationSupplyLot,
+            Value = "true"
+        });
+        await context.SaveChangesAsync();
+        var service = CreateService(context, policy: new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
+        var blocked = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "Irradiate"));
+        Assert.False(blocked.Succeeded);
+        Assert.Contains(blocked.Evaluation!.HardStops, stop => stop.Code == ModificationSupplyLotRule.Code);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(sourceId))!.Status);
+    }
+
+    [Fact]
+    public async Task ApplyBatch_IneligibleUnit_ModifiesNone()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("BATCH");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var eligibleId = await CreateUnitAsync("U-BATCH-OK", sourceProductId, volume: 300m);
+        var ineligibleId = await CreateUnitAsync("U-BATCH-NO", sourceProductId, status: UnitStatus.Issued, volume: 300m);
+
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ApplyBatchAsync(
+            new PerformBatchModificationRequest(ruleId, new[] { eligibleId, ineligibleId }, "Batch irradiate"));
+        Assert.False(result.Succeeded);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(eligibleId))!.Status);
+        Assert.Equal(UnitStatus.Issued, (await context.BloodUnits.FindAsync(ineligibleId))!.Status);
+        Assert.Empty(await context.UnitModificationUnits
+            .Where(link => link.BloodProductId == eligibleId || link.BloodProductId == ineligibleId)
+            .ToListAsync());
+    }
+
+    [Fact]
+    public async Task ApplyBatch_AllEligible_ModifiesEach()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("BATCHOK");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var firstId = await CreateUnitAsync("U-BATCH-1", sourceProductId, volume: 300m);
+        var secondId = await CreateUnitAsync("U-BATCH-2", sourceProductId, volume: 280m);
+
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ApplyBatchAsync(
+            new PerformBatchModificationRequest(ruleId, new[] { firstId, secondId }, "Batch irradiate"));
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(UnitStatus.Modified, (await context.BloodUnits.FindAsync(firstId))!.Status);
+        Assert.Equal(UnitStatus.Modified, (await context.BloodUnits.FindAsync(secondId))!.Status);
+        Assert.Equal(2, await context.UnitModificationUnits.CountAsync(
+            link => (link.BloodProductId == firstId || link.BloodProductId == secondId)
+                    && link.Role == ModificationUnitRole.Source));
+    }
+
+    private InventoryService ReleaseService(BloodBankDbContext context)
+    {
+        var lookups = new IsbtLookupCatalog(
+            new EfRepository<IsbtAboRhdCode>(context),
+            new EfRepository<IsbtProductCode>(context));
+        return new InventoryService(
+            new InventoryRepository(context),
+            new EfRepository<UnitBloodAttribute>(context),
+            new EfRepository<BloodAttributeDefinition>(context),
+            lookups,
+            context,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            modificationUnits: new EfRepository<UnitModificationUnit>(context));
     }
 }

@@ -5,7 +5,7 @@ software is AABB-accredited or FDA-cleared. Remaining automated tests stay
 citable by class or method name until an ID is assigned.
 
 Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
-**TEST-BB-091**.
+**TEST-BB-286**.
 
 | ID | Layer | Test | Traces to |
 |---|---|---|---|
@@ -287,5 +287,12 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-276 | A | `ProductTypeLabelTests.ForChoice_KeepsTheCodeAndTheProductIdWhenTheNameIsBlank`; `ProductTypeLabelTests.Name_KeepsTheProductIdWhenTheNameIsBlank`; `ProductTypeChoiceTests.ChoiceLabel_KeepsTheCodeAndTheProductIdWhenTheNameIsBlank`; `ProductTypeChoiceTests.ChargeRuleChoice_KeepsTheProductCodeAndDoesNotUseTheIsbtCodeAsTheName` | URS-BB-386 / FRS-BB-421 / RISK-BB-488 |
 | TEST-BB-277 | A | `ProductTypeLabelTests.Name_KeepsTheProductIdWhenTheNameIsBlank`; `ProductTypeChoiceTests.NameLabel_KeepsTheProductIdWhenTheNameIsBlank` | URS-BB-387 / FRS-BB-422 / RISK-BB-489 |
 | TEST-BB-278 | A | `ProductTypeChoiceTests.OrderChoice_KeepsTheCodeAndDoesNotUseItAsTheName` | URS-BB-388 / FRS-BB-423 / RISK-BB-490 |
+| TEST-BB-279 | I | `ReturnReissueRuleTests.ExemptDevice_DoesNotFailTheWindow`; `Phase4IssuingTests.Return_CallerTimeOutFlag_DoesNotOverrideAGovernedWindow`; `Phase4IssuingTests.Return_ExemptLocation_AfterThirtyMinutes_CanReturnToAvailable` | URS-BB-389 / FRS-BB-424 / RISK-BB-491 |
+| TEST-BB-280 | I | `ModificationLabelVerificationRuleTests`; `BloodProductModificationServiceTests.ReleaseModificationResult_RequiresAMatchingUnitNumberScan` | URS-BB-390 / FRS-BB-425 / RISK-BB-492 |
+| TEST-BB-281 | I | `CompetitorGapRuleTests`; `CompetitorGapWorkflowTests.ReagentQc_ReviewerMustDiffer_AndWorklistClearsAfterReview`; `CompetitorGapWorkflowTests.PatientResult_StaysOpenWhenReagentQcPolicyIsOff` | URS-BB-391 / FRS-BB-426 / RISK-BB-493 |
+| TEST-BB-282 | I | `CompetitorGapRuleTests`; `CompetitorGapWorkflowTests.OverdueDisposition_ListsOnlyUndocumentedIssuedUnits` | URS-BB-392 / FRS-BB-427 / RISK-BB-494 |
+| TEST-BB-283 | I | `BloodProductModificationServiceTests.ApplySingle_RecordsOptionalSupplyLot_OnHistory`; `BloodProductModificationServiceTests.ApplySingle_RequiredSupplyLot_BlocksWhenMissing` | URS-BB-393 / FRS-BB-428 / RISK-BB-495 |
+| TEST-BB-284 | I | `BloodProductModificationServiceTests.ApplyBatch_IneligibleUnit_ModifiesNone`; `BloodProductModificationServiceTests.ApplyBatch_AllEligible_ModifiesEach` | URS-BB-394 / FRS-BB-429 / RISK-BB-496 |
+| TEST-BB-285 | I | `CompetitorGapRuleTests`; `CompetitorGapWorkflowTests.StockPar_ShowsOnHandAgainstTheMinimum` | URS-BB-395 / FRS-BB-430 / RISK-BB-497 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

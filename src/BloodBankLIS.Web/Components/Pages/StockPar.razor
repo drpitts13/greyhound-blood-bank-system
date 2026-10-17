@@ -1,0 +1,96 @@
+@page "/inventory/par"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Stock par &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Stock par</h1>
+<p class="muted">Available units compared with a minimum for a product and, when set, one ABO group. This board does not place a blood-center order.</p>
+<Outcome Value="_feedback" />
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>On hand</h3></div>
+    @if (_rows.Count == 0)
+    {
+        <div class="muted">No par levels are configured.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Product</th><th>ABO</th><th>On hand</th><th>Minimum</th><th>Short</th></tr></thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        <td class="mono">@row.ProductCode</td>
+                        <td>@(row.Abo?.ToString() ?? "Any")</td>
+                        <td>@row.OnHand</td>
+                        <td>@row.MinimumAvailable</td>
+                        <td>@row.Shortfall</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (Session.Has(PermissionCodes.AdminConfigEdit))
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Set a minimum</h3></div>
+        <div class="form-row">
+            <div class="field">
+                <label>Product</label>
+                <select @bind="_productId">
+                    <option value="0">Select</option>
+                    @foreach (var product in _products)
+                    {
+                        <option value="@product.Id">@product.ProductCode</option>
+                    }
+                </select>
+            </div>
+            <div class="field">
+                <label>ABO</label>
+                <select @bind="_abo">
+                    <option value="">Any</option>
+                    @foreach (var abo in Enum.GetValues<AboGroup>().Where(a => a != AboGroup.Unknown))
+                    {
+                        <option value="@abo">@abo</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Minimum available</label><input type="number" min="0" @bind="_minimum" /></div>
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="SaveAsync">Save par</button>
+    </div>
+}
+
+@code {
+    private List<StockParBoardRowDto> _rows = new();
+    private List<ProductTypeDto> _products = new();
+    private Feedback? _feedback;
+    private long _productId;
+    private string _abo = string.Empty;
+    private int _minimum = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var products = await Api.GetProductTypesAsync();
+        if (products.Succeeded) _products = products.Value ?? new();
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        var rows = await Api.GetStockParAsync();
+        if (rows.Succeeded) _rows = rows.Value ?? new();
+    }
+
+    private async Task SaveAsync()
+    {
+        AboGroup? abo = Enum.TryParse<AboGroup>(_abo, out var parsed) ? parsed : null;
+        var saved = await Api.SaveStockParAsync(new SaveStockParRequest(_productId, abo, _minimum));
+        _feedback = saved.ToFeedback("Par saved.");
+        if (saved.Succeeded) await ReloadAsync();
+    }
+}

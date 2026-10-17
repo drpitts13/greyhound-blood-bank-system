@@ -206,9 +206,25 @@
             </div>
         }
 
+        <div class="form-row" style="margin-top:.6rem;">
+            <div class="field"><label>Supply description (optional)</label><input @bind="_supplyDescription" /></div>
+            <div class="field"><label>Supply lot (optional)</label><input @bind="_supplyLot" /></div>
+        </div>
+        <p class="muted">Leave the lot blank unless facility policy requires it. That policy is off unless an administrator turns it on.</p>
         <div class="field" style="margin-top:.6rem;"><label>Reason (required)</label>
             <input @bind="_reason" placeholder="Why is this modification being performed?" style="width:100%;" />
         </div>
+        @if (_selectedRule.ModificationType is not ModificationType.Divide and not ModificationType.Pool and not ModificationType.Aliquot)
+        {
+            <div class="field" style="margin-top:.6rem;">
+                <label>Batch unit numbers</label>
+                <textarea @bind="_batchUnitNumbers" rows="3" style="width:100%;" placeholder="One additional unit number per line. The selected unit is included."></textarea>
+                <div class="muted">One rule and one reason. If any unit is ineligible, none are modified.</div>
+            </div>
+            <button class="btn btn-secondary" style="margin-top:.6rem;" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason) || string.IsNullOrWhiteSpace(_batchUnitNumbers))" @onclick="SubmitBatchAsync">
+                Apply to batch
+            </button>
+        }
 
         <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason))" @onclick="SubmitAsync">
             Perform @_selectedRule.ModificationType
@@ -278,7 +294,7 @@
         <div class="bb-card-title"><h3>Modification history for this unit</h3></div>
         <p class="muted">The patient is named when a product order points at the modification, including the medical record number when it is recorded. A missing or blank name stays the patient id. No product order says so. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one.</p>
         <table class="bb">
-            <thead><tr><th>Type</th><th>Patient</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+            <thead><tr><th>Type</th><th>Patient</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Supply</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
             <tbody>
                 @foreach (var h in _history)
                 {
@@ -289,6 +305,7 @@
                         <td class="mono">@h.TargetProductCode</td>
                         <td class="mono">@FormatHistoryResults(h)</td>
                         <td>@FormatHistoryLocations(h)</td>
+                        <td>@FormatSupply(h)</td>
                         <td class="mono">@h.ExpirationOffsetCodeApplied</td>
                         <td class="nowrap">@h.ResultExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@h.Reason</td>
@@ -349,6 +366,9 @@
             : PoolVolumes.Sum(volume => volume!.Value);
 
     private string _reason = string.Empty;
+    private string? _supplyDescription;
+    private string? _supplyLot;
+    private string _batchUnitNumbers = string.Empty;
     private Feedback? _actionFb;
     private ModificationResultVm? _lastResult;
     private bool _lastWasAliquot;
@@ -439,6 +459,18 @@
             })
             .ToList();
         return parts.Count == 0 ? "—" : string.Join(", ", parts);
+    }
+
+    private static string FormatSupply(UnitModificationDto history)
+    {
+        var description = string.IsNullOrWhiteSpace(history.SupplyDescription) ? null : history.SupplyDescription.Trim();
+        var lot = string.IsNullOrWhiteSpace(history.SupplyLot) ? null : history.SupplyLot.Trim();
+        if (description is null && lot is null)
+        {
+            return "—";
+        }
+
+        return lot is null ? description! : description is null ? lot : $"{description} / {lot}";
     }
 
     private static string FormatHistoryLocations(UnitModificationDto history)
@@ -667,7 +699,7 @@
             }
 
             var children = _children.Select(c => new DivideChildSpec(null, c.Volume)).ToList();
-            r = await Api.DivideUnitAsync(_unit.Id, new PerformDivideRequest(_selectedRule.RuleId, children, _reason));
+            r = await Api.DivideUnitAsync(_unit.Id, new PerformDivideRequest(_selectedRule.RuleId, children, _reason, _supplyDescription, _supplyLot));
         }
         else if (_selectedRule.ModificationType == ModificationType.Pool)
         {
@@ -689,11 +721,11 @@
 
             var sourceIds = new List<long> { _unit.Id };
             sourceIds.AddRange(_poolUnits.Select(p => p.Id));
-            r = await Api.PoolUnitsAsync(new PerformPoolRequest(sourceIds, _selectedRule.RuleId, _reason));
+            r = await Api.PoolUnitsAsync(new PerformPoolRequest(sourceIds, _selectedRule.RuleId, _reason, _supplyDescription, _supplyLot));
         }
         else if (_selectedRule.ModificationType == ModificationType.Aliquot)
         {
-            r = await Api.AliquotUnitAsync(_unit.Id, new PerformAliquotRequest(_selectedRule.RuleId, _singleResultVolume, _reason));
+            r = await Api.AliquotUnitAsync(_unit.Id, new PerformAliquotRequest(_selectedRule.RuleId, _singleResultVolume, _reason, _supplyDescription, _supplyLot));
         }
         else
         {
@@ -715,7 +747,7 @@
 
             r = await Api.ApplyModificationAsync(
                 _unit.Id,
-                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId));
+                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId, _supplyDescription, _supplyLot));
         }
 
         _busy = false;
@@ -795,6 +827,52 @@
             {
                 Nav.NavigateTo(ReturnUrl);
             }
+        }
+    }
+
+    private async Task SubmitBatchAsync()
+    {
+        if (_unit is null || _selectedRule is null || string.IsNullOrWhiteSpace(_reason))
+        {
+            return;
+        }
+
+        var numbers = _batchUnitNumbers
+            .Split(new[] { '\r', '\n', ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var ids = new List<long> { _unit.Id };
+        foreach (var number in numbers)
+        {
+            if (string.Equals(number, _unit.UnitNumber, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var found = await Api.SearchUnitsAsync(new InventorySearchCriteria(UnitNumber: number));
+            var match = found.Value?.FirstOrDefault(unit => string.Equals(unit.UnitNumber, number, StringComparison.OrdinalIgnoreCase));
+            if (match is null)
+            {
+                _actionFb = Feedback.Fail($"Unit {number} was not found.");
+                return;
+            }
+
+            ids.Add(match.Id);
+        }
+
+        _busy = true;
+        var result = await Api.ApplyBatchModificationAsync(new PerformBatchModificationRequest(
+            _selectedRule.RuleId, ids, _reason, _supplyDescription, _supplyLot));
+        _busy = false;
+        _actionFb = result.ToFeedback("Batch modification completed.");
+        if (result.Succeeded)
+        {
+            _reason = string.Empty;
+            _supplyDescription = null;
+            _supplyLot = null;
+            _batchUnitNumbers = string.Empty;
+            var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
+            _history = history.Value ?? new();
         }
     }
 

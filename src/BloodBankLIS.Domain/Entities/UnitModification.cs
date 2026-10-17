@@ -29,6 +29,12 @@ public class UnitModification : BaseEntity
 
     public string Reason { get; set; } = string.Empty;
 
+    /// <summary>Optional supply used for this modification. Empty when none was recorded.</summary>
+    public string? SupplyDescription { get; set; }
+
+    /// <summary>Optional supply lot. Empty when none was recorded.</summary>
+    public string? SupplyLot { get; set; }
+
     public string PerformedBy { get; set; } = "system";
 
     public DateTime PerformedUtc { get; set; }

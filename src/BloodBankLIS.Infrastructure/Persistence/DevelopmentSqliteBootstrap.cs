@@ -132,6 +132,9 @@ public static class DevelopmentSqliteBootstrap
         ("InventoryLocations", "StorageTempMaxC", """ALTER TABLE "InventoryLocations" ADD COLUMN "StorageTempMaxC" TEXT NULL"""),
         ("InventoryLocations", "DefaultInTransitHours", """ALTER TABLE "InventoryLocations" ADD COLUMN "DefaultInTransitHours" INTEGER NULL"""),
         ("InventoryLocations", "Notes", """ALTER TABLE "InventoryLocations" ADD COLUMN "Notes" TEXT NULL"""),
+        ("InventoryLocations", "TimeOutGoverned", """ALTER TABLE "InventoryLocations" ADD COLUMN "TimeOutGoverned" INTEGER NOT NULL DEFAULT 1"""),
+        ("UnitModifications", "SupplyDescription", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyDescription" TEXT NULL"""),
+        ("UnitModifications", "SupplyLot", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyLot" TEXT NULL"""),
         ("ChargeCodes", "RevenueCode", """ALTER TABLE "ChargeCodes" ADD COLUMN "RevenueCode" TEXT NULL"""),
         ("ChargeCodes", "Modifier", """ALTER TABLE "ChargeCodes" ADD COLUMN "Modifier" TEXT NULL"""),
         ("BillingEvents", "ProcedureCode", """ALTER TABLE "BillingEvents" ADD COLUMN "ProcedureCode" TEXT NULL"""),
@@ -163,6 +166,7 @@ public static class DevelopmentSqliteBootstrap
         CancellationToken cancellationToken = default)
     {
         await EnsureOrderCancellationReasonsTableAsync(context, cancellationToken);
+        await EnsureCompetitorGapTablesAsync(context, cancellationToken);
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
@@ -590,6 +594,96 @@ public static class DevelopmentSqliteBootstrap
     /// rather than hand-maintained so a newly added entity cannot silently drift out of the dev
     /// database and fail later during seeding.
     /// </summary>
+    private static async Task EnsureCompetitorGapTablesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct) || !await TableExistsAsync(context, "Patients", ct))
+        {
+            return;
+        }
+
+        if (!await TableExistsAsync(context, "Reagents", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "Reagents" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_Reagents" PRIMARY KEY AUTOINCREMENT,
+                    "Code" TEXT NOT NULL,
+                    "Name" TEXT NOT NULL,
+                    "IsActive" INTEGER NOT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                )
+                """, ct);
+        }
+
+        if (!await TableExistsAsync(context, "ReagentLots", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "ReagentLots" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_ReagentLots" PRIMARY KEY AUTOINCREMENT,
+                    "ReagentId" INTEGER NOT NULL,
+                    "LotNumber" TEXT NOT NULL,
+                    "ReceivedUtc" TEXT NOT NULL,
+                    "OpenedUtc" TEXT NULL,
+                    "ClosedUtc" TEXT NULL,
+                    "ExpiresUtc" TEXT NOT NULL,
+                    "State" INTEGER NOT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                )
+                """, ct);
+        }
+
+        if (!await TableExistsAsync(context, "ReagentDailyQcs", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "ReagentDailyQcs" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_ReagentDailyQcs" PRIMARY KEY AUTOINCREMENT,
+                    "ReagentLotId" INTEGER NOT NULL,
+                    "QcDateUtc" TEXT NOT NULL,
+                    "ExpectedResult" TEXT NOT NULL,
+                    "ObservedResult" TEXT NOT NULL,
+                    "Passed" INTEGER NOT NULL,
+                    "PerformedBy" TEXT NOT NULL,
+                    "PerformedUtc" TEXT NOT NULL,
+                    "ReviewedBy" TEXT NULL,
+                    "ReviewedUtc" TEXT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                )
+                """, ct);
+        }
+
+        if (!await TableExistsAsync(context, "StockParLevels", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "StockParLevels" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_StockParLevels" PRIMARY KEY AUTOINCREMENT,
+                    "ProductTypeId" INTEGER NOT NULL,
+                    "Abo" INTEGER NULL,
+                    "MinimumAvailable" INTEGER NOT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                )
+                """, ct);
+        }
+    }
+
     private static async Task<string?> FindMissingTableAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.Database.CanConnectAsync(ct))

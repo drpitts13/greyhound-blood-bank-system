@@ -27,7 +27,18 @@
 
 <Outcome Value="_topFb" />
 
-@if (_expectedItems.Count > 0 || Session.Has(PermissionCodes.InventoryReceive))
+<div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
+    <button type="button" class="btn @BoardClass("search")" @onclick='() => SelectBoard("search")'>Search</button>
+    <button type="button" class="btn @BoardClass("expected")" @onclick='() => SelectBoard("expected")'>Expected inbound</button>
+    <button type="button" class="btn @BoardClass("retype")" @onclick='() => SelectBoard("retype")'>Retype</button>
+    <button type="button" class="btn @BoardClass("near")" @onclick='() => SelectBoard("near")'>Near expiry</button>
+    <button type="button" class="btn @BoardClass("quarantine")" @onclick='() => SelectBoard("quarantine")'>Quarantine</button>
+    <button type="button" class="btn @BoardClass("discrepancy")" @onclick='() => SelectBoard("discrepancy")'>Discrepancy</button>
+    <button type="button" class="btn @BoardClass("hold")" @onclick='() => SelectBoard("hold")'>Operational hold</button>
+    <button type="button" class="btn @BoardClass("deliveries")" @onclick='() => SelectBoard("deliveries")'>Open deliveries</button>
+</div>
+
+@if (_board == "expected" && (_expectedItems.Count > 0 || Session.Has(PermissionCodes.InventoryReceive)))
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Expected inbound</h3></div>
@@ -152,7 +163,7 @@
     </div>
 }
 
-@if (_retypeItems.Count > 0 || Session.Has(PermissionCodes.ResultEnter))
+@if (_board == "retype" && (_retypeItems.Count > 0 || Session.Has(PermissionCodes.ResultEnter)))
 {
     <div id="pending-retype" class="bb-card">
         <div class="bb-card-title">
@@ -243,11 +254,17 @@
     </div>
 }
 
-@if (_nearExpiryItems.Count > 0)
+@if (_board == "near")
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Near expiry</h3></div>
         <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). The location is the storage location name. A missing name stays the location id. A unit with no location says none. Discard from the row with the same reason and second verifier as the unit page, before the expiration sweep.</p>
+        @if (_nearExpiryItems.Count == 0)
+        {
+            <div class="muted">No units near expiry.</div>
+        }
+        else
+        {
         <table class="bb">
             <thead>
                 <tr>
@@ -317,10 +334,11 @@
                 }
             </tbody>
         </table>
+        }
     </div>
 }
 
-@if (_quarantineItems.Count > 0 || Session.Has(PermissionCodes.InventoryRelease))
+@if (_board == "quarantine" && (_quarantineItems.Count > 0 || Session.Has(PermissionCodes.InventoryRelease)))
 {
     <div class="bb-card" id="quality-quarantine">
         <div class="bb-card-title"><h3>Quality quarantine</h3></div>
@@ -389,6 +407,10 @@
                                     <div class="alert alert-info" style="margin:.25rem 0;">
                                         <p class="muted" style="margin:0 0 .5rem;">
                                             Release <span class="mono">@row.UnitNumber</span> with the same second-verifier gate as Manage. @row.ReleasePlaceSentence @row.VolumeLabel.
+                                            @if (row.RequiresLabelScan)
+                                            {
+                                                <span> Scan the unit number on the new label. A different number is a hard stop. Other quarantine releases do not ask for this scan.</span>
+                                            }
                                             @if (row.RetypeMismatch)
                                             {
                                                 <span> This unit was quarantined after an ABO/Rh retype mismatch.</span>
@@ -406,7 +428,14 @@
                                                 Clearable="true"
                                                 Placeholder="Different active user" />
                                         </div>
-                                        <button class="btn btn-primary btn-sm" style="margin-top:.5rem;" disabled="@_busy" @onclick="() => ReleaseAsync(row.UnitId)">Release from quarantine</button>
+                                        @if (row.RequiresLabelScan)
+                                        {
+                                            <div class="field" style="min-width:16rem;max-width:22rem;">
+                                                <label>Scanned unit number</label>
+                                                <input class="mono" @bind="_releaseScannedUnitNumber" />
+                                            </div>
+                                        }
+                                        <button class="btn btn-primary btn-sm" style="margin-top:.5rem;" disabled="@_busy" @onclick="() => ReleaseAsync(row.UnitId, row.RequiresLabelScan)">Release from quarantine</button>
                                     </div>
                                 </td>
                             </tr>
@@ -418,7 +447,7 @@
     </div>
 }
 
-@if (_discrepancyItems.Count > 0 || Session.Has(PermissionCodes.InventoryRelease))
+@if (_board == "discrepancy" && (_discrepancyItems.Count > 0 || Session.Has(PermissionCodes.InventoryRelease)))
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Inventory discrepancy</h3></div>
@@ -470,7 +499,7 @@
     </div>
 }
 
-@if (_onHoldItems.Count > 0 || Session.Has(PermissionCodes.InventoryRelease))
+@if (_board == "hold" && (_onHoldItems.Count > 0 || Session.Has(PermissionCodes.InventoryRelease)))
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Operational hold</h3></div>
@@ -518,7 +547,7 @@
     </div>
 }
 
-@if (Session.Has(PermissionCodes.InventoryReceive))
+@if (_board == "deliveries" && Session.Has(PermissionCodes.InventoryReceive))
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Open deliveries</h3></div>
@@ -562,6 +591,8 @@
     </div>
 }
 
+@if (_board == "search")
+{
 <div class="bb-card">
     <div class="bb-card-title"><h3>Search</h3></div>
     <p class="muted">The location column is the storage location name. A missing name stays the location id. A unit with no location says none.</p>
@@ -632,6 +663,7 @@
         </table>
     }
 </div>
+}
 
 @code {
     private List<BloodUnitDto> _units = new();
@@ -671,6 +703,7 @@
 
     private Feedback? _actionFb;
     private string? _releaseSecondVerifier;
+    private string? _releaseScannedUnitNumber;
     private List<DirectoryUserDto> _directoryUsers = new();
     private List<PatientDto> _patients = new();
 
@@ -679,8 +712,23 @@
 
     private IEnumerable<DirectoryUserDto> ReceiveVerifierChoices => QuarantineVerifierChoices;
 
+    private string _board = "search";
+
+    private string BoardClass(string board) => _board == board ? "btn-primary" : "btn-secondary";
+
+    private void SelectBoard(string board) => _board = board;
+
     protected override async Task OnInitializedAsync()
     {
+        if (string.Equals(Board, "retype", StringComparison.OrdinalIgnoreCase))
+        {
+            _board = "retype";
+        }
+        else if (string.Equals(Board, "quarantine", StringComparison.OrdinalIgnoreCase))
+        {
+            _board = "quarantine";
+        }
+
         var policy = await Api.GetReceivePolicyAsync();
         _requireReceiveVerifier = policy.Succeeded && policy.Value?.RequireSecondVerifier == true;
         _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
@@ -716,6 +764,7 @@
         if (_boardQueryApplied) return;
         if (string.Equals(Board, "retype", StringComparison.OrdinalIgnoreCase))
         {
+            _board = "retype";
             _boardQueryApplied = true;
             if (UnitId is long unitId)
             {
@@ -727,12 +776,14 @@
 
         if (string.Equals(Board, "quarantine", StringComparison.OrdinalIgnoreCase))
         {
+            _board = "quarantine";
             _boardQueryApplied = true;
             _releasingQuarantineId = ModificationResultNextStep.QuarantineReleaseTarget(
                 Board,
                 UnitId,
                 _quarantineItems.Select(item => item.UnitId));
             _releaseSecondVerifier = null;
+            _releaseScannedUnitNumber = null;
             return;
         }
 
@@ -898,6 +949,7 @@
     {
         _releasingQuarantineId = _releasingQuarantineId == unitId ? null : unitId;
         _releaseSecondVerifier = null;
+        _releaseScannedUnitNumber = null;
         _actionFb = null;
     }
 
@@ -939,15 +991,18 @@
         await LoadRetypesAsync();
     }
 
-    private async Task ReleaseAsync(long id)
+    private async Task ReleaseAsync(long id, bool requiresLabelScan = false)
     {
         _busy = true;
-        var r = await Api.ReleaseUnitAsync(id, new ReleaseFromQuarantineRequest(_releaseSecondVerifier));
+        var r = await Api.ReleaseUnitAsync(id, new ReleaseFromQuarantineRequest(
+            _releaseSecondVerifier,
+            requiresLabelScan ? _releaseScannedUnitNumber : null));
         _busy = false;
         _actionFb = r.ToFeedback("Unit released from quarantine.");
         if (r.Succeeded)
         {
             _releaseSecondVerifier = null;
+            _releaseScannedUnitNumber = null;
             _releasingQuarantineId = null;
             await ReloadBoardsAsync();
         }

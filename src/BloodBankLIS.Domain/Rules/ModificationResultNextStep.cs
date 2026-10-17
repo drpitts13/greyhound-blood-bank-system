@@ -18,10 +18,10 @@ public static class ModificationResultNextStep
 
         if (locationLabel == StorageLocationLabel.None)
         {
-            return "In quarantine. No storage location is recorded. Release it before it can be issued.";
+            return "In quarantine. No storage location is recorded. Scan the new unit number before release.";
         }
 
-        return $"In quarantine at {locationLabel}. Release it before it can be issued.";
+        return $"In quarantine at {locationLabel}. Scan the new unit number before release.";
     }
 
     public static string? ReleaseHref(UnitStatus status, long unitId, bool canRelease)

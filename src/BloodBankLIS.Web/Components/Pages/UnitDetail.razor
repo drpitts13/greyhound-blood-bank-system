@@ -130,6 +130,13 @@ else
                                 Clearable="true"
                                 Placeholder="Different active user" />
                         </div>
+                        @if (_unit.RequiresModificationLabelScan)
+                        {
+                            <div class="field" style="min-width:16rem;">
+                                <label>Scanned unit number</label>
+                                <input class="mono" @bind="_releaseScannedUnitNumber" />
+                            </div>
+                        }
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(_unit.Id)">Release from quarantine</button>
                     }
                     @if (_unit.Status == UnitStatus.Expected && Session.Has(PermissionCodes.InventoryReceive))
@@ -527,6 +534,7 @@ else
     private string _missingReason = string.Empty;
     private string _damagedReason = string.Empty;
     private string? _releaseSecondVerifier;
+    private string? _releaseScannedUnitNumber;
     private string _cancelExpectedReason = string.Empty;
     private string _supplierReturnReason = string.Empty;
     private string _directedConversionReason = string.Empty;
@@ -855,9 +863,15 @@ else
     private async Task ReleaseAsync(long id)
     {
         _busy = true;
-        var r = await Api.ReleaseUnitAsync(id, new ReleaseFromQuarantineRequest(_releaseSecondVerifier));
+        var r = await Api.ReleaseUnitAsync(id, new ReleaseFromQuarantineRequest(
+            _releaseSecondVerifier,
+            _unit?.RequiresModificationLabelScan == true ? _releaseScannedUnitNumber : null));
         _busy = false;
-        if (r.Succeeded) _releaseSecondVerifier = null;
+        if (r.Succeeded)
+        {
+            _releaseSecondVerifier = null;
+            _releaseScannedUnitNumber = null;
+        }
         await AfterActionAsync(r, "Unit released from quarantine.");
     }
 

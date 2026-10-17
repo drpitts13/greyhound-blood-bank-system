@@ -52,6 +52,7 @@ public sealed class InventoryService
     private readonly ProductRetypeService? _retype;
     private readonly IRepository<ProductRetypeResult>? _retypeResults;
     private readonly DeliveryService? _deliveries;
+    private readonly IRepository<UnitModificationUnit>? _modificationUnits;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -70,7 +71,8 @@ public sealed class InventoryService
         IPermissionEvaluator? permissions = null,
         ProductRetypeService? retype = null,
         IRepository<ProductRetypeResult>? retypeResults = null,
-        DeliveryService? deliveries = null)
+        DeliveryService? deliveries = null,
+        IRepository<UnitModificationUnit>? modificationUnits = null)
     {
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -89,6 +91,7 @@ public sealed class InventoryService
         _permissions = permissions;
         _retype = retype;
         _retypeResults = retypeResults;
+        _modificationUnits = modificationUnits;
     }
 
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
@@ -193,6 +196,7 @@ public sealed class InventoryService
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Id).First());
         var locationIds = rows.Select(u => u.CurrentLocationId).OfType<long>().Distinct().ToList();
         var locationNames = await LoadLocationNamesAsync(locationIds, ct);
+        var modificationResultIds = await ModificationResultUnitIdsAsync(unitIds, ct);
 
         return rows
             .OrderBy(u => u.CreatedUtc)
@@ -206,7 +210,8 @@ public sealed class InventoryService
                     locationNames.TryGetValue(locationId, out locationName);
                 }
 
-                return QuarantineWorkItemDto.From(u, product?.ProductCode, latest, locationName);
+                return QuarantineWorkItemDto.From(
+                    u, product?.ProductCode, latest, locationName, modificationResultIds.Contains(u.Id));
             })
             .ToList();
     }
@@ -317,7 +322,28 @@ public sealed class InventoryService
             }
         }
 
-        return BloodUnitDto.From(unit) with { BloodSupplierId = supplierId };
+        return BloodUnitDto.From(unit) with
+        {
+            BloodSupplierId = supplierId,
+            RequiresModificationLabelScan = unit.Status == UnitStatus.Quarantine && await IsModificationResultAsync(unit.Id, ct)
+        };
+    }
+
+    private async Task<bool> IsModificationResultAsync(long unitId, CancellationToken ct) =>
+        _modificationUnits is not null
+        && await _modificationUnits.AnyAsync(
+            link => link.BloodProductId == unitId && link.Role == ModificationUnitRole.Result, ct);
+
+    private async Task<HashSet<long>> ModificationResultUnitIdsAsync(IReadOnlyList<long> unitIds, CancellationToken ct)
+    {
+        if (_modificationUnits is null || unitIds.Count == 0)
+        {
+            return [];
+        }
+
+        var links = await _modificationUnits.ListAsync(
+            link => unitIds.Contains(link.BloodProductId) && link.Role == ModificationUnitRole.Result, ct);
+        return links.Select(link => link.BloodProductId).ToHashSet();
     }
 
     public Task<IReadOnlyList<InventoryStatusHistory>> GetHistoryAsync(long unitId, CancellationToken ct = default) =>
@@ -1073,7 +1099,7 @@ public sealed class InventoryService
     }
 
     public async Task<InventoryActionResult> ReleaseFromQuarantineAsync(
-        long unitId, string? secondVerifier = null, CancellationToken ct = default)
+        long unitId, string? secondVerifier = null, string? scannedUnitNumber = null, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync(
             InventoryAuthorizationRule.EvaluateQuarantineRelease, ct);
@@ -1102,6 +1128,13 @@ public sealed class InventoryService
             return InventoryActionResult.Blocked(new RuleEvaluation([directory]));
         }
 
+        var isModificationResult = await IsModificationResultAsync(unit.Id, ct);
+        var label = ModificationLabelVerificationRule.Evaluate(isModificationResult, unit.UnitNumber, scannedUnitNumber);
+        if (label.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([label]));
+        }
+
         unit.QuarantineReason = null;
         unit.QuarantineReasonCode = UnitQuarantineReason.Unspecified;
         var reason = string.IsNullOrWhiteSpace(secondVerifier)
@@ -1123,7 +1156,8 @@ public sealed class InventoryService
                 unit.UnitNumber,
                 unit.Status,
                 Path = "QuarantineRelease",
-                SecondVerifier = string.IsNullOrWhiteSpace(secondVerifier) ? null : secondVerifier.Trim()
+                SecondVerifier = string.IsNullOrWhiteSpace(secondVerifier) ? null : secondVerifier.Trim(),
+                ModificationLabelScan = isModificationResult ? unit.UnitNumber : null
             },
             reason: "Unit released from quarantine.");
         await _unitOfWork.SaveChangesAsync(ct);

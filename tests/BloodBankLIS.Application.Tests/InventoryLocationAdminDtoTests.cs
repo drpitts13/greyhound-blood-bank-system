@@ -22,5 +22,5 @@ public class InventoryLocationAdminDtoTests
         id, code, name, LocationType.Refrigerator, true, null,
         true, false, true, false, false,
         true, true, true, true, true,
-        null, null, null, null);
+        null, null, null, null, true);
 }

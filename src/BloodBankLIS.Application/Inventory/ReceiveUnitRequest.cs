@@ -35,7 +35,7 @@ public sealed record ReceiveExpectedUnitRequest(
 
 public sealed record CancelExpectedUnitRequest(string Reason);
 
-public sealed record ReleaseFromQuarantineRequest(string? SecondVerifier = null);
+public sealed record ReleaseFromQuarantineRequest(string? SecondVerifier = null, string? ScannedUnitNumber = null);
 
 public sealed record QuarantineUnitRequest(UnitQuarantineReason ReasonCode, string? Notes = null);
 

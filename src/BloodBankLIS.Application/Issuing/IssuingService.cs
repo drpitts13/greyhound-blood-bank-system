@@ -682,16 +682,29 @@ public sealed class IssuingService
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
         var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
+        var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
+        var locationIds = rows.Select(i => context.StorageLocationId(i)).OfType<long>().Distinct().ToList();
+        var locations = locationIds.Count == 0
+            ? new Dictionary<long, InventoryLocation>()
+            : (await _locations.ListAsync(l => locationIds.Contains(l.Id), ct)).ToDictionary(l => l.Id);
         return rows
             .OrderBy(i => i.IssuedUtc)
             .Select(i =>
             {
                 var row = context.For(i, now);
                 authorizers.TryGetValue(i.OverrideId ?? 0, out var authorizer);
+                var governed = true;
+                if (context.StorageLocationId(i) is long locationId && locations.TryGetValue(locationId, out var location))
+                {
+                    governed = location.TimeOutGoverned;
+                }
+
+                var acceptable = ReturnReissueRule.TimeOutAcceptable(governed, i.IssuedUtc, now, returnMinutes);
                 return OutstandingIssueWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.DateOfBirth, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
-                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces);
+                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces,
+                    governed, acceptable);
             })
             .ToList();
     }
@@ -1061,7 +1074,8 @@ public sealed class IssuingService
         var now = _clock.UtcNow;
         var unitUnexpired = unit.ExpiresUtc > now;
         var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
-        var timeOk = ReturnReissueRule.IsWithinReturnToAvailableWindow(issue.IssuedUtc, now, returnMinutes);
+        var governed = await StorageTimeOutGovernedAsync(unit.CurrentLocationId, ct);
+        var timeOk = ReturnReissueRule.TimeOutAcceptable(governed, issue.IssuedUtc, now, returnMinutes);
         var reissueEval = ReturnReissueRule.Evaluate(
             request.TemperatureAcceptable,
             request.SealIntegrityAcceptable,
@@ -1126,7 +1140,9 @@ public sealed class IssuingService
                 request.TemperatureAcceptable,
                 request.SealIntegrityAcceptable,
                 request.VisualInspectionAcceptable,
-                request.TimeOutOfStorageAcceptable,
+                TimeOutOfStorageAcceptable = timeOk,
+                TimeOutGoverned = governed,
+                CallerTimeOutOfStorageAcceptable = request.TimeOutOfStorageAcceptable,
                 destination
             })
         };
@@ -1897,6 +1913,17 @@ public sealed class IssuingService
         return new IssueWorklistContext(patients, types, antibodies, specimens, allocations, units, crossmatches);
     }
 
+    private async Task<bool> StorageTimeOutGovernedAsync(long? locationId, CancellationToken ct)
+    {
+        if (locationId is not long id)
+        {
+            return true;
+        }
+
+        var location = await _locations.GetByIdAsync(id, ct);
+        return location?.TimeOutGoverned ?? true;
+    }
+
     private sealed class IssueWorklistContext(
         IReadOnlyList<Patient> patients,
         IReadOnlyList<PatientBloodTypeHistory> types,
@@ -1919,6 +1946,9 @@ public sealed class IssuingService
         private readonly Dictionary<(long PatientId, long UnitId), List<Crossmatch>> _crossmatches = crossmatches
             .GroupBy(x => (x.PatientId, x.BloodProductId))
             .ToDictionary(g => g.Key, g => g.ToList());
+
+        public long? StorageLocationId(Issue issue) =>
+            _units.TryGetValue(issue.BloodProductId, out var unit) ? unit.CurrentLocationId : null;
 
         public (string? Mrn, string? DisplayName, string? DateOfBirth, string? UnitNumber, string? CurrentBloodType,
             bool HasAntibodyHistory, string? AntibodySummary, DateTime? SpecimenExpiresUtc, bool SpecimenExpired,

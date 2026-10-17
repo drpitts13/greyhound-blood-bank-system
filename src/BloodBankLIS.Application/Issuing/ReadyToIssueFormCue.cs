@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Issuing;
 
@@ -123,6 +124,14 @@ public static class ReadyToIssueFormCue
 
     public static string CrossmatchStatusNotice(CrossmatchClinicalStatus status) =>
         $"XM at issue {status}";
+
+    public static string TimeOutNotice(bool governed, bool acceptable) =>
+        ReturnReissueRule.TimeOutLabel(governed, acceptable) switch
+        {
+            "Exempt" => "Storage device is exempt from the return-to-available time limit.",
+            "Window elapsed" => "Storage device is governed. The return-to-available window has elapsed. Available is not allowed.",
+            _ => "Storage device is governed. The return-to-available window is still open."
+        };
 
     public static string? RetrospectiveFollowUpNotice(string? issuedTo, string? coolerId, string? location = null, string? issuedBy = null, string? secondVerifier = null)
     {

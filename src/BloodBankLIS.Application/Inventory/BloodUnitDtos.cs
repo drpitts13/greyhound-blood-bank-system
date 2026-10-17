@@ -65,6 +65,9 @@ public sealed record BloodUnitDto(
 {
     public long? BloodSupplierId { get; init; }
 
+    /// <summary>True when this unit was produced by a modification and release still needs a matching label scan.</summary>
+    public bool RequiresModificationLabelScan { get; init; }
+
     /// <summary>
     /// Staff-facing supplier. A recorded name stays that name.
     /// A blank name stays the supplier id when the delivery names that supplier.
@@ -156,7 +159,8 @@ public sealed record QuarantineWorkItemDto(
     bool RetypeMismatch = false,
     long? CurrentLocationId = null,
     string? CurrentLocationName = null,
-    decimal? Volume = null)
+    decimal? Volume = null,
+    bool RequiresLabelScan = false)
 {
     public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
 
@@ -174,7 +178,8 @@ public sealed record QuarantineWorkItemDto(
         BloodUnit u,
         string? productCode = null,
         ProductRetypeResult? latestRetype = null,
-        string? locationName = null) => new(
+        string? locationName = null,
+        bool requiresLabelScan = false) => new(
         u.Id, u.UnitNumber, u.QuarantineReasonCode, u.QuarantineReason, u.Abo, u.RhD, u.ExpiresUtc,
         u.ProductTypeId,
         productCode ?? u.ProductType?.ProductCode,
@@ -183,7 +188,8 @@ public sealed record QuarantineWorkItemDto(
         latestRetype is { MatchesLabel: false },
         u.CurrentLocationId,
         string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim(),
-        u.Volume);
+        u.Volume,
+        requiresLabelScan);
 }
 
 public sealed record DiscrepancyWorkItemDto(

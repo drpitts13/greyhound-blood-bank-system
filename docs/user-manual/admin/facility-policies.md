@@ -21,3 +21,5 @@ A parameter marked legal hold should not be edited to satisfy a convenience. The
 Links on this page open [Crossmatch settings](crossmatch-settings) and [Compatibility tables](compatibility-rules). Those are separate catalogs. A change here does not edit the ABO table.
 
 The bench feels a policy change on the next action. It does not reprint old issues. Say in the reason which procedure version you are implementing.
+
+Three operational settings ship off or at a default that only warns. **Block results when reagent QC is open** stays off, so patient resulting continues while the reagent worklist has overdue, failed, or unreviewed rows. **Final disposition due hours** ships at 24 and only fills the warning board. **Require supply lot** stays off, so a modification can be saved without a lot.

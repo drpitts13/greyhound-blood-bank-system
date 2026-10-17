@@ -1087,6 +1087,82 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Return_CallerTimeOutFlag_DoesNotOverrideAGovernedWindow()
+    {
+        var s = await SeedAsync("RETURN-GOV");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var location = new InventoryLocation { Code = "GOV-RET", Name = "Governed fridge", TimeOutGoverned = true };
+            c.InventoryLocations.Add(location);
+            await c.SaveChangesAsync();
+            var stored = await c.BloodUnits.FindAsync(s.UnitId);
+            stored!.CurrentLocationId = location.Id;
+            await c.SaveChangesAsync();
+            issueId = (await Issuing(c).IssueUnitAsync(
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) })).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var available = await Issuing(c).ReturnUnitAsync(
+                issueId,
+                new ReturnUnitRequest("Caller says the window is fine", TimeOutOfStorageAcceptable: true, Destination: UnitStatus.Available));
+            Assert.False(available.Succeeded);
+            Assert.Contains("30 minutes", available.Error, StringComparison.OrdinalIgnoreCase);
+
+            var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+            Assert.True(row.StorageTimeOutGoverned);
+            Assert.False(row.StorageTimeOutAcceptable);
+            Assert.Equal("Window elapsed", ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable));
+        }
+    }
+
+    [Fact]
+    public async Task Return_ExemptLocation_AfterThirtyMinutes_CanReturnToAvailable()
+    {
+        var s = await SeedAsync("RETURN-EX");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var location = new InventoryLocation { Code = "EX-RET", Name = "Validated remote fridge", TimeOutGoverned = false };
+            c.InventoryLocations.Add(location);
+            await c.SaveChangesAsync();
+            var stored = await c.BloodUnits.FindAsync(s.UnitId);
+            stored!.CurrentLocationId = location.Id;
+            await c.SaveChangesAsync();
+            issueId = (await Issuing(c).IssueUnitAsync(
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) })).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+            Assert.False(row.StorageTimeOutGoverned);
+            Assert.True(row.StorageTimeOutAcceptable);
+
+            var returned = await Issuing(c).ReturnUnitAsync(
+                issueId,
+                new ReturnUnitRequest(
+                    "Exempt device, still in temperature",
+                    TimeOutOfStorageAcceptable: false,
+                    Destination: UnitStatus.Available));
+            Assert.True(returned.Succeeded, returned.Error);
+            Assert.Contains("\"TimeOutOfStorageAcceptable\":true", returned.Value!.ReissueEvaluationJson, StringComparison.Ordinal);
+            Assert.Contains("\"TimeOutGoverned\":false", returned.Value.ReissueEvaluationJson, StringComparison.Ordinal);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
     public async Task Return_AfterThirtyMinutes_DiscardedAllowed()
     {
         var s = await SeedAsync("RETURN-DISP");

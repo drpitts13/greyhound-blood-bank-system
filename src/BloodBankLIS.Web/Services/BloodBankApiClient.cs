@@ -593,6 +593,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<OutstandingIssueWorkItemDto>>> GetOutstandingIssuesAsync(CancellationToken ct = default) =>
         SendAsync<List<OutstandingIssueWorkItemDto>>(HttpMethod.Get, "api/issues/outstanding", ct: ct);
 
+    public Task<ApiResult<List<OverdueDispositionWorkItemDto>>> GetOverdueDispositionAsync(CancellationToken ct = default) =>
+        SendAsync<List<OverdueDispositionWorkItemDto>>(HttpMethod.Get, "api/issues/overdue-disposition", ct: ct);
+
     public Task<ApiResult<List<SecondAboWorkItemDto>>> GetPendingSecondAboAsync(CancellationToken ct = default) =>
         SendAsync<List<SecondAboWorkItemDto>>(HttpMethod.Get, "api/issues/pending-second-abo", ct: ct);
 
@@ -1438,6 +1441,42 @@ public sealed class BloodBankApiClient
 
     public Task<ApiResult<ModificationResultVm>> AliquotUnitAsync(long unitId, PerformAliquotRequest req, CancellationToken ct = default) =>
         SendAsync<ModificationResultVm>(HttpMethod.Post, $"api/inventory/units/{unitId}/modifications/aliquot", req, ct);
+
+    public Task<ApiResult<ModificationResultVm>> ApplyBatchModificationAsync(PerformBatchModificationRequest req, CancellationToken ct = default) =>
+        SendAsync<ModificationResultVm>(HttpMethod.Post, "api/inventory/modifications/batch", req, ct);
+
+    public Task<ApiResult<List<ReagentDto>>> GetReagentsAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReagentDto>>(HttpMethod.Get, "api/reagents", ct: ct);
+
+    public Task<ApiResult<ReagentDto>> SaveReagentAsync(SaveReagentRequest req, CancellationToken ct = default) =>
+        SendAsync<ReagentDto>(HttpMethod.Post, "api/reagents", req, ct);
+
+    public Task<ApiResult<List<ReagentLotDto>>> GetReagentLotsAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReagentLotDto>>(HttpMethod.Get, "api/reagents/lots", ct: ct);
+
+    public Task<ApiResult<ReagentLotDto>> ReceiveReagentLotAsync(ReceiveReagentLotRequest req, CancellationToken ct = default) =>
+        SendAsync<ReagentLotDto>(HttpMethod.Post, "api/reagents/lots", req, ct);
+
+    public Task<ApiResult<ReagentLotDto>> OpenReagentLotAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReagentLotDto>(HttpMethod.Post, $"api/reagents/lots/{id}/open", ct: ct);
+
+    public Task<ApiResult<ReagentLotDto>> CloseReagentLotAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReagentLotDto>(HttpMethod.Post, $"api/reagents/lots/{id}/close", ct: ct);
+
+    public Task<ApiResult<ReagentDailyQcDto>> RecordReagentQcAsync(RecordReagentQcRequest req, CancellationToken ct = default) =>
+        SendAsync<ReagentDailyQcDto>(HttpMethod.Post, "api/reagents/qc", req, ct);
+
+    public Task<ApiResult<ReagentDailyQcDto>> ReviewReagentQcAsync(long id, CancellationToken ct = default) =>
+        SendAsync<ReagentDailyQcDto>(HttpMethod.Post, $"api/reagents/qc/{id}/review", ct: ct);
+
+    public Task<ApiResult<List<ReagentQcWorkItemDto>>> GetReagentQcWorklistAsync(CancellationToken ct = default) =>
+        SendAsync<List<ReagentQcWorkItemDto>>(HttpMethod.Get, "api/reagents/worklist", ct: ct);
+
+    public Task<ApiResult<List<StockParBoardRowDto>>> GetStockParAsync(CancellationToken ct = default) =>
+        SendAsync<List<StockParBoardRowDto>>(HttpMethod.Get, "api/inventory/par", ct: ct);
+
+    public Task<ApiResult<StockParBoardRowDto>> SaveStockParAsync(SaveStockParRequest req, CancellationToken ct = default) =>
+        SendAsync<StockParBoardRowDto>(HttpMethod.Post, "api/inventory/par", req, ct);
 
     // ---- Admin: Modification rules ----
     public Task<ApiResult<List<ModificationRuleDto>>> GetAdminModificationRulesAsync(bool includeInactive = true, CancellationToken ct = default) =>

@@ -10,7 +10,7 @@ public class ModificationResultNextStepTests
     {
         var cue = ModificationResultNextStep.ReleaseCue(UnitStatus.Quarantine, "Fridge A");
 
-        Assert.Equal("In quarantine at Fridge A. Release it before it can be issued.", cue);
+        Assert.Equal("In quarantine at Fridge A. Scan the new unit number before release.", cue);
     }
 
     [Fact]
@@ -18,7 +18,7 @@ public class ModificationResultNextStepTests
     {
         var cue = ModificationResultNextStep.ReleaseCue(UnitStatus.Quarantine, StorageLocationLabel.None);
 
-        Assert.Equal("In quarantine. No storage location is recorded. Release it before it can be issued.", cue);
+        Assert.Equal("In quarantine. No storage location is recorded. Scan the new unit number before release.", cue);
     }
 
     [Theory]

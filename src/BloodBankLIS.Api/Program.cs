@@ -164,6 +164,8 @@ app.MapPatientEndpoints();
 app.MapPatientWorkspaceEndpoints();
 app.MapInventoryEndpoints();
 app.MapModificationEndpoints();
+app.MapReagentEndpoints();
+app.MapStockParEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();

@@ -151,6 +151,10 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         entity.StorageTempMaxC = request.StorageTempMaxC;
         entity.DefaultInTransitHours = request.DefaultInTransitHours;
         entity.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+        if (request.TimeOutGoverned is { } timeOutGoverned)
+        {
+            entity.TimeOutGoverned = timeOutGoverned;
+        }
 
         if (applyTypeDefaults)
         {

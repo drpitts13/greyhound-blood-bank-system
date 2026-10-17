@@ -389,3 +389,10 @@
 | SRS-BB-383 | Modification-rule choices use `ProductTypeDto.ChoiceLabel`. Charge-rule choices use `ProductDefinitionDto.ChoiceLabel`. A blank name stays the product id. The stored name is not rewritten. An ISBT code is not the charge-rule name. | FRS-BB-421 |
 | SRS-BB-384 | The product list uses `ProductDefinitionDto.NameLabel`. The code column stays the stored code. A blank name stays the product id. The stored name is not rewritten. The edit form binds the stored name. | FRS-BB-422 |
 | SRS-BB-385 | New and edited order product choices use `ProductTypeDto.ChoiceLabel`. A blank name stays the product id. The stored name is not rewritten. The checkbox value stays the product type id. | FRS-BB-423 |
+| SRS-BB-386 | `ReturnReissueRule.TimeOutAcceptable` ignores the caller. `IssuingService` reads `InventoryLocation.TimeOutGoverned` from the unit's current location. The issued-units board and the return form show `TimeOutLabel` and `TimeOutNotice`. | FRS-BB-424 |
+| SRS-BB-387 | `ModificationLabelVerificationRule` runs on quarantine release when `UnitModificationUnit.Role` is Result. The quarantine board and the unit chart collect the scan. The release request carries `ScannedUnitNumber`. | FRS-BB-425 |
+| SRS-BB-388 | `ReagentQcService` stores reagents, lots, and daily QC. `ReagentQcWorklistRule` builds the worklist. `ResultService` calls `ReagentQcResultGate` only when `Result.BlockWhenReagentQcOpen` is true. | FRS-BB-426 |
+| SRS-BB-389 | `FinalDispositionBoardService` lists issued units past `Issue.FinalDispositionDueHours` that have no transfusion, return, or discard. The issue desk shows the warning board. | FRS-BB-427 |
+| SRS-BB-390 | `UnitModification.SupplyDescription` and `SupplyLot` are optional. `ExecuteAsync` audits them and history returns them. `Modification.RequireSupplyLot` defaults off. | FRS-BB-428 |
+| SRS-BB-391 | `ApplyBatchAsync` preflights every unit and calls `ExecuteAsync` only when every unit is eligible. | FRS-BB-429 |
+| SRS-BB-392 | `StockParLevel` stores product, optional ABO, and minimum. `StockParService` counts available units and returns the shortfall. | FRS-BB-430 |

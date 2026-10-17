@@ -24,7 +24,8 @@ public sealed record InventoryLocationAdminDto(
     decimal? StorageTempMinC,
     decimal? StorageTempMaxC,
     int? DefaultInTransitHours,
-    string? Notes)
+    string? Notes,
+    bool TimeOutGoverned)
 {
     public string NameLabel => StorageLocationLabel.Format(Id, Name);
 
@@ -32,7 +33,7 @@ public sealed record InventoryLocationAdminDto(
         l.Id, l.Code, l.Name, l.LocationType, l.IsActive, l.Department,
         l.AllowsIssue, l.AllowsRemoteIssue, l.AllowsElectronicIssue, l.RequiresSecondVerifier, l.IsSatellite,
         l.AllowsRbc, l.AllowsPlasma, l.AllowsPlatelets, l.AllowsCryo, l.AllowsWholeBlood,
-        l.StorageTempMinC, l.StorageTempMaxC, l.DefaultInTransitHours, l.Notes);
+        l.StorageTempMinC, l.StorageTempMaxC, l.DefaultInTransitHours, l.Notes, l.TimeOutGoverned);
 }
 
 public sealed record SaveInventoryLocationRequest(
@@ -54,4 +55,5 @@ public sealed record SaveInventoryLocationRequest(
     decimal? StorageTempMaxC = null,
     int? DefaultInTransitHours = null,
     string? Notes = null,
-    bool ApplyTypeDefaults = false);
+    bool ApplyTypeDefaults = false,
+    bool? TimeOutGoverned = null);

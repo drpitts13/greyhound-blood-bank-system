@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Billing;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -40,6 +41,7 @@ public sealed class BloodProductModificationService
     private readonly IRepository<UnitBloodAttribute>? _unitAttributes;
     private readonly IRepository<InventoryLocation>? _locations;
     private readonly IRepository<Patient>? _patients;
+    private readonly FacilityPolicyService? _policy;
 
     public BloodProductModificationService(
         IInventoryRepository inventory,
@@ -62,7 +64,8 @@ public sealed class BloodProductModificationService
         BillingService? billing = null,
         IRepository<UnitBloodAttribute>? unitAttributes = null,
         IRepository<InventoryLocation>? locations = null,
-        IRepository<Patient>? patients = null)
+        IRepository<Patient>? patients = null,
+        FacilityPolicyService? policy = null)
     {
         _inventory = inventory;
         _rules = rules;
@@ -85,6 +88,7 @@ public sealed class BloodProductModificationService
         _unitAttributes = unitAttributes;
         _locations = locations;
         _patients = patients;
+        _policy = policy;
     }
 
     /// <summary>Active modification rules whose source product matches the unit's current product type.</summary>
@@ -270,7 +274,9 @@ public sealed class BloodProductModificationService
                     }).ToList(),
                     patientLabels.TryGetValue(m.Id, out var patientLabel)
                         ? patientLabel
-                        : ModificationHistoryPatientCue.Format(null, orderCouldNotBeRead: true));
+                        : ModificationHistoryPatientCue.Format(null, orderCouldNotBeRead: true),
+                    m.SupplyDescription,
+                    m.SupplyLot);
             })
             .ToList();
     }
@@ -401,7 +407,15 @@ public sealed class BloodProductModificationService
         }
 
         var specs = children.Select(c => (Suffix: c.UnitNumberSuffix, Volume: c.Volume)).ToList();
-        return await ExecuteAsync(new[] { source }, rule, specs, request.Reason, ct, inheritedAttributes: inherited.Attributes);
+        return await ExecuteAsync(
+            new[] { source },
+            rule,
+            specs,
+            request.Reason,
+            ct,
+            inheritedAttributes: inherited.Attributes,
+            supplyDescription: request.SupplyDescription,
+            supplyLot: request.SupplyLot);
     }
 
     /// <summary>Removes part of the parent volume into one new unit and leaves the parent available.</summary>
@@ -463,7 +477,9 @@ public sealed class BloodProductModificationService
             request.Reason,
             ct,
             inheritedAttributes: inherited.Attributes,
-            keepParent: true);
+            keepParent: true,
+            supplyDescription: request.SupplyDescription,
+            supplyLot: request.SupplyLot);
     }
 
     /// <summary>Pools two or more source units of the same product/ABO/Rh into one result unit of the rule's target product.</summary>
@@ -544,7 +560,15 @@ public sealed class BloodProductModificationService
             ? (decimal?)null
             : poolVolumes.Sum(volume => volume!.Value);
         var specs = new List<(string? Suffix, decimal? Volume)> { (null, totalVolume) };
-        return await ExecuteAsync(sources, rule, specs, request.Reason, ct, inheritedAttributes: inherited.Attributes);
+        return await ExecuteAsync(
+            sources,
+            rule,
+            specs,
+            request.Reason,
+            ct,
+            inheritedAttributes: inherited.Attributes,
+            supplyDescription: request.SupplyDescription,
+            supplyLot: request.SupplyLot);
     }
 
     /// <summary>Performs a 1-source/1-result modification: Irradiate, Thaw, Volume Reduction, or Leukoreduction.</summary>
@@ -616,7 +640,98 @@ public sealed class BloodProductModificationService
             request.Reason,
             ct,
             orderLink.Context,
-            inherited.Attributes);
+            inherited.Attributes,
+            supplyDescription: request.SupplyDescription,
+            supplyLot: request.SupplyLot);
+    }
+
+    /// <summary>
+    /// Applies one existing modification rule and one reason to several units.
+    /// If any unit is ineligible, none are modified.
+    /// </summary>
+    public async Task<ModificationActionResult> ApplyBatchAsync(PerformBatchModificationRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return ModificationActionResult.Fail("A reason is required to perform a modification.");
+        }
+
+        var ids = (request.SourceUnitIds ?? []).Where(id => id > 0).Distinct().ToList();
+        var count = BatchModificationRule.Evaluate(ids.Count);
+        if (count.Severity == RuleSeverity.HardStop)
+        {
+            return ModificationActionResult.Blocked(new RuleEvaluation([count]));
+        }
+
+        var rule = await _rules.GetByIdAsync(request.RuleId, ct);
+        if (rule is null || !rule.IsActive)
+        {
+            return ModificationActionResult.Fail("Modification rule not found or inactive.");
+        }
+
+        if (rule.ModificationType is ModificationType.Divide or ModificationType.Pool or ModificationType.Aliquot)
+        {
+            return ModificationActionResult.Fail("Use the divide, pool, or aliquot operation for this modification type.");
+        }
+
+        var ready = new List<(BloodUnit Unit, IReadOnlyList<UnitModificationAttributeRule.InheritedAttribute> Attributes)>();
+        foreach (var id in ids)
+        {
+            var source = await _inventory.GetUnitAsync(id, ct);
+            if (source is null)
+            {
+                return ModificationActionResult.Fail($"Source unit {id} not found.");
+            }
+
+            var sourceEval = UnitModificationEligibilityRule.EvaluateSource(
+                ToSnapshot(source), rule.SourceProductTypeId, _clock.UtcNow);
+            if (sourceEval.IsHardStopped)
+            {
+                return ModificationActionResult.Blocked(sourceEval);
+            }
+
+            var volumeEval = UnitModificationEligibilityRule.EvaluateResultVolume(source.Volume, null);
+            if (volumeEval.IsHardStopped)
+            {
+                return ModificationActionResult.Blocked(volumeEval);
+            }
+
+            var inherited = await InheritAttributesAsync(new[] { source }, ct);
+            if (inherited.Blocked is not null)
+            {
+                return inherited.Blocked;
+            }
+
+            ready.Add((source, inherited.Attributes));
+        }
+
+        ModificationActionResult? last = null;
+        foreach (var item in ready)
+        {
+            var specs = new List<(string? Suffix, decimal? Volume)> { (null, item.Unit.Volume) };
+            last = await ExecuteAsync(
+                new[] { item.Unit },
+                rule,
+                specs,
+                request.Reason,
+                ct,
+                inheritedAttributes: item.Attributes,
+                supplyDescription: request.SupplyDescription,
+                supplyLot: request.SupplyLot);
+            if (!last.Succeeded)
+            {
+                return last;
+            }
+        }
+
+        return last ?? ModificationActionResult.Fail("No units were modified.");
     }
 
     private async Task<(OrderLinkedContext? Context, string? Error)> ResolveOrderLinkAsync(
@@ -710,8 +825,17 @@ public sealed class BloodProductModificationService
         CancellationToken ct,
         OrderLinkedContext? orderLink = null,
         IReadOnlyList<UnitModificationAttributeRule.InheritedAttribute>? inheritedAttributes = null,
-        bool keepParent = false)
+        bool keepParent = false,
+        string? supplyDescription = null,
+        string? supplyLot = null)
     {
+        var requiredLot = _policy is not null && await _policy.GetRequireModificationSupplyLotAsync(ct);
+        var supply = ModificationSupplyLotRule.Evaluate(requiredLot, supplyLot);
+        if (supply.Severity == RuleSeverity.HardStop)
+        {
+            return ModificationActionResult.Blocked(new RuleEvaluation([supply]));
+        }
+
         var restriction = UnitModificationRestrictionRule.Evaluate(
             sources.Select(source => new UnitModificationRestrictionRule.RestrictionFact(
                 source.DonationRestriction,
@@ -791,7 +915,9 @@ public sealed class BloodProductModificationService
             ResultExpiresUtc = resultExpiresUtc,
             Reason = reason,
             PerformedBy = _currentUser.UserName,
-            PerformedUtc = now
+            PerformedUtc = now,
+            SupplyDescription = string.IsNullOrWhiteSpace(supplyDescription) ? null : supplyDescription.Trim(),
+            SupplyLot = string.IsNullOrWhiteSpace(supplyLot) ? null : supplyLot.Trim()
         };
         await _modifications.AddAsync(header, ct);
 
@@ -984,7 +1110,9 @@ public sealed class BloodProductModificationService
                 restriction.Restriction,
                 restriction.ReservedPatientId,
                 ParentVolumeBefore = parentVolumeBefore,
-                ParentVolumeAfter = parentVolumeAfter
+                ParentVolumeAfter = parentVolumeAfter,
+                header.SupplyDescription,
+                header.SupplyLot
             },
             reason: reason);
 

@@ -12,17 +12,17 @@ routes:
 
 ![Inventory](figures/inventory.png)
 
-**Inventory** is the stock list. Search by unit number, product, blood type, status, or location. Available units are the ones you can reserve. Quarantine, hold, missing, and damaged units stay out of routine selection until someone with release permission clears them.
+**Inventory** is the stock list. One board is open at a time: Search, Expected inbound, Retype, Near expiry, Quarantine, Discrepancy, Operational hold, and Open deliveries. Search opens first. Search by unit number, product, blood type, status, or location. Available units are the ones you can reserve. Quarantine, hold, missing, and damaged units stay out of routine selection until someone with release permission clears them.
 
 The row shows the storage location by name. A missing name falls back to the location code so you can still see where the unit was filed.
 
 ## Boards
 
-**Retype** (`board=retype`) is the front-type desk. Received units need a type confirmation before they become available. A match releases the unit. A mismatch quarantines it. An outdated unit that matches is marked expired instead of available. The test worklist lists the same units.
+**Retype** (`board=retype`, including a unit id) opens the front-type desk. Received units need a type confirmation before they become available. A match releases the unit. A mismatch quarantines it. An outdated unit that matches is marked expired instead of available. The test worklist lists the same units and opens this board.
 
-**Quarantine** lists units held for a coded quality reason. The row shows product, location, volume, and any ABO or Rh retype mismatch. Release uses the same second-verifier gate as the unit's manage actions when policy requires two people.
+**Quarantine** (`board=quarantine`) opens units held for a coded quality reason. The row shows product, location, volume, and any ABO or Rh retype mismatch. Release uses the same second-verifier gate as the unit's manage actions when policy requires two people. A unit created by a modification also asks for the unit number on the new label. That scan has to match the result. Other quarantine releases do not ask for it.
 
-Other queues on this screen cover expected inbound units, units near expiry, units on hold, and discrepancy units (missing or damaged). Open the row rather than changing status from memory.
+The other boards cover expected inbound units, units near expiry, units on hold, discrepancy units (missing or damaged), and open deliveries. Open the row rather than changing status from memory.
 
 ## Start the next task
 
