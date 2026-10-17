@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 234)
+## Capability matrix (Cycle 235)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -30,7 +30,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Patient demographics, MRN, visits, location, provider | Present | Chart + ADT. Cycle 227 does not store an ordering-location code as the name when the name is blank. The list shows the location id. A recorded name stays that name. An HL7 mapping code still uses the location code when none was sent. |
 | Alternate identifiers, aliases | Present | Cycle 185–186: prior name on chart edit and ADT; prior MRN from merge; search matches aliases |
 | Duplicate handling / merge | Present | Merge + reason; Cycle 187 unmerge restores the ledger when nothing new has happened since. Pre-ledger merges cannot be undone |
-| Orders, priority, ordering location | Present | Test and product orders |
+| Orders, priority, ordering location | Present | Test and product orders. Cycle 235 keeps the product code on a new or edited order. A blank name stays the product id and is not replaced by the code. The stored name is unchanged. |
 | Specimen collection / receipt / accept | Present | Cycle 181: Collected → Received → Accepted; in-lab accession still accepts immediately |
 | Specimen rejection, expiration, multiple/historical | Present | Reject; expiry gates; patient list |
 | Relabeling controls | Present | Cycle 183: specimen barcode Relabel with required reason; metadata edit cannot change barcode |
@@ -148,6 +148,8 @@ Cycle 232 shows that supplier id on the expected-inbound board when the delivery
 Cycle 233 keeps the product code on a modification-rule choice and on a charge-rule product choice (RISK-BB-488). A blank name stays the product id and is not replaced by the code. The stored name is unchanged. The charge-rule choice does not use an ISBT code as the name.
 
 Cycle 234 keeps the code in the product catalog (RISK-BB-489). A blank name on that list stays the product id. The stored name and the edit form are unchanged.
+
+Cycle 235 keeps the product code on a new or edited order (RISK-BB-490). A blank name stays the product id and is not replaced by the code. The stored name is unchanged.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|

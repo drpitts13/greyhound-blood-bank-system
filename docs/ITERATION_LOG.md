@@ -6416,3 +6416,27 @@ The product catalog showed a blank name as empty beside the code. Staff could re
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. An order still lists a product by name only, so a blank name leaves an empty choice. Keep the code available, and show Product {id} when the name is blank. Do not use the code as the name. The stored name stays unchanged.
+
+## Iteration 235 — Order product choice keeps the code (2026-10-16)
+
+A new or edited order listed each product by name only. A blank name left an empty choice.
+
+### Implemented
+
+- New and edited order product choices use `ProductTypeDto.ChoiceLabel`.
+- The display code stays on the choice. A blank name stays `Product {id}` and is not replaced by the code.
+- The stored product name is unchanged. The checkbox still submits the product type id.
+
+### Requirements / risk
+
+- URS-BB-388, FRS-BB-423, SRS-BB-385, RISK-BB-490.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-278 (`ProductTypeChoiceTests.OrderChoice_KeepsTheCodeAndDoesNotUseItAsTheName`).
+- Order product-choice label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Receiving a delivery or an ISBT unit still lists a product by name only, so a blank name leaves an empty choice. Keep the code available, and show Product {id} when the name is blank. Do not use the code as the name. The stored name stays unchanged.

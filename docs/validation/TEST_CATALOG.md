@@ -286,5 +286,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-275 | I | `ExpectedInboundSupplierLabelTests.SupplierLabel_KeepsTheSupplierIdWhenTheDeliveryNamesABlankSupplier`; `DeliveryServiceTests.ExpectedInbound_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName` | URS-BB-385 / FRS-BB-420 / RISK-BB-487 |
 | TEST-BB-276 | A | `ProductTypeLabelTests.ForChoice_KeepsTheCodeAndTheProductIdWhenTheNameIsBlank`; `ProductTypeLabelTests.Name_KeepsTheProductIdWhenTheNameIsBlank`; `ProductTypeChoiceTests.ChoiceLabel_KeepsTheCodeAndTheProductIdWhenTheNameIsBlank`; `ProductTypeChoiceTests.ChargeRuleChoice_KeepsTheProductCodeAndDoesNotUseTheIsbtCodeAsTheName` | URS-BB-386 / FRS-BB-421 / RISK-BB-488 |
 | TEST-BB-277 | A | `ProductTypeLabelTests.Name_KeepsTheProductIdWhenTheNameIsBlank`; `ProductTypeChoiceTests.NameLabel_KeepsTheProductIdWhenTheNameIsBlank` | URS-BB-387 / FRS-BB-422 / RISK-BB-489 |
+| TEST-BB-278 | A | `ProductTypeChoiceTests.OrderChoice_KeepsTheCodeAndDoesNotUseItAsTheName` | URS-BB-388 / FRS-BB-423 / RISK-BB-490 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

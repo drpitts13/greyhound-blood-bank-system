@@ -14,7 +14,7 @@ The **Orders** tab is where you place the work and see what is already ordered. 
 
 ## Place an order
 
-Select the visit, the ordering provider, and the test, test grouper, or product. A grouper such as a type and screen expands into the member tests. Priority from an interface order, including STAT and ASAP, is stored on the order and shown on the worklist.
+Select the visit, the ordering provider, and the test, test grouper, or product. A product choice keeps the product code. When the name is blank, the choice says Product and the id. The code is not shown as the name, and the stored product name is not changed. A grouper such as a type and screen expands into the member tests. Priority from an interface order, including STAT and ASAP, is stored on the order and shown on the worklist.
 
 Product orders can carry modification actions: irradiate, wash, thaw, volume reduce, or leukoreduce. Those actions are defined in Administration. Completing the action later is done from inventory modification or the product workflow, and it can queue a charge when action billing is mapped.
 

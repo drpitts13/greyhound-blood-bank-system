@@ -97,10 +97,11 @@
                             {
                                 <label class="checkbox-item">
                                     <input type="checkbox" checked="@NewOrderProductTypeIds.Contains(pt.Id)" @onchange="e => OnToggleNewOrderProduct.InvokeAsync((pt.Id, e))" />
-                                    @pt.Name
+                                    @pt.ChoiceLabel
                                 </label>
                             }
                         </div>
+                        <p class="muted">A product choice keeps its code. A blank name stays Product {id} and is not used as the name. The stored name is unchanged.</p>
                         @if (NewOrderProductTypeIds.Count > 0)
                         {
                             <p class="muted" style="margin-top:.75rem;">Modification actions become available after a unit is allocated to this order.</p>
@@ -466,10 +467,11 @@
                                                 {
                                                     <label class="checkbox-item">
                                                         <input type="checkbox" checked="@EditOrderProductTypeIds.Contains(pt.Id)" @onchange="e => OnToggleEditOrderProduct.InvokeAsync((pt.Id, e))" />
-                                                        @pt.Name
+                                                        @pt.ChoiceLabel
                                                     </label>
                                                 }
                                             </div>
+                                            <p class="muted">A product choice keeps its code. A blank name stays Product {id} and is not used as the name. The stored name is unchanged.</p>
                                         </div>
                                     </div>
                                     @if (NeedsOrderXmOverride)

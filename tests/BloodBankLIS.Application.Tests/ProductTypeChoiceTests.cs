@@ -27,6 +27,20 @@ public class ProductTypeChoiceTests
     }
 
     [Fact]
+    public void OrderChoice_KeepsTheCodeAndDoesNotUseItAsTheName()
+    {
+        var blank = ProductTypeDto.From(Product(4, "RBC-LR", "   ", "E0336"));
+        Assert.Equal("E0336 — Product 4", blank.ChoiceLabel);
+        Assert.Equal("   ", blank.Name);
+        Assert.NotEqual(blank.DisplayProductCode, blank.ChoiceLabel);
+        Assert.DoesNotContain("E0336 — E0336", blank.ChoiceLabel);
+
+        var named = ProductTypeDto.From(Product(4, "RBC-LR", " Red Blood Cells ", null));
+        Assert.Equal("RBC-LR — Red Blood Cells", named.ChoiceLabel);
+        Assert.Equal(" Red Blood Cells ", named.Name);
+    }
+
+    [Fact]
     public void ChargeRuleChoice_KeepsTheProductCodeAndDoesNotUseTheIsbtCodeAsTheName()
     {
         var blank = Definition(4, "RBC-LR", "   ", "E0336");
