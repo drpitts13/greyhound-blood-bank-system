@@ -284,5 +284,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-273 | I | `DeliverySupplierLabelTests.SupplierNameLabel_KeepsTheSupplierIdWhenTheNameIsBlank`; `DeliveryServiceTests.BlankSupplierName_ShowsTheSupplierIdAndDoesNotWriteItOnTheUnit` | URS-BB-383 / FRS-BB-418 / RISK-BB-485 |
 | TEST-BB-274 | I | `BloodUnitSupplierLabelTests.SupplierLabel_KeepsTheSupplierIdWhenTheDeliveryNamesABlankSupplier`; `DeliveryServiceTests.UnitChart_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName` | URS-BB-384 / FRS-BB-419 / RISK-BB-486 |
 | TEST-BB-275 | I | `ExpectedInboundSupplierLabelTests.SupplierLabel_KeepsTheSupplierIdWhenTheDeliveryNamesABlankSupplier`; `DeliveryServiceTests.ExpectedInbound_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName` | URS-BB-385 / FRS-BB-420 / RISK-BB-487 |
+| TEST-BB-276 | A | `ProductTypeLabelTests.ForChoice_KeepsTheCodeAndTheProductIdWhenTheNameIsBlank`; `ProductTypeLabelTests.Name_KeepsTheProductIdWhenTheNameIsBlank`; `ProductTypeChoiceTests.ChoiceLabel_KeepsTheCodeAndTheProductIdWhenTheNameIsBlank`; `ProductTypeChoiceTests.ChargeRuleChoice_KeepsTheProductCodeAndDoesNotUseTheIsbtCodeAsTheName` | URS-BB-386 / FRS-BB-421 / RISK-BB-488 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

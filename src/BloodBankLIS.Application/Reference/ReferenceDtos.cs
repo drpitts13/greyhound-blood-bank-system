@@ -21,6 +21,12 @@ public sealed record ProductTypeDto(
     public string DisplayProductCode =>
         string.IsNullOrWhiteSpace(Isbt128ProductCode) ? ProductCode : Isbt128ProductCode;
 
+    /// <summary>
+    /// Choice label. The display code stays so staff can select the product.
+    /// A blank name stays the product id and is not replaced by the code.
+    /// </summary>
+    public string ChoiceLabel => ProductTypeLabel.ForChoice(Id, DisplayProductCode, Name);
+
     public static ProductTypeDto From(ProductType t) => new(
         t.Id, t.ProductCode, t.Name, t.ComponentClass, t.DefaultShelfLifeHours, t.RequiresCrossmatch, t.IsActive,
         t.Isbt128ProductCode, t.RequiresRetype);

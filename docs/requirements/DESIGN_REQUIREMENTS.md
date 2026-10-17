@@ -386,3 +386,4 @@
 | SRS-BB-380 | Open-delivery and unit-entry labels use `BloodSupplierLabel.Name`. `DeliveryReceiveContext.SupplierName` stays the stored name and is what is written on the unit. | FRS-BB-418 |
 | SRS-BB-381 | The unit chart uses `BloodUnitDto.SupplierLabel`. A blank name uses the delivery's supplier id. The stored supplier and collection facility are not rewritten. No delivery adds no supplier. | FRS-BB-419 |
 | SRS-BB-382 | The expected-inbound board uses `ExpectedInboundWorkItemDto.SupplierLabel`. A blank name uses the delivery's supplier id. The stored supplier and collection facility are not rewritten. No delivery adds no supplier. | FRS-BB-420 |
+| SRS-BB-383 | Modification-rule choices use `ProductTypeDto.ChoiceLabel`. Charge-rule choices use `ProductDefinitionDto.ChoiceLabel`. A blank name stays the product id. The stored name is not rewritten. An ISBT code is not the charge-rule name. | FRS-BB-421 |

@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Admin;
@@ -290,7 +291,14 @@ public sealed record ProductDefinitionDto(
     string? RhNegativeRetypeTestCode = null,
     string? RhNegativeRetypeTestName = null,
     IReadOnlyList<ProductAboCompatibilityDto>? AboCompatibilities = null,
-    IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null);
+    IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null)
+{
+    /// <summary>
+    /// Charge-rule choice. The facility product code stays so the trigger key can be selected.
+    /// A blank name stays the product id. The ISBT code is not used as the name.
+    /// </summary>
+    public string ChoiceLabel => ProductTypeLabel.ForChoice(Id, ProductCode, Name);
+}
 
 public sealed record ProductAttributeAssignmentDto(long AttributeId, string Code, string Name, bool IsRequired);
 

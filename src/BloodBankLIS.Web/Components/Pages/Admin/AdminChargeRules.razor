@@ -18,7 +18,7 @@
         }
     </div>
 </div>
-<p class="muted">Map a billing trigger to a charge code. Leave the trigger key blank to apply to every event of that type; otherwise match a test code (result verified) or product code (unit issued).</p>
+<p class="muted">Map a billing trigger to a charge code. Leave the trigger key blank to apply to every event of that type; otherwise match a test code (result verified) or product code (unit issued). A product choice keeps its product code. A blank name stays Product {id} and is not replaced by the code.</p>
 
 <Outcome Value="_feedback" />
 
@@ -260,8 +260,8 @@
 
     private static string FormatTest(TestDefinitionDto t) => $"{t.Code} — {t.Name}";
     private static string SearchTest(TestDefinitionDto t) => $"{t.Code} {t.Name}";
-    private static string FormatProduct(ProductDefinitionDto p) => $"{p.ProductCode} — {p.Name}";
-    private static string SearchProduct(ProductDefinitionDto p) => $"{p.ProductCode} {p.Name}";
+    private static string FormatProduct(ProductDefinitionDto p) => p.ChoiceLabel;
+    private static string SearchProduct(ProductDefinitionDto p) => $"{p.ProductCode} {p.Name} {p.ChoiceLabel}";
 
     private sealed class ChargeRuleDraft
     {

@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 232)
+## Capability matrix (Cycle 233)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -47,7 +47,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Worklists: tests, retype, near-expiry, issue, reactions, inbound | Present | Pending specimens Cycle 181; supervisor queue Cycle 184 |
 | Assigned products / outstanding transfusions | Present | Ready to issue; outstanding issued. Cycle 224 keeps a blank storage location name as the location id on Ready to issue and on reserved products. A location code is not shown. A unit with no location stays omitted. A location list that cannot be loaded does not invent a name. |
 | Shift handoff / supervisor queues | Present | Cycle 182 handoff; Cycle 184 permission-scoped supervisor worklist |
-| Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033). Cycle 226 keeps the code in the inventory-location catalog. A blank name on that list stays the location id. The stored name and the edit form are unchanged. Cycle 229 keeps the code in the blood-supplier catalog. A blank name on that list stays the supplier id. The stored name and the edit form are unchanged. |
+| Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033). Cycle 226 keeps the code in the inventory-location catalog. A blank name on that list stays the location id. The stored name and the edit form are unchanged. Cycle 229 keeps the code in the blood-supplier catalog. A blank name on that list stays the supplier id. The stored name and the edit form are unchanged. Cycle 233 keeps the product code on a modification-rule choice and on a charge-rule product choice. A blank name stays the product id and is not replaced by the code. The stored name is unchanged. |
 | HL7 ADT/ORM/ORU, BPAM, retry/error, downtime snapshot | Partial | v2 present; FHIR absent; MLLP transport-trust |
 | Audit of clinically important actions | Present | Append-only hash chain; no purge |
 
@@ -144,6 +144,8 @@ Cycle 230 shows a blank supplier name as the supplier id on an open delivery and
 Cycle 231 shows that supplier id on the unit when the delivery names the supplier (RISK-BB-486). The stored supplier and collection facility stay unchanged. A unit with no delivery does not invent a supplier.
 
 Cycle 232 shows that supplier id on the expected-inbound board when the delivery names the supplier (RISK-BB-487). A unit with no delivery does not invent a supplier. The stored supplier and collection facility stay unchanged.
+
+Cycle 233 keeps the product code on a modification-rule choice and on a charge-rule product choice (RISK-BB-488). A blank name stays the product id and is not replaced by the code. The stored name is unchanged. The charge-rule choice does not use an ISBT code as the name.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|

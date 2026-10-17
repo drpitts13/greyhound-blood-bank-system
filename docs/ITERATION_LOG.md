@@ -6367,3 +6367,28 @@ The expected-inbound board showed a blank supplier name as empty. Staff could mi
 ### Next ranked residual
 
 Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A product choice still joins the code and the name, so a blank name can leave the code looking like the product. Keep the code available for selection, and do not use the code as the name.
+
+## Iteration 233 — Product choice keeps the code (2026-10-16)
+
+A modification-rule choice and a charge-rule product choice joined the code and the name. A blank name left the code looking like the product.
+
+### Implemented
+
+- `ProductTypeLabel.ForChoice` keeps the code and shows `Product {id}` when the name is blank.
+- Modification-rule source and target choices use that label. The display code stays the ISBT code when one is recorded, otherwise the facility product code.
+- Charge-rule product choices keep the facility product code. An ISBT code is not used as the name.
+- The stored product name is unchanged.
+
+### Requirements / risk
+
+- URS-BB-386, FRS-BB-421, SRS-BB-383, RISK-BB-488.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-276 (`ProductTypeLabelTests`; `ProductTypeChoiceTests`).
+- Product-choice label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The product catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Product {id} on the list. Do not write that label onto the product. The stored name and the edit form stay unchanged.
