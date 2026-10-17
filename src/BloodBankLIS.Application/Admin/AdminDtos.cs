@@ -298,6 +298,12 @@ public sealed record ProductDefinitionDto(
     /// A blank name stays the product id. The ISBT code is not used as the name.
     /// </summary>
     public string ChoiceLabel => ProductTypeLabel.ForChoice(Id, ProductCode, Name);
+
+    /// <summary>
+    /// Catalog list. A blank name stays the product id.
+    /// The product code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => ProductTypeLabel.Name(Id, Name);
 }
 
 public sealed record ProductAttributeAssignmentDto(long AttributeId, string Code, string Name, bool IsRequired);

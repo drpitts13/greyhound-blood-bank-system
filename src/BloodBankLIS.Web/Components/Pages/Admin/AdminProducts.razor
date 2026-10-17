@@ -15,7 +15,7 @@
         }
     </div>
 </div>
-<p class="muted">Product types, attributes, and issue/return rules. Intake product codes live on ISBT Product Codes; issue charges live on Product Billing.</p>
+<p class="muted">Product types, attributes, and issue/return rules. Intake product codes live on ISBT Product Codes; issue charges live on Product Billing. The list keeps the product code. A blank name stays Product {id}. That label is not written onto the product, and the edit form keeps the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -37,7 +37,7 @@
                 {
                     <tr>
                         <td class="mono">@p.ProductCode</td>
-                        <td>@p.Name</td>
+                        <td>@p.NameLabel</td>
                         <td>@p.ComponentClass</td>
                         <td>@(p.RequiresCrossmatch ? "Yes" : "No")</td>
                         <td>

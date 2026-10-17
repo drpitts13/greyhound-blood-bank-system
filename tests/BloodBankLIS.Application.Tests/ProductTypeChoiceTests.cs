@@ -41,6 +41,23 @@ public class ProductTypeChoiceTests
         Assert.Equal(" Red Blood Cells ", named.Name);
     }
 
+    [Fact]
+    public void NameLabel_KeepsTheProductIdWhenTheNameIsBlank()
+    {
+        var named = Definition(4, "RBC-LR", " Red Blood Cells ", null);
+        Assert.Equal("Red Blood Cells", named.NameLabel);
+        Assert.Equal(" Red Blood Cells ", named.Name);
+        Assert.Equal("RBC-LR", named.ProductCode);
+
+        var blank = Definition(4, "RBC-LR", "   ", "E0336");
+        Assert.Equal("Product 4", blank.NameLabel);
+        Assert.Equal("   ", blank.Name);
+        Assert.Equal("RBC-LR", blank.ProductCode);
+        Assert.Equal("E0336", blank.Isbt128ProductCode);
+        Assert.DoesNotContain("RBC-LR", blank.NameLabel);
+        Assert.DoesNotContain("E0336", blank.NameLabel);
+    }
+
     private static ProductType Product(long id, string code, string name, string? isbt) => new()
     {
         Id = id,

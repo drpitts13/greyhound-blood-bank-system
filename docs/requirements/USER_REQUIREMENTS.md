@@ -392,3 +392,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-384 | Staff reading a unit can see a blank supplier name as the supplier id when the delivery names that supplier. | P1 | FRS-BB-419 |
 | URS-BB-385 | Staff reading the expected-inbound board can see a blank supplier name as the supplier id when the delivery names that supplier. | P1 | FRS-BB-420 |
 | URS-BB-386 | Staff choosing a product for a modification rule or a charge rule can select it by code and still read a blank name as the product id. | P1 | FRS-BB-421 |
+| URS-BB-387 | Staff reading the product catalog can see a blank name as the product id while the code stays in the catalog. | P1 | FRS-BB-422 |
