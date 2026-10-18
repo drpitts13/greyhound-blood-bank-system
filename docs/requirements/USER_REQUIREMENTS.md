@@ -408,3 +408,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-400 | Staff reading the test-grouper catalog can see a blank name as the grouper id while the code stays in the catalog. | P1 | FRS-BB-435 |
 | URS-BB-401 | Staff reading the phase catalog can see a blank name as the phase id while the code stays in the catalog. | P1 | FRS-BB-436 |
 | URS-BB-402 | Staff reading the blood-attribute catalog can see a blank antigen name as the attribute id and a blank antibody name as that same id, while the code stays in the catalog. | P1 | FRS-BB-437 |
+| URS-BB-403 | Staff reading the special-requirement catalog can see a blank name as the requirement id while the code stays in the catalog. | P1 | FRS-BB-438 |
