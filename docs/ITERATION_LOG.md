@@ -6648,3 +6648,26 @@ The test catalog listed each test by its stored name. A blank name left an empty
 ### Next ranked residual
 
 The subtest catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Subtest {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 246 — Subtest catalog keeps the code (2026-10-17)
+
+The subtest catalog listed each subtest by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The subtest catalog name column uses `SubtestDefinitionDto.NameLabel`.
+- The code stays in the catalog. A blank name stays `Subtest {id}` and is not replaced by the code.
+- The stored name is unchanged. The edit form still binds that stored name. The filter can match the list label.
+
+### Requirements / risk
+
+- URS-BB-399, FRS-BB-434, SRS-BB-396, RISK-BB-501.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-289 (`SubtestDefinitionChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The test-grouper catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Grouper {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.

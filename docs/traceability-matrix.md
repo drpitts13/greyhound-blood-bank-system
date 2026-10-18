@@ -435,6 +435,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-396 / FRS-BB-431 | Dashboard lists the bench queues the signed-in user can already open | `DashboardQueueCatalog`; `IssuingDeskQuery`; `Home.razor` | TEST-BB-286 | A | Does not claim AABB compliance. Issue, ward receipt, result, and investigation gates are unchanged |
 | URS-BB-397 / FRS-BB-432 | A new or edited order keeps the test code and shows the test id when the name is blank | `TestDefinitionLabel`; `TestDefinitionListItemDto.NameLabel`; `PatientChartOrdersTab.razor` | TEST-BB-287 | A | Does not claim AABB compliance. The stored line name is unchanged |
 | URS-BB-398 / FRS-BB-433 | The test catalog keeps the code and shows the test id when the name is blank | `TestDefinitionLabel`; `TestDefinitionDto.NameLabel`; `AdminTests.razor` | TEST-BB-288 | A | Does not claim AABB compliance. The stored name and the edit form are unchanged |
+| URS-BB-399 / FRS-BB-434 | The subtest catalog keeps the code and shows the subtest id when the name is blank | `SubtestDefinitionLabel`; `SubtestDefinitionDto.NameLabel`; `AdminSubtests.razor` | TEST-BB-289 | A | Does not claim AABB compliance. The stored name and the edit form are unchanged |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

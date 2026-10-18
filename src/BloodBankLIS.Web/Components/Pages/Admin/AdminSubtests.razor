@@ -17,7 +17,7 @@
         }
     </div>
 </div>
-<p class="muted">Reusable panel subtests: graded reactions, pick lists, and free text with polarity for logic tables. Phases (IS, 37°C, AHG) are assigned here and used on Tests.</p>
+<p class="muted">Reusable panel subtests: graded reactions, pick lists, and free text with polarity for logic tables. Phases (IS, 37°C, AHG) are assigned here and used on Tests. The list keeps the subtest code. A blank name stays Subtest {id}. That label is not written onto the subtest, and the edit form keeps the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -44,7 +44,7 @@
                 {
                     <tr>
                         <td class="mono">@s.Code</td>
-                        <td>@s.Name</td>
+                        <td>@s.NameLabel</td>
                         <td>@s.ResultType</td>
                         <td>@s.Choices.Count</td>
                         <td>@s.Version</td>
@@ -168,7 +168,8 @@
     private List<SubtestDefinitionDto> Filtered => string.IsNullOrWhiteSpace(_filter)
         ? _items
         : _items.Where(s => s.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-            || s.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+            || s.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || s.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
 
     protected override Task OnInitializedAsync() => LoadAsync();
 

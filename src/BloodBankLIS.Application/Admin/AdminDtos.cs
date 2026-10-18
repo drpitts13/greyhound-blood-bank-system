@@ -19,7 +19,14 @@ public sealed record SubtestDefinitionDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the subtest id.
+    /// The subtest code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => SubtestDefinitionLabel.Name(Id, Name);
+}
 
 public sealed record SaveSubtestDefinitionRequest(
     string Code,
