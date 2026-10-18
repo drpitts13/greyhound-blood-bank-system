@@ -60,7 +60,14 @@ public sealed record PhaseDefinitionDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the phase id.
+    /// The phase code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => PhaseDefinitionLabel.Name(Id, Name);
+}
 
 public sealed record SavePhaseDefinitionRequest(
     string Code,

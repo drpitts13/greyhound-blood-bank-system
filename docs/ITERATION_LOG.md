@@ -6694,3 +6694,26 @@ The test-grouper catalog listed each grouper by its stored name. A blank name le
 ### Next ranked residual
 
 The phase catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Phase {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 248 — Phase catalog keeps the code (2026-10-17)
+
+The phase catalog listed each phase by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The phase catalog name column uses `PhaseDefinitionDto.NameLabel`.
+- The code stays in the catalog. A blank name stays `Phase {id}` and is not replaced by the code.
+- The stored name is unchanged. The edit form still binds that stored name. The filter can match the list label.
+
+### Requirements / risk
+
+- URS-BB-401, FRS-BB-436, SRS-BB-398, RISK-BB-503.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-291 (`PhaseDefinitionChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The blood-attribute catalog still shows a blank antigen name or a blank antibody name as empty beside the code. Keep the code in the catalog. Show Attribute {id} when the antigen name is blank, and Antibody {id} when the antibody name is blank. Do not rewrite the stored names or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.

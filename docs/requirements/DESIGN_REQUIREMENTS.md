@@ -401,3 +401,4 @@
 | SRS-BB-395 | The test list uses `TestDefinitionDto.NameLabel`. The code column stays the stored code. A blank name stays the test id. The stored name is not rewritten. The edit form binds the stored name. | FRS-BB-433 |
 | SRS-BB-396 | The subtest list uses `SubtestDefinitionDto.NameLabel`. The code column stays the stored code. A blank name stays the subtest id. The stored name is not rewritten. The edit form binds the stored name. | FRS-BB-434 |
 | SRS-BB-397 | The test-grouper list uses `TestGrouperDto.NameLabel`. The code column stays the stored code. A blank name stays the grouper id. The stored name is not rewritten. The edit form binds the stored name. | FRS-BB-435 |
+| SRS-BB-398 | The phase list uses `PhaseDefinitionDto.NameLabel`. The code column stays the stored code. A blank name stays the phase id. The stored name is not rewritten. The edit form binds the stored name. | FRS-BB-436 |

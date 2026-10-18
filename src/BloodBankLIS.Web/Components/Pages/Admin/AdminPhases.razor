@@ -16,7 +16,7 @@
         }
     </div>
 </div>
-<p class="muted">Reaction phases (IS, 37°C, AHG, check cells) assigned to panel subtests and interpretation tables.</p>
+<p class="muted">Reaction phases (IS, 37°C, AHG, check cells) assigned to panel subtests and interpretation tables. The list keeps the phase code. A blank name stays Phase {id}. That label is not written onto the phase, and the edit form keeps the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -43,7 +43,7 @@
                 {
                     <tr>
                         <td class="mono">@p.Code</td>
-                        <td>@p.Name</td>
+                        <td>@p.NameLabel</td>
                         <td>@p.SortOrder</td>
                         <td>@(p.IncludeInInterpretation ? "Yes" : "No")</td>
                         <td>@(p.IsCheckCell ? (string.IsNullOrWhiteSpace(p.ValidatesPhaseCode) ? "Yes" : $"Yes → {p.ValidatesPhaseCode}") : "No")</td>
@@ -134,7 +134,8 @@
     private List<PhaseDefinitionDto> Filtered => string.IsNullOrWhiteSpace(_filter)
         ? _items
         : _items.Where(p => p.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-            || p.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+            || p.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || p.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
