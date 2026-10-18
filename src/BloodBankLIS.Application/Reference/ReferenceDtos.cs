@@ -71,10 +71,21 @@ public sealed record OrderingProviderRefDto(long Id, string ProviderId, string N
         p.Id, p.ProviderId, p.Name, p.Specialty, p.Location);
 }
 
-public sealed record TestDefinitionListItemDto(string Code, string Name, TestCategory Category, string? RequiredSpecimenType = null)
+public sealed record TestDefinitionListItemDto(
+    string Code,
+    string Name,
+    TestCategory Category,
+    string? RequiredSpecimenType = null,
+    long Id = 0)
 {
+    /// <summary>
+    /// Name on a new or edited order. A blank name stays the test id.
+    /// The code is not used as the name. The stored line name is unchanged.
+    /// </summary>
+    public string NameLabel => TestDefinitionLabel.Name(Id, Name);
+
     public static TestDefinitionListItemDto From(TestDefinition t) =>
-        new(t.Code, t.Name, t.Category, t.RequiredSpecimenType);
+        new(t.Code, t.Name, t.Category, t.RequiredSpecimenType, t.Id);
 }
 
 public sealed record DirectoryUserDto(string UserName, string DisplayName)

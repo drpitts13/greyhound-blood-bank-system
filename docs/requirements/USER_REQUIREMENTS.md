@@ -402,3 +402,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-394 | Staff can apply one modification rule and one reason to several units. If any unit is ineligible, none are modified. | P1 | FRS-BB-429 |
 | URS-BB-395 | Staff can see available stock against a configurable minimum by product and optional ABO. The board does not place a blood-center order. | P1 | FRS-BB-430 |
 | URS-BB-396 | After sign-in, staff see the bench queues they can already open, and each count opens that queue. A queue they cannot open is omitted. A queue that does not load is not shown as zero. | P1 | FRS-BB-431 |
+| URS-BB-397 | Staff placing or editing an order can select a test by its code and still read a blank name as the test id. | P1 | FRS-BB-432 |

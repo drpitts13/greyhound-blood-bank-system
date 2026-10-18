@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 243)
+## Capability matrix (Cycle 244)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -30,7 +30,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Patient demographics, MRN, visits, location, provider | Present | Chart + ADT. Cycle 227 does not store an ordering-location code as the name when the name is blank. The list shows the location id. A recorded name stays that name. An HL7 mapping code still uses the location code when none was sent. |
 | Alternate identifiers, aliases | Present | Cycle 185–186: prior name on chart edit and ADT; prior MRN from merge; search matches aliases |
 | Duplicate handling / merge | Present | Merge + reason; Cycle 187 unmerge restores the ledger when nothing new has happened since. Pre-ledger merges cannot be undone |
-| Orders, priority, ordering location | Present | Test and product orders. Cycle 235 keeps the product code on a new or edited order. A blank name stays the product id and is not replaced by the code. The stored name is unchanged. |
+| Orders, priority, ordering location | Present | Test and product orders. Cycle 235 keeps the product code on a new or edited order. A blank name stays the product id and is not replaced by the code. The stored name is unchanged. Cycle 244 keeps the test code on a new or edited order. A blank name stays the test id and is not replaced by the code. The stored name is unchanged. |
 | Specimen collection / receipt / accept | Present | Cycle 181: Collected → Received → Accepted; in-lab accession still accepts immediately |
 | Specimen rejection, expiration, multiple/historical | Present | Reject; expiry gates; patient list |
 | Relabeling controls | Present | Cycle 183: specimen barcode Relabel with required reason; metadata edit cannot change barcode |
@@ -152,6 +152,8 @@ Cycle 234 keeps the code in the product catalog (RISK-BB-489). A blank name on t
 Cycle 235 keeps the product code on a new or edited order (RISK-BB-490). A blank name stays the product id and is not replaced by the code. The stored name is unchanged.
 
 Cycle 243 puts the existing bench queues on the dashboard (RISK-BB-498). Each card is limited to a permission that can already open that queue. A failed load stays an em dash. Retrospective due time, in-transit arrival, and fatality follow-up are named only when that stored count is above zero. Issue, ward receipt, result, and investigation gates are unchanged.
+
+Cycle 244 keeps the test code on a new or edited order (RISK-BB-499). A blank name stays the test id and is not replaced by the code. The stored name is unchanged. The checkbox still submits the test code.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|

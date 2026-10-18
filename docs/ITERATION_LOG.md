@@ -6602,3 +6602,26 @@ The home screen counted patients and inventory. Retrospective crossmatch, in tra
 ### Next ranked residual
 
 A new or edited order still lists a test by its stored name. A blank name leaves an empty label beside the code, and a missing catalog name is stored as the code. Keep the code available, and show a stable test id when the name is blank. Do not rewrite a name that is already stored. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 244 — Order test choice keeps the code (2026-10-17)
+
+A new or edited order listed each test by name only. A blank name left an empty choice beside the code.
+
+### Implemented
+
+- New and edited order test choices use `TestDefinitionListItemDto.NameLabel`.
+- The code stays on the choice. A blank name stays `Test {id}` and is not replaced by the code.
+- A recorded name stays that name. The stored line name is unchanged. The checkbox still submits the test code.
+
+### Requirements / risk
+
+- URS-BB-397, FRS-BB-432, SRS-BB-394, RISK-BB-499.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-287 (`TestDefinitionChoiceTests.OrderChoice_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The test catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Test {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.

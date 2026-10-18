@@ -295,5 +295,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-284 | I | `BloodProductModificationServiceTests.ApplyBatch_IneligibleUnit_ModifiesNone`; `BloodProductModificationServiceTests.ApplyBatch_AllEligible_ModifiesEach` | URS-BB-394 / FRS-BB-429 / RISK-BB-496 |
 | TEST-BB-285 | I | `CompetitorGapRuleTests`; `CompetitorGapWorkflowTests.StockPar_ShowsOnHandAgainstTheMinimum` | URS-BB-395 / FRS-BB-430 / RISK-BB-497 |
 | TEST-BB-286 | A | `DashboardQueueCatalogTests` | URS-BB-396 / FRS-BB-431 / RISK-BB-498 |
+| TEST-BB-287 | A | `TestDefinitionChoiceTests.OrderChoice_KeepsTheCodeAndDoesNotUseItAsTheName` | URS-BB-397 / FRS-BB-432 / RISK-BB-499 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).
