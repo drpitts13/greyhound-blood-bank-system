@@ -405,3 +405,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-397 | Staff placing or editing an order can select a test by its code and still read a blank name as the test id. | P1 | FRS-BB-432 |
 | URS-BB-398 | Staff reading the test catalog can see a blank name as the test id while the code stays in the catalog. | P1 | FRS-BB-433 |
 | URS-BB-399 | Staff reading the subtest catalog can see a blank name as the subtest id while the code stays in the catalog. | P1 | FRS-BB-434 |
+| URS-BB-400 | Staff reading the test-grouper catalog can see a blank name as the grouper id while the code stays in the catalog. | P1 | FRS-BB-435 |

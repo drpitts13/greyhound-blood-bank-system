@@ -17,7 +17,7 @@
         }
     </div>
 </div>
-<p class="muted">Bundle tests (for example Type and Screen) so an order expands into member test lines. Members are Test Definitions.</p>
+<p class="muted">Bundle tests (for example Type and Screen) so an order expands into member test lines. Members are Test Definitions. The list keeps the grouper code. A blank name stays Grouper {id}. That label is not written onto the grouper, and the edit form keeps the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -44,7 +44,7 @@
                 {
                     <tr>
                         <td class="mono">@g.Code</td>
-                        <td>@g.Name</td>
+                        <td>@g.NameLabel</td>
                         <td>@string.Join(", ", g.Members.Select(m => m.TestCode))</td>
                         <td>@g.Version</td>
                         <td>@StatusBadge(g)</td>
@@ -136,7 +136,8 @@
     private List<TestGrouperDto> Filtered => string.IsNullOrWhiteSpace(_filter)
         ? _items
         : _items.Where(g => g.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-            || g.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+            || g.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || g.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
 
     protected override async Task OnInitializedAsync()
     {

@@ -159,7 +159,14 @@ public sealed record TestGrouperDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the grouper id.
+    /// The grouper code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => TestGrouperLabel.Name(Id, Name);
+}
 
 public sealed record SaveTestGrouperRequest(
     string Code,

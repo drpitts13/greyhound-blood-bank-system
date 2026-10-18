@@ -19,7 +19,7 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
-## Capability matrix (Cycle 246)
+## Capability matrix (Cycle 247)
 
 Status is relative to a mature transfusion-service LIS. Present means a
 working path exists; Partial means the domain exists but a bench workflow
@@ -47,7 +47,7 @@ is incomplete. Do not treat Present as AABB/FDA certification.
 | Worklists: tests, retype, near-expiry, issue, reactions, inbound | Present | Pending specimens Cycle 181; supervisor queue Cycle 184. Cycle 243 puts ready to issue, second ABO, retrospective crossmatch, in transit, outstanding issued, final disposition, pending tests, pending specimens, reactions, the supervisor queue, and an open shift handoff on the dashboard for the permissions that can already open them. A failed load stays an em dash. |
 | Assigned products / outstanding transfusions | Present | Ready to issue; outstanding issued. Cycle 224 keeps a blank storage location name as the location id on Ready to issue and on reserved products. A location code is not shown. A unit with no location stays omitted. A location list that cannot be loaded does not invent a name. |
 | Shift handoff / supervisor queues | Present | Cycle 182 handoff; Cycle 184 permission-scoped supervisor worklist. Cycle 243 shows an open handoff and the supervisor count on the dashboard when those permissions are already held. |
-| Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033). Cycle 226 keeps the code in the inventory-location catalog. A blank name on that list stays the location id. The stored name and the edit form are unchanged. Cycle 229 keeps the code in the blood-supplier catalog. A blank name on that list stays the supplier id. The stored name and the edit form are unchanged. Cycle 233 keeps the product code on a modification-rule choice and on a charge-rule product choice. A blank name stays the product id and is not replaced by the code. The stored name is unchanged. Cycle 234 keeps the code in the product catalog. A blank name on that list stays the product id. The stored name and the edit form are unchanged. Cycle 245 keeps the code in the test catalog. A blank name on that list stays the test id. The stored name and the edit form are unchanged. Cycle 246 keeps the code in the subtest catalog. A blank name on that list stays the subtest id. The stored name and the edit form are unchanged. |
+| Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033). Cycle 226 keeps the code in the inventory-location catalog. A blank name on that list stays the location id. The stored name and the edit form are unchanged. Cycle 229 keeps the code in the blood-supplier catalog. A blank name on that list stays the supplier id. The stored name and the edit form are unchanged. Cycle 233 keeps the product code on a modification-rule choice and on a charge-rule product choice. A blank name stays the product id and is not replaced by the code. The stored name is unchanged. Cycle 234 keeps the code in the product catalog. A blank name on that list stays the product id. The stored name and the edit form are unchanged. Cycle 245 keeps the code in the test catalog. A blank name on that list stays the test id. The stored name and the edit form are unchanged. Cycle 246 keeps the code in the subtest catalog. A blank name on that list stays the subtest id. The stored name and the edit form are unchanged. Cycle 247 keeps the code in the test-grouper catalog. A blank name on that list stays the grouper id. The stored name and the edit form are unchanged. |
 | HL7 ADT/ORM/ORU, BPAM, retry/error, downtime snapshot | Partial | v2 present; FHIR absent; MLLP transport-trust |
 | Audit of clinically important actions | Present | Append-only hash chain; no purge |
 
@@ -158,6 +158,8 @@ Cycle 244 keeps the test code on a new or edited order (RISK-BB-499). A blank na
 Cycle 245 keeps the code in the test catalog (RISK-BB-500). A blank name on that list stays the test id. The stored name and the edit form are unchanged.
 
 Cycle 246 keeps the code in the subtest catalog (RISK-BB-501). A blank name on that list stays the subtest id. The stored name and the edit form are unchanged.
+
+Cycle 247 keeps the code in the test-grouper catalog (RISK-BB-502). A blank name on that list stays the grouper id. The stored name and the edit form are unchanged.
 
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|
