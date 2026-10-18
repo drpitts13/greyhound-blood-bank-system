@@ -195,7 +195,14 @@ public sealed record ReflexRuleDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the reflex rule id.
+    /// The rule code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => ReflexRuleLabel.Name(Id, Name);
+}
 
 public sealed record SaveReflexRuleRequest(
     string Code,

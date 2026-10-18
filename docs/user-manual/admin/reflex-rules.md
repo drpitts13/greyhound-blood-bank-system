@@ -10,7 +10,7 @@ routes:
 
 ![Reflex rules](figures/admin-reflex-rules.png)
 
-**Reflex Rules** add a test when a verified result matches a trigger value. The added test is placed on the same order and specimen. It shows up on the worklist like any other unordered-until-now test.
+**Reflex Rules** add a test when a verified result matches a trigger value. The added test is placed on the same order and specimen. It shows up on the worklist like any other unordered-until-now test. The list keeps the rule code. When the name is blank, the list says Reflex and the id. That wording is not saved, and the edit form still shows the stored name.
 
 Choose the trigger test, the value, and the reflex test. A trigger that is too broad (any result, or a value the test rarely uses) will add the reflex test on almost every verification. Confirm the value against the test definition's result codes, not against a nickname.
 
