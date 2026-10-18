@@ -300,5 +300,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-289 | A | `SubtestDefinitionChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName` | URS-BB-399 / FRS-BB-434 / RISK-BB-501 |
 | TEST-BB-290 | A | `TestGrouperChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName` | URS-BB-400 / FRS-BB-435 / RISK-BB-502 |
 | TEST-BB-291 | A | `PhaseDefinitionChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName` | URS-BB-401 / FRS-BB-436 / RISK-BB-503 |
+| TEST-BB-292 | A | `BloodAttributeChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName` | URS-BB-402 / FRS-BB-437 / RISK-BB-504 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

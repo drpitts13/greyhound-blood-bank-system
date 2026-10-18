@@ -6717,3 +6717,27 @@ The phase catalog listed each phase by its stored name. A blank name left an emp
 ### Next ranked residual
 
 The blood-attribute catalog still shows a blank antigen name or a blank antibody name as empty beside the code. Keep the code in the catalog. Show Attribute {id} when the antigen name is blank, and Antibody {id} when the antibody name is blank. Do not rewrite the stored names or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 249 — Blood-attribute catalog keeps the code (2026-10-17)
+
+The blood-attribute catalog listed each antigen and antibody by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The antigen column uses `BloodAttributeDefinitionDto.NameLabel`.
+- The antibody column uses `BloodAttributeDefinitionDto.AntibodyNameLabel`.
+- The code stays in the catalog. A blank antigen name stays `Attribute {id}`. A blank antibody name stays `Antibody {id}` and is not replaced by the antigen name or the code.
+- The stored names are unchanged. The edit form still binds those stored names. The filter can match either list label.
+
+### Requirements / risk
+
+- URS-BB-402, FRS-BB-437, SRS-BB-399, RISK-BB-504.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-292 (`BloodAttributeChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The special-requirement catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Requirement {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.

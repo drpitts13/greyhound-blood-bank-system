@@ -438,6 +438,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-399 / FRS-BB-434 | The subtest catalog keeps the code and shows the subtest id when the name is blank | `SubtestDefinitionLabel`; `SubtestDefinitionDto.NameLabel`; `AdminSubtests.razor` | TEST-BB-289 | A | Does not claim AABB compliance. The stored name and the edit form are unchanged |
 | URS-BB-400 / FRS-BB-435 | The test-grouper catalog keeps the code and shows the grouper id when the name is blank | `TestGrouperLabel`; `TestGrouperDto.NameLabel`; `AdminTestGroupers.razor` | TEST-BB-290 | A | Does not claim AABB compliance. The stored name and the edit form are unchanged |
 | URS-BB-401 / FRS-BB-436 | The phase catalog keeps the code and shows the phase id when the name is blank | `PhaseDefinitionLabel`; `PhaseDefinitionDto.NameLabel`; `AdminPhases.razor` | TEST-BB-291 | A | Does not claim AABB compliance. The stored name and the edit form are unchanged |
+| URS-BB-402 / FRS-BB-437 | The blood-attribute catalog keeps the code and shows the attribute id when an antigen or antibody name is blank | `BloodAttributeLabel`; `BloodAttributeDefinitionDto`; `AdminBloodAttributes.razor` | TEST-BB-292 | A | Does not claim AABB compliance. The stored names and the edit form are unchanged |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

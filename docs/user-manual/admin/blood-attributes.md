@@ -10,7 +10,7 @@ routes:
 
 ![Blood attributes](figures/admin-blood-attributes.png)
 
-**Blood Attributes** is the antigen and antibody list. Patient antibody history, unit antigen typing, and compatibility rules reference these codes. A specificity that is not in the catalog cannot be posted from an identification workup and cannot be required as antigen-negative.
+**Blood Attributes** is the antigen and antibody list. Patient antibody history, unit antigen typing, and compatibility rules reference these codes. A specificity that is not in the catalog cannot be posted from an identification workup and cannot be required as antigen-negative. The list keeps the attribute code. When the antigen name is blank, the list says Attribute and the id. When the antibody name is blank, the list says Antibody and the id. That wording is not saved, and the edit form still shows the stored names.
 
 Mark clinical significance the way your medical director defines it. That flag is what compatibility uses when it decides an antibody must be honored. Changing significance changes future crossmatch and issue behavior. It is a rule change, not a spelling fix.
 
