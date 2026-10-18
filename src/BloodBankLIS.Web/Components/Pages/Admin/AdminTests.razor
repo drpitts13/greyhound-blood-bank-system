@@ -21,7 +21,7 @@
         }
     </div>
 </div>
-<p class="muted">Test catalog: result types, panel assignments, interpretation logic, history contribution. Verified-result charges are mapped on Test/Service Billing.</p>
+<p class="muted">Test catalog: result types, panel assignments, interpretation logic, history contribution. Verified-result charges are mapped on Test/Service Billing. The list keeps the test code. A blank name stays Test {id}. That label is not written onto the test, and the edit form keeps the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -50,7 +50,7 @@
                 {
                     <tr>
                         <td class="mono">@t.Code</td>
-                        <td>@t.Name</td>
+                        <td>@t.NameLabel</td>
                         <td>@t.Category</td>
                         <td>@DisplayValueType(t.ResultValueType)</td>
                         <td>@t.Version</td>
@@ -379,7 +379,8 @@
     private List<TestDefinitionDto> Filtered => string.IsNullOrWhiteSpace(_filter)
         ? _items
         : _items.Where(t => t.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-            || t.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
+            || t.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || t.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();
 
     private IEnumerable<string> GradedAssignmentCodes =>
         _editing?.PanelSubtestAssignments

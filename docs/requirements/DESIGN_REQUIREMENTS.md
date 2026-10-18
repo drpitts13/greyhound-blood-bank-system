@@ -398,3 +398,4 @@
 | SRS-BB-392 | `StockParLevel` stores product, optional ABO, and minimum. `StockParService` counts available units and returns the shortfall. | FRS-BB-430 |
 | SRS-BB-393 | `DashboardQueueCatalog.Select` builds the home-screen cards from the caller's permissions. `Home.razor` loads the existing queue endpoints and uses the existing overdue rules for the notes. `IssuingDeskQuery` applies `desk` on `/issuing`. | FRS-BB-431 |
 | SRS-BB-394 | New and edited order test choices use `TestDefinitionListItemDto.NameLabel`. A blank name stays the test id. The stored line name is not rewritten. The checkbox value stays the test code. | FRS-BB-432 |
+| SRS-BB-395 | The test list uses `TestDefinitionDto.NameLabel`. The code column stays the stored code. A blank name stays the test id. The stored name is not rewritten. The edit form binds the stored name. | FRS-BB-433 |

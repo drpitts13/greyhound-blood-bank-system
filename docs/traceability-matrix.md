@@ -434,6 +434,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-158 / FRS-BB-192 | Uniqueness, merge, retype, emergency-issue, and immuno-privilege tests have TEST-BB IDs | `docs/validation/TEST_CATALOG.md` | TEST-BB-026; TEST-BB-027; TEST-BB-028; TEST-BB-029; TEST-BB-030 | D,I | RISK-BB-265 |
 | URS-BB-396 / FRS-BB-431 | Dashboard lists the bench queues the signed-in user can already open | `DashboardQueueCatalog`; `IssuingDeskQuery`; `Home.razor` | TEST-BB-286 | A | Does not claim AABB compliance. Issue, ward receipt, result, and investigation gates are unchanged |
 | URS-BB-397 / FRS-BB-432 | A new or edited order keeps the test code and shows the test id when the name is blank | `TestDefinitionLabel`; `TestDefinitionListItemDto.NameLabel`; `PatientChartOrdersTab.razor` | TEST-BB-287 | A | Does not claim AABB compliance. The stored line name is unchanged |
+| URS-BB-398 / FRS-BB-433 | The test catalog keeps the code and shows the test id when the name is blank | `TestDefinitionLabel`; `TestDefinitionDto.NameLabel`; `AdminTests.razor` | TEST-BB-288 | A | Does not claim AABB compliance. The stored name and the edit form are unchanged |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

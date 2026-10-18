@@ -6625,3 +6625,26 @@ A new or edited order listed each test by name only. A blank name left an empty 
 ### Next ranked residual
 
 The test catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Test {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 245 — Test catalog keeps the code (2026-10-17)
+
+The test catalog listed each test by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The test catalog name column uses `TestDefinitionDto.NameLabel`.
+- The code stays in the catalog. A blank name stays `Test {id}` and is not replaced by the code.
+- The stored name is unchanged. The edit form still binds that stored name. The filter can match the list label.
+
+### Requirements / risk
+
+- URS-BB-398, FRS-BB-433, SRS-BB-395, RISK-BB-500.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-288 (`TestDefinitionChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The subtest catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Subtest {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.

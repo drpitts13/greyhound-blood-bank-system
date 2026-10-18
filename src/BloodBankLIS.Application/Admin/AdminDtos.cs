@@ -106,7 +106,14 @@ public sealed record TestDefinitionDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the test id.
+    /// The test code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => TestDefinitionLabel.Name(Id, Name);
+}
 
 public sealed record SaveTestDefinitionRequest(
     string Code,

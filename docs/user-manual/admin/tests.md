@@ -10,7 +10,7 @@ routes:
 
 ![Test definitions](figures/admin-tests.png)
 
-**Test Definitions** is the catalog the order entry and the worklist use. A test that is not here cannot be ordered. Each definition says how the result is recorded (a choice list, a graded reaction, free text), which panel subtests it includes, and how an interpretation is derived.
+**Test Definitions** is the catalog the order entry and the worklist use. A test that is not here cannot be ordered. Each definition says how the result is recorded (a choice list, a graded reaction, free text), which panel subtests it includes, and how an interpretation is derived. The list keeps the test code. When the name is blank, the list says Test and the id. That wording is not saved, and the edit form still shows the stored name.
 
 ## History
 
