@@ -143,7 +143,8 @@
 
     private async Task OnFocusOutAsync()
     {
-        await Task.Delay(120);
+        // No delay: menu items cancel mousedown so picking one never blurs the input, and
+        // committing right away means a Save button clicked next sees the typed value.
         _open = false;
         await TryCommitTypedSelectionAsync();
     }
@@ -152,6 +153,15 @@
     {
         if (AllowCustom)
         {
+            // Text that is an item's display text means that item was picked: keep its value, not the label.
+            var picked = Items.FirstOrDefault(i =>
+                DisplayText(i).Equals(_inputText, StringComparison.OrdinalIgnoreCase));
+            if (picked is not null)
+            {
+                await SelectItemAsync(picked);
+                return;
+            }
+
             await CommitCustomAsync(_inputText);
             return;
         }

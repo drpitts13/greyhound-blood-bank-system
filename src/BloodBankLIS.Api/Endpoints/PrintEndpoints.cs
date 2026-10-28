@@ -30,7 +30,8 @@ public static class PrintEndpoints
 
         group.MapGet("/ptag-id-required", async (LabelLayoutAdminService layouts, CancellationToken ct) =>
             Results.Ok(new { required = await layouts.RequiresPtagIdAsync(ct) }))
-            .RequirePermission(PermissionCodes.PrintLabel);
+            // Issuers must scan the P-tag ID even when someone else prints the tag.
+            .RequireAnyPermission(PermissionCodes.PrintLabel, PermissionCodes.IssueCreate, PermissionCodes.TransfusionDocument);
 
         group.MapPost("/compatibility-tags/prepare", async (PrepareCompatibilityTagRequest body, PrintService service, CancellationToken ct) =>
             EndpointResults.Created(

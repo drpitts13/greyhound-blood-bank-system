@@ -18,7 +18,7 @@
         </div>
         <div class="field">
             <label>Password</label>
-            <input type="password" @bind="_password" placeholder="Demo password is demo" @onkeydown="OnKey" />
+            <input type="password" @bind="_password" @bind:event="oninput" placeholder="Demo password is demo" @onkeydown="OnKey" />
         </div>
         <div class="field">
             <label>Workstation</label>

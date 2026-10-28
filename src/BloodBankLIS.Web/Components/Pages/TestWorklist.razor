@@ -146,7 +146,7 @@
                     @if (_expandedLineId == item.OrderLineId)
                     {
                         <tr><td colspan="16">
-                            <TestLineCommentEditor WorkItem="item" OnSaved="OnResultSaved" />
+                            <TestLineCommentEditor WorkItem="item" />
                             <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
                         </td></tr>
                     }
@@ -304,6 +304,8 @@
     {
         _expandedLineId = null;
         await LoadAsync();
+        // The row's own confirmation disappears when it collapses, so confirm at page level.
+        if (_fb is null || _fb.Success) _fb = Feedback.Succeed("Result saved.");
     }
 
     private static bool IsRush(OrderPriority priority) =>

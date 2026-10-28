@@ -174,13 +174,16 @@
                 </select>
             </div>
             <UnitScanVerificationPanel Scan="IssueScan" />
-            @if (PtagRequired && Session.Has(PermissionCodes.PrintLabel))
+            @if (PtagRequired)
             {
                 <div class="alert alert-warning" style="margin-top:.75rem;">
                     <strong>P-tag ID</strong>
                     <p class="muted">Print the compatibility tag, then scan the P-tag ID before issuing.</p>
                     <div class="flex gap" style="flex-wrap:wrap;align-items:end;">
-                        <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="OnPrintPreparedPtag">Print P-tag</button>
+                        @if (Session.Has(PermissionCodes.PrintLabel))
+                        {
+                            <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="OnPrintPreparedPtag">Print P-tag</button>
+                        }
                         <div class="field" style="min-width:14rem;margin:0;">
                             <label>Scanned P-tag ID</label>
                             <input value="@PtagId" @oninput="OnPtagTyped" autocomplete="off" />

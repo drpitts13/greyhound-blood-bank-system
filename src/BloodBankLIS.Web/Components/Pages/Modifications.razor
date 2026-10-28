@@ -153,10 +153,14 @@
         }
 
         <div class="field" style="margin-top:.6rem;"><label>Reason (required)</label>
-            <input @bind="_reason" placeholder="Why is this modification being performed?" style="width:100%;" />
+            <input @bind="_reason" @bind:event="oninput" placeholder="Why is this modification being performed?" style="width:100%;" />
         </div>
 
-        <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason))" @onclick="SubmitAsync">
+        @if (!Session.Has(PermissionCodes.InventoryModify))
+        {
+            <div class="alert alert-warning" style="margin-top:.6rem;">Performing a modification requires the inventory modify permission.</div>
+        }
+        <button class="btn btn-primary" style="margin-top:.6rem;" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason) || !Session.Has(PermissionCodes.InventoryModify))" @onclick="SubmitAsync">
             Perform @_selectedRule.ModificationType
         </button>
     </div>
@@ -366,6 +370,8 @@
         _lastResult = null;
         _actionFb = null;
         _poolUnits.Clear();
+        _children.Clear();
+        _childCount = 2;
         _reason = string.Empty;
 
         var eligible = await Api.GetEligibleModificationsAsync(u.Id);
@@ -385,6 +391,9 @@
             _selectedRuleId = preselected.RuleId;
             _selectedRule = preselected;
         }
+
+        // A pre-selected rule skips OnRuleChanged, so build the divide rows here too.
+        if (_selectedRule is not null) SyncChildRows();
 
         var history = await Api.GetUnitModificationHistoryAsync(u.Id);
         _history = history.Value ?? new();

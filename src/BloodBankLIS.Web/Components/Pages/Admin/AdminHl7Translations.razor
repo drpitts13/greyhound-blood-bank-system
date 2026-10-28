@@ -24,7 +24,7 @@
     <div class="form-row">
         <div class="field" style="min-width:22rem;">
             <label>Data item</label>
-            <select value="@_selectedKey" @onchange="OnDataItemChangedAsync" disabled="@(_loading || _catalog.Count == 0)">
+            <select @key="_selectRenderKey" value="@_selectedKey" @onchange="OnDataItemChangedAsync" disabled="@(_loading || _catalog.Count == 0)">
                 <option value="">Select a data item…</option>
                 @foreach (var item in _catalog)
                 {
@@ -98,6 +98,7 @@
 @code {
     private List<InterfaceDataItemDto> _catalog = new();
     private string _selectedKey = string.Empty;
+    private int _selectRenderKey;
     private string _displayName = string.Empty;
     private List<RowModel> _rows = new();
     private bool _loading = true;
@@ -128,6 +129,8 @@
             var discard = await Js.InvokeAsync<bool>("confirm", "Discard unsaved translations for this data item?");
             if (!discard)
             {
+                // The browser already shows the new choice; rebuild the select so it shows the item still being edited.
+                _selectRenderKey++;
                 return;
             }
         }

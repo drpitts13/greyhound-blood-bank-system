@@ -99,6 +99,7 @@
                         @for (var i = 0; i < _editing.Choices.Count; i++)
                         {
                             var row = _editing.Choices[i];
+                            var choiceIndex = i;
                             <tr>
                                 <td><input class="mono" @bind="row.Code" /></td>
                                 <td><input @bind="row.Label" /></td>
@@ -110,7 +111,7 @@
                                         </select>
                                     </td>
                                 }
-                                <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveChoice(i)">Remove</button></td>
+                                <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveChoice(choiceIndex)">Remove</button></td>
                             </tr>
                         }
                     </tbody>

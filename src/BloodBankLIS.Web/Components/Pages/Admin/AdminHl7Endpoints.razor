@@ -263,9 +263,9 @@
         if (Enum.TryParse<InterfaceType>(e.Value?.ToString(), out var type))
         {
             _editing.InterfaceType = type;
-            _editing.Direction = type is InterfaceType.Results or InterfaceType.Billing
-                ? Hl7Direction.Outbound
-                : Hl7Direction.Inbound;
+            _editing.Direction = BloodBankLIS.Domain.Interfaces.InterfaceTypeDefaults.Direction(type);
+            // Message types have no field of their own; they follow the interface type.
+            _editing.MessageTypes = BloodBankLIS.Domain.Interfaces.InterfaceTypeDefaults.MessageTypes(type);
             _selectedVendor = string.Empty;
             await EnsureCatalogAsync(resetMappings: true);
         }

@@ -729,7 +729,7 @@ else
         "overview", "visits", "orders", "specimens", "tests", "test-history", "products", "history"
     };
 
-    private bool _tabFromQueryApplied;
+    private string? _appliedTabQuery;
     private bool _panelFromQueryApplied;
     private long _tabQueryPatientId;
 
@@ -737,7 +737,7 @@ else
     {
         if (_tabQueryPatientId != Id)
         {
-            _tabFromQueryApplied = false;
+            _appliedTabQuery = null;
             _tabQueryPatientId = Id;
             _visitsLoaded = false;
             _ordersLoaded = false;
@@ -752,7 +752,7 @@ else
             _productHistory = new();
         }
 
-        if (!_ptagRequiredLoaded && Session.Has(PermissionCodes.PrintLabel))
+        if (!_ptagRequiredLoaded && Session.HasAny(PermissionCodes.PrintLabel, PermissionCodes.IssueCreate, PermissionCodes.TransfusionDocument))
         {
             _ptagRequiredLoaded = true;
             var required = await Api.GetPtagIdRequiredAsync();
@@ -760,11 +760,12 @@ else
         }
 
         await LoadAsync();
-        if (!_tabFromQueryApplied
-            && !string.IsNullOrWhiteSpace(TabQuery)
-            && KnownTabs.Contains(TabQuery))
+        // Re-apply whenever ?tab= changes so in-chart links (Visits → Orders, etc.) switch tabs every time.
+        if (!string.IsNullOrWhiteSpace(TabQuery)
+            && KnownTabs.Contains(TabQuery)
+            && !string.Equals(_appliedTabQuery, TabQuery, StringComparison.OrdinalIgnoreCase))
         {
-            _tabFromQueryApplied = true;
+            _appliedTabQuery = TabQuery;
             await SelectTab(TabQuery.Trim().ToLowerInvariant());
         }
 
@@ -1246,6 +1247,7 @@ else
         {
             _lastIssue = r.Value;
             _ptagFb = null;
+            _ptagScan = string.Empty;
             _issuingAllocation = null;
             _showIssueOverride = false;
             await LoadAllocationsAsync();
@@ -1285,6 +1287,7 @@ else
         {
             _lastIssue = r.Value;
             _ptagFb = null;
+            _ptagScan = string.Empty;
             _issuingAllocation = null;
             _showIssueOverride = false;
             await LoadAllocationsAsync();

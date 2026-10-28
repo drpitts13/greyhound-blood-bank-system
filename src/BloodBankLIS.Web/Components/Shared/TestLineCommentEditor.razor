@@ -4,7 +4,14 @@
 <div class="bb-card" style="margin:0 0 .75rem;">
     <div class="field" style="margin-bottom:.4rem;">
         <label>Comment</label>
-        <CodedCommentField Page="CommentPage.Test" @bind-Value="_draft" />
+        @if (Session.Has(PermissionCodes.PatientWrite))
+        {
+            <CodedCommentField Page="CommentPage.Test" @bind-Value="_draft" />
+        }
+        else
+        {
+            <div class="muted">@(string.IsNullOrWhiteSpace(_draft) ? "No comment." : _draft)</div>
+        }
     </div>
     @if (Session.Has(PermissionCodes.PatientWrite))
     {

@@ -12,6 +12,8 @@ public static class JsScrollExtensions
     {
         try
         {
+            // Let the pending render reach the browser first so a just-shown element exists.
+            await Task.Yield();
             await js.InvokeVoidAsync("bbUi.scrollIntoView", elementId);
         }
         catch (JSException)

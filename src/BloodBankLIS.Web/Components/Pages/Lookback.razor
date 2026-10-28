@@ -51,7 +51,7 @@ else
                 </tbody>
             </table>
         }
-        @if (_attemptId is not null && _report is null)
+        @if (_attemptId is not null && !(_mode == LookbackMode.Din && _report is not null))
         {
             @AttemptForm
         }
@@ -433,11 +433,11 @@ else
 
     private RenderFragment AttemptForm => @<div class="alert alert-info" style="margin-top:1rem;">
         <div class="form-row">
-            <div class="field"><label>Physician of record</label><input @bind="_physician" /></div>
+            <div class="field"><label>Physician of record</label><input @bind="_physician" @bind:event="oninput" /></div>
             <div class="field"><label>Status</label>
                 <select @bind="_attemptStatus">@foreach (var s in Enum.GetValues<LookbackNotificationStatus>()) { <option value="@s">@s</option> }</select>
             </div>
-            <div class="field" style="grid-column:1/-1;"><label>Notes</label><input @bind="_attemptNotes" /></div>
+            <div class="field" style="grid-column:1/-1;"><label>Notes</label><input @bind="_attemptNotes" @bind:event="oninput" /></div>
         </div>
         @if (_attemptStatus == LookbackNotificationStatus.Completed)
         {
@@ -537,6 +537,8 @@ else
             if (!string.IsNullOrWhiteSpace(_din))
             {
                 await SearchDinAsync();
+                // Refreshing the report must not replace the confirmation with "Lookback complete."
+                if (_fb?.Success == true) _fb = _attemptFb;
             }
         }
     }

@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Components
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@inject IJSRuntime Js
 
 <PageTitle>Issue &amp; Transfuse &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -366,7 +367,7 @@
                             <td>
                                 @if (Session.Has(PermissionCodes.TransfusionDocument))
                                 {
-                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="async () => { SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus); await Js.ScrollIntoViewAsync(WardCardId); }">Receive</button>
                                 }
                             </td>
                         </tr>
@@ -470,15 +471,15 @@
                             <td class="right nowrap">
                                 @if (row.WardReceivedUtc is null && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
-                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="async () => { SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus); await Js.ScrollIntoViewAsync(WardCardId); }">Receive</button>
                                 }
                                 @if (Session.Has(PermissionCodes.IssueReturn))
                                 {
-                                    <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectReturnIssue(row)">Return</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" @onclick="async () => { SelectReturnIssue(row); await Js.ScrollIntoViewAsync(ReturnCardId); }">Return</button>
                                 }
                                 @if (row.WardReceivedUtc is not null && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
-                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(row)">Document</button>
+                                    <button type="button" class="btn btn-primary btn-sm" @onclick="async () => { SelectTransfusionIssue(row); await Js.ScrollIntoViewAsync(TransfusionCardId); }">Document</button>
                                 }
                             </td>
                         </tr>
@@ -543,13 +544,16 @@
             </div>
         </div>
         <UnitScanVerificationPanel Scan="_issueScan" />
-        @if (_ptagRequired && Session.Has(PermissionCodes.PrintLabel))
+        @if (_ptagRequired)
         {
             <div class="alert alert-warning" style="margin-top:.75rem;">
                 <strong>P-tag ID</strong>
                 <p class="muted">Print the compatibility tag, then scan the P-tag ID before issuing.</p>
                 <div class="flex gap" style="flex-wrap:wrap;align-items:end;">
-                    <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || _issue.BloodUnitId is null || _issue.PatientId <= 0)" @onclick="PrintPreparedPtagAsync">Print P-tag</button>
+                    @if (Session.Has(PermissionCodes.PrintLabel))
+                    {
+                        <button type="button" class="btn btn-secondary btn-sm" disabled="@(_busy || _issue.BloodUnitId is null || _issue.PatientId <= 0)" @onclick="PrintPreparedPtagAsync">Print P-tag</button>
+                    }
                     <div class="field" style="min-width:14rem;margin:0;">
                         <label>Scanned P-tag ID</label>
                         <input @bind="_ptagScan" autocomplete="off" />
@@ -628,7 +632,7 @@
     }
 </div>
 
-<div class="bb-card">
+<div class="bb-card" id="issuing-ward">
     <div class="bb-card-title"><h3>Ward receipt</h3></div>
     <p class="muted">The receiving location must acknowledge custody before transfusion can be documented (SoftBank remote-issue receipt).</p>
     @if (!Session.Has(PermissionCodes.TransfusionDocument))
@@ -700,7 +704,7 @@
 </div>
 
 <div class="bb-grid cols-2">
-    <div class="bb-card">
+    <div class="bb-card" id="issuing-return">
         <div class="bb-card-title"><h3>Return a unit</h3></div>
         @if (!Session.Has(PermissionCodes.IssueReturn))
         {
@@ -771,7 +775,7 @@
         }
     </div>
 
-    <div class="bb-card">
+    <div class="bb-card" id="issuing-transfusion">
         <div class="bb-card-title"><h3>Document transfusion</h3></div>
         @if (!Session.Has(PermissionCodes.TransfusionDocument))
         {
@@ -862,6 +866,9 @@
 
     private bool _busy;
     private ElementReference _issueForm;
+    private const string WardCardId = "issuing-ward";
+    private const string ReturnCardId = "issuing-return";
+    private const string TransfusionCardId = "issuing-transfusion";
 
     private IssueModel _issue = new();
     private List<SpecialRequirementDto> _issueAckRequirements = new();
@@ -992,7 +999,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (Session.Has(PermissionCodes.PrintLabel))
+        if (Session.HasAny(PermissionCodes.PrintLabel, PermissionCodes.IssueCreate, PermissionCodes.TransfusionDocument))
         {
             var required = await Api.GetPtagIdRequiredAsync();
             _ptagRequired = required.Succeeded && required.Value?.Required == true;
@@ -1274,6 +1281,8 @@
             _returnIssueId = r.Value.Id;
             await LoadWorklistsAsync();
             _ptagFb = null;
+            _ptagScan = string.Empty; // a P-tag belongs to one issue
+            _ptagJobId = null;
         }
         _busy = false;
     }
@@ -1350,6 +1359,8 @@
             _overrideOn = false;
             await LoadWorklistsAsync();
             _ptagFb = null;
+            _ptagScan = string.Empty;
+            _ptagJobId = null;
         }
         _busy = false;
     }

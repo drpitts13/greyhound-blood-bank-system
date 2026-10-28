@@ -21,7 +21,7 @@
     A new lot requires an active manufacturer, cells, and typed antigens. Creating or deactivating a manufacturer or lot does not identify antibodies and does not void an open workup; Accept and complete HardStop on a deactivated attached lot until it is restored or the workup is voided.
 </p>
 
-<Outcome Value="_feedback" />
+@if (!_creating) { <Outcome Value="_feedback" /> }
 
 <div class="bb-card" style="margin-top:1rem;">
     <div class="bb-card-title"><h3>Manufacturers</h3></div>
@@ -473,6 +473,7 @@
                                 <tr>
                                     <td>
                                         <select @bind="ag.BloodAttributeDefinitionId">
+                                            <option value="0">— select antigen —</option>
                                             @foreach (var attr in _attributes)
                                             {
                                                 <option value="@attr.Id">@attr.Code — @attr.AntibodyName</option>
@@ -503,7 +504,12 @@
             <button class="btn btn-secondary btn-sm" type="button" @onclick="AddCell">Add cell</button>
             <button class="btn btn-primary" disabled="@(_busy || _createManufacturerId is null)" @onclick="CreateAsync">Create lot</button>
             <button class="btn btn-ghost" type="button" @onclick="CancelCreate">Cancel</button>
+            @if (_createManufacturerId is null)
+            {
+                <span class="muted">Choose a manufacturer to create the lot.</span>
+            }
         </div>
+        <div style="margin-top:.6rem;"><Outcome Value="_feedback" /></div>
     </div>
 }
 
@@ -765,9 +771,9 @@
         _createExpires = DateTime.UtcNow.Date.AddYears(1);
         _createSelected = false;
         _createCells.Clear();
-        AddCell();
         _manufacturers = _allManufacturers.Where(m => m.IsActive).ToList();
 
+        // Load the antigen catalog before the first cell so its antigen defaults to a real code.
         if (_attributes.Count == 0)
         {
             var attrs = await Api.GetAdminBloodAttributesAsync(false);
@@ -777,6 +783,8 @@
                 _feedback = attrs.ToFeedback();
             }
         }
+
+        AddCell();
     }
 
     private void CancelCreate()
@@ -824,6 +832,13 @@
     {
         if (_createManufacturerId is null)
         {
+            _feedback = Feedback.Fail("Choose a manufacturer before creating the lot.");
+            return;
+        }
+
+        if (_createCells.Any(c => c.Role != PanelCellRole.Autocontrol && c.Antigens.Any(a => a.BloodAttributeDefinitionId <= 0)))
+        {
+            _feedback = Feedback.Fail("Choose an antigen for every antigen row, or remove the empty rows.");
             return;
         }
 

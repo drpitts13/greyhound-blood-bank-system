@@ -136,6 +136,7 @@
                                 @for (var i = 0; i < _editing.PanelSubtestAssignments.Count; i++)
                                 {
                                     var row = _editing.PanelSubtestAssignments[i];
+                                    var rowIndex = i;
                                     var catalog = _catalogSubtests.FirstOrDefault(s => string.Equals(s.Code, row.SubtestCode, StringComparison.OrdinalIgnoreCase));
                                     <tr>
                                         <td>
@@ -170,7 +171,7 @@
                                             }
                                         </td>
                                         <td><input type="number" style="width:4rem;" @bind="row.SortOrder" /></td>
-                                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveSubtest(i)">Remove</button></td>
+                                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveSubtest(rowIndex)">Remove</button></td>
                                     </tr>
                                 }
                             </tbody>
@@ -244,6 +245,7 @@
                                     @for (var ri = 0; ri < _editing.InterpretationLogic.Count; ri++)
                                     {
                                         var row = _editing.InterpretationLogic[ri];
+                                        var logicIndex = ri;
                                         <tr>
                                             <td>
                                                 @if (_editing.ResultValueType == ResultValueType.AboRh)
@@ -276,7 +278,7 @@
                                             }
                                             @if (_editing.ResultValueType == ResultValueType.Subtest)
                                             {
-                                                <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveLogicRow(ri)">Remove</button></td>
+                                                <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveLogicRow(logicIndex)">Remove</button></td>
                                             }
                                         </tr>
                                     }

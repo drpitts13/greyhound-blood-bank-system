@@ -67,9 +67,16 @@
     }
     else if (Session.Has(PermissionCodes.ResultEnter))
     {
-        @if (_definition is null && !_defLoading)
+        @if (_defLoading)
         {
             <div class="loading">Loading test definition...</div>
+        }
+        else if (_definition is null)
+        {
+            <div class="flex gap" style="align-items:center;">
+                <span class="muted">The test definition could not be loaded, so results cannot be entered yet.</span>
+                <button class="btn btn-secondary btn-sm" type="button" @onclick="LoadDefinitionAsync">Retry</button>
+            </div>
         }
         else if (_definition is not null)
         {
@@ -354,7 +361,8 @@
                     <p class="muted" style="margin-bottom:.5rem;">The verified type disagrees with history. Choose whether to retain the historical type or replace it, then authorize the override.</p>
                     @if (!CanOverrideDelta)
                     {
-                        <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum required (@_deltaMinLevel) to override this exception.</div>
+                        <div class="alert alert-warning">Your security level (@Session.SecurityLevel) is below the minimum required (@_deltaMinLevel) to override this exception. Ask a user with a higher level to verify this result.</div>
+                        <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Dismiss</button>
                     }
                     else
                     {
@@ -449,7 +457,19 @@
         && Session.Has(PermissionCodes.ResultVerify)
         && !WorkItem.IsAboSelfVerifyBlocked(Session.UserName);
 
+    private (long OrderLineId, long? ResultId, ResultStatus? Status)? _loadedFor;
+
     protected override async Task OnParametersSetAsync()
+    {
+        // The parent re-renders (search typing, comment saves) hand over a new WorkItem object for the same line.
+        // Only reset what the user typed when the line or its stored result actually changed.
+        var key = (WorkItem.OrderLineId, WorkItem.CurrentResultId, WorkItem.CurrentResultStatus);
+        if (_loadedFor == key) return;
+        _loadedFor = key;
+        await LoadDefinitionAsync();
+    }
+
+    private async Task LoadDefinitionAsync()
     {
         _fb = null;
         _showSavePrompt = false;
