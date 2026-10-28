@@ -90,7 +90,7 @@
             </tbody>
         </table>
         <div class="flex gap" style="margin-top:.75rem;">
-            <span class="muted">@_skip + 1–@Math.Min(_skip + _events.Count, _total) of @_total</span>
+            <span class="muted">@(_total == 0 ? 0 : _skip + 1)–@Math.Min(_skip + _events.Count, _total) of @_total</span>
             <button class="btn btn-ghost btn-sm" disabled="@(_busy || _skip == 0)" @onclick="() => LoadAsync(Math.Max(0, _skip - _take))">Previous</button>
             <button class="btn btn-ghost btn-sm" disabled="@(_busy || _skip + _take >= _total)" @onclick="() => LoadAsync(_skip + _take)">Next</button>
         </div>

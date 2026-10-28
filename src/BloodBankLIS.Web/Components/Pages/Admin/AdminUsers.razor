@@ -52,7 +52,7 @@
 
 @if (_editing is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New user" : $"Manage: {_editing.UserName}")</h2>
         <div class="form-row">
             <div class="field"><label>Username</label><input @bind="_editing.UserName" disabled="@(_editId is not null)" /></div>

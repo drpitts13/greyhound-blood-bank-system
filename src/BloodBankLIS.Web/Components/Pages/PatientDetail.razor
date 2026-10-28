@@ -376,7 +376,7 @@ else
 
     @if (_tab == "history")
     {
-        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" OnMarkTransfused="MarkTransfusedAsync" />
+        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" OnMarkTransfused="MarkTransfusedAsync" Busy="_busy" Feedback="_allocFb" />
     }
 
     @if (_autoThawRow is not null)
@@ -825,7 +825,8 @@ else
             var allocated = _allocations.Any(a => a.AllocationStatus == AllocationStatus.Reserved || a.IssueId is > 0);
             var modified = allocated && !_allocations.Any(a => (a.PendingActions ?? []).Count > 0);
             var needsCrossmatch = _allocations.Count == 0 || _allocations.Any(a => a.RequiresCrossmatch);
-            var crossmatched = _allocations.Any(a => a.RequiresCrossmatch);
+            var crossmatchRows = _allocations.Where(a => a.RequiresCrossmatch).ToList();
+            var crossmatched = crossmatchRows.Count > 0 && crossmatchRows.All(a => a.CrossmatchResult == CrossmatchResult.Compatible);
             var issued = _productHistory.Any(h => h.EventType == PatientProductHistoryEventType.Issued)
                          || _allocations.Any(a => a.IssueStatus == IssueStatus.Issued || a.IssueStatus == IssueStatus.Transfused);
             var steps = new List<PatientWorkflowStep>
@@ -833,12 +834,12 @@ else
                 new("order", 0, "Order", order, false, order ? $"{_orders.Count} order(s)" : "Place a product or test order"),
                 new("specimen", 0, "Specimen", linked, false, linked ? "Type-and-screen specimen linked" : "Link a completed type and screen"),
                 new("allocate", 0, "Allocate", allocated, false, allocated ? $"{_allocations.Count} unit(s)" : "Allocate a unit to the order"),
-                new("modify", 0, "Modify", modified || !allocated, false, allocated ? "Eligible after allocate" : "Allocate before modifying")
+                new("modify", 0, "Modify", modified, false, allocated ? "Eligible after allocate" : "Allocate before modifying")
             };
             if (needsCrossmatch)
             {
                 steps.Add(new("xm", 0, "Crossmatch", crossmatched, false,
-                    crossmatched ? "XM/EXM attached" : "XM/EXM attaches on allocate"));
+                    crossmatched ? "XM/EXM compatible" : crossmatchRows.Count > 0 ? "Crossmatch result still needed" : "XM/EXM attaches on allocate"));
             }
 
             steps.Add(new("issue", 0, "Issue / Transfuse", issued, false,

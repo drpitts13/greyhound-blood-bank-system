@@ -54,7 +54,10 @@
                         </td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(c.Id)">Edit</button>
-                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(c.Id)">History</button>
+                            @if (Session.Has(PermissionCodes.AdminAuditReview))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(c.Id)">History</button>
+                            }
                         </td>
                     </tr>
                 }
@@ -65,7 +68,7 @@
 
 @if (_editing is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New expiration code" : $"Edit code #{_editId}")</h2>
         <div class="form-row">
             <div class="field"><label>Code</label><input @bind="_editing.Code" placeholder="24H" class="mono" /></div>
@@ -189,6 +192,13 @@
     private async Task ShowHistoryAsync(long id)
     {
         var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.ExpirationModificationCode), id);
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+            _history = null;
+            return;
+        }
+
         _history = r.Value ?? new();
         _historyId = id;
     }

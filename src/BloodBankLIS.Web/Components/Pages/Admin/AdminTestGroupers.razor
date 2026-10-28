@@ -50,7 +50,10 @@
                         <td>@StatusBadge(g)</td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(g.Id)">Edit</button>
-                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(g.Id)">History</button>
+                            @if (Session.Has(PermissionCodes.AdminAuditReview))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(g.Id)">History</button>
+                            }
                         </td>
                     </tr>
                 }
@@ -61,7 +64,7 @@
 
 @if (_editing is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New test grouper" : $"Edit: {_editing.Code}")</h2>
         <div class="form-row">
             <div class="field"><label>Code</label><input @bind="_editing.Code" disabled="@(_editId is not null)" /></div>
@@ -215,6 +218,13 @@
     private async Task ShowHistoryAsync(long id)
     {
         var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.TestGrouper), id);
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+            _history = null;
+            return;
+        }
+
         _history = r.Value ?? new();
         _historyTitle = _items.FirstOrDefault(g => g.Id == id)?.Code ?? id.ToString();
     }

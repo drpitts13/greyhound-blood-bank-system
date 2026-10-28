@@ -77,7 +77,7 @@
 
 @if (_draft is not null && CanEdit)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New product billing" : $"Edit: {_draft.ChargeCodeLabel}")</h2>
         <div class="form-row">
             <div class="field">

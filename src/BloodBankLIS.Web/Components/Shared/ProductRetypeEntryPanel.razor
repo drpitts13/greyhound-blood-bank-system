@@ -55,12 +55,15 @@
         </div>
     }
 
-    <Outcome Value="_fb" />
+    @if (!ShowInlineEntry && !_entryOpen)
+    {
+        <Outcome Value="_fb" />
+    }
 
     @if (Detail.CanVerify)
     {
         <div class="alert alert-warning">@(Detail.BlockReason ?? "An entered retype has not been confirmed.")</div>
-        @if (Session.Has(PermissionCodes.ResultVerify) || Session.Has(PermissionCodes.ResultEnter))
+        @if (Session.Has(PermissionCodes.ResultVerify))
         {
             <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="VerifyAsync">Confirm retype</button>
         }
@@ -97,7 +100,8 @@
 
 @code {
     [Parameter, EditorRequired] public ProductRetypeDetailDto Detail { get; set; } = default!;
-    [Parameter] public EventCallback OnSaved { get; set; }
+    /// <summary>Raised after a retype is recorded or confirmed, with the outcome shown to the user.</summary>
+    [Parameter] public EventCallback<Feedback?> OnSaved { get; set; }
 
     /// <summary>
     /// Unit chart keeps the form closed until the operator chooses to enter.
@@ -238,7 +242,7 @@
                 ? r.ToFeedback("Retype recorded.")
                 : r.ToFeedback(OutcomeCopy(r.Value.Status, latest));
             _entryOpen = false;
-            await OnSaved.InvokeAsync();
+            await OnSaved.InvokeAsync(_fb);
         }
         else
         {
@@ -268,7 +272,7 @@
         if (r.Succeeded && r.Value is not null)
         {
             _fb = r.ToFeedback(OutcomeCopy(r.Value.Status, r.Value.Latest!));
-            await OnSaved.InvokeAsync();
+            await OnSaved.InvokeAsync(_fb);
         }
         else
         {

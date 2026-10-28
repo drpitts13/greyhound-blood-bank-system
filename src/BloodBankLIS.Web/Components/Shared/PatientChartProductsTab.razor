@@ -93,7 +93,7 @@
                                 {
                                     <button type="button" class="btn btn-link btn-sm" disabled="@Busy" @onclick="() => OnMarkTransfused.InvokeAsync(issueId)">Transfuse</button>
                                 }
-                                @if (Session.Has(PermissionCodes.CompatibilityAllocate))
+                                @if (Session.Has(PermissionCodes.CompatibilityAllocate) && a.IssueId is null && a.AllocationStatus == AllocationStatus.Reserved)
                                 {
                                     <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnBeginRelease.InvokeAsync(a)">Release</button>
                                 }
@@ -365,6 +365,14 @@
 
         <div class="flex gap" style="margin-top:1rem;">
             <button class="btn btn-primary" disabled="@(Busy || SelectedUnitId is null || AllocOrderId <= 0)" @onclick="OnReserve">Reserve unit</button>
+            @if (AllocOrderId <= 0)
+            {
+                <span class="muted">Choose an open product order. If none is listed, add a product order on the Orders tab.</span>
+            }
+            else if (SelectedUnitId is null)
+            {
+                <span class="muted">Select a compatible unit above.</span>
+            }
         </div>
     </div>
 }
