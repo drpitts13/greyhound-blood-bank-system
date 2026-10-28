@@ -101,7 +101,11 @@
         </div>
 
         <div class="flex gap" style="margin-top:.6rem;">
-            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-primary" disabled="@(_busy || !CanManage)" @onclick="SaveAsync">Save</button>
+            @if (!CanManage)
+            {
+                <span class="muted">View only. Saving needs the manage permission for this catalog.</span>
+            }
             @if (_editId is not null && CanActivate)
             {
                 @if (!_currentIsActive)

@@ -6,8 +6,12 @@
 
 <h1>Reports</h1>
 <p class="muted">Facility operational reports for review and export. This starter set is not an FDA, AABB, or CAP compliance claim.</p>
+@if (Session.Has(PermissionCodes.ReportDesign))
+{
+    <p><a class="btn btn-secondary btn-sm" href="/admin/reports">Open report designer</a></p>
+}
 
-@if (!Session.Has(PermissionCodes.ReportRun))
+@if (!Session.HasAny(PermissionCodes.ReportRun, PermissionCodes.ReportDesign))
 {
     <div class="muted">No permission to run reports.</div>
 }

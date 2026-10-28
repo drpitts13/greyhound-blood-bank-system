@@ -201,7 +201,7 @@ else
                     {
                         <a class="btn btn-ghost btn-sm" href="@($"/inventory?board=retype&unitId={_unit.Id}#pending-retype")">Open retype desk</a>
                     }
-                    @if (Session.Has(PermissionCodes.InventoryModify) && _unit.Status is UnitStatus.Assigned or UnitStatus.Allocated or UnitStatus.Crossmatched)
+                    @if (Session.Has(PermissionCodes.InventoryModify) && _unit.Status is UnitStatus.Available or UnitStatus.Assigned or UnitStatus.Allocated or UnitStatus.Crossmatched)
                     {
                         <div class="field" style="min-width:20rem;">
                             <label>Eligible modification</label>

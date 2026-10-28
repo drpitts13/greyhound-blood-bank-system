@@ -1267,15 +1267,16 @@ public static class AdminEndpoints
 
         var roles = app.MapGroup("/api/admin/roles").WithTags("Admin: Roles").RequireAuthenticatedUser();
 
+        // Reading roles is also needed by user managers (to assign roles) and role managers (to edit them).
         roles.MapGet("", async (UserAdminService svc, CancellationToken ct) =>
             Results.Ok(await svc.ListRolesAsync(ct)))
-            .RequirePermission(PermissionCodes.AdminConfigView);
+            .RequireAnyPermission(PermissionCodes.AdminConfigView, PermissionCodes.AdminUsersManage, PermissionCodes.AdminRolesManage);
 
         roles.MapGet("/{id:long}", async (long id, UserAdminService svc, CancellationToken ct) =>
         {
             var dto = await svc.GetRoleAsync(id, ct);
             return dto is null ? Results.NotFound(new { error = "Role not found." }) : Results.Ok(dto);
-        }).RequirePermission(PermissionCodes.AdminConfigView);
+        }).RequireAnyPermission(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage);
 
         roles.MapPost("", async (SaveRoleRequest req, UserAdminService svc, CancellationToken ct) =>
             EndpointResults.From(await svc.CreateRoleAsync(req, ct), d => d))
@@ -1288,7 +1289,7 @@ public static class AdminEndpoints
         app.MapGet("/api/admin/permissions", async (UserAdminService svc, CancellationToken ct) =>
             Results.Ok(await svc.ListPermissionCodesAsync(ct)))
             .RequireAuthenticatedUser()
-            .RequirePermission(PermissionCodes.AdminConfigView)
+            .RequireAnyPermission(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage)
             .WithTags("Admin: Roles");
     }
 

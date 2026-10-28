@@ -77,10 +77,14 @@
         <NavLink href="downtime" ActiveClass="active">Downtime Snapshot</NavLink>
     }
 
-    @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminUsersManage, PermissionCodes.AdminRolesManage))
+    @* Report designers and audit reviewers need this group too, even without other admin rights. *@
+    @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminUsersManage, PermissionCodes.AdminRolesManage, PermissionCodes.ReportDesign, PermissionCodes.AdminAuditReview))
     {
         <div class="group-label">Administration</div>
-        <NavLink href="admin" Match="NavLinkMatch.All" ActiveClass="active">Admin Home</NavLink>
+        @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminUsersManage, PermissionCodes.AdminRolesManage))
+        {
+            <NavLink href="admin" Match="NavLinkMatch.All" ActiveClass="active">Admin Home</NavLink>
+        }
         @if (Session.Has(PermissionCodes.ReportDesign))
         {
             <NavLink href="admin/reports" ActiveClass="active">Report designer</NavLink>

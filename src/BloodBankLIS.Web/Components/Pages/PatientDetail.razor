@@ -1936,7 +1936,7 @@ else
             _crossmatchTests = (await Api.GetPatientCrossmatchTestsAsync(Id)).Value ?? new();
         }
 
-        var exc = await Api.GetAdminExceptionByCodeAsync(AntibodyHistoryCrossmatchRule.RuleCode);
+        var exc = await Api.GetExceptionDefinitionAsync(AntibodyHistoryCrossmatchRule.RuleCode);
         if (exc.Succeeded && exc.Value is not null) _allocXmMinLevel = exc.Value.MinSecurityLevel;
 
         _editingOrderId = order.Id;
@@ -2049,7 +2049,7 @@ else
             _deltaFromOrders = true;
             _deltaOverrideResultId = resultId;
             _deltaOverrideSpecimenId = o.SpecimenId;
-            var def = await Api.GetAdminExceptionByCodeAsync(AboRhDeltaRule.DeltaCode);
+            var def = await Api.GetExceptionDefinitionAsync(AboRhDeltaRule.DeltaCode);
             if (def.Succeeded && def.Value is not null)
             {
                 _deltaMinLevel = def.Value.MinSecurityLevel;
@@ -2361,7 +2361,7 @@ else
             AuthorizedBy = Session.UserName
         };
 
-        var exc = await Api.GetAdminExceptionByCodeAsync(SpecimenExpirationOverrideRule.Code);
+        var exc = await Api.GetExceptionDefinitionAsync(SpecimenExpirationOverrideRule.Code);
         if (exc.Succeeded && exc.Value is not null) _specimenExpMinLevel = exc.Value.MinSecurityLevel;
     }
 
@@ -2562,7 +2562,7 @@ else
         {
             _deltaOverrideResultId = resultId;
             _deltaOverrideSpecimenId = specimenId;
-            var def = await Api.GetAdminExceptionByCodeAsync(AboRhDeltaRule.DeltaCode);
+            var def = await Api.GetExceptionDefinitionAsync(AboRhDeltaRule.DeltaCode);
             if (def.Succeeded && def.Value is not null)
             {
                 _deltaMinLevel = def.Value.MinSecurityLevel;
@@ -2714,16 +2714,12 @@ else
 
     private async Task LoadSecondAboPolicyAsync()
     {
-        var policies = await Api.GetAdminFacilityPoliciesAsync();
-        if (!policies.Succeeded || policies.Value is null)
+        // Read through the bench-readable lookup: the admin policy list is refused for technologists,
+        // which left the chart always showing the second-ABO requirement.
+        var policy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSecondAboForCellularIssue);
+        if (policy.Succeeded && policy.Value is not null)
         {
-            return;
-        }
-
-        var row = policies.Value.FirstOrDefault(p => p.Key == FacilityPolicyKeys.RequireSecondAboForCellularIssue);
-        if (row is not null && bool.TryParse(row.Value, out var required))
-        {
-            _requireSecondAbo = required;
+            _requireSecondAbo = policy.Value.Enabled;
         }
     }
 

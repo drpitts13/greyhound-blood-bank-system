@@ -9,6 +9,8 @@ public sealed record ReceivePolicyDto(
     bool RequireTemperature = true,
     bool RequireVisualInspection = true);
 
+public sealed record FacilityPolicyValueDto(string Key, bool Enabled);
+
 public sealed record ProductTypeDto(
     long Id,
     string ProductCode,

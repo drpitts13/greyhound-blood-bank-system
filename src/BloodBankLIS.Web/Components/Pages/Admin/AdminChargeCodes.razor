@@ -56,11 +56,14 @@
                             @if (CanEdit)
                             {
                                 <button class="btn btn-ghost btn-sm" @onclick="() => Edit(c)">Edit</button>
+                            }
+                            @if (CanActivate)
+                            {
                                 @if (c.IsActive)
                                 {
                                     <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(c.Id, false)">Deactivate</button>
                                 }
-                                else if (CanActivate)
+                                else
                                 {
                                     <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(c.Id, true)">Activate</button>
                                 }

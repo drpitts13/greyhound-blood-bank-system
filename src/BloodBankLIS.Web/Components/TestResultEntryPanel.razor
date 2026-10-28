@@ -968,7 +968,7 @@
     {
         _showSavePrompt = false;
         _showDeltaOverride = true;
-        var def = await Api.GetAdminExceptionByCodeAsync(AboRhDeltaRule.DeltaCode);
+        var def = await Api.GetExceptionDefinitionAsync(AboRhDeltaRule.DeltaCode);
         if (def.Succeeded && def.Value is not null)
         {
             _deltaMinLevel = def.Value.MinSecurityLevel;

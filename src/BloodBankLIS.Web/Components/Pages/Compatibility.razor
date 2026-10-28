@@ -41,9 +41,9 @@
                 <p class="muted">@_retroPtagNotice</p>
             }
         }
-        @if (!Session.Has(PermissionCodes.CompatibilityCrossmatch))
+        @if (!Session.Has(PermissionCodes.CompatibilityCrossmatch) || !Session.Has(PermissionCodes.ResultEnter))
         {
-            <div class="muted">You do not have permission to record crossmatches.</div>
+            <div class="muted">Recording a crossmatch needs both the crossmatch and result entry permissions.</div>
         }
         else
         {

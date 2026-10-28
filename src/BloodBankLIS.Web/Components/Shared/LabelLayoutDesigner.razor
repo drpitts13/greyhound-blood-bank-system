@@ -1,11 +1,16 @@
 @inject BloodBankApiClient Api
+@inject UserSession Session
 
 <div class="bb-card">
     <div class="bb-card-title flex-between">
         <h1 style="margin:0;">@Title</h1>
         <div class="flex gap">
-            <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="Reset">Reset</button>
-            <button type="button" class="btn btn-primary" disabled="@(_busy || _document is null)" @onclick="SaveAsync">Save</button>
+            @if (!Session.Has(PermissionCodes.AdminConfigEdit))
+            {
+                <span class="muted">View only. Saving needs the configuration edit permission.</span>
+            }
+            <button type="button" class="btn btn-ghost" disabled="@(_busy || !Session.Has(PermissionCodes.AdminConfigEdit))" @onclick="Reset">Reset</button>
+            <button type="button" class="btn btn-primary" disabled="@(_busy || _document is null || !Session.Has(PermissionCodes.AdminConfigEdit))" @onclick="SaveAsync">Save</button>
         </div>
     </div>
     <p class="muted">

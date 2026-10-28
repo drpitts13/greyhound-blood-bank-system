@@ -51,7 +51,7 @@
                         <td><span class="@Ui.Badge(a.UnitStatus)">@Ui.StatusLabel(a.UnitStatus)</span></td>
                         <td>
                             <div class="flex gap" style="flex-wrap:wrap;">
-                                @if (Session.Has(PermissionCodes.CompatibilityCrossmatch) && NeedsCrossmatchEntry(a))
+                                @if (Session.Has(PermissionCodes.CompatibilityCrossmatch) && Session.Has(PermissionCodes.ResultEnter) && NeedsCrossmatchEntry(a))
                                 {
                                     @if (a.OrderSpecimenLinked)
                                     {

@@ -122,6 +122,8 @@
         var roles = await Api.GetAdminRolesAsync();
         _roles = roles.Value ?? new();
         await LoadAsync();
+        // Without roles the role picker is empty, so say why instead of showing nothing.
+        if (!roles.Succeeded) _feedback = roles.ToFeedback();
     }
 
     private async Task LoadAsync()

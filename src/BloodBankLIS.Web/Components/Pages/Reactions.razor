@@ -187,7 +187,7 @@ else
                 </div>
                 <div class="field"><label>Elution (required if DAT positive)</label><input @bind="_elution" @bind:after="SyncCloseAvailability" /></div>
             </div>
-            <label class="flex"><input type="checkbox" @bind="_remainderHeld" /> &nbsp;Remainder / segments quarantined or retained</label>
+            <label class="flex"><input type="checkbox" @bind="_remainderHeld" disabled="@(_selected.RemainderQuarantined)" title="@(_selected.RemainderQuarantined ? "Already recorded; this cannot be undone." : null)" /> &nbsp;Remainder / segments quarantined or retained</label>
             @if (!string.IsNullOrWhiteSpace(_selected.RemainderHoldNote))
             {
                 <p class="alert alert-warning">@_selected.RemainderHoldNote</p>
@@ -198,8 +198,8 @@ else
                 <div class="field" style="grid-column:1/-1;"><label>Follow-up</label><textarea rows="2" @bind="_followUp"></textarea></div>
             </div>
             <label class="flex"><input type="checkbox" @bind="_productAtFault" /> &nbsp;Product at fault</label>
-            <label class="flex"><input type="checkbox" @bind="_isFatality" /> &nbsp;Fatality (sets 7-day written-report due date)</label>
-            @if (_status == ReactionInvestigationStatus.Closed)
+            <label class="flex"><input type="checkbox" @bind="_isFatality" disabled="@(_selected.IsFatality)" title="@(_selected.IsFatality ? "Already recorded; this cannot be undone." : null)" /> &nbsp;Fatality (sets 7-day written-report due date)</label>
+            @if (ClosingNow)
             {
                 <div class="field"><label>Password / PIN to close</label><input type="password" @bind="_closeSecret" /></div>
             }
@@ -393,11 +393,16 @@ else
         _closeSecret = string.Empty;
     }
 
+    private bool AlreadyClosed => _selected?.Status == ReactionInvestigationStatus.Closed;
+
+    /// <summary>Only a change to Closed needs the close signature.</summary>
+    private bool ClosingNow => _status == ReactionInvestigationStatus.Closed && !AlreadyClosed;
+
     private async Task SaveAsync()
     {
         if (_selected is null) return;
         long? sigId = null;
-        if (_status == ReactionInvestigationStatus.Closed)
+        if (ClosingNow)
         {
             var sig = await Api.RecordSignatureAsync(new SignatureRequestVm(
                 "ReactionInvestigationClose", "I close this reaction investigation", "ReactionInvestigation", _selected.Id, _closeSecret));
@@ -412,7 +417,8 @@ else
 
         _busy = true;
         var r = await Api.UpdateReactionInvestigationAsync(_selected.Id, new UpdateReactionInvestigationRequest(
-            _type, _severity, _findings, _conclusions, _followUp, _disposition, _productAtFault, _isFatality, _status, sigId,
+            // An already-closed case keeps its original close signature, so do not resend the Closed status.
+            _type, _severity, _findings, _conclusions, _followUp, _disposition, _productAtFault, _isFatality, AlreadyClosed && _status == ReactionInvestigationStatus.Closed ? null : _status, sigId,
             _clerical, _clericalNotes, _visual, _visualOk, _repeatPatient, _repeatUnit, _dat, _elution, _remainderHeld));
         _busy = false;
         _fb = r.ToFeedback("Investigation updated.");
