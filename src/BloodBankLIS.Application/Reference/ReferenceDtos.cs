@@ -4,7 +4,10 @@ using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Reference;
 
-public sealed record ReceivePolicyDto(bool RequireSecondVerifier);
+public sealed record ReceivePolicyDto(
+    bool RequireSecondVerifier,
+    bool RequireTemperature = true,
+    bool RequireVisualInspection = true);
 
 public sealed record ProductTypeDto(
     long Id,

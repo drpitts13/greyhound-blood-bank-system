@@ -59,7 +59,7 @@
         </tbody>
     </table>
     <div class="flex gap" style="margin-top:.6rem;">
-        <button class="btn btn-secondary" type="button" @onclick="AddLine">Add product</button>
+        <button class="btn btn-secondary" type="button" disabled="@(!CanAddLine)" title="@(CanAddLine ? null : "Every product is already on this delivery.")" @onclick="AddLine">Add product</button>
         <button class="btn btn-primary" disabled="@_busy" @onclick="CreateAsync">Save delivery</button>
     </div>
 </div>
@@ -86,9 +86,12 @@
             _supplierId = _suppliers[0].Id;
     }
 
+    private bool CanAddLine => Enum.GetValues<ComponentClass>().Any(c => _lines.All(l => l.ComponentClass != c));
+
     private void AddLine()
     {
-        var next = Enum.GetValues<ComponentClass>().FirstOrDefault(c => _lines.All(l => l.ComponentClass != c));
+        if (!CanAddLine) return;
+        var next = Enum.GetValues<ComponentClass>().First(c => _lines.All(l => l.ComponentClass != c));
         _lines.Add(new LineDraft { ComponentClass = next, ExpectedQuantity = 1 });
     }
 

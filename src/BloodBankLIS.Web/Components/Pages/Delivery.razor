@@ -5,6 +5,7 @@
 @using BloodBankLIS.Domain.Rules
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@inject NavigationManager Nav
 
 <PageTitle>Delivery @Id &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -15,7 +16,7 @@
     <div class="flex gap">
         @if (_delivery?.Status == DeliveryStatus.Open && Session.Has(PermissionCodes.InventoryReceive))
         {
-            <a class="btn btn-primary" href="@($"/inventory/deliveries/{Id}/receive")">Enter units</a>
+            <button class="btn btn-primary" type="button" disabled="@_busy" @onclick="EnterUnitsAsync">Enter units</button>
         }
         <a class="btn btn-ghost" href="/inventory">Back to inventory</a>
     </div>
@@ -72,7 +73,7 @@ else
         <div class="bb-card-title"><h3>Expected counts</h3></div>
         <p class="muted">Counts are by product, such as RBC or FFP. Received counts come from the units entered on this delivery. More units than expected is allowed and shows as over.</p>
         <table class="bb">
-            <thead><tr><th>Product</th><th>Expected</th><th>Received</th><th>Variance</th></tr></thead>
+            <thead><tr><th>Product</th><th>Expected</th><th>Received</th><th>Variance</th><th></th></tr></thead>
             <tbody>
                 @foreach (var line in _lines)
                 {
@@ -104,6 +105,12 @@ else
                         </td>
                         <td>@line.ReceivedQuantity</td>
                         <td>@VarianceLabel(line.ReceivedQuantity - line.ExpectedQuantity)</td>
+                        <td class="right">
+                            @if (_delivery.Status == DeliveryStatus.Open && line.ReceivedQuantity == 0 && _lines.Count > 1)
+                            {
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _lines.Remove(line)">Remove</button>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -111,10 +118,14 @@ else
         @if (_delivery.Status == DeliveryStatus.Open && Session.Has(PermissionCodes.InventoryReceive))
         {
             <div class="flex gap" style="margin-top:.6rem;">
-                <button class="btn btn-secondary" type="button" @onclick="AddLine">Add product</button>
+                <button class="btn btn-secondary" type="button" disabled="@(!CanAddLine)" title="@(CanAddLine ? null : "Every product is already on this delivery.")" @onclick="AddLine">Add product</button>
                 <button class="btn btn-primary" disabled="@_busy" @onclick="SaveDeliveryAsync">Save delivery</button>
                 <button class="btn btn-secondary" disabled="@_busy" @onclick="CompleteAsync">Complete delivery</button>
             </div>
+            @if (IsDirty)
+            {
+                <div class="muted" style="margin-top:.4rem;">Unsaved changes. They are saved first when you complete the delivery or enter units.</div>
+            }
         }
     </div>
 
@@ -195,9 +206,21 @@ else
         }).ToList();
     }
 
+    private bool CanAddLine => Enum.GetValues<ComponentClass>().Any(c => _lines.All(l => l.ComponentClass != c));
+
+    private bool IsDirty =>
+        _delivery is not null
+        && _delivery.Status == DeliveryStatus.Open
+        && (_supplierId != _delivery.BloodSupplierId
+            || _orderedLocal != _delivery.OrderedUtc
+            || (string.IsNullOrWhiteSpace(_packingList) ? null : _packingList.Trim()) != _delivery.PackingListNumber
+            || _lines.Count != _delivery.Lines.Count
+            || _lines.Any(l => !_delivery.Lines.Any(d => d.Id == l.Id && d.ComponentClass == l.ComponentClass && d.ExpectedQuantity == l.ExpectedQuantity)));
+
     private void AddLine()
     {
-        var next = Enum.GetValues<ComponentClass>().FirstOrDefault(c => _lines.All(l => l.ComponentClass != c));
+        if (!CanAddLine) return;
+        var next = Enum.GetValues<ComponentClass>().First(c => _lines.All(l => l.ComponentClass != c));
         _lines.Add(new LineDraft
         {
             ComponentClass = next,
@@ -205,9 +228,17 @@ else
         });
     }
 
-    private async Task SaveDeliveryAsync()
+    private async Task EnterUnitsAsync()
     {
-        if (_delivery is null) return;
+        if (IsDirty && !await SaveCoreAsync()) return;
+        Nav.NavigateTo($"/inventory/deliveries/{Id}/receive");
+    }
+
+    private async Task SaveDeliveryAsync() => await SaveCoreAsync();
+
+    private async Task<bool> SaveCoreAsync()
+    {
+        if (_delivery is null) return false;
         var lines = _lines
             .Select(l => new SaveDeliveryLineRequest(l.ComponentClass, l.ExpectedQuantity))
             .ToList();
@@ -220,10 +251,12 @@ else
         _busy = false;
         _feedback = r.Succeeded ? r.ToFeedback("Delivery saved.") : r.ToFeedback();
         if (r.Succeeded && r.Value is not null) Apply(r.Value);
+        return r.Succeeded;
     }
 
     private async Task CompleteAsync()
     {
+        if (IsDirty && !await SaveCoreAsync()) return;
         _busy = true;
         var r = await Api.CompleteDeliveryAsync(Id);
         _busy = false;

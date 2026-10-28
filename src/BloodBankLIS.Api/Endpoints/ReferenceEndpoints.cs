@@ -24,7 +24,10 @@ public static class ReferenceEndpoints
             Results.Ok(await service.ListAsync(includeInactive: false, ct)));
 
         group.MapGet("/receive-policy", async (FacilityPolicyService policy, CancellationToken ct) =>
-            Results.Ok(new ReceivePolicyDto(await policy.GetRequireReceiveVerifierAsync(ct))));
+            Results.Ok(new ReceivePolicyDto(
+                await policy.GetRequireReceiveVerifierAsync(ct),
+                await policy.GetRequireReceiveTemperatureAsync(ct),
+                await policy.GetRequireReceiveVisualInspectionAsync(ct))));
 
         group.MapGet("/product-types", async (BloodBankDbContext context, CancellationToken ct) =>
         {

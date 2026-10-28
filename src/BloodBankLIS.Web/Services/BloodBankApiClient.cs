@@ -1771,6 +1771,15 @@ public sealed class BloodBankApiClient
         {
             using var doc = JsonDocument.Parse(content);
             var root = doc.RootElement;
+
+            // Business-rule refusals ({ error, code }) also use 422 but are not safety-gate blocks.
+            if (root.ValueKind == JsonValueKind.Object
+                && !root.TryGetProperty("hardStops", out _)
+                && !root.TryGetProperty("warnings", out _))
+            {
+                return ApiResult<T>.Fail(ExtractError(content, 422), 422);
+            }
+
             var overridable = root.TryGetProperty("overridable", out var o) && o.ValueKind == JsonValueKind.True;
             var hardStops = root.TryGetProperty("hardStops", out var hs) ? ReadMessages(hs) : Array.Empty<RuleMessage>();
             var warnings = root.TryGetProperty("warnings", out var w) ? ReadMessages(w) : Array.Empty<RuleMessage>();

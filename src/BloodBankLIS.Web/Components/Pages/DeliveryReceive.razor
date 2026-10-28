@@ -4,7 +4,7 @@
 @using BloodBankLIS.Domain.Enums
 @inject BloodBankApiClient Api
 @inject UserSession Session
-@inject NavigationManager Nav
+@inject IJSRuntime Js
 
 <PageTitle>Enter units &middot; Delivery @Id</PageTitle>
 
@@ -17,7 +17,11 @@
 
 <Outcome Value="_feedback" />
 
-@if (_delivery is null)
+@if (!Session.Has(PermissionCodes.InventoryReceive))
+{
+    <div class="alert alert-warning">Entering units requires the inventory receive permission. <a href="@($"/inventory/deliveries/{Id}")">Open the delivery record</a> to view it.</div>
+}
+else if (_delivery is null)
 {
     <div class="loading">@(_missing ? "Delivery not found." : "Loading...")</div>
 }
@@ -55,10 +59,24 @@ else
     <div class="bb-card">
         <div class="bb-card-title"><h3>Receive a unit</h3></div>
         <p class="muted">The supplier comes from this delivery. Choose a catalog product in one of the products counted above.</p>
+        @if (MissingCatalogLabels.Count > 0)
+        {
+            <div class="alert alert-warning">
+                No active catalog product for @string.Join(", ", MissingCatalogLabels) on this delivery.
+                @if (Session.Has(PermissionCodes.AdminProductsManage))
+                {
+                    <a href="/admin/products">Add a product</a>
+                }
+                else
+                {
+                    <span>Ask an administrator to add one.</span>
+                }
+            </div>
+        }
         <div class="form-row">
             <div class="field"><label>Unit number</label><input @bind="_rec.UnitNumber" /></div>
             <div class="field"><label>Product</label>
-                <select @bind="_rec.ProductTypeId">
+                <select @bind="_rec.ProductTypeId" @bind:after="ApplyProductDefaults">
                     <option value="0">— select —</option>
                     @foreach (var product in EligibleProducts)
                     {
@@ -75,7 +93,7 @@ else
                     @foreach (var l in _locations) { <option value="@l.Id">@l.Code — @l.Name</option> }
                 </select>
             </div>
-            <div class="field"><label>Product description code</label>
+            <div class="field"><label>Product description code (required)</label>
                 <input @bind="_rec.ProductDescriptionCode" placeholder="E0336 or E0336000" maxlength="8" />
             </div>
         </div>
@@ -86,7 +104,7 @@ else
                 </select>
             </div>
             <div class="field"><label>Visual notes</label><input @bind="_rec.VisualInspectionNotes" /></div>
-            <div class="field"><label>Receipt temperature (°C)</label>
+            <div class="field"><label>Receipt temperature (°C)@(_requireTemperature ? " (required)" : "")</label>
                 <input type="number" step="0.1" @bind="_rec.ReceiveTemperatureCelsius" placeholder="e.g. 4.0" />
                 <span class="muted">Shipping cooler 1–10 °C</span>
             </div>
@@ -124,7 +142,8 @@ else
                 </div>
             }
         </div>
-        <button class="btn btn-primary" disabled="@_busy" @onclick="ReceiveAsync">Receive</button>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="ReceiveAsync">Receive unit</button>
+        <div id="delivery-receive-outcome" style="margin-top:.6rem;"><Outcome Value="_receiveFeedback" /></div>
     </div>
 }
 
@@ -135,6 +154,8 @@ else
     private bool _missing;
     private bool _busy;
     private Feedback? _feedback;
+    private Feedback? _receiveFeedback;
+    private bool _requireTemperature = true;
     private List<ProductTypeDto> _productTypes = new();
     private List<InventoryLocationDto> _locations = new();
     private List<DirectoryUserDto> _directoryUsers = new();
@@ -146,16 +167,18 @@ else
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
 
     private IEnumerable<ProductTypeDto> EligibleProducts =>
-        _productTypes.Where(p => _delivery?.Lines.Any(l => l.ComponentClass == p.ComponentClass) == true)
+        _productTypes.Where(p => p.IsActive && _delivery?.Lines.Any(l => l.ComponentClass == p.ComponentClass) == true)
             .OrderBy(p => p.Name);
+
+    private List<string> MissingCatalogLabels =>
+        (_delivery?.Lines ?? [])
+            .Where(l => !_productTypes.Any(p => p.IsActive && p.ComponentClass == l.ComponentClass))
+            .Select(l => l.ProductLabel)
+            .ToList();
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!Session.Has(PermissionCodes.InventoryReceive))
-        {
-            Nav.NavigateTo($"/inventory/deliveries/{Id}");
-            return;
-        }
+        if (!Session.Has(PermissionCodes.InventoryReceive)) return;
 
         await LoadAsync();
     }
@@ -164,6 +187,7 @@ else
     {
         var policy = await Api.GetReceivePolicyAsync();
         _requireReceiveVerifier = policy.Succeeded && policy.Value?.RequireSecondVerifier == true;
+        _requireTemperature = !policy.Succeeded || policy.Value?.RequireTemperature != false;
         _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
         _locations = (await Api.GetLocationsAsync()).Value ?? new();
         var users = await Api.GetDirectoryUsersAsync();
@@ -185,14 +209,21 @@ else
         if (_rec.ProductTypeId == 0 || EligibleProducts.All(p => p.Id != _rec.ProductTypeId))
         {
             _rec.ProductTypeId = EligibleProducts.FirstOrDefault()?.Id ?? 0;
+            ApplyProductDefaults();
         }
     }
 
     private async Task ReceiveAsync()
     {
-        if (_rec.ProductTypeId <= 0 || string.IsNullOrWhiteSpace(_rec.UnitNumber))
+        var missing = new List<string>();
+        if (string.IsNullOrWhiteSpace(_rec.UnitNumber)) missing.Add("unit number");
+        if (_rec.ProductTypeId <= 0) missing.Add("product");
+        if (string.IsNullOrWhiteSpace(_rec.ProductDescriptionCode)) missing.Add("product description code");
+        if (_requireTemperature && _rec.ReceiveTemperatureCelsius is null) missing.Add("receipt temperature");
+        if (missing.Count > 0)
         {
-            _feedback = Feedback.Fail("Unit number and product are required.");
+            _receiveFeedback = Feedback.Fail($"Enter the {string.Join(", ", missing)} before receiving.");
+            await Js.ScrollIntoViewAsync("delivery-receive-outcome");
             return;
         }
 
@@ -215,15 +246,39 @@ else
             DeliveryId: Id);
         var r = await Api.ReceiveUnitAsync(req);
         _busy = false;
-        _feedback = r.ToFeedback(r.Value?.Status == UnitStatus.Received
-            ? "Unit received. Pending retype until results are entered and verified."
-            : "Unit received.");
+        _receiveFeedback = r.ToFeedback(r.Value?.Status == UnitStatus.Received
+            ? $"Unit {req.UnitNumber} received. Pending retype until results are entered and verified."
+            : $"Unit {req.UnitNumber} received.");
         if (r.Succeeded)
         {
-            var productTypeId = _rec.ProductTypeId;
-            _rec = new ReceiveModel { ProductTypeId = productTypeId };
+            // Keep shipment-level fields so the next unit from the same cooler is quick to enter.
+            var previous = _rec;
+            _rec = new ReceiveModel
+            {
+                ProductTypeId = previous.ProductTypeId,
+                Abo = previous.Abo,
+                RhD = previous.RhD,
+                ExpiresLocal = previous.ExpiresLocal,
+                LocationId = previous.LocationId,
+                ProductDescriptionCode = previous.ProductDescriptionCode,
+                ReceiveTemperatureCelsius = previous.ReceiveTemperatureCelsius,
+                SecondVerifier = previous.SecondVerifier
+            };
             await LoadAsync();
         }
+
+        StateHasChanged();
+        await Js.ScrollIntoViewAsync("delivery-receive-outcome");
+    }
+
+    private void ApplyProductDefaults()
+    {
+        var product = _productTypes.FirstOrDefault(p => p.Id == _rec.ProductTypeId);
+        if (product is null) return;
+        if (!string.IsNullOrWhiteSpace(product.Isbt128ProductCode))
+            _rec.ProductDescriptionCode = product.Isbt128ProductCode;
+        if (product.DefaultShelfLifeHours is int hours && hours > 0)
+            _rec.ExpiresLocal = DateTime.UtcNow.AddHours(hours);
     }
 
     private static string VarianceLabel(int variance) =>
@@ -240,7 +295,7 @@ else
         public string ProductDescriptionCode { get; set; } = string.Empty;
         public string? VisualInspectionNotes { get; set; }
         public UnitAppearance Appearance { get; set; } = UnitAppearance.Acceptable;
-        public decimal? ReceiveTemperatureCelsius { get; set; }
+        public decimal? ReceiveTemperatureCelsius { get; set; } = 4.0m;
         public DonationRestriction DonationRestriction { get; set; } = DonationRestriction.Allogeneic;
         public long? ReservedPatientId { get; set; }
         public string? SecondVerifier { get; set; }

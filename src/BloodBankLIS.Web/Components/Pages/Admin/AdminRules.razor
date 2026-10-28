@@ -129,11 +129,11 @@
                 }
                 @foreach (var m in _validation.HardStops)
                 {
-                    <div class="error" style="margin-top:.3rem;"><span class="mono">@m.Code</span> @m.Message</div>
+                    <div class="text-error" style="margin-top:.3rem;"><span class="mono">@m.Code</span> @m.Message</div>
                 }
                 @foreach (var m in _validation.Warnings)
                 {
-                    <div class="warn" style="margin-top:.3rem;"><span class="mono">@m.Code</span> @m.Message</div>
+                    <div class="text-warn" style="margin-top:.3rem;"><span class="mono">@m.Code</span> @m.Message</div>
                 }
             </div>
         }

@@ -235,6 +235,13 @@ table.bb tbody tr:hover { background: #fafbfe; }
 .audit-json { margin: .25rem 0 .5rem; white-space: pre-wrap; word-break: break-word; max-width: 28rem; font-size: .75rem; }
 .form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 1rem; }
 @media (max-width: 720px) { .form-row { grid-template-columns: 1fr; } }
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+@media (max-width: 960px) { .grid-2 { grid-template-columns: 1fr; } }
+.checkbox-list { display: flex; flex-wrap: wrap; gap: .35rem 1rem; }
+.checkbox-item { display: inline-flex; align-items: center; gap: .4rem; font-size: .87rem; margin-right: 1rem; cursor: pointer; }
+.checkbox-item input { width: auto; margin: 0; }
+.text-error { color: var(--bb-primary-dark); }
+.text-warn { color: var(--bb-warn); }
 
 /* Buttons */
 .btn { border: 1px solid transparent; border-radius: 8px; padding: .5rem .9rem; font-size: .87rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: .4rem; }

@@ -102,7 +102,7 @@
         </div>
         @if (!string.IsNullOrWhiteSpace(_detail.Message.ErrorDetail))
         {
-            <div class="alert alert-error">@_detail.Message.ErrorDetail</div>
+            <div class="alert alert-danger">@_detail.Message.ErrorDetail</div>
         }
         <h4>Raw ASTM</h4>
         <pre class="pre">@_detail.RawMessage</pre>

@@ -5,6 +5,7 @@
 @using BloodBankLIS.Domain.Enums
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@inject IJSRuntime Js
 
 <PageTitle>ISBT 128 Receive · Greyhound Blood Bank LIS</PageTitle>
 
@@ -16,10 +17,7 @@
         Placeholder ABO/product codes require ICCBBA validation before clinical use.
     </p>
 
-    @if (!string.IsNullOrEmpty(_message))
-    {
-        <div class="alert">@_message</div>
-    }
+    <Outcome Value="_feedback" />
     @if (_lastUnit is not null)
     {
         <p class="flex gap" style="flex-wrap:wrap;">
@@ -39,7 +37,12 @@
         </p>
     }
 
-    <div class="bb-card" style="margin-bottom:1rem;">
+    @if (!CanReceive)
+    {
+        <div class="alert alert-warning">You can view this page, but receiving units requires the inventory receive permission.</div>
+    }
+
+    <div class="bb-card">
         <div class="form-row">
             <div class="field"><label>Open delivery</label>
                 <select @bind="_deliveryId" @bind:after="LoadDeliveryAsync">
@@ -66,6 +69,20 @@
                 @string.Join(" · ", _deliveryLines.Select(l => $"{l.ProductLabel} {l.ReceivedQuantity}/{l.ExpectedQuantity}"))
             </p>
         }
+        @if (MissingCatalogLabels.Count > 0)
+        {
+            <div class="alert alert-warning">
+                No active catalog product for @string.Join(", ", MissingCatalogLabels) on this delivery.
+                @if (Session.Has(PermissionCodes.AdminProductsManage))
+                {
+                    <a href="/admin/products">Add a product</a>
+                }
+                else
+                {
+                    <span>Ask an administrator to add one.</span>
+                }
+            </div>
+        }
         @if (_openDeliveries.Count == 0)
         {
             <p class="muted">No open delivery. <a href="/inventory/deliveries/new">Create a delivery</a> before receiving units.</p>
@@ -73,86 +90,92 @@
     </div>
 
     <div class="grid-2">
-        <div>
-            <h2>Manual entry</h2>
-            <label>
-                Donation / unit number
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Manual entry</h3></div>
+            <div class="field">
+                <label>Donation / unit number</label>
                 <input @bind="_donationNumber" maxlength="20" placeholder="G123417654321 or G1234 17 654321 A" />
-            </label>
-            <p class="muted" style="margin-top:0;font-size:0.85rem;">
-                Enter the full DIN as one string (facility + year + sequence). Spaces and an optional keyboard check character are allowed.
-            </p>
-            <label>ABO/RhD code (lookup) <input @bind="_aboCode" /></label>
-            <label>Product description code <input @bind="_pdc" maxlength="5" /></label>
-            <label>Collection type <input @bind="_collection" maxlength="1" /></label>
-            <label>Division <input @bind="_division" maxlength="2" /></label>
-            <label>Expiration (local) <input type="datetime-local" @bind="_expirationLocal" /></label>
-            <label><input type="checkbox" @bind="_explicitTime" /> Label includes explicit time</label>
-            <label>Appearance
-                <select @bind="_appearance">
-                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
-                </select>
-            </label>
-            <label>Receipt temperature (°C)
-                <input type="number" step="0.1" @bind="_receiveTemperature" placeholder="e.g. 4.0" />
-            </label>
-            <p class="muted" style="margin-top:0;font-size:0.85rem;">Shipping cooler range 1–10 °C. Out-of-range units are not received. Defaults to 4.0 so a routine cooler receipt is not blocked by a blank field.</p>
-            <label>How many
-                <input type="number" min="1" max="50" @bind="_quantity" />
-            </label>
-            <p class="muted" style="margin-top:0;font-size:0.85rem;">Each unit uses the next donation sequence. Product, ABO, and expiration stay the same.</p>
-            <label>Donation
-                <select @bind="_donationRestriction">
-                    @foreach (var d in Enum.GetValues<DonationRestriction>()) { <option value="@d">@d</option> }
-                </select>
-            </label>
-            @if (_donationRestriction != DonationRestriction.Allogeneic)
-            {
-                <label>Intended recipient
-                    <FilterableComboBox TItem="PatientDto" TValue="long?"
-                        Items="_patients"
-                        @bind-Value="_reservedPatientId"
-                        DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
-                        ItemValue="@(p => p.Id)"
-                        SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
-                        Clearable="true"
-                        Placeholder="Autologous / directed patient" />
-                </label>
-            }
-            @if (_requireReceiveVerifier)
-            {
-                <label>
-                    Second verifier
-                    <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
-                        Items="ReceiveVerifierChoices"
-                        @bind-Value="_secondVerifier"
-                        DisplayText="@(x => x.Label)"
-                        ItemValue="@(x => x.UserName)"
-                        SearchText="@(x => x.Label)"
-                        Clearable="true"
-                        Placeholder="Different active user" />
-                </label>
-            }
-            <label><input type="checkbox" @bind="_releaseAvailable" /> Release to Available</label>
-            <p class="muted" style="margin-top:0;font-size:0.85rem;">
-                Ignored when the product requires an ABO/Rh retype — those units enter as Received.
-            </p>
-            <button class="btn" disabled="@(!Session.Has(PermissionCodes.InventoryReceive))" @onclick="SubmitManual">
-                @(_quantity <= 1 ? "Create component" : $"Receive {_quantity} units")
-            </button>
+                <span class="muted">Enter the full DIN as one string (facility + year + sequence). Spaces and an optional keyboard check character are allowed.</span>
+            </div>
+            <div class="form-row">
+                <div class="field"><label>ABO/RhD code (lookup)</label><input @bind="_aboCode" /></div>
+                <div class="field"><label>Product description code</label><input @bind="_pdc" maxlength="5" /></div>
+                <div class="field"><label>Collection type</label><input @bind="_collection" maxlength="1" /></div>
+                <div class="field"><label>Division</label><input @bind="_division" maxlength="2" /></div>
+                <div class="field"><label>Expiration (local)</label><input type="datetime-local" @bind="_expirationLocal" /></div>
+                <div class="field"><label>Appearance</label>
+                    <select @bind="_appearance">
+                        @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
+                    </select>
+                </div>
+                <div class="field"><label>Receipt temperature (°C)</label>
+                    <input type="number" step="0.1" @bind="_receiveTemperature" placeholder="e.g. 4.0" />
+                    <span class="muted">Shipping cooler 1–10 °C. Out-of-range units are not received.</span>
+                </div>
+                <div class="field"><label>How many</label>
+                    <input type="number" min="1" max="50" @bind="_quantity" />
+                    <span class="muted">Each unit uses the next donation sequence.</span>
+                </div>
+                <div class="field"><label>Donation</label>
+                    <select @bind="_donationRestriction">
+                        @foreach (var d in Enum.GetValues<DonationRestriction>()) { <option value="@d">@d</option> }
+                    </select>
+                </div>
+                @if (_donationRestriction != DonationRestriction.Allogeneic)
+                {
+                    <div class="field"><label>Intended recipient</label>
+                        <FilterableComboBox TItem="PatientDto" TValue="long?"
+                            Items="_patients"
+                            @bind-Value="_reservedPatientId"
+                            DisplayText="@(p => $"{p.LastName}, {p.FirstName} ({p.MedicalRecordNumber})")"
+                            ItemValue="@(p => p.Id)"
+                            SearchText="@(p => $"{p.LastName} {p.FirstName} {p.MedicalRecordNumber}")"
+                            Clearable="true"
+                            Placeholder="Autologous / directed patient" />
+                    </div>
+                }
+                @if (_requireReceiveVerifier)
+                {
+                    <div class="field"><label>Second verifier</label>
+                        <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                            Items="ReceiveVerifierChoices"
+                            @bind-Value="_secondVerifier"
+                            DisplayText="@(x => x.Label)"
+                            ItemValue="@(x => x.UserName)"
+                            SearchText="@(x => x.Label)"
+                            Clearable="true"
+                            Placeholder="Different active user" />
+                    </div>
+                }
+            </div>
+            <label class="checkbox-item"><input type="checkbox" @bind="_explicitTime" /> Label includes explicit time</label>
+            <label class="checkbox-item"><input type="checkbox" @bind="_releaseAvailable" /> Release to Available</label>
+            <p class="muted" style="font-size:0.85rem;">Release is ignored when the product requires an ABO/Rh retype — those units enter as Received.</p>
+            <div class="flex gap" style="align-items:center;flex-wrap:wrap;">
+                <button class="btn btn-primary" disabled="@(!ReadyToReceive || _busy)" @onclick="SubmitManual">
+                    @(_quantity <= 1 ? "Receive unit" : $"Receive {_quantity} units")
+                </button>
+                @if (CanReceive && !DeliverySelected)
+                {
+                    <span class="muted">Select an open delivery and product above first.</span>
+                }
+            </div>
+            <div id="isbt-manual-outcome" style="margin-top:.6rem;"><Outcome Value="_manualFeedback" /></div>
         </div>
 
-        <div>
-            <h2>Scanner session</h2>
-            <button class="btn" @onclick="StartSession">Start scan session</button>
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Scanner session</h3></div>
+            <button class="btn btn-secondary" disabled="@(!CanReceive || _busy)" @onclick="StartSession">@(_sessionKey is null ? "Start scan session" : "Restart scan session")</button>
             @if (_sessionKey is not null)
             {
-                <p>Session: @_sessionKey</p>
-                <label>Scan / paste
-                    <input @bind="_scanValue" @onkeydown="OnScanKey" />
-                </label>
-                <button class="btn" @onclick="AddScan">Add scan</button>
-                <button class="btn" @onclick="CompleteSession">Complete &amp; receive</button>
+                <p class="muted mono">Session: @_sessionKey</p>
+                <div class="field"><label>Scan / paste</label>
+                    <input @bind="_scanValue" @bind:event="oninput" @onkeydown="OnScanKey" />
+                </div>
+                <div class="flex gap">
+                    <button class="btn btn-secondary" disabled="@_busy" @onclick="AddScan">Add scan</button>
+                    <button class="btn btn-primary" disabled="@(!ReadyToReceive || _busy)" @onclick="CompleteSession">Complete &amp; receive</button>
+                </div>
                 @if (_session is not null)
                 {
                     <pre>Received: @string.Join(", ", _session.Received)
@@ -160,6 +183,7 @@ Identity: @_session.Draft?.ComponentIdentity
 Valid: @_session.Validation?.Valid</pre>
                 }
             }
+            <div id="isbt-scan-outcome" style="margin-top:.6rem;"><Outcome Value="_scanFeedback" /></div>
         </div>
     </div>
 </section>
@@ -172,7 +196,6 @@ Valid: @_session.Validation?.Valid</pre>
     private string _division = "00";
     private DateTime _expirationLocal = DateTime.Now.AddDays(30);
     private bool _explicitTime;
-    private bool _visualOk = true;
     private UnitAppearance _appearance = UnitAppearance.Acceptable;
     private decimal? _receiveTemperature = 4.0m;
     private int _quantity = 1;
@@ -181,12 +204,15 @@ Valid: @_session.Validation?.Valid</pre>
     private bool _releaseAvailable = true;
     private string? _secondVerifier;
     private bool _requireReceiveVerifier;
+    private bool _busy;
     private List<DirectoryUserDto> _directoryUsers = new();
     private List<PatientDto> _patients = new();
 
     private IEnumerable<DirectoryUserDto> ReceiveVerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
-    private string? _message;
+    private Feedback? _feedback;
+    private Feedback? _manualFeedback;
+    private Feedback? _scanFeedback;
     private BloodUnitDto? _lastUnit;
     private Guid? _sessionKey;
     private string _scanValue = "";
@@ -197,9 +223,19 @@ Valid: @_session.Validation?.Valid</pre>
     private List<DeliveryLineDto> _deliveryLines = new();
     private List<ProductTypeDto> _productTypes = new();
 
+    private bool CanReceive => Session.Has(PermissionCodes.InventoryReceive);
+    private bool DeliverySelected => _deliveryId > 0 && _productTypeId > 0;
+    private bool ReadyToReceive => CanReceive && DeliverySelected;
+
     private IEnumerable<ProductTypeDto> EligibleProducts =>
-        _productTypes.Where(p => _deliveryLines.Any(l => l.ComponentClass == p.ComponentClass))
+        _productTypes.Where(p => p.IsActive && _deliveryLines.Any(l => l.ComponentClass == p.ComponentClass))
             .OrderBy(p => p.Name);
+
+    private List<string> MissingCatalogLabels =>
+        _deliveryLines
+            .Where(l => !_productTypes.Any(p => p.IsActive && p.ComponentClass == l.ComponentClass))
+            .Select(l => l.ProductLabel)
+            .ToList();
 
     protected override async Task OnInitializedAsync()
     {
@@ -208,6 +244,7 @@ Valid: @_session.Validation?.Valid</pre>
         _productTypes = (await Api.GetProductTypesAsync()).Value ?? new();
         var open = await Api.GetOpenDeliveriesAsync();
         if (open.Succeeded) _openDeliveries = open.Value ?? new();
+        else _feedback = open.ToFeedback();
         var users = await Api.GetDirectoryUsersAsync();
         if (users.Succeeded) _directoryUsers = users.Value ?? new();
         var patients = await Api.GetPatientsAsync();
@@ -228,7 +265,7 @@ Valid: @_session.Validation?.Valid</pre>
         if (!delivery.Succeeded || delivery.Value is null)
         {
             _productTypeId = 0;
-            _message = delivery.Error;
+            _feedback = delivery.ToFeedback();
             return;
         }
 
@@ -257,11 +294,11 @@ Valid: @_session.Validation?.Valid</pre>
         return compact[..7] + (sequence + 1).ToString("D6");
     }
 
-    private bool DeliveryReady()
+    private bool DeliveryReady(Action<Feedback> report)
     {
-        if (_deliveryId <= 0 || _productTypeId <= 0)
+        if (!DeliverySelected)
         {
-            _message = "Select an open delivery and a product type on that delivery.";
+            report(Feedback.Fail("Select an open delivery and a product type on that delivery."));
             return false;
         }
 
@@ -270,46 +307,56 @@ Valid: @_session.Validation?.Valid</pre>
 
     private async Task SubmitManual()
     {
-        if (!DeliveryReady()) return;
-        var count = Math.Clamp(_quantity, 1, 50);
-        var created = new List<string>();
-        BloodUnitDto? last = null;
-        for (var i = 0; i < count; i++)
+        if (_busy || !DeliveryReady(f => _manualFeedback = f)) return;
+        _busy = true;
+        try
         {
-            var req = new ManualComponentEntryRequest(
-                _donationNumber.Trim(),
-                _aboCode, _pdc, _collection, _division, null,
-                _expirationLocal, _explicitTime, _productTypeId,
-                ReleaseToAvailable: _releaseAvailable,
-                VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
-                SecondVerifier: _requireReceiveVerifier ? _secondVerifier : null,
-                Appearance: _appearance,
-                ReceiveTemperatureCelsius: _receiveTemperature,
-                DonationRestriction: _donationRestriction,
-                ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId,
-                DeliveryId: _deliveryId);
-            var result = await Api.CreateIsbtManualAsync(req);
-            if (!result.Succeeded || result.Value is null)
+            var count = Math.Clamp(_quantity, 1, 50);
+            var created = new List<string>();
+            BloodUnitDto? last = null;
+            for (var i = 0; i < count; i++)
             {
-                _lastUnit = last;
-                _message = created.Count == 0
-                    ? result.Error
-                    : $"Received {created.Count} of {count}. Stopped at {_donationNumber}: {result.Error}";
-                await LoadDeliveryAsync();
-                return;
+                var req = new ManualComponentEntryRequest(
+                    _donationNumber.Trim(),
+                    _aboCode, _pdc, _collection, _division, null,
+                    _expirationLocal, _explicitTime, _productTypeId,
+                    ReleaseToAvailable: _releaseAvailable,
+                    VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
+                    SecondVerifier: _requireReceiveVerifier ? _secondVerifier : null,
+                    Appearance: _appearance,
+                    ReceiveTemperatureCelsius: _receiveTemperature,
+                    DonationRestriction: _donationRestriction,
+                    ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId,
+                    DeliveryId: _deliveryId);
+                var result = await Api.CreateIsbtManualAsync(req);
+                if (!result.Succeeded || result.Value is null)
+                {
+                    _lastUnit = last;
+                    _manualFeedback = created.Count == 0
+                        ? result.ToFeedback()
+                        : Feedback.Fail($"Received {created.Count} of {count}. Stopped at {_donationNumber}: {result.FailureSummary()}");
+                    await LoadDeliveryAsync();
+                    return;
+                }
+
+                last = result.Value;
+                created.Add(result.Value.ComponentIdentity);
+                _donationNumber = NextDin(_donationNumber);
             }
 
-            last = result.Value;
-            created.Add(result.Value.ComponentIdentity);
-            _donationNumber = NextDin(_donationNumber);
+            _lastUnit = last;
+            _quantity = 1;
+            _manualFeedback = Feedback.Succeed(count == 1
+                ? $"Received {created[0]} (status {last!.Status}). Next DIN is {_donationNumber}."
+                : $"Received {count} units ({created[0]} through {created[^1]}, status {last!.Status}). Next DIN is {_donationNumber}.");
+            await LoadDeliveryAsync();
         }
-
-        _lastUnit = last;
-        _quantity = 1;
-        _message = count == 1
-            ? $"Created {created[0]} (status {last!.Status}). Next DIN is {_donationNumber}."
-            : $"Received {count} units ({created[0]} through {created[^1]}, status {last!.Status}). Next DIN is {_donationNumber}.";
-        await LoadDeliveryAsync();
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+            await Js.ScrollIntoViewAsync("isbt-manual-outcome");
+        }
     }
 
     private async Task StartSession()
@@ -319,18 +366,24 @@ Valid: @_session.Validation?.Valid</pre>
         {
             _sessionKey = result.Value!.SessionKey;
             _session = result.Value;
-            _message = "Scan session started.";
+            _scanFeedback = Feedback.Succeed("Scan session started.");
         }
-        else _message = result.Error;
+        else _scanFeedback = result.ToFeedback();
     }
 
     private async Task AddScan()
     {
-        if (_sessionKey is null || string.IsNullOrWhiteSpace(_scanValue)) return;
+        if (_sessionKey is null) return;
+        if (string.IsNullOrWhiteSpace(_scanValue))
+        {
+            _scanFeedback = Feedback.Fail("Scan or paste a barcode first.");
+            return;
+        }
+
         var result = await Api.AddIsbtScanAsync(new AddScanRequest(_sessionKey.Value, _scanValue));
         _scanValue = "";
-        if (result.Succeeded) { _session = result.Value; _message = "Scan accepted."; }
-        else _message = result.Error;
+        if (result.Succeeded) { _session = result.Value; _scanFeedback = Feedback.Succeed("Scan accepted."); }
+        else _scanFeedback = result.ToFeedback();
     }
 
     private async Task OnScanKey(KeyboardEventArgs e)
@@ -341,26 +394,36 @@ Valid: @_session.Validation?.Valid</pre>
 
     private async Task CompleteSession()
     {
-        if (_sessionKey is null) return;
-        if (!DeliveryReady()) return;
-        var result = await Api.CompleteIsbtScanSessionAsync(new CompleteScanSessionRequest(
-            _sessionKey.Value, _productTypeId, ReleaseToAvailable: _releaseAvailable,
-            VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
-            SecondVerifier: _requireReceiveVerifier ? _secondVerifier : null, Appearance: _appearance,
-            ReceiveTemperatureCelsius: _receiveTemperature,
-            DonationRestriction: _donationRestriction,
-            ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId,
-            DeliveryId: _deliveryId));
-        if (result.Succeeded)
+        if (_sessionKey is null || _busy) return;
+        if (!DeliveryReady(f => _scanFeedback = f)) return;
+        _busy = true;
+        try
         {
-            _lastUnit = result.Value;
-            _message = $"Received {result.Value!.ComponentIdentity}";
-            await LoadDeliveryAsync();
+            var result = await Api.CompleteIsbtScanSessionAsync(new CompleteScanSessionRequest(
+                _sessionKey.Value, _productTypeId, ReleaseToAvailable: _releaseAvailable,
+                VisualInspectionAcceptable: _appearance == UnitAppearance.Acceptable,
+                SecondVerifier: _requireReceiveVerifier ? _secondVerifier : null, Appearance: _appearance,
+                ReceiveTemperatureCelsius: _receiveTemperature,
+                DonationRestriction: _donationRestriction,
+                ReservedPatientId: _donationRestriction == DonationRestriction.Allogeneic ? null : _reservedPatientId,
+                DeliveryId: _deliveryId));
+            if (result.Succeeded)
+            {
+                _lastUnit = result.Value;
+                _scanFeedback = Feedback.Succeed($"Received {result.Value!.ComponentIdentity}. Start a new session for the next unit.");
+                _sessionKey = null;
+                _session = null;
+                await LoadDeliveryAsync();
+            }
+            else
+            {
+                _lastUnit = null;
+                _scanFeedback = result.ToFeedback();
+            }
         }
-        else
+        finally
         {
-            _lastUnit = null;
-            _message = result.Error;
+            _busy = false;
         }
     }
 }
