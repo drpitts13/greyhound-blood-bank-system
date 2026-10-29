@@ -255,7 +255,29 @@
 {
     <div class="bb-card" style="margin-top:1rem;">
         <div class="bb-card-title"><h3>Allocate unit</h3></div>
-        <p class="muted">Select an open product order and an in-date ABO/Rh-compatible Available unit that has completed retype when the product requires it. An outdated unit is not offered. A unit that does not meet an active irradiated, CMV-negative, leukoreduced, washed, or antigen-negative requirement is not offered. A unit inside the facility near-expiry window is marked expires soon. A unit that already has a compatible crossmatch for this patient is listed ahead of an unmatched unit in the same group and marked Crossmatch compatible. A unit with an incompatible crossmatch for this patient stays listed, after unmatched units in the same group, and is marked Crossmatch incompatible. Issue of that unit still uses the existing override. Crossmatch-required products attach EXM, XM, or CXM automatically. An unretyped unit can leave inventory only through emergency or MTP issue. Each choice shows the product and when the unit expires, including the time, and where that unit is stored. A blank storage location name stays the location id. A location code is not shown. Allocated products show that same product name and expiration, the unit ABO/Rh, and that storage location. They also show the latest crossmatch result and when a current compatible crossmatch expires. A unit with no crossmatch result shows none. Unit choices and the selected unit show the latest crossmatch result, and a current compatible expiration stays beside that result. A unit with no crossmatch result shows none. Allocation and issue eligibility are unchanged.</p>
+        <p class="muted">Choose an open product order, then a unit. Only units this patient can safely receive are offered.</p>
+        <details class="bb-help">
+            <summary>How units are offered</summary>
+            <ul>
+                <li>Select an open product order and an in-date ABO/Rh-compatible Available unit that has completed retype when the product requires it.</li>
+                <li>An outdated unit is not offered.</li>
+                <li>A unit that does not meet an active irradiated, CMV-negative, leukoreduced, washed, or antigen-negative requirement is not offered.</li>
+                <li>A unit inside the facility near-expiry window is marked expires soon.</li>
+                <li>A unit that already has a compatible crossmatch for this patient is listed ahead of an unmatched unit in the same group and marked Crossmatch compatible.</li>
+                <li>A unit with an incompatible crossmatch for this patient stays listed, after unmatched units in the same group, and is marked Crossmatch incompatible.</li>
+                <li>Issue of that unit still uses the existing override.</li>
+                <li>Crossmatch-required products attach EXM, XM, or CXM automatically.</li>
+                <li>An unretyped unit can leave inventory only through emergency or MTP issue.</li>
+                <li>Each choice shows the product and when the unit expires, including the time, and where that unit is stored.</li>
+                <li>A blank storage location name stays the location id.</li>
+                <li>A location code is not shown.</li>
+                <li>Allocated products show that same product name and expiration, the unit ABO/Rh, and that storage location.</li>
+                <li>They also show the latest crossmatch result and when a current compatible crossmatch expires.</li>
+                <li>A unit with no crossmatch result shows none.</li>
+                <li>Unit choices and the selected unit show the latest crossmatch result, and a current compatible expiration stays beside that result.</li>
+                <li>Allocation and issue eligibility are unchanged.</li>
+            </ul>
+        </details>
         @if (OpenAbidWorkups.Count > 0)
         {
             <div class="alert alert-warning">
