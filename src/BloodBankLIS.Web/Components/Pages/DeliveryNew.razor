@@ -60,7 +60,8 @@
     </table>
     <div class="flex gap" style="margin-top:.6rem;">
         <button class="btn btn-secondary" type="button" disabled="@(!CanAddLine)" title="@(CanAddLine ? null : "Every product is already on this delivery.")" @onclick="AddLine">Add product</button>
-        <button class="btn btn-primary" disabled="@_busy" @onclick="CreateAsync">Save delivery</button>
+        <button class="btn btn-primary" disabled="@_busy" @onclick="() => CreateAsync(enterUnits: true)">Save and enter units</button>
+        <button class="btn btn-secondary" disabled="@_busy" title="Save the delivery record and enter units later" @onclick="() => CreateAsync(enterUnits: false)">Save only</button>
     </div>
 </div>
 
@@ -95,7 +96,8 @@
         _lines.Add(new LineDraft { ComponentClass = next, ExpectedQuantity = 1 });
     }
 
-    private async Task CreateAsync()
+    /// <param name="enterUnits">Go straight to unit entry, the usual next step when the shipment is on the bench.</param>
+    private async Task CreateAsync(bool enterUnits)
     {
         if (_supplierId <= 0 || _lines.Count == 0)
         {
@@ -116,7 +118,9 @@
             return;
         }
 
-        Nav.NavigateTo($"/inventory/deliveries/{r.Value.Id}");
+        Nav.NavigateTo(enterUnits
+            ? $"/inventory/deliveries/{r.Value.Id}/receive"
+            : $"/inventory/deliveries/{r.Value.Id}");
     }
 
     private sealed class LineDraft
