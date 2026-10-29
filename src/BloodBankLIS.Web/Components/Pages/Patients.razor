@@ -46,7 +46,11 @@
 <div class="bb-card">
     <div class="field" style="max-width:360px;">
         <label>Search by name or MRN</label>
-        <input @bind="_filter" @bind:event="oninput" placeholder="Type to filter..." />
+        <input @ref="_searchInput" @bind="_filter" @bind:event="oninput" @onkeydown="OnSearchKey" placeholder="Type or scan a name or MRN..." />
+        @if (!string.IsNullOrWhiteSpace(_filter) && Filtered.Count == 1)
+        {
+            <span class="muted" style="font-size:.82rem;">Press Enter to open @Filtered[0].LastName, @Filtered[0].FirstName.</span>
+        }
     </div>
 
     @if (_loading)
@@ -111,7 +115,31 @@
         ? _patients
         : _patients.Where(p => p.MatchesSearch(_filter)).ToList();
 
+    private ElementReference _searchInput;
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Finding a patient is usually the first thing done here, so be ready to type or scan.
+        if (!firstRender) return;
+        try
+        {
+            await _searchInput.FocusAsync();
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    /// <summary>Enter opens the chart when the search narrows to one patient (e.g. a scanned wristband MRN).</summary>
+    private void OnSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_filter) && Filtered.Count == 1)
+        {
+            Nav.NavigateTo($"/patients/{Filtered[0].Id}");
+        }
+    }
 
     private async Task LoadAsync()
     {
