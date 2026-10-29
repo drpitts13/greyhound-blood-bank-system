@@ -113,6 +113,7 @@ public sealed class LookbackService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<InventoryLocation>? _locations;
 
     public LookbackService(
         IInventoryRepository inventory,
@@ -127,7 +128,8 @@ public sealed class LookbackService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<InventoryLocation>? locations = null)
     {
         _inventory = inventory;
         _units = units;
@@ -142,6 +144,7 @@ public sealed class LookbackService
         _currentUser = currentUser;
         _audit = audit;
         _permissions = permissions;
+        _locations = locations;
     }
 
     public async Task<OperationResult<LookbackReportDto>> FindByDinAsync(string din, CancellationToken ct = default)
@@ -159,6 +162,7 @@ public sealed class LookbackService
         }
 
         var units = await CollectUnitsForDinAsync(normalized, ct);
+        var issuePlaces = await LoadIssuePlacesAsync(ct);
         var recipients = new List<LookbackRecipientDto>();
         foreach (var unit in units)
         {
@@ -168,7 +172,7 @@ public sealed class LookbackService
                 var tx = await _transfusions.FirstOrDefaultAsync(t => t.IssueId == issue.Id, ct);
                 var recipient = await _patients.GetByIdAsync(issue.PatientId, ct);
                 recipients.Add(new LookbackRecipientDto(
-                    unit.Id, issue.PatientId, issue.Id, tx?.Id, issue.IssuedToLocation, issue.IssuedUtc,
+                    unit.Id, issue.PatientId, issue.Id, tx?.Id, IssueDestinationCue.Format(issue.IssuedToLocation, issuePlaces), issue.IssuedUtc,
                     recipient?.MedicalRecordNumber, FormatName(recipient), unit.UnitNumber));
             }
         }
@@ -353,6 +357,7 @@ public sealed class LookbackService
         var units = new List<RecipientTraceUnitDto>();
         var issuedUnitIds = new HashSet<long>();
         var dins = new HashSet<string>(StringComparer.Ordinal);
+        var issuePlaces = await LoadIssuePlacesAsync(ct);
         foreach (var issue in issues)
         {
             var unit = await _units.GetByIdAsync(issue.BloodProductId, ct)
@@ -377,7 +382,7 @@ public sealed class LookbackService
                 unit.Status,
                 issue.Id,
                 issue.IssuedUtc,
-                issue.IssuedToLocation,
+                IssueDestinationCue.Format(issue.IssuedToLocation, issuePlaces),
                 issue.IssueType,
                 issue.Status,
                 tx?.Id,
@@ -633,6 +638,19 @@ public sealed class LookbackService
 
     private Task<OperationResult<LookbackNotification>?> RejectUnauthorizedAttemptAsync(CancellationToken ct) =>
         RejectUnauthorizedAsync<LookbackNotification>(LookbackAuthorizationRule.EvaluateAttempt, ct);
+
+    private async Task<IReadOnlyList<StorageLocationLabel.CatalogLocation>?> LoadIssuePlacesAsync(CancellationToken ct)
+    {
+        if (_locations is null)
+        {
+            return null;
+        }
+
+        var locations = await _locations.ListAsync(ct);
+        return locations
+            .Select(location => new StorageLocationLabel.CatalogLocation(location.Id, location.Name, location.Code))
+            .ToList();
+    }
 
     private Task<OperationResult<LookbackReportDto>?> RejectUnauthorizedFindAsync(CancellationToken ct) =>
         RejectUnauthorizedAsync<LookbackReportDto>(LookbackAuthorizationRule.EvaluateFind, ct);

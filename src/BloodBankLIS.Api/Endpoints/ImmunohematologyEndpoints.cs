@@ -78,5 +78,38 @@ public static class ImmunohematologyEndpoints
             EndpointResults.From(await service.DeactivateAntibodyAsync(id, request.Reason, ct), a => AntibodyDto.From(a)))
             .RequirePermission(PermissionCodes.ImmunoOverride)
             .WithTags("Immunohematology");
+
+        patients.MapGet("/{patientId:long}/dat-elution", async (long patientId, DatElutionWorkupService service, CancellationToken ct) =>
+            Results.Ok(await service.ListForPatientAsync(patientId, ct)));
+
+        patients.MapPost("/{patientId:long}/dat-elution", async (
+                long patientId,
+                CreateDatElutionWorkupRequest request,
+                DatElutionWorkupService service,
+                CancellationToken ct) =>
+            EndpointResults.Created(
+                await service.CreateAsync(patientId, request, ct),
+                w => ($"/api/dat-elution/{w.Id}", (object)DatElutionWorkupDto.From(w))))
+            .RequirePermission(PermissionCodes.ImmunoRecord);
+
+        var datElution = app.MapGroup("/api/dat-elution").WithTags("DatElution").RequireAuthenticatedUser();
+
+        datElution.MapGet("/{id:long}", async (long id, DatElutionWorkupService service, CancellationToken ct) =>
+        {
+            var row = await service.GetAsync(id, ct);
+            return row is null ? Results.NotFound() : Results.Ok(row);
+        });
+
+        datElution.MapPut("/{id:long}", async (long id, UpdateDatElutionWorkupRequest request, DatElutionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.UpdateAsync(id, request, ct), w => DatElutionWorkupDto.From(w)))
+            .RequirePermission(PermissionCodes.ImmunoRecord);
+
+        datElution.MapPost("/{id:long}/complete", async (long id, DatElutionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.CompleteAsync(id, ct), w => DatElutionWorkupDto.From(w)))
+            .RequirePermission(PermissionCodes.ImmunoRecord);
+
+        datElution.MapPost("/{id:long}/void", async (long id, VoidDatElutionWorkupRequest request, DatElutionWorkupService service, CancellationToken ct) =>
+            EndpointResults.From(await service.VoidAsync(id, request, ct), w => DatElutionWorkupDto.From(w)))
+            .RequirePermission(PermissionCodes.ImmunoRecord);
     }
 }

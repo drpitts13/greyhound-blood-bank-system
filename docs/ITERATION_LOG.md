@@ -4880,3 +4880,1910 @@ WellSky, SafeTrace, and SoftBank repeat the crossmatch status recorded when a un
 Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
 The retrospective queue, the follow-up screen, and product history still leave off the crossmatch status recorded at issue.
 SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 174 — Retrospective queue shows the crossmatch status recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the crossmatch status recorded when a unit left the blood bank on the retrospective crossmatch worklist, separate from the latest crossmatch result. The issued queues and Receive, Return, and Document already show that status. The retrospective queue left it off.
+
+### Implemented
+
+- The retrospective crossmatch queue shows the crossmatch status recorded at issue.
+- Retrospective completion is unchanged.
+
+### Requirements / risk
+
+- URS-BB-327, FRS-BB-362, SRS-BB-324, RISK-BB-429.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-216 (`Phase4IssuingTests.EmergencyRelease_AppearsOnRetrospectiveWorklist_UntilCompatibleXm`).
+- Full suite green: Domain 1447, Application 51, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+The follow-up screen and product history still leave off the crossmatch status recorded at issue.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 175 — Follow-up screen shows the crossmatch status recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank repeat the crossmatch status recorded when a unit left the blood bank on the screen where retrospective compatibility is recorded. The retrospective queue already shows that status. The follow-up screen left it off.
+
+### Implemented
+
+- The retrospective follow-up screen repeats the crossmatch status recorded at issue.
+- Recording the crossmatch is unchanged.
+
+### Requirements / risk
+
+- URS-BB-328, FRS-BB-363, SRS-BB-325, RISK-BB-430.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-217 (`CrossmatchStatusNoticeTests.CrossmatchStatusNotice_NamesTheStatus`).
+- Full suite green: Domain 1447, Application 51, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next commercial gap versus WellSky, SafeTrace, and SoftBank, one coherent slice.
+Product history still leaves off the crossmatch status recorded at issue.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 176 — Product history shows the crossmatch status recorded at issue (2026-10-02)
+
+WellSky, SafeTrace, and SoftBank show the crossmatch status recorded when a unit left the blood bank on the patient's product history, separate from the latest crossmatch result. The issued queues, Receive, Return, Document, the retrospective queue, and the follow-up screen already show that status. Issued, returned, and transfused history rows left it off.
+
+### Implemented
+
+- Issued, returned, and transfused product-history rows show the crossmatch status recorded at issue.
+- Other rows show none.
+- The issue gate is unchanged.
+
+### Requirements / risk
+
+- URS-BB-329, FRS-BB-364, SRS-BB-326, RISK-BB-431.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-218 (`Phase10PatientWorkspaceTests.ProductHistory_IsPatientScoped`).
+- Full suite green: Domain 1447, Application 51, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+The crossmatch status recorded at issue is now shown on the issued queues, Receive, Return, Document, the retrospective queue, the follow-up screen, and product history.
+Re-rank the next residual by safety and operational impact. Do not add another display-only field for a fact that is already on those surfaces.
+SME items remain: OCD-001 (undetectable antibody vs eXM), OCD-004 (licensed extract not loaded).
+
+## Iteration 177 — Keep electronic crossmatch blocked by any antibody history (2026-10-02)
+
+The crossmatch-status display chain is complete. The next ranked residual was OCD-001: whether a historically identified, currently undetectable antibody permanently precludes electronic crossmatch. The decision is to keep the existing hard stop. No eligibility code changed.
+
+### Implemented
+
+- OCD-001 is closed. Any antibody-history row, including a deactivated row, still blocks electronic crossmatch (`XM-EC-HISTORY`).
+- Antigen-negative requirements still evaluate all history rows.
+- Other electronic-crossmatch eligibility criteria are unchanged.
+
+### Requirements / risk
+
+- URS-BB-330, FRS-BB-365, SRS-BB-327, RISK-BB-432.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-219 (`ElectronicXmHistoryRegressionTests.DeactivatedAntibody_BlocksElectronicXm_WithExplainableReason`).
+- Full suite green: Domain 1447, Application 51, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not add another display-only field for a fact already shown on the issue surfaces.
+OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 178 — Dashboard shows the bench queues (2026-10-03)
+
+The crossmatch-status display chain is complete, and OCD-001 is closed. The next operational gap is the start of a shift: the dashboard counted patients and inventory but did not show the queues a technologist still has to clear.
+
+### Implemented
+
+- The dashboard shows retrospective crossmatch due, outstanding issued units, pending testing, and reaction investigations that are open or under review.
+- Each queue appears only when the signed-in user already has the matching permission.
+- A closed investigation is not counted.
+- A queue that cannot be loaded shows an em dash instead of zero.
+- Issue, result, and investigation gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-331, FRS-BB-366, SRS-BB-328, RISK-BB-433.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-220 (`OpenReactionInvestigationRuleTests.Count_IncludesOpenAndUnderReview_AndOmitsClosed`).
+- Full suite green: Domain 1447, Application 52, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not add another display-only field for a fact already shown on the issue surfaces.
+OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 179 — Dashboard shows units still in transit (2026-10-03)
+
+The shift dashboard listed outstanding issued units but not units that had left the bank and were still awaiting ward receipt. Those units already have an arrival window and an overdue flag.
+
+### Implemented
+
+- The dashboard shows an in-transit count for users who can already issue or document transfusion.
+- When any of those units are past the arrival window, the count says how many are overdue.
+- A queue that cannot be loaded shows an em dash instead of zero.
+- Ward receipt is unchanged.
+
+### Requirements / risk
+
+- URS-BB-332, FRS-BB-367, SRS-BB-329, RISK-BB-434.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-221 (`InTransitAttentionRuleTests.CountOverdue_IncludesOnlyFlagsAlreadyPastTheArrivalWindow`).
+- Full suite green: Domain 1447, Application 53, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+The dashboard still does not say how many retrospective crossmatches are already overdue, or how many reaction investigations still need fatality follow-up. Do not add another display-only field on the issue surfaces.
+OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 180 — Dashboard shows overdue retrospective crossmatch and fatality follow-up (2026-10-03)
+
+The dashboard counted retrospective crossmatch and reaction investigations, but a count alone did not separate routine work from items already past due. Both facts are already stored: each retrospective work item carries an overdue flag, and each investigation carries the fatality follow-up cue (`RXN-FATALITY-FOLLOWUP`).
+
+### Implemented
+
+- Retrospective crossmatch due shows how many items are past their stored due time.
+- Reaction investigations shows how many cases still need CBER notification or the written report. A closed case is included, because closing the workup does not clear that follow-up.
+- When nothing is past due, the count looks the same as before.
+- Retrospective completion, reaction close, and the fatality follow-up rule are unchanged.
+
+### Requirements / risk
+
+- URS-BB-333, FRS-BB-368, SRS-BB-330, RISK-BB-435.
+- Does not claim AABB compliance and is not an FDA filing.
+
+### Tests
+
+- TEST-BB-222 (`DashboardDueCountTests.RetrospectiveCountOverdue_IncludesOnlyItemsPastTheStoredDueTime`).
+- TEST-BB-223 (`DashboardDueCountTests.FatalityFollowUpDue_CountsClosedCasesThatStillNeedFollowUp`).
+- Full suite green: Domain 1447, Application 55, HL7 63, Printing 21, ASTM 19, Integration 924.
+
+### Next ranked residual
+
+The dashboard queue chain is complete. Re-rank by safety and operational impact. Do not add another dashboard count or another display-only field on the issue surfaces.
+OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 181 — Pending specimens can be received and accepted (2026-10-04)
+
+The dashboard queue chain is complete. The next operational gap is the tube that has been drawn but is not yet usable for testing. Accession always wrote Accepted. Collected and Received existed for antibody-identification scope, with no receive, accept, or worklist.
+
+### Implemented
+
+- Accession can record collection without accepting (`AcceptImmediately=false`).
+- Receive moves Collected to Received. Accept moves Received to Accepted.
+- An expired tube cannot be received or accepted. Reject remains available.
+- `/test-worklist` Specimens tab lists pending tubes and Receive / Accept / Reject from the row. Scan or type an accession to filter.
+- The patient Specimens tab has the same actions. In-lab accession still accepts immediately unless Accept now is unchecked.
+- Result entry and order linking still require Accepted.
+- Demo seed `ACC-PEND-COL` and `ACC-PEND-RCV` on Patricia Demo.
+
+### Requirements / risk
+
+- URS-BB-334, FRS-BB-369, SRS-BB-331, RISK-BB-436.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-224 (`SpecimenReceiptRuleTests`; `Phase3ServicesTests.ReceiveThenAccept_MovesCollectedToAccepted_AndLeavesTheBoard`; `Phase3ServicesTests.Receive_ExpiredCollected_IsHardStopped`).
+- Full suite green: Domain 1454, Application 55, HL7 63, Printing 21, ASTM 19, Integration 930.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not add another dashboard count or another display-only field on the issue surfaces.
+Shift handoff is still missing. Relabeling is still thin. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 182 — Shift handoff packet with acknowledgment (2026-10-04)
+
+Pending specimen receipt is in place. The next operational gap is the end of a shift: dashboard counts existed, but there was no signed packet the incoming technologist could acknowledge.
+
+### Implemented
+
+- `ShiftHandoff` stores a required note and a snapshot of retrospective XM, outstanding issued, in transit, pending tests, pending specimens, and open reactions.
+- Recording and acknowledgment require `audit.read`. The recorder cannot acknowledge. Double acknowledgment HardStops.
+- `/handoff` records and lists packets. The dashboard shows an open handoff.
+- Audit events use `AuditEventType.ShiftHandoff`.
+- Clinical gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-335, FRS-BB-370, SRS-BB-332, RISK-BB-437.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-225 (`ShiftHandoffRuleTests`; `ShiftHandoffServiceTests.Create_WritesSnapshotAndAudit`; `ShiftHandoffServiceTests.Acknowledge_SameUser_IsHardStopped`).
+- Domain and Integration handoff slices green (5 + 5).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Relabeling is still thin. Supervisor acknowledgment queues beyond handoff remain open. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 183 — Controlled specimen barcode relabel (2026-10-04)
+
+Shift handoff is in place. The next identification gap is specimen barcode: collection metadata edit could change the barcode without a dedicated reason.
+
+### Implemented
+
+- `SpecimenRelabelRule` HardStops unusable status, blank barcode, blank reason, and unchanged barcode.
+- `SpecimenService.RelabelAsync` requires `specimen.edit`, uniqueness, and audits old/new barcode with reason.
+- `UpdateAsync` HardStops barcode deltas; the chart Edit panel shows barcode as read-only.
+- Chart Relabel panel on Collected, Received, or Accepted specimens. Accession number stays immutable.
+- Clinical gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-336, FRS-BB-371, SRS-BB-333, RISK-BB-438.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-226 (`SpecimenRelabelRuleTests`; `Phase3ServicesTests.Relabel_WritesBarcode_WithReason`; `Phase3ServicesTests.Update_BarcodeChange_IsHardStopped`; `Phase3ServicesTests.Relabel_RejectedSpecimen_IsHardStopped`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Supervisor acknowledgment queues beyond handoff remain open. Elution is not a first-class workup. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 184 — Supervisor worklist (2026-10-04)
+
+Specimen relabel is in place. The next operational gap is a single supervisor desk for ABID review, result verification, and quarantine release that otherwise sit on separate specialty pages.
+
+### Implemented
+
+- `SupervisorQueueRule` HardStops access unless the caller has `immuno.override`, `result.verify`, or `inventory.release`.
+- `SupervisorQueueService` lists only the kinds those permissions allow and deep-links to existing workflows.
+- `/supervisor` and nav/dashboard entry points. Clinical gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-337, FRS-BB-372, SRS-BB-334, RISK-BB-439.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-227 (`SupervisorQueueRuleTests`; `SupervisorQueueServiceTests.List_WithInventoryRelease_IncludesQuarantineUnit`; `SupervisorQueueServiceTests.List_WithResultVerifyOnly_OmitsQuarantine`; `SupervisorQueueServiceTests.List_WithoutSupervisorPermissions_IsHardStopped`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Elution is not a first-class workup. Historical aliases remain thin. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 185 — Historical patient name aliases (2026-10-04)
+
+Supervisor queue is in place. The next identification gap is demographics name edit: the previous name was overwritten without a retained alias or required reason.
+
+### Implemented
+
+- `IdentityTokenType.PriorFullName` stores the former display name on name change.
+- `PatientHistoricalAliasRule` HardStops a blank name-change reason.
+- Patient list and chart show prior names and prior MRNs; search matches those aliases.
+- MRN remains immutable from demographics edit. Clinical gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-338, FRS-BB-373, SRS-BB-335, RISK-BB-440.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-228 (`PatientHistoricalAliasRuleTests`; `PatientServiceTests.Update_WritesDemographics_AndLeavesMrnUnchanged`; `PatientServiceTests.Update_NameChangeWithoutReason_IsHardStopped`; `PatientServiceTests.ListDtos_SearchMatchesPriorNameAlias`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Elution is not a first-class workup. Unmerge is not implemented. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 186 — ADT prior-name archive (2026-10-04)
+
+Chart name changes retain `PriorFullName`. The remaining identification gap is inbound ADT, which still overwrote a stated name without archiving the previous display name.
+
+### Implemented
+
+- `PatientHistoricalAliasWriter` is shared by chart edit and inbound ADT.
+- ADT archives the previous display name before applying a stated name change and audits with `HL7 ADT demographics name change.`
+- Sparse ADT blanks do not clear or archive names. Clinical gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-339, FRS-BB-374, SRS-BB-336, RISK-BB-441.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-229 (`Phase5Hl7Tests.InboundAdt_Update_ChangesDemographicsWithoutDuplicating`; `Phase5Hl7Tests.InboundAdt_SparseA08_DoesNotArchiveWhenNameUnchanged`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Elution is not a first-class workup. Unmerge is not implemented. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 187 — Reversible patient merge (2026-10-12)
+
+A wrong merge reassigned orders, specimens, and antibodies onto the survivor and kept no list of what moved. Undoing it by guessing could attach the wrong history to a later transfusion.
+
+### Implemented
+
+- `PatientMerge` and `PatientMergeMove` record moved, skipped, and demoted rows, plus the survivor deceased and pregnancy values before and after the merge.
+- Merge also reassigns DAT/elution studies, pickup tags, and compatibility decisions. Rule execution logs stay on the original patient.
+- Unmerge requires `patient.merge` and a reason. It restores the ledger, deactivates the prior-MRN alias created for that merge, and audits old and new status.
+- Unmerge HardStops when the survivor has new clinical activity since the merge, when a moved row was edited, when a snapshotted survivor field changed, or when the merge has no ledger.
+- The merged-record banner collects the reason. There is no HL7 unmerge message.
+
+### Requirements / risk
+
+- URS-BB-340, FRS-BB-375, SRS-BB-337, RISK-BB-442.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-230 (`PatientUnmergeRuleTests`; `PatientMergeServiceTests` unmerge success and failure paths).
+- Domain unmerge rules and Integration `PatientMergeServiceTests` green (7 + 16).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 188 — Modification antigen inheritance (2026-10-12)
+
+Divide, pool, irradiate, and the other modifications created a new unit with ABO and Rh only. Antigen and antibody typing on the source stayed behind, so a later selection could treat the result as untyped. A pool of a positive unit and a negative unit could also hide the conflict.
+
+### Implemented
+
+- `UnitModificationAttributeRule` copies a positive when any source is positive, copies a negative only when every source was typed negative, and HardStops when sources disagree (`MOD-POOL-ATTR-DISCORDANT`).
+- Divide, pool, and single modifications write the inherited rows onto each result unit and list the definition ids on the modify audit.
+- The pool and divide panels state that typing follows the sources. Discordant pools leave the source units available.
+
+### Requirements / risk
+
+- URS-BB-341, FRS-BB-376, SRS-BB-338, RISK-BB-443.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-231 (`UnitModificationAttributeRuleTests`; `BloodProductModificationServiceTests` divide copy, discordant pool, and partial-negative pool).
+- Domain attribute rules and Integration `BloodProductModificationServiceTests` green (5 + 31).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Keeping a parent unit after an aliquot is still open.
+
+## Iteration 189 — Modification donation restriction (2026-10-12)
+
+Divide, pool, irradiate, and the other modifications created the result as allogeneic. An autologous or directed unit could be modified and then issued to someone else, because issue only blocks that when the reservation is still on the unit.
+
+### Implemented
+
+- `UnitModificationRestrictionRule` copies a shared autologous or directed reservation onto each result. Allogeneic results stay allogeneic.
+- A pool HardStops when the sources do not share the restriction and reserved patient (`MOD-RESTRICTION-DISCORDANT`), or when a restricted source has no recipient (`MOD-RESTRICTION-RECIPIENT`). The check runs before the source status changes.
+- The modify audit records the restriction and reserved patient. The pool and divide panels state the rule.
+
+### Requirements / risk
+
+- URS-BB-342, FRS-BB-377, SRS-BB-339, RISK-BB-444.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-232 (`UnitModificationRestrictionRuleTests`; `BloodProductModificationServiceTests` autologous divide, mixed pool, and same-patient directed pool).
+- Domain restriction rules and Integration `BloodProductModificationServiceTests` green (6 + 34).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Keeping a parent unit after an aliquot is still open.
+
+## Iteration 190 — Aliquot leaves the parent (2026-10-12)
+
+Every modification retired the source. Removing a pediatric aliquot therefore took the remaining volume out of available inventory.
+
+### Implemented
+
+- `ModificationType.Aliquot` and `EvaluateAliquot` require a volume greater than zero and strictly less than the parent volume.
+- The parent stays `Available`. Its volume is reduced, its product code stays, and a status note records the volume change. The aliquot is a new quarantined unit.
+- The aliquot inherits tested typing and an autologous or directed reservation. An ISBT parent keeps its division code; the aliquot receives the next code.
+- `POST /api/inventory/units/{id}/modifications/aliquot` requires `inventory.modify`. The modify page collects the volume and refreshes the parent volume after success.
+
+### Requirements / risk
+
+- URS-BB-343, FRS-BB-378, SRS-BB-340, RISK-BB-445.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-233 (`UnitModificationEligibilityRuleTests` aliquot cases; `BloodProductModificationServiceTests.Aliquot_KeepsParentAvailable_ReducesVolume_AndCopiesTyping`; `BloodProductModificationServiceTests.Aliquot_VolumeNotLessThanParent_IsHardStopped`).
+- Domain aliquot rules and the two Integration aliquot tests green (3 + 2).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 191 — Modification volume accounting (2026-10-14)
+
+A divide could retire a 300 mL unit after recording only 250 mL of results. The missing 50 mL left inventory with no unit. A single modification could also store a result volume larger than the source.
+
+### Implemented
+
+- `EvaluateDivide` HardStops `MOD-VOLUME-UNACCOUNTED` when a known source volume is not fully assigned to the result units. An oversized sum still HardStops `MOD-VOLUME-EXCEEDS-SOURCE`. A source with no recorded volume stores the entered child volumes.
+- `EvaluateResultVolume` HardStops a non-positive result volume (`MOD-RESULT-VOLUME`) and a result volume larger than the source. Omitting the volume still keeps the source volume.
+- Both checks run before the source status changes. The modify page shows the running divide total against the source volume and names Aliquot when a remainder should stay on the parent.
+
+### Requirements / risk
+
+- URS-BB-344, FRS-BB-379, SRS-BB-341, RISK-BB-446.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-234 (`UnitModificationEligibilityRuleTests` short divide and result-volume cases; `BloodProductModificationServiceTests.Divide_VolumesShortOfSource_IsBlocked`; `BloodProductModificationServiceTests.ApplySingle_ResultVolumeExceedsSource_IsBlocked`; `BloodProductModificationServiceTests.ApplySingle_ResultVolumeWithinSource_Succeeds`).
+- Domain eligibility rules and Integration `BloodProductModificationServiceTests` green (24 + 39). The aliquot ISBT case uses its own donation number so a product-change divide on another unit cannot consume its division codes.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A pool still drops known source volumes when any pooled unit has no recorded volume.
+
+## Iteration 192 — Pool volume accounting (2026-10-14)
+
+Pooling a measured unit with an unmeasured unit stored a blank volume on the pool. The known volume left the record when both sources were retired.
+
+### Implemented
+
+- `EvaluatePoolVolumes` HardStops `MOD-POOL-VOLUME` when any source has a recorded volume and another is missing or not greater than zero. The sources stay available.
+- When every source has a volume, the pool volume is the sum. When none have a volume, the pool volume stays unrecorded.
+- The modify page lists each source volume and the sum. The modify audit records the source volumes from before the change and the result volumes.
+
+### Requirements / risk
+
+- URS-BB-345, FRS-BB-380, SRS-BB-342, RISK-BB-447.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-235 (`UnitModificationEligibilityRuleTests` pool-volume cases; `BloodProductModificationServiceTests.Pool_MissingVolumeAmongKnownVolumes_IsBlocked`; `BloodProductModificationServiceTests.Pool_RecordedVolumes_SumOntoTheResult_AndAuditKeepsTheSources`).
+- Domain eligibility rules and Integration `BloodProductModificationServiceTests` green (28 + 41).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A pool result is stored at the first source location even when another source is somewhere else, with no confirmation those units were brought together.
+
+## Iteration 193 — Pool location agreement (2026-10-14)
+
+A pool of units in different refrigerators was stored at the first unit's location. The other unit was retired without a record that it had been somewhere else.
+
+### Implemented
+
+- `EvaluatePoolLocations` HardStops `MOD-POOL-LOCATION` when the sources do not share one storage location, including a mix of a location and no location. The sources stay available.
+- Units that share a location, or that are all unassigned, can still be pooled. The result stays at that location.
+- The modify page shows each location and tells staff to transfer the units first. The modify audit records the source location ids and the result location ids.
+
+### Requirements / risk
+
+- URS-BB-346, FRS-BB-381, SRS-BB-343, RISK-BB-448.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-236 (`UnitModificationEligibilityRuleTests` pool-location cases; `BloodProductModificationServiceTests.Pool_DifferentLocations_IsBlocked`; `BloodProductModificationServiceTests.Pool_SameLocation_KeepsThatLocationOnTheResult`).
+- Domain eligibility rules and Integration `BloodProductModificationServiceTests` green (32 + 43).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history for a unit still does not show the storage location of the result.
+
+## Iteration 194 — Modification history location (2026-10-14)
+
+Modification history named the result unit and its volume. After the unit was moved, that history did not say where it had been made.
+
+### Implemented
+
+- History reads the creation status row for each result and shows that location name. A later transfer does not change it.
+- A result with no location shows none. Source rows do not show a result location.
+- The creation status row stores the modification id once the header id exists.
+
+### Requirements / risk
+
+- URS-BB-347, FRS-BB-382, SRS-BB-344, RISK-BB-449.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-237 (`BloodProductModificationServiceTests.GetHistory_ShowsWhereTheResultWasMade_AfterItIsMoved`; `BloodProductModificationServiceTests.GetHistory_WithoutALocation_ShowsNone`).
+- Integration `BloodProductModificationServiceTests` green (45).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history does not say when a result has since left the location where it was made.
+
+## Iteration 195 — Result has left where it was made (2026-10-14)
+
+History named the refrigerator where a pool was prepared. After the unit moved to the issue bench, the row still read as if it were there.
+
+### Implemented
+
+- A result row keeps the creation location and carries the current location.
+- `ResultHasLeftCreationLocation` is true only when those location ids differ. The history cell then adds `now at` the current place.
+- A unit still at the creation location, including one that was never assigned a location, does not get that note.
+
+### Requirements / risk
+
+- URS-BB-348, FRS-BB-383, SRS-BB-345, RISK-BB-450.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-238 (`BloodProductModificationServiceTests.GetHistory_ShowsWhereTheResultWasMade_AfterItIsMoved`; `BloodProductModificationServiceTests.GetHistory_StillAtTheCreationLocation_DoesNotMarkAMove`; `BloodProductModificationServiceTests.GetHistory_WithoutALocation_ShowsNone`).
+- Those history tests green (4, including the moved, still-there, and unassigned cases).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history names the current place after a move, but not when the unit was moved or why.
+
+## Iteration 196 — When and why a result left (2026-10-14)
+
+History said a result was now at the issue bench. It did not say when that move was recorded or why.
+
+### Implemented
+
+- When the current location differs from where the result was made, history reads the latest status row whose destination is that current location.
+- The history cell adds that time and reason. A blank reason is left off.
+- A current location with no such row still names the new place and does not invent a time or reason. A unit still where it was made has neither.
+
+### Requirements / risk
+
+- URS-BB-349, FRS-BB-384, SRS-BB-346, RISK-BB-451.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-239 (`BloodProductModificationServiceTests.GetHistory_ShowsWhereTheResultWasMade_AfterItIsMoved`; `BloodProductModificationServiceTests.GetHistory_MoveWithoutAStatusRow_ShowsTheNewPlaceWithoutATimeOrReason`; `BloodProductModificationServiceTests.GetHistory_StillAtTheCreationLocation_DoesNotMarkAMove`).
+- History tests green (5).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history names when and why a result was moved, but not who moved it.
+
+## Iteration 197 — Who moved a result (2026-10-14)
+
+History said when a result left and why. It did not say who recorded that move.
+
+### Implemented
+
+- The same status row that supplies the time and reason also supplies `ChangedBy`.
+- The history cell appends `by` that name. A blank name is left off.
+- A move with no status row still names the new place and does not invent a person. A unit still where it was made has no mover.
+
+### Requirements / risk
+
+- URS-BB-350, FRS-BB-385, SRS-BB-347, RISK-BB-452.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-240 (`BloodProductModificationServiceTests.GetHistory_ShowsWhereTheResultWasMade_AfterItIsMoved`; `BloodProductModificationServiceTests.GetHistory_MoveWithoutAPerson_ShowsTimeAndReasonWithoutAName`; `BloodProductModificationServiceTests.GetHistory_MoveWithoutAStatusRow_ShowsTheNewPlaceWithoutATimeOrReason`).
+- History tests green (6).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The modify page still labels a selected unit and the pool sources as `Location {id}` instead of the storage location name, so staff comparing places before a pool have to recognize the number.
+
+## Iteration 198 — Storage location names on the modify page (2026-10-14)
+
+The selected unit and the pool list showed `Location 12`. Staff had to recognize the number before they could tell two units apart.
+
+### Implemented
+
+- The modify page loads storage location names and shows the name on the selected unit and on each pool source.
+- A blank or unknown name stays `Location {id}`. A unit with no location still shows none.
+- A location list that cannot be loaded does not invent names. Pooling still compares location ids.
+
+### Requirements / risk
+
+- URS-BB-351, FRS-BB-386, SRS-BB-348, RISK-BB-453.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-241 (`StorageLocationLabelTests.Format_NamedLocation_UsesTheName`; `StorageLocationLabelTests.Format_BlankOrUnknownName_KeepsTheLocationId`; `StorageLocationLabelTests.Format_NoLocation_DoesNotInventOne`).
+- Label tests green (3).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After a modification, the result card shows the new unit as Quarantine and offers Open unit, but it does not show where that new unit is stored or point staff to release it.
+
+## Iteration 199 — Where a new unit is, and how to release it (2026-10-14)
+
+A modification result started in quarantine. The result card showed the status and an Open unit link. It did not say where the unit was stored, or that it has to be released before issue.
+
+### Implemented
+
+- Each new unit on the result card shows its storage location name. A missing name stays the location id. No location stays none.
+- A quarantined result says to release it before issue. Staff with `inventory.release` get a link to that unit's quarantine row.
+- The inventory board opens the release row only when that unit is on the quarantine list. An assigned result, including one tied to a product order, does not get a release step.
+
+### Requirements / risk
+
+- URS-BB-352, FRS-BB-387, SRS-BB-349, RISK-BB-454.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-242 (`ModificationResultNextStepTests`).
+- Next-step tests green (8).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After an aliquot, the result card lists only the new unit. It does not say the parent stayed available or what volume remains on the parent, so the new unit can be read as a replacement.
+
+## Iteration 200 — Aliquot parent stays on the result card (2026-10-14)
+
+An aliquot leaves the parent available at a reduced volume. The result card listed only the new unit, so that new unit could be read as a replacement.
+
+### Implemented
+
+- After an aliquot, the result card names the parent, the status from a fresh read, and the volume remaining.
+- A parent with no recorded volume says so. The card does not invent a number.
+- If the parent cannot be reread, the card says the parent was left in place and does not invent a status or a remaining volume.
+- Divide, pool, and other modifications do not show this parent line.
+
+### Requirements / risk
+
+- URS-BB-353, FRS-BB-388, SRS-BB-350, RISK-BB-455.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-243 (`ModificationResultNextStepTests.AliquotParentCue_ConfirmedParent_NamesStatusAndRemainingVolume`; `ModificationResultNextStepTests.AliquotParentCue_UnrecordedVolume_DoesNotInventOne`; `ModificationResultNextStepTests.AliquotParentCue_UnconfirmedParent_DoesNotInventStatusOrVolume`; `ModificationResultNextStepTests.AliquotParentCue_ReportsTheParentStatusItWasGiven`).
+- Parent-cue tests green (12 in `ModificationResultNextStepTests`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After a divide, pool, or other modification that retires the source, the result card lists the new units and does not say the source is now Modified, so staff can keep looking for it as available.
+
+## Iteration 201 — Retired sources on the result card (2026-10-14)
+
+Divide, pool, and the other retiring modifications set the source to Modified. The result card listed only the new units, so staff could keep looking for the source as available.
+
+### Implemented
+
+- After a retiring modification, the result card names each source and the status from a fresh read.
+- A failed read says that source was retired and does not claim it is Modified.
+- A read that is not Modified is shown as that status. The card does not rewrite it.
+- An aliquot keeps the parent line from the previous cycle and does not use this retired-source line.
+- The selected unit card is updated from that same read when the primary source can be reread.
+
+### Requirements / risk
+
+- URS-BB-354, FRS-BB-389, SRS-BB-351, RISK-BB-456.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-244 (`ModificationResultNextStepTests.RetiredSourceCue_ConfirmedSources_NamesEachStatus`; `ModificationResultNextStepTests.RetiredSourceCue_UnconfirmedSource_DoesNotInventModified`; `ModificationResultNextStepTests.RetiredSourceCue_ReportsTheStatusItWasGiven`).
+- Retired-source tests green (15 in `ModificationResultNextStepTests`).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. After a source is retired, the modify form can still offer another modification on that unit until the page is reloaded.
+
+## Iteration 202 — Close the modify form after a source is retired (2026-10-14)
+
+A divide, pool, or other retiring modification set the source to Modified. The form on that page still offered another modification until it was reloaded.
+
+### Implemented
+
+- The modify form offers a rule for an available unit, and for an assigned unit only while a product-order action is open.
+- The eligibility list is empty for a Modified unit, and for quarantine, issued, and the other statuses that cannot be modified.
+- An assigned unit still has rules listed so a product-order action can use them.
+- After a retiring modification, the selected rule is cleared. If the unit cannot be reread, the previous rules are cleared too.
+- An aliquot leaves the parent form in place.
+
+### Requirements / risk
+
+- URS-BB-355, FRS-BB-390, SRS-BB-352, RISK-BB-457.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-245 (`UnitModificationEligibilityRuleTests.OfferModification_Available_IsOffered`; `UnitModificationEligibilityRuleTests.OfferModification_Assigned_OnlyWhileCompletingAnOrder`; `UnitModificationEligibilityRuleTests.OfferModification_RetiredOrHeld_IsNotOffered`; `BloodProductModificationServiceTests.GetEligibleModifications_ModifiedUnit_ReturnsNone`; `BloodProductModificationServiceTests.GetEligibleModifications_AssignedUnit_StillListsRules`).
+- Offer tests green (5). Eligibility tests green (4).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The quality-quarantine board, where a new modification result is released, lists the unit and the reason and does not show the storage location name.
+
+## Iteration 203 — Storage location on quality quarantine (2026-10-14)
+
+A new modification result is released from the quality-quarantine board. That board listed the unit and the reason and did not say where the unit was stored.
+
+### Implemented
+
+- Each quarantine row shows the storage location name. The release row repeats it.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none is recorded. A missing location record does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-356, FRS-BB-391, SRS-BB-353, RISK-BB-458.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-246 (`InventoryServiceTests.ListQuarantine_NamesTheStorageLocation`).
+- Quarantine location test green (1).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The quality-quarantine board does not show volume, so two divided units of the same product and blood type are distinguished only by unit number.
+
+## Iteration 204 — Volume on quality quarantine (2026-10-14)
+
+Two divided units of the same product and blood type can sit in quarantine together. The board showed the unit number and not the volume.
+
+### Implemented
+
+- Each quarantine row shows the recorded volume. The release row repeats it.
+- A unit with no volume says it is not recorded. A zero volume is shown as recorded.
+
+### Requirements / risk
+
+- URS-BB-357, FRS-BB-392, SRS-BB-354, RISK-BB-459.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-247 (`InventoryServiceTests.ListQuarantine_ShowsRecordedVolume_AndDoesNotInventOne`).
+- Quarantine volume test green (1).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The inventory discrepancy board shows a location code, not the storage location name, so a missing or damaged unit is harder to find than a quarantined one.
+
+## Iteration 205 — Storage location name on inventory discrepancy (2026-10-14)
+
+The discrepancy board showed a location code. A missing or damaged unit was harder to find than a quarantined one, which already shows the storage location name.
+
+### Implemented
+
+- Each discrepancy row shows the storage location name.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none. A missing location record does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-358, FRS-BB-393, SRS-BB-355, RISK-BB-460.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-248 (`InventoryServiceTests.ListDiscrepancy_NamesTheStorageLocation`).
+- Discrepancy location test green (1). Quarantine location still green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The operational-hold board does not show where the unit is stored, so a unit that cannot be issued is harder to find than a quarantined or missing one.
+
+## Iteration 206 — Storage location name on operational hold (2026-10-14)
+
+A unit on operational hold cannot be issued. The hold board did not say where it was stored.
+
+### Implemented
+
+- Each operational-hold row shows the storage location name.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none. A missing location record does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-359, FRS-BB-394, SRS-BB-356, RISK-BB-461.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-249 (`InventoryServiceTests.ListOnHold_NamesTheStorageLocation`).
+- Hold location tests green (2).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The main inventory list still shows a location code, not the storage location name, so a searched unit is labeled differently from quarantine, discrepancy, and hold.
+
+## Iteration 207 — Storage location name on the inventory search list (2026-10-14)
+
+The main inventory search list showed a location code. A searched unit was labeled differently from quarantine, discrepancy, and hold, which already show the storage location name.
+
+### Implemented
+
+- Each search row shows the storage location name.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none. A location code is not used when the name is missing.
+- A location list that cannot be loaded does not invent names.
+
+### Requirements / risk
+
+- URS-BB-360, FRS-BB-395, SRS-BB-357, RISK-BB-462.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-250 (`StorageLocationLabelTests.ForInventoryList_NamedLocation_UsesTheNameNotTheCode`; `StorageLocationLabelTests.ForInventoryList_BlankName_DoesNotFallBackToTheCode`; `StorageLocationLabelTests.ForInventoryList_NoLocation_DoesNotInventOne`).
+- Inventory-list location tests green (3).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The near-expiry board does not say where the unit is stored, so staff discarding an expiring unit still have to open it to find the refrigerator.
+
+## Iteration 208 — Storage location name on near expiry (2026-10-14)
+
+The near-expiry board listed the unit, product, and expiration. Staff discarding an expiring unit still had to open it to find the refrigerator.
+
+### Implemented
+
+- Each near-expiry row shows the storage location name.
+- The discard row repeats that place.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none. A missing location record does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-361, FRS-BB-396, SRS-BB-358, RISK-BB-463.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-251 (`InventoryServiceTests.ListNearExpiry_NamesTheStorageLocation`).
+- Near-expiry location test green (1).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit chart still shows a location code, not the storage location name, so opening a unit from search or near expiry labels it differently from those boards.
+
+## Iteration 209 — Storage location name on the unit chart (2026-10-14)
+
+Opening a unit from search or near expiry showed a location code on the chart. The boards already show the storage location name.
+
+### Implemented
+
+- The unit chart header and the unit identity show the storage location name.
+- A blank or unknown name stays `Location {id}`.
+- A unit with no location says none. A location code is not used when the name is missing.
+- A location list that cannot be loaded does not invent names.
+
+### Requirements / risk
+
+- URS-BB-362, FRS-BB-397, SRS-BB-359, RISK-BB-464.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-252 (`StorageLocationLabelTests.ForUnitChart_NamedLocation_UsesTheNameNotTheCode`; `StorageLocationLabelTests.ForUnitChart_BlankName_DoesNotFallBackToTheCode`; `StorageLocationLabelTests.ForUnitChart_NoLocation_DoesNotInventOne`).
+- Unit-chart location tests green (3).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit status history names the status change and not the storage location, so a transfer is visible as a status line and the refrigerator is not on the timeline.
+
+## Iteration 210 — Storage location on a unit status move (2026-10-14)
+
+Unit status history named the status change and the reason. A transfer was visible as a status line, and the refrigerator was not on the timeline.
+
+### Implemented
+
+- A status row whose recorded location changed names the storage locations.
+- A blank or unknown name stays `Location {id}`.
+- A row that stays in the same place, including both unassigned, does not say it moved.
+- A missing destination is not invented. A location list that cannot be loaded does not invent names.
+
+### Requirements / risk
+
+- URS-BB-363, FRS-BB-398, SRS-BB-360, RISK-BB-465.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-253 (`StatusHistoryLocationCueTests`; `InventoryServiceTests.UnitActivity_NamesTheStorageLocationsOnAMove`).
+- Status-move location tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an issue and still says patient #id on an allocation, so staff tracing who the unit was set aside for have to leave the chart.
+
+## Iteration 211 — Patient name on a unit allocation (2026-10-14)
+
+The unit timeline named the patient on an issue and still said patient #id on an allocation. Staff tracing who the unit was set aside for had to leave the chart.
+
+### Implemented
+
+- An allocation names the patient the same way an issue does.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-364, FRS-BB-399, SRS-BB-361, RISK-BB-466.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-254 (`PatientActivityLabelTests`; `InventoryServiceTests.UnitActivity_NamesThePatientOnAnAllocation`).
+- Allocation patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an allocation and an issue, and a crossmatch still shows only the method and result, so staff cannot see who that crossmatch was for without leaving the chart.
+
+## Iteration 212 — Patient name on a unit crossmatch (2026-10-14)
+
+The unit timeline named the patient on an allocation and an issue. A crossmatch still showed only the method and result, so staff could not see who that crossmatch was for without leaving the chart.
+
+### Implemented
+
+- A crossmatch names the patient the same way an allocation and an issue do.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-365, FRS-BB-400, SRS-BB-362, RISK-BB-467.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-255 (`InventoryServiceTests.UnitActivity_NamesThePatientOnACrossmatch`).
+- Crossmatch patient-label test green (1).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an allocation, an issue, and a crossmatch, and a transfusion still shows only the disposition, so staff cannot see who received the unit without leaving the chart.
+
+## Iteration 213 — Patient name on a unit transfusion (2026-10-14)
+
+The unit timeline named the patient on an allocation, an issue, and a crossmatch. A transfusion still showed only the disposition, so staff could not see who received the unit without leaving the chart.
+
+### Implemented
+
+- A transfusion names the patient the same way an allocation, an issue, and a crossmatch do.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-366, FRS-BB-401, SRS-BB-363, RISK-BB-468.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-256 (`InventoryServiceTests.UnitActivity_NamesThePatientOnATransfusion`).
+- Transfusion patient-label test green (1).
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an allocation, an issue, a crossmatch, and a transfusion, and a return still names only the reason, so staff cannot see who the unit was issued to without leaving the chart.
+
+## Iteration 214 — Patient name on a unit return (2026-10-14)
+
+The unit timeline named the patient on an allocation, an issue, a crossmatch, and a transfusion. A return still named only the reason, so staff could not see who the unit was issued to without leaving the chart.
+
+### Implemented
+
+- A return names the patient from the issue that return belongs to.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+- A return whose issue cannot be read does not invent a patient.
+
+### Requirements / risk
+
+- URS-BB-367, FRS-BB-402, SRS-BB-364, RISK-BB-469.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-257 (`ReturnActivityCueTests`; `InventoryServiceTests.UnitActivity_NamesThePatientOnAReturn`).
+- Return patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline names the patient on an allocation, an issue, a crossmatch, a transfusion, and a return, and a modification still names only the action, so staff cannot see who that product order was for without leaving the chart.
+
+## Iteration 215 — Patient name on an order-linked modification (2026-10-14)
+
+The unit timeline named the patient on an allocation, an issue, a crossmatch, a transfusion, and a return. A modification still named only the action, so staff could not see who that product order was for without leaving the chart.
+
+### Implemented
+
+- An order-linked modification names the patient from that product order.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+- A modification whose order cannot be read does not invent a patient.
+- A bench modification that is not tied to an order is unchanged.
+
+### Requirements / risk
+
+- URS-BB-368, FRS-BB-403, SRS-BB-365, RISK-BB-470.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-258 (`ModificationActivityCueTests`; `InventoryServiceTests.UnitActivity_NamesThePatientOnAnOrderModification`).
+- Order-modification patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The unit timeline now names the patient on the order-linked rows, and a bench modification that is not tied to an order still reads like an unnamed product order, so staff cannot tell that no patient order was recorded.
+
+## Iteration 216 — Bench modification with no patient order (2026-10-14)
+
+The unit timeline named the patient on an order-linked modification. A bench modification still named only the type, role, and reason, so it read like a product order whose patient had been left off.
+
+### Implemented
+
+- A bench modification that no product order points at says no patient order was recorded.
+- The row keeps the modification type, the source or result role, and the recorded reason.
+- A blank reason is omitted.
+- A bench row that a product order does point at does not claim that no order was recorded, and does not invent a patient.
+
+### Requirements / risk
+
+- URS-BB-369, FRS-BB-404, SRS-BB-366, RISK-BB-471.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-259 (`BenchModificationActivityCueTests`; `InventoryServiceTests.UnitActivity_SaysWhenABenchModificationHasNoPatientOrder`).
+- Bench-modification order-cue tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A bench modification that a product order points at still names only the type, role, and reason, so the source or result row does not say who that order was for.
+
+## Iteration 217 — Patient name on a linked bench modification (2026-10-14)
+
+The unit timeline said when a bench modification had no patient order. A source or result row that a product order did point at still named only the type, role, and reason, so staff could not see who that order was for without leaving the chart.
+
+### Implemented
+
+- A bench modification that a product order points at names the patient from that order.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+- A missing order does not invent a patient.
+- Linked orders that do not name one patient do not pick one.
+- A blank reason is still omitted. A bench modification with no product order is unchanged.
+
+### Requirements / risk
+
+- URS-BB-370, FRS-BB-405, SRS-BB-367, RISK-BB-472.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-260 (`BenchModificationActivityCueTests`; `InventoryServiceTests.UnitActivity_SaysWhenABenchModificationHasNoPatientOrder`).
+- Linked bench-modification patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Modification history still names only the type, reason, and units, so staff reading that history cannot see who an order-linked modification was for.
+
+## Iteration 218 — Patient name on modification history (2026-10-14)
+
+The unit timeline named the patient on an order-linked modification. Modification history still named only the type, reason, and units, so staff reading that history could not see who the modification was for.
+
+### Implemented
+
+- Modification history names the patient when a product order points at the modification.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+- No product order says so.
+- A missing order does not invent a patient.
+- Linked orders that do not name one patient do not pick one.
+
+### Requirements / risk
+
+- URS-BB-371, FRS-BB-406, SRS-BB-368, RISK-BB-473.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-261 (`ModificationHistoryPatientCueTests`; `BloodProductModificationServiceTests.GetHistory_NamesThePatientWhenAnOrderPointsAtTheModification`).
+- Modification-history patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The status row that records a new modification still says only that it was created, so staff reading status history cannot see who an order-linked modification was for.
+
+## Iteration 219 — Patient name on a modification status row (2026-10-15)
+
+Modification history named the patient when a product order pointed at the modification. The status row that recorded the new unit still said only that it was created, so staff reading status history could not see who it was for.
+
+### Implemented
+
+- A status row linked to a modification names the patient from the product order that points at it.
+- The recorded reason is not changed.
+- The medical record number is included when it is recorded.
+- A missing patient record, or a blank name, stays `patient #{id}` and does not invent a name.
+- No product order says so.
+- A missing order does not invent a patient.
+- A status row with no modification id does not invent a patient.
+- Linked orders that do not name one patient do not pick one.
+
+### Requirements / risk
+
+- URS-BB-372, FRS-BB-407, SRS-BB-369, RISK-BB-474.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-262 (`InventoryServiceTests.UnitActivity_NamesThePatientOnAModificationStatusRow`).
+- Modification status-row patient-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. An issue on the unit timeline still shows the issued-to place exactly as it was typed, so a location code can be read as the storage location name.
+
+## Iteration 220 — Storage location name on an issue (2026-10-15)
+
+An issue on the unit timeline showed the issued-to place exactly as it was typed. A storage-location code could be read as the location name.
+
+### Implemented
+
+- An issue names the storage location when the issued-to place is exactly one location code.
+- A blank location name stays `Location {id}` and does not show the code.
+- A place that is not one location code stays as typed.
+- A code that is also another location's name stays as typed.
+- A blank place is omitted.
+- The recorded place is unchanged.
+- A location list that cannot be loaded does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-373, FRS-BB-408, SRS-BB-370, RISK-BB-475.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-263 (`IssueDestinationCueTests`; `InventoryServiceTests.UnitActivity_NamesTheStorageLocationOnAnIssue`).
+- Issue destination tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The issuing board and the patient product history still show the issued-to place exactly as it was typed, so a location code can be read as the storage location name.
+
+## Iteration 221 — Storage location name on the issuing board (2026-10-15)
+
+The issuing board and the patient product history showed the issued-to place exactly as it was typed. A storage-location code could be read as the location name.
+
+### Implemented
+
+- The retrospective, in-transit, and issued boards name the storage location when the issued-to place is exactly one location code.
+- Patient product history uses that same name on an issued row and on a transfused row.
+- A blank location name stays `Location {id}` and does not show the code.
+- A place that is not one location code stays as typed.
+- A code that is also another location's name stays as typed.
+- The recorded place is unchanged.
+- A missing location list does not invent a name.
+- The issue form still shows the place as typed.
+
+### Requirements / risk
+
+- URS-BB-374, FRS-BB-409, SRS-BB-371, RISK-BB-476.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-264 (`Phase4IssuingTests.IssuedBoards_NameTheStorageLocationWhenThePlaceIsALocationCode`).
+- Issuing-board and patient-history location tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Lookback still shows the issued-to place exactly as it was typed, so a location code can be read as the storage location name. The issue form still shows the place as typed.
+
+## Iteration 222 — Storage location name on lookback (2026-10-15)
+
+Lookback showed the issued-to place exactly as it was typed. A storage-location code could be read as the location name.
+
+### Implemented
+
+- A DIN recipient row names the storage location when the issued-to place is exactly one location code.
+- A recipient trace uses that same name.
+- A blank location name stays `Location {id}` and does not show the code.
+- A place that is not one location code stays as typed.
+- A code that is also another location's name stays as typed.
+- The recorded place is unchanged.
+- A missing location list does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-375, FRS-BB-410, SRS-BB-372, RISK-BB-477.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-265 (`ComplianceWorkflowTests.Lookback_NamesTheStorageLocationWhenThePlaceIsALocationCode`).
+- Lookback location tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A receive, return, or transfusion notice still prefixes Location onto a place that may already name the storage location, so a blank location name can read as Location Location {id}. The issue form still shows the place as typed.
+
+## Iteration 223 — One Location prefix on a custody notice (2026-10-15)
+
+A receive, return, or transfusion notice prefixed Location onto a place that already said Location {id}. A blank storage location name could be read as Location Location {id}.
+
+### Implemented
+
+- A place that already says Location {id} stays as that place.
+- A ward name or a storage location name still says Location before that place.
+- A blank place is omitted.
+- The same rule applies to the retrospective follow-up notice.
+
+### Requirements / risk
+
+- URS-BB-376, FRS-BB-411, SRS-BB-373, RISK-BB-478.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-266 (`IssuedToLocationNoticeTests.IssuedToLocationNotice_NamesTheWard`; `RetrospectiveFollowUpNoticeTests.RetrospectiveFollowUpNotice_NamesCustody`).
+- Custody-notice location tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Ready to issue and reserved products still show a location code when the storage location name is blank, so the code can be read as the name. A blank name should stay Location {id}. Do not invent a name.
+
+## Iteration 224 — Location id when a reserved unit's place has no name (2026-10-15)
+
+Ready to issue and reserved products showed a location code when the storage location name was blank. The code could be read as the name.
+
+### Implemented
+
+- A blank storage location name stays `Location {id}` on Ready to issue.
+- A compatible unit choice and a reserved product use that same label.
+- A location code is not shown.
+- A unit with no location stays omitted.
+- A location list that cannot be loaded does not invent a name.
+
+### Requirements / risk
+
+- URS-BB-377, FRS-BB-412, SRS-BB-374, RISK-BB-479.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-267 (`StorageLocationCueTests.StorageLocationLabel_KeepsTheLocationIdWhenTheNameIsBlank`; `Phase4IssuingTests.ListReadyToIssue_KeepsTheLocationIdWhenTheNameIsBlank`; `PatientAllocationTests.CompatibleAndReserved_KeepTheLocationIdWhenTheNameIsBlank`).
+- Blank storage-location label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A unit transfer and a delivery receipt still list a storage location as code and name. A blank name on that picker can leave the code looking like the place. Keep the code available for selection, and show Location {id} when the name is blank.
+
+## Iteration 225 — Location id on a transfer or delivery choice (2026-10-15)
+
+A unit transfer and a delivery receipt listed a storage location as code and name. A blank name left the code looking like the place.
+
+### Implemented
+
+- The transfer choice keeps the location code and the storage location name.
+- The delivery-receipt choice uses that same label.
+- A blank name stays `Location {id}` and is not replaced by the code.
+- A missing code stays the place alone.
+
+### Requirements / risk
+
+- URS-BB-378, FRS-BB-413, SRS-BB-375, RISK-BB-480.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-268 (`StorageLocationLabelTests.ForPicker_KeepsTheCodeAndTheLocationIdWhenTheNameIsBlank`).
+- Transfer and delivery location-choice tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The location admin list still shows a blank storage location name as an empty name beside the code, so the code can be read as the place. Keep the code in the catalog, and show Location {id} when the name is blank.
+
+## Iteration 226 — Location id on the inventory-location list (2026-10-15)
+
+The inventory-location list showed a blank name as an empty name beside the code. The code could be read as the place.
+
+### Implemented
+
+- The list keeps the location code in the code column.
+- A blank name on that list stays `Location {id}`.
+- The stored name is unchanged.
+- The edit form still shows the stored name.
+
+### Requirements / risk
+
+- URS-BB-379, FRS-BB-414, SRS-BB-376, RISK-BB-481.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-269 (`InventoryLocationAdminDtoTests.NameLabel_KeepsTheLocationIdWhenTheNameIsBlank`).
+- Inventory-location name-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. Saving an ordering location still stores the location code as the name when the name is left blank, so the code is kept as the place. Do not invent a name from the code.
+
+## Iteration 227 — Do not store an ordering-location code as the name (2026-10-15)
+
+Saving an ordering location stored the location code as the name when the name was left blank. The code was kept as the place.
+
+### Implemented
+
+- A blank name is stored empty on an admin save and on an HL7 location that sends no name.
+- The list and the visit or order choice show `Location {id}`.
+- A recorded name stays that name.
+- An HL7 mapping code still uses the location code when none was sent.
+- A name already stored as the code is not rewritten.
+
+### Requirements / risk
+
+- URS-BB-380, FRS-BB-415, SRS-BB-377, RISK-BB-482.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-270 (`OrderingLocationAuthorizationTests.Create_BlankName_DoesNotStoreTheCodeAsTheName`; `OrderingLocationAuthorizationTests.Hl7_BlankName_DoesNotStoreTheCodeAsTheName`; `AdminCatalogTests.CreateLocation_CodeOnly_DoesNotStoreTheCodeAsTheName`).
+- Ordering-location blank-name tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A blood supplier choice still joins the code and the name, so a blank name can leave the code looking like the place. Keep the code available for selection, and do not use the code as the name.
+
+## Iteration 228 — Supplier id on a delivery choice (2026-10-15)
+
+A delivery supplier choice joined the code and the name. A blank name could leave the code looking like the supplier.
+
+### Implemented
+
+- The choice keeps the supplier code.
+- A blank name stays `Supplier {id}`.
+- A recorded name stays that name.
+- The stored name is unchanged.
+- A locked delivery shows the same label.
+
+### Requirements / risk
+
+- URS-BB-381, FRS-BB-416, SRS-BB-378, RISK-BB-483.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-271 (`BloodSupplierLabelTests.ForChoice_KeepsTheCodeAndTheSupplierIdWhenTheNameIsBlank`; `BloodSupplierChoiceTests.DisplayName_KeepsTheCodeAndTheSupplierIdWhenTheNameIsBlank`).
+- Supplier-choice tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The blood-supplier catalog still shows a blank name as an empty name beside the code, so the code can be read as the supplier. Keep the code in the catalog, and show Supplier {id} when the name is blank. The stored name and the edit form stay unchanged.
+
+## Iteration 229 — Supplier id on the blood-supplier list (2026-10-15)
+
+The blood-supplier catalog showed a blank name as an empty name beside the code. The code could be read as the supplier.
+
+### Implemented
+
+- The list keeps the supplier code in the code column.
+- A blank name on that list stays `Supplier {id}`.
+- The stored name is unchanged.
+- The edit form still shows the stored name.
+
+### Requirements / risk
+
+- URS-BB-382, FRS-BB-417, SRS-BB-379, RISK-BB-484.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-272 (`BloodSupplierLabelTests.Name_KeepsTheSupplierIdWhenTheNameIsBlank`; `BloodSupplierChoiceTests.NameLabel_KeepsTheSupplierIdWhenTheNameIsBlank`).
+- Supplier-catalog name-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. An open delivery and the unit-entry page still show a blank supplier name as empty, so staff can miss which supplier sent the blood. Show Supplier {id} there. Do not write that label onto the unit. The stored name stays unchanged.
+
+## Iteration 230 — Supplier id on an open delivery (2026-10-15)
+
+An open delivery and unit entry showed a blank supplier name as empty. Staff could miss which supplier sent the blood.
+
+### Implemented
+
+- An open delivery shows `Supplier {id}` when the name is blank.
+- Unit entry on a delivery and ISBT receipt show the same label.
+- The name written on the unit stays the recorded supplier name.
+- The stored supplier name is unchanged.
+
+### Requirements / risk
+
+- URS-BB-383, FRS-BB-418, SRS-BB-380, RISK-BB-485.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-273 (`DeliverySupplierLabelTests.SupplierNameLabel_KeepsTheSupplierIdWhenTheNameIsBlank`; `DeliveryServiceTests.BlankSupplierName_ShowsTheSupplierIdAndDoesNotWriteItOnTheUnit`).
+- Open-delivery supplier-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A unit received from a supplier with a blank name still shows that blank name on the unit. When the delivery names that supplier, show Supplier {id} on the unit. Do not rewrite the stored supplier or collection facility.
+
+## Iteration 231 — Supplier id on the unit (2026-10-15)
+
+A unit received from a supplier with a blank name still showed that blank name. Staff could read the unit as having no supplier.
+
+### Implemented
+
+- The unit chart shows `Supplier {id}` when the name is blank and the delivery names that supplier.
+- A recorded name stays that name.
+- The stored supplier and collection facility are unchanged.
+- A unit with no delivery does not invent a supplier.
+
+### Requirements / risk
+
+- URS-BB-384, FRS-BB-419, SRS-BB-381, RISK-BB-486.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-274 (`BloodUnitSupplierLabelTests.SupplierLabel_KeepsTheSupplierIdWhenTheDeliveryNamesABlankSupplier`; `DeliveryServiceTests.UnitChart_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName`).
+- Unit supplier-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The expected-inbound board still shows a blank supplier name as empty. When that unit's delivery names the supplier, show Supplier {id}. Do not rewrite the stored supplier or collection facility. A unit with no delivery does not invent a supplier.
+
+## Iteration 232 — Supplier id on expected inbound (2026-10-15)
+
+The expected-inbound board showed a blank supplier name as empty. Staff could miss which supplier was expected.
+
+### Implemented
+
+- The board shows `Supplier {id}` when the name is blank and the delivery names that supplier.
+- A recorded name stays that name.
+- The stored supplier and collection facility are unchanged.
+- A unit with no delivery does not invent a supplier.
+
+### Requirements / risk
+
+- URS-BB-385, FRS-BB-420, SRS-BB-382, RISK-BB-487.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-275 (`ExpectedInboundSupplierLabelTests.SupplierLabel_KeepsTheSupplierIdWhenTheDeliveryNamesABlankSupplier`; `DeliveryServiceTests.ExpectedInbound_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName`).
+- Expected-inbound supplier-label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. A product choice still joins the code and the name, so a blank name can leave the code looking like the product. Keep the code available for selection, and do not use the code as the name.
+
+## Iteration 233 — Product choice keeps the code (2026-10-16)
+
+A modification-rule choice and a charge-rule product choice joined the code and the name. A blank name left the code looking like the product.
+
+### Implemented
+
+- `ProductTypeLabel.ForChoice` keeps the code and shows `Product {id}` when the name is blank.
+- Modification-rule source and target choices use that label. The display code stays the ISBT code when one is recorded, otherwise the facility product code.
+- Charge-rule product choices keep the facility product code. An ISBT code is not used as the name.
+- The stored product name is unchanged.
+
+### Requirements / risk
+
+- URS-BB-386, FRS-BB-421, SRS-BB-383, RISK-BB-488.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-276 (`ProductTypeLabelTests`; `ProductTypeChoiceTests`).
+- Product-choice label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. The product catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Product {id} on the list. Do not write that label onto the product. The stored name and the edit form stay unchanged.
+
+## Iteration 234 — Product catalog shows the product id (2026-10-16)
+
+The product catalog showed a blank name as empty beside the code. Staff could read the code as the product name.
+
+### Implemented
+
+- The product list uses `ProductTypeLabel.Name`. A blank name stays `Product {id}`.
+- The code column stays the stored product code. An ISBT code is not used as the name.
+- The stored name is unchanged. The edit form still shows that stored name.
+
+### Requirements / risk
+
+- URS-BB-387, FRS-BB-422, SRS-BB-384, RISK-BB-489.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-277 (`ProductTypeLabelTests.Name_KeepsTheProductIdWhenTheNameIsBlank`; `ProductTypeChoiceTests.NameLabel_KeepsTheProductIdWhenTheNameIsBlank`).
+- Product-catalog label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables. An order still lists a product by name only, so a blank name leaves an empty choice. Keep the code available, and show Product {id} when the name is blank. Do not use the code as the name. The stored name stays unchanged.
+
+## Iteration 235 — Order product choice keeps the code (2026-10-16)
+
+A new or edited order listed each product by name only. A blank name left an empty choice.
+
+### Implemented
+
+- New and edited order product choices use `ProductTypeDto.ChoiceLabel`.
+- The display code stays on the choice. A blank name stays `Product {id}` and is not replaced by the code.
+- The stored product name is unchanged. The checkbox still submits the product type id.
+
+### Requirements / risk
+
+- URS-BB-388, FRS-BB-423, SRS-BB-385, RISK-BB-490.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-278 (`ProductTypeChoiceTests.OrderChoice_KeepsTheCodeAndDoesNotUseItAsTheName`).
+- Order product-choice label tests green.
+
+### Next ranked residual
+
+Next non-SME residual by safety and operational impact. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 236 — Computer-evaluated storage time out (2026-10-16)
+
+A caller could still be recorded as deciding whether time out of storage was acceptable. WellSky treats a storage device as governed by, or exempt from, that limit.
+
+### Implemented
+
+- `InventoryLocation.TimeOutGoverned` defaults to governed.
+- Return uses `ReturnReissueRule.TimeOutAcceptable`. A missing location is governed. An exempt location does not fail the existing window. A caller flag cannot override the computer.
+- The inventory-location screen and the issued-units board show Governed, Exempt, or Window elapsed.
+
+### Requirements / risk
+
+- URS-BB-389, FRS-BB-424, SRS-BB-386, RISK-BB-491.
+- Does not claim AABB compliance. The 30-minute window is unchanged.
+
+### Tests
+
+- TEST-BB-279.
+
+### Next ranked residual
+
+Modification result label check. A quarantine release of a modification result still does not require a matching unit-number scan.
+
+## Iteration 237 — Modification result label check (2026-10-16)
+
+A modification result could leave quarantine without a check that the new label is the result unit.
+
+### Implemented
+
+- `ModificationLabelVerificationRule` hard-stops a blank or different unit-number scan when the quarantined unit is a modification result.
+- The quarantine board and the unit chart collect that scan. Other quarantine releases do not.
+
+### Requirements / risk
+
+- URS-BB-390, FRS-BB-425, SRS-BB-387, RISK-BB-492.
+- Does not invent ICCBBA codes. Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-280.
+
+### Next ranked residual
+
+Reagent lot and daily QC. Patient resulting stays unblocked unless a facility policy is turned on. That policy stays off.
+
+## Iteration 238 — Reagent lot and daily QC (2026-10-16)
+
+Daily reagent QC was outside the record.
+
+### Implemented
+
+- Reagent, lot, and daily QC records. Review must be a different user.
+- The worklist shows overdue, failed, and unreviewed rows.
+- Patient resulting is blocked only when `Result.BlockWhenReagentQcOpen` is on. It ships off.
+
+### Requirements / risk
+
+- URS-BB-391, FRS-BB-426, SRS-BB-388, RISK-BB-493.
+- Does not invent a CLIA hold. Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-281.
+
+## Iteration 239 — Overdue final disposition (2026-10-16)
+
+Open issues were not aged to a final fate.
+
+### Implemented
+
+- A warning board of issued units past `Issue.FinalDispositionDueHours` (default 24) with no transfusion document, return, or discard.
+- The board does not block issue or documentation.
+
+### Requirements / risk
+
+- URS-BB-392, FRS-BB-427, SRS-BB-389, RISK-BB-494.
+
+### Tests
+
+- TEST-BB-282.
+
+## Iteration 240 — Supply lot on a modification (2026-10-16)
+
+Modification history did not record the supply used.
+
+### Implemented
+
+- Optional supply description and lot on `UnitModification`, audited and shown on history.
+- `Modification.RequireSupplyLot` can require the lot and ships off.
+
+### Requirements / risk
+
+- URS-BB-393, FRS-BB-428, SRS-BB-390, RISK-BB-495.
+
+### Tests
+
+- TEST-BB-283.
+
+## Iteration 241 — Batch modification (2026-10-16)
+
+One modification rule could be applied to only one unit at a time.
+
+### Implemented
+
+- `ApplyBatchAsync` uses one reason and one existing rule for several units.
+- If any unit is ineligible, none are modified.
+
+### Requirements / risk
+
+- URS-BB-394, FRS-BB-429, SRS-BB-391, RISK-BB-496.
+
+### Tests
+
+- TEST-BB-284.
+
+## Iteration 242 — Par-level stock board (2026-10-16)
+
+Available stock was not compared with a minimum.
+
+### Implemented
+
+- A configurable minimum by product and optional ABO.
+- The board shows on-hand and the shortfall. It does not place a blood-center order.
+
+### Requirements / risk
+
+- URS-BB-395, FRS-BB-430, SRS-BB-392, RISK-BB-497.
+
+### Tests
+
+- TEST-BB-285.
+
+### Next ranked residual
+
+The competitor-gap queue is empty. Excluded items stay excluded. Do not invent ICCBBA tables, RhIG indications, a device or FHIR contract, a multi-facility database, or a numeric antigen-match grade.
+
+## Iteration 243 — Dashboard shows the queues you can work (2026-10-17)
+
+The home screen counted patients and inventory. Retrospective crossmatch, in transit, outstanding issued units, pending tests, reactions, shift handoff, and the supervisor queue already existed on their own pages. A technologist had to remember which page held the next action.
+
+### Implemented
+
+- **Your work** lists ready to issue, second ABO/Rh, retrospective crossmatch, in transit, outstanding issued, final disposition, pending tests, pending specimens, reaction investigations, the supervisor queue, and an open shift handoff.
+- Each card is shown only when the signed-in user can already open that queue, and the card opens it.
+- A failed load shows an em dash. Closed investigations stay out of the reaction count.
+- Retrospective items past their stored due time, in-transit units past the arrival window, and fatality follow-up including closed cases are named only when that count is above zero.
+- `/issuing?desk=` opens the named board. A patient or unit prefill still opens Issue.
+- Issue, ward receipt, result, and investigation gates are unchanged.
+
+### Requirements / risk
+
+- URS-BB-396, FRS-BB-431, SRS-BB-393, RISK-BB-498.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-286 (`DashboardQueueCatalogTests`).
+
+### Next ranked residual
+
+A new or edited order still lists a test by its stored name. A blank name leaves an empty label beside the code, and a missing catalog name is stored as the code. Keep the code available, and show a stable test id when the name is blank. Do not rewrite a name that is already stored. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 244 — Order test choice keeps the code (2026-10-17)
+
+A new or edited order listed each test by name only. A blank name left an empty choice beside the code.
+
+### Implemented
+
+- New and edited order test choices use `TestDefinitionListItemDto.NameLabel`.
+- The code stays on the choice. A blank name stays `Test {id}` and is not replaced by the code.
+- A recorded name stays that name. The stored line name is unchanged. The checkbox still submits the test code.
+
+### Requirements / risk
+
+- URS-BB-397, FRS-BB-432, SRS-BB-394, RISK-BB-499.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-287 (`TestDefinitionChoiceTests.OrderChoice_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The test catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Test {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 245 — Test catalog keeps the code (2026-10-17)
+
+The test catalog listed each test by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The test catalog name column uses `TestDefinitionDto.NameLabel`.
+- The code stays in the catalog. A blank name stays `Test {id}` and is not replaced by the code.
+- The stored name is unchanged. The edit form still binds that stored name. The filter can match the list label.
+
+### Requirements / risk
+
+- URS-BB-398, FRS-BB-433, SRS-BB-395, RISK-BB-500.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-288 (`TestDefinitionChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The subtest catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Subtest {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 246 — Subtest catalog keeps the code (2026-10-17)
+
+The subtest catalog listed each subtest by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The subtest catalog name column uses `SubtestDefinitionDto.NameLabel`.
+- The code stays in the catalog. A blank name stays `Subtest {id}` and is not replaced by the code.
+- The stored name is unchanged. The edit form still binds that stored name. The filter can match the list label.
+
+### Requirements / risk
+
+- URS-BB-399, FRS-BB-434, SRS-BB-396, RISK-BB-501.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-289 (`SubtestDefinitionChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The test-grouper catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Grouper {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 247 — Test-grouper catalog keeps the code (2026-10-17)
+
+The test-grouper catalog listed each grouper by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The test-grouper catalog name column uses `TestGrouperDto.NameLabel`.
+- The code stays in the catalog. A blank name stays `Grouper {id}` and is not replaced by the code.
+- The stored name is unchanged. The edit form still binds that stored name. The filter can match the list label.
+
+### Requirements / risk
+
+- URS-BB-400, FRS-BB-435, SRS-BB-397, RISK-BB-502.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-290 (`TestGrouperChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The phase catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Phase {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 248 — Phase catalog keeps the code (2026-10-17)
+
+The phase catalog listed each phase by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The phase catalog name column uses `PhaseDefinitionDto.NameLabel`.
+- The code stays in the catalog. A blank name stays `Phase {id}` and is not replaced by the code.
+- The stored name is unchanged. The edit form still binds that stored name. The filter can match the list label.
+
+### Requirements / risk
+
+- URS-BB-401, FRS-BB-436, SRS-BB-398, RISK-BB-503.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-291 (`PhaseDefinitionChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The blood-attribute catalog still shows a blank antigen name or a blank antibody name as empty beside the code. Keep the code in the catalog. Show Attribute {id} when the antigen name is blank, and Antibody {id} when the antibody name is blank. Do not rewrite the stored names or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 249 — Blood-attribute catalog keeps the code (2026-10-17)
+
+The blood-attribute catalog listed each antigen and antibody by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The antigen column uses `BloodAttributeDefinitionDto.NameLabel`.
+- The antibody column uses `BloodAttributeDefinitionDto.AntibodyNameLabel`.
+- The code stays in the catalog. A blank antigen name stays `Attribute {id}`. A blank antibody name stays `Antibody {id}` and is not replaced by the antigen name or the code.
+- The stored names are unchanged. The edit form still binds those stored names. The filter can match either list label.
+
+### Requirements / risk
+
+- URS-BB-402, FRS-BB-437, SRS-BB-399, RISK-BB-504.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-292 (`BloodAttributeChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The special-requirement catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Requirement {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 250 — Special-requirement catalog keeps the code (2026-10-17)
+
+The special-requirement catalog listed each requirement by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The special-requirement catalog name column uses `SpecialRequirementDefinitionDto.NameLabel`.
+- The code stays in the catalog. A blank name stays `Requirement {id}` and is not replaced by the code or by a product-attribute code.
+- The stored name is unchanged. The edit form still binds that stored name. The filter can match the list label.
+
+### Requirements / risk
+
+- URS-BB-403, FRS-BB-438, SRS-BB-400, RISK-BB-505.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-293 (`SpecialRequirementChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The reflex-rule catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Reflex {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 251 — Reflex-rule catalog keeps the code (2026-10-17)
+
+The reflex-rule catalog listed each rule by its stored name. A blank name left an empty cell beside the code.
+
+### Implemented
+
+- The reflex-rule catalog name column uses `ReflexRuleDto.NameLabel`.
+- The code stays in the catalog. A blank name stays `Reflex {id}` and is not replaced by the code or by a trigger or reflex test code.
+- The stored name is unchanged. The edit form still binds that stored name. The filter can match the list label.
+
+### Requirements / risk
+
+- URS-BB-404, FRS-BB-439, SRS-BB-401, RISK-BB-506.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-294 (`ReflexRuleChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName`).
+
+### Next ranked residual
+
+The order-and-test rule catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Rule {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.

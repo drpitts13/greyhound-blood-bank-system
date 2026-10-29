@@ -5,12 +5,16 @@
 <PageTitle>Test Worklist &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Test Worklist</h1>
-<p class="muted">Pending patient tests live here. Product ABO/Rh retypes are listed on the Retype tab and entered on the Inventory pending-retype board so there is one product-retype desk. Each patient-test row shows current ABO/Rh, antibody history, specimen expiry, electronic-XM eligibility, an open antibody-identification workup, a historical ABO/Rh discrepancy on an entered type, and the posted result so the bench does not open the chart just to check dating, history, eXM holds, or the interface value. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it. The same Verify cue and Result column appear on the patient Tests tab. An order on hold is left off this list; on the chart it says Blocked and does not take a result until it is released.</p>
+<p class="muted">Pending patient tests live here. Collected and received tubes that are not yet accepted live on the Specimens tab — receive and accept from the row before result entry. Product ABO/Rh retypes are listed on the Retype tab and entered on the Inventory pending-retype board so there is one product-retype desk. Each patient-test row shows current ABO/Rh, antibody history, specimen expiry, electronic-XM eligibility, an open antibody-identification workup, a historical ABO/Rh discrepancy on an entered type, and the posted result so the bench does not open the chart just to check dating, history, eXM holds, or the interface value. Expand a row to enter results, or Verify a posted interface/instrument value without re-keying it. The same Verify cue and Result column appear on the patient Tests tab. An order on hold is left off this list; on the chart it says Blocked and does not take a result until it is released.</p>
 
 <Outcome Value="_fb" />
 
 <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
     <button type="button" class="btn @TabClass("tests")" @onclick='() => SelectTab("tests")'>Patient tests</button>
+    @if (Session.Has(PermissionCodes.SpecimenAccession))
+    {
+        <button type="button" class="btn @TabClass("specimens")" @onclick='() => SelectTab("specimens")'>Specimens</button>
+    }
     <button type="button" class="btn @TabClass("retype")" @onclick='() => SelectTab("retype")'>Retype</button>
 </div>
 
@@ -157,6 +161,94 @@
 </div>
 }
 
+@if (_tab == "specimens" && Session.Has(PermissionCodes.SpecimenAccession))
+{
+<div class="bb-card">
+    <div class="bb-card-title">
+        <h3>Pending specimens</h3>
+        <button class="btn btn-secondary btn-sm" @onclick="LoadPendingSpecimensAsync">Refresh</button>
+    </div>
+    <p class="muted">Collected tubes waiting for receipt, and received tubes waiting for acceptance. Result entry and order linking still require Accepted. An expired tube cannot be received or accepted — reject it. Scan or type an accession to filter.</p>
+    <div class="field" style="max-width:20rem;margin-bottom:.75rem;">
+        <label>Accession / barcode</label>
+        <input @bind="_specimenScan" @bind:event="oninput" placeholder="Scan accession" />
+    </div>
+
+    @if (_specimensLoading)
+    {
+        <div class="loading">Loading specimens...</div>
+    }
+    else if (VisiblePendingSpecimens.Count == 0)
+    {
+        <div class="empty">No collected or received specimens are waiting. In-lab accession still accepts immediately unless Accept now is unchecked on the chart.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead>
+                <tr>
+                    <th>Patient</th>
+                    <th>MRN</th>
+                    <th>Accession</th>
+                    <th>Type</th>
+                    <th>Collected</th>
+                    <th>Expires</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in VisiblePendingSpecimens)
+                {
+                    <tr>
+                        <td>@row.PatientName</td>
+                        <td class="mono">@row.Mrn</td>
+                        <td class="mono">@row.AccessionNumber</td>
+                        <td>@row.SpecimenType</td>
+                        <td class="nowrap">@row.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">
+                            @(row.ExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                            @if (row.IsExpired)
+                            {
+                                <span class="badge badge-red">Expired</span>
+                            }
+                        </td>
+                        <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
+                        <td class="right nowrap">
+                            @if (row.Status == SpecimenStatus.Collected && Session.Has(PermissionCodes.SpecimenAccession))
+                            {
+                                <button class="btn btn-primary btn-sm" disabled="@(_busy || row.IsExpired)" @onclick="() => ReceivePendingAsync(row.SpecimenId)">Receive</button>
+                            }
+                            @if (row.Status == SpecimenStatus.Received && Session.Has(PermissionCodes.SpecimenAccession))
+                            {
+                                <button class="btn btn-primary btn-sm" disabled="@(_busy || row.IsExpired)" @onclick="() => AcceptPendingAsync(row.SpecimenId)">Accept</button>
+                            }
+                            @if (Session.Has(PermissionCodes.SpecimenReject) && _rejectingSpecimenId != row.SpecimenId)
+                            {
+                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => _rejectingSpecimenId = row.SpecimenId">Reject</button>
+                            }
+                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">Chart</a>
+                        </td>
+                    </tr>
+                    @if (_rejectingSpecimenId == row.SpecimenId && Session.Has(PermissionCodes.SpecimenReject))
+                    {
+                        <tr>
+                            <td colspan="8">
+                                <div class="flex gap" style="flex-wrap:wrap;">
+                                    <input @bind="_rejectReason" placeholder="Rejection reason" style="flex:1;" />
+                                    <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_rejectReason))" @onclick="() => RejectPendingAsync(row.SpecimenId)">Confirm reject</button>
+                                    <button class="btn btn-secondary btn-sm" @onclick="() => { _rejectingSpecimenId = null; _rejectReason = string.Empty; }">Cancel</button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+}
+
 @if (_tab == "retype")
 {
 <div class="bb-card">
@@ -240,9 +332,34 @@
     private List<ProductRetypeWorkItemDto> _retypes = new();
     private bool _retypesLoading;
     private bool _retypesLoaded;
+    private List<PendingSpecimenWorkItemDto> _pendingSpecimens = new();
+    private bool _specimensLoading;
+    private bool _specimensLoaded;
+    private bool _busy;
+    private string _specimenScan = string.Empty;
+    private long? _rejectingSpecimenId;
+    private string _rejectReason = string.Empty;
 
     [SupplyParameterFromQuery(Name = "tab")]
     public string? TabQuery { get; set; }
+
+    private IReadOnlyList<PendingSpecimenWorkItemDto> VisiblePendingSpecimens
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_specimenScan))
+            {
+                return _pendingSpecimens;
+            }
+
+            var q = _specimenScan.Trim();
+            return _pendingSpecimens
+                .Where(s => s.AccessionNumber.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || s.Mrn.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || s.PatientName.Contains(q, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -250,6 +367,11 @@
         {
             _tab = "retype";
             await LoadRetypesAsync();
+        }
+        else if (string.Equals(TabQuery, "specimens", StringComparison.OrdinalIgnoreCase))
+        {
+            _tab = "specimens";
+            await LoadPendingSpecimensAsync();
         }
 
         await LoadAsync();
@@ -261,6 +383,10 @@
         if (tab == "retype" && !_retypesLoaded)
         {
             await LoadRetypesAsync();
+        }
+        else if (tab == "specimens" && !_specimensLoaded)
+        {
+            await LoadPendingSpecimensAsync();
         }
     }
 
@@ -295,6 +421,54 @@
         }
 
         _retypes = r.Value ?? new();
+    }
+
+    private async Task LoadPendingSpecimensAsync()
+    {
+        _specimensLoading = true;
+        var r = await Api.GetPendingSpecimensAsync();
+        _specimensLoading = false;
+        _specimensLoaded = true;
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+            _pendingSpecimens = new();
+            return;
+        }
+
+        _pendingSpecimens = r.Value ?? new();
+    }
+
+    private async Task ReceivePendingAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.ReceiveSpecimenAsync(specimenId);
+        _busy = false;
+        _fb = r.ToFeedback("Specimen received in the blood bank.");
+        if (r.Succeeded) await LoadPendingSpecimensAsync();
+    }
+
+    private async Task AcceptPendingAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.AcceptSpecimenAsync(specimenId);
+        _busy = false;
+        _fb = r.ToFeedback("Specimen accepted for testing.");
+        if (r.Succeeded) await LoadPendingSpecimensAsync();
+    }
+
+    private async Task RejectPendingAsync(long specimenId)
+    {
+        _busy = true;
+        var r = await Api.RejectSpecimenAsync(specimenId, _rejectReason);
+        _busy = false;
+        _fb = r.ToFeedback("Specimen rejected.");
+        if (r.Succeeded)
+        {
+            _rejectingSpecimenId = null;
+            _rejectReason = string.Empty;
+            await LoadPendingSpecimensAsync();
+        }
     }
 
     private void ToggleEntry(long orderLineId) =>

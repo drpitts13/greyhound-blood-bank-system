@@ -65,6 +65,8 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<BloodUnit> BloodUnits => Set<BloodUnit>();
     public DbSet<ProductRetypeResult> ProductRetypeResults => Set<ProductRetypeResult>();
     public DbSet<ProductType> ProductTypes => Set<ProductType>();
+    public DbSet<ProductAboCompatibility> ProductAboCompatibilities => Set<ProductAboCompatibility>();
+    public DbSet<ProductRhCompatibility> ProductRhCompatibilities => Set<ProductRhCompatibility>();
     public DbSet<InventoryLocation> InventoryLocations => Set<InventoryLocation>();
     public DbSet<InventoryStatusHistory> InventoryStatusHistory => Set<InventoryStatusHistory>();
     public DbSet<Crossmatch> Crossmatches => Set<Crossmatch>();
@@ -76,8 +78,12 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<SpecialTransfusionRequirement> SpecialTransfusionRequirements => Set<SpecialTransfusionRequirement>();
     public DbSet<SpecialRequirementDefinition> SpecialRequirementDefinitions => Set<SpecialRequirementDefinition>();
     public DbSet<PatientIdentifier> PatientIdentifiers => Set<PatientIdentifier>();
+    public DbSet<PatientMerge> PatientMerges => Set<PatientMerge>();
+    public DbSet<PatientMergeMove> PatientMergeMoves => Set<PatientMergeMove>();
     public DbSet<LookbackNotification> LookbackNotifications => Set<LookbackNotification>();
     public DbSet<Deviation> Deviations => Set<Deviation>();
+    public DbSet<ShiftHandoff> ShiftHandoffs => Set<ShiftHandoff>();
+    public DbSet<DatElutionWorkup> DatElutionWorkups => Set<DatElutionWorkup>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<Override> Overrides => Set<Override>();
     public DbSet<InterfaceEndpoint> InterfaceEndpoints => Set<InterfaceEndpoint>();
@@ -130,6 +136,10 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<ModificationRule> ModificationRules => Set<ModificationRule>();
     public DbSet<UnitModification> UnitModifications => Set<UnitModification>();
     public DbSet<UnitModificationUnit> UnitModificationUnits => Set<UnitModificationUnit>();
+    public DbSet<Reagent> Reagents => Set<Reagent>();
+    public DbSet<ReagentLot> ReagentLots => Set<ReagentLot>();
+    public DbSet<ReagentDailyQc> ReagentDailyQcs => Set<ReagentDailyQc>();
+    public DbSet<StockParLevel> StockParLevels => Set<StockParLevel>();
 
     // ISBT 128 component identity / lookups / workflow
     public DbSet<BloodComponentRawScan> BloodComponentRawScans => Set<BloodComponentRawScan>();

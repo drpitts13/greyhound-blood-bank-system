@@ -1,0 +1,187 @@
+@page "/handoff"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Shift handoff &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<div class="flex-between" style="margin-bottom:1rem;">
+    <h1>Shift handoff</h1>
+    <a class="btn btn-secondary" href="/">Dashboard</a>
+</div>
+
+<p class="muted">Record open work for the next technologist. Counts are a snapshot of the same queues already on the dashboard. A note is required. The person who records the handoff cannot acknowledge it. Clinical gates are unchanged.</p>
+
+<Outcome Value="_fb" />
+
+@if (!Session.Has(PermissionCodes.AuditRead))
+{
+    <div class="alert alert-warning">Shift handoff requires the audit.read permission.</div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Record handoff</h3></div>
+        <div class="form-row">
+            <div class="field" style="grid-column:1/-1;">
+                <label>Handoff note</label>
+                <textarea @bind="_notes" rows="3" placeholder="Open work, short-dated units, pending reactions, overrides waiting review…"></textarea>
+            </div>
+            <div class="field">
+                <label>Incoming technologist (optional)</label>
+                <input @bind="_toUser" placeholder="Username" />
+            </div>
+        </div>
+        <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_notes))" @onclick="CreateAsync">Record handoff</button>
+    </div>
+
+    @if (_open is not null)
+    {
+        <div class="bb-card" style="margin-top:1.25rem;">
+            <div class="bb-card-title"><h3>Awaiting acknowledgment</h3></div>
+            <p style="margin:0 0 .75rem;">
+                From <span class="mono">@_open.FromUser</span> at @_open.RecordedUtc.ToString("yyyy-MM-dd HH:mm")
+                @if (!string.IsNullOrWhiteSpace(_open.ToUser))
+                {
+                    <span> → <span class="mono">@_open.ToUser</span></span>
+                }
+            </p>
+            <p class="muted">@QueueSummary(_open)</p>
+            <p>@_open.Notes</p>
+            @if (!string.Equals(_open.FromUser, Session.UserName, StringComparison.OrdinalIgnoreCase))
+            {
+                <button class="btn btn-primary" disabled="@_busy" @onclick="() => AcknowledgeAsync(_open.Id)">Acknowledge</button>
+            }
+            else
+            {
+                <p class="muted">You recorded this handoff. Another signed-in user with audit.read must acknowledge it.</p>
+            }
+        </div>
+    }
+
+    <div class="bb-card" style="margin-top:1.25rem;">
+        <div class="bb-card-title">
+            <h3>Recent handoffs</h3>
+            <button class="btn btn-secondary btn-sm" @onclick="LoadAsync">Refresh</button>
+        </div>
+        @if (_loading)
+        {
+            <div class="loading">Loading…</div>
+        }
+        else if (_rows.Count == 0)
+        {
+            <div class="empty">No shift handoffs yet.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Queues</th>
+                        <th>Note</th>
+                        <th>Acknowledged</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _rows)
+                    {
+                        <tr>
+                            <td class="nowrap">@row.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="mono">@row.FromUser</td>
+                            <td class="mono">@(row.ToUser ?? "—")</td>
+                            <td class="muted" style="font-size:.85rem;">@QueueSummary(row)</td>
+                            <td>@row.Notes</td>
+                            <td>
+                                @if (row.IsAcknowledged)
+                                {
+                                    <span class="mono">@row.AcknowledgedBy</span>
+                                    <span class="muted">@row.AcknowledgedUtc?.ToString("yyyy-MM-dd HH:mm")</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-amber">Open</span>
+                                }
+                            </td>
+                            <td class="right">
+                                @if (!row.IsAcknowledged
+                                    && !string.Equals(row.FromUser, Session.UserName, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => AcknowledgeAsync(row.Id)">Acknowledge</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    private List<ShiftHandoffDto> _rows = new();
+    private ShiftHandoffDto? _open;
+    private string _notes = string.Empty;
+    private string? _toUser;
+    private bool _busy;
+    private bool _loading = true;
+    private Feedback? _fb;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (!Session.Has(PermissionCodes.AuditRead))
+        {
+            _loading = false;
+            return;
+        }
+
+        _loading = true;
+        var list = await Api.GetShiftHandoffsAsync();
+        var open = await Api.GetOpenShiftHandoffAsync();
+        _loading = false;
+        if (!list.Succeeded)
+        {
+            _fb = list.ToFeedback();
+            _rows = new();
+            return;
+        }
+
+        _rows = list.Value ?? new();
+        _open = open.Succeeded ? open.Value : null;
+    }
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        var r = await Api.CreateShiftHandoffAsync(new CreateShiftHandoffRequest(_notes, _toUser));
+        _busy = false;
+        _fb = r.ToFeedback("Shift handoff recorded.");
+        if (r.Succeeded)
+        {
+            _notes = string.Empty;
+            _toUser = null;
+            await LoadAsync();
+        }
+    }
+
+    private async Task AcknowledgeAsync(long id)
+    {
+        _busy = true;
+        var r = await Api.AcknowledgeShiftHandoffAsync(id);
+        _busy = false;
+        _fb = r.ToFeedback("Shift handoff acknowledged.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private static string QueueSummary(ShiftHandoffDto row) =>
+        $"Retro {row.RetrospectiveDue}" +
+        (row.RetrospectiveOverdue > 0 ? $", {row.RetrospectiveOverdue} overdue" : "") +
+        $"; issued {row.OutstandingIssued}; transit {row.InTransit}" +
+        (row.InTransitOverdue > 0 ? $", {row.InTransitOverdue} overdue" : "") +
+        $"; tests {row.PendingTests}; specimens {row.PendingSpecimens}; reactions {row.OpenReactions}" +
+        (row.FatalityFollowUpDue > 0 ? $", {row.FatalityFollowUpDue} fatality follow-up" : "");
+}

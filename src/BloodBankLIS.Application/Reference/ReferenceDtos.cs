@@ -1,6 +1,7 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Reference;
 
@@ -25,6 +26,12 @@ public sealed record ProductTypeDto(
     public string DisplayProductCode =>
         string.IsNullOrWhiteSpace(Isbt128ProductCode) ? ProductCode : Isbt128ProductCode;
 
+    /// <summary>
+    /// Choice label. The display code stays so staff can select the product.
+    /// A blank name stays the product id and is not replaced by the code.
+    /// </summary>
+    public string ChoiceLabel => ProductTypeLabel.ForChoice(Id, DisplayProductCode, Name);
+
     public static ProductTypeDto From(ProductType t) => new(
         t.Id, t.ProductCode, t.Name, t.ComponentClass, t.DefaultShelfLifeHours, t.RequiresCrossmatch, t.IsActive,
         t.Isbt128ProductCode, t.RequiresRetype);
@@ -42,6 +49,8 @@ public sealed record InventoryLocationDto(
     bool RequiresSecondVerifier = false,
     bool IsSatellite = false)
 {
+    public string ChoiceLabel => StorageLocationLabel.ForPicker(Id, Code, Name);
+
     public static InventoryLocationDto From(InventoryLocation l) => new(
         l.Id, l.Code, l.Name, l.LocationType, l.IsActive,
         l.AllowsIssue, l.AllowsRemoteIssue, l.AllowsElectronicIssue, l.RequiresSecondVerifier, l.IsSatellite);
@@ -50,14 +59,15 @@ public sealed record InventoryLocationDto(
 public sealed record BloodSupplierRefDto(long Id, string Code, string Name, string Registration, string DisplayName)
 {
     public static BloodSupplierRefDto From(BloodSupplier supplier) => new(
-        supplier.Id, supplier.Code, supplier.Name, supplier.Registration, $"{supplier.Code} — {supplier.Name}");
+        supplier.Id, supplier.Code, supplier.Name, supplier.Registration,
+        BloodSupplierLabel.ForChoice(supplier.Id, supplier.Code, supplier.Name));
 }
 
 public sealed record OrderingLocationRefDto(long Id, string Code, string? Name, string? Department, bool IsActive, string DisplayName)
 {
     public static OrderingLocationRefDto From(OrderingLocation l) => new(
         l.Id, l.Code, l.Name, l.Department, l.IsActive,
-        string.IsNullOrWhiteSpace(l.Name) ? l.Code : l.Name);
+        StorageLocationLabel.Format(l.Id, l.Name));
 }
 
 public sealed record OrderingProviderRefDto(long Id, string ProviderId, string Name, string? Specialty, string? Location)
@@ -66,10 +76,21 @@ public sealed record OrderingProviderRefDto(long Id, string ProviderId, string N
         p.Id, p.ProviderId, p.Name, p.Specialty, p.Location);
 }
 
-public sealed record TestDefinitionListItemDto(string Code, string Name, TestCategory Category, string? RequiredSpecimenType = null)
+public sealed record TestDefinitionListItemDto(
+    string Code,
+    string Name,
+    TestCategory Category,
+    string? RequiredSpecimenType = null,
+    long Id = 0)
 {
+    /// <summary>
+    /// Name on a new or edited order. A blank name stays the test id.
+    /// The code is not used as the name. The stored line name is unchanged.
+    /// </summary>
+    public string NameLabel => TestDefinitionLabel.Name(Id, Name);
+
     public static TestDefinitionListItemDto From(TestDefinition t) =>
-        new(t.Code, t.Name, t.Category, t.RequiredSpecimenType);
+        new(t.Code, t.Name, t.Category, t.RequiredSpecimenType, t.Id);
 }
 
 public sealed record DirectoryUserDto(string UserName, string DisplayName)

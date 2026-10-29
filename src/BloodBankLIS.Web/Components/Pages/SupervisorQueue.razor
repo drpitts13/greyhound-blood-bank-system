@@ -1,0 +1,100 @@
+@page "/supervisor"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Supervisor queue &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<div class="flex-between" style="margin-bottom:1rem;">
+    <h1>Supervisor queue</h1>
+    <a class="btn btn-secondary" href="/">Dashboard</a>
+</div>
+
+<p class="muted">
+    Work that needs a supervisor-scoped action: antibody-identification review (<span class="mono">immuno.override</span>),
+    posted interface/instrument verification (<span class="mono">result.verify</span>), and quarantine release
+    (<span class="mono">inventory.release</span>). Open a row to complete the existing workflow. Clinical gates are unchanged.
+</p>
+
+<Outcome Value="_fb" />
+
+@if (!CanSeeQueue)
+{
+    <div class="alert alert-warning">The supervisor queue requires immuno.override, result.verify, or inventory.release.</div>
+}
+else if (_loading)
+{
+    <p class="muted">Loading…</p>
+}
+else if (_items.Count == 0)
+{
+    <div class="bb-card">
+        <p class="muted" style="margin:0;">No supervisor-scoped items for your permissions.</p>
+    </div>
+}
+else
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>@_items.Count item@(_items.Count == 1 ? "" : "s")</h3></div>
+        <table class="data">
+            <thead>
+                <tr>
+                    <th>Kind</th>
+                    <th>Item</th>
+                    <th>Detail</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _items)
+                {
+                    <tr>
+                        <td><span class="badge badge-gray">@KindLabel(row.Kind)</span></td>
+                        <td>@row.Title</td>
+                        <td class="muted">@row.Detail</td>
+                        <td>
+                            <a class="btn btn-primary btn-sm" href="@row.Href">@row.NextAction</a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private Feedback? _fb;
+    private List<SupervisorQueueItemDto> _items = new();
+
+    private bool CanSeeQueue =>
+        Session.Has(PermissionCodes.ImmunoOverride)
+        || Session.Has(PermissionCodes.ResultVerify)
+        || Session.Has(PermissionCodes.InventoryRelease);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!CanSeeQueue)
+        {
+            _loading = false;
+            return;
+        }
+
+        var r = await Api.GetSupervisorQueueAsync();
+        _loading = false;
+        if (!r.Succeeded)
+        {
+            _fb = r.ToFeedback();
+            return;
+        }
+
+        _items = r.Value ?? new();
+    }
+
+    private static string KindLabel(string kind) => kind switch
+    {
+        SupervisorQueueRule.KindAntibodyReview => "ABID review",
+        SupervisorQueueRule.KindResultVerify => "Result verify",
+        SupervisorQueueRule.KindQuarantineRelease => "Quarantine",
+        _ => kind
+    };
+}

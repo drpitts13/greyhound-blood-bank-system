@@ -9,6 +9,7 @@ using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.HL7.Messaging;
 using BloodBankLIS.HL7.Parsing;
 using BloodBankLIS.Infrastructure.Audit;
@@ -70,7 +71,8 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             orderSpecimens: new EfRepository<OrderSpecimen>(c),
             specimens: new EfRepository<Specimen>(c),
             currentUser: _factory.CurrentUser,
-            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            audit: new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            aliasWriter: new PatientHistoricalAliasWriter(new EfRepository<PatientIdentifier>(c)));
     }
 
     private ResultService Results(BloodBankDbContext c) =>
@@ -165,7 +167,13 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             new EfRepository<BillingEvent>(c),
             new EfRepository<TestResult>(c),
             c,
-            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            datElutions: new EfRepository<DatElutionWorkup>(c),
+            ptags: new EfRepository<PtagIdentifier>(c),
+            decisions: new EfRepository<BloodComponentCompatibilityDecision>(c),
+            mergeLedger: new EfRepository<PatientMerge>(c),
+            mergeMoves: new EfRepository<PatientMergeMove>(c),
+            clock: _factory.Clock);
 
     private Hl7OutboundService Outbound(BloodBankDbContext c) =>
         new(
@@ -410,6 +418,32 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
         var patients = await verify.Patients.Where(p => p.MedicalRecordNumber == "HL7-200").ToListAsync();
         Assert.Single(patients);
         Assert.Equal("After", patients[0].LastName);
+        var alias = Assert.Single(await verify.PatientIdentifiers.Where(i =>
+            i.PatientId == patients[0].Id
+            && i.IdentifierType == IdentityTokenType.PriorFullName).ToListAsync());
+        Assert.Equal("Before, Name", alias.Value);
+        Assert.True(await verify.AuditEvents.AnyAsync(a =>
+            a.EntityId == patients[0].Id
+            && a.Reason == PatientHistoricalAliasRule.AdtArchiveReason));
+    }
+
+    [Fact]
+    public async Task InboundAdt_SparseA08_DoesNotArchiveWhenNameUnchanged()
+    {
+        await using (var setup = _factory.Create())
+        {
+            await Processor(setup).ProcessAsync(Adt("CTRL-ALIAS-1", "HL7-ALIAS", "Stable", "Pat"));
+        }
+
+        await using var context = _factory.Create();
+        var sparse =
+            "MSH|^~\\&|EHR|HOSP|BBLIS|LAB|20260530120000||ADT^A08|CTRL-ALIAS-2|P|2.5\r" +
+            "PID|1||HL7-ALIAS^^^HOSP^MR";
+        Assert.True((await Processor(context).ProcessAsync(sparse)).Accepted);
+        var patientId = (await context.Patients.SingleAsync(p => p.MedicalRecordNumber == "HL7-ALIAS")).Id;
+        Assert.False(await context.PatientIdentifiers.AnyAsync(i =>
+            i.PatientId == patientId
+            && i.IdentifierType == IdentityTokenType.PriorFullName));
     }
 
     [Fact]

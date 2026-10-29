@@ -58,7 +58,7 @@ else
                 <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@Ui.StatusLabel(_unit.Status)</span></div></div>
                 <div class="field"><label>Location</label><div>@LocationName(_unit.CurrentLocationId)</div></div>
                 <div class="field"><label>Volume</label><div>@(_unit.Volume is { } vol ? vol.ToString("0.###") : "—")</div></div>
-                <div class="field"><label>Supplier</label><div>@(string.IsNullOrWhiteSpace(_unit.Supplier) ? "—" : _unit.Supplier)</div></div>
+                <div class="field"><label>Supplier</label><div>@(_unit.SupplierLabel ?? "—")</div></div>
                 <div class="field"><label>Collection facility</label><div>@(string.IsNullOrWhiteSpace(_unit.CollectionFacility) ? "—" : _unit.CollectionFacility)</div></div>
                 <div class="field"><label>Collected</label><div>@(_unit.CollectionDateTime?.ToString("yyyy-MM-dd HH:mm") ?? "—")</div></div>
                 <div class="field"><label>Processing facility</label><div>@(string.IsNullOrWhiteSpace(_unit.ProcessingFacilityCode) ? "—" : _unit.ProcessingFacilityCode)</div></div>
@@ -66,6 +66,7 @@ else
                 <div class="field"><label>Delivery</label><div class="mono">@if (_unit.DeliveryId is long deliveryId) { <a href="@($"/inventory/deliveries/{deliveryId}")">@deliveryId</a> } else { <span>—</span> }</div></div>
                 <div class="field"><label>Donation</label><div>@_unit.DonationRestriction@(_unit.ReservedPatientId is long pid ? $" — {RecipientLabel(pid)}" : "")</div></div>
             </div>
+            <p class="muted">A blank supplier name stays the supplier id when the delivery names that supplier. The stored supplier and collection facility are unchanged.</p>
             @if (!string.IsNullOrWhiteSpace(_unit.HoldReason) || _unit.QuarantineReasonCode != UnitQuarantineReason.Unspecified || !string.IsNullOrWhiteSpace(_unit.QuarantineReason) || !string.IsNullOrWhiteSpace(_unit.MissingReason) || !string.IsNullOrWhiteSpace(_unit.DamagedReason) || !string.IsNullOrWhiteSpace(_unit.SupplierReturnReason) || !string.IsNullOrWhiteSpace(_unit.ReceiveVisualNotes) || _unit.ReceiveAppearance != UnitAppearance.Acceptable || _unit.ReceiveTemperatureCelsius is not null || !string.IsNullOrWhiteSpace(_unit.DirectedConversionReason) || _unit.ExpectedArrivalDueUtc is not null)
             {
                 <p class="muted">
@@ -129,6 +130,13 @@ else
                                 Clearable="true"
                                 Placeholder="Different active user" />
                         </div>
+                        @if (_unit.RequiresModificationLabelScan)
+                        {
+                            <div class="field" style="min-width:16rem;">
+                                <label>Scanned unit number</label>
+                                <input class="mono" @bind="_releaseScannedUnitNumber" />
+                            </div>
+                        }
                         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReleaseAsync(_unit.Id)">Release from quarantine</button>
                     }
                     @if (_unit.Status == UnitStatus.Expected && Session.Has(PermissionCodes.InventoryReceive))
@@ -330,7 +338,8 @@ else
                 @if (Session.Has(PermissionCodes.InventoryTransfer))
                 {
                     <div class="flex gap">
-                        <select @bind="_transferTo"><option value="0">— location —</option>@foreach (var l in _locations) { <option value="@l.Id">@l.Code — @l.Name</option> }</select>
+                        <select @bind="_transferTo"><option value="0">— location —</option>@foreach (var l in _locations) { <option value="@l.Id">@l.ChoiceLabel</option> }</select>
+                        <p class="muted">The location code stays on the choice. A blank name stays the location id.</p>
                         <input @bind="_transferReason" placeholder="Reason (optional)" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || _transferTo == 0)" @onclick="() => TransferAsync(_unit.Id)">Transfer</button>
                     </div>
@@ -420,7 +429,7 @@ else
     {
         <div class="bb-card">
             <div class="bb-card-title"><h3>Status history</h3></div>
-            <p class="muted">Actions performed on this unit — receive, allocate, crossmatch, issue, return, transfuse, modifications, and status changes. Use this trail for product dispositions.</p>
+            <p class="muted">Actions performed on this unit — receive, allocate, crossmatch, issue, return, transfuse, modifications, and status changes. An allocation, an issue, a crossmatch, a transfusion, a return, and an order-linked modification name the patient the same way, including the medical record number when it is recorded. An issue names the storage location when the issued-to place is that location's code. A blank location name stays the location id. A place that is not one location code stays as typed. A blank place is omitted. A missing or blank name stays the patient id. A return whose issue cannot be read, and a modification whose order cannot be read, do not invent a patient. A bench modification that no product order points at says no patient order was recorded. A bench row that a product order points at names that patient the same way. A status row linked to a modification names that patient the same way and does not change the recorded reason. A status row with no modification id does not invent a patient. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one. A blank reason is omitted. A move names the storage locations. A blank location name stays the location id. A row that stays in the same place does not say it moved. Use this trail for product dispositions.</p>
             @if (_activity.Count == 0)
             {
                 <div class="muted">No activity.</div>
@@ -525,6 +534,7 @@ else
     private string _missingReason = string.Empty;
     private string _damagedReason = string.Empty;
     private string? _releaseSecondVerifier;
+    private string? _releaseScannedUnitNumber;
     private string _cancelExpectedReason = string.Empty;
     private string _supplierReturnReason = string.Empty;
     private string _directedConversionReason = string.Empty;
@@ -663,7 +673,9 @@ else
         _productTypes.FirstOrDefault(t => t.Id == productTypeId)?.Name ?? "—";
 
     private string LocationName(long? id) =>
-        id is null ? "—" : (_locations.FirstOrDefault(l => l.Id == id)?.Code ?? id.Value.ToString());
+        StorageLocationLabel.ForUnitChart(
+            id,
+            _locations.Select(l => new StorageLocationLabel.CatalogLocation(l.Id, l.Name, l.Code)));
 
     private string RecipientLabel(long patientId)
     {
@@ -851,9 +863,15 @@ else
     private async Task ReleaseAsync(long id)
     {
         _busy = true;
-        var r = await Api.ReleaseUnitAsync(id, new ReleaseFromQuarantineRequest(_releaseSecondVerifier));
+        var r = await Api.ReleaseUnitAsync(id, new ReleaseFromQuarantineRequest(
+            _releaseSecondVerifier,
+            _unit?.RequiresModificationLabelScan == true ? _releaseScannedUnitNumber : null));
         _busy = false;
-        if (r.Succeeded) _releaseSecondVerifier = null;
+        if (r.Succeeded)
+        {
+            _releaseSecondVerifier = null;
+            _releaseScannedUnitNumber = null;
+        }
         await AfterActionAsync(r, "Unit released from quarantine.");
     }
 

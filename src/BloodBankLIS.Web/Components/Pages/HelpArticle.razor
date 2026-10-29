@@ -1,0 +1,67 @@
+@page "/help/{Guide}/{Slug}"
+@inject HelpCatalog Catalog
+
+<PageTitle>@(_topic?.Title ?? "Help") &middot; Greyhound Blood Bank LIS</PageTitle>
+
+@if (_topic is null)
+{
+    <h1>Help topic not found</h1>
+    <p class="muted">That topic is not in the clinical or administrator guide.</p>
+    <a class="btn btn-secondary" href="/help">Back to Help</a>
+}
+else
+{
+    <div class="flex-between">
+        <h1>@_topic.Title</h1>
+        @if (_topic.ConcreteRoute is not null)
+        {
+            <a class="btn btn-secondary btn-sm" href="@_topic.ConcreteRoute">Open this screen</a>
+        }
+    </div>
+    <p class="muted">@HelpGuides.Title(_topic.Guide) · @_topic.Chapter</p>
+    <p>@_topic.Summary</p>
+
+    <article class="bb-help-article">
+        @((MarkupString)_topic.Html)
+    </article>
+
+    <div class="flex-between" style="margin-top:1.5rem;">
+        @if (_previous is not null)
+        {
+            <a href="@($"/help/{_previous.Guide}/{_previous.Slug}")">@("← " + _previous.Title)</a>
+        }
+        else
+        {
+            <span></span>
+        }
+        @if (_next is not null)
+        {
+            <a href="@($"/help/{_next.Guide}/{_next.Slug}")">@(_next.Title + " →")</a>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string Guide { get; set; } = string.Empty;
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private BloodBankLIS.Help.HelpTopic? _topic;
+    private BloodBankLIS.Help.HelpTopic? _previous;
+    private BloodBankLIS.Help.HelpTopic? _next;
+
+    protected override void OnParametersSet()
+    {
+        _topic = Catalog.Find(Guide, Slug);
+        _previous = null;
+        _next = null;
+        if (_topic is null)
+            return;
+
+        var guideTopics = Catalog.InGuide(_topic.Guide).ToList();
+        var index = guideTopics.FindIndex(topic => topic.Slug.Equals(_topic.Slug, StringComparison.OrdinalIgnoreCase));
+        if (index > 0)
+            _previous = guideTopics[index - 1];
+        if (index >= 0 && index < guideTopics.Count - 1)
+            _next = guideTopics[index + 1];
+    }
+}

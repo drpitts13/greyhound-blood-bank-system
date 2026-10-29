@@ -40,6 +40,10 @@
             {
                 <p class="muted">@_retroPtagNotice</p>
             }
+            @if (!string.IsNullOrWhiteSpace(_retroCrossmatchStatusNotice))
+            {
+                <p class="muted">@_retroCrossmatchStatusNotice</p>
+            }
         }
         @if (!Session.Has(PermissionCodes.CompatibilityCrossmatch) || !Session.Has(PermissionCodes.ResultEnter))
         {
@@ -271,6 +275,7 @@
     private string? _retroReleaseAuthorizer;
     private string? _retroIssueAppearance;
     private string? _retroPtagNotice;
+    private string? _retroCrossmatchStatusNotice;
 
     protected override async Task OnInitializedAsync()
     {
@@ -291,6 +296,7 @@
             _retroReleaseAuthorizer = ReadyToIssueFormCue.EmergencyReleaseAuthorizerNotice(match?.EmergencyReleaseAuthorizer);
             _retroIssueAppearance = match is null ? null : ReadyToIssueFormCue.IssueAppearanceNotice(match.IssueAppearance);
             _retroPtagNotice = ReadyToIssueFormCue.PtagNotice(match?.PtagCode);
+            _retroCrossmatchStatusNotice = match is null ? null : ReadyToIssueFormCue.CrossmatchStatusNotice(match.CrossmatchStatus);
         }
 
         if (PatientId is long patientId)

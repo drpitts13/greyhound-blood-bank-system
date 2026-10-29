@@ -61,8 +61,8 @@ public static class InventoryEndpoints
 
         group.MapGet("/units/{id:long}", async (long id, InventoryService service, CancellationToken ct) =>
         {
-            var unit = await service.GetAsync(id, ct);
-            return unit is null ? Results.NotFound() : Results.Ok(BloodUnitDto.From(unit));
+            var unit = await service.GetChartAsync(id, ct);
+            return unit is null ? Results.NotFound() : Results.Ok(unit);
         });
 
         group.MapGet("/units/{id:long}/allocatable-orders", async (
@@ -166,7 +166,7 @@ public static class InventoryEndpoints
             .RequirePermission(PermissionCodes.InventoryReceive);
 
         group.MapPost("/units/{id:long}/release", async (long id, ReleaseFromQuarantineRequest? request, InventoryService service, CancellationToken ct) =>
-            ToHttpResult(await service.ReleaseFromQuarantineAsync(id, request?.SecondVerifier, ct)))
+            ToHttpResult(await service.ReleaseFromQuarantineAsync(id, request?.SecondVerifier, request?.ScannedUnitNumber, ct)))
             .RequirePermission(PermissionCodes.InventoryRelease);
 
         group.MapPost("/units/{id:long}/quarantine", async (long id, QuarantineUnitRequest request, InventoryService service, CancellationToken ct) =>

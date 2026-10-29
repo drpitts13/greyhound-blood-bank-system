@@ -19,7 +19,7 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
 
     public ComplianceWorkflowTests(SqliteContextFactory factory) => _factory = factory;
 
-    private LookbackService Lookback(BloodBankDbContext c, IPermissionEvaluator? permissions = null)
+    private LookbackService Lookback(BloodBankDbContext c, IPermissionEvaluator? permissions = null, bool withLocations = false)
     {
         var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
         var inventory = new InventoryService(
@@ -40,7 +40,8 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
             new EfRepository<LookbackNotification>(c),
             inventory,
             c, _factory.Clock, _factory.CurrentUser, audit,
-            permissions);
+            permissions,
+            withLocations ? new EfRepository<InventoryLocation>(c) : null);
     }
 
     [Fact]
@@ -607,5 +608,104 @@ public class ComplianceWorkflowTests : IClassFixture<SqliteContextFactory>
         var updated = await service.UpdateStatusAsync(created.Value!.Id, DeviationStatus.Closed, "Retrained staff");
         Assert.True(updated.Succeeded);
         Assert.Equal(DeviationStatus.Closed, updated.Value!.Status);
+    }
+
+    [Fact]
+    public async Task Lookback_NamesTheStorageLocationWhenThePlaceIsALocationCode()
+    {
+        const string key = "LB222";
+        const string din = "W222000000222";
+        long blankId;
+        long namedIssueId;
+        await using (var c = _factory.Create())
+        {
+            var patient = new Patient
+            {
+                MedicalRecordNumber = $"MRN-{key}",
+                LastName = "Poe",
+                FirstName = "Ann",
+                DateOfBirth = new DateOnly(1975, 6, 1)
+            };
+            var product = new ProductType
+            {
+                ProductCode = $"RBC-{key}",
+                Name = "Lookback RBC",
+                ComponentClass = ComponentClass.RedBloodCells
+            };
+            c.Patients.Add(patient);
+            c.ProductTypes.Add(product);
+            var fridgeLocation = new InventoryLocation { Code = $"F1{key}", Name = " Issue fridge " };
+            var blank = new InventoryLocation { Code = $"F2{key}", Name = "   " };
+            var coded = new InventoryLocation { Code = $"OR{key}", Name = "Main OR" };
+            var alsoNamed = new InventoryLocation { Code = $"X{key}", Name = $"OR{key}" };
+            c.InventoryLocations.AddRange(fridgeLocation, blank, coded, alsoNamed);
+            await c.SaveChangesAsync();
+            blankId = blank.Id;
+
+            BloodUnit Unit(string suffix) => new()
+            {
+                UnitNumber = $"U-{key}-{suffix}",
+                ProductTypeId = product.Id,
+                Din = din,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+                Status = UnitStatus.Issued
+            };
+
+            var fridgeUnit = Unit("FR");
+            var blankUnit = Unit("BL");
+            var wardUnit = Unit("WD");
+            var ambiguousUnit = Unit("AM");
+            c.BloodUnits.AddRange(fridgeUnit, blankUnit, wardUnit, ambiguousUnit);
+            await c.SaveChangesAsync();
+
+            Issue Issued(BloodUnit unit, string place) => new()
+            {
+                BloodProductId = unit.Id,
+                PatientId = patient.Id,
+                IssuedUtc = _factory.Clock.UtcNow,
+                IssuedBy = "tech",
+                IssuedToLocation = place,
+                Status = IssueStatus.Issued
+            };
+
+            var fridgeIssue = Issued(fridgeUnit, $" f1{key.ToLower()} ");
+            c.Issues.AddRange(
+                fridgeIssue,
+                Issued(blankUnit, $"F2{key}"),
+                Issued(wardUnit, " 4W Med/Surg "),
+                Issued(ambiguousUnit, $"or{key.ToLower()}"));
+            await c.SaveChangesAsync();
+            namedIssueId = fridgeIssue.Id;
+        }
+
+        await using var read = _factory.Create();
+        var dinReport = await Lookback(read, withLocations: true).FindByDinAsync(din);
+        Assert.True(dinReport.Succeeded, dinReport.Error);
+        string Place(string suffix) =>
+            Assert.Single(dinReport.Value!.Recipients, row => row.UnitNumber == $"U-{key}-{suffix}").IssuedToLocation!;
+        Assert.Equal("Issue fridge", Place("FR"));
+        Assert.DoesNotContain($"F1{key}", Place("FR"), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal($"Location {blankId}", Place("BL"));
+        Assert.DoesNotContain($"F2{key}", Place("BL"), StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("4W Med/Surg", Place("WD"));
+        Assert.Equal($"or{key.ToLower()}", Place("AM"));
+        Assert.Equal($" f1{key.ToLower()} ", (await read.Issues.FindAsync(namedIssueId))!.IssuedToLocation);
+
+        var trace = await Lookback(read, withLocations: true).FindByRecipientAsync($"MRN-{key}", null);
+        Assert.True(trace.Succeeded, trace.Error);
+        string Traced(string suffix) =>
+            Assert.Single(trace.Value!.Units, row => row.UnitNumber == $"U-{key}-{suffix}").IssuedToLocation!;
+        Assert.Equal("Issue fridge", Traced("FR"));
+        Assert.Equal($"Location {blankId}", Traced("BL"));
+        Assert.Equal("4W Med/Surg", Traced("WD"));
+        Assert.Equal($"or{key.ToLower()}", Traced("AM"));
+
+        var unread = await Lookback(read).FindByDinAsync(din);
+        Assert.True(unread.Succeeded, unread.Error);
+        var unreadFridge = Assert.Single(unread.Value!.Recipients, row => row.UnitNumber == $"U-{key}-FR");
+        Assert.Equal($"f1{key.ToLower()}", unreadFridge.IssuedToLocation);
+        Assert.DoesNotContain("Issue fridge", unreadFridge.IssuedToLocation);
     }
 }

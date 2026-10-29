@@ -357,6 +357,38 @@ public sealed class ProductTypeConfiguration : IEntityTypeConfiguration<ProductT
     }
 }
 
+public sealed class ProductAboCompatibilityConfiguration : IEntityTypeConfiguration<ProductAboCompatibility>
+{
+    public void Configure(EntityTypeBuilder<ProductAboCompatibility> b)
+    {
+        b.ToTable("ProductAboCompatibilities");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasOne(x => x.ProductType)
+            .WithMany(t => t.AboCompatibilities)
+            .HasForeignKey(x => x.ProductTypeId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => new { x.ProductTypeId, x.PatientAbo, x.UnitAbo }).IsUnique();
+    }
+}
+
+public sealed class ProductRhCompatibilityConfiguration : IEntityTypeConfiguration<ProductRhCompatibility>
+{
+    public void Configure(EntityTypeBuilder<ProductRhCompatibility> b)
+    {
+        b.ToTable("ProductRhCompatibilities");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasOne(x => x.ProductType)
+            .WithMany(t => t.RhCompatibilities)
+            .HasForeignKey(x => x.ProductTypeId)
+            .OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => new { x.ProductTypeId, x.SexGroup, x.PatientRh, x.UnitRh }).IsUnique();
+    }
+}
+
 public sealed class InventoryLocationConfiguration : IEntityTypeConfiguration<InventoryLocation>
 {
     public void Configure(EntityTypeBuilder<InventoryLocation> b)
@@ -1712,6 +1744,76 @@ public sealed class DeviationConfiguration : IEntityTypeConfiguration<Deviation>
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
         b.HasIndex(x => x.Status);
+    }
+}
+
+public sealed class ShiftHandoffConfiguration : IEntityTypeConfiguration<ShiftHandoff>
+{
+    public void Configure(EntityTypeBuilder<ShiftHandoff> b)
+    {
+        b.ToTable("ShiftHandoffs");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.FromUser).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ToUser).HasMaxLength(100);
+        b.Property(x => x.Notes).HasMaxLength(4000).IsRequired();
+        b.Property(x => x.AcknowledgedBy).HasMaxLength(100);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.RecordedUtc);
+        b.HasIndex(x => x.AcknowledgedUtc);
+    }
+}
+
+public sealed class DatElutionWorkupConfiguration : IEntityTypeConfiguration<DatElutionWorkup>
+{
+    public void Configure(EntityTypeBuilder<DatElutionWorkup> b)
+    {
+        b.ToTable("DatElutionWorkups");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.DatMethod).HasMaxLength(100);
+        b.Property(x => x.ElutionResult).HasMaxLength(500);
+        b.Property(x => x.ElutionNotPerformedReason).HasMaxLength(500);
+        b.Property(x => x.Comment).HasMaxLength(2000);
+        b.Property(x => x.CompletedBy).HasMaxLength(100);
+        b.Property(x => x.VoidedBy).HasMaxLength(100);
+        b.Property(x => x.VoidReason).HasMaxLength(500);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.PatientId);
+        b.HasIndex(x => x.Status);
+    }
+}
+
+public sealed class PatientMergeConfiguration : IEntityTypeConfiguration<PatientMerge>
+{
+    public void Configure(EntityTypeBuilder<PatientMerge> b)
+    {
+        b.ToTable("PatientMerges");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Reason).HasMaxLength(1000).IsRequired();
+        b.Property(x => x.MergedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.UnmergeReason).HasMaxLength(1000);
+        b.Property(x => x.UnmergedBy).HasMaxLength(100);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.DuplicatePatientId);
+        b.HasIndex(x => x.SurvivorPatientId);
+        b.HasIndex(x => new { x.DuplicatePatientId, x.Status });
+        b.HasMany(x => x.Moves).WithOne(x => x.PatientMerge).HasForeignKey(x => x.PatientMergeId);
+    }
+}
+
+public sealed class PatientMergeMoveConfiguration : IEntityTypeConfiguration<PatientMergeMove>
+{
+    public void Configure(EntityTypeBuilder<PatientMergeMove> b)
+    {
+        b.ToTable("PatientMergeMoves");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.EntityType).HasMaxLength(100).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.PatientMergeId);
+        b.HasIndex(x => new { x.EntityType, x.EntityId });
     }
 }
 

@@ -174,6 +174,7 @@ a.stat { display: block; color: inherit; text-decoration: none; }
 a.stat:hover { border-color: var(--bb-accent, #3b5bdb); }
 .stat .label { color: var(--bb-muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; }
 .stat .value { font-size: 1.7rem; font-weight: 700; margin-top: .2rem; }
+.stat .detail { color: var(--bb-warn); font-size: .82rem; margin-top: .35rem; }
 
 /* Tables */
 table.bb { width: 100%; border-collapse: collapse; font-size: .88rem; }
@@ -326,3 +327,21 @@ table.bb tbody tr:hover { background: #fafbfe; }
 tr.row-active td { background: #e8f4ec; }
 tr.row-urgent td { background: #fdecee; font-weight: 600; }
 tr.row-muted td { opacity: .75; }
+
+.bb-help-public { min-height: 100vh; background: var(--bb-bg, #f6f7f9); }
+.bb-help-public-bar { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1.4rem; background: #fff; border-bottom: 1px solid var(--bb-border); }
+.bb-help-search { width: min(36rem, 100%); margin: .75rem 0 1rem; }
+.bb-help-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.25rem; }
+.bb-help-chapter { margin-top: 1.25rem; }
+.bb-help-topic { display: block; padding: .65rem 0; border-bottom: 1px solid var(--bb-border); color: inherit; }
+.bb-help-topic:hover { text-decoration: none; }
+.bb-help-topic strong { display: block; }
+.bb-help-article { max-width: 52rem; }
+.bb-help-article h2, .bb-help-article h3 { margin-top: 1.2rem; }
+.bb-help-article img { display: block; max-width: 100%; height: auto; margin: .8rem 0 .35rem; border: 1px solid var(--bb-border); border-radius: 8px; }
+.bb-help-article table { width: 100%; margin: .8rem 0; }
+.bb-help-callout { margin: .9rem 0; padding: .75rem 1rem; border-left: 4px solid var(--bb-border); background: #f7f8fa; border-radius: 0 8px 8px 0; }
+.bb-help-callout.hard { border-left-color: #9b1c1c; background: #fdecee; }
+.bb-help-callout.warn { border-left-color: #9c6516; background: #fff7e8; }
+.bb-help-callout.policy { border-left-color: #1d4e89; background: #eef4fb; }
+.bb-help-missing-figure { font-style: italic; }

@@ -49,7 +49,7 @@
                     <option value="0">— select —</option>
                     @foreach (var delivery in _openDeliveries)
                     {
-                        <option value="@delivery.Id">@delivery.Id — @delivery.SupplierName@(string.IsNullOrWhiteSpace(delivery.PackingListNumber) ? "" : $" ({delivery.PackingListNumber})")</option>
+                        <option value="@delivery.Id">@delivery.Id — @delivery.SupplierNameLabel@(string.IsNullOrWhiteSpace(delivery.PackingListNumber) ? "" : $" ({delivery.PackingListNumber})")</option>
                     }
                 </select>
             </div>
@@ -63,6 +63,7 @@
                 </select>
             </div>
         </div>
+        <p class="muted">A blank supplier name stays the supplier id. The name stored on each unit stays the recorded supplier name.</p>
         @if (_deliveryLines.Count > 0)
         {
             <p class="muted">

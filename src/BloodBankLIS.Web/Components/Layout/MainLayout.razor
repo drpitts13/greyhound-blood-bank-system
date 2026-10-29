@@ -5,6 +5,7 @@
 @inject DevModeState Dev
 @inject BloodBankApiClient Api
 @inject DesktopHostLifetime DesktopHost
+@inject HelpCatalog Help
 
 @if (Session.IsSignedIn)
 {
@@ -35,12 +36,25 @@
             <header class="bb-topbar">
                 <AppBreadcrumb />
                 <div class="flex">
+                    <a class="btn btn-secondary btn-sm" href="@HelpHref">Help for this page</a>
                     <span class="badge badge-gray">@Session.Workstation</span>
                 </div>
             </header>
             <div class="bb-content">
                 @Body
             </div>
+        </div>
+    </div>
+}
+else if (IsPublicHelp)
+{
+    <div class="bb-help-public">
+        <header class="bb-help-public-bar">
+            <a href="/help">Greyhound Blood Bank LIS Help</a>
+            <a class="btn btn-primary btn-sm" href="/login">Sign in</a>
+        </header>
+        <div class="bb-content">
+            @Body
         </div>
     </div>
 }
@@ -53,6 +67,24 @@
 
 @code {
     private DateTime _lastProfileRefreshUtc;
+
+    private bool IsPublicHelp => IsHelpPath(Nav);
+
+    private string HelpHref
+    {
+        get
+        {
+            var topic = Help.Match(Nav.ToBaseRelativePath(Nav.Uri));
+            return topic is null ? "/help" : $"/help/{topic.Guide}/{topic.Slug}";
+        }
+    }
+
+    private static bool IsHelpPath(NavigationManager navigation)
+    {
+        var path = navigation.ToBaseRelativePath(navigation.Uri).Split('?', 2)[0].Trim('/');
+        return path.Equals("help", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("help/", StringComparison.OrdinalIgnoreCase);
+    }
 
     protected override void OnInitialized()
     {
@@ -92,6 +124,9 @@
 
             return;
         }
+
+        if (IsHelpPath(Nav))
+            return;
 
         Nav.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(Nav.ToBaseRelativePath(Nav.Uri))}", forceLoad: false);
     }

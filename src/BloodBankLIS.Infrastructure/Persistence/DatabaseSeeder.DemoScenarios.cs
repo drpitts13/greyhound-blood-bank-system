@@ -56,6 +56,7 @@ public static partial class DatabaseSeeder
         await SeedHl7BpamDataLoadScenarioAsync(context, ct);
         await SeedBillingCaptureScenarioAsync(context, ct);
         await SeedUnitAntigenTypingScenarioAsync(context, ct);
+        await SeedPendingSpecimenReceiptScenarioAsync(context, ct);
     }
 
     // ---------------------------------------------------------------------
@@ -2680,6 +2681,52 @@ public static partial class DatabaseSeeder
         await context.SaveChangesAsync(ct);
 
         return new DemoVisit(patient, encounter, specimen);
+    }
+
+    /// <summary>
+    /// Patricia Demo has a collected tube and a received tube so the pending-specimens
+    /// worklist is not empty. In-lab accession still accepts immediately.
+    /// </summary>
+    private static async Task SeedPendingSpecimenReceiptScenarioAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (await context.Specimens.AnyAsync(s => s.AccessionNumber == "ACC-PEND-COL", ct))
+        {
+            return;
+        }
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.MedicalRecordNumber == "MRN0001", ct);
+        if (patient is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        context.Specimens.AddRange(
+            new Specimen
+            {
+                AccessionNumber = "ACC-PEND-COL",
+                PatientId = patient.Id,
+                SpecimenType = "EDTA",
+                Barcode = "SPC-ACC-PEND-COL",
+                CollectedUtc = now.AddHours(-1),
+                ReceivedUtc = null,
+                ExpiresUtc = now.AddDays(3),
+                Status = SpecimenStatus.Collected,
+                Collector = "Floor phlebotomy"
+            },
+            new Specimen
+            {
+                AccessionNumber = "ACC-PEND-RCV",
+                PatientId = patient.Id,
+                SpecimenType = "EDTA",
+                Barcode = "SPC-ACC-PEND-RCV",
+                CollectedUtc = now.AddHours(-2),
+                ReceivedUtc = now.AddMinutes(-20),
+                ExpiresUtc = now.AddDays(3),
+                Status = SpecimenStatus.Received,
+                Collector = "Floor phlebotomy"
+            });
+        await context.SaveChangesAsync(ct);
     }
 
     private static TestResult VerifiedResult(

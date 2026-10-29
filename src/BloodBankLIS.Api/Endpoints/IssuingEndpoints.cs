@@ -73,6 +73,10 @@ public static class IssuingEndpoints
             Results.Ok(await service.ListOutstandingIssuedAsync(ct)))
             .RequireAuthenticatedUser();
 
+        issues.MapGet("/overdue-disposition", async (FinalDispositionBoardService service, CancellationToken ct) =>
+            Results.Ok(await service.ListAsync(ct)))
+            .RequireAuthenticatedUser();
+
         issues.MapGet("/pending-second-abo", async (IssuingService service, CancellationToken ct) =>
             Results.Ok(await service.ListPendingSecondAboAsync(ct)))
             .RequirePermission(PermissionCodes.IssueCreate);

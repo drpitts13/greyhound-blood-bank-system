@@ -19,6 +19,156 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
+## Capability matrix (Cycle 251)
+
+Status is relative to a mature transfusion-service LIS. Present means a
+working path exists; Partial means the domain exists but a bench workflow
+is incomplete. Do not treat Present as AABB/FDA certification.
+
+| Area | Status | Notes |
+|---|---|---|
+| Patient demographics, MRN, visits, location, provider | Present | Chart + ADT. Cycle 227 does not store an ordering-location code as the name when the name is blank. The list shows the location id. A recorded name stays that name. An HL7 mapping code still uses the location code when none was sent. |
+| Alternate identifiers, aliases | Present | Cycle 185–186: prior name on chart edit and ADT; prior MRN from merge; search matches aliases |
+| Duplicate handling / merge | Present | Merge + reason; Cycle 187 unmerge restores the ledger when nothing new has happened since. Pre-ledger merges cannot be undone |
+| Orders, priority, ordering location | Present | Test and product orders. Cycle 235 keeps the product code on a new or edited order. A blank name stays the product id and is not replaced by the code. The stored name is unchanged. Cycle 244 keeps the test code on a new or edited order. A blank name stays the test id and is not replaced by the code. The stored name is unchanged. |
+| Specimen collection / receipt / accept | Present | Cycle 181: Collected → Received → Accepted; in-lab accession still accepts immediately |
+| Specimen rejection, expiration, multiple/historical | Present | Reject; expiry gates; patient list |
+| Relabeling controls | Present | Cycle 183: specimen barcode Relabel with required reason; metadata edit cannot change barcode |
+| ABO/Rh, ABS, ABID, DAT, antigen, XM | Present | Workup + result paths |
+| Elution / special / reflex | Partial | Chart DAT/elution workup exists. Eluate findings are not posted as structured antibody history; do not invent that rule |
+| Result review, correction, invalidation | Present | Versioned; instrument pending verification |
+| ISBT identifiers, codes, attributes, locations | Partial | Parser + import; licensed ICCBBA extract not loaded (OCD-004) |
+| Divisions, modifications, pooling, aliquots, irradiate, wash, thaw | Partial | Cycle 188 copies concordant typing. Cycle 189 copies an autologous or directed reservation. Cycle 190 aliquot leaves the parent available and reduces its volume. Cycle 191 requires a known source volume to be fully assigned on divide, and refuses a result volume larger than the source. Cycle 192 refuses a pool that would drop a known source volume. Cycle 193 refuses a pool whose sources are not in the same storage location. Cycle 194 shows the location where a modification result was made, including after the unit is moved. Cycle 195 also says when that result is no longer there. Cycle 196 adds when that move was recorded and why, when a status row says so. Cycle 197 adds who recorded that move. Cycle 198 shows the storage location name on the selected unit and on each pool source. A missing name stays the location id. Cycle 199 shows that same place on each new unit and points a quarantined result at release. Cycle 200 says an aliquot parent stayed in place and names the volume left on it. Cycle 201 names each retired source and the status just read, and does not claim Modified when that read fails. Cycle 202 closes the modify form for a unit that is no longer available. Cycle 203 shows the storage location name on the quality-quarantine board. Cycle 204 shows the recorded volume there too, and does not invent one when it was never recorded. Cycle 205 shows the storage location name on the inventory discrepancy board. Cycle 206 shows that same name on the operational-hold board. Cycle 207 shows that same name on the main inventory search list. A blank or unknown name stays the location id. A unit with no location says none. A location code is not used when the name is missing. Cycle 208 shows the storage location name on the near-expiry board, including the discard row. A blank or unknown name stays the location id. A unit with no location says none. A missing location record does not invent a name. Cycle 209 shows that same name on the unit chart header and on the unit identity. A blank or unknown name stays the location id. A unit with no location says none. A location code is not used when the name is missing. Cycle 210 names the storage locations on a unit status row when the place changed. A blank or unknown name stays the location id. A row that stays in the same place does not say it moved. A missing destination is not invented. Cycle 211 names the patient on an allocation the same way an issue does, and includes the medical record number when it is recorded. A missing or blank name stays the patient id. Cycle 212 names the patient on a crossmatch the same way. The medical record number is included when it is recorded. A missing or blank name stays the patient id. Cycle 213 names the patient on a transfusion the same way. The medical record number is included when it is recorded. A missing or blank name stays the patient id. Cycle 214 names the patient on a return from the issue that return belongs to. The medical record number is included when it is recorded. A missing or blank name stays the patient id. A return whose issue cannot be read does not invent a patient. Cycle 215 names the patient on an order-linked modification from that product order. The medical record number is included when it is recorded. A missing or blank name stays the patient id. A modification whose order cannot be read does not invent a patient. Cycle 216 says a bench modification has no patient order when no product order points at it. A blank reason is omitted. A bench row that a product order does point at does not claim that no order was recorded. Cycle 217 names the patient on that source or result row. The medical record number is included when it is recorded. A missing or blank name stays the patient id. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one. Cycle 218 names that same patient on modification history. The medical record number is included when it is recorded. A missing or blank name stays the patient id. No product order says so. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one. Cycle 219 names that same patient on a status row linked to the modification and does not change the recorded reason. A status row with no modification id does not invent a patient. A negative is copied only when every source was typed negative |
+| Expiration calculations, status history, transfer | Present | Cycle 225 keeps the location code on a transfer choice and on a delivery-receipt choice. A blank name stays the location id and is not replaced by the code. Cycle 228 keeps the supplier code on a delivery choice. A blank name stays the supplier id and is not replaced by the code. Cycle 230 shows a blank supplier name as the supplier id on an open delivery and on unit entry. That label is not written onto the unit. The stored name stays unchanged. Cycle 231 shows that supplier id on the unit when the delivery names the supplier. The stored supplier and collection facility stay unchanged. Cycle 232 shows that supplier id on the expected-inbound board when the delivery names the supplier. A unit with no delivery does not invent a supplier. The stored supplier and collection facility stay unchanged. |
+| Selection, reserve, assign, XM, issue, emergency, MTP | Present | IssueGate. Cycle 220 names the storage location on an issue when the issued-to place is that location's code. A blank name stays the location id. A place that is not one location code stays as typed. A blank place is omitted. A location list that cannot be loaded does not invent a name. Cycle 221 names that storage location on the issuing board and on patient product history. A blank name stays the location id. A place that is not one location code stays as typed. A code that is also another location's name stays as typed. A missing location list does not invent a name. The recorded place is unchanged. The issue form still shows the place as typed. Cycle 222 names that storage location on lookback. A blank name stays the location id. A place that is not one location code stays as typed. A code that is also another location's name stays as typed. A missing location list does not invent a name. The recorded place is unchanged. Cycle 223 keeps a place that already says Location {id} on a receive, return, or transfusion notice and does not prefix Location again. A ward name or a storage location name still says Location before that place. |
+| Return, reissue, transfusion, discard, reaction | Present | |
+| Compatibility, special requirements, eXM, warning vs hard-stop | Present | OCD-001 closed. Per-product ABO and Rh grids apply at issue and allocation |
+| Antibody/antigen history, phenotype, genotype, alerts | Present | Genotype vs phenotype tokens (OCD-024) |
+| Worklists: tests, retype, near-expiry, issue, reactions, inbound | Present | Pending specimens Cycle 181; supervisor queue Cycle 184. Cycle 243 puts ready to issue, second ABO, retrospective crossmatch, in transit, outstanding issued, final disposition, pending tests, pending specimens, reactions, the supervisor queue, and an open shift handoff on the dashboard for the permissions that can already open them. A failed load stays an em dash. |
+| Assigned products / outstanding transfusions | Present | Ready to issue; outstanding issued. Cycle 224 keeps a blank storage location name as the location id on Ready to issue and on reserved products. A location code is not shown. A unit with no location stays omitted. A location list that cannot be loaded does not invent a name. |
+| Shift handoff / supervisor queues | Present | Cycle 182 handoff; Cycle 184 permission-scoped supervisor worklist. Cycle 243 shows an open handoff and the supervisor count on the dashboard when those permissions are already held. |
+| Admin catalogs, rules, users, roles, locations, audit config | Present | Single live catalog row (OCD-033). Cycle 226 keeps the code in the inventory-location catalog. A blank name on that list stays the location id. The stored name and the edit form are unchanged. Cycle 229 keeps the code in the blood-supplier catalog. A blank name on that list stays the supplier id. The stored name and the edit form are unchanged. Cycle 233 keeps the product code on a modification-rule choice and on a charge-rule product choice. A blank name stays the product id and is not replaced by the code. The stored name is unchanged. Cycle 234 keeps the code in the product catalog. A blank name on that list stays the product id. The stored name and the edit form are unchanged. Cycle 245 keeps the code in the test catalog. A blank name on that list stays the test id. The stored name and the edit form are unchanged. Cycle 246 keeps the code in the subtest catalog. A blank name on that list stays the subtest id. The stored name and the edit form are unchanged. Cycle 247 keeps the code in the test-grouper catalog. A blank name on that list stays the grouper id. The stored name and the edit form are unchanged. Cycle 248 keeps the code in the phase catalog. A blank name on that list stays the phase id. The stored name and the edit form are unchanged. Cycle 249 keeps the code in the blood-attribute catalog. A blank antigen name stays the attribute id. A blank antibody name stays that same id and is not replaced by the antigen name or the code. The stored names and the edit form are unchanged. Cycle 250 keeps the code in the special-requirement catalog. A blank name on that list stays the requirement id. The stored name and the edit form are unchanged. Cycle 251 keeps the code in the reflex-rule catalog. A blank name on that list stays the reflex id. The stored name and the edit form are unchanged. |
+| HL7 ADT/ORM/ORU, BPAM, retry/error, downtime snapshot | Partial | v2 present; FHIR absent; MLLP transport-trust |
+| Audit of clinically important actions | Present | Append-only hash chain; no purge |
+
+Cycle 186 implemented ADT prior-name archive on inbound demographics updates (RISK-BB-441).
+
+Cycle 187 records a patient-merge ledger and lets staff with `patient.merge` undo that merge when the survivor has had no new clinical activity (RISK-BB-442). Merges already in the database have no ledger and cannot be reversed.
+
+Cycle 188 copies recorded unit antigen and antibody typing onto divide, pool, and single-modification results (RISK-BB-443). A pool stops when sources disagree. A negative result is copied only when every source was typed negative.
+
+Cycle 189 copies an autologous or directed reservation onto each modification result (RISK-BB-444). A pool stops when the sources do not share that reservation, or when a restricted unit has no intended recipient.
+
+Cycle 190 removes an aliquot from a parent unit without retiring the parent (RISK-BB-445). The parent stays available at the reduced volume. The aliquot is a new unit.
+
+Cycle 191 refuses a divide that would retire a source while leaving recorded volume unassigned, and refuses a single modification whose result volume is larger than the source (RISK-BB-446). The source stays available. A source with no recorded volume still stores the volumes that were entered.
+
+Cycle 192 refuses a pool that mixes a recorded volume with a missing or non-positive volume (RISK-BB-447). The sources stay available. When every source has a volume, the pool volume is the sum. When none do, the pool volume stays unrecorded. The modify audit records the source volumes and the result volumes.
+
+Cycle 193 refuses a pool whose sources are not in the same storage location (RISK-BB-448). The sources stay available. Units that share a location, or that are all unassigned, can still be pooled, and the result stays at that location. The modify page shows each location. The modify audit records the source and result location ids.
+
+Cycle 194 shows, on modification history, the storage location where each result was made (RISK-BB-449). A later move does not change that location. A result with no location shows none. The status history row for the new unit records the modification id.
+
+Cycle 195 says when a modification result is no longer at the location where it was made (RISK-BB-450). History still names the original place, and adds the current place only when they differ. A unit that is still there does not get that note.
+
+Cycle 196 adds the time and reason from the status row that put the result in its current place (RISK-BB-451). A move with no status row still names the new place and does not invent a time or reason. A unit that is still where it was made does not get that note.
+
+Cycle 197 adds who recorded that move (RISK-BB-452). A blank name is omitted. A move with no status row still does not invent a person.
+
+Cycle 198 shows the storage location name for the selected unit and for each unit in a pool (RISK-BB-453). A blank or unknown name stays `Location {id}`. A unit with no location still shows none. A location list that cannot be loaded does not invent names.
+
+Cycle 199 shows that place on each new modification result and, when the result is in quarantine, says to release it before issue (RISK-BB-454). Staff who can release get a link that opens that unit's release row. An assigned result does not get a release step. A unit that is not on the quarantine board does not open a release row.
+
+Cycle 200 says, after an aliquot, that the parent stayed in place and how much volume remains (RISK-BB-455). The status and volume come from a fresh read of the parent. A missing volume is not invented. If that read fails, the card does not invent a status or a remaining volume.
+
+Cycle 201 says, after a divide, pool, or other retiring modification, that each source was retired and shows the status just read (RISK-BB-456). A failed read does not claim the source is Modified. An aliquot does not use this line.
+
+Cycle 202 stops offering another modification after the source is retired (RISK-BB-457). A Modified unit has no eligibility list. An assigned unit stays listed for a product-order action and is not offered from the ordinary modify screen. If the retired unit cannot be reread, the form closes and does not keep the previous rules.
+
+Cycle 203 shows the storage location name on each quality-quarantine row, including the release row (RISK-BB-458). A blank name stays the location id. A unit with no location says none is recorded. A missing location record does not invent a name.
+
+Cycle 204 shows the recorded volume on each quality-quarantine row and on the release row (RISK-BB-459). A unit with no volume says so. A zero volume is shown as recorded.
+
+Cycle 205 shows the storage location name for a missing or damaged unit (RISK-BB-460). A blank or unknown name stays the location id. A unit with no location says none. A missing location record does not invent a name.
+
+Cycle 206 shows the storage location name for a unit on operational hold (RISK-BB-461). A blank or unknown name stays the location id. A unit with no location says none. A missing location record does not invent a name.
+
+Cycle 207 shows the storage location name on the main inventory search list (RISK-BB-462). A blank or unknown name stays the location id. A unit with no location says none. A location code is not used when the name is missing. A location list that cannot be loaded does not invent names.
+
+Cycle 208 shows the storage location name for a unit on the near-expiry board (RISK-BB-463). A blank or unknown name stays the location id. A unit with no location says none. A missing location record does not invent a name. The discard row repeats that place.
+
+Cycle 209 shows the storage location name on the unit chart (RISK-BB-464). The header and the unit identity use the same label. A blank or unknown name stays the location id. A unit with no location says none. A location code is not used when the name is missing. A location list that cannot be loaded does not invent names.
+
+Cycle 210 names the storage locations on a unit status row when the recorded place changed (RISK-BB-465). A blank or unknown name stays the location id. A row that stays in the same place, including both unassigned, does not say it moved. A missing destination is not invented. A location list that cannot be loaded does not invent names.
+
+Cycle 211 names the patient on a unit allocation the same way an issue does (RISK-BB-466). The medical record number is included when it is recorded. A missing patient record, or a blank name, stays the patient id and does not invent a name.
+
+Cycle 212 names the patient on a unit crossmatch the same way (RISK-BB-467). The medical record number is included when it is recorded. A missing patient record, or a blank name, stays the patient id and does not invent a name.
+
+Cycle 213 names the patient on a unit transfusion the same way (RISK-BB-468). The medical record number is included when it is recorded. A missing patient record, or a blank name, stays the patient id and does not invent a name.
+
+Cycle 214 names the patient on a unit return from the issue that return belongs to (RISK-BB-469). The medical record number is included when it is recorded. A missing patient record, or a blank name, stays the patient id and does not invent a name. A return whose issue cannot be read does not invent a patient.
+
+Cycle 215 names the patient on an order-linked modification from that product order (RISK-BB-470). The medical record number is included when it is recorded. A missing patient record, or a blank name, stays the patient id and does not invent a name. A modification whose order cannot be read does not invent a patient. A bench modification that is not tied to an order is unchanged.
+
+Cycle 216 says when a bench modification has no product order pointing at it (RISK-BB-471). The row keeps the modification type, the source or result role, and the recorded reason, then says no patient order was recorded. A blank reason is omitted. A bench row that a product order does point at keeps the type, role, and reason, and does not claim that no order was recorded. That row does not invent a patient.
+
+Cycle 217 names the patient on a bench modification when a product order points at it (RISK-BB-472). The medical record number is included when it is recorded. A missing patient record, or a blank name, stays the patient id and does not invent a name. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one. A blank reason is still omitted.
+
+Cycle 218 names that patient on modification history (RISK-BB-473). The medical record number is included when it is recorded. A missing patient record, or a blank name, stays the patient id and does not invent a name. No product order says so. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one.
+
+Cycle 219 names that patient on a status row linked to the modification (RISK-BB-474). The recorded reason is unchanged. The medical record number is included when it is recorded. A missing patient record, or a blank name, stays the patient id and does not invent a name. No product order says so. A missing order does not invent a patient. A status row with no modification id does not invent a patient. Linked orders that do not name one patient do not pick one.
+
+Cycle 220 names the storage location on an issue when the issued-to place is that location's code (RISK-BB-475). A blank name stays the location id. A place that is not one location code stays as typed. A code that is also another location's name stays as typed. A blank place is omitted. The recorded place is unchanged. A location list that cannot be loaded does not invent a name.
+
+Cycle 221 names that storage location on the issuing board and on patient product history (RISK-BB-476). A blank name stays the location id. A place that is not one location code stays as typed. A code that is also another location's name stays as typed. A missing location list does not invent a name. The recorded place is unchanged. The issue form still shows the place as typed.
+
+Cycle 222 names that storage location on lookback (RISK-BB-477). A blank name stays the location id. A place that is not one location code stays as typed. A code that is also another location's name stays as typed. A missing location list does not invent a name. The recorded place is unchanged.
+
+Cycle 223 keeps a place that already says Location {id} on a receive, return, or transfusion notice (RISK-BB-478). It does not prefix Location again. A ward name or a storage location name still says Location before that place. A blank notice stays omitted.
+
+Cycle 224 keeps a blank storage location name as the location id on Ready to issue and on reserved products (RISK-BB-479). A location code is not shown. A unit with no location stays omitted. A location list that cannot be loaded does not invent a name.
+
+Cycle 225 keeps the location code on a transfer choice and on a delivery-receipt choice (RISK-BB-480). A blank name stays the location id and is not replaced by the code. A missing code stays the place alone.
+
+Cycle 226 keeps the code in the inventory-location catalog (RISK-BB-481). A blank name on that list stays the location id. The stored name and the edit form are unchanged.
+
+Cycle 227 does not store an ordering-location code as the name when the name is blank (RISK-BB-482). The list and the visit or order choice show the location id. A recorded name stays that name. An HL7 mapping code still uses the location code when none was sent. A name already stored as the code is not rewritten.
+
+Cycle 228 keeps the supplier code on a delivery choice (RISK-BB-483). A blank name stays the supplier id and is not replaced by the code. A recorded name stays that name. The stored name is unchanged.
+
+Cycle 229 keeps the code in the blood-supplier catalog (RISK-BB-484). A blank name on that list stays the supplier id. The stored name and the edit form are unchanged.
+
+Cycle 230 shows a blank supplier name as the supplier id on an open delivery and on unit entry (RISK-BB-485). That label is not written onto the unit. The stored name stays unchanged.
+
+Cycle 231 shows that supplier id on the unit when the delivery names the supplier (RISK-BB-486). The stored supplier and collection facility stay unchanged. A unit with no delivery does not invent a supplier.
+
+Cycle 232 shows that supplier id on the expected-inbound board when the delivery names the supplier (RISK-BB-487). A unit with no delivery does not invent a supplier. The stored supplier and collection facility stay unchanged.
+
+Cycle 233 keeps the product code on a modification-rule choice and on a charge-rule product choice (RISK-BB-488). A blank name stays the product id and is not replaced by the code. The stored name is unchanged. The charge-rule choice does not use an ISBT code as the name.
+
+Cycle 234 keeps the code in the product catalog (RISK-BB-489). A blank name on that list stays the product id. The stored name and the edit form are unchanged.
+
+Cycle 235 keeps the product code on a new or edited order (RISK-BB-490). A blank name stays the product id and is not replaced by the code. The stored name is unchanged.
+
+Cycle 243 puts the existing bench queues on the dashboard (RISK-BB-498). Each card is limited to a permission that can already open that queue. A failed load stays an em dash. Retrospective due time, in-transit arrival, and fatality follow-up are named only when that stored count is above zero. Issue, ward receipt, result, and investigation gates are unchanged.
+
+Cycle 244 keeps the test code on a new or edited order (RISK-BB-499). A blank name stays the test id and is not replaced by the code. The stored name is unchanged. The checkbox still submits the test code.
+
+Cycle 245 keeps the code in the test catalog (RISK-BB-500). A blank name on that list stays the test id. The stored name and the edit form are unchanged.
+
+Cycle 246 keeps the code in the subtest catalog (RISK-BB-501). A blank name on that list stays the subtest id. The stored name and the edit form are unchanged.
+
+Cycle 247 keeps the code in the test-grouper catalog (RISK-BB-502). A blank name on that list stays the grouper id. The stored name and the edit form are unchanged.
+
+Cycle 248 keeps the code in the phase catalog (RISK-BB-503). A blank name on that list stays the phase id. The stored name and the edit form are unchanged.
+
+Cycle 249 keeps the code in the blood-attribute catalog (RISK-BB-504). A blank antigen name stays the attribute id. A blank antibody name stays that same id and is not replaced by the antigen name or the code. The stored names and the edit form are unchanged.
+
+Cycle 250 keeps the code in the special-requirement catalog (RISK-BB-505). A blank name on that list stays the requirement id. The stored name and the edit form are unchanged.
+
+Cycle 251 keeps the code in the reflex-rule catalog (RISK-BB-506). A blank name on that list stays the reflex id. The stored name and the edit form are unchanged.
+
 | Rank | Priority | Gap | Residual | Cycle 1 action |
 |---|---|---|---|---|
 | 1 | P0 via P6 | API identity spoofing: `X-User` trusted after login; empty password hash signs in | Low (Bearer session; RISK-BB-254) | **Implemented Cycle 1** |
@@ -37,7 +187,7 @@ them silently and do not invent ICCBBA tables.
 | 14 | P8 | FHIR | Low | HL7 v2 exists |
 | 15 | P1 | Bedside dual-ID / administration device path incomplete | Low (PPID tokens + ISBT scan; RISK-BB-258). Residual: no dedicated administration-device protocol or required vitals (do not invent) | **Implemented Cycle 6** (identity tokens; device path still thin) |
 | 16 | P5 | Downtime reconciliation tooling thin | Low (snapshot; no paper OCR / failover) | **Implemented Cycle 11** |
-| 17 | P2 | Electronic XM policy defaults (OCD-001, OCD-006) | Low (policy off) | **OCD-006 closed 2026-09-18** — off until Facility Policy. OCD-001 (undetectable antibody vs eXM) remains open |
+| 17 | P2 | Electronic XM policy defaults (OCD-001, OCD-006) | Low | **Closed 2026-10-02** — any antibody history, including deactivated, keeps blocking electronic XM (`XM-EC-HISTORY`). OCD-006 stays off until Facility Policy. |
 | 18 | P6 | Broader CSRF / XSS / secrets review | Low (headers + no wildcard CORS; Blazor CSP still allows inline/eval) | **Implemented Cycle 9** |
 | 19 | P5 | Validation packaging: no `TEST-BB-*` IDs; stale “Phase 0” headers; missing iteration log | Low (core safety IDs through TEST-BB-030) | **Implemented Cycle 10**; Cycles 12–13 assigned leftover high-safety class-name citations |
 | 20 | P6 | DevMode auto-admin | Low | Keep Development-only |
@@ -351,6 +501,34 @@ Cycle 171: Patient product history shows the pickup tag scanned at issue on issu
 Cycle 172: The in-transit and outstanding issued queues show the crossmatch status recorded at issue (RISK-BB-427). The status stays after ward receipt. The issue gate is unchanged.
 
 Cycle 173: Receive, Return, and Document repeat the crossmatch status recorded at issue (RISK-BB-428). Ward receipt, return, transfusion documentation, and the issue gate are unchanged.
+
+Cycle 174: The retrospective crossmatch queue shows the crossmatch status recorded at issue (RISK-BB-429). Retrospective completion is unchanged. The follow-up screen and product history still omit that status.
+
+Cycle 175: The retrospective follow-up screen repeats the crossmatch status recorded at issue (RISK-BB-430). Recording the crossmatch is unchanged. Product history still omits that status.
+
+Cycle 176: Patient product history shows the crossmatch status recorded at issue on issued, returned, and transfused rows (RISK-BB-431). Other rows show none. The issue gate is unchanged.
+
+Cycle 177: Electronic crossmatch stays blocked by any antibody-history row, including a deactivated or currently undetectable antibody (OCD-001, RISK-BB-432). Eligibility is otherwise unchanged.
+
+Cycle 178: The dashboard lists retrospective crossmatch due, outstanding issued units, pending testing, and open or under-review reaction investigations for the permissions the signed-in user already has (RISK-BB-433). Closed investigations are not counted. Issue, result, and investigation gates are unchanged.
+
+Cycle 179: The dashboard also lists units still in transit to the ward, and how many of those are past the arrival window already stored on that queue (RISK-BB-434). Ward receipt is unchanged.
+
+Cycle 180: The dashboard says how many retrospective crossmatches are past their stored due time, and how many reaction investigations still need fatality follow-up, including closed cases (RISK-BB-435). Retrospective completion, reaction close, and the fatality follow-up rule are unchanged.
+
+Cycle 181: Collection can stay Collected. Receive and Accept move a tube to Received then Accepted from the pending-specimens worklist (RISK-BB-436). An expired tube cannot be received or accepted. In-lab accession still accepts immediately. Result entry and order linking still require Accepted.
+
+Cycle 182: Staff with `audit.read` record a shift handoff with a required note and a snapshot of the bench queues; a different user acknowledges (RISK-BB-437). Self-acknowledge and double-acknowledge HardStop. Clinical gates are unchanged.
+
+Cycle 183: Specimen barcode changes require Relabel with a required reason and `specimen.edit` (RISK-BB-438). Accession number stays immutable. Rejected, cancelled, and expired tubes cannot be relabeled. Collection metadata edit cannot change the barcode. Clinical gates are unchanged.
+
+Cycle 184: Staff with `immuno.override`, `result.verify`, or `inventory.release` open a supervisor worklist of ABID reviews, pending verifications, and quarantine releases for those permissions (RISK-BB-439). Rows open the existing workflows. Clinical gates are unchanged.
+
+Cycle 185: Changing first, middle, or last name requires a reason and retains the previous display name as `PriorFullName` (RISK-BB-440). Patient list search matches prior names and prior MRNs. Clinical gates are unchanged.
+
+Cycle 186: Inbound ADT that changes a stated name retains the previous display name as `PriorFullName` and audits the change (RISK-BB-441). Sparse ADT blanks do not clear or archive names. Clinical gates are unchanged.
+
+Cycle 187: A new merge writes a ledger of moved, skipped, and demoted rows, including DAT/elution studies, pickup tags, and compatibility decisions. Unmerge requires `patient.merge` and a reason. It restores those rows and deactivates the prior-MRN alias this merge added. A new order, specimen, result, crossmatch, allocation, issue, or transfusion on the survivor since the merge HardStops, as does an edited moved row or a changed deceased or pregnancy field. Merges without a ledger cannot be undone. Rule execution logs stay on the original patient.
 
 ## Scoring used for Cycle 1 selection
 

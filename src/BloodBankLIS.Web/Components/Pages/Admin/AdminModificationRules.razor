@@ -22,6 +22,7 @@
     to a target product code and an expiration modification code. The same modification
     code may be reused on different source or target products. The expiration code's offset is
     applied from modification or collection date/time and capped at the source unit's original expiration.
+    A product choice keeps its code. A blank name stays Product {id} and is not replaced by the code.
 </p>
 
 <Outcome Value="_feedback" />
@@ -78,7 +79,7 @@
             <div class="field"><label>Source product</label>
                 <select @bind="_editing.SourceProductTypeId">
                     <option value="0">-- select --</option>
-                    @foreach (var p in _products) { <option value="@p.Id">@p.DisplayProductCode &mdash; @p.Name</option> }
+                    @foreach (var p in _products) { <option value="@p.Id">@p.ChoiceLabel</option> }
                 </select>
             </div>
             <div class="field"><label>Modification type</label>
@@ -87,7 +88,7 @@
             <div class="field"><label>Target product</label>
                 <select @bind="_editing.TargetProductTypeId">
                     <option value="0">-- select --</option>
-                    @foreach (var p in _products) { <option value="@p.Id">@p.DisplayProductCode &mdash; @p.Name</option> }
+                    @foreach (var p in _products) { <option value="@p.Id">@p.ChoiceLabel</option> }
                 </select>
             </div>
             <div class="field"><label>Expiration code</label>

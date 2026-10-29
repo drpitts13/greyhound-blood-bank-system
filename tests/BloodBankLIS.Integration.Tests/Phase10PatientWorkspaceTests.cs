@@ -246,6 +246,7 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitAppearance.Acceptable.ToString(), h1[0].IssueAppearance);
         Assert.Null(h1[0].WardAppearance);
         Assert.Null(h1[0].PtagCode);
+        Assert.Equal(CrossmatchClinicalStatus.NotPerformed.ToString(), h1[0].IssueCrossmatchStatus);
 
         var specimen = new Specimen
         {
@@ -280,6 +281,7 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         issued.WardReceivedUtc = DateTime.UtcNow;
         issued.WardAppearance = UnitAppearance.Hemolysis;
         issued.PtagCode = " PTAG-HIST ";
+        issued.CrossmatchStatus = CrossmatchClinicalStatus.NotCrossmatchedEmergency;
         var releaseOverride = new Override
         {
             Action = OverrideAction.EmergencyRelease,
@@ -306,6 +308,7 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitAppearance.Hemolysis.ToString(), Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).IssueAppearance);
         Assert.Equal(UnitAppearance.Hemolysis.ToString(), Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).WardAppearance);
         Assert.Equal("PTAG-HIST", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).PtagCode);
+        Assert.Equal(CrossmatchClinicalStatus.NotCrossmatchedEmergency.ToString(), Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Issued).IssueCrossmatchStatus);
         Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).CoolerId);
         Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).IssueType);
         Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).EmergencyReleaseReason);
@@ -314,6 +317,7 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).IssueAppearance);
         Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).WardAppearance);
         Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).PtagCode);
+        Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).IssueCrossmatchStatus);
         Assert.Null(Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).IssuedTo);
         Assert.Equal("ACC-HIST", Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).AccessionNumber);
         Assert.Equal(unit1.ExpiresUtc, Assert.Single(h1, h => h.EventType == PatientProductHistoryEventType.Allocated).UnitExpiresUtc);
@@ -343,6 +347,7 @@ public class Phase10PatientWorkspaceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitAppearance.Hemolysis.ToString(), returned.IssueAppearance);
         Assert.Equal(UnitAppearance.Hemolysis.ToString(), returned.WardAppearance);
         Assert.Equal("PTAG-HIST", returned.PtagCode);
+        Assert.Equal(CrossmatchClinicalStatus.NotCrossmatchedEmergency.ToString(), returned.IssueCrossmatchStatus);
         issued.SecondVerifier = " ";
         releaseOverride.AuthorizedBy = " ";
         issued.IssueAppearance = UnitAppearance.Acceptable;

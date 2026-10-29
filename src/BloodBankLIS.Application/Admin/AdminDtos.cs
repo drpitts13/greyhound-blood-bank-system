@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Admin;
@@ -18,7 +19,14 @@ public sealed record SubtestDefinitionDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the subtest id.
+    /// The subtest code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => SubtestDefinitionLabel.Name(Id, Name);
+}
 
 public sealed record SaveSubtestDefinitionRequest(
     string Code,
@@ -52,7 +60,14 @@ public sealed record PhaseDefinitionDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the phase id.
+    /// The phase code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => PhaseDefinitionLabel.Name(Id, Name);
+}
 
 public sealed record SavePhaseDefinitionRequest(
     string Code,
@@ -105,7 +120,14 @@ public sealed record TestDefinitionDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the test id.
+    /// The test code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => TestDefinitionLabel.Name(Id, Name);
+}
 
 public sealed record SaveTestDefinitionRequest(
     string Code,
@@ -144,7 +166,14 @@ public sealed record TestGrouperDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the grouper id.
+    /// The grouper code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => TestGrouperLabel.Name(Id, Name);
+}
 
 public sealed record SaveTestGrouperRequest(
     string Code,
@@ -166,7 +195,14 @@ public sealed record ReflexRuleDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the reflex rule id.
+    /// The rule code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => ReflexRuleLabel.Name(Id, Name);
+}
 
 public sealed record SaveReflexRuleRequest(
     string Code,
@@ -288,9 +324,32 @@ public sealed record ProductDefinitionDto(
     string? RhPositiveRetypeTestName = null,
     long? RhNegativeRetypeTestId = null,
     string? RhNegativeRetypeTestCode = null,
-    string? RhNegativeRetypeTestName = null);
+    string? RhNegativeRetypeTestName = null,
+    IReadOnlyList<ProductAboCompatibilityDto>? AboCompatibilities = null,
+    IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null)
+{
+    /// <summary>
+    /// Charge-rule choice. The facility product code stays so the trigger key can be selected.
+    /// A blank name stays the product id. The ISBT code is not used as the name.
+    /// </summary>
+    public string ChoiceLabel => ProductTypeLabel.ForChoice(Id, ProductCode, Name);
+
+    /// <summary>
+    /// Catalog list. A blank name stays the product id.
+    /// The product code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => ProductTypeLabel.Name(Id, Name);
+}
 
 public sealed record ProductAttributeAssignmentDto(long AttributeId, string Code, string Name, bool IsRequired);
+
+public sealed record ProductAboCompatibilityDto(AboGroup PatientAbo, AboGroup UnitAbo, bool IsAllowed);
+
+public sealed record ProductRhCompatibilityDto(
+    RhCompatibilitySex SexGroup,
+    RhType PatientRh,
+    RhType UnitRh,
+    bool IsAllowed);
 
 public sealed record SaveProductDefinitionRequest(
     string ProductCode,
@@ -311,7 +370,9 @@ public sealed record SaveProductDefinitionRequest(
     IReadOnlyList<ProductAttributeSelection>? Attributes,
     string? ChangeReason,
     long? RhPositiveRetypeTestId = null,
-    long? RhNegativeRetypeTestId = null);
+    long? RhNegativeRetypeTestId = null,
+    IReadOnlyList<ProductAboCompatibilityDto>? AboCompatibilities = null,
+    IReadOnlyList<ProductRhCompatibilityDto>? RhCompatibilities = null);
 
 public sealed record ProductAttributeSelection(long AttributeId, bool IsRequired);
 

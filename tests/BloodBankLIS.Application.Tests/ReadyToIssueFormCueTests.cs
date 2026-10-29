@@ -57,7 +57,8 @@ public class ReadyToIssueFormCueTests
             "Crossmatch incompatible",
             ReadyToIssueFormCue.CrossmatchWorklistNotice(CrossmatchResult.Incompatible, null));
         Assert.Null(ReadyToIssueFormCue.CrossmatchWorklistNotice(null, null));
-        Assert.Equal("FRIDGE-1", ReadyToIssueFormCue.StorageLocationLabel("  ", "FRIDGE-1"));
+        Assert.Equal("Location 9", ReadyToIssueFormCue.StorageLocationLabel(9, "  "));
+        Assert.Null(ReadyToIssueFormCue.StorageLocationLabel(null, "Issue fridge"));
         Assert.Null(ReadyToIssueFormCue.StorageLocationNotice(null));
 
         Assert.Empty(ReadyToIssueFormCue.Notices(Row()));
@@ -92,6 +93,18 @@ public class ReadyToIssueFormCueTests
             CrossmatchExpiresUtc: crossmatchExpiresUtc,
             StorageLocationName: storageLocationName,
             SpecimenAccession: specimenAccession);
+}
+
+public class StorageLocationCueTests
+{
+    [Fact]
+    public void StorageLocationLabel_KeepsTheLocationIdWhenTheNameIsBlank()
+    {
+        Assert.Equal("Issue fridge", ReadyToIssueFormCue.StorageLocationLabel(4, " Issue fridge "));
+        Assert.Equal("Location 9", ReadyToIssueFormCue.StorageLocationLabel(9, "   "));
+        Assert.Equal("Location 9", ReadyToIssueFormCue.StorageLocationLabel(9, null));
+        Assert.Null(ReadyToIssueFormCue.StorageLocationLabel(null, "Issue fridge"));
+    }
 }
 
 public class IssuedToNoticeTests
@@ -137,6 +150,12 @@ public class RetrospectiveFollowUpNoticeTests
             ReadyToIssueFormCue.RetrospectiveFollowUpNotice("RN Alvarez", "CLR-TRAUMA-1", "Trauma Bay 2", "tech2", " witness-tech "));
         Assert.Equal("Issued by tech2", ReadyToIssueFormCue.RetrospectiveFollowUpNotice(null, " ", null, "tech2"));
         Assert.Equal("Second verifier witness-tech", ReadyToIssueFormCue.RetrospectiveFollowUpNotice(null, " ", null, " ", "witness-tech"));
+        Assert.Equal(
+            "Location 9",
+            ReadyToIssueFormCue.RetrospectiveFollowUpNotice(null, null, " Location 9 "));
+        Assert.DoesNotContain(
+            "Location Location",
+            ReadyToIssueFormCue.RetrospectiveFollowUpNotice("RN Alvarez", "CLR-TRAUMA-1", "Location 9")!);
         Assert.Null(ReadyToIssueFormCue.RetrospectiveFollowUpNotice(" ", null));
     }
 }
@@ -147,6 +166,9 @@ public class IssuedToLocationNoticeTests
     public void IssuedToLocationNotice_NamesTheWard()
     {
         Assert.Equal("Location Trauma Bay 2", ReadyToIssueFormCue.IssuedToLocationNotice(" Trauma Bay 2 "));
+        Assert.Equal("Location Issue fridge", ReadyToIssueFormCue.IssuedToLocationNotice(" Issue fridge "));
+        Assert.Equal("Location 9", ReadyToIssueFormCue.IssuedToLocationNotice(" Location 9 "));
+        Assert.DoesNotContain("Location Location", ReadyToIssueFormCue.IssuedToLocationNotice(" Location 9 "));
         Assert.Null(ReadyToIssueFormCue.IssuedToLocationNotice("  "));
         Assert.Null(ReadyToIssueFormCue.IssuedToLocationNotice(null));
     }

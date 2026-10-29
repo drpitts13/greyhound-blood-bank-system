@@ -17,7 +17,7 @@
         }
     </div>
 </div>
-<p class="muted">When a verified result matches a trigger value, add the reflex test onto the same order and specimen. Trigger and reflex tests come from Test Definitions.</p>
+<p class="muted">When a verified result matches a trigger value, add the reflex test onto the same order and specimen. Trigger and reflex tests come from Test Definitions. The list keeps the rule code. A blank name stays Reflex {id}. That label is not written onto the rule, and the edit form keeps the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -44,7 +44,7 @@
                 {
                     <tr>
                         <td class="mono">@r.Code</td>
-                        <td>@r.Name</td>
+                        <td>@r.NameLabel</td>
                         <td class="mono">@r.TriggerTestCode</td>
                         <td>@r.TriggerResultValue</td>
                         <td class="mono">@r.ReflexTestCode</td>
@@ -152,6 +152,7 @@
         ? _items
         : _items.Where(r => r.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
             || r.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || r.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)
             || r.TriggerTestCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
             || r.ReflexTestCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
             || r.TriggerResultValue.Contains(_filter, StringComparison.OrdinalIgnoreCase)).ToList();

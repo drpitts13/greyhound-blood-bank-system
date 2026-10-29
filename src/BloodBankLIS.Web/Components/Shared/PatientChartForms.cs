@@ -15,6 +15,7 @@ public sealed class PatientAccessionForm
     public string? Identifier1Value { get; set; }
     public string? Identifier2Value { get; set; }
     public string? Comment { get; set; }
+    public bool AcceptImmediately { get; set; } = true;
 }
 
 public sealed class PatientSpecimenEditForm
@@ -42,6 +43,7 @@ public sealed class PatientDemoEditModel
     public Sex Sex { get; set; } = Sex.Unknown;
     public PatientStatus Status { get; set; } = PatientStatus.Active;
     public string? Comment { get; set; }
+    public string NameChangeReason { get; set; } = string.Empty;
 }
 
 public static class SpecimenTypeOrderHint

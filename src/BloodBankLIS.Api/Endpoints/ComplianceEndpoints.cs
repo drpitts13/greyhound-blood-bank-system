@@ -13,6 +13,8 @@ public static class ComplianceEndpoints
         MapLookback(app);
         MapReactions(app);
         MapDeviations(app);
+        MapShiftHandoffs(app);
+        MapSupervisorQueue(app);
         MapDowntimeReconciliation(app);
     }
 
@@ -97,6 +99,37 @@ public static class ComplianceEndpoints
 
         group.MapPost("/{id:long}/status", async (long id, DeviationStatusBody request, DeviationService service, CancellationToken ct) =>
             EndpointResults.From(await service.UpdateStatusAsync(id, request.Status, request.CorrectiveAction, ct), DeviationDto.From));
+    }
+
+    private static void MapShiftHandoffs(WebApplication app)
+    {
+        var group = app.MapGroup("/api/shift-handoffs").WithTags("ShiftHandoff")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.AuditRead);
+
+        group.MapGet("/", async (ShiftHandoffService service, CancellationToken ct) =>
+            Results.Ok(await service.ListRecentAsync(ct: ct)));
+
+        group.MapGet("/open", async (ShiftHandoffService service, CancellationToken ct) =>
+        {
+            var open = await service.GetLatestOpenAsync(ct);
+            return open is null ? Results.NoContent() : Results.Ok(open);
+        });
+
+        group.MapPost("/", async (CreateShiftHandoffRequest request, ShiftHandoffService service, CancellationToken ct) =>
+            EndpointResults.Created(await service.CreateAsync(request, ct),
+                h => ($"/api/shift-handoffs/{h.Id}", (object)ShiftHandoffDto.From(h))));
+
+        group.MapPost("/{id:long}/acknowledge", async (long id, ShiftHandoffService service, CancellationToken ct) =>
+            EndpointResults.From(await service.AcknowledgeAsync(id, ct), ShiftHandoffDto.From));
+    }
+
+    private static void MapSupervisorQueue(WebApplication app)
+    {
+        app.MapGet("/api/supervisor-queue", async (SupervisorQueueService service, CancellationToken ct) =>
+                EndpointResults.From(await service.ListAsync(ct), items => items))
+            .WithTags("SupervisorQueue")
+            .RequireAuthenticatedUser();
     }
 
     private static void MapDowntimeReconciliation(WebApplication app)

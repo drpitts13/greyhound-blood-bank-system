@@ -14,9 +14,15 @@ public static class UnitModificationEligibilityRule
     public const string ProductMismatchCode = "MOD-PRODUCT-MISMATCH";
     public const string PoolMinSourcesCode = "MOD-POOL-MIN-SOURCES";
     public const string PoolAboMismatchCode = "MOD-POOL-ABO-MISMATCH";
+    public const string PoolVolumeCode = "MOD-POOL-VOLUME";
+    public const string PoolLocationCode = "MOD-POOL-LOCATION";
     public const string DivideMinTargetsCode = "MOD-DIVIDE-MIN-TARGETS";
     public const string VolumeRequiredCode = "MOD-DIVIDE-VOLUME-REQUIRED";
     public const string VolumeExceedsSourceCode = "MOD-VOLUME-EXCEEDS-SOURCE";
+    public const string VolumeUnaccountedCode = "MOD-VOLUME-UNACCOUNTED";
+    public const string ResultVolumeCode = "MOD-RESULT-VOLUME";
+    public const string AliquotVolumeCode = "MOD-ALIQUOT-VOLUME";
+    public const string AliquotParentVolumeCode = "MOD-ALIQUOT-PARENT-VOLUME";
 
     public readonly record struct SourceUnitSnapshot(
         long Id,
@@ -26,6 +32,21 @@ public static class UnitModificationEligibilityRule
         RhType RhD,
         DateTime ExpiresUtc,
         decimal? Volume);
+
+    /// <summary>
+    /// Whether the modify form may offer a rule. Available units can be modified.
+    /// An assigned unit can be modified only while completing a product order.
+    /// A retired unit is not offered again.
+    /// </summary>
+    public static bool OfferModification(UnitStatus status, bool orderLinked = false) =>
+        status == UnitStatus.Available || (orderLinked && status == UnitStatus.Assigned);
+
+    /// <summary>
+    /// Whether the eligibility list may contain rules. Assigned stays listed so a product-order
+    /// action can still modify that unit. Modified, quarantine, and the other statuses do not.
+    /// </summary>
+    public static bool MayListModificationRules(UnitStatus status) =>
+        status is UnitStatus.Available or UnitStatus.Assigned;
 
     /// <summary>
     /// Checks a single source unit against the rule's expected source product and the clock.
@@ -91,7 +112,55 @@ public static class UnitModificationEligibilityRule
         return new RuleEvaluation(results);
     }
 
-    /// <summary>Checks for a Divide: at least two result children, every child has a volume, and the volumes do not exceed the source.</summary>
+    /// <summary>
+    /// When any pooled unit has a recorded volume, every source must have a volume greater
+    /// than zero so the pool total can include each one. Units with no volumes at all stay unrecorded.
+    /// </summary>
+    public static RuleEvaluation EvaluatePoolVolumes(IReadOnlyList<decimal?> volumes)
+    {
+        var list = volumes ?? Array.Empty<decimal?>();
+        if (list.All(volume => volume is null))
+        {
+            return new RuleEvaluation(new[] { RuleResult.Pass(PoolVolumeCode) });
+        }
+
+        if (list.Any(volume => volume is null or <= 0m))
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(
+                    PoolVolumeCode,
+                    "Every pooled unit needs a recorded volume greater than zero so the pool total can include each source. A missing volume would drop the volumes that are already known.")
+            });
+        }
+
+        return new RuleEvaluation(new[] { RuleResult.Pass(PoolVolumeCode) });
+    }
+
+    /// <summary>
+    /// Pooled units must already share one storage location, including all being unassigned.
+    /// A mix would record the pool at the first unit's location.
+    /// </summary>
+    public static RuleEvaluation EvaluatePoolLocations(IReadOnlyList<long?> locationIds)
+    {
+        var list = locationIds ?? Array.Empty<long?>();
+        if (list.Select(locationId => locationId).Distinct().Count() <= 1)
+        {
+            return new RuleEvaluation(new[] { RuleResult.Pass(PoolLocationCode) });
+        }
+
+        return new RuleEvaluation(new[]
+        {
+            RuleResult.HardStop(
+                PoolLocationCode,
+                "Pooled units are not in the same storage location. Transfer them to one location before pooling so the pool is not recorded somewhere a source unit never was.")
+        });
+    }
+
+    /// <summary>
+    /// Checks for a Divide: at least two result children, every child has a volume, and a known
+    /// source volume is fully assigned to those children.
+    /// </summary>
     public static RuleEvaluation EvaluateDivide(int childCount, decimal? sourceVolume, IReadOnlyList<decimal?> childVolumes)
     {
         var results = new List<RuleResult>();
@@ -115,6 +184,11 @@ public static class UnitModificationEligibilityRule
                 results.Add(RuleResult.HardStop(VolumeExceedsSourceCode,
                     $"Requested child volumes ({sum}) exceed the source unit's volume ({sourceVolume})."));
             }
+            else if (sum < sourceVolume)
+            {
+                results.Add(RuleResult.HardStop(VolumeUnaccountedCode,
+                    $"Requested child volumes ({sum}) leave {sourceVolume - sum} mL of the source unit unaccounted. Record the remaining volume as another result, or remove an aliquot instead of dividing."));
+            }
         }
 
         if (results.Count == 0)
@@ -123,5 +197,74 @@ public static class UnitModificationEligibilityRule
         }
 
         return new RuleEvaluation(results);
+    }
+
+    /// <summary>
+    /// A supplied result volume must be positive and cannot exceed a known source volume.
+    /// Omitting the volume keeps the source volume.
+    /// </summary>
+    public static RuleEvaluation EvaluateResultVolume(decimal? sourceVolume, decimal? resultVolume)
+    {
+        if (resultVolume is null)
+        {
+            return new RuleEvaluation(new[] { RuleResult.Pass(ResultVolumeCode) });
+        }
+
+        if (resultVolume <= 0m)
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(ResultVolumeCode, "A result volume must be greater than zero.")
+            });
+        }
+
+        if (sourceVolume is not null && resultVolume > sourceVolume)
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(
+                    VolumeExceedsSourceCode,
+                    $"Result volume ({resultVolume}) exceeds the source unit's volume ({sourceVolume}).")
+            });
+        }
+
+        return new RuleEvaluation(new[] { RuleResult.Pass(ResultVolumeCode) });
+    }
+
+    /// <summary>
+    /// An aliquot removes a positive volume that is strictly less than the parent volume,
+    /// so the parent remains in inventory.
+    /// </summary>
+    public static RuleEvaluation EvaluateAliquot(decimal? sourceVolume, decimal? aliquotVolume)
+    {
+        if (aliquotVolume is null or <= 0m)
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(AliquotVolumeCode, "An aliquot volume must be greater than zero.")
+            });
+        }
+
+        if (sourceVolume is null or <= 0m)
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(
+                    AliquotParentVolumeCode,
+                    "The parent unit needs a recorded volume before an aliquot can be removed.")
+            });
+        }
+
+        if (aliquotVolume >= sourceVolume)
+        {
+            return new RuleEvaluation(new[]
+            {
+                RuleResult.HardStop(
+                    AliquotParentVolumeCode,
+                    "Aliquot volume must be less than the parent volume so the parent remains.")
+            });
+        }
+
+        return new RuleEvaluation(new[] { RuleResult.Pass(AliquotVolumeCode) });
     }
 }

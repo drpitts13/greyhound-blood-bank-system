@@ -51,6 +51,32 @@ public class UnitModificationEligibilityRuleTests
     }
 
     [Fact]
+    public void OfferModification_Available_IsOffered()
+    {
+        Assert.True(UnitModificationEligibilityRule.OfferModification(UnitStatus.Available));
+        Assert.True(UnitModificationEligibilityRule.MayListModificationRules(UnitStatus.Available));
+    }
+
+    [Fact]
+    public void OfferModification_Assigned_OnlyWhileCompletingAnOrder()
+    {
+        Assert.False(UnitModificationEligibilityRule.OfferModification(UnitStatus.Assigned));
+        Assert.True(UnitModificationEligibilityRule.OfferModification(UnitStatus.Assigned, orderLinked: true));
+        Assert.True(UnitModificationEligibilityRule.MayListModificationRules(UnitStatus.Assigned));
+    }
+
+    [Theory]
+    [InlineData(UnitStatus.Modified)]
+    [InlineData(UnitStatus.Quarantine)]
+    [InlineData(UnitStatus.Issued)]
+    public void OfferModification_RetiredOrHeld_IsNotOffered(UnitStatus status)
+    {
+        Assert.False(UnitModificationEligibilityRule.OfferModification(status));
+        Assert.False(UnitModificationEligibilityRule.OfferModification(status, orderLinked: true));
+        Assert.False(UnitModificationEligibilityRule.MayListModificationRules(status));
+    }
+
+    [Fact]
     public void EvaluateSource_Expired_HardStops()
     {
         var unit = MakeUnit(expiresUtc: NowUtc.AddDays(-1));
@@ -127,6 +153,74 @@ public class UnitModificationEligibilityRuleTests
     }
 
     [Fact]
+    public void EvaluatePoolVolumes_AllRecorded_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolVolumes([200m, 150m]);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluatePoolVolumes_NoneRecorded_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolVolumes([null, null]);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluatePoolVolumes_MissingAmongKnown_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolVolumes([200m, null]);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.PoolVolumeCode);
+    }
+
+    [Fact]
+    public void EvaluatePoolVolumes_NonPositive_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolVolumes([200m, 0m]);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.PoolVolumeCode);
+    }
+
+    [Fact]
+    public void EvaluatePoolLocations_SameLocation_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolLocations([4L, 4L]);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluatePoolLocations_AllUnassigned_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolLocations([null, null]);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluatePoolLocations_DifferentLocations_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolLocations([4L, 9L]);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.PoolLocationCode);
+    }
+
+    [Fact]
+    public void EvaluatePoolLocations_AssignedAndUnassigned_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluatePoolLocations([4L, null]);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.PoolLocationCode);
+    }
+
+    [Fact]
     public void EvaluateDivide_TwoChildrenNoVolumes_HardStops()
     {
         var eval = UnitModificationEligibilityRule.EvaluateDivide(childCount: 2, sourceVolume: null, childVolumes: []);
@@ -162,11 +256,88 @@ public class UnitModificationEligibilityRuleTests
     }
 
     [Fact]
+    public void EvaluateDivide_VolumesShortOfSource_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateDivide(childCount: 2, sourceVolume: 300m, childVolumes: [150m, 100m]);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeUnaccountedCode);
+    }
+
+    [Fact]
+    public void EvaluateDivide_UnknownSourceVolume_DoesNotRequireAFullSum()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateDivide(childCount: 2, sourceVolume: null, childVolumes: [150m, 100m]);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluateResultVolume_WithinSource_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateResultVolume(sourceVolume: 300m, resultVolume: 250m);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluateResultVolume_Omitted_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateResultVolume(sourceVolume: 300m, resultVolume: null);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluateResultVolume_ExceedsSource_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateResultVolume(sourceVolume: 300m, resultVolume: 301m);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeExceedsSourceCode);
+    }
+
+    [Fact]
+    public void EvaluateResultVolume_NonPositive_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateResultVolume(sourceVolume: 300m, resultVolume: 0m);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.ResultVolumeCode);
+    }
+
+    [Fact]
     public void EvaluateDivide_PartialVolumes_HardStops()
     {
         var eval = UnitModificationEligibilityRule.EvaluateDivide(childCount: 2, sourceVolume: 100m, childVolumes: [150m, null]);
 
         Assert.True(eval.IsHardStopped);
         Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeRequiredCode);
+    }
+
+    [Fact]
+    public void EvaluateAliquot_VolumeLessThanParent_Passes()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateAliquot(sourceVolume: 300m, aliquotVolume: 50m);
+
+        Assert.False(eval.IsHardStopped);
+    }
+
+    [Fact]
+    public void EvaluateAliquot_VolumeNotLessThanParent_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateAliquot(sourceVolume: 300m, aliquotVolume: 300m);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.AliquotParentVolumeCode);
+    }
+
+    [Fact]
+    public void EvaluateAliquot_MissingVolume_HardStops()
+    {
+        var eval = UnitModificationEligibilityRule.EvaluateAliquot(sourceVolume: 300m, aliquotVolume: null);
+
+        Assert.True(eval.IsHardStopped);
+        Assert.Contains(eval.HardStops, r => r.Code == UnitModificationEligibilityRule.AliquotVolumeCode);
     }
 }

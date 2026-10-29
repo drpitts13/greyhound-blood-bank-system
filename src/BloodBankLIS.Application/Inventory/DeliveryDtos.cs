@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Inventory;
 
@@ -28,13 +29,17 @@ public sealed record DeliveryLineDto(
 
 public sealed record OpenDeliveryDto(
     long Id,
+    long BloodSupplierId,
     string SupplierCode,
     string SupplierName,
     string? PackingListNumber,
     DateTime OrderedUtc,
     DateTime ReceivedUtc,
     int ExpectedQuantity,
-    int ReceivedQuantity);
+    int ReceivedQuantity)
+{
+    public string SupplierNameLabel => BloodSupplierLabel.Name(BloodSupplierId, SupplierName);
+}
 
 public sealed record DeliveryDetailDto(
     long Id,
@@ -47,6 +52,9 @@ public sealed record DeliveryDetailDto(
     DeliveryStatus Status,
     bool SupplierLocked,
     IReadOnlyList<DeliveryLineDto> Lines,
-    IReadOnlyList<BloodUnitDto> Units);
+    IReadOnlyList<BloodUnitDto> Units)
+{
+    public string SupplierNameLabel => BloodSupplierLabel.Name(BloodSupplierId, SupplierName);
+}
 
 public sealed record DeliveryReceiveContext(long Id, string SupplierName, string? PackingListNumber);

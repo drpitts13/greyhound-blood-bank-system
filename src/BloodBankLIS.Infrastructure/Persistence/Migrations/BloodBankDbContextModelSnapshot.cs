@@ -4687,6 +4687,105 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.ToTable("ProductBillings", (string)null);
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductAboCompatibility", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsAllowed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PatientAbo")
+                        .HasColumnType("int");
+
+                    b.Property<long>("ProductTypeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("UnitAbo")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductTypeId", "PatientAbo", "UnitAbo")
+                        .IsUnique();
+
+                    b.ToTable("ProductAboCompatibilities", (string)null);
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductRhCompatibility", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsAllowed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("ModifiedUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PatientRh")
+                        .HasColumnType("int");
+
+                    b.Property<long>("ProductTypeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SexGroup")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitRh")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductTypeId", "SexGroup", "PatientRh", "UnitRh")
+                        .IsUnique();
+
+                    b.ToTable("ProductRhCompatibilities", (string)null);
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductType", b =>
                 {
                     b.Property<long>("Id")
@@ -6145,6 +6244,28 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Navigation("Specimens");
                 });
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductAboCompatibility", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.ProductType", "ProductType")
+                        .WithMany("AboCompatibilities")
+                        .HasForeignKey("ProductTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductType");
+                });
+
+            modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductRhCompatibility", b =>
+                {
+                    b.HasOne("BloodBankLIS.Domain.Entities.ProductType", "ProductType")
+                        .WithMany("RhCompatibilities")
+                        .HasForeignKey("ProductTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductType");
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Entities.ProductType", b =>
                 {
                     b.HasOne("BloodBankLIS.Domain.Entities.Configuration.TestDefinition", "RhNegativeRetypeTest")
@@ -6161,7 +6282,11 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
                     b.Navigation("RhPositiveRetypeTest");
 
+                    b.Navigation("AboCompatibilities");
+
                     b.Navigation("AttributeAssignments");
+
+                    b.Navigation("RhCompatibilities");
 
                     b.Navigation("Units");
                 });

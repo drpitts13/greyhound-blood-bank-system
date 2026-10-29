@@ -249,6 +249,149 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task Accession_WithoutAcceptImmediately_StaysCollected()
+    {
+        var patientId = await EnsurePatientAsync("MRN-COLLECT");
+        await using var context = _factory.Create();
+        var result = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest(
+                "ACC-COLLECT",
+                patientId,
+                "EDTA",
+                _factory.Clock.UtcNow.AddHours(-1),
+                AcceptImmediately: false));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(SpecimenStatus.Collected, result.Value!.Status);
+        Assert.Null(result.Value.ReceivedUtc);
+        Assert.Contains(
+            await Specimens(context).ListPendingReceiptAsync(),
+            i => i.SpecimenId == result.Value.Id && i.Status == SpecimenStatus.Collected);
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EventType == AuditEventType.Specimen
+            && a.EntityId == result.Value.Id
+            && a.Reason == "Specimen collected; awaiting receipt."));
+    }
+
+    [Fact]
+    public async Task ReceiveThenAccept_MovesCollectedToAccepted_AndLeavesTheBoard()
+    {
+        var patientId = await EnsurePatientAsync("MRN-RCV");
+        await using var context = _factory.Create();
+        var collected = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest(
+                "ACC-RCV",
+                patientId,
+                "EDTA",
+                _factory.Clock.UtcNow.AddHours(-1),
+                AcceptImmediately: false));
+        Assert.True(collected.Succeeded, collected.Error);
+
+        var received = await Specimens(context).ReceiveAsync(collected.Value!.Id);
+        Assert.True(received.Succeeded, received.Error);
+        Assert.Equal(SpecimenStatus.Received, received.Value!.Status);
+        Assert.NotNull(received.Value.ReceivedUtc);
+        Assert.Contains(
+            await Specimens(context).ListPendingReceiptAsync(),
+            i => i.SpecimenId == collected.Value.Id && i.Status == SpecimenStatus.Received);
+
+        var accepted = await Specimens(context).AcceptAsync(collected.Value.Id);
+        Assert.True(accepted.Succeeded, accepted.Error);
+        Assert.Equal(SpecimenStatus.Accepted, accepted.Value!.Status);
+        Assert.DoesNotContain(
+            await Specimens(context).ListPendingReceiptAsync(),
+            i => i.SpecimenId == collected.Value.Id);
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EntityId == collected.Value.Id && a.Reason == "Specimen received in the blood bank."));
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EntityId == collected.Value.Id && a.Reason == "Specimen accepted for testing."));
+    }
+
+    [Fact]
+    public async Task Receive_AcceptedSpecimen_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-RCV-ACC");
+        var specimenId = await AccessionAsync("ACC-RCV-ACC", patientId);
+        await using var context = _factory.Create();
+        var denied = await Specimens(context).ReceiveAsync(specimenId);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(
+            SpecimenReceiptRule.EvaluateReceive(SpecimenStatus.Accepted, null, _factory.Clock.UtcNow).Message,
+            denied.Error);
+        Assert.Equal(SpecimenStatus.Accepted, (await context.Specimens.FindAsync(specimenId))!.Status);
+    }
+
+    [Fact]
+    public async Task Accept_CollectedSpecimen_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-ACC-COL");
+        await using var context = _factory.Create();
+        var collected = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest(
+                "ACC-ACC-COL",
+                patientId,
+                "EDTA",
+                _factory.Clock.UtcNow.AddHours(-1),
+                AcceptImmediately: false));
+        Assert.True(collected.Succeeded, collected.Error);
+
+        var denied = await Specimens(context).AcceptAsync(collected.Value!.Id);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(
+            SpecimenReceiptRule.EvaluateAccept(SpecimenStatus.Collected, null, _factory.Clock.UtcNow).Message,
+            denied.Error);
+        Assert.Equal(SpecimenStatus.Collected, collected.Value.Status);
+    }
+
+    [Fact]
+    public async Task Receive_ExpiredCollected_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-RCV-EXP");
+        await using var context = _factory.Create();
+        var collected = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest(
+                "ACC-RCV-EXP",
+                patientId,
+                "EDTA",
+                _factory.Clock.UtcNow.AddHours(-2),
+                ValidityHours: 1,
+                AcceptImmediately: false));
+        Assert.True(collected.Succeeded, collected.Error);
+        Assert.True(collected.Value!.ExpiresUtc <= _factory.Clock.UtcNow);
+
+        var denied = await Specimens(context).ReceiveAsync(collected.Value.Id);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(
+            SpecimenReceiptRule.EvaluateReceive(
+                SpecimenStatus.Collected, collected.Value.ExpiresUtc, _factory.Clock.UtcNow).Message,
+            denied.Error);
+        Assert.Contains(
+            await Specimens(context).ListPendingReceiptAsync(),
+            i => i.SpecimenId == collected.Value.Id && i.IsExpired);
+    }
+
+    [Fact]
+    public async Task Receive_WithoutSpecimenAccession_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-RCV-PERM");
+        await using var context = _factory.Create();
+        var collected = await Specimens(context).AccessionAsync(
+            new AccessionSpecimenRequest(
+                "ACC-RCV-PERM",
+                patientId,
+                "EDTA",
+                _factory.Clock.UtcNow.AddHours(-1),
+                AcceptImmediately: false));
+        Assert.True(collected.Succeeded, collected.Error);
+
+        var denied = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenEdit))
+            .ReceiveAsync(collected.Value!.Id);
+        Assert.False(denied.Succeeded);
+        Assert.Equal(SpecimenAuthorizationRule.EvaluateAccession(false).Message, denied.Error);
+        Assert.Equal(SpecimenStatus.Collected, (await context.Specimens.FindAsync(collected.Value.Id))!.Status);
+    }
+
+    [Fact]
     public async Task Reject_RequiresReason_AndSetsStatus()
     {
         var patientId = await EnsurePatientAsync("MRN-REJ");
@@ -299,17 +442,94 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         await using var context = _factory.Create();
         var updated = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
-            collected, Barcode: "BC-1", DrawLocation: "4W", Collector: "J. Tech"));
+            collected, DrawLocation: "4W", Collector: "J. Tech"));
 
         Assert.True(updated.Succeeded);
         Assert.Equal(collected, updated.Value!.CollectedUtc);
-        Assert.Equal("BC-1", updated.Value.Barcode);
+        Assert.Null(updated.Value.Barcode);
         Assert.Equal("4W", updated.Value.DrawLocation);
         Assert.Equal("J. Tech", updated.Value.Collector);
         Assert.Equal(collected.AddHours(SpecimenValidityPolicy.DefaultStandardHours), updated.Value.ExpiresUtc);
         Assert.Equal("ACC-EDIT", updated.Value.AccessionNumber);
         Assert.Equal("EDTA", updated.Value.SpecimenType);
         Assert.Equal(SpecimenStatus.Accepted, updated.Value.Status);
+    }
+
+    [Fact]
+    public async Task Update_BarcodeChange_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-BC");
+        var specimenId = await AccessionAsync("ACC-EDIT-BC", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-6);
+
+        await using var context = _factory.Create();
+        var denied = await Specimens(context).UpdateAsync(
+            specimenId, new UpdateSpecimenRequest(collected, Barcode: "BC-SILENT"));
+        Assert.False(denied.Succeeded);
+        Assert.Contains("Relabel", denied.Error, StringComparison.OrdinalIgnoreCase);
+        Assert.Null((await context.Specimens.FindAsync(specimenId))!.Barcode);
+    }
+
+    [Fact]
+    public async Task Relabel_WritesBarcode_WithReason()
+    {
+        var patientId = await EnsurePatientAsync("MRN-RELABEL");
+        var specimenId = await AccessionAsync("ACC-RELABEL", patientId);
+
+        await using var context = _factory.Create();
+        var relabeled = await Specimens(context).RelabelAsync(
+            specimenId, new RelabelSpecimenRequest("SPC-RELABEL-1", "Torn label replaced."));
+        Assert.True(relabeled.Succeeded, relabeled.Error);
+        Assert.Equal("SPC-RELABEL-1", relabeled.Value!.Barcode);
+        Assert.True(await context.AuditEvents.AnyAsync(a =>
+            a.EventType == AuditEventType.Specimen
+            && a.EntityId == specimenId
+            && a.Reason == "Specimen relabeled: Torn label replaced."));
+
+        var same = await Specimens(context).RelabelAsync(
+            specimenId, new RelabelSpecimenRequest("SPC-RELABEL-1", "Again."));
+        Assert.False(same.Succeeded);
+        Assert.Equal(
+            SpecimenRelabelRule.EvaluateChange("SPC-RELABEL-1", "SPC-RELABEL-1").Message,
+            same.Error);
+    }
+
+    [Fact]
+    public async Task Relabel_RejectedSpecimen_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-RELABEL-REJ");
+        var specimenId = await AccessionAsync("ACC-RELABEL-REJ", patientId);
+        await using (var setup = _factory.Create())
+        {
+            Assert.True((await Specimens(setup).RejectAsync(specimenId, "Clotted")).Succeeded);
+        }
+
+        await using var context = _factory.Create();
+        var denied = await Specimens(context).RelabelAsync(
+            specimenId, new RelabelSpecimenRequest("SPC-NO", "Should fail."));
+        Assert.False(denied.Succeeded);
+        Assert.Equal(
+            SpecimenRelabelRule.EvaluateStatus(SpecimenStatus.Rejected).Message,
+            denied.Error);
+    }
+
+    [Fact]
+    public async Task Relabel_WithoutSpecimenEdit_IsHardStopped()
+    {
+        var patientId = await EnsurePatientAsync("MRN-RELABEL-PERM");
+        var specimenId = await AccessionAsync("ACC-RELABEL-PERM", patientId);
+
+        await using var context = _factory.Create();
+        var denied = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenAccession))
+            .RelabelAsync(specimenId, new RelabelSpecimenRequest("SPC-X", "Printer reprint."));
+        Assert.False(denied.Succeeded);
+        Assert.Equal(SpecimenAuthorizationRule.EvaluateEdit(false).Message, denied.Error);
+        Assert.Null((await context.Specimens.FindAsync(specimenId))!.Barcode);
+
+        var allowed = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenEdit))
+            .RelabelAsync(specimenId, new RelabelSpecimenRequest("SPC-X", "Printer reprint."));
+        Assert.True(allowed.Succeeded, allowed.Error);
+        Assert.Equal("SPC-X", allowed.Value!.Barcode);
     }
 
     [Fact]
@@ -321,15 +541,15 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         await using var context = _factory.Create();
         var denied = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenAccession))
-            .UpdateAsync(specimenId, new UpdateSpecimenRequest(collected, Barcode: "BC-X"));
+            .UpdateAsync(specimenId, new UpdateSpecimenRequest(collected, DrawLocation: "4W"));
         Assert.False(denied.Succeeded);
         Assert.Equal(SpecimenAuthorizationRule.EvaluateEdit(false).Message, denied.Error);
-        Assert.Null((await context.Specimens.FindAsync(specimenId))!.Barcode);
+        Assert.Null((await context.Specimens.FindAsync(specimenId))!.DrawLocation);
 
         var allowed = await Specimens(context, new FixedPermissionEvaluator(1, PermissionCodes.SpecimenEdit))
-            .UpdateAsync(specimenId, new UpdateSpecimenRequest(collected, Barcode: "BC-X"));
+            .UpdateAsync(specimenId, new UpdateSpecimenRequest(collected, DrawLocation: "4W"));
         Assert.True(allowed.Succeeded, allowed.Error);
-        Assert.Equal("BC-X", allowed.Value!.Barcode);
+        Assert.Equal("4W", allowed.Value!.DrawLocation);
     }
 
     [Fact]
@@ -391,11 +611,10 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
 
         await using var context = _factory.Create();
         var updated = await Specimens(context).UpdateAsync(specimenId, new UpdateSpecimenRequest(
-            collected, Barcode: "BC-POL", ExpiresUtc: policyExpires));
+            collected, ExpiresUtc: policyExpires));
 
         Assert.True(updated.Succeeded, updated.Error);
         Assert.Equal(policyExpires, updated.Value!.ExpiresUtc);
-        Assert.Equal("BC-POL", updated.Value.Barcode);
         Assert.False(await context.Overrides.AnyAsync(o =>
             o.ContextType == nameof(Specimen)
             && o.ContextId == specimenId

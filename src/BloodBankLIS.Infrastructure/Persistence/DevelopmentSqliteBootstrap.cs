@@ -132,6 +132,9 @@ public static class DevelopmentSqliteBootstrap
         ("InventoryLocations", "StorageTempMaxC", """ALTER TABLE "InventoryLocations" ADD COLUMN "StorageTempMaxC" TEXT NULL"""),
         ("InventoryLocations", "DefaultInTransitHours", """ALTER TABLE "InventoryLocations" ADD COLUMN "DefaultInTransitHours" INTEGER NULL"""),
         ("InventoryLocations", "Notes", """ALTER TABLE "InventoryLocations" ADD COLUMN "Notes" TEXT NULL"""),
+        ("InventoryLocations", "TimeOutGoverned", """ALTER TABLE "InventoryLocations" ADD COLUMN "TimeOutGoverned" INTEGER NOT NULL DEFAULT 1"""),
+        ("UnitModifications", "SupplyDescription", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyDescription" TEXT NULL"""),
+        ("UnitModifications", "SupplyLot", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyLot" TEXT NULL"""),
         ("ChargeCodes", "RevenueCode", """ALTER TABLE "ChargeCodes" ADD COLUMN "RevenueCode" TEXT NULL"""),
         ("ChargeCodes", "Modifier", """ALTER TABLE "ChargeCodes" ADD COLUMN "Modifier" TEXT NULL"""),
         ("BillingEvents", "ProcedureCode", """ALTER TABLE "BillingEvents" ADD COLUMN "ProcedureCode" TEXT NULL"""),
@@ -163,6 +166,10 @@ public static class DevelopmentSqliteBootstrap
         CancellationToken cancellationToken = default)
     {
         await EnsureOrderCancellationReasonsTableAsync(context, cancellationToken);
+        await EnsureCompetitorGapTablesAsync(context, cancellationToken);
+        await EnsureShiftHandoffsTableAsync(context, cancellationToken);
+        await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
+        await EnsurePatientMergeTablesAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -221,6 +228,179 @@ public static class DevelopmentSqliteBootstrap
             ct);
         await context.Database.ExecuteSqlRawAsync(
             """CREATE INDEX "IX_OrderCancellationReasons_IsActive_SortOrder" ON "OrderCancellationReasons" ("IsActive", "SortOrder")""",
+            ct);
+    }
+
+    /// <summary>
+    /// Creates the shift-handoff table when an existing dev database predates it.
+    /// </summary>
+    private static async Task EnsureShiftHandoffsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "ShiftHandoffs", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "ShiftHandoffs" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_ShiftHandoffs" PRIMARY KEY AUTOINCREMENT,
+                "RecordedUtc" TEXT NOT NULL,
+                "FromUser" TEXT NOT NULL,
+                "ToUser" TEXT NULL,
+                "Notes" TEXT NOT NULL,
+                "RetrospectiveDue" INTEGER NOT NULL,
+                "RetrospectiveOverdue" INTEGER NOT NULL,
+                "OutstandingIssued" INTEGER NOT NULL,
+                "InTransit" INTEGER NOT NULL,
+                "InTransitOverdue" INTEGER NOT NULL,
+                "PendingTests" INTEGER NOT NULL,
+                "PendingSpecimens" INTEGER NOT NULL,
+                "OpenReactions" INTEGER NOT NULL,
+                "FatalityFollowUpDue" INTEGER NOT NULL,
+                "AcknowledgedBy" TEXT NULL,
+                "AcknowledgedUtc" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """,
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_ShiftHandoffs_RecordedUtc" ON "ShiftHandoffs" ("RecordedUtc")""",
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_ShiftHandoffs_AcknowledgedUtc" ON "ShiftHandoffs" ("AcknowledgedUtc")""",
+            ct);
+    }
+
+    /// <summary>
+    /// Creates the DAT/elution workup table when an existing dev database predates it.
+    /// </summary>
+    private static async Task EnsureDatElutionWorkupsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "DatElutionWorkups", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "DatElutionWorkups" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_DatElutionWorkups" PRIMARY KEY AUTOINCREMENT,
+                "PatientId" INTEGER NOT NULL,
+                "SpecimenId" INTEGER NULL,
+                "Status" INTEGER NOT NULL,
+                "DatResult" INTEGER NOT NULL,
+                "DatMethod" TEXT NULL,
+                "ElutionResult" TEXT NULL,
+                "ElutionNotPerformedReason" TEXT NULL,
+                "Comment" TEXT NULL,
+                "CompletedBy" TEXT NULL,
+                "CompletedUtc" TEXT NULL,
+                "VoidedBy" TEXT NULL,
+                "VoidedUtc" TEXT NULL,
+                "VoidReason" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """,
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_DatElutionWorkups_PatientId" ON "DatElutionWorkups" ("PatientId")""",
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_DatElutionWorkups_Status" ON "DatElutionWorkups" ("Status")""",
+            ct);
+    }
+
+    /// <summary>
+    /// Creates the patient-merge ledger when an existing dev database predates it.
+    /// </summary>
+    private static async Task EnsurePatientMergeTablesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "PatientMerges", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "PatientMerges" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_PatientMerges" PRIMARY KEY AUTOINCREMENT,
+                "SurvivorPatientId" INTEGER NOT NULL,
+                "DuplicatePatientId" INTEGER NOT NULL,
+                "Status" INTEGER NOT NULL,
+                "Reason" TEXT NOT NULL,
+                "MergedBy" TEXT NOT NULL,
+                "MergedUtc" TEXT NOT NULL,
+                "UnmergeReason" TEXT NULL,
+                "UnmergedBy" TEXT NULL,
+                "UnmergedUtc" TEXT NULL,
+                "SurvivorDeceasedBefore" INTEGER NOT NULL,
+                "SurvivorDeceasedUtcBefore" TEXT NULL,
+                "SurvivorRecentPregnancyUtcBefore" TEXT NULL,
+                "SurvivorDeceasedAfter" INTEGER NOT NULL,
+                "SurvivorDeceasedUtcAfter" TEXT NULL,
+                "SurvivorRecentPregnancyUtcAfter" TEXT NULL,
+                "PriorMrnIdentifierId" INTEGER NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """,
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_PatientMerges_DuplicatePatientId" ON "PatientMerges" ("DuplicatePatientId")""",
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_PatientMerges_SurvivorPatientId" ON "PatientMerges" ("SurvivorPatientId")""",
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_PatientMerges_DuplicatePatientId_Status" ON "PatientMerges" ("DuplicatePatientId", "Status")""",
+            ct);
+
+        if (await TableExistsAsync(context, "PatientMergeMoves", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "PatientMergeMoves" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_PatientMergeMoves" PRIMARY KEY AUTOINCREMENT,
+                "PatientMergeId" INTEGER NOT NULL,
+                "EntityType" TEXT NOT NULL,
+                "EntityId" INTEGER NOT NULL,
+                "Action" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_PatientMergeMoves_PatientMerges_PatientMergeId"
+                    FOREIGN KEY ("PatientMergeId") REFERENCES "PatientMerges" ("Id") ON DELETE CASCADE
+            )
+            """,
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_PatientMergeMoves_PatientMergeId" ON "PatientMergeMoves" ("PatientMergeId")""",
+            ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_PatientMergeMoves_EntityType_EntityId" ON "PatientMergeMoves" ("EntityType", "EntityId")""",
             ct);
     }
 
@@ -414,6 +594,96 @@ public static class DevelopmentSqliteBootstrap
     /// rather than hand-maintained so a newly added entity cannot silently drift out of the dev
     /// database and fail later during seeding.
     /// </summary>
+    private static async Task EnsureCompetitorGapTablesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct) || !await TableExistsAsync(context, "Patients", ct))
+        {
+            return;
+        }
+
+        if (!await TableExistsAsync(context, "Reagents", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "Reagents" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_Reagents" PRIMARY KEY AUTOINCREMENT,
+                    "Code" TEXT NOT NULL,
+                    "Name" TEXT NOT NULL,
+                    "IsActive" INTEGER NOT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                )
+                """, ct);
+        }
+
+        if (!await TableExistsAsync(context, "ReagentLots", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "ReagentLots" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_ReagentLots" PRIMARY KEY AUTOINCREMENT,
+                    "ReagentId" INTEGER NOT NULL,
+                    "LotNumber" TEXT NOT NULL,
+                    "ReceivedUtc" TEXT NOT NULL,
+                    "OpenedUtc" TEXT NULL,
+                    "ClosedUtc" TEXT NULL,
+                    "ExpiresUtc" TEXT NOT NULL,
+                    "State" INTEGER NOT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                )
+                """, ct);
+        }
+
+        if (!await TableExistsAsync(context, "ReagentDailyQcs", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "ReagentDailyQcs" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_ReagentDailyQcs" PRIMARY KEY AUTOINCREMENT,
+                    "ReagentLotId" INTEGER NOT NULL,
+                    "QcDateUtc" TEXT NOT NULL,
+                    "ExpectedResult" TEXT NOT NULL,
+                    "ObservedResult" TEXT NOT NULL,
+                    "Passed" INTEGER NOT NULL,
+                    "PerformedBy" TEXT NOT NULL,
+                    "PerformedUtc" TEXT NOT NULL,
+                    "ReviewedBy" TEXT NULL,
+                    "ReviewedUtc" TEXT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                )
+                """, ct);
+        }
+
+        if (!await TableExistsAsync(context, "StockParLevels", ct))
+        {
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                CREATE TABLE "StockParLevels" (
+                    "Id" INTEGER NOT NULL CONSTRAINT "PK_StockParLevels" PRIMARY KEY AUTOINCREMENT,
+                    "ProductTypeId" INTEGER NOT NULL,
+                    "Abo" INTEGER NULL,
+                    "MinimumAvailable" INTEGER NOT NULL,
+                    "CreatedUtc" TEXT NOT NULL,
+                    "CreatedBy" TEXT NOT NULL,
+                    "ModifiedUtc" TEXT NULL,
+                    "ModifiedBy" TEXT NULL,
+                    "RowVersion" BLOB NULL
+                )
+                """, ct);
+        }
+    }
+
     private static async Task<string?> FindMissingTableAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.Database.CanConnectAsync(ct))

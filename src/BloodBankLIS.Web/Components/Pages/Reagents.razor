@@ -1,0 +1,195 @@
+@page "/reagents"
+@using BloodBankLIS.Domain.Entities
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Reagent QC &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Reagent QC</h1>
+<p class="muted">Record reagent lots and the daily QC row. Review is a different person from the one who performed the QC. Overdue, failed, and unreviewed rows stay on the worklist. Patient resulting stays open unless facility policy blocks it. That policy is off unless an administrator turns it on. This is not a CLIA hold.</p>
+<Outcome Value="_feedback" />
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Worklist</h3></div>
+    @if (_work.Count == 0)
+    {
+        <div class="muted">No overdue, failed, or unreviewed QC.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Kind</th><th>Lot</th><th>Detail</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var row in _work)
+                {
+                    <tr>
+                        <td>@row.Kind</td>
+                        <td class="mono">@row.LotNumber</td>
+                        <td>@row.Message</td>
+                        <td>
+                            @if (row.QcId is long qcId && row.Kind == ReagentQcWorklistRule.Unreviewed && Session.Has(PermissionCodes.ResultEnter))
+                            {
+                                <button class="btn btn-secondary btn-sm" @onclick="() => ReviewAsync(qcId)">Review</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (Session.Has(PermissionCodes.ResultEnter))
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Reagent</h3></div>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input @bind="_code" /></div>
+            <div class="field"><label>Name</label><input @bind="_name" /></div>
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="SaveReagentAsync">Save reagent</button>
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Lot</h3></div>
+        <div class="form-row">
+            <div class="field">
+                <label>Reagent</label>
+                <select @bind="_reagentId">
+                    <option value="0">Select</option>
+                    @foreach (var reagent in _reagents.Where(r => r.IsActive))
+                    {
+                        <option value="@reagent.Id">@reagent.Code — @reagent.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Lot number</label><input @bind="_lotNumber" /></div>
+            <div class="field"><label>Expires (UTC)</label><input type="datetime-local" @bind="_expiresLocal" /></div>
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="ReceiveLotAsync">Receive lot</button>
+        <table class="bb" style="margin-top:1rem;">
+            <thead><tr><th>Reagent</th><th>Lot</th><th>State</th><th>Expires</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var lot in _lots)
+                {
+                    <tr>
+                        <td class="mono">@lot.ReagentCode</td>
+                        <td class="mono">@lot.LotNumber</td>
+                        <td>@lot.State</td>
+                        <td>@lot.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>
+                            @if (lot.State == ReagentLotState.Received)
+                            {
+                                <button class="btn btn-secondary btn-sm" @onclick="() => OpenAsync(lot.Id)">Open</button>
+                            }
+                            @if (lot.State != ReagentLotState.Closed)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => CloseAsync(lot.Id)">Close</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Daily QC</h3></div>
+        <div class="form-row">
+            <div class="field">
+                <label>Lot</label>
+                <select @bind="_qcLotId">
+                    <option value="0">Select</option>
+                    @foreach (var lot in _lots.Where(l => l.State != ReagentLotState.Closed))
+                    {
+                        <option value="@lot.Id">@lot.ReagentCode @lot.LotNumber</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Expected</label><input @bind="_expected" /></div>
+            <div class="field"><label>Observed</label><input @bind="_observed" /></div>
+            <div class="field"><label>Passed</label><input type="checkbox" @bind="_passed" /></div>
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="RecordQcAsync">Record QC</button>
+    </div>
+}
+
+@code {
+    private List<ReagentDto> _reagents = new();
+    private List<ReagentLotDto> _lots = new();
+    private List<ReagentQcWorkItemDto> _work = new();
+    private Feedback? _feedback;
+    private string _code = string.Empty;
+    private string _name = string.Empty;
+    private long _reagentId;
+    private string _lotNumber = string.Empty;
+    private DateTime _expiresLocal = DateTime.UtcNow.Date.AddDays(30);
+    private long _qcLotId;
+    private string _expected = string.Empty;
+    private string _observed = string.Empty;
+    private bool _passed = true;
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        var reagents = await Api.GetReagentsAsync();
+        if (reagents.Succeeded) _reagents = reagents.Value ?? new();
+        var lots = await Api.GetReagentLotsAsync();
+        if (lots.Succeeded) _lots = lots.Value ?? new();
+        var work = await Api.GetReagentQcWorklistAsync();
+        if (work.Succeeded) _work = work.Value ?? new();
+    }
+
+    private async Task SaveReagentAsync()
+    {
+        var saved = await Api.SaveReagentAsync(new SaveReagentRequest(_code, _name));
+        _feedback = saved.ToFeedback("Reagent saved.");
+        if (saved.Succeeded)
+        {
+            _code = string.Empty;
+            _name = string.Empty;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task ReceiveLotAsync()
+    {
+        var expires = DateTime.SpecifyKind(_expiresLocal, DateTimeKind.Utc);
+        var saved = await Api.ReceiveReagentLotAsync(new ReceiveReagentLotRequest(_reagentId, _lotNumber, expires));
+        _feedback = saved.ToFeedback("Lot received.");
+        if (saved.Succeeded)
+        {
+            _lotNumber = string.Empty;
+            await ReloadAsync();
+        }
+    }
+
+    private async Task OpenAsync(long id)
+    {
+        var saved = await Api.OpenReagentLotAsync(id);
+        _feedback = saved.ToFeedback("Lot opened.");
+        if (saved.Succeeded) await ReloadAsync();
+    }
+
+    private async Task CloseAsync(long id)
+    {
+        var saved = await Api.CloseReagentLotAsync(id);
+        _feedback = saved.ToFeedback("Lot closed.");
+        if (saved.Succeeded) await ReloadAsync();
+    }
+
+    private async Task RecordQcAsync()
+    {
+        var saved = await Api.RecordReagentQcAsync(new RecordReagentQcRequest(_qcLotId, _expected, _observed, _passed));
+        _feedback = saved.ToFeedback("QC recorded.");
+        if (saved.Succeeded) await ReloadAsync();
+    }
+
+    private async Task ReviewAsync(long id)
+    {
+        var saved = await Api.ReviewReagentQcAsync(id);
+        _feedback = saved.ToFeedback("QC reviewed.");
+        if (saved.Succeeded) await ReloadAsync();
+    }
+}

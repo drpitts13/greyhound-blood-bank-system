@@ -2,7 +2,6 @@
 @using Microsoft.AspNetCore.Components
 @inject BloodBankApiClient Api
 @inject UserSession Session
-@inject IJSRuntime Js
 
 <PageTitle>Issue &amp; Transfuse &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -16,7 +15,26 @@
 }
 <p class="muted">The issue gate runs all safety checks, including storage-location policy and electronic / remote issue eligibility (AABB 5.16). Overrides require a reason and an electronic signature. Reserved units appear on Ready to issue so the desk does not re-key patient and unit after allocate.</p>
 
-@if (Session.Has(PermissionCodes.IssueCreate))
+<div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
+    @if (Session.Has(PermissionCodes.IssueCreate))
+    {
+        <button type="button" class="btn @DeskClass("ready")" @onclick='() => SelectDesk("ready")'>Ready to issue</button>
+        <button type="button" class="btn @DeskClass("second")" @onclick='() => SelectDesk("second")'>Second ABO/Rh</button>
+        <button type="button" class="btn @DeskClass("retro")" @onclick='() => SelectDesk("retro")'>Retrospective</button>
+        <button type="button" class="btn @DeskClass("transit")" @onclick='() => SelectDesk("transit")'>In transit</button>
+    }
+    @if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.IssueReturn) || Session.Has(PermissionCodes.TransfusionDocument))
+    {
+        <button type="button" class="btn @DeskClass("issued")" @onclick='() => SelectDesk("issued")'>Issued units</button>
+        <button type="button" class="btn @DeskClass("disposition")" @onclick='() => SelectDesk("disposition")'>Final disposition</button>
+    }
+    <button type="button" class="btn @DeskClass("issue")" @onclick='() => SelectDesk("issue")'>Issue</button>
+    <button type="button" class="btn @DeskClass("receipt")" @onclick='() => SelectDesk("receipt")'>Ward receipt</button>
+    <button type="button" class="btn @DeskClass("return")" @onclick='() => SelectDesk("return")'>Return</button>
+    <button type="button" class="btn @DeskClass("transfuse")" @onclick='() => SelectDesk("transfuse")'>Document transfusion</button>
+</div>
+
+@if (Session.Has(PermissionCodes.IssueCreate) && _desk == "second")
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Second ABO/Rh due</h3></div>
@@ -50,10 +68,13 @@
             </table>
         }
     </div>
+}
 
+@if (Session.Has(PermissionCodes.IssueCreate) && _desk == "ready")
+{
     <div class="bb-card">
         <div class="bb-card-title"><h3>Ready to issue</h3></div>
-        <p class="muted">Units reserved to a patient. Issue from the row prefills unit, MRN, and date of birth on the existing issue form. Red cells and whole blood that still need a second concordant ABO/Rh are marked and are not offered as a routine issue. Emergency release stays available for staff who can authorize it. A missing or expired current specimen is marked and is not offered for routine or emergency issue. An outdated unit says Outdated and is not offered for routine or emergency issue. An open antibody-identification workup is marked Open ABID and can still be issued. A unit inside the issue near-expiry window, including the shorter post-thaw window, is marked Expires soon and can still be issued. When electronic crossmatch is not eligible, the row shows the existing blocking reason. Serologic issue is unchanged. A unit that still needs a compatible crossmatch is marked and is not offered as a routine issue. An incompatible crossmatch is marked and can still be issued with the existing override. A unit that fails an active irradiated, CMV-negative, leukoreduced, washed, or antigen-negative requirement is marked Special need and is not offered for routine or emergency issue. A unit that is not antigen-negative for a clinically significant antibody is marked Antigen and can still be issued with the existing override. An unresolved ABO/Rh discrepancy on a crossmatch-required product is marked and is not offered for routine or emergency issue. On a product that does not require a crossmatch, the discrepancy is marked and can still be issued with the existing override. A patient with a recorded transfusion reaction is marked Reaction and can still be issued. Choosing Issue or Emergency repeats those marks on the issue form for that unit and patient. A reserved autologous or directed unit for this patient is marked with that selection cue and can still be issued. The issue gate still refuses another patient's restricted unit. Each reserved unit shows its product name, and that name is repeated on the issue form. Each reserved unit shows when it expires, and that time is repeated on the issue form. Each reserved unit shows its ABO/Rh next to the patient type, and that unit type is repeated on the issue form. When a reserved unit has a current compatible crossmatch, the row shows when that crossmatch expires, and that time is repeated on the issue form. Each reserved unit shows the storage location it is in, and that location is repeated on the issue form. Each reserved unit shows the accession of the current specimen for that issue, and that accession is repeated on the issue form. Each reserved unit shows the latest crossmatch result, and Issue or Emergency repeats that result. A unit with no crossmatch result shows none.</p>
+        <p class="muted">Reserved units waiting to issue. Issue on the row fills the issue form with the unit, MRN, and date of birth. Marks on the row are repeated on that form.</p>
         @if (_readyItems.Count == 0)
         {
             <div class="muted">No reserved units waiting to issue.</div>
@@ -189,10 +210,13 @@
             </table>
         }
     </div>
+}
 
+@if (Session.Has(PermissionCodes.IssueCreate) && _desk == "retro")
+{
     <div class="bb-card">
         <div class="bb-card-title"><h3>Retrospective crossmatch due</h3></div>
-        <p class="muted">Emergency and MTP issues released without a compatible crossmatch stay here until retrospective testing is recorded (21 CFR 606.151(b)). Each row shows the product name, when the unit expires, the unit ABO/Rh beside the patient type, the latest crossmatch result, and when a current compatible crossmatch expires. A unit with no crossmatch result shows none. Each row shows the person the unit was issued to. A unit with no issued-to person shows none. Each row shows the cooler or transport id. A unit with no cooler shows none. Each row shows the location the unit was issued to. A unit with no location shows none. Each row shows who issued the unit. The follow-up screen repeats that name. A unit with no issuing user shows none. Each row shows the second verifier recorded at issue. The follow-up screen repeats that name. A blank second verifier shows none. Each row shows the recorded emergency-release reason. The follow-up screen repeats that reason. A row with no reason shows none. Each row shows who authorized the emergency or massive-transfusion release. The follow-up screen repeats that name. A blank authorizer shows none. Each row shows the appearance recorded at issue. The follow-up screen repeats that code. Each row shows the pickup tag scanned at issue. The follow-up screen repeats that code. A blank pickup tag shows none. Retrospective completion is unchanged.</p>
+        <p class="muted">Emergency and massive-transfusion issues stay here until a compatible crossmatch is recorded.</p>
         @if (_retroItems.Count == 0)
         {
             <div class="muted">No retrospective crossmatches pending.</div>
@@ -212,6 +236,7 @@
                         <th>Antibodies</th>
                         <th>Specimen</th>
                         <th>Crossmatch</th>
+                        <th>XM at issue</th>
                         <th>Issue type</th>
                         <th>Release reason</th>
                         <th>Authorized by</th>
@@ -250,6 +275,7 @@
                                     <div class="muted">@retroXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
                                 }
                             </td>
+                            <td>@row.CrossmatchStatus</td>
                             <td>@row.IssueType</td>
                             <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseDetails) ? "—" : row.EmergencyReleaseDetails)</td>
                             <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseAuthorizer) ? "—" : row.EmergencyReleaseAuthorizer)</td>
@@ -280,10 +306,13 @@
             </table>
         }
     </div>
+}
 
+@if (Session.Has(PermissionCodes.IssueCreate) && _desk == "transit")
+{
     <div class="bb-card">
         <div class="bb-card-title"><h3>In transit to ward</h3></div>
-        <p class="muted">Issued units in a cooler or courier handoff until the receiving location acknowledges custody (SoftBank remote issue). Each row shows the product name, when the unit expires, the unit ABO/Rh, the specimen accession, the latest crossmatch result, and when a current compatible crossmatch expires. Receive repeats all five. A unit with no crossmatch result shows none. Each row shows the person the unit was issued to. Receive repeats that person. A unit with no issued-to person shows none. Receive repeats the cooler or transport id. A unit with no cooler shows none. Receive repeats the location the unit was issued to. A unit with no location shows none. Each row shows the recorded issue type. Each row shows the recorded emergency-release reason. Receive repeats that reason. A blank reason shows none. Each row shows who issued the unit. Receive repeats that name. A unit with no issuing user shows none. Each row shows the second verifier recorded at issue. Receive repeats that name. A blank second verifier shows none. Each row shows who authorized an emergency or massive-transfusion release. Receive repeats that name. A blank authorizer shows none. Each row shows the appearance recorded at issue. Receive repeats that code. Each row shows the pickup tag scanned at issue. Receive repeats that code. A blank pickup tag shows none. Each row shows the crossmatch status recorded at issue. Receive repeats that status. The issue gate is unchanged.</p>
+        <p class="muted">Issued units stay here until the receiving location acknowledges custody.</p>
         @if (_inTransitItems.Count == 0)
         {
             <div class="muted">No units currently in transit.</div>
@@ -367,7 +396,7 @@
                             <td>
                                 @if (Session.Has(PermissionCodes.TransfusionDocument))
                                 {
-                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="async () => { SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus); await Js.ScrollIntoViewAsync(WardCardId); }">Receive</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
                                 }
                             </td>
                         </tr>
@@ -378,11 +407,11 @@
     </div>
 }
 
-@if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.IssueReturn) || Session.Has(PermissionCodes.TransfusionDocument))
+@if ((Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.IssueReturn) || Session.Has(PermissionCodes.TransfusionDocument)) && _desk == "issued")
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Issued units</h3></div>
-        <p class="muted">Units still Issued — including after ward receipt — so return and transfusion identify the unit by number instead of a raw issue id. Each issued unit shows its product name, when it expires, its ABO/Rh, the specimen accession, the latest crossmatch result, and when a current compatible crossmatch expires. Return and Document repeat all five. A unit with no crossmatch result shows none. Each row shows the person the unit was issued to. Receive, Return, and Document repeat that person. A unit with no issued-to person shows none. Each row shows the cooler or transport id. Receive, Return, and Document repeat that id. A unit with no cooler shows none. Each row shows the location the unit was issued to. Receive, Return, and Document repeat that location. A unit with no location shows none. Each row shows the recorded issue type, including after ward receipt. Each row shows the recorded emergency-release reason, including after ward receipt. Receive, Return, and Document repeat that reason. A blank reason shows none. Each row shows who issued the unit, including after ward receipt. Receive, Return, and Document repeat that name. A unit with no issuing user shows none. Each row shows the second verifier recorded at issue, including after ward receipt. Receive, Return, and Document repeat that name. A blank second verifier shows none. Each row shows who authorized an emergency or massive-transfusion release, including after ward receipt. Receive, Return, and Document repeat that name. A blank authorizer shows none. Each row shows the appearance recorded at issue, including after ward receipt. Receive, Return, and Document repeat that code. The issue gate is unchanged. Each row shows the appearance recorded at ward receipt after the unit is received. A unit still awaiting receipt shows none. Return and Document repeat that code. The ward-receipt gate is unchanged. Each row shows the pickup tag scanned at issue, including after ward receipt. Receive, Return, and Document repeat that code. A blank pickup tag shows none. Each row shows the crossmatch status recorded at issue, including after ward receipt. Receive, Return, and Document repeat that status. Return, ward-receipt, and bedside identity gates are unchanged.</p>
+        <p class="muted">Units still issued, including after ward receipt. Return, Receive, and Document on the row open the matching form.</p>
         @if (_outstandingItems.Count == 0)
         {
             <div class="muted">No outstanding issued units.</div>
@@ -416,6 +445,7 @@
                         <th>Appearance</th>
                         <th>P-tag</th>
                         <th>Issued</th>
+                        <th>Time out</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -468,18 +498,19 @@
                             <td>@row.IssueAppearance</td>
                             <td class="mono">@(string.IsNullOrWhiteSpace(row.PtagCode) ? "—" : row.PtagCode)</td>
                             <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</td>
                             <td class="right nowrap">
                                 @if (row.WardReceivedUtc is null && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
-                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="async () => { SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus); await Js.ScrollIntoViewAsync(WardCardId); }">Receive</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
                                 }
                                 @if (Session.Has(PermissionCodes.IssueReturn))
                                 {
-                                    <button type="button" class="btn btn-secondary btn-sm" @onclick="async () => { SelectReturnIssue(row); await Js.ScrollIntoViewAsync(ReturnCardId); }">Return</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectReturnIssue(row)">Return</button>
                                 }
                                 @if (row.WardReceivedUtc is not null && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
-                                    <button type="button" class="btn btn-primary btn-sm" @onclick="async () => { SelectTransfusionIssue(row); await Js.ScrollIntoViewAsync(TransfusionCardId); }">Document</button>
+                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(row)">Document</button>
                                 }
                             </td>
                         </tr>
@@ -490,6 +521,41 @@
     </div>
 }
 
+@if ((Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.IssueReturn) || Session.Has(PermissionCodes.TransfusionDocument)) && _desk == "disposition")
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Overdue final disposition</h3></div>
+        <p class="muted">Issued units past the facility window with no transfusion document, return, or discard. The default window is 24 hours. This board warns. It does not block issue or documentation.</p>
+        @if (_dispositionItems.Count > 0)
+        {
+            <blockquote>Warning. These units are past the final-disposition window.</blockquote>
+        }
+        @if (_dispositionItems.Count == 0)
+        {
+            <div class="muted">No issued units are past the final-disposition window.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Unit</th><th>Patient</th><th>Issued</th><th>Due</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _dispositionItems)
+                    {
+                        <tr>
+                            <td class="mono"><a href="@InventoryUrls.Unit(row.UnitId)">@row.UnitNumber</a></td>
+                            <td>@row.PatientLabel</td>
+                            <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@row.DueUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@if (_desk == "issue")
+{
 <div class="bb-card" @ref="_issueForm" tabindex="-1">
     <div class="bb-card-title"><h3>Issue a unit</h3></div>
     @if (!Session.Has(PermissionCodes.IssueCreate))
@@ -631,8 +697,11 @@
         }
     }
 </div>
+}
 
-<div class="bb-card" id="issuing-ward">
+@if (_desk == "receipt")
+{
+<div class="bb-card">
     <div class="bb-card-title"><h3>Ward receipt</h3></div>
     <p class="muted">The receiving location must acknowledge custody before transfusion can be documented (SoftBank remote-issue receipt).</p>
     @if (!Session.Has(PermissionCodes.TransfusionDocument))
@@ -702,9 +771,11 @@
         }
     }
 </div>
+}
 
-<div class="bb-grid cols-2">
-    <div class="bb-card" id="issuing-return">
+@if (_desk == "return")
+{
+    <div class="bb-card">
         <div class="bb-card-title"><h3>Return a unit</h3></div>
         @if (!Session.Has(PermissionCodes.IssueReturn))
         {
@@ -749,13 +820,17 @@
                     {
                         <p class="muted" style="margin:0;">@_returnCrossmatchStatusNotice</p>
                     }
+                    @if (!string.IsNullOrWhiteSpace(_returnTimeOutNotice))
+                    {
+                        <p class="muted" style="margin:0;">@_returnTimeOutNotice</p>
+                    }
                     @if (!string.IsNullOrWhiteSpace(_returnWardAppearance))
                     {
                         <p class="muted" style="margin:0;">@_returnWardAppearance</p>
                     }
                 }
             </div>
-            <p class="muted">Record temperature, seal, and visual inspection. A failed seal or appearance cannot return to available stock. Time out of storage is still computed by the return rule.</p>
+            <p class="muted">Record temperature, seal, and visual inspection. A failed seal or appearance cannot return to available stock. The storage device decides the return-to-available window. A governed device cannot be declared acceptable after that window. An exempt device does not fail the window.</p>
             <label class="checkbox-item"><input type="checkbox" @bind="_returnTempOk" @bind:after="SyncReturnDestination" /> Temperature acceptable</label>
             <label class="checkbox-item"><input type="checkbox" @bind="_returnSealOk" @bind:after="SyncReturnDestination" /> Seal intact</label>
             <label class="checkbox-item"><input type="checkbox" @bind="_returnVisualOk" @bind:after="SyncReturnDestination" /> Visual inspection acceptable</label>
@@ -774,8 +849,11 @@
             }
         }
     </div>
+}
 
-    <div class="bb-card" id="issuing-transfusion">
+@if (_desk == "transfuse")
+{
+    <div class="bb-card">
         <div class="bb-card-title"><h3>Document transfusion</h3></div>
         @if (!Session.Has(PermissionCodes.TransfusionDocument))
         {
@@ -856,7 +934,7 @@
             }
         }
     </div>
-</div>
+}
 
 @code {
     private IEnumerable<IssueType> AllowedIssueTypes =>
@@ -865,10 +943,8 @@
             || Session.Has(PermissionCodes.IssueEmergencyRelease));
 
     private bool _busy;
+    private string _desk = "ready";
     private ElementReference _issueForm;
-    private const string WardCardId = "issuing-ward";
-    private const string ReturnCardId = "issuing-return";
-    private const string TransfusionCardId = "issuing-transfusion";
 
     private IssueModel _issue = new();
     private List<SpecialRequirementDto> _issueAckRequirements = new();
@@ -912,8 +988,9 @@
     private bool _returnTempOk = true;
     private bool _returnSealOk = true;
     private bool _returnVisualOk = true;
+    private bool _returnTimeOutAcceptable = true;
     private UnitStatus _returnDestination = UnitStatus.Available;
-    private bool ReturnCanBeAvailable => _returnTempOk && _returnSealOk && _returnVisualOk;
+    private bool ReturnCanBeAvailable => _returnTempOk && _returnSealOk && _returnVisualOk && _returnTimeOutAcceptable;
     private Feedback? _returnFb;
 
     private long _txIssueId;
@@ -951,6 +1028,7 @@
     private List<RetrospectiveCrossmatchWorkItemDto> _retroItems = new();
     private List<InTransitWorkItemDto> _inTransitItems = new();
     private List<OutstandingIssueWorkItemDto> _outstandingItems = new();
+    private List<OverdueDispositionWorkItemDto> _dispositionItems = new();
     private List<SecondAboWorkItemDto> _secondAboItems = new();
     private List<ReadyToIssueWorkItemDto> _readyItems = new();
     private ReadyToIssueWorkItemDto? _prefilledRow;
@@ -967,6 +1045,7 @@
 
     [SupplyParameterFromQuery(Name = "patientId")] public long? QueryPatientId { get; set; }
     [SupplyParameterFromQuery(Name = "bloodUnitId")] public long? QueryBloodUnitId { get; set; }
+    [SupplyParameterFromQuery(Name = "desk")] public string? DeskQuery { get; set; }
     private string? _returnUnitNumber;
     private string? _returnProductName;
     private string? _returnExpirationNotice;
@@ -983,6 +1062,7 @@
     private string? _returnIssueAppearance;
     private string? _returnPtagNotice;
     private string? _returnCrossmatchStatusNotice;
+    private string? _returnTimeOutNotice;
     private string? _returnWardAppearance;
     private string? _returnPatientName;
     private long? _returnPatientId;
@@ -997,8 +1077,21 @@
     private IEnumerable<DirectoryUserDto> SecondVerifierChoices =>
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
 
+    private string DeskClass(string desk) => _desk == desk ? "btn-primary" : "btn-secondary";
+
+    private void SelectDesk(string desk) => _desk = desk;
+
     protected override async Task OnInitializedAsync()
     {
+        _desk = IssuingDeskQuery.Resolve(
+            DeskQuery,
+            Session.Has(PermissionCodes.IssueCreate),
+            Session.Has(PermissionCodes.IssueCreate)
+                || Session.Has(PermissionCodes.IssueReturn)
+                || Session.Has(PermissionCodes.TransfusionDocument),
+            QueryPatientId is not null || QueryBloodUnitId is not null,
+            _desk);
+
         if (Session.HasAny(PermissionCodes.PrintLabel, PermissionCodes.IssueCreate, PermissionCodes.TransfusionDocument))
         {
             var required = await Api.GetPtagIdRequiredAsync();
@@ -1026,6 +1119,7 @@
     {
         _issue.IssueType = IssueType.Standard;
         _overrideOn = false;
+        _desk = "issue";
         await PrefillReadyIssueAsync(row);
     }
 
@@ -1033,6 +1127,7 @@
     {
         _issue.IssueType = IssueType.EmergencyRelease;
         _overrideOn = true;
+        _desk = "issue";
         await PrefillReadyIssueAsync(row);
     }
 
@@ -1076,6 +1171,7 @@
 
     private void SelectWardIssue(long issueId, string? productName, DateTime? unitExpiresUtc, string? unitBloodType, string? specimenAccession, DateTime? crossmatchExpiresUtc, CrossmatchResult? latestCrossmatchResult, string? issuedTo, string? coolerId, string? issuedToLocation, string? issuedBy, string? emergencyReleaseDetails, string? secondVerifier, string? emergencyReleaseAuthorizer, UnitAppearance issueAppearance, string? ptagCode, CrossmatchClinicalStatus crossmatchStatus)
     {
+        _desk = "receipt";
         _wardIssueId = issueId;
         _wardProductName = productName;
         _wardExpirationNotice = ReadyToIssueFormCue.ExpirationNotice(unitExpiresUtc);
@@ -1097,6 +1193,7 @@
 
     private void SelectReturnIssue(OutstandingIssueWorkItemDto row)
     {
+        _desk = "return";
         _returnIssueId = row.IssueId;
         _returnUnitNumber = row.UnitNumber;
         _returnProductName = row.ProductName;
@@ -1114,13 +1211,15 @@
         _returnIssueAppearance = ReadyToIssueFormCue.IssueAppearanceNotice(row.IssueAppearance);
         _returnPtagNotice = ReadyToIssueFormCue.PtagNotice(row.PtagCode);
         _returnCrossmatchStatusNotice = ReadyToIssueFormCue.CrossmatchStatusNotice(row.CrossmatchStatus);
+        _returnTimeOutNotice = ReadyToIssueFormCue.TimeOutNotice(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable);
+        _returnTimeOutAcceptable = row.StorageTimeOutAcceptable;
         _returnWardAppearance = ReadyToIssueFormCue.WardAppearanceNotice(row.WardAppearance);
         _returnPatientName = row.PatientDisplayName;
         _returnPatientId = row.PatientId;
         _returnTempOk = true;
         _returnSealOk = true;
         _returnVisualOk = true;
-        _returnDestination = UnitStatus.Available;
+        _returnDestination = row.StorageTimeOutAcceptable ? UnitStatus.Available : UnitStatus.Quarantine;
     }
 
     private void SyncReturnDestination()
@@ -1137,6 +1236,7 @@
 
     private void SelectTransfusionIssue(OutstandingIssueWorkItemDto row)
     {
+        _desk = "transfuse";
         _txIssueId = row.IssueId;
         _txProductName = row.ProductName;
         _txExpirationNotice = ReadyToIssueFormCue.ExpirationNotice(row.UnitExpiresUtc);
@@ -1245,6 +1345,8 @@
         {
             var outstanding = await Api.GetOutstandingIssuesAsync();
             if (outstanding.Succeeded) _outstandingItems = outstanding.Value ?? new();
+            var disposition = await Api.GetOverdueDispositionAsync();
+            if (disposition.Succeeded) _dispositionItems = disposition.Value ?? new();
         }
     }
 
@@ -1359,7 +1461,7 @@
             _overrideOn = false;
             await LoadWorklistsAsync();
             _ptagFb = null;
-            _ptagScan = string.Empty;
+            _ptagScan = string.Empty; // a P-tag belongs to one issue
             _ptagJobId = null;
         }
         _busy = false;
@@ -1428,6 +1530,8 @@
             _returnIssueAppearance = null;
             _returnPtagNotice = null;
             _returnCrossmatchStatusNotice = null;
+            _returnTimeOutNotice = null;
+            _returnTimeOutAcceptable = true;
             _returnWardAppearance = null;
             _returnPatientName = null;
             _returnReason = string.Empty;

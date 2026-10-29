@@ -63,6 +63,21 @@ public sealed record BloodUnitDto(
     string? ProcessingFacilityCode = null,
     long? DeliveryId = null)
 {
+    public long? BloodSupplierId { get; init; }
+
+    /// <summary>True when this unit was produced by a modification and release still needs a matching label scan.</summary>
+    public bool RequiresModificationLabelScan { get; init; }
+
+    /// <summary>
+    /// Staff-facing supplier. A recorded name stays that name.
+    /// A blank name stays the supplier id when the delivery names that supplier.
+    /// The stored supplier and collection facility are not rewritten.
+    /// </summary>
+    public string? SupplierLabel =>
+        string.IsNullOrWhiteSpace(Supplier)
+            ? BloodSupplierId is long id ? BloodSupplierLabel.Name(id, Supplier) : null
+            : Supplier.Trim();
+
     public static BloodUnitDto From(BloodUnit u) => new(
         u.Id, u.UnitNumber, u.ComponentIdentity, u.Din, u.ProductCodeData,
         u.ProductDescriptionCode, u.Isbt128ProductCode, u.AboRhdCode,
@@ -91,6 +106,18 @@ public sealed record ExpectedInboundWorkItemDto(
     long ProductTypeId,
     bool IsOutdated = false)
 {
+    public long? BloodSupplierId { get; init; }
+
+    /// <summary>
+    /// Staff-facing supplier on the expected-inbound board.
+    /// A recorded name stays that name. A blank name stays the supplier id
+    /// when the delivery names that supplier. No delivery does not invent one.
+    /// </summary>
+    public string? SupplierLabel =>
+        string.IsNullOrWhiteSpace(Supplier)
+            ? BloodSupplierId is long id ? BloodSupplierLabel.Name(id, Supplier) : null
+            : Supplier.Trim();
+
     public static ExpectedInboundWorkItemDto From(BloodUnit u, DateTime now) => new(
         u.Id, u.UnitNumber, u.CreatedUtc, u.ExpectedArrivalDueUtc,
         ExpectedArrivalPendingRule.EvaluateOverdue(u.ExpectedArrivalDueUtc, now).Severity == RuleSeverity.Warning,
@@ -105,10 +132,16 @@ public sealed record NearExpiryWorkItemDto(
     UnitStatus Status,
     AboGroup Abo,
     RhType RhD,
-    long ProductTypeId)
+    long ProductTypeId,
+    long? CurrentLocationId = null,
+    string? CurrentLocationName = null)
 {
-    public static NearExpiryWorkItemDto From(BloodUnit u) => new(
-        u.Id, u.UnitNumber, u.ExpiresUtc, u.Status, u.Abo, u.RhD, u.ProductTypeId);
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public static NearExpiryWorkItemDto From(BloodUnit u, string? locationName = null) => new(
+        u.Id, u.UnitNumber, u.ExpiresUtc, u.Status, u.Abo, u.RhD, u.ProductTypeId,
+        u.CurrentLocationId,
+        string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
 }
 
 public sealed record QuarantineWorkItemDto(
@@ -123,18 +156,40 @@ public sealed record QuarantineWorkItemDto(
     string? ProductCode = null,
     AboGroup? RetypeInterpretedAbo = null,
     RhType? RetypeInterpretedRh = null,
-    bool RetypeMismatch = false)
+    bool RetypeMismatch = false,
+    long? CurrentLocationId = null,
+    string? CurrentLocationName = null,
+    decimal? Volume = null,
+    bool RequiresLabelScan = false)
 {
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public string VolumeLabel =>
+        Volume is decimal volume
+            ? $"{volume.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)} mL"
+            : "Volume not recorded";
+
+    public string ReleasePlaceSentence =>
+        LocationLabel == StorageLocationLabel.None
+            ? "No storage location is recorded."
+            : $"It is at {LocationLabel}.";
+
     public static QuarantineWorkItemDto From(
         BloodUnit u,
         string? productCode = null,
-        ProductRetypeResult? latestRetype = null) => new(
+        ProductRetypeResult? latestRetype = null,
+        string? locationName = null,
+        bool requiresLabelScan = false) => new(
         u.Id, u.UnitNumber, u.QuarantineReasonCode, u.QuarantineReason, u.Abo, u.RhD, u.ExpiresUtc,
         u.ProductTypeId,
         productCode ?? u.ProductType?.ProductCode,
         latestRetype?.InterpretedAbo,
         latestRetype?.InterpretedRh,
-        latestRetype is { MatchesLabel: false });
+        latestRetype is { MatchesLabel: false },
+        u.CurrentLocationId,
+        string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim(),
+        u.Volume,
+        requiresLabelScan);
 }
 
 public sealed record DiscrepancyWorkItemDto(
@@ -146,14 +201,18 @@ public sealed record DiscrepancyWorkItemDto(
     RhType RhD,
     long? CurrentLocationId,
     long ProductTypeId = 0,
-    string? ProductCode = null)
+    string? ProductCode = null,
+    string? CurrentLocationName = null)
 {
-    public static DiscrepancyWorkItemDto From(BloodUnit u, string? productCode = null) => new(
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public static DiscrepancyWorkItemDto From(BloodUnit u, string? productCode = null, string? locationName = null) => new(
         u.Id, u.UnitNumber, u.Status,
         u.Status == UnitStatus.Missing ? u.MissingReason : u.DamagedReason,
         u.Abo, u.RhD, u.CurrentLocationId,
         u.ProductTypeId,
-        productCode ?? u.ProductType?.ProductCode);
+        productCode ?? u.ProductType?.ProductCode,
+        string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
 }
 
 public sealed record OnHoldWorkItemDto(
@@ -164,10 +223,16 @@ public sealed record OnHoldWorkItemDto(
     RhType RhD,
     DateTime ExpiresUtc,
     long ProductTypeId = 0,
-    string? ProductCode = null)
+    string? ProductCode = null,
+    long? CurrentLocationId = null,
+    string? CurrentLocationName = null)
 {
-    public static OnHoldWorkItemDto From(BloodUnit u, string? productCode = null) => new(
+    public string LocationLabel => StorageLocationLabel.Format(CurrentLocationId, CurrentLocationName);
+
+    public static OnHoldWorkItemDto From(BloodUnit u, string? productCode = null, string? locationName = null) => new(
         u.Id, u.UnitNumber, u.HoldReason, u.Abo, u.RhD, u.ExpiresUtc,
         u.ProductTypeId,
-        productCode ?? u.ProductType?.ProductCode);
+        productCode ?? u.ProductType?.ProductCode,
+        u.CurrentLocationId,
+        string.IsNullOrWhiteSpace(locationName) ? null : locationName.Trim());
 }

@@ -76,12 +76,17 @@ public static class DependencyInjection
         services.AddScoped<UnitActivityService>();
         services.AddScoped<ProductRetypeService>();
         services.AddScoped<BloodProductModificationService>();
+        services.AddScoped<ReagentQcService>();
+        services.AddScoped<StockParService>();
         services.AddSingleton<IDinCheckCharacterValidator, Iso7064Mod37_2DinCheckCharacterValidator>();
         services.AddScoped<FacilityPolicyService>();
         services.AddScoped<SpecialRequirementService>();
         services.AddScoped<LookbackService>();
         services.AddScoped<ReactionInvestigationService>();
         services.AddScoped<DeviationService>();
+        services.AddScoped<ShiftHandoffService>();
+        services.AddScoped<SupervisorQueueService>();
+        services.AddScoped<DatElutionWorkupService>();
         services.AddScoped<DowntimeReconciliationService>();
         services.AddScoped<IsbtLookupCatalog>();
         services.AddScoped<IsbtParsingService>();
@@ -89,6 +94,7 @@ public static class DependencyInjection
         services.AddScoped<ManualComponentEntryService>();
         services.AddScoped<ComponentIdentityCorrectionService>();
         services.AddScoped<CompatibilityRulesEngine>();
+        services.AddScoped<PatientHistoricalAliasWriter>();
         services.AddScoped<PatientService>();
         services.AddScoped<PatientMergeService>();
         services.AddScoped<SpecimenService>();
@@ -112,6 +118,7 @@ public static class DependencyInjection
         services.AddScoped<CompatibilityService>();
         services.AddScoped<ElectronicCrossmatchEligibilityService>();
         services.AddScoped<IssuingService>();
+        services.AddScoped<FinalDispositionBoardService>();
         services.AddScoped<InterfaceTransfusionService>();
         services.AddScoped<BillingService>();
         services.TryAddScoped<IBillingInterfacePublisher, NoOpBillingInterfacePublisher>();

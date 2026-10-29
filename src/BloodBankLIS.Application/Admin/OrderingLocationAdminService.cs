@@ -148,7 +148,7 @@ public sealed class OrderingLocationAdminService : ConfigAdminServiceBase
     private static void Apply(OrderingLocation entity, string code, SaveOrderingLocationRequest request)
     {
         entity.Code = code;
-        entity.Name = string.IsNullOrWhiteSpace(request.Name) ? code : request.Name.Trim();
+        entity.Name = string.IsNullOrWhiteSpace(request.Name) ? string.Empty : request.Name.Trim();
         entity.Department = NullIfEmpty(request.Department);
         entity.Hl7MappingCode = string.IsNullOrWhiteSpace(request.Hl7MappingCode)
             ? code

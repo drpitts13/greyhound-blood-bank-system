@@ -17,7 +17,7 @@
         }
     </div>
 </div>
-<p class="muted">Antigen catalog with paired antibody names. Clinically significant attributes drive compatibility rules for patients and units.</p>
+<p class="muted">Antigen catalog with paired antibody names. Clinically significant attributes drive compatibility rules for patients and units. The list keeps the attribute code. A blank antigen name stays Attribute {id}. A blank antibody name stays Antibody {id}. Those labels are not written onto the attribute, and the edit form keeps the stored names.</p>
 
 <Outcome Value="_feedback" />
 
@@ -44,8 +44,8 @@
                 {
                     <tr>
                         <td class="mono">@d.Code</td>
-                        <td>@d.Name</td>
-                        <td>@d.AntibodyName</td>
+                        <td>@d.NameLabel</td>
+                        <td>@d.AntibodyNameLabel</td>
                         <td>@(d.IsClinicallySignificant ? "Yes" : "No")</td>
                         <td>@d.SortOrder</td>
                         <td>@d.Version</td>
@@ -126,7 +126,9 @@
             : _items.Where(d =>
                 d.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || d.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-                || d.AntibodyName.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+                || d.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || d.AntibodyName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || d.AntibodyNameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

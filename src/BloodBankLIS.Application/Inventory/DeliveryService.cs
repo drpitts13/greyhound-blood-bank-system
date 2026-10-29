@@ -55,6 +55,7 @@ public sealed class DeliveryService
             var detail = await BuildDetailAsync(delivery, ct);
             results.Add(new OpenDeliveryDto(
                 detail.Id,
+                detail.BloodSupplierId,
                 detail.SupplierCode,
                 detail.SupplierName,
                 detail.PackingListNumber,
@@ -71,6 +72,12 @@ public sealed class DeliveryService
     {
         var delivery = await _deliveries.GetByIdAsync(id, ct);
         return delivery is null ? null : await BuildDetailAsync(delivery, ct);
+    }
+
+    public async Task<long?> GetSupplierIdAsync(long deliveryId, CancellationToken ct = default)
+    {
+        var delivery = await _deliveries.GetByIdAsync(deliveryId, ct);
+        return delivery?.BloodSupplierId;
     }
 
     public async Task<EvaluationResult<DeliveryDetailDto>> CreateAsync(CreateDeliveryRequest request, CancellationToken ct = default)

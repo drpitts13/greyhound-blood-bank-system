@@ -9,9 +9,9 @@
 <InventoryDeskRibbon Current="InventoryDeskRibbon.Desk.Modify" />
 <h1>Modify Blood Products</h1>
 <p class="muted">
-    Divide, pool, irradiate, thaw, volume-reduce, or leukoreduce a unit into a new product under an
-    admin-configured modification rule. Standalone modifications retire the source into Quarantine.
-    An order-linked 1:1 modification keeps the reservation on the new unit so issue can continue.
+    Divide, pool, irradiate, thaw, volume-reduce, leukoreduce, wash, or aliquot a unit under an
+    admin-configured modification rule. Divide, pool, and the other modifications retire the source.
+    An aliquot leaves the parent available and reduces its volume.
 </p>
 @if (OrderActionId is > 0)
 {
@@ -40,12 +40,21 @@
             <div class="field"><label>Unit number</label><div class="mono">@_unit.UnitNumber</div></div>
             <div class="field"><label>Product code</label><div class="mono">@(SourceProductCode ?? "—")</div></div>
             <div class="field"><label>Volume</label><div>@FormatVolume(_unit.Volume)</div></div>
+            <div class="field"><label>Location</label><div>@FormatUnitLocation(_unit.CurrentLocationId)</div></div>
             <div class="field"><label>ABO/Rh</label><div><strong>@Ui.BloodType(_unit.Abo, _unit.RhD)</strong></div></div>
             <div class="field"><label>Status</label><div><span class="@Ui.Badge(_unit.Status)">@_unit.Status</span></div></div>
             <div class="field"><label>Expires</label><div>@_unit.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
         </div>
 
-        @if (_eligible.Count == 0)
+        @if (_retiredOfferClosed)
+        {
+            <div class="empty">This unit was retired and cannot be modified again. Its current status could not be confirmed.</div>
+        }
+        else if (!CanOfferModification)
+        {
+            <div class="empty">This unit is @_unit.Status and is not eligible for modification.</div>
+        }
+        else if (_eligible.Count == 0)
         {
             <div class="empty">No active modification rules apply to this unit's current product.</div>
         }
@@ -66,7 +75,7 @@
     </div>
 }
 
-@if (_unit is not null && _selectedRule is not null && !_selectedRule.IsAvailable)
+@if (_unit is not null && CanOfferModification && _selectedRule is not null && !_selectedRule.IsAvailable)
 {
     <div class="bb-card">
         <div class="empty">
@@ -75,7 +84,7 @@
     </div>
 }
 
-@if (_unit is not null && _selectedRule is not null && _selectedRule.IsAvailable)
+@if (_unit is not null && CanOfferModification && _selectedRule is not null && _selectedRule.IsAvailable)
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>3. Modification details</h3></div>
@@ -93,6 +102,7 @@
         {
             <div class="field"><label>Number of result units</label>
                 <input type="number" min="2" @bind="_childCount" @bind:after="SyncChildRows" />
+                <div class="muted">Recorded antigen and antibody typing on the source is copied onto each result unit. An autologous or directed reservation is copied with it. When the source has a volume, the result volumes must add up to it.</div>
             </div>
             @if (_children.Count > 0)
             {
@@ -110,13 +120,28 @@
                         }
                     </tbody>
                 </table>
+                @if (_unit.Volume is decimal sourceVolume)
+                {
+                    <div class="muted">
+                        Result volumes @DivideVolumeSum.ToString("0.##") of @sourceVolume.ToString("0.##") mL.
+                        They must add up to the source volume. A remainder belongs on another result, or use Aliquot to leave the parent available.
+                    </div>
+                }
+                else
+                {
+                    <div class="muted">This source has no recorded volume, so the result volumes are stored as entered.</div>
+                }
             }
         }
         else if (_selectedRule.ModificationType == ModificationType.Pool)
         {
             <p class="muted">
                 Add two or more units of the same product, ABO, and Rh(D) to pool (the selected unit above is
-                included automatically as the first source).
+                included automatically as the first source). Antigen typing follows the sources: a positive on
+                any unit makes the pool positive, and conflicting results stop the pool. Autologous and directed
+                units pool only when they share the same reservation. When any unit has a volume, every unit
+                needs one so the pool total can include each source. Units must already be in the same
+                storage location; transfer them together before pooling.
             </p>
             <div class="field">
                 <label>Additional unit number</label>
@@ -127,11 +152,13 @@
                     ExcludeIds="PoolExcludeIds" />
             </div>
             <table class="bb" style="margin-top:.6rem;">
-                <thead><tr><th>Unit #</th><th>ABO/Rh</th><th></th></tr></thead>
+                <thead><tr><th>Unit #</th><th>ABO/Rh</th><th>Location</th><th class="right">Volume</th><th></th></tr></thead>
                 <tbody>
                     <tr>
                         <td class="mono">@_unit.UnitNumber</td>
                         <td>@Ui.BloodType(_unit.Abo, _unit.RhD)</td>
+                        <td>@FormatUnitLocation(_unit.CurrentLocationId)</td>
+                        <td class="right">@FormatVolume(_unit.Volume)</td>
                         <td class="muted">primary</td>
                     </tr>
                     @foreach (var p in _poolUnits)
@@ -139,22 +166,65 @@
                         <tr>
                             <td class="mono">@p.UnitNumber</td>
                             <td>@Ui.BloodType(p.Abo, p.RhD)</td>
+                            <td>@FormatUnitLocation(p.CurrentLocationId)</td>
+                            <td class="right">@FormatVolume(p.Volume)</td>
                             <td class="right"><button class="btn btn-ghost btn-sm" @onclick="() => _poolUnits.Remove(p)">Remove</button></td>
                         </tr>
                     }
                 </tbody>
             </table>
+            @if (PoolLocationGap)
+            {
+                <div class="muted">These units are not in the same storage location. Transfer them to one location before pooling.</div>
+            }
+            @if (PoolVolumeGap)
+            {
+                <div class="muted">Every pooled unit needs a recorded volume greater than zero so the pool total can include each source.</div>
+            }
+            else if (PoolVolumeSum is decimal poolSum)
+            {
+                <div class="muted">Pool volume will be @poolSum.ToString("0.##") mL, the sum of these units.</div>
+            }
+            else
+            {
+                <div class="muted">None of these units has a recorded volume, so the pool volume stays unrecorded.</div>
+            }
+        }
+        else if (_selectedRule.ModificationType == ModificationType.Aliquot)
+        {
+            <div class="field">
+                <label>Aliquot volume (mL)</label>
+                <input type="number" step="0.01" min="0.01" @bind="_singleResultVolume" />
+                <div class="muted">The parent stays available. Its volume is reduced by this amount, and the aliquot is a new unit that keeps the parent's typing and reservation.</div>
+            </div>
         }
         else
         {
-            <div class="field"><label>Result volume (optional; defaults to source volume)</label>
-                <input type="number" step="0.01" @bind="_singleResultVolume" />
+            <div class="field"><label>Result volume (optional)</label>
+                <input type="number" step="0.01" min="0.01" @bind="_singleResultVolume" />
+                <div class="muted">Leave blank to keep the source volume. A result volume cannot be larger than the source.</div>
             </div>
         }
 
+        <div class="form-row" style="margin-top:.6rem;">
+            <div class="field"><label>Supply description (optional)</label><input @bind="_supplyDescription" /></div>
+            <div class="field"><label>Supply lot (optional)</label><input @bind="_supplyLot" /></div>
+        </div>
+        <p class="muted">Leave the lot blank unless facility policy requires it. That policy is off unless an administrator turns it on.</p>
         <div class="field" style="margin-top:.6rem;"><label>Reason (required)</label>
             <input @bind="_reason" @bind:event="oninput" placeholder="Why is this modification being performed?" style="width:100%;" />
         </div>
+        @if (_selectedRule.ModificationType is not ModificationType.Divide and not ModificationType.Pool and not ModificationType.Aliquot)
+        {
+            <div class="field" style="margin-top:.6rem;">
+                <label>Batch unit numbers</label>
+                <textarea @bind="_batchUnitNumbers" rows="3" style="width:100%;" placeholder="One additional unit number per line. The selected unit is included."></textarea>
+                <div class="muted">One rule and one reason. If any unit is ineligible, none are modified.</div>
+            </div>
+            <button class="btn btn-secondary" style="margin-top:.6rem;" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason) || string.IsNullOrWhiteSpace(_batchUnitNumbers))" @onclick="SubmitBatchAsync">
+                Apply to batch
+            </button>
+        }
 
         @if (!Session.Has(PermissionCodes.InventoryModify))
         {
@@ -170,20 +240,42 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Result</h3></div>
+        @if (_lastWasAliquot)
+        {
+            <p>@AliquotParentCue</p>
+        }
+        else if (RetiredSourceCue is not null)
+        {
+            <p>@RetiredSourceCue</p>
+        }
         <table class="bb">
-            <thead><tr><th>New unit #</th><th>Product code</th><th>Volume</th><th>ABO/Rh</th><th>Status</th><th>Expires</th><th></th></tr></thead>
+            <thead><tr><th>New unit #</th><th>Product code</th><th>Volume</th><th>ABO/Rh</th><th>Status</th><th>Location</th><th>Expires</th><th></th></tr></thead>
             <tbody>
                 @foreach (var u in _lastResult.ResultUnits)
                 {
+                    var location = FormatUnitLocation(u.CurrentLocationId);
+                    var releaseCue = ModificationResultNextStep.ReleaseCue(u.Status, location);
+                    var releaseHref = ModificationResultNextStep.ReleaseHref(u.Status, u.Id, Session.Has(PermissionCodes.InventoryRelease));
                     <tr>
                         <td class="mono">@u.UnitNumber</td>
                         <td class="mono">@(u.ProductCodeData ?? u.Isbt128ProductCode ?? "—")</td>
                         <td>@FormatVolume(u.Volume)</td>
                         <td>@Ui.BloodType(u.Abo, u.RhD)</td>
-                        <td><span class="@Ui.Badge(u.Status)">@u.Status</span></td>
+                        <td>
+                            <span class="@Ui.Badge(u.Status)">@u.Status</span>
+                            @if (releaseCue is not null)
+                            {
+                                <div class="muted">@releaseCue</div>
+                            }
+                        </td>
+                        <td>@location</td>
                         <td class="nowrap">@u.ExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td class="right nowrap">
                             <a class="btn btn-secondary btn-sm" href="@InventoryUrls.Unit(u.Id)">Open unit</a>
+                            @if (releaseHref is not null)
+                            {
+                                <a class="btn btn-primary btn-sm" href="@releaseHref">Release from quarantine</a>
+                            }
                             @if (u.Status == UnitStatus.Received)
                             {
                                 <a class="btn btn-ghost btn-sm" href="@($"/inventory?board=retype&unitId={u.Id}#pending-retype")">Open retype desk</a>
@@ -204,16 +296,20 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Modification history for this unit</h3></div>
+        <p class="muted">The patient is named when a product order points at the modification, including the medical record number when it is recorded. A missing or blank name stays the patient id. No product order says so. A missing order does not invent a patient. Linked orders that do not name one patient do not pick one.</p>
         <table class="bb">
-            <thead><tr><th>Type</th><th>Source</th><th>Target</th><th>Results</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
+            <thead><tr><th>Type</th><th>Patient</th><th>Source</th><th>Target</th><th>Results</th><th>Result location</th><th>Supply</th><th>Offset</th><th>New expiry</th><th>Reason</th><th>By</th><th>When</th></tr></thead>
             <tbody>
                 @foreach (var h in _history)
                 {
                     <tr>
                         <td>@h.ModificationType</td>
+                        <td>@h.PatientLabel</td>
                         <td class="mono">@h.SourceProductCode</td>
                         <td class="mono">@h.TargetProductCode</td>
                         <td class="mono">@FormatHistoryResults(h)</td>
+                        <td>@FormatHistoryLocations(h)</td>
+                        <td>@FormatSupply(h)</td>
                         <td class="mono">@h.ExpirationOffsetCodeApplied</td>
                         <td class="nowrap">@h.ResultExpiresUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@h.Reason</td>
@@ -231,6 +327,7 @@
     private Feedback? _searchFb;
     private bool _busy;
 
+    private readonly Dictionary<long, string?> _locationNames = new();
     private BloodUnitDto? _unit;
     private List<EligibleModificationDto> _eligible = new();
     private long _selectedRuleId;
@@ -249,9 +346,39 @@
 
     private decimal? _singleResultVolume;
 
+    private decimal DivideVolumeSum => _children.Sum(c => c.Volume ?? 0m);
+
+    private IReadOnlyList<decimal?> PoolVolumes =>
+        _unit is null
+            ? Array.Empty<decimal?>()
+            : new[] { _unit.Volume }.Concat(_poolUnits.Select(unit => unit.Volume)).ToList();
+
+    private IReadOnlyList<long?> PoolLocationIds =>
+        _unit is null
+            ? Array.Empty<long?>()
+            : new[] { _unit.CurrentLocationId }.Concat(_poolUnits.Select(unit => unit.CurrentLocationId)).ToList();
+
+    private bool PoolLocationGap =>
+        UnitModificationEligibilityRule.EvaluatePoolLocations(PoolLocationIds).IsHardStopped;
+
+    private bool PoolVolumeGap =>
+        PoolVolumes.Any(volume => volume is not null) && PoolVolumes.Any(volume => volume is null or <= 0m);
+
+    private decimal? PoolVolumeSum =>
+        PoolVolumeGap || PoolVolumes.Count == 0 || PoolVolumes.All(volume => volume is null)
+            ? null
+            : PoolVolumes.Sum(volume => volume!.Value);
+
     private string _reason = string.Empty;
+    private string? _supplyDescription;
+    private string? _supplyLot;
+    private string _batchUnitNumbers = string.Empty;
     private Feedback? _actionFb;
     private ModificationResultVm? _lastResult;
+    private bool _lastWasAliquot;
+    private bool _aliquotParentConfirmed;
+    private bool _retiredOfferClosed;
+    private List<ModificationResultNextStep.RetiredSourceFact> _retiredSources = new();
 
     private List<UnitModificationDto> _history = new();
 
@@ -271,6 +398,23 @@
     public string? ReturnUrl { get; set; }
 
     private bool _unitQueryApplied;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var locations = await Api.GetLocationsAsync();
+        if (!locations.Succeeded || locations.Value is null)
+        {
+            return;
+        }
+
+        foreach (var location in locations.Value)
+        {
+            if (!string.IsNullOrWhiteSpace(location.Name))
+            {
+                _locationNames[location.Id] = location.Name.Trim();
+            }
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -305,6 +449,9 @@
     private static string FormatVolume(decimal? volume) =>
         volume is null ? "—" : $"{volume.Value:0.##} mL";
 
+    private string FormatUnitLocation(long? locationId) =>
+        StorageLocationLabel.Format(locationId, _locationNames);
+
     private static string FormatHistoryResults(UnitModificationDto history)
     {
         var parts = history.Units
@@ -316,6 +463,56 @@
             })
             .ToList();
         return parts.Count == 0 ? "—" : string.Join(", ", parts);
+    }
+
+    private static string FormatSupply(UnitModificationDto history)
+    {
+        var description = string.IsNullOrWhiteSpace(history.SupplyDescription) ? null : history.SupplyDescription.Trim();
+        var lot = string.IsNullOrWhiteSpace(history.SupplyLot) ? null : history.SupplyLot.Trim();
+        if (description is null && lot is null)
+        {
+            return "—";
+        }
+
+        return lot is null ? description! : description is null ? lot : $"{description} / {lot}";
+    }
+
+    private static string FormatHistoryLocations(UnitModificationDto history)
+    {
+        var results = history.Units.Where(unit => unit.Role == ModificationUnitRole.Result).ToList();
+        if (results.Count == 0)
+        {
+            return "—";
+        }
+
+        var labels = results.Select(FormatHistoryLocation).Distinct().ToList();
+        if (labels.Count == 1)
+        {
+            return labels[0];
+        }
+
+        return string.Join(", ", results.Select(unit => $"{unit.UnitNumber}: {FormatHistoryLocation(unit)}"));
+    }
+
+    private static string FormatHistoryLocation(ModificationUnitSummaryDto unit)
+    {
+        var made = StorageLocationLabel.Format(unit.ResultLocationId, unit.ResultLocationName);
+        if (!unit.ResultHasLeftCreationLocation)
+        {
+            return made;
+        }
+
+        var now = StorageLocationLabel.Format(unit.CurrentLocationId, unit.CurrentLocationName);
+        var when = unit.LocationLeftUtc?.ToString("yyyy-MM-dd HH:mm");
+        var why = string.IsNullOrWhiteSpace(unit.LocationLeftReason) ? null : unit.LocationLeftReason.Trim();
+        var who = string.IsNullOrWhiteSpace(unit.LocationLeftBy) ? null : $"by {unit.LocationLeftBy.Trim()}";
+        var details = new[] { when, why, who }.Where(part => part is not null).Cast<string>().ToList();
+        if (details.Count == 0)
+        {
+            return $"{made}; now at {now}";
+        }
+
+        return $"{made}; now at {now} ({string.Join(", ", details)})";
     }
 
     private Task OnSourceIdChanged(long? id)
@@ -367,7 +564,8 @@
         _unit = u;
         _selectedRuleId = 0;
         _selectedRule = null;
-        _lastResult = null;
+        _retiredOfferClosed = false;
+        ClearLastResult();
         _actionFb = null;
         _poolUnits.Clear();
         _children.Clear();
@@ -399,11 +597,34 @@
         _history = history.Value ?? new();
     }
 
+    private void ClearLastResult()
+    {
+        _lastResult = null;
+        _lastWasAliquot = false;
+        _aliquotParentConfirmed = false;
+        _retiredSources = new();
+    }
+
+    private bool CanOfferModification =>
+        _unit is not null
+        && !_retiredOfferClosed
+        && UnitModificationEligibilityRule.OfferModification(_unit.Status, OrderActionId is > 0);
+
+    private string? RetiredSourceCue =>
+        _lastWasAliquot ? null : ModificationResultNextStep.RetiredSourceCue(_retiredSources);
+
+    private string AliquotParentCue =>
+        ModificationResultNextStep.AliquotParentCue(
+            _aliquotParentConfirmed && _unit is not null,
+            _unit?.UnitNumber,
+            _unit?.Status ?? UnitStatus.Available,
+            _unit?.Volume);
+
     private void OnRuleChanged()
     {
         _selectedRule = _eligible.FirstOrDefault(e => e.RuleId == _selectedRuleId);
         _actionFb = null;
-        _lastResult = null;
+        ClearLastResult();
         _childCount = 2;
         SyncChildRows();
     }
@@ -468,20 +689,74 @@
                 return;
             }
 
+            if (_unit.Volume is decimal divideSourceVolume)
+            {
+                var sum = DivideVolumeSum;
+                if (sum > divideSourceVolume)
+                {
+                    _busy = false;
+                    _actionFb = Feedback.Fail($"Requested child volumes ({sum}) exceed the source unit's volume ({divideSourceVolume}).");
+                    return;
+                }
+
+                if (sum < divideSourceVolume)
+                {
+                    _busy = false;
+                    _actionFb = Feedback.Fail($"Requested child volumes ({sum}) leave {divideSourceVolume - sum} mL of the source unit unaccounted. Record the remaining volume as another result, or remove an aliquot instead of dividing.");
+                    return;
+                }
+            }
+
             var children = _children.Select(c => new DivideChildSpec(null, c.Volume)).ToList();
-            r = await Api.DivideUnitAsync(_unit.Id, new PerformDivideRequest(_selectedRule.RuleId, children, _reason));
+            r = await Api.DivideUnitAsync(_unit.Id, new PerformDivideRequest(_selectedRule.RuleId, children, _reason, _supplyDescription, _supplyLot));
         }
         else if (_selectedRule.ModificationType == ModificationType.Pool)
         {
+            var poolVolumeEval = UnitModificationEligibilityRule.EvaluatePoolVolumes(PoolVolumes);
+            if (poolVolumeEval.IsHardStopped)
+            {
+                _busy = false;
+                _actionFb = Feedback.Fail(poolVolumeEval.HardStops[0].Message);
+                return;
+            }
+
+            var poolLocationEval = UnitModificationEligibilityRule.EvaluatePoolLocations(PoolLocationIds);
+            if (poolLocationEval.IsHardStopped)
+            {
+                _busy = false;
+                _actionFb = Feedback.Fail(poolLocationEval.HardStops[0].Message);
+                return;
+            }
+
             var sourceIds = new List<long> { _unit.Id };
             sourceIds.AddRange(_poolUnits.Select(p => p.Id));
-            r = await Api.PoolUnitsAsync(new PerformPoolRequest(sourceIds, _selectedRule.RuleId, _reason));
+            r = await Api.PoolUnitsAsync(new PerformPoolRequest(sourceIds, _selectedRule.RuleId, _reason, _supplyDescription, _supplyLot));
+        }
+        else if (_selectedRule.ModificationType == ModificationType.Aliquot)
+        {
+            r = await Api.AliquotUnitAsync(_unit.Id, new PerformAliquotRequest(_selectedRule.RuleId, _singleResultVolume, _reason, _supplyDescription, _supplyLot));
         }
         else
         {
+            if (_singleResultVolume is decimal resultVolume && resultVolume <= 0m)
+            {
+                _busy = false;
+                _actionFb = Feedback.Fail("A result volume must be greater than zero.");
+                return;
+            }
+
+            if (_singleResultVolume is decimal requestedVolume
+                && _unit.Volume is decimal singleSourceVolume
+                && requestedVolume > singleSourceVolume)
+            {
+                _busy = false;
+                _actionFb = Feedback.Fail($"Result volume ({requestedVolume}) exceeds the source unit's volume ({singleSourceVolume}).");
+                return;
+            }
+
             r = await Api.ApplyModificationAsync(
                 _unit.Id,
-                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId));
+                new PerformSingleModificationRequest(_selectedRule.RuleId, _singleResultVolume, _reason, OrderActionId, _supplyDescription, _supplyLot));
         }
 
         _busy = false;
@@ -489,14 +764,124 @@
         if (r.Succeeded)
         {
             _lastResult = r.Value;
+            _lastWasAliquot = _selectedRule.ModificationType == ModificationType.Aliquot;
+            _aliquotParentConfirmed = false;
+            _retiredSources = new();
             _reason = string.Empty;
+            _singleResultVolume = null;
+            var retiredSources = new List<(long Id, string? Number)>();
+            if (!_lastWasAliquot && _unit is not null)
+            {
+                retiredSources.Add((_unit.Id, _unit.UnitNumber));
+                foreach (var pooled in _poolUnits)
+                {
+                    retiredSources.Add((pooled.Id, pooled.UnitNumber));
+                }
+            }
+
             _poolUnits.Clear();
+            if (_lastWasAliquot)
+            {
+                var refreshed = await Api.GetUnitAsync(_unit.Id);
+                if (refreshed.Succeeded && refreshed.Value is not null)
+                {
+                    _unit = refreshed.Value;
+                    _aliquotParentConfirmed = true;
+                }
+            }
+            else
+            {
+                var facts = new List<ModificationResultNextStep.RetiredSourceFact>();
+                var primaryReread = false;
+                foreach (var source in retiredSources)
+                {
+                    var refreshed = await Api.GetUnitAsync(source.Id);
+                    if (refreshed.Succeeded && refreshed.Value is not null)
+                    {
+                        facts.Add(new ModificationResultNextStep.RetiredSourceFact(
+                            refreshed.Value.UnitNumber,
+                            true,
+                            refreshed.Value.Status));
+                        if (_unit?.Id == source.Id)
+                        {
+                            _unit = refreshed.Value;
+                            primaryReread = true;
+                        }
+                    }
+                    else
+                    {
+                        facts.Add(new ModificationResultNextStep.RetiredSourceFact(source.Number, false, null));
+                    }
+                }
+
+                _retiredSources = facts;
+                _retiredOfferClosed = !primaryReread
+                    || _unit is null
+                    || !UnitModificationEligibilityRule.OfferModification(_unit.Status, OrderActionId is > 0);
+                _selectedRule = null;
+                _selectedRuleId = 0;
+                if (_retiredOfferClosed || _unit is null)
+                {
+                    _eligible.Clear();
+                }
+                else
+                {
+                    var eligible = await Api.GetEligibleModificationsAsync(_unit.Id);
+                    _eligible = eligible.Succeeded ? eligible.Value ?? new() : new();
+                }
+            }
             var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
             _history = history.Value ?? new();
             if (!string.IsNullOrWhiteSpace(ReturnUrl) && ReturnUrl.StartsWith("/", StringComparison.Ordinal))
             {
                 Nav.NavigateTo(ReturnUrl);
             }
+        }
+    }
+
+    private async Task SubmitBatchAsync()
+    {
+        if (_unit is null || _selectedRule is null || string.IsNullOrWhiteSpace(_reason))
+        {
+            return;
+        }
+
+        var numbers = _batchUnitNumbers
+            .Split(new[] { '\r', '\n', ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var ids = new List<long> { _unit.Id };
+        foreach (var number in numbers)
+        {
+            if (string.Equals(number, _unit.UnitNumber, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var found = await Api.SearchUnitsAsync(new InventorySearchCriteria(UnitNumber: number));
+            var match = found.Value?.FirstOrDefault(unit => string.Equals(unit.UnitNumber, number, StringComparison.OrdinalIgnoreCase));
+            if (match is null)
+            {
+                _actionFb = Feedback.Fail($"Unit {number} was not found.");
+                return;
+            }
+
+            ids.Add(match.Id);
+        }
+
+        _busy = true;
+        var result = await Api.ApplyBatchModificationAsync(new PerformBatchModificationRequest(
+            _selectedRule.RuleId, ids, _reason, _supplyDescription, _supplyLot));
+        _busy = false;
+        _actionFb = result.ToFeedback("Batch modification completed.");
+        if (result.Succeeded)
+        {
+            _reason = string.Empty;
+            _supplyDescription = null;
+            _supplyLot = null;
+            _batchUnitNumbers = string.Empty;
+            var history = await Api.GetUnitModificationHistoryAsync(_unit.Id);
+            _history = history.Value ?? new();
         }
     }
 

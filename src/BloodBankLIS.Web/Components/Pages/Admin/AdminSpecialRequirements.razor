@@ -16,7 +16,7 @@
         }
     </div>
 </div>
-<p class="muted">Catalog of unit, issuing, and patient special transfusion requirements. Assignments on the patient chart are enforced while they are clinically active (not end-dated).</p>
+<p class="muted">Catalog of unit, issuing, and patient special transfusion requirements. Assignments on the patient chart are enforced while they are clinically active (not end-dated). The list keeps the requirement code. A blank name stays Requirement {id}. That label is not written onto the requirement, and the edit form keeps the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -51,7 +51,7 @@ else
                         {
                             <tr>
                                 <td class="mono">@d.Code</td>
-                                <td>@d.Name</td>
+                                <td>@d.NameLabel</td>
                                 <td>@d.EnforcementKind</td>
                                 <td class="mono">@d.ProductAttributeCode</td>
                                 <td>@d.Version</td>
@@ -137,7 +137,8 @@ else
             ? _items
             : _items.Where(d =>
                 d.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-                || d.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase));
+                || d.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || d.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Issuing;
 
@@ -62,13 +63,14 @@ public static class ReadyToIssueFormCue
         return notices.Count == 0 ? null : string.Join(" · ", notices);
     }
 
-    public static string? StorageLocationLabel(string? name, string? code)
+    public static string? StorageLocationLabel(long? locationId, string? name)
     {
-        if (!string.IsNullOrWhiteSpace(name))
-            return name.Trim();
-        if (!string.IsNullOrWhiteSpace(code))
-            return code.Trim();
-        return null;
+        if (locationId is not long id)
+        {
+            return null;
+        }
+
+        return BloodBankLIS.Domain.Rules.StorageLocationLabel.Format(id, name);
     }
 
     public static string? StorageLocationNotice(string? locationName) =>
@@ -80,8 +82,21 @@ public static class ReadyToIssueFormCue
     public static string? IssuedToNotice(string? issuedTo) =>
         string.IsNullOrWhiteSpace(issuedTo) ? null : $"Issued to {issuedTo.Trim()}";
 
-    public static string? IssuedToLocationNotice(string? location) =>
-        string.IsNullOrWhiteSpace(location) ? null : $"Location {location.Trim()}";
+    public static string? IssuedToLocationNotice(string? location)
+    {
+        if (string.IsNullOrWhiteSpace(location))
+        {
+            return null;
+        }
+
+        var place = location.Trim();
+        if (place.StartsWith("Location ", StringComparison.Ordinal))
+        {
+            return place;
+        }
+
+        return $"Location {place}";
+    }
 
     public static string? CoolerNotice(string? coolerId) =>
         string.IsNullOrWhiteSpace(coolerId) ? null : $"Cooler {coolerId.Trim()}";
@@ -109,6 +124,14 @@ public static class ReadyToIssueFormCue
 
     public static string CrossmatchStatusNotice(CrossmatchClinicalStatus status) =>
         $"XM at issue {status}";
+
+    public static string TimeOutNotice(bool governed, bool acceptable) =>
+        ReturnReissueRule.TimeOutLabel(governed, acceptable) switch
+        {
+            "Exempt" => "Storage device is exempt from the return-to-available time limit.",
+            "Window elapsed" => "Storage device is governed. The return-to-available window has elapsed. Available is not allowed.",
+            _ => "Storage device is governed. The return-to-available window is still open."
+        };
 
     public static string? RetrospectiveFollowUpNotice(string? issuedTo, string? coolerId, string? location = null, string? issuedBy = null, string? secondVerifier = null)
     {

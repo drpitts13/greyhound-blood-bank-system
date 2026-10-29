@@ -332,3 +332,81 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-324 | Staff reviewing a patient's product history can see the pickup tag scanned at issue on issued, returned, and transfused rows. | P1 | FRS-BB-359 |
 | URS-BB-325 | Staff reviewing units still issued can see the crossmatch status recorded at issue on the in-transit and outstanding issued queues. | P1 | FRS-BB-360 |
 | URS-BB-326 | Staff receiving, returning, or documenting a unit can see the crossmatch status recorded at issue on that form. | P1 | FRS-BB-361 |
+| URS-BB-327 | Staff completing a retrospective crossmatch can see the crossmatch status recorded at issue on that queue. | P1 | FRS-BB-362 |
+| URS-BB-328 | Staff recording a retrospective crossmatch can see the crossmatch status recorded at issue on the follow-up screen. | P1 | FRS-BB-363 |
+| URS-BB-329 | Staff reviewing a patient's product history can see the crossmatch status recorded at issue on issued, returned, and transfused rows. | P1 | FRS-BB-364 |
+| URS-BB-330 | A historically identified antibody that is currently undetectable still precludes electronic crossmatch. | P0 | FRS-BB-365 |
+| URS-BB-331 | Staff opening the dashboard can see the bench queues they are allowed to work. | P1 | FRS-BB-366 |
+| URS-BB-332 | Staff opening the dashboard can see units still in transit, including how many are past the arrival window. | P1 | FRS-BB-367 |
+| URS-BB-333 | Staff opening the dashboard can see which retrospective crossmatches are overdue and which reaction cases still need fatality follow-up. | P1 | FRS-BB-368 |
+| URS-BB-334 | Staff can receive a collected specimen into the blood bank and accept a received specimen before testing, from a pending-specimens worklist. | P0 | FRS-BB-369 |
+| URS-BB-335 | Staff ending a shift can record a handoff packet with a required note and a snapshot of the current bench queues, and the incoming technologist can acknowledge it. | P1 | FRS-BB-370 |
+| URS-BB-336 | Staff can change a specimen barcode only through a controlled relabel that requires a reason; collection metadata edit does not change the barcode. | P0 | FRS-BB-371 |
+| URS-BB-337 | Supervisors can open one worklist of antibody-identification reviews, posted results awaiting verification, and quarantined units awaiting release for the permissions they already have. | P1 | FRS-BB-372 |
+| URS-BB-338 | Staff changing a patient's name must give a reason, and the previous name remains searchable as a historical alias. | P0 | FRS-BB-373 |
+| URS-BB-339 | When an inbound ADT changes a patient's stated name, the previous name remains as a searchable historical alias. | P0 | FRS-BB-374 |
+| URS-BB-340 | Staff who merged the wrong patient records can undo that merge, and the history returns to the duplicate, when nothing new has been done on the survivor since the merge. | P0 | FRS-BB-375 |
+| URS-BB-341 | When a unit is divided, pooled, or otherwise modified, recorded antigen and antibody typing stays on the result, and a pool of units that disagree on a typing cannot be made. | P0 | FRS-BB-376 |
+| URS-BB-342 | When a unit is divided, pooled, or otherwise modified, an autologous or directed reservation stays on the result, and units reserved for different people cannot be pooled. | P0 | FRS-BB-377 |
+| URS-BB-343 | Staff can remove an aliquot from a unit and leave the parent available at the reduced volume. | P0 | FRS-BB-378 |
+| URS-BB-344 | Staff dividing a unit, or recording a result volume on another modification, cannot create or discard volume that the source record does not support. | P0 | FRS-BB-379 |
+| URS-BB-345 | Staff pooling units cannot lose a recorded source volume because another unit in the pool has none. | P0 | FRS-BB-380 |
+| URS-BB-346 | Staff cannot pool units that are still recorded in different storage locations. | P0 | FRS-BB-381 |
+| URS-BB-347 | Staff reading modification history can see where each result unit was made, even if that unit has since been moved. | P1 | FRS-BB-382 |
+| URS-BB-348 | Staff reading modification history can see when a result unit is no longer where it was made. | P1 | FRS-BB-383 |
+| URS-BB-349 | Staff reading modification history can see when a result was moved and why, when that was recorded. | P1 | FRS-BB-384 |
+| URS-BB-350 | Staff reading modification history can see who recorded a result's move, when that person was recorded. | P1 | FRS-BB-385 |
+| URS-BB-351 | Staff preparing a pool can see each source unit's storage location by name. | P1 | FRS-BB-386 |
+| URS-BB-352 | Staff who just modified a unit can see where the new unit is and how to release it from quarantine. | P1 | FRS-BB-387 |
+| URS-BB-353 | Staff who just made an aliquot can see that the parent stayed in place and how much volume remains. | P1 | FRS-BB-388 |
+| URS-BB-354 | Staff who just retired a unit by modification can see that the source is no longer available. | P1 | FRS-BB-389 |
+| URS-BB-355 | Staff cannot start another modification on a unit that modification just retired. | P1 | FRS-BB-390 |
+| URS-BB-356 | Staff releasing a quarantined unit can see the storage location by name. | P1 | FRS-BB-391 |
+| URS-BB-357 | Staff releasing a quarantined unit can see its recorded volume. | P1 | FRS-BB-392 |
+| URS-BB-358 | Staff looking for a missing or damaged unit can see the storage location by name. | P1 | FRS-BB-393 |
+| URS-BB-359 | Staff releasing a unit from operational hold can see the storage location by name. | P1 | FRS-BB-394 |
+| URS-BB-360 | Staff searching inventory can see each unit's storage location by name. | P1 | FRS-BB-395 |
+| URS-BB-361 | Staff discarding a unit that is near expiry can see the storage location by name. | P1 | FRS-BB-396 |
+| URS-BB-362 | Staff opening a unit can see its storage location by name. | P1 | FRS-BB-397 |
+| URS-BB-363 | Staff reading a unit timeline can see the storage locations when a status row records a move. | P1 | FRS-BB-398 |
+| URS-BB-364 | Staff reading a unit timeline can see who a unit was allocated to by name. | P1 | FRS-BB-399 |
+| URS-BB-365 | Staff reading a unit timeline can see who a crossmatch was for by name. | P1 | FRS-BB-400 |
+| URS-BB-366 | Staff reading a unit timeline can see who received a transfusion by name. | P1 | FRS-BB-401 |
+| URS-BB-367 | Staff reading a unit timeline can see who a returned unit was issued to by name. | P1 | FRS-BB-402 |
+| URS-BB-368 | Staff reading a unit timeline can see who an order-linked modification was for by name. | P1 | FRS-BB-403 |
+| URS-BB-369 | Staff reading a unit timeline can see that a bench modification had no patient order. | P1 | FRS-BB-404 |
+| URS-BB-370 | Staff reading a unit timeline can see who a bench modification was for when a product order points at it. | P1 | FRS-BB-405 |
+| URS-BB-371 | Staff reading modification history can see who an order-linked modification was for. | P1 | FRS-BB-406 |
+| URS-BB-372 | Staff reading a unit status row can see who a modification was for when it is linked to that modification. | P1 | FRS-BB-407 |
+| URS-BB-373 | Staff reading an issue on the unit timeline can see the storage location name when the issued-to place is a location code. | P1 | FRS-BB-408 |
+| URS-BB-374 | Staff reading the issuing board or patient product history can see the storage location name when the issued-to place is a location code. | P1 | FRS-BB-409 |
+| URS-BB-375 | Staff reading lookback can see the storage location name when the issued-to place is a location code. | P1 | FRS-BB-410 |
+| URS-BB-376 | Staff receiving, returning, or documenting a unit can read a blank storage location as Location {id} without a second Location prefix. | P1 | FRS-BB-411 |
+| URS-BB-377 | Staff choosing a reserved unit can read a blank storage location as the location id. | P1 | FRS-BB-412 |
+| URS-BB-378 | Staff transferring a unit or receiving a delivery can select a location by its code and still read a blank name as the location id. | P1 | FRS-BB-413 |
+| URS-BB-379 | Staff reading the inventory-location catalog can see a blank name as the location id while the code stays in the catalog. | P1 | FRS-BB-414 |
+| URS-BB-380 | Staff saving an ordering location can leave the name blank without the code being stored as the name. | P1 | FRS-BB-415 |
+| URS-BB-381 | Staff choosing a blood supplier for a delivery can select it by code and still read a blank name as the supplier id. | P1 | FRS-BB-416 |
+| URS-BB-382 | Staff reading the blood-supplier catalog can see a blank name as the supplier id while the code stays in the catalog. | P1 | FRS-BB-417 |
+| URS-BB-383 | Staff reviewing an open delivery or entering units can read a blank supplier name as the supplier id. | P1 | FRS-BB-418 |
+| URS-BB-384 | Staff reading a unit can see a blank supplier name as the supplier id when the delivery names that supplier. | P1 | FRS-BB-419 |
+| URS-BB-385 | Staff reading the expected-inbound board can see a blank supplier name as the supplier id when the delivery names that supplier. | P1 | FRS-BB-420 |
+| URS-BB-386 | Staff choosing a product for a modification rule or a charge rule can select it by code and still read a blank name as the product id. | P1 | FRS-BB-421 |
+| URS-BB-387 | Staff reading the product catalog can see a blank name as the product id while the code stays in the catalog. | P1 | FRS-BB-422 |
+| URS-BB-388 | Staff placing or editing an order can select a product by its code and still read a blank name as the product id. | P1 | FRS-BB-423 |
+| URS-BB-389 | Staff returning a unit cannot declare time out of a governed storage device acceptable after the return-to-available window. An exempt device does not fail that window. | P1 | FRS-BB-424 |
+| URS-BB-390 | Staff cannot release a modification result from quarantine until the scanned unit number matches that result. Other quarantine releases do not require that scan. | P1 | FRS-BB-425 |
+| URS-BB-391 | Staff can record reagent lots and daily QC, and a different person reviews the row. Overdue, failed, and unreviewed rows stay visible. Patient resulting stays open unless facility policy is turned on. | P1 | FRS-BB-426 |
+| URS-BB-392 | Staff can see issued units past the final-disposition window that have no transfusion document, return, or discard. The board warns and does not block issue or documentation. | P1 | FRS-BB-427 |
+| URS-BB-393 | Staff can record an optional supply description and lot on a modification and read them on modification history. A facility policy can require the lot and ships off. | P1 | FRS-BB-428 |
+| URS-BB-394 | Staff can apply one modification rule and one reason to several units. If any unit is ineligible, none are modified. | P1 | FRS-BB-429 |
+| URS-BB-395 | Staff can see available stock against a configurable minimum by product and optional ABO. The board does not place a blood-center order. | P1 | FRS-BB-430 |
+| URS-BB-396 | After sign-in, staff see the bench queues they can already open, and each count opens that queue. A queue they cannot open is omitted. A queue that does not load is not shown as zero. | P1 | FRS-BB-431 |
+| URS-BB-397 | Staff placing or editing an order can select a test by its code and still read a blank name as the test id. | P1 | FRS-BB-432 |
+| URS-BB-398 | Staff reading the test catalog can see a blank name as the test id while the code stays in the catalog. | P1 | FRS-BB-433 |
+| URS-BB-399 | Staff reading the subtest catalog can see a blank name as the subtest id while the code stays in the catalog. | P1 | FRS-BB-434 |
+| URS-BB-400 | Staff reading the test-grouper catalog can see a blank name as the grouper id while the code stays in the catalog. | P1 | FRS-BB-435 |
+| URS-BB-401 | Staff reading the phase catalog can see a blank name as the phase id while the code stays in the catalog. | P1 | FRS-BB-436 |
+| URS-BB-402 | Staff reading the blood-attribute catalog can see a blank antigen name as the attribute id and a blank antibody name as that same id, while the code stays in the catalog. | P1 | FRS-BB-437 |
+| URS-BB-403 | Staff reading the special-requirement catalog can see a blank name as the requirement id while the code stays in the catalog. | P1 | FRS-BB-438 |
+| URS-BB-404 | Staff reading the reflex-rule catalog can see a blank name as the reflex id while the code stays in the catalog. | P1 | FRS-BB-439 |

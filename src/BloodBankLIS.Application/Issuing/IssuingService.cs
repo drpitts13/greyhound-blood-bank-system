@@ -61,6 +61,8 @@ public sealed class IssuingService
     private readonly IRepository<ProductRetypeResult>? _retypes;
     private readonly IRepository<AutoThawRequest>? _autoThawRequests;
     private readonly ElectronicCrossmatchEligibilityService? _electronicCrossmatch;
+    private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
+    private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
 
     public IssuingService(
         IInventoryRepository inventory,
@@ -99,7 +101,9 @@ public sealed class IssuingService
         IRepository<PtagIdentifier>? ptagIdentifiers = null,
         IRepository<ProductRetypeResult>? retypes = null,
         IRepository<AutoThawRequest>? autoThawRequests = null,
-        ElectronicCrossmatchEligibilityService? electronicCrossmatch = null)
+        ElectronicCrossmatchEligibilityService? electronicCrossmatch = null,
+        IRepository<ProductAboCompatibility>? aboCompatibilities = null,
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
     {
         _inventory = inventory;
         _issues = issues;
@@ -138,6 +142,8 @@ public sealed class IssuingService
         _retypes = retypes;
         _autoThawRequests = autoThawRequests;
         _electronicCrossmatch = electronicCrossmatch;
+        _aboCompatibilities = aboCompatibilities;
+        _rhCompatibilities = rhCompatibilities;
     }
 
     public async Task<EvaluationResult<Issue>> IssueUnitAsync(IssueUnitRequest request, CancellationToken ct = default)
@@ -289,6 +295,10 @@ public sealed class IssuingService
             RequireSecondAboForCellularIssue = requireSecondAbo,
             HasSecondConcordantAboRh = secondAbo,
             PatientSex = patient.Sex,
+            AboRhPolicy = productType is null
+                ? null
+                : await ProductAboRhPolicyLoader.ForProductAsync(
+                    _aboCompatibilities, _rhCompatibilities, productType.Id, ct),
             PatientAgeYears = AgeYears(patient.DateOfBirth, now),
             UncrossmatchedMustBeGroupO = uncrossmatchedGroupO,
             UncrossmatchedONegForChildbearing = uncrossmatchedONeg,
@@ -553,6 +563,7 @@ public sealed class IssuingService
 
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
+        var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
         return rows
             .OrderBy(i => i.RetrospectiveCrossmatchDueUtc ?? i.IssuedUtc)
             .Select(i =>
@@ -563,7 +574,7 @@ public sealed class IssuingService
                     i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
                     row.SpecimenId, row.AccessionNumber, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType,
-                    row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer);
+                    row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces);
             })
             .ToList();
     }
@@ -595,6 +606,7 @@ public sealed class IssuingService
 
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
+        var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
         return rows
             .OrderBy(i => i.InTransitDueUtc ?? i.IssuedUtc)
             .Select(i =>
@@ -604,7 +616,7 @@ public sealed class IssuingService
                 return InTransitWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
-                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer);
+                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces);
             })
             .ToList();
     }
@@ -669,16 +681,30 @@ public sealed class IssuingService
         var rows = await _issues.ListAsync(i => i.Status == IssueStatus.Issued, ct);
         var context = await LoadIssueWorklistContextAsync(rows, ct);
         var authorizers = await LoadEmergencyReleaseAuthorizersAsync(rows, ct);
+        var issuePlaces = await LoadIssuePlacesAsync(rows, ct);
+        var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
+        var locationIds = rows.Select(i => context.StorageLocationId(i)).OfType<long>().Distinct().ToList();
+        var locations = locationIds.Count == 0
+            ? new Dictionary<long, InventoryLocation>()
+            : (await _locations.ListAsync(l => locationIds.Contains(l.Id), ct)).ToDictionary(l => l.Id);
         return rows
             .OrderBy(i => i.IssuedUtc)
             .Select(i =>
             {
                 var row = context.For(i, now);
                 authorizers.TryGetValue(i.OverrideId ?? 0, out var authorizer);
+                var governed = true;
+                if (context.StorageLocationId(i) is long locationId && locations.TryGetValue(locationId, out var location))
+                {
+                    governed = location.TimeOutGoverned;
+                }
+
+                var acceptable = ReturnReissueRule.TimeOutAcceptable(governed, i.IssuedUtc, now, returnMinutes);
                 return OutstandingIssueWorkItemDto.From(
                     i, now, row.Mrn, row.DisplayName, row.DateOfBirth, row.UnitNumber, row.CurrentBloodType,
                     row.HasAntibodyHistory, row.AntibodySummary, row.SpecimenExpiresUtc, row.SpecimenExpired,
-                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer);
+                    row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.AccessionNumber, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, authorizer, issuePlaces,
+                    governed, acceptable);
             })
             .ToList();
     }
@@ -860,7 +886,7 @@ public sealed class IssuingService
         }
 
         var location = await _locations.GetByIdAsync(id, ct);
-        var name = ReadyToIssueFormCue.StorageLocationLabel(location?.Name, location?.Code);
+        var name = ReadyToIssueFormCue.StorageLocationLabel(id, location?.Name);
         cache[id] = name;
         return name;
     }
@@ -1048,7 +1074,8 @@ public sealed class IssuingService
         var now = _clock.UtcNow;
         var unitUnexpired = unit.ExpiresUtc > now;
         var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
-        var timeOk = ReturnReissueRule.IsWithinReturnToAvailableWindow(issue.IssuedUtc, now, returnMinutes);
+        var governed = await StorageTimeOutGovernedAsync(unit.CurrentLocationId, ct);
+        var timeOk = ReturnReissueRule.TimeOutAcceptable(governed, issue.IssuedUtc, now, returnMinutes);
         var reissueEval = ReturnReissueRule.Evaluate(
             request.TemperatureAcceptable,
             request.SealIntegrityAcceptable,
@@ -1113,7 +1140,9 @@ public sealed class IssuingService
                 request.TemperatureAcceptable,
                 request.SealIntegrityAcceptable,
                 request.VisualInspectionAcceptable,
-                request.TimeOutOfStorageAcceptable,
+                TimeOutOfStorageAcceptable = timeOk,
+                TimeOutGoverned = governed,
+                CallerTimeOutOfStorageAcceptable = request.TimeOutOfStorageAcceptable,
                 destination
             })
         };
@@ -1827,6 +1856,21 @@ public sealed class IssuingService
         return (await _ptagIdentifiers.GetByIdAsync(match.Id, ct), null);
     }
 
+    private async Task<IReadOnlyList<StorageLocationLabel.CatalogLocation>?> LoadIssuePlacesAsync(
+        IReadOnlyList<Issue> rows,
+        CancellationToken ct)
+    {
+        if (!rows.Any(row => !string.IsNullOrWhiteSpace(row.IssuedToLocation)))
+        {
+            return null;
+        }
+
+        var locations = await _locations.ListAsync(ct);
+        return locations
+            .Select(location => new StorageLocationLabel.CatalogLocation(location.Id, location.Name, location.Code))
+            .ToList();
+    }
+
     private async Task<IssueWorklistContext> LoadIssueWorklistContextAsync(
         IReadOnlyList<Issue> rows, CancellationToken ct)
     {
@@ -1869,6 +1913,17 @@ public sealed class IssuingService
         return new IssueWorklistContext(patients, types, antibodies, specimens, allocations, units, crossmatches);
     }
 
+    private async Task<bool> StorageTimeOutGovernedAsync(long? locationId, CancellationToken ct)
+    {
+        if (locationId is not long id)
+        {
+            return true;
+        }
+
+        var location = await _locations.GetByIdAsync(id, ct);
+        return location?.TimeOutGoverned ?? true;
+    }
+
     private sealed class IssueWorklistContext(
         IReadOnlyList<Patient> patients,
         IReadOnlyList<PatientBloodTypeHistory> types,
@@ -1891,6 +1946,9 @@ public sealed class IssuingService
         private readonly Dictionary<(long PatientId, long UnitId), List<Crossmatch>> _crossmatches = crossmatches
             .GroupBy(x => (x.PatientId, x.BloodProductId))
             .ToDictionary(g => g.Key, g => g.ToList());
+
+        public long? StorageLocationId(Issue issue) =>
+            _units.TryGetValue(issue.BloodProductId, out var unit) ? unit.CurrentLocationId : null;
 
         public (string? Mrn, string? DisplayName, string? DateOfBirth, string? UnitNumber, string? CurrentBloodType,
             bool HasAntibodyHistory, string? AntibodySummary, DateTime? SpecimenExpiresUtc, bool SpecimenExpired,

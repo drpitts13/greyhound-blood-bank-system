@@ -17,7 +17,7 @@
         }
     </div>
 </div>
-<p class="muted">SafeTrace / SoftBank storage sites: refrigerator, freezer, platelet incubator, satellite fridge, and issue window. Storage class, remote/electronic issue, and second-verifier policy are enforced at transfer and issue (AABB 5.1.8, 5.11, 5.16; 21 CFR 606.160).</p>
+<p class="muted">SafeTrace / SoftBank storage sites: refrigerator, freezer, platelet incubator, satellite fridge, and issue window. Storage class, remote/electronic issue, and second-verifier policy are enforced at transfer and issue (AABB 5.1.8, 5.11, 5.16; 21 CFR 606.160). The code stays in the catalog. A blank name on this list stays the location id. The edit form still shows the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -46,6 +46,7 @@
                     <th>Issue</th>
                     <th>Storage</th>
                     <th>Temp °C</th>
+                    <th>Time out</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
@@ -55,7 +56,7 @@
                 {
                     <tr>
                         <td class="mono">@loc.Code</td>
-                        <td>@loc.Name</td>
+                        <td>@loc.NameLabel</td>
                         <td>
                             @loc.LocationType
                             @if (loc.IsSatellite)
@@ -72,6 +73,7 @@
                         </td>
                         <td class="mono">@StorageSummary(loc)</td>
                         <td class="mono">@TempSummary(loc)</td>
+                        <td>@(loc.TimeOutGoverned ? "Governed" : "Exempt")</td>
                         <td>@(loc.IsActive ? "Active" : "Inactive")</td>
                         <td class="right nowrap">
                             @if (CanEdit)
@@ -127,6 +129,7 @@
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_draft.AllowsElectronicIssue" /> Electronic XM issue</label>
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_draft.RequiresSecondVerifier" /> Requires second verifier</label>
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_draft.IsSatellite" /> Satellite site</label>
+            <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_draft.TimeOutGoverned" /> Time-out governed</label>
         </div>
         <div class="form-row">
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_draft.AllowsRbc" /> RBC</label>
@@ -162,6 +165,7 @@
             : _list.Where(l =>
                 l.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || l.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || l.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || (l.Department?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -203,7 +207,8 @@
             StorageTempMinC = loc.StorageTempMinC,
             StorageTempMaxC = loc.StorageTempMaxC,
             DefaultInTransitHours = loc.DefaultInTransitHours,
-            Notes = loc.Notes
+            Notes = loc.Notes,
+            TimeOutGoverned = loc.TimeOutGoverned
         };
     }
 
@@ -242,7 +247,8 @@
             _draft.StorageTempMaxC,
             _draft.DefaultInTransitHours,
             _draft.Notes,
-            _draft.ApplyTypeDefaults);
+            _draft.ApplyTypeDefaults,
+            _draft.TimeOutGoverned);
         var r = _editId is null
             ? await Api.CreateAdminInventoryLocationAsync(req)
             : await Api.UpdateAdminInventoryLocationAsync(_editId.Value, req);
@@ -306,5 +312,6 @@
         public int? DefaultInTransitHours { get; set; }
         public string? Notes { get; set; }
         public bool ApplyTypeDefaults { get; set; }
+        public bool TimeOutGoverned { get; set; } = true;
     }
 }

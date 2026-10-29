@@ -1,4 +1,5 @@
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Admin;
 
@@ -11,6 +12,8 @@ public sealed record BloodSupplierDto(
     bool IsActive,
     string DisplayName)
 {
+    public string NameLabel => BloodSupplierLabel.Name(Id, Name);
+
     public static BloodSupplierDto From(BloodSupplier supplier) => new(
         supplier.Id,
         supplier.Code,
@@ -18,7 +21,7 @@ public sealed record BloodSupplierDto(
         supplier.Address,
         supplier.Registration,
         supplier.IsActive,
-        $"{supplier.Code} — {supplier.Name}");
+        BloodSupplierLabel.ForChoice(supplier.Id, supplier.Code, supplier.Name));
 }
 
 public sealed record SaveBloodSupplierRequest(

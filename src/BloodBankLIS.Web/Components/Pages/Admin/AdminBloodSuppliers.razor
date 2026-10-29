@@ -14,7 +14,7 @@
         }
     </div>
 </div>
-<p class="muted">Code, name, and registration are required. Address is optional. Deliveries pick an active supplier.</p>
+<p class="muted">Code, name, and registration are required. Address is optional. Deliveries pick an active supplier. The code stays in the catalog. A blank name on this list stays the supplier id. The edit form still shows the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -41,7 +41,7 @@
                 {
                     <tr>
                         <td class="mono">@s.Code</td>
-                        <td>@s.Name</td>
+                        <td>@s.NameLabel</td>
                         <td class="mono">@s.Registration</td>
                         <td>@(s.Address ?? "—")</td>
                         <td>@(s.IsActive ? "Active" : "Inactive")</td>
@@ -105,6 +105,7 @@
             : _list.Where(s =>
                 s.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || s.Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || s.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || s.Registration.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || (s.Address?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
 

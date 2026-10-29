@@ -6,6 +6,7 @@ using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Application.Issuing;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Entities.Identity;
@@ -896,6 +897,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.Equal("dr-authorizer", retro.EmergencyReleaseAuthorizer);
             Assert.Equal(UnitAppearance.Acceptable, retro.IssueAppearance);
             Assert.Null(retro.PtagCode);
+            Assert.Equal(CrossmatchClinicalStatus.NotCrossmatchedEmergency, retro.CrossmatchStatus);
             saved.IssuedBy = " ";
             saved.EmergencyReleaseDetails = " ";
             saved.SecondVerifier = " ";
@@ -1082,6 +1084,82 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using var verify = _factory.Create();
         Assert.Equal(UnitStatus.Quarantine, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
         Assert.Equal(IssueStatus.Returned, (await verify.Issues.FindAsync(issueId))!.Status);
+    }
+
+    [Fact]
+    public async Task Return_CallerTimeOutFlag_DoesNotOverrideAGovernedWindow()
+    {
+        var s = await SeedAsync("RETURN-GOV");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var location = new InventoryLocation { Code = "GOV-RET", Name = "Governed fridge", TimeOutGoverned = true };
+            c.InventoryLocations.Add(location);
+            await c.SaveChangesAsync();
+            var stored = await c.BloodUnits.FindAsync(s.UnitId);
+            stored!.CurrentLocationId = location.Id;
+            await c.SaveChangesAsync();
+            issueId = (await Issuing(c).IssueUnitAsync(
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) })).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var available = await Issuing(c).ReturnUnitAsync(
+                issueId,
+                new ReturnUnitRequest("Caller says the window is fine", TimeOutOfStorageAcceptable: true, Destination: UnitStatus.Available));
+            Assert.False(available.Succeeded);
+            Assert.Contains("30 minutes", available.Error, StringComparison.OrdinalIgnoreCase);
+
+            var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+            Assert.True(row.StorageTimeOutGoverned);
+            Assert.False(row.StorageTimeOutAcceptable);
+            Assert.Equal("Window elapsed", ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable));
+        }
+    }
+
+    [Fact]
+    public async Task Return_ExemptLocation_AfterThirtyMinutes_CanReturnToAvailable()
+    {
+        var s = await SeedAsync("RETURN-EX");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var location = new InventoryLocation { Code = "EX-RET", Name = "Validated remote fridge", TimeOutGoverned = false };
+            c.InventoryLocations.Add(location);
+            await c.SaveChangesAsync();
+            var stored = await c.BloodUnits.FindAsync(s.UnitId);
+            stored!.CurrentLocationId = location.Id;
+            await c.SaveChangesAsync();
+            issueId = (await Issuing(c).IssueUnitAsync(
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) })).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
+            Assert.False(row.StorageTimeOutGoverned);
+            Assert.True(row.StorageTimeOutAcceptable);
+
+            var returned = await Issuing(c).ReturnUnitAsync(
+                issueId,
+                new ReturnUnitRequest(
+                    "Exempt device, still in temperature",
+                    TimeOutOfStorageAcceptable: false,
+                    Destination: UnitStatus.Available));
+            Assert.True(returned.Succeeded, returned.Error);
+            Assert.Contains("\"TimeOutOfStorageAcceptable\":true", returned.Value!.ReissueEvaluationJson, StringComparison.Ordinal);
+            Assert.Contains("\"TimeOutGoverned\":false", returned.Value.ReissueEvaluationJson, StringComparison.Ordinal);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
     [Fact]
@@ -2492,6 +2570,31 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListReadyToIssue_KeepsTheLocationIdWhenTheNameIsBlank()
+    {
+        var s = await SeedAsync("RDYBLANK");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        long locationId;
+        const string code = "F2RDYBLANK";
+        await using (var placed = _factory.Create())
+        {
+            var location = new InventoryLocation { Code = code, Name = "   " };
+            placed.InventoryLocations.Add(location);
+            await placed.SaveChangesAsync();
+            locationId = location.Id;
+            var stored = await placed.BloodUnits.FindAsync(s.UnitId);
+            stored!.CurrentLocationId = location.Id;
+            await placed.SaveChangesAsync();
+        }
+
+        await using var read = _factory.Create();
+        var row = Assert.Single(await Issuing(read).ListReadyToIssueAllocationsAsync(), r => r.BloodUnitId == s.UnitId);
+        Assert.Equal($"Location {locationId}", row.StorageLocationName);
+        Assert.DoesNotContain(code, row.StorageLocationName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ListOutstandingIssued_SurfacesUnitAndStaysAfterWardReceipt()
     {
         var s = await SeedAsync("OUTISS");
@@ -3002,5 +3105,147 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             DocumentJson = JsonSerializer.Serialize(document, LabelFields.JsonOptions)
         });
         await c.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task IssuedBoards_NameTheStorageLocationWhenThePlaceIsALocationCode()
+    {
+        const string key = "LOC221";
+        long blankId;
+        long namedIssueId;
+        await using (var c = _factory.Create())
+        {
+            var patient = new Patient
+            {
+                MedicalRecordNumber = $"MRN-{key}",
+                LastName = "Poe",
+                FirstName = "Ann",
+                DateOfBirth = new DateOnly(1975, 6, 1)
+            };
+            var product = new ProductType
+            {
+                ProductCode = $"RBC-{key}",
+                Name = "Test RBC",
+                ComponentClass = ComponentClass.RedBloodCells
+            };
+            c.Patients.Add(patient);
+            c.ProductTypes.Add(product);
+            var named = new InventoryLocation { Code = $"F1{key}", Name = " Issue fridge " };
+            var blank = new InventoryLocation { Code = $"F2{key}", Name = "   " };
+            var coded = new InventoryLocation { Code = $"OR{key}", Name = "Main OR" };
+            var alsoNamed = new InventoryLocation { Code = $"X{key}", Name = $"OR{key}" };
+            c.InventoryLocations.AddRange(named, blank, coded, alsoNamed);
+            await c.SaveChangesAsync();
+            blankId = blank.Id;
+
+            BloodUnit Unit(string suffix) => new()
+            {
+                UnitNumber = $"U-{key}-{suffix}",
+                ProductTypeId = product.Id,
+                Abo = AboGroup.O,
+                RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+                Status = UnitStatus.Issued
+            };
+
+            var fridgeUnit = Unit("FR");
+            var blankUnit = Unit("BL");
+            var wardUnit = Unit("WD");
+            var ambiguousUnit = Unit("AM");
+            var transfusedUnit = Unit("TX");
+            c.BloodUnits.AddRange(fridgeUnit, blankUnit, wardUnit, ambiguousUnit, transfusedUnit);
+            await c.SaveChangesAsync();
+
+            Issue Issued(BloodUnit unit, string place, bool retrospective = false) => new()
+            {
+                BloodProductId = unit.Id,
+                PatientId = patient.Id,
+                IssuedUtc = _factory.Clock.UtcNow,
+                IssuedBy = "tech",
+                IssuedToLocation = place,
+                Status = IssueStatus.Issued,
+                TestsIncompleteAtIssue = retrospective,
+                CrossmatchStatus = CrossmatchClinicalStatus.NotPerformed
+            };
+
+            var fridgeIssue = Issued(fridgeUnit, $" f1{key.ToLower()} ", retrospective: true);
+            var blankIssue = Issued(blankUnit, $"F2{key}");
+            var wardIssue = Issued(wardUnit, " 4W Med/Surg ");
+            var ambiguousIssue = Issued(ambiguousUnit, $"or{key.ToLower()}");
+            var transfusedIssue = new Issue
+            {
+                BloodProductId = transfusedUnit.Id,
+                PatientId = patient.Id,
+                IssuedUtc = _factory.Clock.UtcNow,
+                IssuedBy = "tech",
+                IssuedToLocation = "4W Oncology",
+                Status = IssueStatus.Transfused
+            };
+            c.Issues.AddRange(fridgeIssue, blankIssue, wardIssue, ambiguousIssue, transfusedIssue);
+            await c.SaveChangesAsync();
+            namedIssueId = fridgeIssue.Id;
+            c.TransfusionEvents.Add(new TransfusionEvent
+            {
+                IssueId = transfusedIssue.Id,
+                BloodProductId = transfusedUnit.Id,
+                PatientId = patient.Id,
+                Location = $" f1{key.ToLower()} ",
+                DocumentedBy = "tech",
+                FinalDisposition = TransfusionDisposition.Completed
+            });
+            await c.SaveChangesAsync();
+        }
+
+        await using var read = _factory.Create();
+        var issuing = Issuing(read);
+        var outstanding = await issuing.ListOutstandingIssuedAsync();
+        var inTransit = await issuing.ListInTransitAsync();
+        var retrospective = await issuing.ListPendingRetrospectiveCrossmatchesAsync();
+
+        OutstandingIssueWorkItemDto Board(string suffix) =>
+            Assert.Single(outstanding, row => row.UnitNumber == $"U-{key}-{suffix}");
+
+        var fridge = Board("FR");
+        var blankRow = Board("BL");
+        var ward = Board("WD");
+        var ambiguous = Board("AM");
+        Assert.Equal("Issue fridge", fridge.IssuedToLocation);
+        Assert.DoesNotContain($"F1{key}", fridge.IssuedToLocation, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal($"Location {blankId}", blankRow.IssuedToLocation);
+        Assert.DoesNotContain($"F2{key}", blankRow.IssuedToLocation, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("4W Med/Surg", ward.IssuedToLocation);
+        Assert.Equal($"or{key.ToLower()}", ambiguous.IssuedToLocation);
+        Assert.Equal("Issue fridge", Assert.Single(inTransit, row => row.UnitNumber == $"U-{key}-FR").IssuedToLocation);
+        Assert.Equal("Issue fridge", Assert.Single(retrospective, row => row.UnitNumber == $"U-{key}-FR").IssuedToLocation);
+        Assert.Equal($" f1{key.ToLower()} ", (await read.Issues.FindAsync(namedIssueId))!.IssuedToLocation);
+
+        PatientProductHistoryService History(BloodBankDbContext db, bool withLocations) => new(
+            new EfRepository<Allocation>(db),
+            new EfRepository<Crossmatch>(db),
+            new EfRepository<Issue>(db),
+            new EfRepository<Return>(db),
+            new EfRepository<TransfusionEvent>(db),
+            new EfRepository<BloodUnit>(db),
+            new EfRepository<ProductType>(db),
+            new EfRepository<Encounter>(db),
+            new EfRepository<Order>(db),
+            new EfRepository<Specimen>(db),
+            new EfRepository<PatientBloodTypeHistory>(db),
+            new EfRepository<Override>(db),
+            withLocations ? new EfRepository<InventoryLocation>(db) : null);
+
+        var patientId = fridge.PatientId;
+        var namedHistory = await History(read, withLocations: true).ListByPatientAsync(patientId);
+        Assert.Equal("Issue fridge", Assert.Single(namedHistory, row => row.UnitNumber == $"U-{key}-FR" && row.EventType == PatientProductHistoryEventType.Issued).IssuedToLocation);
+        Assert.Equal($"Location {blankId}", Assert.Single(namedHistory, row => row.UnitNumber == $"U-{key}-BL").IssuedToLocation);
+        Assert.Equal("4W Med/Surg", Assert.Single(namedHistory, row => row.UnitNumber == $"U-{key}-WD").IssuedToLocation);
+        Assert.Equal($"or{key.ToLower()}", Assert.Single(namedHistory, row => row.UnitNumber == $"U-{key}-AM").IssuedToLocation);
+        Assert.Equal("Issue fridge", Assert.Single(namedHistory, row => row.EventType == PatientProductHistoryEventType.Transfused).IssuedToLocation);
+        Assert.Equal("4W Oncology", Assert.Single(namedHistory, row => row.UnitNumber == $"U-{key}-TX" && row.EventType == PatientProductHistoryEventType.Issued).IssuedToLocation);
+
+        var unread = await History(read, withLocations: false).ListByPatientAsync(patientId);
+        var unreadFridge = Assert.Single(unread, row => row.UnitNumber == $"U-{key}-FR" && row.EventType == PatientProductHistoryEventType.Issued);
+        Assert.Equal($"f1{key.ToLower()}", unreadFridge.IssuedToLocation);
+        Assert.DoesNotContain("Issue fridge", unreadFridge.IssuedToLocation);
     }
 }

@@ -64,6 +64,145 @@ public class DeliveryServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task BlankSupplierName_ShowsTheSupplierIdAndDoesNotWriteItOnTheUnit()
+    {
+        await using var context = _factory.Create();
+        await SeedProductCodeAsync(context);
+        var supplier = new BloodSupplier
+        {
+            Code = "BLANKSUP",
+            Name = "   ",
+            Registration = "REG-BLANKSUP",
+            IsActive = true
+        };
+        context.BloodSuppliers.Add(supplier);
+        await context.SaveChangesAsync();
+
+        var productTypeId = await SeedProductAsync(context, "RBC-DEL-BLANK");
+        var deliveries = CreateDeliveryService(context);
+        var created = await deliveries.CreateAsync(new CreateDeliveryRequest(
+            supplier.Id,
+            _factory.Clock.UtcNow.AddHours(-1),
+            null,
+            [new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 1)]));
+        Assert.True(created.Succeeded, created.Error);
+        var deliveryId = created.Value!.Id;
+
+        var open = Assert.Single(await deliveries.ListOpenAsync(), d => d.Id == deliveryId);
+        Assert.Equal("   ", open.SupplierName);
+        Assert.Equal($"Supplier {supplier.Id}", open.SupplierNameLabel);
+        Assert.DoesNotContain("BLANKSUP", open.SupplierNameLabel);
+
+        var detail = await deliveries.GetAsync(deliveryId);
+        Assert.Equal("   ", detail!.SupplierName);
+        Assert.Equal($"Supplier {supplier.Id}", detail.SupplierNameLabel);
+
+        var receive = await deliveries.ResolveForReceiveAsync(deliveryId, productTypeId);
+        Assert.True(receive.Succeeded, receive.Error);
+        Assert.Equal("   ", receive.Value!.SupplierName);
+        Assert.DoesNotContain("Supplier", receive.Value.SupplierName);
+
+        var inventory = CreateInventory(context, deliveries);
+        var unit = await inventory.ReceiveUnitAsync(UnitRequest("U-BLANK-SUP", productTypeId, deliveryId));
+        Assert.True(unit.Succeeded, unit.Error);
+        Assert.Equal("   ", unit.Unit!.Supplier);
+        Assert.Equal("   ", unit.Unit.CollectionFacility);
+    }
+
+    [Fact]
+    public async Task UnitChart_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName()
+    {
+        await using var context = _factory.Create();
+        await SeedProductCodeAsync(context);
+        var supplier = new BloodSupplier
+        {
+            Code = "BLANKCHART",
+            Name = "   ",
+            Registration = "REG-BLANKCHART",
+            IsActive = true
+        };
+        context.BloodSuppliers.Add(supplier);
+        await context.SaveChangesAsync();
+
+        var productTypeId = await SeedProductAsync(context, "RBC-DEL-CHART");
+        var deliveries = CreateDeliveryService(context);
+        var created = await deliveries.CreateAsync(new CreateDeliveryRequest(
+            supplier.Id,
+            _factory.Clock.UtcNow.AddHours(-1),
+            null,
+            [new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 1)]));
+        Assert.True(created.Succeeded, created.Error);
+        var deliveryId = created.Value!.Id;
+
+        var inventory = CreateInventory(context, deliveries);
+        var received = await inventory.ReceiveUnitAsync(UnitRequest("U-BLANK-CHART", productTypeId, deliveryId));
+        Assert.True(received.Succeeded, received.Error);
+
+        var chart = await inventory.GetChartAsync(received.Unit!.Id);
+        Assert.Equal("   ", chart!.Supplier);
+        Assert.Equal("   ", chart.CollectionFacility);
+        Assert.Equal($"Supplier {supplier.Id}", chart.SupplierLabel);
+        Assert.DoesNotContain("BLANKCHART", chart.SupplierLabel);
+
+        var stored = await context.BloodUnits.SingleAsync(u => u.Id == received.Unit.Id);
+        Assert.Equal("   ", stored.Supplier);
+        Assert.Equal("   ", stored.CollectionFacility);
+    }
+
+    [Fact]
+    public async Task ExpectedInbound_ShowsTheSupplierIdAndDoesNotRewriteTheStoredName()
+    {
+        await using var context = _factory.Create();
+        await SeedProductCodeAsync(context);
+        var supplier = new BloodSupplier
+        {
+            Code = "BLANKEXP",
+            Name = "   ",
+            Registration = "REG-BLANKEXP",
+            IsActive = true
+        };
+        context.BloodSuppliers.Add(supplier);
+        await context.SaveChangesAsync();
+
+        var productTypeId = await SeedProductAsync(context, "RBC-DEL-EXP");
+        var deliveries = CreateDeliveryService(context);
+        var created = await deliveries.CreateAsync(new CreateDeliveryRequest(
+            supplier.Id,
+            _factory.Clock.UtcNow.AddHours(-1),
+            null,
+            [new SaveDeliveryLineRequest(ComponentClass.RedBloodCells, 1)]));
+        Assert.True(created.Succeeded, created.Error);
+        var deliveryId = created.Value!.Id;
+
+        var inventory = CreateInventory(context, deliveries);
+        var linked = await inventory.ExpectUnitAsync(
+            UnitRequest("U-EXP-LINK", productTypeId) with { Supplier = "   ", CollectionFacility = " Lab " });
+        Assert.True(linked.Succeeded, linked.Error);
+        var linkedId = linked.Unit!.Id;
+        var linkedUnit = await context.BloodUnits.SingleAsync(u => u.Id == linkedId);
+        linkedUnit.DeliveryId = deliveryId;
+        await context.SaveChangesAsync();
+
+        var loose = await inventory.ExpectUnitAsync(
+            UnitRequest("U-EXP-NONE", productTypeId) with { Supplier = "   ", CollectionFacility = "   " });
+        Assert.True(loose.Succeeded, loose.Error);
+
+        var list = await inventory.ListExpectedAsync();
+        var linkedRow = Assert.Single(list, i => i.UnitNumber == "U-EXP-LINK");
+        Assert.Equal("   ", linkedRow.Supplier);
+        Assert.Equal($"Supplier {supplier.Id}", linkedRow.SupplierLabel);
+        Assert.DoesNotContain("BLANKEXP", linkedRow.SupplierLabel);
+
+        var looseRow = Assert.Single(list, i => i.UnitNumber == "U-EXP-NONE");
+        Assert.Null(looseRow.SupplierLabel);
+        Assert.Equal("   ", looseRow.Supplier);
+
+        var stored = await context.BloodUnits.SingleAsync(u => u.Id == linkedId);
+        Assert.Equal("   ", stored.Supplier);
+        Assert.Equal(" Lab ", stored.CollectionFacility);
+    }
+
+    [Fact]
     public async Task Receive_RequiresOpenDeliveryLine_AndCountsUnits()
     {
         await using var context = _factory.Create();

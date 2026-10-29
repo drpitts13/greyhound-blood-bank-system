@@ -49,6 +49,7 @@ public static partial class DatabaseSeeder
         await EnsureAdditionalProductTypesAsync(context, cancellationToken);
         await EnsureProductRetypeFlagsAsync(context, cancellationToken);
         await EnsureProductTypeIsbtCodesAsync(context, cancellationToken);
+        await EnsureProductAboRhPoliciesAsync(context, cancellationToken);
         await SeedProductAttributesAsync(context, cancellationToken);
         await SeedSpecialRequirementDefinitionsAsync(context, cancellationToken);
         await SeedBloodAttributeDefinitionsAsync(context, cancellationToken);
@@ -1640,6 +1641,65 @@ public static partial class DatabaseSeeder
             new ProductType { ProductCode = "PLT-A", Name = "Apheresis Platelets", ComponentClass = ComponentClass.Platelets, RequiresCrossmatch = false, DefaultShelfLifeHours = 5 * 24, Isbt128ProductCode = "E3077" });
 
         await context.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Writes the standard ABO/Rh grid for products that have none. Existing rows are left
+    /// alone so a later admin edit is not overwritten on the next startup.
+    /// </summary>
+    private static async Task EnsureProductAboRhPoliciesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var products = await context.ProductTypes
+            .Select(p => new { p.Id, p.ComponentClass })
+            .ToListAsync(ct);
+        if (products.Count == 0)
+        {
+            return;
+        }
+
+        var configured = await context.ProductAboCompatibilities.Select(r => r.ProductTypeId)
+            .Union(context.ProductRhCompatibilities.Select(r => r.ProductTypeId))
+            .ToListAsync(ct);
+        var skip = configured.ToHashSet();
+        var added = false;
+        foreach (var product in products)
+        {
+            if (skip.Contains(product.Id))
+            {
+                continue;
+            }
+
+            var policy = StandardProductAboRhPolicy.For(product.ComponentClass);
+            foreach (var cell in policy.AboCells)
+            {
+                context.ProductAboCompatibilities.Add(new ProductAboCompatibility
+                {
+                    ProductTypeId = product.Id,
+                    PatientAbo = cell.PatientAbo,
+                    UnitAbo = cell.UnitAbo,
+                    IsAllowed = cell.IsAllowed
+                });
+            }
+
+            foreach (var cell in policy.RhCells)
+            {
+                context.ProductRhCompatibilities.Add(new ProductRhCompatibility
+                {
+                    ProductTypeId = product.Id,
+                    SexGroup = cell.SexGroup,
+                    PatientRh = cell.PatientRh,
+                    UnitRh = cell.UnitRh,
+                    IsAllowed = cell.IsAllowed
+                });
+            }
+
+            added = true;
+        }
+
+        if (added)
+        {
+            await context.SaveChangesAsync(ct);
+        }
     }
 
     /// <summary>

@@ -55,5 +55,11 @@ public class InventoryLocation : BaseEntity
     /// <summary>Overrides facility in-transit due hours when this site issues into a cooler.</summary>
     public int? DefaultInTransitHours { get; set; }
 
+    /// <summary>
+    /// When true, return-to-available uses the facility time-out window.
+    /// When false, this storage device is exempt and the window does not fail the return.
+    /// </summary>
+    public bool TimeOutGoverned { get; set; } = true;
+
     public string? Notes { get; set; }
 }

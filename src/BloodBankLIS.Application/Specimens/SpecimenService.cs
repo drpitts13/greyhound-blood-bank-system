@@ -12,9 +12,11 @@ using BloodBankLIS.Domain.ValueObjects;
 namespace BloodBankLIS.Application.Specimens;
 
 /// <summary>
-/// Specimen accessioning, metadata edit, and rejection. Expiration is computed from the
-/// specimen-type catalog offset, then shortened to the 72-hour alloimmunization window
-/// when recent transfusion or pregnancy risk applies.
+/// Specimen accessioning, receipt, acceptance, metadata edit, and rejection.
+/// In-lab accession still accepts immediately. Collection without acceptance
+/// leaves Collected until Receive then Accept. Expiration is computed from the
+/// specimen-type catalog offset, then shortened to the 72-hour alloimmunization
+/// window when recent transfusion or pregnancy risk applies.
 /// </summary>
 public sealed class SpecimenService
 {
@@ -164,6 +166,7 @@ public sealed class SpecimenService
 
         var expiresUtc = await ComputeExpiresUtcAsync(
             request.CollectedUtc, typeDef, patient, request.ValidityHours, ct);
+        var acceptNow = request.AcceptImmediately;
         var specimen = new Specimen
         {
             AccessionNumber = request.AccessionNumber,
@@ -171,7 +174,7 @@ public sealed class SpecimenService
             SpecimenType = typeCode,
             Barcode = request.Barcode,
             CollectedUtc = request.CollectedUtc,
-            ReceivedUtc = _clock.UtcNow,
+            ReceivedUtc = acceptNow ? _clock.UtcNow : null,
             ExpiresUtc = expiresUtc,
             DrawLocation = request.DrawLocation,
             Collector = request.Collector,
@@ -179,7 +182,7 @@ public sealed class SpecimenService
             Identifier1Value = id1Value,
             Identifier2Type = id2Type,
             Identifier2Value = id2Value,
-            Status = SpecimenStatus.Accepted,
+            Status = acceptNow ? SpecimenStatus.Accepted : SpecimenStatus.Collected,
             Comment = NormalizeComment(request.Comment)
         };
 
@@ -190,14 +193,15 @@ public sealed class SpecimenService
             nameof(Specimen),
             specimen.Id,
             newValue: new { specimen.AccessionNumber, specimen.SpecimenType, specimen.CollectedUtc, specimen.ExpiresUtc, specimen.Status },
-            reason: "Specimen accessioned.");
+            reason: acceptNow ? "Specimen accessioned." : "Specimen collected; awaiting receipt.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);
     }
 
     /// <summary>
     /// Updates collection metadata on an accepted specimen. Accession number, type,
-    /// patient, identity tokens, and status are immutable here.
+    /// patient, identity tokens, barcode, and status are immutable here. Use
+    /// <see cref="RelabelAsync"/> to change the barcode with a required reason.
     /// </summary>
     public async Task<OperationResult<Specimen>> UpdateAsync(long specimenId, UpdateSpecimenRequest request, CancellationToken ct = default)
     {
@@ -224,6 +228,14 @@ public sealed class SpecimenService
         if (request.CollectedUtc > _clock.UtcNow)
         {
             return OperationResult<Specimen>.Fail("Collection date/time cannot be in the future.");
+        }
+
+        var requestedBarcode = string.IsNullOrWhiteSpace(request.Barcode) ? null : request.Barcode.Trim();
+        var currentBarcode = string.IsNullOrWhiteSpace(specimen.Barcode) ? null : specimen.Barcode.Trim();
+        if (!string.Equals(requestedBarcode, currentBarcode, StringComparison.Ordinal))
+        {
+            return OperationResult<Specimen>.Fail(
+                "Barcode changes require Relabel with a reason. Collection metadata edit does not change the barcode.");
         }
 
         var patient = await _patients.GetByIdAsync(specimen.PatientId, ct);
@@ -264,7 +276,6 @@ public sealed class SpecimenService
             || specimen.ExpiresUtc != nextExpires;
 
         specimen.CollectedUtc = request.CollectedUtc;
-        specimen.Barcode = string.IsNullOrWhiteSpace(request.Barcode) ? null : request.Barcode.Trim();
         specimen.DrawLocation = string.IsNullOrWhiteSpace(request.DrawLocation) ? null : request.DrawLocation.Trim();
         specimen.Collector = string.IsNullOrWhiteSpace(request.Collector) ? null : request.Collector.Trim();
         specimen.ExpiresUtc = nextExpires;
@@ -319,6 +330,77 @@ public sealed class SpecimenService
         return OperationResult<Specimen>.Ok(specimen, warnings);
     }
 
+    /// <summary>
+    /// Changes the specimen barcode with a required reason. Accession number stays
+    /// immutable. Does not change collection time, expiration, or status.
+    /// </summary>
+    public async Task<OperationResult<Specimen>> RelabelAsync(
+        long specimenId,
+        RelabelSpecimenRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenEdit, SpecimenAuthorizationRule.EvaluateEdit, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+        if (specimen is null)
+        {
+            return OperationResult<Specimen>.Fail("Specimen not found.");
+        }
+
+        var status = SpecimenRelabelRule.EvaluateStatus(specimen.Status);
+        if (status.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(status.Message);
+        }
+
+        var barcodeRule = SpecimenRelabelRule.EvaluateBarcode(request.Barcode);
+        if (barcodeRule.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(barcodeRule.Message);
+        }
+
+        var reasonRule = SpecimenRelabelRule.EvaluateReason(request.Reason);
+        if (reasonRule.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(reasonRule.Message);
+        }
+
+        var nextBarcode = request.Barcode.Trim();
+        var change = SpecimenRelabelRule.EvaluateChange(specimen.Barcode, nextBarcode);
+        if (change.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(change.Message);
+        }
+
+        if (await _specimens.AnyAsync(
+                s => s.Id != specimenId
+                     && s.Barcode != null
+                     && s.Barcode == nextBarcode, ct))
+        {
+            return OperationResult<Specimen>.Fail($"Barcode '{nextBarcode}' is already assigned to another specimen.");
+        }
+
+        var previous = specimen.Barcode;
+        specimen.Barcode = nextBarcode;
+        _specimens.Update(specimen);
+        _audit?.Record(
+            AuditEventType.Specimen,
+            nameof(Specimen),
+            specimen.Id,
+            oldValue: new { Barcode = previous },
+            newValue: new { Barcode = specimen.Barcode },
+            reason: $"Specimen relabeled: {request.Reason.Trim()}");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Specimen>.Ok(specimen);
+    }
+
     public async Task<OperationResult<Specimen>> RejectAsync(long specimenId, string reason, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -363,6 +445,98 @@ public sealed class SpecimenService
             "Linked specimen was rejected while an antibody-identification workup was open. Interpretation and supervisor review must be repeated, or the workup voided, before completing. This does not identify antibodies.",
             ct);
         return OperationResult<Specimen>.Ok(specimen, warnings);
+    }
+
+    public async Task<IReadOnlyList<PendingSpecimenWorkItemDto>> ListPendingReceiptAsync(CancellationToken ct = default)
+    {
+        var specimens = await _specimens.ListAsync(
+            s => s.Status == SpecimenStatus.Collected || s.Status == SpecimenStatus.Received, ct);
+        var patientIds = specimens.Select(s => s.PatientId).Distinct().ToList();
+        var patients = patientIds.Count == 0
+            ? new Dictionary<long, Patient>()
+            : (await _patients.ListAsync(p => patientIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
+        var now = _clock.UtcNow;
+        return specimens
+            .OrderBy(s => s.CollectedUtc)
+            .ThenBy(s => s.AccessionNumber, StringComparer.OrdinalIgnoreCase)
+            .Select(s =>
+            {
+                patients.TryGetValue(s.PatientId, out var patient);
+                return PendingSpecimenWorkItemDto.From(s, patient, now);
+            })
+            .ToList();
+    }
+
+    public async Task<OperationResult<Specimen>> ReceiveAsync(long specimenId, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenAccession, SpecimenAuthorizationRule.EvaluateAccession, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+        if (specimen is null)
+        {
+            return OperationResult<Specimen>.Fail("Specimen not found.");
+        }
+
+        var gate = SpecimenReceiptRule.EvaluateReceive(specimen.Status, specimen.ExpiresUtc, _clock.UtcNow);
+        if (gate.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(gate.Message);
+        }
+
+        var previous = new { specimen.Status, specimen.ReceivedUtc };
+        specimen.Status = SpecimenStatus.Received;
+        specimen.ReceivedUtc = _clock.UtcNow;
+        _specimens.Update(specimen);
+        _audit?.Record(
+            AuditEventType.Specimen,
+            nameof(Specimen),
+            specimen.Id,
+            oldValue: previous,
+            newValue: new { specimen.Status, specimen.ReceivedUtc },
+            reason: "Specimen received in the blood bank.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Specimen>.Ok(specimen);
+    }
+
+    public async Task<OperationResult<Specimen>> AcceptAsync(long specimenId, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenAccession, SpecimenAuthorizationRule.EvaluateAccession, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var specimen = await _specimens.GetByIdAsync(specimenId, ct);
+        if (specimen is null)
+        {
+            return OperationResult<Specimen>.Fail("Specimen not found.");
+        }
+
+        var gate = SpecimenReceiptRule.EvaluateAccept(specimen.Status, specimen.ExpiresUtc, _clock.UtcNow);
+        if (gate.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<Specimen>.Fail(gate.Message);
+        }
+
+        var previous = new { specimen.Status };
+        specimen.Status = SpecimenStatus.Accepted;
+        specimen.ReceivedUtc ??= _clock.UtcNow;
+        _specimens.Update(specimen);
+        _audit?.Record(
+            AuditEventType.Specimen,
+            nameof(Specimen),
+            specimen.Id,
+            oldValue: previous,
+            newValue: new { specimen.Status, specimen.ReceivedUtc },
+            reason: "Specimen accepted for testing.");
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<Specimen>.Ok(specimen);
     }
 
     /// <summary>

@@ -52,6 +52,7 @@ public sealed class InventoryService
     private readonly ProductRetypeService? _retype;
     private readonly IRepository<ProductRetypeResult>? _retypeResults;
     private readonly DeliveryService? _deliveries;
+    private readonly IRepository<UnitModificationUnit>? _modificationUnits;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -70,7 +71,8 @@ public sealed class InventoryService
         IPermissionEvaluator? permissions = null,
         ProductRetypeService? retype = null,
         IRepository<ProductRetypeResult>? retypeResults = null,
-        DeliveryService? deliveries = null)
+        DeliveryService? deliveries = null,
+        IRepository<UnitModificationUnit>? modificationUnits = null)
     {
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -89,6 +91,7 @@ public sealed class InventoryService
         _permissions = permissions;
         _retype = retype;
         _retypeResults = retypeResults;
+        _modificationUnits = modificationUnits;
     }
 
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
@@ -102,10 +105,38 @@ public sealed class InventoryService
     {
         var now = _clock.UtcNow;
         var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Expected), ct);
+        var supplierIds = await SupplierIdsByDeliveryAsync(rows, ct);
         return rows
             .OrderBy(u => u.ExpectedArrivalDueUtc ?? u.CreatedUtc)
-            .Select(u => ExpectedInboundWorkItemDto.From(u, now))
+            .Select(u => ExpectedInboundWorkItemDto.From(u, now) with
+            {
+                BloodSupplierId = u.DeliveryId is long deliveryId && supplierIds.TryGetValue(deliveryId, out var supplierId)
+                    ? supplierId
+                    : null
+            })
             .ToList();
+    }
+
+    private async Task<Dictionary<long, long>> SupplierIdsByDeliveryAsync(
+        IEnumerable<BloodUnit> units,
+        CancellationToken ct)
+    {
+        var map = new Dictionary<long, long>();
+        if (_deliveries is null)
+        {
+            return map;
+        }
+
+        foreach (var deliveryId in units.Select(u => u.DeliveryId).OfType<long>().Distinct())
+        {
+            var supplierId = await _deliveries.GetSupplierIdAsync(deliveryId, ct);
+            if (supplierId is long id)
+            {
+                map[deliveryId] = id;
+            }
+        }
+
+        return map;
     }
 
     /// <summary>
@@ -125,12 +156,24 @@ public sealed class InventoryService
         var window = TimeSpan.FromHours(hours);
         var rows = await _repository.SearchAsync(
             new InventorySearchCriteria(ExpiringBeforeUtc: now.Add(window).AddSeconds(1)), ct);
-
-        return rows
+        var near = rows
             .Where(u => NearExpiryStatuses.Contains(u.Status)
                         && BloodUnitExpirationRule.IsNearExpiry(u.ExpiresUtc, now, window))
             .OrderBy(u => u.ExpiresUtc)
-            .Select(NearExpiryWorkItemDto.From)
+            .ToList();
+        var locationNames = await LoadLocationNamesAsync(near.Select(u => u.CurrentLocationId).OfType<long>(), ct);
+
+        return near
+            .Select(u =>
+            {
+                string? locationName = null;
+                if (u.CurrentLocationId is long locationId)
+                {
+                    locationNames.TryGetValue(locationId, out locationName);
+                }
+
+                return NearExpiryWorkItemDto.From(u, locationName);
+            })
             .ToList();
     }
 
@@ -151,6 +194,9 @@ public sealed class InventoryService
             : (await _retypeResults.ListAsync(r => unitIds.Contains(r.BloodProductId), ct))
                 .GroupBy(r => r.BloodProductId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(r => r.Id).First());
+        var locationIds = rows.Select(u => u.CurrentLocationId).OfType<long>().Distinct().ToList();
+        var locationNames = await LoadLocationNamesAsync(locationIds, ct);
+        var modificationResultIds = await ModificationResultUnitIdsAsync(unitIds, ct);
 
         return rows
             .OrderBy(u => u.CreatedUtc)
@@ -158,7 +204,14 @@ public sealed class InventoryService
             {
                 products.TryGetValue(u.ProductTypeId, out var product);
                 retypes.TryGetValue(u.Id, out var latest);
-                return QuarantineWorkItemDto.From(u, product?.ProductCode, latest);
+                string? locationName = null;
+                if (u.CurrentLocationId is long locationId)
+                {
+                    locationNames.TryGetValue(locationId, out locationName);
+                }
+
+                return QuarantineWorkItemDto.From(
+                    u, product?.ProductCode, latest, locationName, modificationResultIds.Contains(u.Id));
             })
             .ToList();
     }
@@ -173,13 +226,20 @@ public sealed class InventoryService
         var damaged = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.Damaged), ct);
         var rows = missing.Concat(damaged).ToList();
         var products = await LoadProductsAsync(rows, ct);
+        var locationNames = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
         return rows
             .OrderBy(u => u.Status)
             .ThenBy(u => u.UnitNumber)
             .Select(u =>
             {
                 products.TryGetValue(u.ProductTypeId, out var product);
-                return DiscrepancyWorkItemDto.From(u, product?.ProductCode);
+                string? locationName = null;
+                if (u.CurrentLocationId is long locationId)
+                {
+                    locationNames.TryGetValue(locationId, out locationName);
+                }
+
+                return DiscrepancyWorkItemDto.From(u, product?.ProductCode, locationName);
             })
             .ToList();
     }
@@ -191,12 +251,19 @@ public sealed class InventoryService
     {
         var rows = await _repository.SearchAsync(new InventorySearchCriteria(Status: UnitStatus.OnHold), ct);
         var products = await LoadProductsAsync(rows, ct);
+        var locationNames = await LoadLocationNamesAsync(rows.Select(u => u.CurrentLocationId).OfType<long>(), ct);
         return rows
             .OrderBy(u => u.UnitNumber)
             .Select(u =>
             {
                 products.TryGetValue(u.ProductTypeId, out var product);
-                return OnHoldWorkItemDto.From(u, product?.ProductCode);
+                string? locationName = null;
+                if (u.CurrentLocationId is long locationId)
+                {
+                    locationNames.TryGetValue(locationId, out locationName);
+                }
+
+                return OnHoldWorkItemDto.From(u, product?.ProductCode, locationName);
             })
             .ToList();
     }
@@ -214,8 +281,70 @@ public sealed class InventoryService
         return (await _productTypes.ListAsync(p => productIds.Contains(p.Id), ct)).ToDictionary(p => p.Id);
     }
 
+    private async Task<Dictionary<long, string?>> LoadLocationNamesAsync(
+        IEnumerable<long> locationIds,
+        CancellationToken ct)
+    {
+        var ids = locationIds.Distinct().ToList();
+        var names = new Dictionary<long, string?>();
+        if (_locations is null || ids.Count == 0)
+        {
+            return names;
+        }
+
+        var locations = await _locations.ListAsync(location => ids.Contains(location.Id), ct);
+        foreach (var location in locations)
+        {
+            names[location.Id] = location.Name;
+        }
+
+        return names;
+    }
+
     public Task<BloodUnit?> GetAsync(long id, CancellationToken ct = default) =>
         _repository.GetUnitAsync(id, ct);
+
+    public async Task<BloodUnitDto?> GetChartAsync(long id, CancellationToken ct = default)
+    {
+        var unit = await GetAsync(id, ct);
+        return unit is null ? null : await ToChartDtoAsync(unit, ct);
+    }
+
+    private async Task<BloodUnitDto> ToChartDtoAsync(BloodUnit unit, CancellationToken ct)
+    {
+        long? supplierId = null;
+        if (unit.DeliveryId is long deliveryId && _deliveries is not null)
+        {
+            var delivery = await _deliveries.GetAsync(deliveryId, ct);
+            if (delivery is not null)
+            {
+                supplierId = delivery.BloodSupplierId;
+            }
+        }
+
+        return BloodUnitDto.From(unit) with
+        {
+            BloodSupplierId = supplierId,
+            RequiresModificationLabelScan = unit.Status == UnitStatus.Quarantine && await IsModificationResultAsync(unit.Id, ct)
+        };
+    }
+
+    private async Task<bool> IsModificationResultAsync(long unitId, CancellationToken ct) =>
+        _modificationUnits is not null
+        && await _modificationUnits.AnyAsync(
+            link => link.BloodProductId == unitId && link.Role == ModificationUnitRole.Result, ct);
+
+    private async Task<HashSet<long>> ModificationResultUnitIdsAsync(IReadOnlyList<long> unitIds, CancellationToken ct)
+    {
+        if (_modificationUnits is null || unitIds.Count == 0)
+        {
+            return [];
+        }
+
+        var links = await _modificationUnits.ListAsync(
+            link => unitIds.Contains(link.BloodProductId) && link.Role == ModificationUnitRole.Result, ct);
+        return links.Select(link => link.BloodProductId).ToHashSet();
+    }
 
     public Task<IReadOnlyList<InventoryStatusHistory>> GetHistoryAsync(long unitId, CancellationToken ct = default) =>
         _repository.GetHistoryAsync(unitId, ct);
@@ -970,7 +1099,7 @@ public sealed class InventoryService
     }
 
     public async Task<InventoryActionResult> ReleaseFromQuarantineAsync(
-        long unitId, string? secondVerifier = null, CancellationToken ct = default)
+        long unitId, string? secondVerifier = null, string? scannedUnitNumber = null, CancellationToken ct = default)
     {
         var denied = await RejectUnauthorizedAsync(
             InventoryAuthorizationRule.EvaluateQuarantineRelease, ct);
@@ -999,6 +1128,13 @@ public sealed class InventoryService
             return InventoryActionResult.Blocked(new RuleEvaluation([directory]));
         }
 
+        var isModificationResult = await IsModificationResultAsync(unit.Id, ct);
+        var label = ModificationLabelVerificationRule.Evaluate(isModificationResult, unit.UnitNumber, scannedUnitNumber);
+        if (label.Severity == RuleSeverity.HardStop)
+        {
+            return InventoryActionResult.Blocked(new RuleEvaluation([label]));
+        }
+
         unit.QuarantineReason = null;
         unit.QuarantineReasonCode = UnitQuarantineReason.Unspecified;
         var reason = string.IsNullOrWhiteSpace(secondVerifier)
@@ -1020,7 +1156,8 @@ public sealed class InventoryService
                 unit.UnitNumber,
                 unit.Status,
                 Path = "QuarantineRelease",
-                SecondVerifier = string.IsNullOrWhiteSpace(secondVerifier) ? null : secondVerifier.Trim()
+                SecondVerifier = string.IsNullOrWhiteSpace(secondVerifier) ? null : secondVerifier.Trim(),
+                ModificationLabelScan = isModificationResult ? unit.UnitNumber : null
             },
             reason: "Unit released from quarantine.");
         await _unitOfWork.SaveChangesAsync(ct);

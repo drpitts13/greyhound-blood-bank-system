@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -145,6 +146,8 @@ public sealed class ReactionInvestigationService
     private readonly IRepository<AntibodyHistory>? _antibodies;
     private readonly IRepository<Issue>? _issues;
     private readonly IRepository<ProductType>? _productTypes;
+    private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
+    private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
 
     public ReactionInvestigationService(
         IRepository<ReactionInvestigation> investigations,
@@ -159,7 +162,9 @@ public sealed class ReactionInvestigationService
         IRepository<PatientBloodTypeHistory>? bloodTypes = null,
         IRepository<AntibodyHistory>? antibodies = null,
         IRepository<Issue>? issues = null,
-        IRepository<ProductType>? productTypes = null)
+        IRepository<ProductType>? productTypes = null,
+        IRepository<ProductAboCompatibility>? aboCompatibilities = null,
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
     {
         _investigations = investigations;
         _transfusions = transfusions;
@@ -174,6 +179,8 @@ public sealed class ReactionInvestigationService
         _antibodies = antibodies;
         _issues = issues;
         _productTypes = productTypes;
+        _aboCompatibilities = aboCompatibilities;
+        _rhCompatibilities = rhCompatibilities;
     }
 
     public Task<IReadOnlyList<ReactionInvestigation>> ListAsync(CancellationToken ct = default) =>
@@ -556,6 +563,8 @@ public sealed class ReactionInvestigationService
         var products = _productTypes is null || productIds.Count == 0
             ? []
             : await _productTypes.ListAsync(p => productIds.Contains(p.Id), ct);
+        var aboRhPolicies = await ProductAboRhPolicyLoader.ForProductsAsync(
+            _aboCompatibilities, _rhCompatibilities, productIds, ct);
 
         var transfusionIds = rows.Select(r => r.TransfusionEventId).Distinct().ToList();
         var transfusions = transfusionIds.Count == 0
@@ -566,7 +575,7 @@ public sealed class ReactionInvestigationService
             ? []
             : await _issues.ListAsync(i => issueIds.Contains(i.Id), ct);
 
-        return new ReactionDisplayContext(patients, types, antibodies, units, products, transfusions, issues);
+        return new ReactionDisplayContext(patients, types, antibodies, units, products, transfusions, issues, aboRhPolicies);
     }
 
     private sealed class ReactionDisplayContext(
@@ -576,7 +585,8 @@ public sealed class ReactionInvestigationService
         IReadOnlyDictionary<long, BloodUnit> units,
         IReadOnlyList<ProductType> products,
         IReadOnlyList<TransfusionEvent> transfusions,
-        IReadOnlyList<Issue> issues)
+        IReadOnlyList<Issue> issues,
+        IReadOnlyDictionary<long, ProductAboRhPolicy> aboRhPolicies)
     {
         private readonly Dictionary<long, Patient> _patients = patients.ToDictionary(p => p.Id);
         private readonly Dictionary<long, PatientBloodTypeHistory> _types = types
@@ -589,6 +599,7 @@ public sealed class ReactionInvestigationService
         private readonly Dictionary<long, ProductType> _products = products.ToDictionary(p => p.Id);
         private readonly Dictionary<long, TransfusionEvent> _transfusions = transfusions.ToDictionary(t => t.Id);
         private readonly Dictionary<long, Issue> _issues = issues.ToDictionary(i => i.Id);
+        private readonly IReadOnlyDictionary<long, ProductAboRhPolicy> _aboRhPolicies = aboRhPolicies;
 
         public ReactionInvestigationDto ToDto(ReactionInvestigation row)
         {
@@ -609,7 +620,14 @@ public sealed class ReactionInvestigationService
                 _issues.TryGetValue(transfusion.IssueId, out issue);
             }
 
-            var (incompatible, alert) = EvaluateLabeledCompatibility(type, unit, product);
+            ProductAboRhPolicy? aboRhPolicy = null;
+            if (product is not null)
+            {
+                _aboRhPolicies.TryGetValue(product.Id, out aboRhPolicy);
+            }
+
+            var (incompatible, alert) = EvaluateLabeledCompatibility(
+                type, unit, product, patient?.Sex ?? Sex.Unknown, aboRhPolicy);
             var labeledUnit = unit is null ? (AboRh?)null : new AboRh(unit.Abo, unit.RhD);
             var patientRepeat = ReactionRepeatAboRhRule.Evaluate(
                 type?.BloodType, row.RepeatPatientAboRh, "Patient");
@@ -666,7 +684,9 @@ public sealed class ReactionInvestigationService
         private static (bool Incompatible, string? Alert) EvaluateLabeledCompatibility(
             PatientBloodTypeHistory? type,
             BloodUnit? unit,
-            ProductType? product)
+            ProductType? product,
+            Sex patientSex,
+            ProductAboRhPolicy? policy)
         {
             if (type is null || unit is null)
             {
@@ -674,7 +694,8 @@ public sealed class ReactionInvestigationService
             }
 
             var component = product?.ComponentClass ?? ComponentClass.RedBloodCells;
-            var firstStop = AboCompatibilityRule.Evaluate(type.BloodType, new AboRh(unit.Abo, unit.RhD), component)
+            var firstStop = AboCompatibilityRule.Evaluate(
+                    type.BloodType, new AboRh(unit.Abo, unit.RhD), component, patientSex, policy)
                 .FirstOrDefault(r => r.Severity == RuleSeverity.HardStop);
             return firstStop is null ? (false, null) : (true, firstStop.Message);
         }

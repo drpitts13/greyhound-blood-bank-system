@@ -87,6 +87,15 @@ public sealed class FacilityPolicyService
     public Task<int> GetRetentionYearsAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.RetentionYears, 10, ct);
 
+    public Task<bool> GetBlockResultsWhenReagentQcOpenAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.BlockResultsWhenReagentQcOpen, false, ct);
+
+    public Task<int> GetFinalDispositionDueHoursAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.FinalDispositionDueHours, FinalDispositionDueRule.DefaultDueHours, ct);
+
+    public Task<bool> GetRequireModificationSupplyLotAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireModificationSupplyLot, false, ct);
+
     public Task<bool> GetAllowElectronicCrossmatchAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowElectronicCrossmatch, false, ct);
 

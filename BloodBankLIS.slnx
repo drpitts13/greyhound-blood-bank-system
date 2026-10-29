@@ -3,6 +3,7 @@
     <Project Path="src/BloodBankLIS.Api/BloodBankLIS.Api.csproj" />
     <Project Path="src/BloodBankLIS.Application/BloodBankLIS.Application.csproj" />
     <Project Path="src/BloodBankLIS.Domain/BloodBankLIS.Domain.csproj" />
+    <Project Path="src/BloodBankLIS.Help/BloodBankLIS.Help.csproj" />
     <Project Path="src/BloodBankLIS.HL7/BloodBankLIS.HL7.csproj" />
     <Project Path="src/BloodBankLIS.Astm/BloodBankLIS.Astm.csproj" />
     <Project Path="src/BloodBankLIS.Infrastructure/BloodBankLIS.Infrastructure.csproj" />
@@ -13,6 +14,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/BloodBankLIS.Application.Tests/BloodBankLIS.Application.Tests.csproj" />
     <Project Path="tests/BloodBankLIS.Domain.Tests/BloodBankLIS.Domain.Tests.csproj" />
+    <Project Path="tests/BloodBankLIS.Help.Tests/BloodBankLIS.Help.Tests.csproj" />
     <Project Path="tests/BloodBankLIS.HL7.Tests/BloodBankLIS.HL7.Tests.csproj" />
     <Project Path="tests/BloodBankLIS.Astm.Tests/BloodBankLIS.Astm.Tests.csproj" />
     <Project Path="tests/BloodBankLIS.Integration.Tests/BloodBankLIS.Integration.Tests.csproj" />

@@ -1,5 +1,6 @@
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Admin;
 
@@ -17,7 +18,14 @@ public sealed record SpecialRequirementDefinitionDto(
     bool IsDraft,
     DateTime? EffectiveUtc,
     DateTime? RetiredUtc,
-    string? ChangeReason);
+    string? ChangeReason)
+{
+    /// <summary>
+    /// Catalog list. A blank name stays the requirement id.
+    /// The requirement code is not a substitute, and this label is not the stored name.
+    /// </summary>
+    public string NameLabel => SpecialRequirementLabel.Name(Id, Name);
+}
 
 public sealed record SaveSpecialRequirementDefinitionRequest(
     string Code,

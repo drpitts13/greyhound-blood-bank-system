@@ -15,7 +15,7 @@
         }
     </div>
 </div>
-<p class="muted">Product types, attributes, and issue/return rules. Intake product codes live on ISBT Product Codes; issue charges live on Product Billing.</p>
+<p class="muted">Product types, attributes, and issue/return rules. Intake product codes live on ISBT Product Codes; issue charges live on Product Billing. The list keeps the product code. A blank name stays Product {id}. That label is not written onto the product, and the edit form keeps the stored name.</p>
 
 <Outcome Value="_feedback" />
 
@@ -37,7 +37,7 @@
                 {
                     <tr>
                         <td class="mono">@p.ProductCode</td>
-                        <td>@p.Name</td>
+                        <td>@p.NameLabel</td>
                         <td>@p.ComponentClass</td>
                         <td>@(p.RequiresCrossmatch ? "Yes" : "No")</td>
                         <td>
@@ -81,7 +81,7 @@
             <div class="field"><label>Product code</label><input @bind="_editing.ProductCode" disabled="@(_editId is not null)" /></div>
             <div class="field"><label>Name</label><input @bind="_editing.Name" /></div>
             <div class="field"><label>Component class</label>
-                <select @bind="_editing.ComponentClass">@foreach (var c in Enum.GetValues<ComponentClass>()) { <option value="@c">@c</option> }</select>
+                <select value="@_editing.ComponentClass" @onchange="OnComponentClassChanged">@foreach (var c in Enum.GetValues<ComponentClass>()) { <option value="@c">@c</option> }</select>
             </div>
             <div class="field"><label>Category</label><input @bind="_editing.Category" /></div>
             <div class="field"><label>Shelf life (hours)</label><input type="number" @bind="_editing.DefaultShelfLifeHours" /></div>
@@ -98,6 +98,67 @@
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresAboMatch" /> Requires ABO match</label>
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresRhMatch" /> Requires Rh match</label>
             <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_editing.RequiresRetype" /> Retype (Y/N)</label>
+        </div>
+
+        <div style="margin:.8rem 0;">
+            <div class="flex-between">
+                <h3 style="margin:0;">ABO compatibility</h3>
+                <button type="button" class="btn btn-ghost btn-sm" @onclick="ResetAboRh">Reset to standard for this class</button>
+            </div>
+            <p class="muted">Checked cells may be issued. ABO is the same for every patient sex. Issue and allocation use this grid.</p>
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        @foreach (var unit in StandardProductAboRhPolicy.AboGroups)
+                        {
+                            <th>Unit @unit</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var patientAbo in StandardProductAboRhPolicy.AboGroups)
+                    {
+                        <tr>
+                            <td>@patientAbo</td>
+                            @foreach (var unitAbo in StandardProductAboRhPolicy.AboGroups)
+                            {
+                                var cell = _editing.AboCell(patientAbo, unitAbo);
+                                <td><input type="checkbox" checked="@cell.IsAllowed" @onchange="e => SetAbo(cell, (bool)e.Value!)" /></td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div style="margin:.8rem 0 1rem;">
+            <h3 style="margin:0 0 .35rem;">Rh compatibility</h3>
+            <p class="muted">Rh can differ by sex. Unknown and other sex use the Unknown/Other column.</p>
+            <table class="bb">
+                <thead>
+                    <tr>
+                        <th>Pair</th>
+                        @foreach (var sex in StandardProductAboRhPolicy.SexGroups)
+                        {
+                            <th>@SexLabel(sex)</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in RhRows)
+                    {
+                        <tr>
+                            <td>@row.Label</td>
+                            @foreach (var sex in StandardProductAboRhPolicy.SexGroups)
+                            {
+                                var cell = _editing.RhCell(row.Patient, row.Unit, sex);
+                                <td><input type="checkbox" checked="@cell.IsAllowed" @onchange="e => SetRh(cell, (bool)e.Value!)" /></td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
 
         @if (_editing.RequiresRetype)
@@ -188,6 +249,22 @@
     private long? _editId;
     private bool _currentIsActive;
     private string? _changeReason;
+    private bool _aboRhDirty;
+
+    private static readonly (RhType Patient, RhType Unit, string Label)[] RhRows =
+    [
+        (RhType.Negative, RhType.Positive, "Rh− patient, Rh+ unit"),
+        (RhType.Negative, RhType.Negative, "Rh− patient, Rh− unit"),
+        (RhType.Positive, RhType.Positive, "Rh+ patient, Rh+ unit"),
+        (RhType.Positive, RhType.Negative, "Rh+ patient, Rh− unit")
+    ];
+
+    private static string SexLabel(RhCompatibilitySex sex) => sex switch
+    {
+        RhCompatibilitySex.Male => "Male",
+        RhCompatibilitySex.Female => "Female",
+        _ => "Unknown/Other"
+    };
 
     private List<ConfigHistoryDto>? _history;
     private string _historyTitle = string.Empty;
@@ -218,16 +295,54 @@
 
     private void NewDraft()
     {
-        _editId = null; _currentIsActive = false; _changeReason = null;
+        _editId = null; _currentIsActive = false; _changeReason = null; _aboRhDirty = false;
         _editing = new EditModel();
+        _editing.LoadPolicy(StandardProductAboRhPolicy.For(ComponentClass.RedBloodCells));
         _feedback = null;
+    }
+
+    private void OnComponentClassChanged(ChangeEventArgs e)
+    {
+        if (_editing is null || !Enum.TryParse<ComponentClass>(e.Value?.ToString(), out var next))
+        {
+            return;
+        }
+
+        _editing.ComponentClass = next;
+        if (_editId is null && !_aboRhDirty)
+        {
+            _editing.LoadPolicy(StandardProductAboRhPolicy.For(next));
+        }
+    }
+
+    private void ResetAboRh()
+    {
+        if (_editing is null)
+        {
+            return;
+        }
+
+        _editing.LoadPolicy(StandardProductAboRhPolicy.For(_editing.ComponentClass));
+        _aboRhDirty = true;
+    }
+
+    private void SetAbo(AboCellEdit cell, bool allowed)
+    {
+        cell.IsAllowed = allowed;
+        _aboRhDirty = true;
+    }
+
+    private void SetRh(RhCellEdit cell, bool allowed)
+    {
+        cell.IsAllowed = allowed;
+        _aboRhDirty = true;
     }
 
     private async Task EditAsync(long id)
     {
         var r = await Api.GetAdminProductAsync(id);
         if (!r.Succeeded || r.Value is null) { _feedback = r.ToFeedback(); return; }
-        _editId = r.Value.Id; _currentIsActive = r.Value.IsActive; _changeReason = null;
+        _editId = r.Value.Id; _currentIsActive = r.Value.IsActive; _changeReason = null; _aboRhDirty = false;
         _editing = EditModel.From(r.Value);
         _feedback = null;
     }
@@ -312,27 +427,94 @@
         public string? ReturnRules { get; set; }
         public string? ModificationRules { get; set; }
         public List<ProductAttributeSelection> Attributes { get; set; } = new();
+        public List<AboCellEdit> AboCells { get; set; } = new();
+        public List<RhCellEdit> RhCells { get; set; } = new();
 
-        public static EditModel From(ProductDefinitionDto p) => new()
+        public AboCellEdit AboCell(AboGroup patient, AboGroup unit) =>
+            AboCells.First(c => c.PatientAbo == patient && c.UnitAbo == unit);
+
+        public RhCellEdit RhCell(RhType patient, RhType unit, RhCompatibilitySex sex) =>
+            RhCells.First(c => c.PatientRh == patient && c.UnitRh == unit && c.SexGroup == sex);
+
+        public void LoadPolicy(ProductAboRhPolicy policy)
         {
-            ProductCode = p.ProductCode, Name = p.Name, ComponentClass = p.ComponentClass, Category = p.Category,
-            DefaultShelfLifeHours = p.DefaultShelfLifeHours, RequiresCrossmatch = p.RequiresCrossmatch,
-            RequiresAboMatch = p.RequiresAboMatch, RequiresRhMatch = p.RequiresRhMatch, RequiresRetype = p.RequiresRetype,
-            RhPositiveRetypeTestId = p.RhPositiveRetypeTestId?.ToString() ?? string.Empty,
-            RhNegativeRetypeTestId = p.RhNegativeRetypeTestId?.ToString() ?? string.Empty,
-            Isbt128ProductCode = p.Isbt128ProductCode,
-            DefaultChargeCode = p.DefaultChargeCode, StorageRequirements = p.StorageRequirements, IssueRules = p.IssueRules,
-            ReturnRules = p.ReturnRules, ModificationRules = p.ModificationRules,
-            Attributes = p.Attributes.Select(a => new ProductAttributeSelection(a.AttributeId, a.IsRequired)).ToList()
-        };
+            AboCells = policy.AboCells
+                .Select(c => new AboCellEdit { PatientAbo = c.PatientAbo, UnitAbo = c.UnitAbo, IsAllowed = c.IsAllowed })
+                .ToList();
+            RhCells = policy.RhCells
+                .Select(c => new RhCellEdit { SexGroup = c.SexGroup, PatientRh = c.PatientRh, UnitRh = c.UnitRh, IsAllowed = c.IsAllowed })
+                .ToList();
+        }
+
+        public static EditModel From(ProductDefinitionDto p)
+        {
+            var model = new EditModel
+            {
+                ProductCode = p.ProductCode, Name = p.Name, ComponentClass = p.ComponentClass, Category = p.Category,
+                DefaultShelfLifeHours = p.DefaultShelfLifeHours, RequiresCrossmatch = p.RequiresCrossmatch,
+                RequiresAboMatch = p.RequiresAboMatch, RequiresRhMatch = p.RequiresRhMatch, RequiresRetype = p.RequiresRetype,
+                RhPositiveRetypeTestId = p.RhPositiveRetypeTestId?.ToString() ?? string.Empty,
+                RhNegativeRetypeTestId = p.RhNegativeRetypeTestId?.ToString() ?? string.Empty,
+                Isbt128ProductCode = p.Isbt128ProductCode,
+                DefaultChargeCode = p.DefaultChargeCode, StorageRequirements = p.StorageRequirements, IssueRules = p.IssueRules,
+                ReturnRules = p.ReturnRules, ModificationRules = p.ModificationRules,
+                Attributes = p.Attributes.Select(a => new ProductAttributeSelection(a.AttributeId, a.IsRequired)).ToList()
+            };
+            var standard = StandardProductAboRhPolicy.For(p.ComponentClass);
+            if (p.AboCompatibilities is { Count: > 0 } || p.RhCompatibilities is { Count: > 0 })
+            {
+                model.LoadPolicy(Overlay(standard, p));
+            }
+            else
+            {
+                model.LoadPolicy(standard);
+            }
+
+            return model;
+        }
+
+        private static ProductAboRhPolicy Overlay(ProductAboRhPolicy standard, ProductDefinitionDto p)
+        {
+            var abo = standard.AboCells.ToDictionary(c => (c.PatientAbo, c.UnitAbo));
+            foreach (var cell in p.AboCompatibilities ?? [])
+            {
+                abo[(cell.PatientAbo, cell.UnitAbo)] = new ProductAboRhPolicy.AboCell(cell.PatientAbo, cell.UnitAbo, cell.IsAllowed);
+            }
+
+            var rh = standard.RhCells.ToDictionary(c => (c.SexGroup, c.PatientRh, c.UnitRh));
+            foreach (var cell in p.RhCompatibilities ?? [])
+            {
+                rh[(cell.SexGroup, cell.PatientRh, cell.UnitRh)] =
+                    new ProductAboRhPolicy.RhCell(cell.SexGroup, cell.PatientRh, cell.UnitRh, cell.IsAllowed);
+            }
+
+            return new ProductAboRhPolicy(abo.Values, rh.Values);
+        }
 
         public SaveProductDefinitionRequest ToRequest(string? reason) => new(
             ProductCode, Name, ComponentClass, Category, DefaultShelfLifeHours, RequiresCrossmatch, RequiresAboMatch,
             RequiresRhMatch, RequiresRetype, Isbt128ProductCode, DefaultChargeCode, StorageRequirements, IssueRules, ReturnRules,
             ModificationRules, Attributes, reason,
-            ParseId(RhPositiveRetypeTestId), ParseId(RhNegativeRetypeTestId));
+            ParseId(RhPositiveRetypeTestId), ParseId(RhNegativeRetypeTestId),
+            AboCells.Select(c => new ProductAboCompatibilityDto(c.PatientAbo, c.UnitAbo, c.IsAllowed)).ToList(),
+            RhCells.Select(c => new ProductRhCompatibilityDto(c.SexGroup, c.PatientRh, c.UnitRh, c.IsAllowed)).ToList());
 
         private static long? ParseId(string? value) =>
             long.TryParse(value, out var id) && id > 0 ? id : null;
+    }
+
+    private sealed class AboCellEdit
+    {
+        public AboGroup PatientAbo { get; set; }
+        public AboGroup UnitAbo { get; set; }
+        public bool IsAllowed { get; set; }
+    }
+
+    private sealed class RhCellEdit
+    {
+        public RhCompatibilitySex SexGroup { get; set; }
+        public RhType PatientRh { get; set; }
+        public RhType UnitRh { get; set; }
+        public bool IsAllowed { get; set; }
     }
 }

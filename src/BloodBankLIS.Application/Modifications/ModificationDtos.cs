@@ -19,23 +19,61 @@ public sealed record EligibleModificationDto(
 /// <summary>One requested result unit of a Divide (an operator-chosen unit-number suffix and/or volume).</summary>
 public sealed record DivideChildSpec(string? UnitNumberSuffix, decimal? Volume);
 
-public sealed record PerformDivideRequest(long RuleId, IReadOnlyList<DivideChildSpec> Children, string Reason);
+public sealed record PerformDivideRequest(
+    long RuleId,
+    IReadOnlyList<DivideChildSpec> Children,
+    string Reason,
+    string? SupplyDescription = null,
+    string? SupplyLot = null);
 
-public sealed record PerformPoolRequest(IReadOnlyList<long> SourceUnitIds, long RuleId, string Reason);
+public sealed record PerformPoolRequest(
+    IReadOnlyList<long> SourceUnitIds,
+    long RuleId,
+    string Reason,
+    string? SupplyDescription = null,
+    string? SupplyLot = null);
+
+public sealed record PerformAliquotRequest(
+    long RuleId,
+    decimal? Volume,
+    string Reason,
+    string? SupplyDescription = null,
+    string? SupplyLot = null);
 
 /// <summary>Covers the 1-source/1-result modification types: Irradiate, Thaw, Volume Reduction, Leukoreduction.</summary>
 public sealed record PerformSingleModificationRequest(
     long RuleId,
     decimal? ResultVolume,
     string Reason,
-    long? OrderActionId = null);
+    long? OrderActionId = null,
+    string? SupplyDescription = null,
+    string? SupplyLot = null);
+
+/// <summary>One existing rule and one reason applied to several units. Ineligible units modify none.</summary>
+public sealed record PerformBatchModificationRequest(
+    long RuleId,
+    IReadOnlyList<long> SourceUnitIds,
+    string Reason,
+    string? SupplyDescription = null,
+    string? SupplyLot = null);
 
 public sealed record ModificationUnitSummaryDto(
     long UnitId,
     string UnitNumber,
     ModificationUnitRole Role,
     string? ProductCodeData = null,
-    decimal? Volume = null);
+    decimal? Volume = null,
+    long? ResultLocationId = null,
+    string? ResultLocationName = null,
+    long? CurrentLocationId = null,
+    string? CurrentLocationName = null,
+    DateTime? LocationLeftUtc = null,
+    string? LocationLeftReason = null,
+    string? LocationLeftBy = null)
+{
+    public bool ResultHasLeftCreationLocation =>
+        Role == ModificationUnitRole.Result && ResultLocationId != CurrentLocationId;
+}
 
 public sealed record UnitModificationDto(
     long Id,
@@ -47,4 +85,7 @@ public sealed record UnitModificationDto(
     string Reason,
     string PerformedBy,
     DateTime PerformedUtc,
-    IReadOnlyList<ModificationUnitSummaryDto> Units);
+    IReadOnlyList<ModificationUnitSummaryDto> Units,
+    string PatientLabel,
+    string? SupplyDescription = null,
+    string? SupplyLot = null);

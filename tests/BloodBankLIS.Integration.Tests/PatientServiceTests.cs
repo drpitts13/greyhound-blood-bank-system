@@ -23,7 +23,8 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
     private PatientService Patients(BloodBankDbContext c, IPermissionEvaluator? permissions = null, bool withAudit = false) =>
         new(new EfRepository<Patient>(c), c, _factory.Clock, Specimens(c, _factory),
             audit: withAudit ? new AuditWriter(c, _factory.Clock, _factory.CurrentUser) : null,
-            currentUser: _factory.CurrentUser, permissions: permissions);
+            currentUser: _factory.CurrentUser, permissions: permissions,
+            identifiers: new EfRepository<PatientIdentifier>(c));
 
     private async Task<long> EnsurePatientAsync(string mrn)
     {
@@ -56,7 +57,8 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var context = _factory.Create();
         var result = await Patients(context).UpdateAsync(id, new UpdatePatientRequest(
-            "Revised", "Alex", "M", new DateOnly(1975, 6, 15), Sex.Female, PatientStatus.Inactive));
+            "Revised", "Alex", "M", new DateOnly(1975, 6, 15), Sex.Female, PatientStatus.Inactive,
+            NameChangeReason: "Legal name correction"));
 
         Assert.True(result.Succeeded);
         Assert.Equal("Revised", result.Value!.LastName);
@@ -66,6 +68,9 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(Sex.Female, result.Value.Sex);
         Assert.Equal(PatientStatus.Inactive, result.Value.Status);
         Assert.Equal("MRN-DEMO-EDIT", result.Value.MedicalRecordNumber);
+        var alias = Assert.Single(await context.PatientIdentifiers.Where(i =>
+            i.PatientId == id && i.IdentifierType == IdentityTokenType.PriorFullName).ToListAsync());
+        Assert.Equal("Original, Pat Q", alias.Value);
     }
 
     [Fact]
@@ -83,9 +88,41 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
 
         var allowed = await Patients(context, new FixedPermissionEvaluator(1, PermissionCodes.PatientWrite))
             .UpdateAsync(id, new UpdatePatientRequest(
-                "Hijacked", "Alex", null, new DateOnly(1975, 6, 15), Sex.Female, PatientStatus.Active));
+                "Hijacked", "Alex", null, new DateOnly(1975, 6, 15), Sex.Female, PatientStatus.Active,
+                NameChangeReason: "Permission path name change"));
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal("Hijacked", allowed.Value!.LastName);
+    }
+
+    [Fact]
+    public async Task Update_NameChangeWithoutReason_IsHardStopped()
+    {
+        var id = await EnsurePatientAsync("MRN-DEMO-ALIAS-REASON");
+        await using var context = _factory.Create();
+        var denied = await Patients(context).UpdateAsync(id, new UpdatePatientRequest(
+            "Changed", "Pat", null, new DateOnly(1980, 1, 1), Sex.Unknown, PatientStatus.Active));
+        Assert.False(denied.Succeeded);
+        Assert.Equal(
+            PatientHistoricalAliasRule.EvaluateNameChangeReason(true, null).Message,
+            denied.Error);
+        Assert.Equal("Original", (await context.Patients.FindAsync(id))!.LastName);
+        Assert.False(await context.PatientIdentifiers.AnyAsync(i => i.PatientId == id));
+    }
+
+    [Fact]
+    public async Task ListDtos_SearchMatchesPriorNameAlias()
+    {
+        var id = await EnsurePatientAsync("MRN-DEMO-ALIAS-SEARCH");
+        await using var context = _factory.Create();
+        var updated = await Patients(context).UpdateAsync(id, new UpdatePatientRequest(
+            "Newman", "Pat", null, new DateOnly(1980, 1, 1), Sex.Unknown, PatientStatus.Active,
+            NameChangeReason: "Marriage"));
+        Assert.True(updated.Succeeded, updated.Error);
+
+        var dto = Assert.Single((await Patients(context).ListDtosAsync()).Where(p => p.Id == id));
+        Assert.Contains(dto.Aliases!, a => a.Value == "Original, Pat Q");
+        Assert.True(dto.MatchesSearch("Original"));
+        Assert.True(dto.MatchesSearch("Newman"));
     }
 
     [Fact]
@@ -125,7 +162,7 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var context = _factory.Create();
         var result = await Patients(context).UpdateAsync(id, new UpdatePatientRequest(
-            "Original", "Pat", null, DateOnly.FromDateTime(_factory.Clock.UtcNow.AddDays(1)), Sex.Unknown, PatientStatus.Active));
+            "Original", "Pat", "Q", DateOnly.FromDateTime(_factory.Clock.UtcNow.AddDays(1)), Sex.Unknown, PatientStatus.Active));
 
         Assert.False(result.Succeeded);
         Assert.Contains("future", result.Error, StringComparison.OrdinalIgnoreCase);
@@ -169,14 +206,15 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var context = _factory.Create();
         var result = await Patients(context, withAudit: true).UpdateAsync(id, new UpdatePatientRequest(
-            "Access", "Pat", null, new DateOnly(1981, 2, 2), Sex.Male, PatientStatus.Active));
+            "Access", "Pat", null, new DateOnly(1981, 2, 2), Sex.Male, PatientStatus.Active,
+            NameChangeReason: "Audit path name change"));
         Assert.True(result.Succeeded, result.Error);
 
         Assert.True(await context.AuditEvents.AnyAsync(a =>
             a.EntityType == nameof(Patient)
             && a.EntityId == id
             && a.EventType == AuditEventType.PatientAccess
-            && a.Reason == "Patient demographics updated."));
+            && a.Reason == "Patient name changed: Audit path name change"));
     }
 
     [Fact]

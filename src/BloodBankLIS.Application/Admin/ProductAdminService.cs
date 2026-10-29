@@ -22,6 +22,8 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
     private readonly IRepository<ProductAttributeAssignment> _assignments;
     private readonly IRepository<TestDefinition>? _tests;
     private readonly IPermissionEvaluator? _permissionEvaluator;
+    private readonly IRepository<ProductAboCompatibility>? _aboCompatibilities;
+    private readonly IRepository<ProductRhCompatibility>? _rhCompatibilities;
 
     public ProductAdminService(
         IRepository<ProductType> products,
@@ -33,7 +35,9 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
         IRepository<TestDefinition>? tests = null,
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+        IRepository<ProductAboCompatibility>? aboCompatibilities = null,
+        IRepository<ProductRhCompatibility>? rhCompatibilities = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _products = products;
@@ -41,6 +45,8 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         _assignments = assignments;
         _tests = tests;
         _permissionEvaluator = permissionEvaluator;
+        _aboCompatibilities = aboCompatibilities;
+        _rhCompatibilities = rhCompatibilities;
     }
 
     public async Task<IReadOnlyList<ProductAttributeDto>> ListAttributesAsync(CancellationToken ct = default)
@@ -55,7 +61,9 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         var attrs = await _attributes.ListAsync(ct);
         var assigns = await _assignments.ListAsync(a => a.IsActive, ct);
         var tests = await LoadRetypeTestsAsync(ct);
-        return products.OrderBy(p => p.ProductCode).Select(p => Map(p, assigns, attrs, tests)).ToList();
+        var abo = await LoadAboAsync(ct);
+        var rh = await LoadRhAsync(ct);
+        return products.OrderBy(p => p.ProductCode).Select(p => Map(p, assigns, attrs, tests, abo, rh)).ToList();
     }
 
     public async Task<ProductDefinitionDto?> GetAsync(long id, CancellationToken ct = default)
@@ -69,7 +77,9 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         var attrs = await _attributes.ListAsync(ct);
         var assigns = await _assignments.ListAsync(a => a.ProductTypeId == id && a.IsActive, ct);
         var tests = await LoadRetypeTestsAsync(ct);
-        return Map(p, assigns, attrs, tests);
+        var abo = await LoadAboAsync(ct);
+        var rh = await LoadRhAsync(ct);
+        return Map(p, assigns, attrs, tests, abo, rh);
     }
 
     public async Task<EvaluationResult<ProductDefinitionDto>> CreateAsync(SaveProductDefinitionRequest req, CancellationToken ct = default)
@@ -81,6 +91,12 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         if (denied is not null)
         {
             return denied;
+        }
+
+        var gridError = ValidateRequestedGrid(req);
+        if (gridError is not null)
+        {
+            return EvaluationResult<ProductDefinitionDto>.Blocked(new RuleEvaluation([gridError]));
         }
 
         var entity = new ProductType { IsActive = false, Version = 1 };
@@ -97,6 +113,7 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         await UnitOfWork.SaveChangesAsync(ct);
 
         await ApplyAttributesAsync(entity.Id, req.Attributes, ct);
+        await ApplyGridsAsync(entity.Id, req, ct);
         await UnitOfWork.SaveChangesAsync(ct);
 
         var dto = await GetAsync(entity.Id, ct);
@@ -124,6 +141,12 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
             return EvaluationResult<ProductDefinitionDto>.Fail("Product not found.");
         }
 
+        var gridError = ValidateRequestedGrid(req);
+        if (gridError is not null)
+        {
+            return EvaluationResult<ProductDefinitionDto>.Blocked(new RuleEvaluation([gridError]));
+        }
+
         if (entity.IsActive && string.IsNullOrWhiteSpace(req.ChangeReason))
         {
             return EvaluationResult<ProductDefinitionDto>.Fail("A change reason is required to edit an active product.");
@@ -145,6 +168,8 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
 
         _products.Update(entity);
         await ApplyAttributesAsync(entity.Id, req.Attributes, ct);
+        await ApplyGridsAsync(entity.Id, req, ct);
+        await UnitOfWork.SaveChangesAsync(ct);
 
         var after = await GetAsync(id, ct);
         RecordChange(EntityType, entity.Id, entity.Version, ConfigChangeAction.Update, AuditEventType.Configure,
@@ -304,7 +329,9 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         ProductType p,
         IReadOnlyList<ProductAttributeAssignment> assignments,
         IReadOnlyList<ProductAttribute> attributes,
-        IReadOnlyDictionary<long, TestDefinition> tests)
+        IReadOnlyDictionary<long, TestDefinition> tests,
+        IReadOnlyList<ProductAboCompatibility> aboRows,
+        IReadOnlyList<ProductRhCompatibility> rhRows)
     {
         var attrById = attributes.ToDictionary(a => a.Id);
         var assigned = assignments
@@ -320,13 +347,134 @@ public sealed class ProductAdminService : ConfigAdminServiceBase
         tests.TryGetValue(p.RhPositiveRetypeTestId ?? 0, out var pos);
         tests.TryGetValue(p.RhNegativeRetypeTestId ?? 0, out var neg);
 
+        var abo = MapAbo(aboRows.Where(a => a.ProductTypeId == p.Id));
+        var rh = MapRh(rhRows.Where(r => r.ProductTypeId == p.Id));
+
         return new ProductDefinitionDto(
             p.Id, p.ProductCode, p.Name, p.ComponentClass, p.Category, p.DefaultShelfLifeHours,
             p.RequiresCrossmatch, p.RequiresAboMatch, p.RequiresRhMatch, p.RequiresRetype, p.Isbt128ProductCode, p.DefaultChargeCode,
             p.StorageRequirements, p.IssueRules, p.ReturnRules, p.ModificationRules, p.Version, p.IsActive, assigned,
             p.RhPositiveRetypeTestId, pos?.Code, pos?.Name,
-            p.RhNegativeRetypeTestId, neg?.Code, neg?.Name);
+            p.RhNegativeRetypeTestId, neg?.Code, neg?.Name,
+            abo, rh);
     }
+
+    private async Task<IReadOnlyList<ProductAboCompatibility>> LoadAboAsync(CancellationToken ct) =>
+        _aboCompatibilities is null ? [] : await _aboCompatibilities.ListAsync(ct);
+
+    private async Task<IReadOnlyList<ProductRhCompatibility>> LoadRhAsync(CancellationToken ct) =>
+        _rhCompatibilities is null ? [] : await _rhCompatibilities.ListAsync(ct);
+
+    private static RuleResult? ValidateRequestedGrid(SaveProductDefinitionRequest req)
+    {
+        if (req.AboCompatibilities is null && req.RhCompatibilities is null)
+        {
+            return null;
+        }
+
+        var policy = PolicyFromRequest(req);
+        return policy.IsComplete
+            ? null
+            : RuleResult.HardStop(
+                "PRODUCT.ABORH.INCOMPLETE",
+                "ABO/Rh compatibility must include every patient and unit pair, including Rh for male, female, and unknown or other.");
+    }
+
+    private static ProductAboRhPolicy PolicyFromRequest(SaveProductDefinitionRequest req) =>
+        new(
+            (req.AboCompatibilities ?? []).Select(c => new ProductAboRhPolicy.AboCell(c.PatientAbo, c.UnitAbo, c.IsAllowed)),
+            (req.RhCompatibilities ?? []).Select(c => new ProductAboRhPolicy.RhCell(c.SexGroup, c.PatientRh, c.UnitRh, c.IsAllowed)));
+
+    private async Task ApplyGridsAsync(long productId, SaveProductDefinitionRequest req, CancellationToken ct)
+    {
+        if (_aboCompatibilities is null || _rhCompatibilities is null)
+        {
+            return;
+        }
+
+        ProductAboRhPolicy policy;
+        if (req.AboCompatibilities is null && req.RhCompatibilities is null)
+        {
+            var hasRows = await _aboCompatibilities.AnyAsync(a => a.ProductTypeId == productId, ct)
+                || await _rhCompatibilities.AnyAsync(r => r.ProductTypeId == productId, ct);
+            if (hasRows)
+            {
+                return;
+            }
+
+            policy = StandardProductAboRhPolicy.For(req.ComponentClass);
+        }
+        else
+        {
+            policy = PolicyFromRequest(req);
+        }
+
+        await UpsertAboAsync(productId, policy, ct);
+        await UpsertRhAsync(productId, policy, ct);
+    }
+
+    private async Task UpsertAboAsync(long productId, ProductAboRhPolicy policy, CancellationToken ct)
+    {
+        foreach (var cell in policy.AboCells)
+        {
+            var row = await _aboCompatibilities!.FirstOrDefaultAsync(
+                a => a.ProductTypeId == productId && a.PatientAbo == cell.PatientAbo && a.UnitAbo == cell.UnitAbo, ct);
+            if (row is null)
+            {
+                await _aboCompatibilities.AddAsync(new ProductAboCompatibility
+                {
+                    ProductTypeId = productId,
+                    PatientAbo = cell.PatientAbo,
+                    UnitAbo = cell.UnitAbo,
+                    IsAllowed = cell.IsAllowed
+                }, ct);
+            }
+            else
+            {
+                row.IsAllowed = cell.IsAllowed;
+            }
+        }
+    }
+
+    private async Task UpsertRhAsync(long productId, ProductAboRhPolicy policy, CancellationToken ct)
+    {
+        foreach (var cell in policy.RhCells)
+        {
+            var row = await _rhCompatibilities!.FirstOrDefaultAsync(
+                r => r.ProductTypeId == productId
+                     && r.SexGroup == cell.SexGroup
+                     && r.PatientRh == cell.PatientRh
+                     && r.UnitRh == cell.UnitRh, ct);
+            if (row is null)
+            {
+                await _rhCompatibilities.AddAsync(new ProductRhCompatibility
+                {
+                    ProductTypeId = productId,
+                    SexGroup = cell.SexGroup,
+                    PatientRh = cell.PatientRh,
+                    UnitRh = cell.UnitRh,
+                    IsAllowed = cell.IsAllowed
+                }, ct);
+            }
+            else
+            {
+                row.IsAllowed = cell.IsAllowed;
+            }
+        }
+    }
+
+    private static IReadOnlyList<ProductAboCompatibilityDto> MapAbo(IEnumerable<ProductAboCompatibility> rows) =>
+        rows.OrderBy(r => Array.IndexOf(StandardProductAboRhPolicy.AboGroups, r.PatientAbo))
+            .ThenBy(r => Array.IndexOf(StandardProductAboRhPolicy.AboGroups, r.UnitAbo))
+            .Select(r => new ProductAboCompatibilityDto(r.PatientAbo, r.UnitAbo, r.IsAllowed))
+            .ToList();
+
+    private static IReadOnlyList<ProductRhCompatibilityDto> MapRh(IEnumerable<ProductRhCompatibility> rows) =>
+        rows.OrderBy(r => r.PatientRh)
+            .ThenBy(r => r.UnitRh)
+            .ThenBy(r => r.SexGroup)
+            .Select(r => new ProductRhCompatibilityDto(r.SexGroup, r.PatientRh, r.UnitRh, r.IsAllowed))
+            .ToList();
 
     private async Task<EvaluationResult<ProductDefinitionDto>?> RejectUnauthorizedEvalAsync(
         string permissionCode,

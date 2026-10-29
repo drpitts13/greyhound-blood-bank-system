@@ -1,3 +1,4 @@
+using BloodBankLIS.Help;
 using BloodBankLIS.Web.Components;
 using BloodBankLIS.Web.Hosting;
 using BloodBankLIS.Web.Security;
@@ -41,6 +42,12 @@ builder.Services.AddScoped<IdentityHeaderHandler>();
 var apiBaseUrl = builder.Configuration["Api:BaseUrl"] ?? "http://localhost:5177/";
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ReportDownloadCache>();
+var manualDirectory = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "docs", "user-manual"));
+var helpCatalog = builder.Environment.IsDevelopment() && Directory.Exists(manualDirectory)
+    ? HelpCatalog.LoadFromDirectory(manualDirectory)
+    : HelpCatalog.LoadEmbedded();
+builder.Services.AddSingleton(helpCatalog);
+builder.Services.AddSingleton<ManualPdfCache>();
 builder.Services.AddHttpClient<BloodBankApiClient>(client =>
     {
         client.BaseAddress = new Uri(apiBaseUrl);
@@ -62,6 +69,19 @@ app.UseHttpsRedirection();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseAntiforgery();
+app.MapGet("/help-figures/{name}", (string name, HelpCatalog catalog) =>
+{
+    if (!catalog.TryGetFigure(name, out var bytes))
+        return Results.NotFound();
+    return Results.File(bytes, "image/png");
+});
+app.MapGet("/downloads/manuals/{guide}", (string guide, ManualPdfCache cache) =>
+{
+    if (!HelpGuides.IsKnown(guide))
+        return Results.NotFound();
+    var canonical = HelpGuides.Canonical(guide);
+    return Results.File(cache.Get(canonical), "application/pdf", HelpGuides.FileName(canonical));
+});
 app.MapGet("/downloads/reports/{token}", (string token, ReportDownloadCache cache) =>
 {
     var file = cache.Take(token);

@@ -48,6 +48,83 @@ public static class AboCompatibilityRule
         return results;
     }
 
+    /// <summary>
+    /// Evaluates a product ABO/Rh table when one is configured. An empty policy uses the
+    /// built-in component-class rule. A configured policy is fail-closed for a missing cell.
+    /// </summary>
+    public static IReadOnlyList<RuleResult> Evaluate(
+        AboRh recipient,
+        AboRh donor,
+        ComponentClass componentClass,
+        Sex patientSex,
+        ProductAboRhPolicy? policy)
+    {
+        if (policy is null || !policy.IsConfigured)
+        {
+            return Evaluate(recipient, donor, componentClass);
+        }
+
+        if (recipient.Abo == AboGroup.Unknown || donor.Abo == AboGroup.Unknown)
+        {
+            return [RuleResult.HardStop(UnknownTypeCode, "ABO group is unknown for recipient or donor.")];
+        }
+
+        var results = new List<RuleResult> { EvaluatePolicyAbo(recipient.Abo, donor.Abo, componentClass, policy) };
+        results.Add(EvaluatePolicyRh(recipient.Rh, donor.Rh, patientSex, policy));
+        return results;
+    }
+
+    private static RuleResult EvaluatePolicyAbo(
+        AboGroup recipient,
+        AboGroup donor,
+        ComponentClass componentClass,
+        ProductAboRhPolicy policy)
+    {
+        if (!policy.TryAbo(recipient, donor, out var allowed))
+        {
+            return RuleResult.HardStop(
+                AboCode,
+                $"No ABO compatibility entry is configured for recipient {recipient} and donor {donor}.");
+        }
+
+        return allowed
+            ? RuleResult.Pass(AboCode)
+            : RuleResult.HardStop(
+                AboCode,
+                $"Donor ABO {donor} is not compatible with recipient ABO {recipient} for {componentClass} (antigen/antibody conflict).");
+    }
+
+    private static RuleResult EvaluatePolicyRh(RhType recipient, RhType donor, Sex patientSex, ProductAboRhPolicy policy)
+    {
+        if (recipient == RhType.Unknown || donor == RhType.Unknown)
+        {
+            return policy.RhIsConstrained
+                ? RuleResult.HardStop(RhCode, "Rh(D) is unknown for recipient or donor.")
+                : RuleResult.Pass(RhCode, "Rh(D) is not a strict constraint for this component class.");
+        }
+
+        var sex = ProductAboRhPolicy.SexGroup(patientSex);
+        if (!policy.TryRh(sex, recipient, donor, out var allowed))
+        {
+            return RuleResult.HardStop(
+                RhCode,
+                $"No Rh compatibility entry is configured for {sex} recipients with Rh {recipient} and donor Rh {donor}.");
+        }
+
+        if (!allowed)
+        {
+            return recipient == RhType.Negative && donor == RhType.Positive
+                ? RuleResult.HardStop(
+                    RhCode,
+                    "Rh-positive red cells cannot be given to an Rh-negative recipient outside emergency policy.")
+                : RuleResult.HardStop(
+                    RhCode,
+                    $"Donor Rh {donor} is not compatible with recipient Rh {recipient} for {sex} patients.");
+        }
+
+        return RuleResult.Pass(RhCode);
+    }
+
     private static RuleResult EvaluateAbo(AboGroup recipient, AboGroup donor, ComponentClass componentClass)
     {
         var recipientProfile = DeriveAboProfile(recipient);

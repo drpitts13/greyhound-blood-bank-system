@@ -117,7 +117,16 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Boolean, "true", "Facility SOP / OCD-021"),
         new(FacilityPolicyKeys.ProductChargeOnTransfuse, "Billing", "Bill products on transfusion",
             "When true, product charges are captured when a unit is marked transfused. When false, they are captured at issue. Only one trigger fires.",
-            FacilityPolicyValueKind.Boolean, "false", "Facility SOP / billing catalog")
+            FacilityPolicyValueKind.Boolean, "false", "Facility SOP / billing catalog"),
+        new(FacilityPolicyKeys.BlockResultsWhenReagentQcOpen, "Result", "Block results when reagent QC is open",
+            "When true, patient result entry is blocked while reagent QC is overdue, failed, or unreviewed. Default off. This is not a CLIA hold.",
+            FacilityPolicyValueKind.Boolean, "false", "Facility SOP"),
+        new(FacilityPolicyKeys.FinalDispositionDueHours, "Issue", "Final disposition due hours",
+            "Hours after issue before an issued unit with no transfusion document, return, or discard appears on the warning board. The board does not block issue or documentation.",
+            FacilityPolicyValueKind.Integer, "24", "Facility SOP", 1, 168),
+        new(FacilityPolicyKeys.RequireModificationSupplyLot, "Modification", "Require supply lot",
+            "When true, a modification requires a supply lot. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "Facility SOP")
     ];
 
     public static FacilityPolicyDefinition? Find(string key) =>

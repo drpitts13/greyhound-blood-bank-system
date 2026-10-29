@@ -44,6 +44,32 @@ public class IssueGateTests
     }
 
     [Fact]
+    public void AlternateRh_MalePasses_FemaleAndUnknownStayStopped()
+    {
+        var policy = StandardProductAboRhPolicy.For(ComponentClass.RedBloodCells)
+            .WithRh(RhCompatibilitySex.Male, RhType.Negative, RhType.Positive, true);
+        var male = PassingContext() with
+        {
+            PatientAboRh = new AboRh(AboGroup.A, RhType.Negative),
+            UnitAboRh = new AboRh(AboGroup.O, RhType.Positive),
+            PatientSex = Sex.Male,
+            AboRhPolicy = policy
+        };
+        Assert.True(IssueGate.Evaluate(male).IsAllowed);
+
+        var female = IssueGate.Evaluate(male with { PatientSex = Sex.Female });
+        Assert.True(female.IsHardStopped);
+        Assert.Contains(female.HardStops, r => r.Code == AboCompatibilityRule.RhCode);
+
+        var unknown = IssueGate.Evaluate(male with { PatientSex = Sex.Unknown });
+        Assert.Contains(unknown.HardStops, r => r.Code == AboCompatibilityRule.RhCode);
+
+        var emergency = IssueGate.Evaluate(male with { PatientSex = Sex.Female, IsEmergencyRelease = true });
+        Assert.False(emergency.IsHardStopped);
+        Assert.Contains(emergency.Warnings, r => r.Code == AboCompatibilityRule.RhCode);
+    }
+
+    [Fact]
     public void IncompatibleAbo_IsHardStopped()
     {
         var context = PassingContext() with { UnitAboRh = new AboRh(AboGroup.B, RhType.Positive) };

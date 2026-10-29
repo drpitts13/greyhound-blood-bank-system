@@ -243,7 +243,8 @@ public sealed record PatientProductHistoryRowDto(
     string? EmergencyReleaseAuthorizer = null,
     string? IssueAppearance = null,
     string? WardAppearance = null,
-    string? PtagCode = null);
+    string? PtagCode = null,
+    string? IssueCrossmatchStatus = null);
 
 public sealed record PatientTestHistoryRowDto(
     long ResultId,

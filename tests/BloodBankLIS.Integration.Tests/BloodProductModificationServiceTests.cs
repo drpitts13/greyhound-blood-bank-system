@@ -1,4 +1,7 @@
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Compliance;
+using BloodBankLIS.Application.Inventory;
+using BloodBankLIS.Application.Isbt128;
 using BloodBankLIS.Application.Modifications;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
@@ -20,7 +23,8 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
 
     private BloodProductModificationService CreateService(
         BloodBankDbContext context,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        FacilityPolicyService? policy = null)
     {
         var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser);
         return new BloodProductModificationService(
@@ -34,7 +38,10 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             _factory.Clock,
             _factory.CurrentUser,
             audit,
-            permissions: permissions);
+            permissions: permissions,
+            unitAttributes: new EfRepository<UnitBloodAttribute>(context),
+            locations: new EfRepository<InventoryLocation>(context),
+            policy: policy);
     }
 
     private async Task<(long SourceProductId, long TargetProductId)> EnsureProductTypesAsync(
@@ -123,7 +130,9 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         RhType rh = RhType.Positive,
         DateTime? expiresUtc = null,
         decimal? volume = null,
-        DateTime? collectedUtc = null)
+        DateTime? collectedUtc = null,
+        DonationRestriction donationRestriction = DonationRestriction.Allogeneic,
+        long? reservedPatientId = null)
     {
         await using var context = _factory.Create();
         var unit = new BloodUnit
@@ -135,11 +144,35 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
             ExpiresUtc = expiresUtc ?? _factory.Clock.UtcNow.AddDays(30),
             Status = status,
             Volume = volume,
-            CollectedUtc = collectedUtc
+            CollectedUtc = collectedUtc,
+            DonationRestriction = donationRestriction,
+            ReservedPatientId = reservedPatientId
         };
         context.BloodUnits.Add(unit);
         await context.SaveChangesAsync();
         return unit.Id;
+    }
+
+    private async Task<long> CreateLocationAsync(string code, string name)
+    {
+        await using var context = _factory.Create();
+        var location = new InventoryLocation
+        {
+            Code = code,
+            Name = name,
+            LocationType = LocationType.Refrigerator
+        };
+        context.InventoryLocations.Add(location);
+        await context.SaveChangesAsync();
+        return location.Id;
+    }
+
+    private async Task SetLocationAsync(long unitId, long locationId)
+    {
+        await using var context = _factory.Create();
+        var unit = (await context.BloodUnits.FindAsync(unitId))!;
+        unit.CurrentLocationId = locationId;
+        await context.SaveChangesAsync();
     }
 
     private async Task<long> CreateIsbtUnitAsync(
@@ -390,6 +423,68 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     }
 
     [Fact]
+    public async Task Divide_VolumesShortOfSource_IsBlocked()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("DIVIDESHORT");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Divide);
+        var sourceId = await CreateUnitAsync("U-DIVIDESHORT-SRC", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var children = new[] { new DivideChildSpec("A", 150m), new DivideChildSpec("B", 100m) };
+        var result = await service.DivideAsync(sourceId, new PerformDivideRequest(ruleId, children, "attempt"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeUnaccountedCode);
+
+        await using var verify = _factory.Create();
+        var source = await verify.BloodUnits.FindAsync(sourceId);
+        Assert.Equal(UnitStatus.Available, source!.Status);
+        Assert.Equal(300m, source.Volume);
+    }
+
+    [Fact]
+    public async Task ApplySingle_ResultVolumeWithinSource_Succeeds()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("SINGLEVOL");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.VolumeReduction, "24H");
+        var sourceId = await CreateUnitAsync("U-SINGLEVOL-SRC", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.ApplySingleAsync(
+            sourceId, new PerformSingleModificationRequest(ruleId, 220m, "Volume reduced for pediatric aliquot alternative"));
+
+        Assert.True(result.Succeeded);
+        var resultUnit = Assert.Single(result.ResultUnits!);
+        Assert.Equal(220m, resultUnit.Volume);
+    }
+
+    [Fact]
+    public async Task ApplySingle_ResultVolumeExceedsSource_IsBlocked()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("SINGLEVOLX");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var sourceId = await CreateUnitAsync("U-SINGLEVOLX-SRC", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+
+        var result = await service.ApplySingleAsync(
+            sourceId, new PerformSingleModificationRequest(ruleId, 350m, "attempt"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, r => r.Code == UnitModificationEligibilityRule.VolumeExceedsSourceCode);
+
+        await using var verify = _factory.Create();
+        var source = await verify.BloodUnits.FindAsync(sourceId);
+        Assert.Equal(UnitStatus.Available, source!.Status);
+        Assert.Equal(300m, source.Volume);
+    }
+
+    [Fact]
     public async Task Divide_MissingChildVolume_IsBlocked()
     {
         var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("DIVIDEMISS");
@@ -526,6 +621,296 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     }
 
     [Fact]
+    public async Task Pool_MissingVolumeAmongKnownVolumes_IsBlocked()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLVOLX");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var knownId = await CreateUnitAsync("U-POOLVOLX-1", sourceProductId, volume: 200m);
+        var missingId = await CreateUnitAsync("U-POOLVOLX-2", sourceProductId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([knownId, missingId], ruleId, "attempt"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, stop => stop.Code == UnitModificationEligibilityRule.PoolVolumeCode);
+
+        await using var verify = _factory.Create();
+        var known = (await verify.BloodUnits.FindAsync(knownId))!;
+        var missing = (await verify.BloodUnits.FindAsync(missingId))!;
+        Assert.Equal(UnitStatus.Available, known.Status);
+        Assert.Equal(200m, known.Volume);
+        Assert.Equal(UnitStatus.Available, missing.Status);
+        Assert.Null(missing.Volume);
+    }
+
+    [Fact]
+    public async Task Pool_RecordedVolumes_SumOntoTheResult_AndAuditKeepsTheSources()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLVOL");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var firstId = await CreateUnitAsync("U-POOLVOL-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-POOLVOL-2", sourceProductId, volume: 150m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool recorded volumes"));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(350m, Assert.Single(result.ResultUnits!).Volume);
+
+        await using var verify = _factory.Create();
+        var auditEvent = await verify.AuditEvents
+            .Where(a => a.EntityType == nameof(UnitModification) && a.EntityId == result.Modification!.Id && a.EventType == AuditEventType.Modify)
+            .SingleAsync();
+        Assert.Contains("SourceVolumes", auditEvent.OldValueJson);
+        Assert.Contains("200", auditEvent.OldValueJson);
+        Assert.Contains("150", auditEvent.OldValueJson);
+        Assert.Contains("ResultVolumes", auditEvent.NewValueJson);
+        Assert.Contains("350", auditEvent.NewValueJson);
+    }
+
+    [Fact]
+    public async Task Pool_DifferentLocations_IsBlocked()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLLOCX");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("POOLLOCX-A", "Fridge A");
+        var freezerId = await CreateLocationAsync("POOLLOCX-B", "Freezer B");
+        var firstId = await CreateUnitAsync("U-POOLLOCX-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-POOLLOCX-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, freezerId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "attempt"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, stop => stop.Code == UnitModificationEligibilityRule.PoolLocationCode);
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(firstId))!.Status);
+        Assert.Equal(fridgeId, (await verify.BloodUnits.FindAsync(firstId))!.CurrentLocationId);
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(secondId))!.Status);
+        Assert.Equal(freezerId, (await verify.BloodUnits.FindAsync(secondId))!.CurrentLocationId);
+    }
+
+    [Fact]
+    public async Task Pool_SameLocation_KeepsThatLocationOnTheResult()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLLOC");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("POOLLOC-A", "Fridge A");
+        var firstId = await CreateUnitAsync("U-POOLLOC-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-POOLLOC-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, fridgeId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool in one fridge"));
+
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(fridgeId, Assert.Single(result.ResultUnits!).CurrentLocationId);
+
+        await using var verify = _factory.Create();
+        var auditEvent = await verify.AuditEvents
+            .Where(a => a.EntityType == nameof(UnitModification) && a.EntityId == result.Modification!.Id && a.EventType == AuditEventType.Modify)
+            .SingleAsync();
+        Assert.Contains("SourceLocationIds", auditEvent.OldValueJson);
+        Assert.Contains(fridgeId.ToString(), auditEvent.OldValueJson);
+        Assert.Contains("ResultLocationIds", auditEvent.NewValueJson);
+    }
+
+    [Fact]
+    public async Task GetHistory_ShowsWhereTheResultWasMade_AfterItIsMoved()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTLOC");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("HISTLOC-A", "Fridge A");
+        var benchId = await CreateLocationAsync("HISTLOC-B", "Issue bench");
+        var firstId = await CreateUnitAsync("U-HISTLOC-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-HISTLOC-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, fridgeId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var pooled = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool in fridge"));
+        Assert.True(pooled.Succeeded, pooled.Error);
+        var resultId = Assert.Single(pooled.ResultUnits!).Id;
+
+        await using (var move = _factory.Create())
+        {
+            var resultUnit = (await move.BloodUnits.FindAsync(resultId))!;
+            resultUnit.CurrentLocationId = benchId;
+            move.InventoryStatusHistory.Add(new InventoryStatusHistory
+            {
+                BloodProductId = resultId,
+                FromStatus = UnitStatus.Quarantine,
+                ToStatus = UnitStatus.Quarantine,
+                FromLocationId = fridgeId,
+                ToLocationId = benchId,
+                Reason = "Moved to the issue bench",
+                ChangedBy = "mover",
+                ChangedUtc = _factory.Clock.UtcNow.AddMinutes(5),
+                RelatedEntityType = "Transfer"
+            });
+            await move.SaveChangesAsync();
+        }
+
+        await using var read = _factory.Create();
+        var history = await CreateService(read).GetHistoryAsync(firstId);
+        var row = Assert.Single(history);
+        var resultSummary = Assert.Single(row.Units, unit => unit.Role == ModificationUnitRole.Result);
+        Assert.Equal(fridgeId, resultSummary.ResultLocationId);
+        Assert.Equal("Fridge A", resultSummary.ResultLocationName);
+        Assert.Equal(benchId, resultSummary.CurrentLocationId);
+        Assert.Equal("Issue bench", resultSummary.CurrentLocationName);
+        Assert.True(resultSummary.ResultHasLeftCreationLocation);
+        Assert.Equal(_factory.Clock.UtcNow.AddMinutes(5), resultSummary.LocationLeftUtc);
+        Assert.Equal("Moved to the issue bench", resultSummary.LocationLeftReason);
+        Assert.Equal("mover", resultSummary.LocationLeftBy);
+        Assert.All(row.Units.Where(unit => unit.Role == ModificationUnitRole.Source), unit =>
+        {
+            Assert.Null(unit.ResultLocationId);
+            Assert.Null(unit.ResultLocationName);
+            Assert.Null(unit.LocationLeftBy);
+        });
+
+        var created = await read.InventoryStatusHistory
+            .SingleAsync(item => item.BloodProductId == resultId && item.FromStatus == null);
+        Assert.Equal(pooled.Modification!.Id, created.RelatedEntityId);
+    }
+
+    [Fact]
+    public async Task GetHistory_MoveWithoutAStatusRow_ShowsTheNewPlaceWithoutATimeOrReason()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTWHY");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("HISTWHY-A", "Fridge A");
+        var benchId = await CreateLocationAsync("HISTWHY-B", "Issue bench");
+        var firstId = await CreateUnitAsync("U-HISTWHY-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-HISTWHY-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, fridgeId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var pooled = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool then edit location"));
+        Assert.True(pooled.Succeeded, pooled.Error);
+        var resultId = Assert.Single(pooled.ResultUnits!).Id;
+        await SetLocationAsync(resultId, benchId);
+
+        await using var read = _factory.Create();
+        var history = await CreateService(read).GetHistoryAsync(firstId);
+        var resultSummary = Assert.Single(Assert.Single(history).Units, unit => unit.Role == ModificationUnitRole.Result);
+        Assert.Equal(fridgeId, resultSummary.ResultLocationId);
+        Assert.Equal(benchId, resultSummary.CurrentLocationId);
+        Assert.True(resultSummary.ResultHasLeftCreationLocation);
+        Assert.Null(resultSummary.LocationLeftUtc);
+        Assert.Null(resultSummary.LocationLeftReason);
+        Assert.Null(resultSummary.LocationLeftBy);
+    }
+
+    [Fact]
+    public async Task GetHistory_MoveWithoutAPerson_ShowsTimeAndReasonWithoutAName()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTWHO");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("HISTWHO-A", "Fridge A");
+        var benchId = await CreateLocationAsync("HISTWHO-B", "Issue bench");
+        var firstId = await CreateUnitAsync("U-HISTWHO-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-HISTWHO-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, fridgeId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var pooled = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool then move without a name"));
+        Assert.True(pooled.Succeeded, pooled.Error);
+        var resultId = Assert.Single(pooled.ResultUnits!).Id;
+
+        await using (var move = _factory.Create())
+        {
+            var resultUnit = (await move.BloodUnits.FindAsync(resultId))!;
+            resultUnit.CurrentLocationId = benchId;
+            move.InventoryStatusHistory.Add(new InventoryStatusHistory
+            {
+                BloodProductId = resultId,
+                FromStatus = UnitStatus.Quarantine,
+                ToStatus = UnitStatus.Quarantine,
+                FromLocationId = fridgeId,
+                ToLocationId = benchId,
+                Reason = "Moved to the issue bench",
+                ChangedBy = "  ",
+                ChangedUtc = _factory.Clock.UtcNow.AddMinutes(5),
+                RelatedEntityType = "Transfer"
+            });
+            await move.SaveChangesAsync();
+        }
+
+        await using var read = _factory.Create();
+        var history = await CreateService(read).GetHistoryAsync(firstId);
+        var resultSummary = Assert.Single(Assert.Single(history).Units, unit => unit.Role == ModificationUnitRole.Result);
+        Assert.Equal(_factory.Clock.UtcNow.AddMinutes(5), resultSummary.LocationLeftUtc);
+        Assert.Equal("Moved to the issue bench", resultSummary.LocationLeftReason);
+        Assert.Null(resultSummary.LocationLeftBy);
+    }
+
+    [Fact]
+    public async Task GetHistory_StillAtTheCreationLocation_DoesNotMarkAMove()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTSTAY");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var fridgeId = await CreateLocationAsync("HISTSTAY-A", "Fridge A");
+        var firstId = await CreateUnitAsync("U-HISTSTAY-1", sourceProductId, volume: 200m);
+        var secondId = await CreateUnitAsync("U-HISTSTAY-2", sourceProductId, volume: 150m);
+        await SetLocationAsync(firstId, fridgeId);
+        await SetLocationAsync(secondId, fridgeId);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var pooled = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool and leave it"));
+        Assert.True(pooled.Succeeded, pooled.Error);
+
+        var history = await service.GetHistoryAsync(firstId);
+        var resultSummary = Assert.Single(Assert.Single(history).Units, unit => unit.Role == ModificationUnitRole.Result);
+        Assert.Equal(fridgeId, resultSummary.ResultLocationId);
+        Assert.Equal(fridgeId, resultSummary.CurrentLocationId);
+        Assert.Equal("Fridge A", resultSummary.CurrentLocationName);
+        Assert.False(resultSummary.ResultHasLeftCreationLocation);
+        Assert.Null(resultSummary.LocationLeftUtc);
+        Assert.Null(resultSummary.LocationLeftReason);
+        Assert.Null(resultSummary.LocationLeftBy);
+    }
+
+    [Fact]
+    public async Task GetHistory_WithoutALocation_ShowsNone()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTNONE");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var firstId = await CreateUnitAsync("U-HISTNONE-1", sourceProductId, volume: 100m);
+        var secondId = await CreateUnitAsync("U-HISTNONE-2", sourceProductId, volume: 80m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var pooled = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool with no location"));
+        Assert.True(pooled.Succeeded, pooled.Error);
+
+        var history = await service.GetHistoryAsync(firstId);
+        var resultSummary = Assert.Single(Assert.Single(history).Units, unit => unit.Role == ModificationUnitRole.Result);
+        Assert.Null(resultSummary.ResultLocationId);
+        Assert.Null(resultSummary.ResultLocationName);
+        Assert.Null(resultSummary.CurrentLocationId);
+        Assert.False(resultSummary.ResultHasLeftCreationLocation);
+        Assert.Null(resultSummary.LocationLeftUtc);
+        Assert.Null(resultSummary.LocationLeftReason);
+        Assert.Null(resultSummary.LocationLeftBy);
+    }
+
+    [Fact]
     public async Task Pool_SingleSource_IsBlocked()
     {
         var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOL1");
@@ -613,6 +998,44 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
     }
 
     [Fact]
+    public async Task GetEligibleModifications_ModifiedUnit_ReturnsNone()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("ELIGMOD");
+        await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate);
+        var unitId = await CreateUnitAsync("U-ELIGMOD-1", sourceProductId);
+        await using (var update = _factory.Create())
+        {
+            var unit = (await update.BloodUnits.FindAsync(unitId))!;
+            unit.Status = UnitStatus.Modified;
+            await update.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var eligible = await CreateService(context).GetEligibleModificationsAsync(unitId);
+
+        Assert.Empty(eligible);
+    }
+
+    [Fact]
+    public async Task GetEligibleModifications_AssignedUnit_StillListsRules()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("ELIGASN");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate);
+        var unitId = await CreateUnitAsync("U-ELIGASN-1", sourceProductId);
+        await using (var update = _factory.Create())
+        {
+            var unit = (await update.BloodUnits.FindAsync(unitId))!;
+            unit.Status = UnitStatus.Assigned;
+            await update.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var eligible = await CreateService(context).GetEligibleModificationsAsync(unitId);
+
+        Assert.Equal(ruleId, Assert.Single(eligible).RuleId);
+    }
+
+    [Fact]
     public async Task GetHistory_ReturnsModificationForBothSourceAndResultUnits()
     {
         var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("HISTORY");
@@ -636,6 +1059,178 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         var resultHistory = await verifyService.GetHistoryAsync(resultUnitId);
         Assert.Single(resultHistory);
         Assert.Equal(sourceHistory[0].Id, resultHistory[0].Id);
+    }
+
+    [Fact]
+    public async Task GetHistory_NamesThePatientWhenAnOrderPointsAtTheModification()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync($"HISTPT{key}");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate);
+        var sourceId = await CreateUnitAsync($"U-HISTPT-{key}", sourceProductId);
+
+        long namedModificationId;
+        await using (var context = _factory.Create())
+        {
+            var service = CreateService(context);
+            var applied = await service.ApplySingleAsync(
+                sourceId, new PerformSingleModificationRequest(ruleId, null, "Named order"));
+            Assert.True(applied.Succeeded, applied.Error);
+            namedModificationId = applied.Modification!.Id;
+        }
+
+        await using var arrange = _factory.Create();
+        UnitModification MakeModification(ModificationType type, string reason) => new()
+        {
+            ModificationRuleId = ruleId,
+            ModificationType = type,
+            ExpirationOffsetCodeApplied = "24H",
+            ResultExpiresUtc = _factory.Clock.UtcNow.AddHours(24),
+            Reason = reason,
+            PerformedBy = "tech",
+            PerformedUtc = _factory.Clock.UtcNow
+        };
+        var unlinked = MakeModification(ModificationType.Wash, "Bench only");
+        var blankName = MakeModification(ModificationType.Thaw, "Blank name");
+        var disagree = MakeModification(ModificationType.Pool, "Two orders");
+        arrange.UnitModifications.AddRange(unlinked, blankName, disagree);
+        await arrange.SaveChangesAsync();
+        arrange.UnitModificationUnits.AddRange(
+            new UnitModificationUnit { UnitModificationId = unlinked.Id, BloodProductId = sourceId, Role = ModificationUnitRole.Source },
+            new UnitModificationUnit { UnitModificationId = blankName.Id, BloodProductId = sourceId, Role = ModificationUnitRole.Source },
+            new UnitModificationUnit { UnitModificationId = disagree.Id, BloodProductId = sourceId, Role = ModificationUnitRole.Source });
+
+        var named = new Patient
+        {
+            MedicalRecordNumber = $"MRN-HIST-{key}",
+            LastName = " Poe ",
+            FirstName = " Ann ",
+            DateOfBirth = new DateOnly(1988, 9, 9),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        var blank = new Patient
+        {
+            MedicalRecordNumber = $"MRN-HIST-BL-{key}",
+            LastName = "   ",
+            FirstName = " ",
+            DateOfBirth = new DateOnly(1989, 10, 10),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        var other = new Patient
+        {
+            MedicalRecordNumber = $"MRN-HIST-OT-{key}",
+            LastName = "Lee",
+            FirstName = "Sam",
+            DateOfBirth = new DateOnly(1990, 1, 1),
+            Sex = Sex.Unknown,
+            Status = PatientStatus.Active
+        };
+        arrange.Patients.AddRange(named, blank, other);
+        await arrange.SaveChangesAsync();
+        var encounter = new Encounter
+        {
+            PatientId = named.Id,
+            VisitNumber = $"VIS-HIST-{key}",
+            EncounterType = EncounterType.Inpatient,
+            Status = EncounterStatus.Active,
+            AdmitUtc = _factory.Clock.UtcNow
+        };
+        var location = new OrderingLocation { Code = $"LOC-HIST-{key}", Name = "Ward", IsActive = true };
+        arrange.Encounters.Add(encounter);
+        arrange.OrderingLocations.Add(location);
+        await arrange.SaveChangesAsync();
+
+        Order MakeOrder(string number, long patientId) => new()
+        {
+            OrderNumber = number,
+            OrderName = "Modify red cells",
+            PatientId = patientId,
+            EncounterId = encounter.Id,
+            OrderingLocationId = location.Id,
+            OrderCategory = OrderCategory.Product,
+            ProductTypeId = sourceProductId,
+            Status = OrderStatus.InProcess,
+            OrderedUtc = _factory.Clock.UtcNow
+        };
+        var namedOrder = MakeOrder($"ORD-HIST-{key}", named.Id);
+        var blankOrder = MakeOrder($"ORD-HIST-BL-{key}", blank.Id);
+        var otherOrder = MakeOrder($"ORD-HIST-OT-{key}", other.Id);
+        var definition = new ActionDefinition
+        {
+            Code = $"IRRAD-{key}",
+            Name = "Irradiate",
+            Category = ActionCategory.Modification,
+            ModificationType = ModificationType.Irradiate,
+            IsActive = true
+        };
+        arrange.Orders.AddRange(namedOrder, blankOrder, otherOrder);
+        arrange.ActionDefinitions.Add(definition);
+        await arrange.SaveChangesAsync();
+        arrange.OrderActions.AddRange(
+            new OrderAction
+            {
+                OrderId = namedOrder.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = sourceId,
+                UnitModificationId = namedModificationId
+            },
+            new OrderAction
+            {
+                OrderId = blankOrder.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = sourceId,
+                UnitModificationId = blankName.Id
+            },
+            new OrderAction
+            {
+                OrderId = namedOrder.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = sourceId,
+                UnitModificationId = disagree.Id
+            },
+            new OrderAction
+            {
+                OrderId = otherOrder.Id,
+                ActionDefinitionId = definition.Id,
+                Status = OrderActionStatus.Completed,
+                SourceBloodUnitId = sourceId,
+                UnitModificationId = disagree.Id
+            });
+        await arrange.SaveChangesAsync();
+
+        var history = await CreateHistoryService(arrange).GetHistoryAsync(sourceId);
+        Assert.Equal($"Poe, Ann ({named.MedicalRecordNumber})", Assert.Single(history, row => row.Id == namedModificationId).PatientLabel);
+        Assert.Equal($"patient #{blank.Id} ({blank.MedicalRecordNumber})", Assert.Single(history, row => row.Id == blankName.Id).PatientLabel);
+        Assert.Equal("No patient order was recorded.", Assert.Single(history, row => row.Id == unlinked.Id).PatientLabel);
+        Assert.Equal("The linked orders do not name one patient.", Assert.Single(history, row => row.Id == disagree.Id).PatientLabel);
+
+        var unread = await CreateHistoryService(arrange, includeOrders: false).GetHistoryAsync(sourceId);
+        Assert.All(unread, row => Assert.Equal("The order could not be read.", row.PatientLabel));
+    }
+
+    private BloodProductModificationService CreateHistoryService(BloodBankDbContext context, bool includeOrders = true)
+    {
+        var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser);
+        return new BloodProductModificationService(
+            new InventoryRepository(context),
+            new EfRepository<ModificationRule>(context),
+            new EfRepository<ProductType>(context),
+            new EfRepository<ExpirationModificationCode>(context),
+            new EfRepository<UnitModification>(context),
+            new EfRepository<UnitModificationUnit>(context),
+            context,
+            _factory.Clock,
+            _factory.CurrentUser,
+            audit,
+            orderActions: includeOrders ? new EfRepository<OrderAction>(context) : null,
+            orders: includeOrders ? new EfRepository<Order>(context) : null,
+            locations: new EfRepository<InventoryLocation>(context),
+            patients: includeOrders ? new EfRepository<Patient>(context) : null);
     }
 
     [Fact]
@@ -691,5 +1286,334 @@ public class BloodProductModificationServiceTests : IClassFixture<SqliteContextF
         Assert.False(only.IsAvailable);
         Assert.True(only.RequiresCollectionDate);
         Assert.Null(only.PreviewExpiresUtc);
+    }
+
+    [Fact]
+    public async Task Divide_CopiesSourceAntigenTypingOntoEachChild()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("DIVATTR");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Divide, "5D");
+        var sourceId = await CreateUnitAsync("U-DIVATTR", sourceProductId, volume: 200m);
+        await AddAttributeAsync(sourceId, definitionId: 9101, AntigenResult.Negative);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.DivideAsync(
+            sourceId,
+            new PerformDivideRequest(ruleId, [new DivideChildSpec("A", 100m), new DivideChildSpec("B", 100m)], "Split typed unit"));
+
+        Assert.True(result.Succeeded);
+        await using var verify = _factory.Create();
+        foreach (var child in result.ResultUnits!)
+        {
+            var copied = Assert.Single(await verify.UnitBloodAttributes.Where(a => a.BloodProductId == child.Id).ToListAsync());
+            Assert.Equal(9101, copied.BloodAttributeDefinitionId);
+            Assert.Equal(AntigenResult.Negative, copied.Result);
+        }
+    }
+
+    [Fact]
+    public async Task Pool_DiscordantAntigen_IsHardStoppedAndSourcesStayAvailable()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLATTR");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var positiveId = await CreateUnitAsync("U-POOLATTR-P", sourceProductId, volume: 200m);
+        var negativeId = await CreateUnitAsync("U-POOLATTR-N", sourceProductId, volume: 200m);
+        await AddAttributeAsync(positiveId, definitionId: 9102, AntigenResult.Positive);
+        await AddAttributeAsync(negativeId, definitionId: 9102, AntigenResult.Negative);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([positiveId, negativeId], ruleId, "Pool typed platelets"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, stop => stop.Code == UnitModificationAttributeRule.DiscordantCode);
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(positiveId))!.Status);
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(negativeId))!.Status);
+    }
+
+    [Fact]
+    public async Task Pool_PositiveAndUntyped_CopiesPositive_AndDoesNotClaimAPartialNegative()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLINH");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var typedId = await CreateUnitAsync("U-POOLINH-T", sourceProductId, volume: 200m);
+        var untypedId = await CreateUnitAsync("U-POOLINH-U", sourceProductId, volume: 200m);
+        await AddAttributeAsync(typedId, definitionId: 9103, AntigenResult.Positive);
+        await AddAttributeAsync(typedId, definitionId: 9104, AntigenResult.Negative);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([typedId, untypedId], ruleId, "Pool mixed typing"));
+
+        Assert.True(result.Succeeded);
+        await using var verify = _factory.Create();
+        var copied = await verify.UnitBloodAttributes
+            .Where(a => a.BloodProductId == result.ResultUnits!.Single().Id)
+            .ToListAsync();
+        var only = Assert.Single(copied);
+        Assert.Equal(9103, only.BloodAttributeDefinitionId);
+        Assert.Equal(AntigenResult.Positive, only.Result);
+    }
+
+    private async Task AddAttributeAsync(long unitId, long definitionId, AntigenResult result)
+    {
+        await using var context = _factory.Create();
+        context.UnitBloodAttributes.Add(new UnitBloodAttribute
+        {
+            BloodProductId = unitId,
+            BloodAttributeDefinitionId = definitionId,
+            AttributeKind = BloodAttributeKind.Antigen,
+            Result = result,
+            TypingSource = UnitAttributeTypingSource.InHouse
+        });
+        await context.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Divide_CopiesAutologousReservationOntoEachChild()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("DIVAUTO");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Divide, "5D");
+        var sourceId = await CreateUnitAsync(
+            "U-DIVAUTO", sourceProductId, volume: 200m,
+            donationRestriction: DonationRestriction.Autologous, reservedPatientId: 8801);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.DivideAsync(
+            sourceId,
+            new PerformDivideRequest(ruleId, [new DivideChildSpec("A", 100m), new DivideChildSpec("B", 100m)], "Split autologous"));
+
+        Assert.True(result.Succeeded);
+        Assert.All(result.ResultUnits!, child =>
+        {
+            Assert.Equal(DonationRestriction.Autologous, child.DonationRestriction);
+            Assert.Equal(8801, child.ReservedPatientId);
+        });
+    }
+
+    [Fact]
+    public async Task Pool_AutologousWithAllogeneic_IsHardStoppedAndSourcesStayAvailable()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLREST");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var autologousId = await CreateUnitAsync(
+            "U-POOLREST-A", sourceProductId, volume: 200m,
+            donationRestriction: DonationRestriction.Autologous, reservedPatientId: 8802);
+        var allogeneicId = await CreateUnitAsync("U-POOLREST-G", sourceProductId, volume: 200m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([autologousId, allogeneicId], ruleId, "Pool mixed restriction"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, stop => stop.Code == UnitModificationRestrictionRule.DiscordantCode);
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(autologousId))!.Status);
+        Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(allogeneicId))!.Status);
+    }
+
+    [Fact]
+    public async Task Pool_SameDirectedPatient_CopiesReservation()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("POOLDIR");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Pool, "24H");
+        var firstId = await CreateUnitAsync(
+            "U-POOLDIR-1", sourceProductId, volume: 200m,
+            donationRestriction: DonationRestriction.Directed, reservedPatientId: 8803);
+        var secondId = await CreateUnitAsync(
+            "U-POOLDIR-2", sourceProductId, volume: 200m,
+            donationRestriction: DonationRestriction.Directed, reservedPatientId: 8803);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.PoolAsync(new PerformPoolRequest([firstId, secondId], ruleId, "Pool directed"));
+
+        Assert.True(result.Succeeded);
+        var pooled = Assert.Single(result.ResultUnits!);
+        Assert.Equal(DonationRestriction.Directed, pooled.DonationRestriction);
+        Assert.Equal(8803, pooled.ReservedPatientId);
+    }
+
+    [Fact]
+    public async Task Aliquot_KeepsParentAvailable_ReducesVolume_AndCopiesTyping()
+    {
+        var (sourceProductId, _) = await EnsureProductTypesAsync("ALIQISBT", "E0336", "E0336");
+        var ruleId = await CreateRuleAsync(sourceProductId, sourceProductId, ModificationType.Aliquot, "5D");
+        var sourceId = await CreateIsbtUnitAsync("W123425555555", "E0336V00", sourceProductId, 300m);
+        await AddAttributeAsync(sourceId, definitionId: 9201, AntigenResult.Negative);
+        await using (var setup = _factory.Create())
+        {
+            var parent = (await setup.BloodUnits.FindAsync(sourceId))!;
+            parent.DonationRestriction = DonationRestriction.Autologous;
+            parent.ReservedPatientId = 8810;
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.AliquotAsync(sourceId, new PerformAliquotRequest(ruleId, 50m, "Pediatric aliquot"));
+
+        Assert.True(result.Succeeded, result.Error);
+        var child = Assert.Single(result.ResultUnits!);
+        Assert.Equal(50m, child.Volume);
+        Assert.Equal("E0336V0A", child.ProductCodeData);
+        Assert.Equal(UnitStatus.Quarantine, child.Status);
+        Assert.Equal(DonationRestriction.Autologous, child.DonationRestriction);
+        Assert.Equal(8810, child.ReservedPatientId);
+
+        await using var verify = _factory.Create();
+        var parentAfter = (await verify.BloodUnits.FindAsync(sourceId))!;
+        Assert.Equal(UnitStatus.Available, parentAfter.Status);
+        Assert.Equal(250m, parentAfter.Volume);
+        Assert.Equal("E0336V00", parentAfter.ProductCodeData);
+        var copied = Assert.Single(await verify.UnitBloodAttributes.Where(a => a.BloodProductId == child.Id).ToListAsync());
+        Assert.Equal(9201, copied.BloodAttributeDefinitionId);
+        Assert.Equal(AntigenResult.Negative, copied.Result);
+    }
+
+    [Fact]
+    public async Task Aliquot_VolumeNotLessThanParent_IsHardStopped()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("ALIQVOL");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Aliquot, "5D");
+        var sourceId = await CreateUnitAsync("U-ALIQVOL", sourceProductId, volume: 100m);
+
+        await using var context = _factory.Create();
+        var service = CreateService(context);
+        var result = await service.AliquotAsync(sourceId, new PerformAliquotRequest(ruleId, 100m, "Take the whole unit"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Evaluation!.HardStops, stop => stop.Code == UnitModificationEligibilityRule.AliquotParentVolumeCode);
+
+        await using var verify = _factory.Create();
+        var parent = (await verify.BloodUnits.FindAsync(sourceId))!;
+        Assert.Equal(UnitStatus.Available, parent.Status);
+        Assert.Equal(100m, parent.Volume);
+    }
+
+    [Fact]
+    public async Task ReleaseModificationResult_RequiresAMatchingUnitNumberScan()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("LABEL");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var sourceId = await CreateUnitAsync("U-LABEL-SRC", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var modified = await CreateService(context).ApplySingleAsync(
+            sourceId, new PerformSingleModificationRequest(ruleId, null, "Label check"));
+        var resultUnit = Assert.Single(modified.ResultUnits!);
+        var inventory = ReleaseService(context);
+
+        var blank = await inventory.ReleaseFromQuarantineAsync(resultUnit.Id, "tech2", null);
+        Assert.False(blank.Succeeded);
+        Assert.Contains(blank.Evaluation!.HardStops, stop => stop.Code == ModificationLabelVerificationRule.Code);
+
+        var wrong = await inventory.ReleaseFromQuarantineAsync(resultUnit.Id, "tech2", "NOT-THIS-UNIT");
+        Assert.False(wrong.Succeeded);
+        Assert.Contains(wrong.Evaluation!.HardStops, stop => stop.Code == ModificationLabelVerificationRule.Code);
+        Assert.Equal(UnitStatus.Quarantine, (await context.BloodUnits.FindAsync(resultUnit.Id))!.Status);
+
+        var matched = await inventory.ReleaseFromQuarantineAsync(resultUnit.Id, "tech2", resultUnit.UnitNumber);
+        Assert.True(matched.Succeeded, matched.Error);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(resultUnit.Id))!.Status);
+    }
+
+    [Fact]
+    public async Task ApplySingle_RecordsOptionalSupplyLot_OnHistory()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("SUPPLY");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var sourceId = await CreateUnitAsync("U-SUPPLY", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ApplySingleAsync(
+            sourceId,
+            new PerformSingleModificationRequest(ruleId, null, "Irradiate", SupplyDescription: "Irradiation indicator", SupplyLot: "LOT-17"));
+        Assert.True(result.Succeeded, result.Error);
+        var history = await CreateService(context).GetHistoryAsync(sourceId);
+        var row = Assert.Single(history);
+        Assert.Equal("Irradiation indicator", row.SupplyDescription);
+        Assert.Equal("LOT-17", row.SupplyLot);
+    }
+
+    [Fact]
+    public async Task ApplySingle_RequiredSupplyLot_BlocksWhenMissing()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("SUPREQ");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var sourceId = await CreateUnitAsync("U-SUPREQ", sourceProductId, volume: 300m);
+
+        await using var context = _factory.Create();
+        context.SystemSettings.Add(new SystemSetting
+        {
+            Key = FacilityPolicyKeys.RequireModificationSupplyLot,
+            Value = "true"
+        });
+        await context.SaveChangesAsync();
+        var service = CreateService(context, policy: new FacilityPolicyService(new EfRepository<SystemSetting>(context)));
+        var blocked = await service.ApplySingleAsync(sourceId, new PerformSingleModificationRequest(ruleId, null, "Irradiate"));
+        Assert.False(blocked.Succeeded);
+        Assert.Contains(blocked.Evaluation!.HardStops, stop => stop.Code == ModificationSupplyLotRule.Code);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(sourceId))!.Status);
+    }
+
+    [Fact]
+    public async Task ApplyBatch_IneligibleUnit_ModifiesNone()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("BATCH");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var eligibleId = await CreateUnitAsync("U-BATCH-OK", sourceProductId, volume: 300m);
+        var ineligibleId = await CreateUnitAsync("U-BATCH-NO", sourceProductId, status: UnitStatus.Issued, volume: 300m);
+
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ApplyBatchAsync(
+            new PerformBatchModificationRequest(ruleId, new[] { eligibleId, ineligibleId }, "Batch irradiate"));
+        Assert.False(result.Succeeded);
+        Assert.Equal(UnitStatus.Available, (await context.BloodUnits.FindAsync(eligibleId))!.Status);
+        Assert.Equal(UnitStatus.Issued, (await context.BloodUnits.FindAsync(ineligibleId))!.Status);
+        Assert.Empty(await context.UnitModificationUnits
+            .Where(link => link.BloodProductId == eligibleId || link.BloodProductId == ineligibleId)
+            .ToListAsync());
+    }
+
+    [Fact]
+    public async Task ApplyBatch_AllEligible_ModifiesEach()
+    {
+        var (sourceProductId, targetProductId) = await EnsureProductTypesAsync("BATCHOK");
+        var ruleId = await CreateRuleAsync(sourceProductId, targetProductId, ModificationType.Irradiate, "24H");
+        var firstId = await CreateUnitAsync("U-BATCH-1", sourceProductId, volume: 300m);
+        var secondId = await CreateUnitAsync("U-BATCH-2", sourceProductId, volume: 280m);
+
+        await using var context = _factory.Create();
+        var result = await CreateService(context).ApplyBatchAsync(
+            new PerformBatchModificationRequest(ruleId, new[] { firstId, secondId }, "Batch irradiate"));
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(UnitStatus.Modified, (await context.BloodUnits.FindAsync(firstId))!.Status);
+        Assert.Equal(UnitStatus.Modified, (await context.BloodUnits.FindAsync(secondId))!.Status);
+        Assert.Equal(2, await context.UnitModificationUnits.CountAsync(
+            link => (link.BloodProductId == firstId || link.BloodProductId == secondId)
+                    && link.Role == ModificationUnitRole.Source));
+    }
+
+    private InventoryService ReleaseService(BloodBankDbContext context)
+    {
+        var lookups = new IsbtLookupCatalog(
+            new EfRepository<IsbtAboRhdCode>(context),
+            new EfRepository<IsbtProductCode>(context));
+        return new InventoryService(
+            new InventoryRepository(context),
+            new EfRepository<UnitBloodAttribute>(context),
+            new EfRepository<BloodAttributeDefinition>(context),
+            lookups,
+            context,
+            _factory.Clock,
+            _factory.CurrentUser,
+            new AuditWriter(context, _factory.Clock, _factory.CurrentUser),
+            modificationUnits: new EfRepository<UnitModificationUnit>(context));
     }
 }
