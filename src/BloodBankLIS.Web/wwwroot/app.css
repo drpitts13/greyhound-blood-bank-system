@@ -241,6 +241,11 @@ table.bb tbody tr:hover { background: #fafbfe; }
 .checkbox-list { display: flex; flex-wrap: wrap; gap: .35rem 1rem; }
 .checkbox-item { display: inline-flex; align-items: center; gap: .4rem; font-size: .87rem; margin-right: 1rem; cursor: pointer; }
 .checkbox-item input { width: auto; margin: 0; }
+/* Long screen help, collapsed by default so the data stays near the top. */
+.bb-help { margin: -.4rem 0 .8rem; font-size: .82rem; color: var(--bb-muted); }
+.bb-help > summary { cursor: pointer; color: var(--bb-accent); width: max-content; }
+.bb-help ul { margin: .4rem 0 0; padding-left: 1.1rem; }
+.bb-help li { margin-bottom: .15rem; }
 .text-error { color: var(--bb-primary-dark); }
 .text-warn { color: var(--bb-warn); }
 

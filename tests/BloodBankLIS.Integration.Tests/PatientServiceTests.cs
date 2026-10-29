@@ -74,6 +74,25 @@ public class PatientServiceTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task ListAliases_RunsAsADatabaseQuery_AndReturnsPriorNames()
+    {
+        var id = await EnsurePatientAsync("MRN-DEMO-ALIAS");
+        await using (var renaming = _factory.Create())
+        {
+            var renamed = await Patients(renaming).UpdateAsync(id, new UpdatePatientRequest(
+                "Renamed", "Alex", null, new DateOnly(1975, 6, 15), Sex.Female, PatientStatus.Active,
+                NameChangeReason: "Legal name correction"));
+            Assert.True(renamed.Succeeded, renamed.Error);
+        }
+
+        // Opening a patient chart lists aliases; this query must translate to SQL.
+        await using var context = _factory.Create();
+        var aliases = await Patients(context).ListAliasesAsync(id);
+
+        Assert.Contains(aliases, a => a.IdentifierType == IdentityTokenType.PriorFullName);
+    }
+
+    [Fact]
     public async Task Update_WithoutPatientWrite_IsHardStopped()
     {
         var id = await EnsurePatientAsync("MRN-DEMO-PERM");
