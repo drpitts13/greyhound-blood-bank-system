@@ -246,6 +246,8 @@ table.bb tbody tr:hover { background: #fafbfe; }
 .bb-help > summary { cursor: pointer; color: var(--bb-accent); width: max-content; }
 .bb-help ul { margin: .4rem 0 0; padding-left: 1.1rem; }
 .bb-help li { margin-bottom: .15rem; }
+/* Wide tables: secondary columns hidden until the user asks for all columns. */
+table.hide-detail-cols .detail-col { display: none; }
 .text-error { color: var(--bb-primary-dark); }
 .text-warn { color: var(--bb-warn); }
 
