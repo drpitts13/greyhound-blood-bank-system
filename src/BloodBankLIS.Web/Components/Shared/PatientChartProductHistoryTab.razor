@@ -1,5 +1,8 @@
+@inject UserSession Session
+
     <div class="bb-card">
     <div class="bb-card-title"><h3>Product history</h3></div>
+    <Outcome Value="Feedback" />
     <p class="muted">Each assigned, issued, returned, or transfused unit shows the latest crossmatch result for that patient and unit. A crossmatch event shows that event's result. A unit or event with no crossmatch result shows none. Issued, returned, and transfused rows show the specimen accession linked to that issue. A row with no linked specimen shows none. Each row shows when that unit expires. A row with no unit expiration shows none. Each row shows who performed that event. A row with no performer shows none. A returned unit shows why it came back and whether it was marked eligible to reissue. A row that is not a return shows none for those facts. Issued, returned, and transfused rows show the person the unit was issued to. A row with no issued-to person shows none. Those rows also show the cooler or transport id. A row with no cooler shows none. Issued, returned, and transfused rows show the recorded issue type. A row that is not one of those events shows none. Those rows also show the recorded emergency-release reason. A blank reason shows none. Issued, returned, and transfused rows show the second verifier recorded at issue. A row that is not one of those events shows none. A blank second verifier shows none. Those rows also show who authorized an emergency or massive-transfusion release. A row that is not one of those events shows none. A blank authorizer shows none. Issued, returned, and transfused rows show the appearance recorded at issue. A row that is not one of those events shows none. The issue gate is unchanged. Issued, returned, and transfused rows show the appearance recorded at ward receipt after the unit is received. A row that is not one of those events, or a unit that has not been received, shows none. The ward-receipt gate is unchanged. Issued, returned, and transfused rows show the pickup tag scanned at issue. A row that is not one of those events shows none. A blank pickup tag shows none. The issue gate is unchanged. Issued, returned, and transfused rows show the crossmatch status recorded at issue. A row that is not one of those events shows none. The issue gate is unchanged.</p>
     @if (Loading) { <div class="loading">Loading product history...</div> }
     else if (Rows.Count == 0) { <div class="empty">No product events.</div> }
@@ -56,9 +59,17 @@
                             @if (h.IssueId is long historyIssueId && h.UnitId is long issueUnitId)
                             {
                                 <a class="btn btn-ghost btn-sm" href="@($"/issuing?bloodUnitId={issueUnitId}")">Open Issuing</a>
-                                @if (h.EventType == PatientProductHistoryEventType.Issued && OnMarkTransfused.HasDelegate)
+                                @if (h.EventType == PatientProductHistoryEventType.Issued && OnMarkTransfused.HasDelegate && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
-                                    <button type="button" class="btn btn-link btn-sm" @onclick="() => OnMarkTransfused.InvokeAsync(historyIssueId)">Transfuse</button>
+                                    @if (_confirmIssueId == historyIssueId)
+                                    {
+                                        <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => ConfirmTransfusedAsync(historyIssueId)">Confirm transfused</button>
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _confirmIssueId = null">Cancel</button>
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="() => _confirmIssueId = historyIssueId">Transfuse</button>
+                                    }
                                 }
                             }
                         </td>
@@ -74,6 +85,16 @@
     [Parameter] public bool Loading { get; set; }
     [Parameter] public IReadOnlyList<PatientProductHistoryRowDto> Rows { get; set; } = [];
     [Parameter] public EventCallback<long> OnMarkTransfused { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public Feedback? Feedback { get; set; }
+
+    private long? _confirmIssueId;
+
+    private async Task ConfirmTransfusedAsync(long issueId)
+    {
+        _confirmIssueId = null;
+        await OnMarkTransfused.InvokeAsync(issueId);
+    }
 
     private static string HistoryRowClass(PatientProductHistoryRowDto h)
     {

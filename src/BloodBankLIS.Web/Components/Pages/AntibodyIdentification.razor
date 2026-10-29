@@ -332,16 +332,16 @@ else
         <div class="bb-card-title"><h3>DAT / autocontrol context</h3></div>
         <div class="form-row">
             <div class="field"><label>DAT</label>
-                <select @bind="_dat">
+                <select @bind="_dat" disabled="@(!CanEdit)">
                     @foreach (var d in Enum.GetValues<AntibodyIdDatResult>())
                     {
                         <option value="@d">@d</option>
                     }
                 </select>
             </div>
-            <div class="field"><label>DAT method</label><input @bind="_datMethod" /></div>
+            <div class="field"><label>DAT method</label><input @bind="_datMethod" disabled="@(!CanEdit)" /></div>
         </div>
-        <div class="field"><label>Workup comment</label><input @bind="_comment" /></div>
+        <div class="field"><label>Workup comment</label><input @bind="_comment" disabled="@(!CanEdit)" /></div>
         @if (CanEdit)
         {
             <div class="flex gap">
@@ -507,7 +507,7 @@ else
                 <textarea @bind="_interpretation" rows="3"></textarea>
             </div>
             <div class="field"><label>Rationale @(QueuedIdentifiedDespiteExclusion.Count > 0 || IdentifiedDespiteExclusion.Count > 0 ? "(required when identifying a specificity assistance would exclude)" : "(optional)")</label>
-                <input @bind="_interpRationale" placeholder="Why this identification differs from assistance, if it does." />
+                <input @bind="_interpRationale" @bind:event="oninput" placeholder="Why this identification differs from assistance, if it does." />
             </div>
             <div class="form-row">
                 <div class="field"><label>Catalog antibody</label>
@@ -533,7 +533,8 @@ else
                 <ul>
                     @foreach (var item in _interpItems)
                     {
-                        <li>@item.Specificity — @item.Classification @(item.BloodAttributeDefinitionId is null ? "(free-text; will not drive antigen-negative unless resolved)" : "(catalog)")@(string.IsNullOrWhiteSpace(item.Rationale) ? "" : $" — {item.Rationale}")</li>
+                        <li>@item.Specificity — @item.Classification @(item.BloodAttributeDefinitionId is null ? "(free-text; will not drive antigen-negative unless resolved)" : "(catalog)")@(string.IsNullOrWhiteSpace(item.Rationale) ? "" : $" — {item.Rationale}")
+                            <button class="btn btn-ghost btn-sm" type="button" @onclick="() => _interpItems.Remove(item)">Remove</button></li>
                     }
                 </ul>
             }
@@ -553,7 +554,7 @@ else
             {
                 <div class="field">
                     <label>Acknowledgment</label>
-                    <input @bind="_reviewAck" placeholder="Reviewed leftover CannotExclude, history, DAT, or none-identified findings." />
+                    <input @bind="_reviewAck" @bind:event="oninput" placeholder="Reviewed leftover CannotExclude, history, DAT, or none-identified findings." />
                 </div>
                 <p class="muted">Required to accept when completion warnings are present. Acknowledgment does not identify antibodies.</p>
             }
@@ -594,7 +595,7 @@ else
             {
                 <div class="field">
                     <label>Acknowledgment</label>
-                    <input @bind="_completeAck" placeholder="Reviewed leftover CannotExclude, history, DAT, or none-identified findings." />
+                    <input @bind="_completeAck" @bind:event="oninput" placeholder="Reviewed leftover CannotExclude, history, DAT, or none-identified findings." />
                 </div>
                 <p class="muted">Required when completion warnings are present. Acknowledgment does not identify antibodies.</p>
             }
@@ -608,7 +609,7 @@ else
             {
                 <div class="alert alert-warning">This patient has reserved or issued units. Voiding abandons identification of record without posting antibodies that may change antigen-negative needs. The void reason does not identify antibodies.</div>
             }
-            <div class="field"><label>Void reason</label><input @bind="_voidReason" /></div>
+            <div class="field"><label>Void reason</label><input @bind="_voidReason" @bind:event="oninput" /></div>
             <button class="btn btn-danger" disabled="@(_busy || string.IsNullOrWhiteSpace(_voidReason))" @onclick="VoidAsync">Void workup</button>
         </div>
     }
@@ -1111,6 +1112,17 @@ else
     private async Task SaveInterpretationAsync()
     {
         if (_workup is null) return;
+        // A specificity picked or typed but not yet added would otherwise be dropped without warning.
+        if (_interpCatalogId is not null || !string.IsNullOrWhiteSpace(_interpSpec))
+        {
+            AddInterpItem();
+            if (ExclusionRationaleMissing)
+            {
+                _fb = Feedback.Fail("Enter a rationale: the added specificity is one assistance would exclude.");
+                return;
+            }
+        }
+
         _busy = true;
         var r = await Api.RecordAntibodyIdInterpretationAsync(_workup.Id,
             new RecordAntibodyIdInterpretationRequest(_interpretation, _interpItems));

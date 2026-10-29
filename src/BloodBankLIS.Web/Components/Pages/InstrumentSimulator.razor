@@ -65,7 +65,7 @@
 }
 
 @code {
-    private List<InstrumentInterfaceDto> _interfaces = new();
+    private List<InstrumentStatusDto> _interfaces = new();
     private List<string> _assays = new();
     private long _interfaceId;
     private string _assay = "GroupScreen";
@@ -78,11 +78,14 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var interfaces = await Api.GetAdminInstrumentInterfacesAsync();
+        // The status list needs only the instrument permission, unlike the admin setup list.
+        var interfaces = await Api.GetInstrumentStatusAsync();
         var assays = await Api.GetInstrumentSimulatorAssaysAsync();
         _interfaces = interfaces.Value ?? new();
         _assays = assays.Value ?? new();
         if (_interfaces.Count > 0) _interfaceId = _interfaces[0].Id;
+        else if (!interfaces.Succeeded) _feedback = interfaces.ToFeedback();
+        else _feedback = Feedback.Fail("No instrument interfaces are set up. An administrator adds them under Admin → Instrument Interfaces.");
         if (_assays.Count > 0) _assay = _assays[0];
     }
 

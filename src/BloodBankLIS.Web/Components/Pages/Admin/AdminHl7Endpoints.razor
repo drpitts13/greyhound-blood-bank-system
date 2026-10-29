@@ -48,7 +48,10 @@
                         </td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(e.Id)">Edit</button>
-                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(e.Id)">History</button>
+                            @if (Session.Has(PermissionCodes.AdminAuditReview))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(e.Id)">History</button>
+                            }
                         </td>
                     </tr>
                 }
@@ -59,7 +62,7 @@
 
 @if (_editing is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New interface" : $"Edit: {_editing.Name}")</h2>
 
         <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
@@ -181,7 +184,11 @@
         </div>
 
         <div class="flex gap" style="margin-top:.6rem;">
-            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-primary" disabled="@(_busy || !CanManage)" @onclick="SaveAsync">Save</button>
+            @if (!CanManage)
+            {
+                <span class="muted">View only. Saving needs the manage permission for this catalog.</span>
+            }
             @if (_editId is not null && CanManage)
             {
                 @if (!_currentEnabled)
@@ -263,9 +270,9 @@
         if (Enum.TryParse<InterfaceType>(e.Value?.ToString(), out var type))
         {
             _editing.InterfaceType = type;
-            _editing.Direction = type is InterfaceType.Results or InterfaceType.Billing
-                ? Hl7Direction.Outbound
-                : Hl7Direction.Inbound;
+            _editing.Direction = BloodBankLIS.Domain.Interfaces.InterfaceTypeDefaults.Direction(type);
+            // Message types have no field of their own; they follow the interface type.
+            _editing.MessageTypes = BloodBankLIS.Domain.Interfaces.InterfaceTypeDefaults.MessageTypes(type);
             _selectedVendor = string.Empty;
             await EnsureCatalogAsync(resetMappings: true);
         }
@@ -360,6 +367,13 @@
     private async Task ShowHistoryAsync(long id)
     {
         var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.InterfaceEndpoint), id);
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+            _history = null;
+            return;
+        }
+
         _history = r.Value ?? new();
         _historyTitle = _items.FirstOrDefault(e => e.Id == id)?.Name ?? id.ToString();
     }

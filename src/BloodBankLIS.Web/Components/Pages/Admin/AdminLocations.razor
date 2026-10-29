@@ -50,11 +50,14 @@
                             @if (CanEdit)
                             {
                                 <button class="btn btn-ghost btn-sm" @onclick="() => Edit(l)">Edit</button>
+                            }
+                            @if (CanActivate)
+                            {
                                 @if (l.IsActive)
                                 {
                                     <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(l.Id, false)">Deactivate</button>
                                 }
-                                else if (CanActivate)
+                                else
                                 {
                                     <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(l.Id, true)">Activate</button>
                                 }
@@ -69,7 +72,7 @@
 
 @if (_draft is not null && CanEdit)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New location" : $"Edit: {_draft.Code}")</h2>
         <div class="form-row">
             <div class="field"><label>Code</label><input class="mono" @bind="_draft.Code" disabled="@(_editId is not null)" /></div>

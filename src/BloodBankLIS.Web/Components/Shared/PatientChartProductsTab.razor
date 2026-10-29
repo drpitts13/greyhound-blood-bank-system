@@ -52,7 +52,7 @@
                         <td><span class="@Ui.Badge(a.UnitStatus)">@Ui.StatusLabel(a.UnitStatus)</span></td>
                         <td>
                             <div class="flex gap" style="flex-wrap:wrap;">
-                                @if (Session.Has(PermissionCodes.CompatibilityCrossmatch) && NeedsCrossmatchEntry(a))
+                                @if (Session.Has(PermissionCodes.CompatibilityCrossmatch) && Session.Has(PermissionCodes.ResultEnter) && NeedsCrossmatchEntry(a))
                                 {
                                     @if (a.OrderSpecimenLinked)
                                     {
@@ -94,7 +94,7 @@
                                 {
                                     <button type="button" class="btn btn-link btn-sm" disabled="@Busy" @onclick="() => OnMarkTransfused.InvokeAsync(issueId)">Transfuse</button>
                                 }
-                                @if (Session.Has(PermissionCodes.CompatibilityAllocate))
+                                @if (Session.Has(PermissionCodes.CompatibilityAllocate) && a.IssueId is null && a.AllocationStatus == AllocationStatus.Reserved)
                                 {
                                     <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnBeginRelease.InvokeAsync(a)">Release</button>
                                 }
@@ -175,13 +175,16 @@
                 </select>
             </div>
             <UnitScanVerificationPanel Scan="IssueScan" />
-            @if (PtagRequired && Session.Has(PermissionCodes.PrintLabel))
+            @if (PtagRequired)
             {
                 <div class="alert alert-warning" style="margin-top:.75rem;">
                     <strong>P-tag ID</strong>
                     <p class="muted">Print the compatibility tag, then scan the P-tag ID before issuing.</p>
                     <div class="flex gap" style="flex-wrap:wrap;align-items:end;">
-                        <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="OnPrintPreparedPtag">Print P-tag</button>
+                        @if (Session.Has(PermissionCodes.PrintLabel))
+                        {
+                            <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="OnPrintPreparedPtag">Print P-tag</button>
+                        }
                         <div class="field" style="min-width:14rem;margin:0;">
                             <label>Scanned P-tag ID</label>
                             <input value="@PtagId" @oninput="OnPtagTyped" autocomplete="off" />
@@ -363,6 +366,14 @@
 
         <div class="flex gap" style="margin-top:1rem;">
             <button class="btn btn-primary" disabled="@(Busy || SelectedUnitId is null || AllocOrderId <= 0)" @onclick="OnReserve">Reserve unit</button>
+            @if (AllocOrderId <= 0)
+            {
+                <span class="muted">Choose an open product order. If none is listed, add a product order on the Orders tab.</span>
+            }
+            else if (SelectedUnitId is null)
+            {
+                <span class="muted">Select a compatible unit above.</span>
+            }
         </div>
     </div>
 }

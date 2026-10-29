@@ -1,5 +1,6 @@
 @page "/instruments"
 @inject BloodBankApiClient Api
+@inject UserSession Session
 
 <PageTitle>Instrument Interfaces · Greyhound Blood Bank LIS</PageTitle>
 
@@ -8,7 +9,10 @@
 <div class="flex gap" style="margin:.6rem 0 1rem;flex-wrap:wrap;">
     <a class="btn btn-secondary" href="/instruments">Status &amp; logs</a>
     <a class="btn btn-ghost" href="/instruments/simulator">Simulator</a>
-    <a class="btn btn-ghost" href="/admin/instruments">Admin setup</a>
+    @if (Session.Has(PermissionCodes.AdminConfigView))
+    {
+        <a class="btn btn-ghost" href="/admin/instruments">Admin setup</a>
+    }
 </div>
 
 <Outcome Value="_feedback" />
@@ -102,7 +106,7 @@
         </div>
         @if (!string.IsNullOrWhiteSpace(_detail.Message.ErrorDetail))
         {
-            <div class="alert alert-error">@_detail.Message.ErrorDetail</div>
+            <div class="alert alert-danger">@_detail.Message.ErrorDetail</div>
         }
         <h4>Raw ASTM</h4>
         <pre class="pre">@_detail.RawMessage</pre>

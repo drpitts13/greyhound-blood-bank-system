@@ -61,7 +61,10 @@
                         </td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(p.Id)">Edit</button>
-                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(p.Id)">History</button>
+                            @if (Session.Has(PermissionCodes.AdminAuditReview))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(p.Id)">History</button>
+                            }
                         </td>
                     </tr>
                 }
@@ -72,7 +75,7 @@
 
 @if (_editing is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New product" : $"Edit: {_editing.ProductCode}")</h2>
         <div class="form-row">
             <div class="field"><label>Product code</label><input @bind="_editing.ProductCode" disabled="@(_editId is not null)" /></div>
@@ -208,7 +211,11 @@
         </div>
 
         <div class="flex gap" style="margin-top:.6rem;">
-            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-primary" disabled="@(_busy || !CanManage)" @onclick="SaveAsync">Save</button>
+            @if (!CanManage)
+            {
+                <span class="muted">View only. Saving needs the manage permission for this catalog.</span>
+            }
             @if (_editId is not null && CanActivate)
             {
                 @if (!_currentIsActive)
@@ -389,6 +396,13 @@
     private async Task ShowHistoryAsync(long id)
     {
         var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.ProductType), id);
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+            _history = null;
+            return;
+        }
+
         _history = r.Value ?? new();
         _historyTitle = _items.FirstOrDefault(p => p.Id == id)?.ProductCode ?? id.ToString();
     }

@@ -747,6 +747,14 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ReceivePolicyDto>> GetReceivePolicyAsync(CancellationToken ct = default) =>
         SendAsync<ReceivePolicyDto>(HttpMethod.Get, "api/reference/receive-policy", ct: ct);
 
+    /// <summary>Exception definition (minimum override level) readable by any signed-in user.</summary>
+    public Task<ApiResult<ExceptionDefinitionDto>> GetExceptionDefinitionAsync(string ruleCode, CancellationToken ct = default) =>
+        SendAsync<ExceptionDefinitionDto>(HttpMethod.Get, $"api/reference/exceptions/{Uri.EscapeDataString(ruleCode)}", ct: ct);
+
+    /// <summary>A yes/no facility policy from the bench-readable list.</summary>
+    public Task<ApiResult<FacilityPolicyValueDto>> GetFacilityPolicyFlagAsync(string key, CancellationToken ct = default) =>
+        SendAsync<FacilityPolicyValueDto>(HttpMethod.Get, $"api/reference/policies/{Uri.EscapeDataString(key)}", ct: ct);
+
     public Task<ApiResult<List<ProductTypeDto>>> GetProductTypesAsync(CancellationToken ct = default) =>
         SendAsync<List<ProductTypeDto>>(HttpMethod.Get, "api/reference/product-types", ct: ct);
 
@@ -1861,6 +1869,15 @@ public sealed class BloodBankApiClient
         {
             using var doc = JsonDocument.Parse(content);
             var root = doc.RootElement;
+
+            // Business-rule refusals ({ error, code }) also use 422 but are not safety-gate blocks.
+            if (root.ValueKind == JsonValueKind.Object
+                && !root.TryGetProperty("hardStops", out _)
+                && !root.TryGetProperty("warnings", out _))
+            {
+                return ApiResult<T>.Fail(ExtractError(content, 422), 422);
+            }
+
             var overridable = root.TryGetProperty("overridable", out var o) && o.ValueKind == JsonValueKind.True;
             var hardStops = root.TryGetProperty("hardStops", out var hs) ? ReadMessages(hs) : Array.Empty<RuleMessage>();
             var warnings = root.TryGetProperty("warnings", out var w) ? ReadMessages(w) : Array.Empty<RuleMessage>();

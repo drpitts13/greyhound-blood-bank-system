@@ -229,12 +229,34 @@
 
     private async Task OnUploadSelected(InputFileChangeEventArgs e)
     {
-        var uploaded = new List<IccbbaExtractUploadFile>();
-        foreach (var file in e.GetMultipleFiles(20))
+        const int maxFiles = 20;
+        const long maxBytes = 20 * 1024 * 1024;
+        if (e.FileCount > maxFiles)
         {
-            await using var stream = file.OpenReadStream(20 * 1024 * 1024);
-            using var reader = new StreamReader(stream);
-            uploaded.Add(new IccbbaExtractUploadFile(file.Name, await reader.ReadToEndAsync()));
+            _feedback = Feedback.Fail($"Choose at most {maxFiles} files at a time.");
+            return;
+        }
+
+        var uploaded = new List<IccbbaExtractUploadFile>();
+        try
+        {
+            foreach (var file in e.GetMultipleFiles(maxFiles))
+            {
+                if (file.Size > maxBytes)
+                {
+                    _feedback = Feedback.Fail($"{file.Name} is larger than 20 MB.");
+                    return;
+                }
+
+                await using var stream = file.OpenReadStream(maxBytes);
+                using var reader = new StreamReader(stream);
+                uploaded.Add(new IccbbaExtractUploadFile(file.Name, await reader.ReadToEndAsync()));
+            }
+        }
+        catch (IOException ex)
+        {
+            _feedback = Feedback.Fail($"Could not read the selected file: {ex.Message}");
+            return;
         }
 
         _uploads = uploaded;

@@ -54,7 +54,7 @@
 
 @if (_editing is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New role" : $"Edit: {_editing.Name}")</h2>
         <div class="form-row">
             <div class="field"><label>Name</label><input @bind="_editing.Name" disabled="@(_editId is not null)" /></div>

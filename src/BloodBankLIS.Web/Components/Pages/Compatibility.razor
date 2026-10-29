@@ -45,9 +45,9 @@
                 <p class="muted">@_retroCrossmatchStatusNotice</p>
             }
         }
-        @if (!Session.Has(PermissionCodes.CompatibilityCrossmatch))
+        @if (!Session.Has(PermissionCodes.CompatibilityCrossmatch) || !Session.Has(PermissionCodes.ResultEnter))
         {
-            <div class="muted">You do not have permission to record crossmatches.</div>
+            <div class="muted">Recording a crossmatch needs both the crossmatch and result entry permissions.</div>
         }
         else
         {
@@ -105,6 +105,10 @@
             }
             <div class="field"><label>Comment</label><input @bind="_xm.Comment" /></div>
             <button class="btn btn-primary" disabled="@(_busy || _xm.BloodUnitId is null || _xm.PatientId == 0 || _xm.SpecimenId == 0)" @onclick="RecordCrossmatchAsync">Record crossmatch</button>
+            @if (CrossmatchMissing.Count > 0)
+            {
+                <span class="muted" style="margin-left:.5rem;">Choose @string.Join(", ", CrossmatchMissing) first.</span>
+            }
             @if (_lastCrossmatch is not null)
             {
                 <p class="muted" style="margin-top:.75rem;">
@@ -188,6 +192,18 @@
     private List<SpecimenDto> _allocSpecimens = new();
 
     private XmModel _xm = new();
+
+    private List<string> CrossmatchMissing
+    {
+        get
+        {
+            var missing = new List<string>();
+            if (_xm.PatientId == 0) missing.Add("a patient");
+            if (_xm.SpecimenId == 0) missing.Add("a specimen (accession one on the patient chart if none is listed)");
+            if (_xm.BloodUnitId is null) missing.Add("a unit");
+            return missing;
+        }
+    }
     private Feedback? _xmFb;
 
     private long? XmPatientId

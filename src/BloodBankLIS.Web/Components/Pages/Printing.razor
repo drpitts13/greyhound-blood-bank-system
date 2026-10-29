@@ -5,6 +5,10 @@
 <PageTitle>Printing &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Label &amp; Tag Printing</h1>
+@if (!CanPrint)
+{
+    <div class="alert alert-warning">You can view print jobs, but printing requires the print label permission.</div>
+}
 <p class="muted">Print specimen labels, ISBT component labels, and compatibility tags. After issue, print the P-tag from Issue &amp; Transfuse or the patient Products tab — this page is for other labels and audited reprints.</p>
 
 <div class="bb-grid cols-3">
@@ -17,7 +21,7 @@
                 <select @bind="_specFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@FormatLabel(f)</option> }</select>
             </div>
         </div>
-        <button class="btn btn-primary" disabled="@_busy" @onclick="PrintSpecimenAsync">Print</button>
+        <button class="btn btn-primary" disabled="@(_busy || !CanPrint)" @onclick="PrintSpecimenAsync">Print</button>
     </div>
 
     <div class="bb-card">
@@ -29,7 +33,7 @@
                 <select @bind="_tagFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@FormatLabel(f)</option> }</select>
             </div>
         </div>
-        <button class="btn btn-primary" disabled="@_busy" @onclick="PrintTagAsync">Print</button>
+        <button class="btn btn-primary" disabled="@(_busy || !CanPrint)" @onclick="PrintTagAsync">Print</button>
     </div>
 
     <div class="bb-card">
@@ -43,13 +47,14 @@
                 <select @bind="_compFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@FormatLabel(f)</option> }</select>
             </div>
         </div>
-        <button class="btn btn-primary" disabled="@(_busy || _unitId is null)" @onclick="PrintComponentAsync">Print</button>
+        <button class="btn btn-primary" disabled="@(_busy || _unitId is null || !CanPrint)" @onclick="PrintComponentAsync">Print</button>
     </div>
 </div>
 
 @if (_lastJob is not null && (_lastJob.HasPdf || !string.IsNullOrEmpty(_lastJob.RenderedZpl)))
 {
     <div class="bb-card">
+        <Outcome Value="_outputFb" />
         <div class="bb-card-title"><h3>Rendered output &middot; job #@_lastJob.Id</h3>
             <span class="@Ui.Badge(_lastJob.Status)">@_lastJob.Status</span>
             <span class="muted">@_lastJob.DeliveryStatus</span>
@@ -74,7 +79,7 @@
                             }
                         </select>
                     </div>
-                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="DeliverPdfAsync">Print to</button>
+                    <button class="btn btn-primary btn-sm" disabled="@(_busy || !CanPrint)" @onclick="DeliverPdfAsync">Print to</button>
                 }
             </div>
         }
@@ -93,7 +98,7 @@
                             }
                         </select>
                     </div>
-                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="DeliverZebraAsync">Send to Zebra</button>
+                    <button class="btn btn-primary btn-sm" disabled="@(_busy || !CanPrint)" @onclick="DeliverZebraAsync">Send to Zebra</button>
                 </div>
             }
         }
@@ -104,6 +109,7 @@
     <div class="bb-card-title"><h3>Print jobs</h3>
         <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadJobsAsync">Refresh</button>
     </div>
+    <Outcome Value="_jobsFb" />
     @if (_loading)
     {
         <div class="loading">Loading jobs...</div>
@@ -164,6 +170,9 @@
     private long _specimenId;
     private LabelFormat _specFormat = LabelFormat.Pdf;
     private Feedback? _specFb;
+    private Feedback? _outputFb;
+    private bool CanPrint => Session.Has(PermissionCodes.PrintLabel);
+    private Feedback? _jobsFb;
 
     private long _issueId;
     private LabelFormat _tagFormat = LabelFormat.Pdf;
@@ -279,6 +288,7 @@
     {
         var r = await Api.GetPrintJobAsync(id);
         if (r.Succeeded) await ShowJobAsync(r.Value);
+        else _jobsFb = r.ToFeedback();
     }
 
     private async Task ShowJobAsync(PrintJobVm? job)
@@ -303,9 +313,9 @@
         _busy = true;
         var r = await Api.DeliverPrintJobAsync(_lastJob.Id, new DeliverPrintRequestVm(_deliverPdfId, null));
         _busy = false;
-        _specFb = r.ToFeedback(r.Succeeded ? "PDF sent to the printer." : null);
+        _outputFb = r.ToFeedback(r.Succeeded ? "PDF sent to the printer." : null);
         if (r.Succeeded) await ShowJobAsync(r.Value);
-        else if (r.Error is not null) _specFb = r.ToFeedback();
+        else if (r.Error is not null) _outputFb = r.ToFeedback();
         await ViewJobAsync(_lastJob.Id);
     }
 
@@ -315,7 +325,7 @@
         _busy = true;
         var r = await Api.DeliverPrintJobAsync(_lastJob.Id, new DeliverPrintRequestVm(null, _deliverZebraId));
         _busy = false;
-        _specFb = r.ToFeedback(r.Succeeded ? "ZPL sent to the Zebra printer." : null);
+        _outputFb = r.ToFeedback(r.Succeeded ? "ZPL sent to the Zebra printer." : null);
         await ViewJobAsync(_lastJob.Id);
     }
 
@@ -343,7 +353,8 @@
         _busy = true;
         var r = await Api.ReprintJobAsync(id, _reprintReason);
         _busy = false;
+        _jobsFb = r.ToFeedback(r.Succeeded ? $"Reprint recorded as job #{r.Value?.Id}." : null);
         if (r.Succeeded) { _reprintId = null; await ShowJobAsync(r.Value); await LoadJobsAsync(); }
-        else _specFb = r.ToFeedback();
+        else _jobsFb = r.ToFeedback();
     }
 }

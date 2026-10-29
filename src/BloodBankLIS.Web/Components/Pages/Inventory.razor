@@ -6,6 +6,7 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 @inject NavigationManager Nav
+@inject IJSRuntime Js
 
 <PageTitle>Inventory &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -25,7 +26,7 @@
     </div>
 </div>
 
-<Outcome Value="_topFb" />
+<div id="inventory-top-outcome"><Outcome Value="_topFb" /></div>
 
 <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
     <button type="button" class="btn @BoardClass("search")" @onclick='() => SelectBoard("search")'>Search</button>
@@ -223,16 +224,16 @@
                                 }
                             </td>
                             <td class="right nowrap">
-                                @if (Session.Has(PermissionCodes.ResultEnter))
+                                @if (Session.HasAny(PermissionCodes.ResultEnter, PermissionCodes.ResultVerify))
                                 {
                                     <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ToggleBoardRetype(row.UnitId)">
-                                        @(_expandedRetypeUnitId == row.UnitId ? "Hide" : "Enter")
+                                        @(_expandedRetypeUnitId == row.UnitId ? "Hide" : Session.Has(PermissionCodes.ResultEnter) ? "Enter" : "Verify")
                                     </button>
                                 }
                                 <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(row.UnitId)">Open</a>
                             </td>
                         </tr>
-                        @if (_expandedRetypeUnitId == row.UnitId && Session.Has(PermissionCodes.ResultEnter))
+                        @if (_expandedRetypeUnitId == row.UnitId && Session.HasAny(PermissionCodes.ResultEnter, PermissionCodes.ResultVerify))
                         {
                             <tr>
                                 <td colspan="7">
@@ -903,11 +904,19 @@
         _expandedRetypeUnitId = unitId;
         var r = await Api.GetUnitRetypeAsync(unitId);
         _boardRetypeDetail = r.Value;
-        if (!r.Succeeded) _actionFb = r.ToFeedback();
+        if (!r.Succeeded)
+        {
+            // The row only shows "Loading retype..." here, so report the failure at the top and close it.
+            _topFb = r.ToFeedback();
+            _expandedRetypeUnitId = null;
+        }
     }
 
-    private async Task OnBoardRetypeSaved()
+    private async Task OnBoardRetypeSaved(Feedback? outcome)
     {
+        // The row collapses, taking the panel's message with it, so repeat the outcome at the top.
+        _topFb = outcome;
+        await Js.ScrollIntoViewAsync("inventory-top-outcome");
         _expandedRetypeUnitId = null;
         _boardRetypeDetail = null;
         await LoadRetypesAsync();
@@ -1001,6 +1010,7 @@
         _actionFb = r.ToFeedback("Unit released from quarantine.");
         if (r.Succeeded)
         {
+            _topFb = _actionFb;
             _releaseSecondVerifier = null;
             _releaseScannedUnitNumber = null;
             _releasingQuarantineId = null;
@@ -1013,7 +1023,8 @@
         _busy = true;
         var r = await Api.ReleaseHoldAsync(id);
         _busy = false;
-        _actionFb = r.ToFeedback("Unit released from operational hold.");
+        _topFb = r.ToFeedback("Unit released from operational hold.");
+        await Js.ScrollIntoViewAsync("inventory-top-outcome");
         if (r.Succeeded) await ReloadBoardsAsync();
     }
 
@@ -1022,7 +1033,8 @@
         _busy = true;
         var r = await Api.LocateMissingAsync(id);
         _busy = false;
-        _actionFb = r.ToFeedback("Unit located into quarantine for inspection.");
+        _topFb = r.ToFeedback("Unit located into quarantine for inspection.");
+        await Js.ScrollIntoViewAsync("inventory-top-outcome");
         if (r.Succeeded) await ReloadBoardsAsync();
     }
 
@@ -1031,7 +1043,8 @@
         _busy = true;
         var r = await Api.InspectDamagedAsync(id);
         _busy = false;
-        _actionFb = r.ToFeedback("Damaged unit moved to quarantine for quality review.");
+        _topFb = r.ToFeedback("Damaged unit moved to quarantine for quality review.");
+        await Js.ScrollIntoViewAsync("inventory-top-outcome");
         if (r.Succeeded) await ReloadBoardsAsync();
     }
 

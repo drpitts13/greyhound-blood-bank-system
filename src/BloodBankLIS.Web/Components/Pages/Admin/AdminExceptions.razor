@@ -50,11 +50,14 @@
                             @if (CanEdit)
                             {
                                 <button class="btn btn-ghost btn-sm" @onclick="() => Edit(e)">Edit</button>
+                            }
+                            @if (CanActivate)
+                            {
                                 @if (e.IsActive)
                                 {
                                     <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(e.Id, false)">Deactivate</button>
                                 }
-                                else if (CanActivate)
+                                else
                                 {
                                     <button class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(e.Id, true)">Activate</button>
                                 }
@@ -69,7 +72,7 @@
 
 @if (_draft is not null && CanEdit)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New exception" : $"Edit: {_draft.RuleCode}")</h2>
         <div class="form-row">
             <div class="field"><label>Rule code</label><input class="mono" @bind="_draft.RuleCode" disabled="@(_editId is not null)" /></div>

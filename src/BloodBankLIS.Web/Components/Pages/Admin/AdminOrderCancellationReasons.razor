@@ -92,7 +92,7 @@
         _loading = true;
         var result = await Api.GetAdminOrderCancellationReasonsAsync();
         _items = result.Value ?? [];
-        _feedback = result.Succeeded ? null : result.ToFeedback();
+        if (!result.Succeeded) _feedback = result.ToFeedback();
         _loading = false;
     }
 

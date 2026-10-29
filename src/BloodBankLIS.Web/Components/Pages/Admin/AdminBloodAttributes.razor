@@ -52,7 +52,10 @@
                         <td>@StatusBadge(d)</td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(d.Id)">Edit</button>
-                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(d.Id)">History</button>
+                            @if (Session.Has(PermissionCodes.AdminAuditReview))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(d.Id)">History</button>
+                            }
                         </td>
                     </tr>
                 }
@@ -63,7 +66,7 @@
 
 @if (_editing is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New blood attribute" : $"Edit: {_editing.Code}")</h2>
         <div class="form-row">
             <div class="field"><label>Antigen code</label><input class="mono" @bind="_editing.Code" disabled="@(_editId is not null)" /></div>

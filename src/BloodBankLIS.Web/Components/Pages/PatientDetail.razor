@@ -388,7 +388,7 @@ else
 
     @if (_tab == "history")
     {
-        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" OnMarkTransfused="MarkTransfusedAsync" />
+        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" OnMarkTransfused="MarkTransfusedAsync" Busy="_busy" Feedback="_allocFb" />
     }
 
     @if (_autoThawRow is not null)
@@ -746,7 +746,7 @@ else
         "overview", "visits", "orders", "specimens", "tests", "test-history", "dat-elution", "products", "history"
     };
 
-    private bool _tabFromQueryApplied;
+    private string? _appliedTabQuery;
     private bool _panelFromQueryApplied;
     private long _tabQueryPatientId;
 
@@ -754,7 +754,7 @@ else
     {
         if (_tabQueryPatientId != Id)
         {
-            _tabFromQueryApplied = false;
+            _appliedTabQuery = null;
             _tabQueryPatientId = Id;
             _visitsLoaded = false;
             _ordersLoaded = false;
@@ -769,7 +769,7 @@ else
             _productHistory = new();
         }
 
-        if (!_ptagRequiredLoaded && Session.Has(PermissionCodes.PrintLabel))
+        if (!_ptagRequiredLoaded && Session.HasAny(PermissionCodes.PrintLabel, PermissionCodes.IssueCreate, PermissionCodes.TransfusionDocument))
         {
             _ptagRequiredLoaded = true;
             var required = await Api.GetPtagIdRequiredAsync();
@@ -777,11 +777,12 @@ else
         }
 
         await LoadAsync();
-        if (!_tabFromQueryApplied
-            && !string.IsNullOrWhiteSpace(TabQuery)
-            && KnownTabs.Contains(TabQuery))
+        // Re-apply whenever ?tab= changes so in-chart links (Visits → Orders, etc.) switch tabs every time.
+        if (!string.IsNullOrWhiteSpace(TabQuery)
+            && KnownTabs.Contains(TabQuery)
+            && !string.Equals(_appliedTabQuery, TabQuery, StringComparison.OrdinalIgnoreCase))
         {
-            _tabFromQueryApplied = true;
+            _appliedTabQuery = TabQuery;
             await SelectTab(TabQuery.Trim().ToLowerInvariant());
         }
 
@@ -841,7 +842,8 @@ else
             var allocated = _allocations.Any(a => a.AllocationStatus == AllocationStatus.Reserved || a.IssueId is > 0);
             var modified = allocated && !_allocations.Any(a => (a.PendingActions ?? []).Count > 0);
             var needsCrossmatch = _allocations.Count == 0 || _allocations.Any(a => a.RequiresCrossmatch);
-            var crossmatched = _allocations.Any(a => a.RequiresCrossmatch);
+            var crossmatchRows = _allocations.Where(a => a.RequiresCrossmatch).ToList();
+            var crossmatched = crossmatchRows.Count > 0 && crossmatchRows.All(a => a.CrossmatchResult == CrossmatchResult.Compatible);
             var issued = _productHistory.Any(h => h.EventType == PatientProductHistoryEventType.Issued)
                          || _allocations.Any(a => a.IssueStatus == IssueStatus.Issued || a.IssueStatus == IssueStatus.Transfused);
             var steps = new List<PatientWorkflowStep>
@@ -849,12 +851,12 @@ else
                 new("order", 0, "Order", order, false, order ? $"{_orders.Count} order(s)" : "Place a product or test order"),
                 new("specimen", 0, "Specimen", linked, false, linked ? "Type-and-screen specimen linked" : "Link a completed type and screen"),
                 new("allocate", 0, "Allocate", allocated, false, allocated ? $"{_allocations.Count} unit(s)" : "Allocate a unit to the order"),
-                new("modify", 0, "Modify", modified || !allocated, false, allocated ? "Eligible after allocate" : "Allocate before modifying")
+                new("modify", 0, "Modify", modified, false, allocated ? "Eligible after allocate" : "Allocate before modifying")
             };
             if (needsCrossmatch)
             {
                 steps.Add(new("xm", 0, "Crossmatch", crossmatched, false,
-                    crossmatched ? "XM/EXM attached" : "XM/EXM attaches on allocate"));
+                    crossmatched ? "XM/EXM compatible" : crossmatchRows.Count > 0 ? "Crossmatch result still needed" : "XM/EXM attaches on allocate"));
             }
 
             steps.Add(new("issue", 0, "Issue / Transfuse", issued, false,
@@ -1263,6 +1265,7 @@ else
         {
             _lastIssue = r.Value;
             _ptagFb = null;
+            _ptagScan = string.Empty;
             _issuingAllocation = null;
             _showIssueOverride = false;
             await LoadAllocationsAsync();
@@ -1302,6 +1305,7 @@ else
         {
             _lastIssue = r.Value;
             _ptagFb = null;
+            _ptagScan = string.Empty;
             _issuingAllocation = null;
             _showIssueOverride = false;
             await LoadAllocationsAsync();
@@ -1949,7 +1953,7 @@ else
             _crossmatchTests = (await Api.GetPatientCrossmatchTestsAsync(Id)).Value ?? new();
         }
 
-        var exc = await Api.GetAdminExceptionByCodeAsync(AntibodyHistoryCrossmatchRule.RuleCode);
+        var exc = await Api.GetExceptionDefinitionAsync(AntibodyHistoryCrossmatchRule.RuleCode);
         if (exc.Succeeded && exc.Value is not null) _allocXmMinLevel = exc.Value.MinSecurityLevel;
 
         _editingOrderId = order.Id;
@@ -2062,7 +2066,7 @@ else
             _deltaFromOrders = true;
             _deltaOverrideResultId = resultId;
             _deltaOverrideSpecimenId = o.SpecimenId;
-            var def = await Api.GetAdminExceptionByCodeAsync(AboRhDeltaRule.DeltaCode);
+            var def = await Api.GetExceptionDefinitionAsync(AboRhDeltaRule.DeltaCode);
             if (def.Succeeded && def.Value is not null)
             {
                 _deltaMinLevel = def.Value.MinSecurityLevel;
@@ -2447,7 +2451,7 @@ else
             AuthorizedBy = Session.UserName
         };
 
-        var exc = await Api.GetAdminExceptionByCodeAsync(SpecimenExpirationOverrideRule.Code);
+        var exc = await Api.GetExceptionDefinitionAsync(SpecimenExpirationOverrideRule.Code);
         if (exc.Succeeded && exc.Value is not null) _specimenExpMinLevel = exc.Value.MinSecurityLevel;
     }
 
@@ -2648,7 +2652,7 @@ else
         {
             _deltaOverrideResultId = resultId;
             _deltaOverrideSpecimenId = specimenId;
-            var def = await Api.GetAdminExceptionByCodeAsync(AboRhDeltaRule.DeltaCode);
+            var def = await Api.GetExceptionDefinitionAsync(AboRhDeltaRule.DeltaCode);
             if (def.Succeeded && def.Value is not null)
             {
                 _deltaMinLevel = def.Value.MinSecurityLevel;
@@ -2800,16 +2804,12 @@ else
 
     private async Task LoadSecondAboPolicyAsync()
     {
-        var policies = await Api.GetAdminFacilityPoliciesAsync();
-        if (!policies.Succeeded || policies.Value is null)
+        // Read through the bench-readable lookup: the admin policy list is refused for technologists,
+        // which left the chart always showing the second-ABO requirement.
+        var policy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.RequireSecondAboForCellularIssue);
+        if (policy.Succeeded && policy.Value is not null)
         {
-            return;
-        }
-
-        var row = policies.Value.FirstOrDefault(p => p.Key == FacilityPolicyKeys.RequireSecondAboForCellularIssue);
-        if (row is not null && bool.TryParse(row.Value, out var required))
-        {
-            _requireSecondAbo = required;
+            _requireSecondAbo = policy.Value.Enabled;
         }
     }
 

@@ -52,7 +52,10 @@
                         </td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(item.Id)">Edit</button>
-                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(item.Id)">History</button>
+                            @if (Session.Has(PermissionCodes.AdminAuditReview))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(item.Id)">History</button>
+                            }
                         </td>
                     </tr>
                 }
@@ -63,7 +66,7 @@
 
 @if (_editing is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New interface" : $"Edit: {_editing.Name}")</h2>
         <div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
             <button type="button" class="btn @TabClass("connection")" @onclick='() => _tab = "connection"'>Connection</button>
@@ -217,7 +220,7 @@
 
 @if (_historyId is long historyId)
 {
-    <ConfigHistoryPanel Title="Instrument interface history" EntityTypeName="InstrumentInterface" EntityId="historyId" OnClose="() => _historyId = null" />
+    <ConfigHistoryPanel Title="Instrument interface history" EntityType="InstrumentInterface" EntityId="historyId" OnClose="() => _historyId = null" />
 }
 
 @code {
@@ -298,7 +301,7 @@
         var result = _editId is long id
             ? await Api.UpdateAdminInstrumentInterfaceAsync(id, req)
             : await Api.CreateAdminInstrumentInterfaceAsync(req);
-        _feedback = result.ToFeedback();
+        _feedback = result.ToFeedback("Instrument interface saved.");
         if (result.Succeeded && result.Value is not null)
         {
             _editId = result.Value.Id;
@@ -313,7 +316,7 @@
         if (_editId is not long id) return;
         _busy = true;
         var result = await Api.SetInstrumentInterfaceEnabledAsync(id, enabled, _changeReason);
-        _feedback = result.ToFeedback();
+        _feedback = result.ToFeedback(enabled ? "Interface enabled." : "Interface disabled.");
         if (result.Succeeded && result.Value is not null)
         {
             _editing = EditModel.From(result.Value);

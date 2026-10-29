@@ -57,7 +57,10 @@
                         <td>@StatusBadge(t)</td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => EditAsync(t.Id)">Edit</button>
-                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(t.Id)">History</button>
+                            @if (Session.Has(PermissionCodes.AdminAuditReview))
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(t.Id)">History</button>
+                            }
                         </td>
                     </tr>
                 }
@@ -68,7 +71,7 @@
 
 @if (_editing is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New test definition" : $"Edit: {_editing.Code}")</h2>
         <div class="form-row">
             <div class="field"><label>Code</label><input @bind="_editing.Code" disabled="@(_editId is not null)" /></div>
@@ -136,6 +139,7 @@
                                 @for (var i = 0; i < _editing.PanelSubtestAssignments.Count; i++)
                                 {
                                     var row = _editing.PanelSubtestAssignments[i];
+                                    var rowIndex = i;
                                     var catalog = _catalogSubtests.FirstOrDefault(s => string.Equals(s.Code, row.SubtestCode, StringComparison.OrdinalIgnoreCase));
                                     <tr>
                                         <td>
@@ -170,7 +174,7 @@
                                             }
                                         </td>
                                         <td><input type="number" style="width:4rem;" @bind="row.SortOrder" /></td>
-                                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveSubtest(i)">Remove</button></td>
+                                        <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveSubtest(rowIndex)">Remove</button></td>
                                     </tr>
                                 }
                             </tbody>
@@ -244,6 +248,7 @@
                                     @for (var ri = 0; ri < _editing.InterpretationLogic.Count; ri++)
                                     {
                                         var row = _editing.InterpretationLogic[ri];
+                                        var logicIndex = ri;
                                         <tr>
                                             <td>
                                                 @if (_editing.ResultValueType == ResultValueType.AboRh)
@@ -276,7 +281,7 @@
                                             }
                                             @if (_editing.ResultValueType == ResultValueType.Subtest)
                                             {
-                                                <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveLogicRow(ri)">Remove</button></td>
+                                                <td><button type="button" class="btn btn-ghost btn-sm" @onclick="() => RemoveLogicRow(logicIndex)">Remove</button></td>
                                             }
                                         </tr>
                                     }
@@ -326,7 +331,11 @@
         </div>
 
         <div class="flex gap" style="margin-top:.6rem;">
-            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-primary" disabled="@(_busy || !CanManage)" @onclick="SaveAsync">Save</button>
+            @if (!CanManage)
+            {
+                <span class="muted">View only. Saving needs the manage permission for this catalog.</span>
+            }
             @if (_editId is not null && CanActivate)
             {
                 @if (!_currentIsActive)
@@ -340,7 +349,7 @@
             }
             @if (_editId is not null && CanManage)
             {
-                <button class="btn btn-ghost" disabled="@_busy" @onclick="CloneAsync">Clone</button>
+                <button class="btn btn-ghost" disabled="@(_busy || !CanManage)" @onclick="CloneAsync">Clone</button>
             }
             <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
         </div>
@@ -569,6 +578,13 @@
     private async Task ShowHistoryAsync(long id)
     {
         var r = await Api.GetConfigHistoryAsync(nameof(BloodBankLIS.Domain.Entities.Configuration.TestDefinition), id);
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+            _history = null;
+            return;
+        }
+
         _history = r.Value ?? new();
         _historyTitle = _items.FirstOrDefault(t => t.Id == id)?.Code ?? id.ToString();
     }

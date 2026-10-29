@@ -4,6 +4,7 @@ using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Reference;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.ValueObjects;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,12 @@ namespace BloodBankLIS.Api.Endpoints;
 /// </summary>
 public static class ReferenceEndpoints
 {
+    /// <summary>Yes/no facility policies that bench pages may read to show the right prompts. Each defaults to true.</summary>
+    private static readonly HashSet<string> ReadablePolicyKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        FacilityPolicyKeys.RequireSecondAboForCellularIssue
+    };
+
     public static void MapReferenceEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/reference").WithTags("Reference").RequireAuthenticatedUser();
@@ -24,7 +31,28 @@ public static class ReferenceEndpoints
             Results.Ok(await service.ListAsync(includeInactive: false, ct)));
 
         group.MapGet("/receive-policy", async (FacilityPolicyService policy, CancellationToken ct) =>
-            Results.Ok(new ReceivePolicyDto(await policy.GetRequireReceiveVerifierAsync(ct))));
+            Results.Ok(new ReceivePolicyDto(
+                await policy.GetRequireReceiveVerifierAsync(ct),
+                await policy.GetRequireReceiveTemperatureAsync(ct),
+                await policy.GetRequireReceiveVisualInspectionAsync(ct))));
+
+        // Bench pages need an exception's minimum override level to tell the user up front whether
+        // they may override; the admin endpoint requires configuration access they do not have.
+        group.MapGet("/exceptions/{ruleCode}", async (string ruleCode, ExceptionDefinitionAdminService svc, CancellationToken ct) =>
+        {
+            var dto = await svc.GetByRuleCodeAsync(ruleCode, ct);
+            return dto is null ? Results.NotFound(new { error = "Exception definition not found." }) : Results.Ok(dto);
+        });
+
+        group.MapGet("/policies/{key}", async (string key, FacilityPolicyService policy, CancellationToken ct) =>
+        {
+            if (!ReadablePolicyKeys.Contains(key))
+            {
+                return Results.NotFound(new { error = "Unknown or restricted facility policy." });
+            }
+
+            return Results.Ok(new FacilityPolicyValueDto(key, await policy.GetBoolAsync(key, defaultValue: true, ct)));
+        });
 
         group.MapGet("/product-types", async (BloodBankDbContext context, CancellationToken ct) =>
         {
