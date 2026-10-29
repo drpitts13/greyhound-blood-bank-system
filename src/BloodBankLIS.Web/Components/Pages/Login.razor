@@ -14,15 +14,15 @@
 
         <div class="field">
             <label>Username</label>
-            <input @bind="_userName" @bind:event="oninput" placeholder="e.g. tech1" @onkeydown="OnKey" />
+            <input @ref="_userInput" @bind="_userName" @bind:event="oninput" placeholder="e.g. tech1" autocomplete="username" @onkeydown="OnUserKey" />
         </div>
         <div class="field">
             <label>Password</label>
-            <input type="password" @bind="_password" @bind:event="oninput" placeholder="Demo password is demo" @onkeydown="OnKey" />
+            <input @ref="_passwordInput" type="password" @bind="_password" @bind:event="oninput" placeholder="Demo password is demo" autocomplete="current-password" @onkeydown="OnKey" />
         </div>
         <div class="field">
             <label>Workstation</label>
-            <input @bind="_workstation" placeholder="Workstation id" />
+            <input @bind="_workstation" @bind:event="oninput" placeholder="Workstation id" @onkeydown="OnKey" />
         </div>
 
         <button class="btn btn-primary" style="width:100%;" disabled="@_busy" @onclick="SignInAsync">
@@ -69,12 +69,47 @@
         await SignInAsync();
     }
 
+    private ElementReference _userInput;
+    private ElementReference _passwordInput;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            await _userInput.FocusAsync();
+        }
+        catch (JSException)
+        {
+        }
+    }
+
     private async Task OnKey(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
         {
             await SignInAsync();
         }
+    }
+
+    /// <summary>Enter after the username moves to Password instead of failing a sign-in with no password.</summary>
+    private async Task OnUserKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        if (string.IsNullOrEmpty(_password) && !string.IsNullOrWhiteSpace(_userName))
+        {
+            try
+            {
+                await _passwordInput.FocusAsync();
+            }
+            catch (JSException)
+            {
+            }
+
+            return;
+        }
+
+        await SignInAsync();
     }
 
     private async Task SignInAsync()
