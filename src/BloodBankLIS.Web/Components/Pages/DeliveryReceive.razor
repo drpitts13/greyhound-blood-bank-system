@@ -75,7 +75,7 @@ else
             </div>
         }
         <div class="form-row">
-            <div class="field"><label>Unit number</label><input @bind="_rec.UnitNumber" /></div>
+            <div class="field"><label>Unit number</label><input @ref="_unitNumberInput" @bind="_rec.UnitNumber" /></div>
             <div class="field"><label>Product</label>
                 <select @bind="_rec.ProductTypeId" @bind:after="ApplyProductDefaults">
                     <option value="0">— select —</option>
@@ -154,6 +154,9 @@ else
     private DeliveryDetailDto? _delivery;
     private bool _missing;
     private bool _busy;
+    private ElementReference _unitNumberInput;
+    // Set when the next render should put the cursor in Unit number (page open, after each received unit).
+    private bool? _focusUnitNumber;
     private Feedback? _feedback;
     private Feedback? _receiveFeedback;
     private bool _requireTemperature = true;
@@ -182,6 +185,22 @@ else
         if (!Session.Has(PermissionCodes.InventoryReceive)) return;
 
         await LoadAsync();
+        _focusUnitNumber = false; // focus with normal scrolling on open
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // The input only exists once an open delivery has loaded.
+        if (_focusUnitNumber is not bool afterReceive || _unitNumberInput.Context is null) return;
+        _focusUnitNumber = null;
+        try
+        {
+            // After a receive, keep the "Unit received" message in view instead of scrolling up to the field.
+            await _unitNumberInput.FocusAsync(preventScroll: afterReceive);
+        }
+        catch (JSException)
+        {
+        }
     }
 
     private async Task LoadAsync()
@@ -266,6 +285,7 @@ else
                 SecondVerifier = previous.SecondVerifier
             };
             await LoadAsync();
+            _focusUnitNumber = true; // ready for the next scan
         }
 
         StateHasChanged();
