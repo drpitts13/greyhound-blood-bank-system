@@ -89,7 +89,11 @@ public sealed class PatientService
             return Array.Empty<PatientAliasDto>();
         }
 
-        var rows = await _identifiers.ListAsync(i => i.PatientId == patientId && IsHistoricalAlias(i), ct);
+        // Spelled out rather than calling IsHistoricalAlias: the database cannot run a C# method,
+        // and the untranslatable query stopped every patient chart from opening.
+        var rows = await _identifiers.ListAsync(i => i.PatientId == patientId
+            && (i.IdentifierType == IdentityTokenType.PriorFullName
+                || i.IdentifierType == IdentityTokenType.PriorMedicalRecordNumber), ct);
         return rows
             .OrderBy(a => a.IdentifierType)
             .ThenBy(a => a.Value, StringComparer.OrdinalIgnoreCase)
