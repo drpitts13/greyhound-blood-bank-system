@@ -43,7 +43,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Expected inbound</h3></div>
-        <p class="muted">Packing-list units that have not arrived. Confirm arrival here with appearance, cooler temperature, and a second verifier — the same receive gates as the Manage drawer. A unit that fails appearance or temperature is returned to the supplier from this row. An outdated unit says Outdated and is not received; return it to the supplier. Overdue after the facility arrival window (default 24 hours). Late arrival is still allowed. A blank supplier name stays the supplier id when the delivery names that supplier. A unit with no delivery does not invent a supplier.</p>
+        <p class="muted">Packing-list units that have not arrived. Confirm arrival here with appearance, cooler temperature, and a second verifier — the same receive gates as the Manage drawer. A unit that fails appearance or temperature is returned to the supplier from this row. An outdated unit says Outdated and is not received; return it to the supplier. Overdue after the facility arrival window (default 24 hours). Late arrival is still allowed.</p>
         @if (_expectedItems.Count == 0)
         {
             <div class="muted">No expected inbound units.</div>
@@ -259,7 +259,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Near expiry</h3></div>
-        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). The location is the storage location name. A missing name stays the location id. A unit with no location says none. Discard from the row with the same reason and second verifier as the unit page, before the expiration sweep.</p>
+        <p class="muted">On-hand units that expire within the facility warning window (default 24 hours). Discard from the row with the same reason and second verifier as the unit page, before the expiration sweep.</p>
         @if (_nearExpiryItems.Count == 0)
         {
             <div class="muted">No units near expiry.</div>
@@ -343,7 +343,7 @@
 {
     <div class="bb-card" id="quality-quarantine">
         <div class="bb-card-title"><h3>Quality quarantine</h3></div>
-        <p class="muted">Units held for quality disposition with a coded reason (SoftBank/SafeTrace). The board shows product, the storage location name, the recorded volume, and any ABO/Rh retype mismatch. A missing name stays the location id. A unit with no volume says so. Release from the row with the same second-verifier gate as Manage.</p>
+        <p class="muted">Units held for quality disposition with a coded reason (SoftBank/SafeTrace). The board shows product, the storage location name, the recorded volume, and any ABO/Rh retype mismatch. A unit with no volume says so. Release from the row with the same second-verifier gate as Manage.</p>
         @if (_quarantineItems.Count == 0)
         {
             <div class="muted">No units in quality quarantine.</div>
@@ -452,7 +452,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Inventory discrepancy</h3></div>
-        <p class="muted">Missing and damaged units awaiting locate or inspect (SoftBank/SafeTrace physical inventory). They cannot be issued. The location is the storage location name. A missing name stays the location id. A unit with no location says none.</p>
+        <p class="muted">Missing and damaged units awaiting locate or inspect (SoftBank/SafeTrace physical inventory). They cannot be issued.</p>
         @if (_discrepancyItems.Count == 0)
         {
             <div class="muted">No missing or damaged units.</div>
@@ -504,7 +504,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Operational hold</h3></div>
-        <p class="muted">Units that cannot be issued until hold is released (paperwork or pending review — not quality quarantine). The location is the storage location name. A missing name stays the location id. A unit with no location says none. Release uses the same <code>inventory.release</code> gate as Manage.</p>
+        <p class="muted">Units that cannot be issued until hold is released (paperwork or pending review — not quality quarantine). Release needs the same permission as Manage.</p>
         @if (_onHoldItems.Count == 0)
         {
             <div class="muted">No units on operational hold.</div>
@@ -552,7 +552,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Open deliveries</h3></div>
-        <p class="muted">Open a delivery to review it, or enter the units that arrived. Each delivery has one supplier and expected counts by product, such as RBC or FFP. A blank supplier name stays the supplier id.</p>
+        <p class="muted">Open a delivery to review it, or enter the units that arrived. Each delivery has one supplier and expected counts by product, such as RBC or FFP.</p>
         @if (_openDeliveries.Count == 0)
         {
             <div class="muted">No open deliveries.</div>
@@ -596,7 +596,6 @@
 {
 <div class="bb-card">
     <div class="bb-card-title"><h3>Search</h3></div>
-    <p class="muted">The location column is the storage location name. A missing name stays the location id. A unit with no location says none.</p>
     <div class="form-row">
         <div class="field"><label>Unit number</label><input @bind="_searchUnit" /></div>
         <div class="field"><label>Status</label>
