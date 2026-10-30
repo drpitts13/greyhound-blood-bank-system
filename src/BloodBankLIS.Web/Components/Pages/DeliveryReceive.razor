@@ -5,6 +5,7 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 @inject IJSRuntime Js
+@inject NavigationManager Nav
 
 <PageTitle>Enter units &middot; Delivery @Id</PageTitle>
 
@@ -38,7 +39,6 @@ else
         <div class="form-row">
             <div class="field"><label>Delivery</label><div class="mono">@_delivery.Id</div></div>
             <div class="field"><label>Supplier</label><div>@_delivery.SupplierNameLabel</div></div>
-            <p class="muted">A blank supplier name stays the supplier id. The name stored on each unit stays the recorded supplier name.</p>
             <div class="field"><label>Packing list</label><div class="mono">@(_delivery.PackingListNumber ?? "—")</div></div>
         </div>
         <table class="bb">
@@ -55,11 +55,19 @@ else
                 }
             </tbody>
         </table>
+        @if (AllExpectedReceived)
+        {
+            @* Finishing here saves going back to the delivery record just to complete it. *@
+            <div class="flex gap" style="align-items:center;margin-top:.6rem;flex-wrap:wrap;">
+                <span class="muted">Every expected unit is in.</span>
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="CompleteDeliveryAsync">Complete delivery</button>
+            </div>
+        }
     </div>
 
     <div class="bb-card">
         <div class="bb-card-title"><h3>Receive a unit</h3></div>
-        <p class="muted">The supplier comes from this delivery. Choose a catalog product in one of the products counted above. The location code stays on the choice. A blank name stays the location id.</p>
+        <p class="muted">The supplier comes from this delivery. Choose a catalog product in one of the products counted above.</p>
         @if (MissingCatalogLabels.Count > 0)
         {
             <div class="alert alert-warning">
@@ -300,6 +308,23 @@ else
             _rec.ProductDescriptionCode = product.Isbt128ProductCode;
         if (product.DefaultShelfLifeHours is int hours && hours > 0)
             _rec.ExpiresLocal = DateTime.UtcNow.AddHours(hours);
+    }
+
+    private bool AllExpectedReceived =>
+        _delivery is { Status: DeliveryStatus.Open, Lines.Count: > 0 } && _delivery.Lines.All(l => l.Variance >= 0);
+
+    private async Task CompleteDeliveryAsync()
+    {
+        _busy = true;
+        var r = await Api.CompleteDeliveryAsync(Id);
+        _busy = false;
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+            return;
+        }
+
+        Nav.NavigateTo($"/inventory/deliveries/{Id}");
     }
 
     private static string VarianceLabel(int variance) =>

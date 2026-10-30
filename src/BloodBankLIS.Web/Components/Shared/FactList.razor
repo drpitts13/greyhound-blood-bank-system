@@ -1,0 +1,27 @@
+@* A lead line (what is being handled) and short self-labeled facts in a scannable grid.
+   Blank facts are skipped, so callers can pass optional notices as they are. *@
+
+<div class="bb-facts" style="@Style">
+    @if (ChildContent is not null)
+    {
+        <div class="bb-facts-lead">@ChildContent</div>
+    }
+    @if (VisibleFacts.Count > 0)
+    {
+        <ul>
+            @foreach (var fact in VisibleFacts)
+            {
+                <li>@fact</li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public IEnumerable<string?> Facts { get; set; } = [];
+    [Parameter] public string? Style { get; set; }
+
+    private List<string> VisibleFacts =>
+        Facts.Where(f => !string.IsNullOrWhiteSpace(f)).Select(f => f!.Trim()).ToList();
+}

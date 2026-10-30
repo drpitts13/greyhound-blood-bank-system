@@ -66,7 +66,6 @@ else
                 <div class="field"><label>Delivery</label><div class="mono">@if (_unit.DeliveryId is long deliveryId) { <a href="@($"/inventory/deliveries/{deliveryId}")">@deliveryId</a> } else { <span>—</span> }</div></div>
                 <div class="field"><label>Donation</label><div>@_unit.DonationRestriction@(_unit.ReservedPatientId is long pid ? $" — {RecipientLabel(pid)}" : "")</div></div>
             </div>
-            <p class="muted">A blank supplier name stays the supplier id when the delivery names that supplier. The stored supplier and collection facility are unchanged.</p>
             @if (!string.IsNullOrWhiteSpace(_unit.HoldReason) || _unit.QuarantineReasonCode != UnitQuarantineReason.Unspecified || !string.IsNullOrWhiteSpace(_unit.QuarantineReason) || !string.IsNullOrWhiteSpace(_unit.MissingReason) || !string.IsNullOrWhiteSpace(_unit.DamagedReason) || !string.IsNullOrWhiteSpace(_unit.SupplierReturnReason) || !string.IsNullOrWhiteSpace(_unit.ReceiveVisualNotes) || _unit.ReceiveAppearance != UnitAppearance.Acceptable || _unit.ReceiveTemperatureCelsius is not null || !string.IsNullOrWhiteSpace(_unit.DirectedConversionReason) || _unit.ExpectedArrivalDueUtc is not null)
             {
                 <p class="muted">
@@ -339,7 +338,6 @@ else
                 {
                     <div class="flex gap">
                         <select @bind="_transferTo"><option value="0">— location —</option>@foreach (var l in _locations) { <option value="@l.Id">@l.ChoiceLabel</option> }</select>
-                        <p class="muted">The location code stays on the choice. A blank name stays the location id.</p>
                         <input @bind="_transferReason" placeholder="Reason (optional)" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || _transferTo == 0)" @onclick="() => TransferAsync(_unit.Id)">Transfer</button>
                     </div>
