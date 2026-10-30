@@ -77,7 +77,7 @@
                     @foreach (var row in _expectedItems)
                     {
                         <tr>
-                            <td class="mono">@row.UnitNumber</td>
+                            <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td>@ProductName(row.ProductTypeId)</td>
                             <td class="mono">@(row.ShipmentId ?? "—")</td>
@@ -216,7 +216,7 @@
                     @foreach (var row in _retypeItems)
                     {
                         <tr>
-                            <td class="mono">@row.UnitNumber</td>
+                            <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
                             <td>
                                 <span class="mono">@row.ProductCode</span>
                                 <span class="muted">@row.ProductName</span>
@@ -300,7 +300,7 @@
                 @foreach (var row in _nearExpiryItems)
                 {
                     <tr>
-                        <td class="mono">@row.UnitNumber</td>
+                        <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
                         <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                         <td>@ProductName(row.ProductTypeId)</td>
                         <td>@row.LocationLabel</td>
@@ -387,7 +387,7 @@
                     @foreach (var row in _quarantineItems)
                     {
                         <tr>
-                            <td class="mono">@row.UnitNumber</td>
+                            <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
                             <td class="mono">@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
                             <td>@row.LocationLabel</td>
                             <td>@row.VolumeLabel</td>
@@ -493,7 +493,7 @@
                     @foreach (var row in _discrepancyItems)
                     {
                         <tr>
-                            <td class="mono">@row.UnitNumber</td>
+                            <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
                             <td><span class="@Ui.Badge(row.Status)">@row.Status</span></td>
@@ -545,7 +545,7 @@
                     @foreach (var row in _onHoldItems)
                     {
                         <tr>
-                            <td class="mono">@row.UnitNumber</td>
+                            <td><UnitLink Id="row.UnitId" Number="@row.UnitNumber" /></td>
                             <td><strong>@Ui.BloodType(row.Abo, row.RhD)</strong></td>
                             <td>@(row.ProductCode ?? ProductName(row.ProductTypeId))</td>
                             <td>@row.LocationLabel</td>
@@ -652,7 +652,7 @@
                 @foreach (var u in _units)
                 {
                     <tr>
-                        <td class="mono">@u.UnitNumber</td>
+                        <td><UnitLink Id="u.Id" Number="@u.UnitNumber" /></td>
                         <td class="mono">@ProductCode(u)</td>
                         <td>@ProductName(u.ProductTypeId)</td>
                         <td><strong>@Ui.BloodType(u.Abo, u.RhD)</strong></td>

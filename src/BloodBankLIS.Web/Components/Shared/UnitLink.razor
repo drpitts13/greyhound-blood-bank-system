@@ -1,0 +1,8 @@
+@* A unit number that opens the unit page, so a table row is one click from the unit
+   without hunting for its Manage/Open button. Falls back to the id when no number is recorded. *@
+<a class="mono" href="@InventoryUrls.Unit(Id)">@(string.IsNullOrWhiteSpace(Number) ? $"#{Id}" : Number)</a>
+
+@code {
+    [Parameter, EditorRequired] public long Id { get; set; }
+    [Parameter] public string? Number { get; set; }
+}

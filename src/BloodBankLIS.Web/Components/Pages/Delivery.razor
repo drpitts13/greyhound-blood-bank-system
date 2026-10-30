@@ -143,7 +143,7 @@ else
                     @foreach (var unit in _delivery.Units)
                     {
                         <tr>
-                            <td class="mono">@unit.UnitNumber</td>
+                            <td><UnitLink Id="unit.Id" Number="@unit.UnitNumber" /></td>
                             <td>@ProductName(unit.ProductTypeId)</td>
                             <td><strong>@Ui.BloodType(unit.Abo, unit.RhD)</strong></td>
                             <td><span class="@Ui.Badge(unit.Status)">@Ui.StatusLabel(unit.Status)</span></td>
