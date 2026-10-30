@@ -14,7 +14,6 @@
             }
         </div>
     </div>
-    <p class="muted">A blank storage location name stays the location id. A location code is not shown.</p>
     <Outcome Value="AllocFeedback" />
     @if (AllocLoading) { <div class="loading">Loading allocations...</div> }
                 else if (Allocations.Count == 0) { <div class="empty">@(ShowIssuedTransfused ? "No product allocations." : "No active product allocations.")</div> }
