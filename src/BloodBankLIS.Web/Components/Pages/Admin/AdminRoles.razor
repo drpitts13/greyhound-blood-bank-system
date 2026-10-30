@@ -64,11 +64,10 @@
 
         <div class="field">
             <label>Permissions</label>
-            <div class="flex gap" style="flex-wrap:wrap;">
+            <div class="checkbox-grid">
                 @foreach (var perm in _allPermissions)
                 {
-                    var selected = _editing.Permissions.Contains(perm);
-                    <span class="badge @(selected ? "badge-green" : "badge-gray")" style="cursor:pointer;" @onclick="() => Toggle(perm)">@perm</span>
+                    <label class="checkbox-item mono"><input type="checkbox" checked="@_editing.Permissions.Contains(perm)" @onchange="() => Toggle(perm)" /> @perm</label>
                 }
             </div>
         </div>

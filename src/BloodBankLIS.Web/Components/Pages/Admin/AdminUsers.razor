@@ -73,11 +73,10 @@
 
         <div class="field">
             <label>Roles</label>
-            <div class="flex gap" style="flex-wrap:wrap;">
+            <div class="checkbox-grid">
                 @foreach (var role in _roles)
                 {
-                    var selected = _editing.Roles.Contains(role.Name);
-                    <span class="badge @(selected ? "badge-green" : "badge-gray")" style="cursor:pointer;" @onclick="() => ToggleRole(role.Name)">@role.Name</span>
+                    <label class="checkbox-item"><input type="checkbox" checked="@_editing.Roles.Contains(role.Name)" @onchange="() => ToggleRole(role.Name)" /> @role.Name</label>
                 }
             </div>
         </div>
