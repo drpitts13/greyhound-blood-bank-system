@@ -241,6 +241,9 @@ table.bb tbody tr:hover { background: #fafbfe; }
 .checkbox-list { display: flex; flex-wrap: wrap; gap: .35rem 1rem; }
 .checkbox-item { display: inline-flex; align-items: center; gap: .4rem; font-size: .87rem; margin-right: 1rem; cursor: pointer; }
 .checkbox-item input { width: auto; margin: 0; }
+/* A column grid of checkboxes, so a long pick list reads as rows instead of a run-on line. */
+.checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: .35rem 1rem; }
+.checkbox-grid .checkbox-item { margin-right: 0; }
 /* Long screen help, collapsed by default so the data stays near the top. */
 .bb-help { margin: -.4rem 0 .8rem; font-size: .82rem; color: var(--bb-muted); }
 .bb-help > summary { cursor: pointer; color: var(--bb-accent); width: max-content; }

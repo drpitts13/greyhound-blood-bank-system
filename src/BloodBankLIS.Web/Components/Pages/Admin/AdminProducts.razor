@@ -20,6 +20,10 @@
 <Outcome Value="_feedback" />
 
 <div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code, name or class" @bind="_filter" @bind:event="oninput" />
+    </div>
+
     @if (_loading)
     {
         <div class="loading">Loading...</div>
@@ -28,12 +32,16 @@
     {
         <div class="empty">No products.</div>
     }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No products match "@_filter".</div>
+    }
     else
     {
         <table class="bb">
             <thead><tr><th>Code</th><th>Name</th><th>Class</th><th>XM</th><th>Retype</th><th>Attributes</th><th>Ver</th><th>Status</th><th></th></tr></thead>
             <tbody>
-                @foreach (var p in _items)
+                @foreach (var p in Filtered)
                 {
                     <tr>
                         <td class="mono">@p.ProductCode</td>
@@ -239,6 +247,15 @@
 
 @code {
     private List<ProductDefinitionDto> _items = new();
+    private string _filter = string.Empty;
+
+    private IEnumerable<ProductDefinitionDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _items
+            : _items.Where(p =>
+                p.ProductCode.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || p.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || p.ComponentClass.ToString().Contains(_filter, StringComparison.OrdinalIgnoreCase));
     private List<ProductAttributeDto> _attributes = new();
     private List<TestDefinitionDto> _tests = new();
     private bool _loading = true;

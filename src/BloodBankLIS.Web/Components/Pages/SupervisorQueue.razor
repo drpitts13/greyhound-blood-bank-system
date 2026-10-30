@@ -9,11 +9,16 @@
     <a class="btn btn-secondary" href="/">Dashboard</a>
 </div>
 
-<p class="muted">
-    Work that needs a supervisor-scoped action: antibody-identification review (<span class="mono">immuno.override</span>),
-    posted interface/instrument verification (<span class="mono">result.verify</span>), and quarantine release
-    (<span class="mono">inventory.release</span>). Open a row to complete the existing workflow. Clinical gates are unchanged.
-</p>
+<p class="muted">Work waiting on a supervisor. Open a row to finish it in its usual screen.</p>
+<details class="bb-help">
+    <summary>What appears here</summary>
+    <ul>
+        <li>Antibody-identification reviews (<span class="mono">immuno.override</span>)</li>
+        <li>Posted interface and instrument results to verify (<span class="mono">result.verify</span>)</li>
+        <li>Units in quarantine to release (<span class="mono">inventory.release</span>)</li>
+    </ul>
+    You see only the kinds your permissions allow. Clinical gates are unchanged.
+</details>
 
 <Outcome Value="_fb" />
 
@@ -35,7 +40,7 @@ else
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>@_items.Count item@(_items.Count == 1 ? "" : "s")</h3></div>
-        <table class="data">
+        <table class="bb">
             <thead>
                 <tr>
                     <th>Kind</th>
@@ -51,7 +56,7 @@ else
                         <td><span class="badge badge-gray">@KindLabel(row.Kind)</span></td>
                         <td>@row.Title</td>
                         <td class="muted">@row.Detail</td>
-                        <td>
+                        <td class="right nowrap">
                             <a class="btn btn-primary btn-sm" href="@row.Href">@row.NextAction</a>
                         </td>
                     </tr>

@@ -91,8 +91,10 @@ else
 
             @if (_statusId is not null)
             {
-                <div class="alert alert-info" style="margin-top:1rem;">
-                    <div class="field"><label>Status</label>
+                @* Keyed so switching rows re-adds the panel and it scrolls into view again. *@
+                <div @key="_statusId" class="alert alert-info" style="margin-top:1rem;" data-scroll-on-show>
+                    <strong>Update deviation #@_statusId: @_rows.FirstOrDefault(r => r.Id == _statusId)?.Title</strong>
+                    <div class="field" style="margin-top:.5rem;"><label>Status</label>
                         <select @bind="_newStatus">@foreach (var s in Enum.GetValues<DeviationStatus>()) { <option value="@s">@s</option> }</select>
                     </div>
                     <div class="field"><label>Corrective action</label><textarea rows="2" @bind="_capa"></textarea></div>
