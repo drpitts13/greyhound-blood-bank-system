@@ -65,22 +65,25 @@
     </div>
 </div>
 
+@* Collapsed by default: the full permission list is rarely needed and pushed the rest of the page down. *@
 <div class="bb-card">
-    <div class="bb-card-title"><h3>Your access</h3></div>
-    <p class="muted">The API grants you the following permissions. Actions you cannot perform are hidden or will be rejected by the server.</p>
-    <div class="flex gap" style="flex-wrap:wrap;">
-        @if (Session.Permissions.Count == 0)
-        {
-            <span class="muted">No permissions.</span>
-        }
-        else
-        {
-            @foreach (var p in Session.Permissions)
+    <details class="bb-help" style="margin:0;">
+        <summary>Your access (@Session.Permissions.Count permission@(Session.Permissions.Count == 1 ? "" : "s"))</summary>
+        <p class="muted" style="margin-top:.5rem;">The API grants you the following permissions. Actions you cannot perform are hidden or will be rejected by the server.</p>
+        <div class="flex gap" style="flex-wrap:wrap;">
+            @if (Session.Permissions.Count == 0)
             {
-                <span class="badge badge-gray mono">@p</span>
+                <span class="muted">No permissions.</span>
             }
-        }
-    </div>
+            else
+            {
+                @foreach (var p in Session.Permissions)
+                {
+                    <span class="badge badge-gray mono">@p</span>
+                }
+            }
+        </div>
+    </details>
 </div>
 
 @code {
