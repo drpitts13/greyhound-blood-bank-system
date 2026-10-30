@@ -2,6 +2,13 @@ window.bbUi = {
     scrollIntoView: function (id) {
         var el = document.getElementById(id);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    },
+    // Focus a field and select its text, so a barcode scan replaces a suggested value.
+    focusSelect: function (id, preventScroll) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.focus({ preventScroll: !!preventScroll });
+        if (el.select) el.select();
     }
 };
 
