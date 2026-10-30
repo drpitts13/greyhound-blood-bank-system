@@ -19,24 +19,10 @@
 }
 else
 {
-    <div class="bb-card">
-        <div class="bb-card-title"><h3>Record handoff</h3></div>
-        <div class="form-row">
-            <div class="field" style="grid-column:1/-1;">
-                <label>Handoff note</label>
-                <textarea @bind="_notes" rows="3" placeholder="Open work, short-dated units, pending reactions, overrides waiting review…"></textarea>
-            </div>
-            <div class="field">
-                <label>Incoming technologist (optional)</label>
-                <input @bind="_toUser" placeholder="Username" />
-            </div>
-        </div>
-        <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_notes))" @onclick="CreateAsync">Record handoff</button>
-    </div>
-
+    @* The incoming technologist acknowledges first, so the open handoff leads the page. *@
     @if (_open is not null)
     {
-        <div class="bb-card" style="margin-top:1.25rem;">
+        <div class="bb-card" style="margin-bottom:1.25rem;">
             <div class="bb-card-title"><h3>Awaiting acknowledgment</h3></div>
             <p style="margin:0 0 .75rem;">
                 From <span class="mono">@_open.FromUser</span> at @_open.RecordedUtc.ToString("yyyy-MM-dd HH:mm")
@@ -57,6 +43,21 @@ else
             }
         </div>
     }
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Record handoff</h3></div>
+        <div class="form-row">
+            <div class="field" style="grid-column:1/-1;">
+                <label>Handoff note</label>
+                <textarea @bind="_notes" @bind:event="oninput" rows="3" placeholder="Open work, short-dated units, pending reactions, overrides waiting review…"></textarea>
+            </div>
+            <div class="field">
+                <label>Incoming technologist (optional)</label>
+                <input @bind="_toUser" placeholder="Username" />
+            </div>
+        </div>
+        <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_notes))" @onclick="CreateAsync">Record handoff</button>
+    </div>
 
     <div class="bb-card" style="margin-top:1.25rem;">
         <div class="bb-card-title">

@@ -2,6 +2,7 @@
 @using BloodBankLIS.Domain.Enums
 @inject UserSession Session
 @inject BloodBankApiClient Api
+@inject IJSRuntime Js
 
 <PageTitle>Instrument Interfaces · Admin</PageTitle>
 
@@ -140,7 +141,7 @@
                     @foreach (var row in _editing.TestMappings)
                     {
                         <tr>
-                            <td><input class="mono" @bind="row.InstrumentCode" /></td>
+                            <td><input id="@(ReferenceEquals(row, _editing.TestMappings[^1]) ? "map-last-code" : null)" class="mono" @bind="row.InstrumentCode" /></td>
                             <td><input class="mono" @bind="row.ApplicationCode" /></td>
                             <td>
                                 <select @bind="row.Kind">
@@ -171,7 +172,7 @@
                     @foreach (var row in _editing.Rules)
                     {
                         <tr>
-                            <td><input @bind="row.Name" /></td>
+                            <td><input id="@(ReferenceEquals(row, _editing.Rules[^1]) ? "rule-last-name" : null)" @bind="row.Name" /></td>
                             <td><textarea class="mono" rows="2" @bind="row.ConditionExpression"></textarea></td>
                             <td><textarea class="mono" rows="2" @bind="row.ActionExpression"></textarea></td>
                             <td><input type="number" @bind="row.SortOrder" /></td>
@@ -235,6 +236,7 @@
     private bool _loading = true;
     private bool _busy;
     private bool _showHelp;
+    private string? _focusId;
     private bool CanManage => Session.Has(PermissionCodes.AdminInstrumentsManage);
 
     protected override async Task OnInitializedAsync()
@@ -290,8 +292,31 @@
         _editId = null;
     }
 
-    private void AddMapping() => _editing?.TestMappings.Add(new MapRow());
-    private void AddRule() => _editing?.Rules.Add(new RuleRow { IsEnabled = true });
+    // New rows continue the order (a 0 would jump ahead of every existing row) and take the cursor.
+    private void AddMapping()
+    {
+        if (_editing is null) return;
+        _editing.TestMappings.Add(new MapRow { SortOrder = NextOrder(_editing.TestMappings.Select(m => m.SortOrder)) });
+        _focusId = "map-last-code";
+    }
+
+    private void AddRule()
+    {
+        if (_editing is null) return;
+        _editing.Rules.Add(new RuleRow { IsEnabled = true, SortOrder = NextOrder(_editing.Rules.Select(r => r.SortOrder)) });
+        _focusId = "rule-last-name";
+    }
+
+    private static int NextOrder(IEnumerable<int> orders) => orders.DefaultIfEmpty(0).Max() + 1;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusId is { } id)
+        {
+            _focusId = null;
+            await Js.FocusSelectAsync(id);
+        }
+    }
 
     private async Task SaveAsync()
     {

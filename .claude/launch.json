@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/BloodBankLIS.Api", "--launch-profile", "http"],
+      "port": 5177
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/BloodBankLIS.Web", "--launch-profile", "http"],
+      "port": 5291
+    }
+  ]
+}

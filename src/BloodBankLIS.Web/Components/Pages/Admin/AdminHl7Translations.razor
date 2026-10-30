@@ -65,7 +65,7 @@
                 @foreach (var row in _rows)
                 {
                     <tr>
-                        <td><input @bind="row.InternalValue" @bind:event="oninput" @bind:after="MarkDirty" disabled="@(!CanManage)" /></td>
+                        <td><input id="@(ReferenceEquals(row, _rows[^1]) ? "xl-last-internal" : null)" @bind="row.InternalValue" @bind:event="oninput" @bind:after="MarkDirty" disabled="@(!CanManage)" /></td>
                         <td><input @bind="row.ExternalValue" @bind:event="oninput" @bind:after="MarkDirty" disabled="@(!CanManage)" /></td>
                         <td>
                             <select @bind="row.Direction" @bind:after="MarkDirty" disabled="@(!CanManage)">
@@ -104,6 +104,7 @@
     private bool _loading = true;
     private bool _busy;
     private bool _dirty;
+    private bool _focusNewRow;
     private Feedback? _feedback;
 
     private bool CanManage => Session.Has(PermissionCodes.AdminHl7Manage);
@@ -172,6 +173,17 @@
     {
         _rows.Add(new RowModel());
         _dirty = true;
+        _focusNewRow = true;
+    }
+
+    // Put the cursor in the row just added, so the code can be typed without another click.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusNewRow)
+        {
+            _focusNewRow = false;
+            await Js.FocusSelectAsync("xl-last-internal");
+        }
     }
 
     private void RemoveRow(RowModel row)
