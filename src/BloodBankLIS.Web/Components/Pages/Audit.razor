@@ -19,9 +19,9 @@
                 }
             </select>
         </div>
-        <div class="field"><label>User</label><input @bind="_userName" placeholder="e.g. tech1" /></div>
-        <div class="field"><label>Entity type</label><input @bind="_entityType" placeholder="e.g. BloodUnit, TestResult" /></div>
-        <div class="field"><label>Entity id (optional)</label><input type="number" @bind="_entityId" /></div>
+        <div class="field"><label>User</label><input @bind="_userName" @bind:event="oninput" @onkeydown="OnFilterKey" placeholder="e.g. tech1" /></div>
+        <div class="field"><label>Entity type</label><input @bind="_entityType" @bind:event="oninput" @onkeydown="OnFilterKey" placeholder="e.g. BloodUnit, TestResult" /></div>
+        <div class="field"><label>Entity id (optional)</label><input type="number" @bind="_entityId" @bind:event="oninput" @onkeydown="OnFilterKey" /></div>
     </div>
     <div class="form-row">
         <div class="field"><label>From date (UTC)</label><input type="date" @bind="_fromDate" /></div>
@@ -135,6 +135,11 @@
             "Specimen" => $"/printing?specimenId={id}",
             _ => null
         };
+    }
+
+    private async Task OnFilterKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !_busy) await LoadAsync(0);
     }
 
     private async Task LoadAsync(int skip)
