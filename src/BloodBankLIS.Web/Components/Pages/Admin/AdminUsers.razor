@@ -16,6 +16,10 @@
 <Outcome Value="_feedback" />
 
 <div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by username, name or role" @bind="_filter" @bind:event="oninput" />
+    </div>
+
     @if (_loading)
     {
         <div class="loading">Loading...</div>
@@ -24,12 +28,16 @@
     {
         <div class="empty">No users.</div>
     }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No users match "@_filter".</div>
+    }
     else
     {
         <table class="bb">
             <thead><tr><th>Username</th><th>Display name</th><th>Roles</th><th>Status</th><th></th></tr></thead>
             <tbody>
-                @foreach (var u in _users)
+                @foreach (var u in Filtered)
                 {
                     <tr>
                         <td class="mono">@u.UserName</td>
@@ -108,6 +116,15 @@
 @code {
     private List<AdminUserDto> _users = new();
     private List<AdminRoleDto> _roles = new();
+    private string _filter = string.Empty;
+
+    private IEnumerable<AdminUserDto> Filtered =>
+        string.IsNullOrWhiteSpace(_filter)
+            ? _users
+            : _users.Where(u =>
+                u.UserName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || u.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || u.Roles.Any(r => r.Contains(_filter, StringComparison.OrdinalIgnoreCase)));
     private bool _loading = true;
     private Feedback? _feedback;
     private bool _busy;
