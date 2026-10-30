@@ -576,7 +576,10 @@ public enum Hl7MessageStatus
     Errored = 2,
     Acked = 3,
     Nacked = 4,
-    Replayed = 5
+    Replayed = 5,
+
+    /// <summary>Outbound message claimed by a sender and being transmitted now.</summary>
+    Sending = 6
 }
 
 public enum InterfaceTransport

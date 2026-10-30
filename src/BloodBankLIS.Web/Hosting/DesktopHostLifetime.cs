@@ -24,13 +24,14 @@ public sealed class DesktopHostLifetime : IDisposable
         _options = options;
         _lifetime = lifetime;
         _logger = logger;
-        if (options.ShutdownOnExit)
+        // Server mode never registers this: a shared server must not kill the API.
+        if (options.StopsWithLastClient)
         {
             lifetime.ApplicationStopping.Register(StopBackgroundApi);
         }
     }
 
-    public bool ShutdownOnExit => _options.ShutdownOnExit;
+    public bool ShutdownOnExit => _options.StopsWithLastClient;
 
     public void ClientConnected(string circuitId)
     {

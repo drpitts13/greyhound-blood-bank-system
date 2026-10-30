@@ -2,6 +2,8 @@ using BloodBankLIS.Domain.Audit;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Infrastructure.Persistence;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
@@ -62,6 +64,54 @@ public class AuditHashChainTests
         Assert.Equal(2, added.Count);
         Assert.Equal(added[0].RecordHash, added[1].PreviousHash);
         Assert.Equal(AuditHashChainRule.OkCode, AuditHashChainRule.Verify(events).Code);
+    }
+
+    [Fact]
+    public async Task ParallelSaves_OnSeparateContexts_ExtendOneChainWithoutForks()
+    {
+        const int writers = 30;
+        var path = Path.Combine(Path.GetTempPath(), $"gbb-audit-chain-{Guid.NewGuid():N}.db");
+        var options = new DbContextOptionsBuilder<BloodBankDbContext>()
+            .UseSqlite($"Data Source={path};Default Timeout=60")
+            .Options;
+        var clock = new FixedClock(new DateTime(2026, 5, 30, 12, 0, 0, DateTimeKind.Utc));
+        var user = new TestCurrentUser("tech-test", "WORKSTATION-1");
+        try
+        {
+            await using (var setup = new BloodBankDbContext(options, clock, user))
+            {
+                await setup.Database.EnsureCreatedAsync();
+            }
+
+            using var start = new ManualResetEventSlim();
+            var saves = Enumerable.Range(0, writers).Select(i => Task.Run(async () =>
+            {
+                await using var context = new BloodBankDbContext(options, clock, user);
+                context.Patients.Add(NewPatient($"MRN-CHAIN-PAR-{i:D2}"));
+                start.Wait();
+                await context.SaveChangesAsync();
+            })).ToList();
+            start.Set();
+            await Task.WhenAll(saves);
+
+            await using var verify = new BloodBankDbContext(options, clock, user);
+            var events = await verify.AuditEvents.AsNoTracking().OrderBy(a => a.Id).ToListAsync();
+            Assert.Equal(writers, events.Count(a => a.EntityType == nameof(Patient)));
+            Assert.Equal(AuditHashChainRule.OkCode, AuditHashChainRule.Verify(events).Code);
+            Assert.Equal(1, events.Count(a => a.PreviousHash == AuditHashChainRule.GenesisPreviousHash));
+            Assert.Equal(events.Count, events.Select(a => a.PreviousHash).Distinct().Count());
+
+            var head = await verify.AuditChainHeads.AsNoTracking().SingleAsync();
+            Assert.Equal(events[^1].RecordHash, head.TipHash);
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
     }
 
     [Fact]

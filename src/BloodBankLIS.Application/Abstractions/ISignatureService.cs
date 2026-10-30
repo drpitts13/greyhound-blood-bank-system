@@ -30,6 +30,10 @@ public interface ISignatureService
         string? expectedAction = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Marks a signature as consumed so it cannot authorize a second action.</summary>
-    Task ConsumeAsync(long signatureId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Marks a signature as consumed so it cannot authorize a second action. The update is
+    /// atomic: returns false when the signature is missing or was already consumed, in
+    /// which case the caller must not perform the signed action.
+    /// </summary>
+    Task<bool> ConsumeAsync(long signatureId, CancellationToken cancellationToken = default);
 }

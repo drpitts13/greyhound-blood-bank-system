@@ -24,7 +24,8 @@ public class Phase8SecurityTests : IDisposable
             new EfRepository<RolePermission>(c), new EfRepository<Permission>(c));
 
     private SignatureService Signatures(BloodBankDbContext c) =>
-        new(new EfRepository<User>(c), new EfRepository<ElectronicSignature>(c), c,
+        new(new EfRepository<User>(c), new EfRepository<ElectronicSignature>(c),
+            new SignatureConsumptionStore(c, _factory.CurrentUser), c,
             _factory.Clock, _factory.CurrentUser);
 
     [Fact]

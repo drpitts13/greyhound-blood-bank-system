@@ -157,7 +157,8 @@ public static class DevelopmentSqliteBootstrap
         ("UnitBloodAttributes", "TypingSource", """ALTER TABLE "UnitBloodAttributes" ADD COLUMN "TypingSource" INTEGER NOT NULL DEFAULT 1"""),
         ("Orders", "CancellationReasonCode", """ALTER TABLE "Orders" ADD COLUMN "CancellationReasonCode" TEXT NULL"""),
         ("OrderSpecimens", "UnlinkedUtc", """ALTER TABLE "OrderSpecimens" ADD COLUMN "UnlinkedUtc" TEXT NULL"""),
-        ("OrderSpecimens", "UnlinkReason", """ALTER TABLE "OrderSpecimens" ADD COLUMN "UnlinkReason" TEXT NULL""")
+        ("OrderSpecimens", "UnlinkReason", """ALTER TABLE "OrderSpecimens" ADD COLUMN "UnlinkReason" TEXT NULL"""),
+        ("HL7Messages", "ClaimedUtc", """ALTER TABLE "HL7Messages" ADD COLUMN "ClaimedUtc" TEXT NULL""")
     ];
 
     public static async Task InitializeAsync(
@@ -170,6 +171,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
+        await EnsureAuditChainHeadTableAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
         var recreate = missing is not null;
@@ -228,6 +230,38 @@ public static class DevelopmentSqliteBootstrap
             ct);
         await context.Database.ExecuteSqlRawAsync(
             """CREATE INDEX "IX_OrderCancellationReasons_IsActive_SortOrder" ON "OrderCancellationReasons" ("IsActive", "SortOrder")""",
+            ct);
+    }
+
+    /// <summary>
+    /// Creates the audit chain head when an existing dev database predates it, seeded from
+    /// the hashed row no other row points back to (or GENESIS when nothing is hashed yet).
+    /// </summary>
+    private static async Task EnsureAuditChainHeadTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "AuditEvents", ct)
+            || await TableExistsAsync(context, "AuditChainHead", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "AuditChainHead" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_AuditChainHead" PRIMARY KEY,
+                "TipHash" TEXT NOT NULL
+            );
+            INSERT INTO "AuditChainHead" ("Id", "TipHash")
+            SELECT 1, COALESCE((
+                SELECT a."RecordHash"
+                FROM "AuditEvents" a
+                WHERE a."RecordHash" IS NOT NULL AND a."RecordHash" <> ''
+                  AND NOT EXISTS (
+                      SELECT 1 FROM "AuditEvents" c WHERE c."PreviousHash" = a."RecordHash")
+                LIMIT 1
+            ), 'GENESIS');
+            """,
             ct);
     }
 

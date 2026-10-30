@@ -791,6 +791,7 @@ public class Phase7BillingTests : IDisposable
             new EfRepository<Hl7MessageLog>(verify),
             new EfRepository<InterfaceEndpoint>(verify),
             new EfRepository<InterfaceErrorQueueItem>(verify),
+            new Hl7OutboundClaimStore(verify, _factory.CurrentUser),
             verify,
             _factory.Clock);
         var send = await sender.SendOneAsync(messageId);

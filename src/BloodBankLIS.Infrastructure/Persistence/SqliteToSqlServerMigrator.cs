@@ -137,6 +137,7 @@ public sealed class SqliteToSqlServerMigrator
         "BillingEvents",
         "ElectronicSignatures",
         "AuditEvents",
+        "AuditChainHead",
         "RuleExecutionLogs",
         "ConfigurationChangeHistory"
     ];
@@ -144,6 +145,14 @@ public sealed class SqliteToSqlServerMigrator
     private static readonly HashSet<string> ExcludedColumns = new(StringComparer.OrdinalIgnoreCase)
     {
         "RowVersion"
+    };
+
+    /// <summary>
+    /// Tables the SQL Server migrations seed. Their seed rows are replaced by the SQLite rows.
+    /// </summary>
+    private static readonly HashSet<string> MigrationSeededTables = new(StringComparer.Ordinal)
+    {
+        "AuditChainHead"
     };
 
     private readonly ILogger _logger;
@@ -226,6 +235,25 @@ public sealed class SqliteToSqlServerMigrator
             }
         }
 
+        if (tableCounts.GetValueOrDefault("AuditChainHead") == 0)
+        {
+            // An older SQLite file had no head row to copy; point the head at the copied chain tip.
+            await ExecuteNonQueryAsync(
+                sqlServer,
+                null,
+                """
+                UPDATE AuditChainHead SET TipHash = COALESCE((
+                    SELECT TOP 1 a.RecordHash
+                    FROM AuditEvents a
+                    WHERE a.RecordHash IS NOT NULL AND a.RecordHash <> ''
+                      AND NOT EXISTS (
+                          SELECT 1 FROM AuditEvents c WHERE c.PreviousHash = a.RecordHash)
+                ), N'GENESIS')
+                WHERE Id = 1
+                """,
+                cancellationToken);
+        }
+
         var total = tableCounts.Values.Sum();
         _logger.LogInformation("Migration complete. {Total} total row(s) copied across {Tables} tables.", total, tableCounts.Count);
 
@@ -269,7 +297,7 @@ public sealed class SqliteToSqlServerMigrator
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(ct);
 
-        foreach (var table in TableCopyOrder)
+        foreach (var table in TableCopyOrder.Where(t => !MigrationSeededTables.Contains(t)))
         {
             if (!await SqlServerTableExistsAsync(connection, table, ct))
             {
@@ -370,6 +398,11 @@ public sealed class SqliteToSqlServerMigrator
         await using var transaction = (SqlTransaction)await sqlServer.BeginTransactionAsync(ct);
         try
         {
+            if (MigrationSeededTables.Contains(table))
+            {
+                await ExecuteNonQueryAsync(sqlServer, transaction, $"DELETE FROM [{table}]", ct);
+            }
+
             if (hasIdentityId)
             {
                 await ExecuteNonQueryAsync(sqlServer, transaction, $"SET IDENTITY_INSERT [{table}] ON", ct);
@@ -440,7 +473,7 @@ public sealed class SqliteToSqlServerMigrator
 
     private static async Task ExecuteNonQueryAsync(
         SqlConnection connection,
-        SqlTransaction transaction,
+        SqlTransaction? transaction,
         string sql,
         CancellationToken ct)
     {

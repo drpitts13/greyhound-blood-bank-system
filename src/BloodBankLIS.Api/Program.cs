@@ -1,5 +1,6 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Api.Endpoints;
+using BloodBankLIS.Api.ErrorHandling;
 using BloodBankLIS.Api.Hosting;
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Identity;
@@ -76,6 +77,8 @@ builder.Services.AddSingleton<IEnvironmentInfo>(
 // so this registration wins). Falls back to the system account outside an HTTP request.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
 
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 var allowAnyCors = builder.Configuration.GetValue("Cors:AllowAnyOrigin", false);
@@ -152,6 +155,13 @@ if (app.Environment.IsDevelopment())
     {
         await ApplyMigrationsAndSeedAsync(app, effectiveDevMode, dbProvider);
     }
+}
+
+if (!app.Environment.IsDevelopment())
+{
+    // Conflicts map to 409; anything else becomes a ProblemDetails 500 with a traceId
+    // (no exception detail outside Development).
+    app.UseExceptionHandler();
 }
 
 app.UseHttpsRedirection();

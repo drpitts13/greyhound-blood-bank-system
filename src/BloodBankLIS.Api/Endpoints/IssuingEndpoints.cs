@@ -45,6 +45,17 @@ public static class IssuingEndpoints
                         detail: $"Supply a valid '{OverrideSignatureAction}' signature id via the '{OverrideSignatureHeader}' header.",
                         statusCode: StatusCodes.Status403Forbidden);
                 }
+
+                // Consume before issuing: the atomic consume lets only one concurrent
+                // request bind this single-use signature to an override.
+                _ = long.TryParse(http.Request.Headers[OverrideSignatureHeader].ToString(), out var overrideSignatureId);
+                if (!await signatures.ConsumeAsync(overrideSignatureId, ct))
+                {
+                    return Results.Problem(
+                        title: "Electronic signature already used",
+                        detail: "This electronic signature has already authorized an action. Sign again to override.",
+                        statusCode: StatusCodes.Status403Forbidden);
+                }
             }
 
             var result = await service.IssueUnitAsync(request, ct);
@@ -52,7 +63,7 @@ public static class IssuingEndpoints
             {
                 await billing.CaptureForIssueAsync(result.Value!.Id, ct);
                 var header = http.Request.Headers[OverrideSignatureHeader].ToString();
-                if (long.TryParse(header, out var signatureId))
+                if (!IsOverrideAttempt(request) && long.TryParse(header, out var signatureId))
                 {
                     await signatures.ConsumeAsync(signatureId, ct);
                 }

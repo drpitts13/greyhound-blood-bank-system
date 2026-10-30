@@ -71,6 +71,9 @@ public static class DependencyInjection
 
         services.AddScoped<IInventoryRepository, InventoryRepository>();
         services.AddScoped<IDeliveryLineStore, DeliveryLineStore>();
+        services.AddScoped<ISignatureConsumptionStore, SignatureConsumptionStore>();
+        services.AddScoped<IUserSignInStore, UserSignInStore>();
+        services.AddScoped<IHl7OutboundClaimStore, Hl7OutboundClaimStore>();
         services.AddScoped<DeliveryService>();
         services.AddScoped<InventoryService>();
         services.AddScoped<UnitActivityService>();

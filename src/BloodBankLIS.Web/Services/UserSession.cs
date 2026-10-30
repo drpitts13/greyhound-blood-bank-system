@@ -36,6 +36,23 @@ public sealed class UserSession
 
     public void Touch() => LastActivityUtc = DateTime.UtcNow;
 
+    /// <summary>
+    /// Defaults the workstation to the browser's address so audit rows on a shared
+    /// server name the operator's PC, not the server. Loopback keeps the machine name
+    /// (desktop install, where browser and server are the same PC).
+    /// </summary>
+    public void UseClientAddress(string? clientAddress)
+    {
+        if (IsSignedIn || string.IsNullOrWhiteSpace(clientAddress)
+            || !System.Net.IPAddress.TryParse(clientAddress, out var address)
+            || System.Net.IPAddress.IsLoopback(address))
+        {
+            return;
+        }
+
+        Workstation = (address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address).ToString();
+    }
+
     public void SignIn(
         string userName,
         string? displayName,

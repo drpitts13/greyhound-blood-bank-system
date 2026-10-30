@@ -22,6 +22,28 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("BloodBankLIS.Domain.Audit.AuditChainHead", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TipHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AuditChainHead", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            TipHash = "GENESIS"
+                        });
+                });
+
             modelBuilder.Entity("BloodBankLIS.Domain.Audit.AuditEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -2744,6 +2766,9 @@ namespace BloodBankLIS.Infrastructure.Persistence.Migrations
                     b.Property<string>("AckCode")
                         .HasMaxLength(2)
                         .HasColumnType("nvarchar(2)");
+
+                    b.Property<DateTime?>("ClaimedUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
                         .IsRequired()
