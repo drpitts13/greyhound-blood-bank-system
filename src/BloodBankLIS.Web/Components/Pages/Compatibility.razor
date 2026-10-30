@@ -27,31 +27,7 @@
         <div class="bb-card-title"><h3>Record crossmatch</h3></div>
         @if (_fromRetro)
         {
-            <p class="muted">Prefill from retrospective emergency / MTP follow-up. A compatible result closes the issuing queue through the existing post-issue path.</p>
-            @if (!string.IsNullOrWhiteSpace(_retroCustodyNotice))
-            {
-                <p class="muted">@($"{_retroCustodyNotice}.")</p>
-            }
-            @if (!string.IsNullOrWhiteSpace(_retroReleaseReason))
-            {
-                <p class="muted">@_retroReleaseReason</p>
-            }
-            @if (!string.IsNullOrWhiteSpace(_retroReleaseAuthorizer))
-            {
-                <p class="muted">@_retroReleaseAuthorizer</p>
-            }
-            @if (!string.IsNullOrWhiteSpace(_retroIssueAppearance))
-            {
-                <p class="muted">@_retroIssueAppearance</p>
-            }
-            @if (!string.IsNullOrWhiteSpace(_retroPtagNotice))
-            {
-                <p class="muted">@_retroPtagNotice</p>
-            }
-            @if (!string.IsNullOrWhiteSpace(_retroCrossmatchStatusNotice))
-            {
-                <p class="muted">@_retroCrossmatchStatusNotice</p>
-            }
+            <FactList Facts="@(new string?[] { string.IsNullOrWhiteSpace(_retroCustodyNotice) ? null : $"{_retroCustodyNotice}.", _retroReleaseReason, _retroReleaseAuthorizer, _retroIssueAppearance, _retroPtagNotice, _retroCrossmatchStatusNotice })" Style="margin-bottom:.75rem;">Retrospective emergency / MTP follow-up <span class="muted">· a compatible result closes the issuing queue through the post-issue path</span></FactList>
         }
         @if (!Session.Has(PermissionCodes.CompatibilityCrossmatch) || !Session.Has(PermissionCodes.ResultEnter))
         {
