@@ -5,6 +5,7 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 @inject IJSRuntime Js
+@inject NavigationManager Nav
 
 <PageTitle>Enter units &middot; Delivery @Id</PageTitle>
 
@@ -54,6 +55,14 @@ else
                 }
             </tbody>
         </table>
+        @if (AllExpectedReceived)
+        {
+            @* Finishing here saves going back to the delivery record just to complete it. *@
+            <div class="flex gap" style="align-items:center;margin-top:.6rem;flex-wrap:wrap;">
+                <span class="muted">Every expected unit is in.</span>
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="CompleteDeliveryAsync">Complete delivery</button>
+            </div>
+        }
     </div>
 
     <div class="bb-card">
@@ -299,6 +308,23 @@ else
             _rec.ProductDescriptionCode = product.Isbt128ProductCode;
         if (product.DefaultShelfLifeHours is int hours && hours > 0)
             _rec.ExpiresLocal = DateTime.UtcNow.AddHours(hours);
+    }
+
+    private bool AllExpectedReceived =>
+        _delivery is { Status: DeliveryStatus.Open, Lines.Count: > 0 } && _delivery.Lines.All(l => l.Variance >= 0);
+
+    private async Task CompleteDeliveryAsync()
+    {
+        _busy = true;
+        var r = await Api.CompleteDeliveryAsync(Id);
+        _busy = false;
+        if (!r.Succeeded)
+        {
+            _feedback = r.ToFeedback();
+            return;
+        }
+
+        Nav.NavigateTo($"/inventory/deliveries/{Id}");
     }
 
     private static string VarianceLabel(int variance) =>
