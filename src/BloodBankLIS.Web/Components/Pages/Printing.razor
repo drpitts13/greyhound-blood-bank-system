@@ -16,7 +16,7 @@
         <div class="bb-card-title"><h3>Print specimen label</h3></div>
         <Outcome Value="_specFb" />
         <div class="form-row">
-            <div class="field"><label>Specimen id</label><input type="number" @bind="_specimenId" /></div>
+            <div class="field"><label>Accession number</label><input class="mono" @bind="_specimenAccession" @bind:event="oninput" @onkeydown="OnSpecimenKey" placeholder="Type or scan, e.g. ACC0001" /></div>
             <div class="field"><label>Format</label>
                 <select @bind="_specFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@FormatLabel(f)</option> }</select>
             </div>
@@ -28,7 +28,7 @@
         <div class="bb-card-title"><h3>Print compatibility tag</h3></div>
         <Outcome Value="_tagFb" />
         <div class="form-row">
-            <div class="field"><label>Issue id</label><input type="number" @bind="_issueId" /></div>
+            <div class="field"><label>Unit number</label><input class="mono" @bind="_tagUnitNumber" @bind:event="oninput" @onkeydown="OnTagKey" placeholder="Issued unit; prints its latest issue" /></div>
             <div class="field"><label>Format</label>
                 <select @bind="_tagFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@FormatLabel(f)</option> }</select>
             </div>
@@ -167,14 +167,15 @@
 </div>
 
 @code {
-    private long _specimenId;
+    private string _specimenAccession = string.Empty;
     private LabelFormat _specFormat = LabelFormat.Pdf;
     private Feedback? _specFb;
     private Feedback? _outputFb;
     private bool CanPrint => Session.Has(PermissionCodes.PrintLabel);
     private Feedback? _jobsFb;
 
-    private long _issueId;
+    private string _tagUnitNumber = string.Empty;
+    private (long IssueId, string UnitNumber)? _prefilledIssue;
     private LabelFormat _tagFormat = LabelFormat.Pdf;
     private Feedback? _tagFb;
 
@@ -210,12 +211,24 @@
     {
         if (IssueId is long issueId)
         {
-            _issueId = issueId;
+            // Links from an issue pass its id; show the unit number on the bag and keep printing that exact issue.
+            var issue = await Api.GetIssueAsync(issueId);
+            if (issue.Succeeded && issue.Value is not null)
+            {
+                var unit = await Api.GetUnitAsync(issue.Value.BloodUnitId);
+                if (unit.Succeeded && unit.Value is not null)
+                {
+                    _tagUnitNumber = unit.Value.UnitNumber;
+                    _prefilledIssue = (issueId, unit.Value.UnitNumber);
+                }
+            }
         }
 
         if (SpecimenId is long specimenId)
         {
-            _specimenId = specimenId;
+            // Links from other pages still pass the id; show the accession number people recognize.
+            var specimen = await Api.GetSpecimenAsync(specimenId);
+            if (specimen.Succeeded && specimen.Value is not null) _specimenAccession = specimen.Value.AccessionNumber;
         }
 
         if (UnitId is long unitId)
@@ -257,19 +270,68 @@
         if (r.Succeeded) _jobs = r.Value!;
     }
 
+    private async Task OnSpecimenKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !_busy && CanPrint) await PrintSpecimenAsync();
+    }
+
     private async Task PrintSpecimenAsync()
     {
+        if (string.IsNullOrWhiteSpace(_specimenAccession))
+        {
+            _specFb = Feedback.Fail("Enter the specimen's accession number.");
+            return;
+        }
+
         _busy = true;
-        var r = await Api.PrintSpecimenLabelAsync(_specimenId, new PrintRequestVm(_specFormat));
+        var specimen = await Api.GetSpecimenByAccessionAsync(_specimenAccession);
+        if (!specimen.Succeeded || specimen.Value is null)
+        {
+            _busy = false;
+            _specFb = specimen.ToFeedback();
+            return;
+        }
+
+        var r = await Api.PrintSpecimenLabelAsync(specimen.Value.Id, new PrintRequestVm(_specFormat));
         _busy = false;
         _specFb = r.ToFeedback("Specimen label queued.");
         if (r.Succeeded) { await ShowJobAsync(r.Value); await LoadJobsAsync(); }
     }
 
+    private async Task OnTagKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !_busy && CanPrint) await PrintTagAsync();
+    }
+
     private async Task PrintTagAsync()
     {
+        if (string.IsNullOrWhiteSpace(_tagUnitNumber))
+        {
+            _tagFb = Feedback.Fail("Enter the issued unit's number.");
+            return;
+        }
+
         _busy = true;
-        var r = await Api.PrintCompatibilityTagAsync(_issueId, new PrintRequestVm(_tagFormat));
+        // A link from an issue names that exact issue; a typed or scanned number prints the unit's latest issue.
+        long issueId;
+        if (_prefilledIssue is { } prefilled && string.Equals(prefilled.UnitNumber, _tagUnitNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            issueId = prefilled.IssueId;
+        }
+        else
+        {
+            var issue = await Api.GetLatestIssueForUnitAsync(_tagUnitNumber);
+            if (!issue.Succeeded || issue.Value is null)
+            {
+                _busy = false;
+                _tagFb = issue.ToFeedback();
+                return;
+            }
+
+            issueId = issue.Value.Id;
+        }
+
+        var r = await Api.PrintCompatibilityTagAsync(issueId, new PrintRequestVm(_tagFormat));
         _busy = false;
         _tagFb = r.ToFeedback("Compatibility tag queued.");
         if (r.Succeeded) { await ShowJobAsync(r.Value); await LoadJobsAsync(); }

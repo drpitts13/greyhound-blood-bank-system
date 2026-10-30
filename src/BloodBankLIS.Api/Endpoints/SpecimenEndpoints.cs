@@ -19,6 +19,15 @@ public static class SpecimenEndpoints
             return specimen is null ? Results.NotFound() : Results.Ok(specimen);
         });
 
+        // Same access as reading by id; lets screens take the accession number printed on the tube.
+        group.MapGet("/by-accession/{accession}", async (string accession, SpecimenService service, CancellationToken ct) =>
+        {
+            var specimen = await service.GetByAccessionAsync(accession, ct);
+            return specimen is null
+                ? Results.NotFound(new { error = $"No specimen with accession number {accession.Trim()}." })
+                : Results.Ok(specimen);
+        });
+
         group.MapPost("/", async (AccessionSpecimenRequest request, SpecimenService service, CancellationToken ct) =>
         {
             var result = await service.AccessionAsync(request, ct);

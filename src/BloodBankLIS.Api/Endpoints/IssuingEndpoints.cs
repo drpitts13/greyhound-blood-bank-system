@@ -91,6 +91,15 @@ public static class IssuingEndpoints
             return issue is null ? Results.NotFound() : Results.Ok(IssueDto.From(issue));
         }).RequireAuthenticatedUser();
 
+        // Same access as reading by id; lets screens start from the unit number on the bag.
+        issues.MapGet("/latest-for-unit/{unitNumber}", async (string unitNumber, IssuingService service, CancellationToken ct) =>
+        {
+            var issue = await service.GetLatestForUnitNumberAsync(unitNumber, ct);
+            return issue is null
+                ? Results.NotFound(new { error = $"No issue found for unit {unitNumber.Trim()}." })
+                : Results.Ok(IssueDto.From(issue));
+        }).RequireAuthenticatedUser();
+
         issues.MapPost("/{id:long}/ward-receipt", async (long id, WardReceiptRequest request, IssuingService service, CancellationToken ct) =>
             EndpointResults.FromEvaluation(await service.RecordWardReceiptAsync(id, request, ct), i => IssueDto.From(i)))
             .RequirePermission(PermissionCodes.TransfusionDocument);

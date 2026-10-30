@@ -2,6 +2,7 @@
 @using BloodBankLIS.Domain.Entities
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@inject IJSRuntime Js
 
 <PageTitle>Reagent QC &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -30,6 +31,10 @@
                             @if (row.QcId is long qcId && row.Kind == ReagentQcWorklistRule.Unreviewed && Session.Has(PermissionCodes.ResultEnter))
                             {
                                 <button class="btn btn-secondary btn-sm" @onclick="() => ReviewAsync(qcId)">Review</button>
+                            }
+                            else if (row.Kind != ReagentQcWorklistRule.Unreviewed && Session.Has(PermissionCodes.ResultEnter) && QcLots.Any(l => l.Id == row.LotId))
+                            {
+                                <button class="btn btn-secondary btn-sm" @onclick="() => StartQcForLotAsync(row.LotId)">Enter QC</button>
                             }
                         </td>
                     </tr>
@@ -93,23 +98,34 @@
         </table>
     </div>
 
-    <div class="bb-card">
+    <div class="bb-card" id="reagent-qc-form">
         <div class="bb-card-title"><h3>Daily QC</h3></div>
         <div class="form-row">
             <div class="field">
                 <label>Lot</label>
                 <select @bind="_qcLotId">
                     <option value="0">Select</option>
-                    @foreach (var lot in _lots.Where(l => l.State != ReagentLotState.Closed))
+                    @foreach (var lot in QcLots)
                     {
                         <option value="@lot.Id">@lot.ReagentCode @lot.LotNumber</option>
                     }
                 </select>
             </div>
-            <div class="field"><label>Expected</label><input @bind="_expected" /></div>
-            <div class="field"><label>Observed</label><input @bind="_observed" /></div>
+            <div class="field"><label>Expected</label><input id="reagent-qc-expected" @bind="_expected" @bind:event="oninput" @bind:after="SyncPassedFromResults" /></div>
+            <div class="field"><label>Observed</label><input @bind="_observed" @bind:event="oninput" @bind:after="SyncPassedFromResults" /></div>
             <div class="field"><label>Passed</label><input type="checkbox" @bind="_passed" /></div>
         </div>
+        @if (ResultsCompared)
+        {
+            @if (ResultsMatch)
+            {
+                <p class="muted" style="margin:0 0 .5rem;">Observed matches expected.</p>
+            }
+            else
+            {
+                <p class="text-error" style="margin:0 0 .5rem;">Observed differs from expected. Recorded as failed unless you tick Passed.</p>
+            }
+        }
         <button class="btn btn-primary btn-sm" @onclick="RecordQcAsync">Record QC</button>
     </div>
 }
@@ -127,7 +143,16 @@
     private long _qcLotId;
     private string _expected = string.Empty;
     private string _observed = string.Empty;
-    private bool _passed = true;
+    // Not passed until the results say so: a pre-ticked box let a mismatched QC be recorded as passed.
+    private bool _passed;
+
+    private bool ResultsCompared => !string.IsNullOrWhiteSpace(_expected) && !string.IsNullOrWhiteSpace(_observed);
+
+    private bool ResultsMatch =>
+        ResultsCompared && string.Equals(_expected.Trim(), _observed.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Passed follows the comparison as results are typed; the tech can still change it before recording.</summary>
+    private void SyncPassedFromResults() => _passed = ResultsMatch;
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
@@ -137,6 +162,8 @@
         if (reagents.Succeeded) _reagents = reagents.Value ?? new();
         var lots = await Api.GetReagentLotsAsync();
         if (lots.Succeeded) _lots = lots.Value ?? new();
+        // With only one lot able to take QC, there is nothing to choose.
+        if (QcLots.All(l => l.Id != _qcLotId)) _qcLotId = QcLots.Count == 1 ? QcLots[0].Id : 0;
         var work = await Api.GetReagentQcWorklistAsync();
         if (work.Succeeded) _work = work.Value ?? new();
     }
@@ -151,6 +178,17 @@
             _name = string.Empty;
             await ReloadAsync();
         }
+    }
+
+    private List<ReagentLotDto> QcLots => _lots.Where(l => l.State != ReagentLotState.Closed).ToList();
+
+    /// <summary>From an overdue or failed worklist row: pick that lot in Daily QC and put the cursor on Expected.</summary>
+    private async Task StartQcForLotAsync(long lotId)
+    {
+        _qcLotId = lotId;
+        StateHasChanged();
+        await Js.ScrollIntoViewAsync("reagent-qc-form");
+        await Js.FocusSelectAsync("reagent-qc-expected", preventScroll: true);
     }
 
     private async Task ReceiveLotAsync()
@@ -182,8 +220,15 @@
     private async Task RecordQcAsync()
     {
         var saved = await Api.RecordReagentQcAsync(new RecordReagentQcRequest(_qcLotId, _expected, _observed, _passed));
-        _feedback = saved.ToFeedback("QC recorded.");
-        if (saved.Succeeded) await ReloadAsync();
+        _feedback = saved.ToFeedback(_passed ? "QC recorded as passed." : "QC recorded as failed.");
+        if (saved.Succeeded)
+        {
+            // Clear the results so the next lot's QC starts fresh; the lot choice stays.
+            _expected = string.Empty;
+            _observed = string.Empty;
+            _passed = false;
+            await ReloadAsync();
+        }
     }
 
     private async Task ReviewAsync(long id)

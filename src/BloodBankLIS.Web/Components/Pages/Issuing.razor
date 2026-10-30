@@ -719,7 +719,7 @@
     {
         <Outcome Value="_wardFb" />
         <div class="form-row">
-            <div class="field"><label>Issue id</label><input type="number" @bind="_wardIssueId" placeholder="Or Receive from Issued units" /></div>
+            <div class="field"><label>Unit number</label><input class="mono" @bind="_wardUnitLookup" @bind:after="LookUpWardUnitAsync" placeholder="Type or scan, or Receive from a list" /></div>
             <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" /></div>
             <div class="field"><label>Appearance at receipt</label>
                 <select @bind="_wardAppearance">
@@ -792,7 +792,7 @@
         {
             <Outcome Value="_returnFb" />
             <div class="form-row">
-                <div class="field"><label>Issue id</label><input type="number" @bind="_returnIssueId" placeholder="Or Return from Issued units" /></div>
+                <div class="field"><label>Unit number</label><input class="mono" @bind="_returnUnitLookup" @bind:after="LookUpReturnUnitAsync" placeholder="Type or scan, or Return from Issued units" /></div>
                 <div class="field"><label>Reason</label><input @bind="_returnReason" /></div>
                 <div class="field"><label>Destination</label>
                     <select @bind="_returnDestination">
@@ -870,7 +870,7 @@
         {
             <Outcome Value="_txFb" />
             <div class="form-row">
-                <div class="field"><label>Issue id</label><input type="number" @bind="_txIssueId" placeholder="Or Document from Issued units" /></div>
+                <div class="field"><label>Unit number</label><input class="mono" @bind="_txUnitLookup" @bind:after="LookUpTransfusionUnitAsync" placeholder="Type or scan, or Document from Issued units" /></div>
                 <div class="field"><label>Disposition</label>
                     <select @bind="_txDisposition">@foreach (var d in Enum.GetValues<TransfusionDisposition>()) { <option value="@d">@d</option> }</select>
                 </div>
@@ -1185,10 +1185,65 @@
         return href;
     }
 
+    // Ward receipt, return and transfusion start from the unit number on the bag (typed or scanned) rather than
+    // an internal issue id. The unit's latest issue is then selected exactly as the list buttons do, summary included.
+    private string _wardUnitLookup = string.Empty;
+    private string _returnUnitLookup = string.Empty;
+    private string _txUnitLookup = string.Empty;
+
+    private string? UnitNumberForIssue(long issueId) =>
+        _outstandingItems.FirstOrDefault(r => r.IssueId == issueId)?.UnitNumber
+        ?? _inTransitItems.FirstOrDefault(r => r.IssueId == issueId)?.UnitNumber;
+
+    private async Task<long?> FindIssueForUnitAsync(string unitNumber, Action<Feedback> report)
+    {
+        if (string.IsNullOrWhiteSpace(unitNumber)) return null;
+        var issue = await Api.GetLatestIssueForUnitAsync(unitNumber);
+        if (!issue.Succeeded || issue.Value is null)
+        {
+            report(issue.ToFeedback());
+            return null;
+        }
+
+        return issue.Value.Id;
+    }
+
+    private async Task LookUpWardUnitAsync()
+    {
+        if (await FindIssueForUnitAsync(_wardUnitLookup, f => _wardFb = f) is not long issueId) return;
+        if (_inTransitItems.FirstOrDefault(r => r.IssueId == issueId) is { } t)
+        {
+            SelectWardIssue(t.IssueId, t.ProductName, t.UnitExpiresUtc, t.UnitBloodType, t.SpecimenAccession, t.CrossmatchExpiresUtc, t.LatestCrossmatchResult, t.IssuedTo, t.CoolerId, t.IssuedToLocation, t.IssuedBy, t.EmergencyReleaseDetails, t.SecondVerifier, t.EmergencyReleaseAuthorizer, t.IssueAppearance, t.PtagCode, t.CrossmatchStatus);
+        }
+        else if (_outstandingItems.FirstOrDefault(r => r.IssueId == issueId) is { } o)
+        {
+            SelectWardIssue(o.IssueId, o.ProductName, o.UnitExpiresUtc, o.UnitBloodType, o.SpecimenAccession, o.CrossmatchExpiresUtc, o.LatestCrossmatchResult, o.IssuedTo, o.CoolerId, o.IssuedToLocation, o.IssuedBy, o.EmergencyReleaseDetails, o.SecondVerifier, o.EmergencyReleaseAuthorizer, o.IssueAppearance, o.PtagCode, o.CrossmatchStatus);
+        }
+        else
+        {
+            _wardFb = Feedback.Fail($"Unit {_wardUnitLookup.Trim()} has no issue waiting for ward receipt.");
+        }
+    }
+
+    private async Task LookUpReturnUnitAsync()
+    {
+        if (await FindIssueForUnitAsync(_returnUnitLookup, f => _returnFb = f) is not long issueId) return;
+        if (_outstandingItems.FirstOrDefault(r => r.IssueId == issueId) is { } row) SelectReturnIssue(row);
+        else _returnFb = Feedback.Fail($"Unit {_returnUnitLookup.Trim()} is not currently issued, so it cannot be returned.");
+    }
+
+    private async Task LookUpTransfusionUnitAsync()
+    {
+        if (await FindIssueForUnitAsync(_txUnitLookup, f => _txFb = f) is not long issueId) return;
+        if (_outstandingItems.FirstOrDefault(r => r.IssueId == issueId) is { } row) SelectTransfusionIssue(row);
+        else _txFb = Feedback.Fail($"Unit {_txUnitLookup.Trim()} is not currently issued, so there is no transfusion to document.");
+    }
+
     private void SelectWardIssue(long issueId, string? productName, DateTime? unitExpiresUtc, string? unitBloodType, string? specimenAccession, DateTime? crossmatchExpiresUtc, CrossmatchResult? latestCrossmatchResult, string? issuedTo, string? coolerId, string? issuedToLocation, string? issuedBy, string? emergencyReleaseDetails, string? secondVerifier, string? emergencyReleaseAuthorizer, UnitAppearance issueAppearance, string? ptagCode, CrossmatchClinicalStatus crossmatchStatus)
     {
         _desk = "receipt";
         _wardIssueId = issueId;
+        _wardUnitLookup = UnitNumberForIssue(issueId) ?? _wardUnitLookup;
         _wardProductName = productName;
         _wardExpirationNotice = ReadyToIssueFormCue.ExpirationNotice(unitExpiresUtc);
         _wardUnitTypeNotice = ReadyToIssueFormCue.UnitTypeNotice(unitBloodType);
@@ -1211,6 +1266,7 @@
     {
         _desk = "return";
         _returnIssueId = row.IssueId;
+        _returnUnitLookup = row.UnitNumber ?? string.Empty;
         _returnUnitNumber = row.UnitNumber;
         _returnProductName = row.ProductName;
         _returnExpirationNotice = ReadyToIssueFormCue.ExpirationNotice(row.UnitExpiresUtc);
@@ -1254,6 +1310,7 @@
     {
         _desk = "transfuse";
         _txIssueId = row.IssueId;
+        _txUnitLookup = row.UnitNumber ?? string.Empty;
         _txProductName = row.ProductName;
         _txExpirationNotice = ReadyToIssueFormCue.ExpirationNotice(row.UnitExpiresUtc);
         _txUnitTypeNotice = ReadyToIssueFormCue.UnitTypeNotice(row.UnitBloodType);

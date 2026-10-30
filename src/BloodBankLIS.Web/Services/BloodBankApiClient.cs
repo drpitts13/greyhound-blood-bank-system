@@ -248,6 +248,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<SpecimenDto>> GetSpecimenAsync(long id, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Get, $"api/specimens/{id}", ct: ct);
 
+    public Task<ApiResult<SpecimenDto>> GetSpecimenByAccessionAsync(string accessionNumber, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Get, $"api/specimens/by-accession/{Uri.EscapeDataString(accessionNumber.Trim())}", ct: ct);
+
     public Task<ApiResult<SpecimenDto>> RejectSpecimenAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/reject", new ReasonRequestVm(reason), ct);
 
@@ -602,6 +605,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<ReadyToIssueWorkItemDto>>> GetReadyToIssueAllocationsAsync(CancellationToken ct = default) =>
         SendAsync<List<ReadyToIssueWorkItemDto>>(HttpMethod.Get, "api/issues/ready-to-issue", ct: ct);
 
+    public Task<ApiResult<IssueDto>> GetLatestIssueForUnitAsync(string unitNumber, CancellationToken ct = default) =>
+        SendAsync<IssueDto>(HttpMethod.Get, $"api/issues/latest-for-unit/{Uri.EscapeDataString(unitNumber.Trim())}", ct: ct);
+
     public Task<ApiResult<IssueDto>> GetIssueAsync(long id, CancellationToken ct = default) =>
         SendAsync<IssueDto>(HttpMethod.Get, $"api/issues/{id}", ct: ct);
 
@@ -804,6 +810,10 @@ public sealed class BloodBankApiClient
         if (toUtc is not null) q.Add($"toUtc={Uri.EscapeDataString(toUtc.Value.ToUniversalTime().ToString("o"))}");
         return SendAsync<AuditPageVm>(HttpMethod.Get, $"api/audit-events?{string.Join("&", q)}", ct: ct);
     }
+
+    /// <summary>Entity types that appear in the audit trail, for the exact-match filter.</summary>
+    public Task<ApiResult<List<string>>> GetAuditEntityTypesAsync(CancellationToken ct = default) =>
+        SendAsync<List<string>>(HttpMethod.Get, "api/audit-events/entity-types", ct: ct);
 
     public Task<ApiResult<DowntimeReconciliationSnapshot>> GetDowntimeReconciliationAsync(
         CancellationToken ct = default) =>

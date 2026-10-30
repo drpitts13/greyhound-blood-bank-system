@@ -20,7 +20,26 @@
 
 <div class="bb-card">
     <div class="bb-card-title"><h3>Charge review queue</h3>
-        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+        <div class="flex gap" style="flex-wrap:wrap;align-items:center;">
+            @if (_confirmBatch is { } batch)
+            {
+                <span>@(batch == "review" ? $"Review {PendingIds.Count} pending charges?" : $"Export {ExportReadyIds.Count} reviewed charges?")</span>
+                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="RunBatchAsync">Confirm</button>
+                <button class="btn btn-ghost btn-sm" @onclick="() => _confirmBatch = null">Cancel</button>
+            }
+            else
+            {
+                @if (PendingIds.Count > 1 && Session.Has(PermissionCodes.BillingReview))
+                {
+                    <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick='() => _confirmBatch = "review"'>Review all pending (@PendingIds.Count)</button>
+                }
+                @if (ExportReadyIds.Count > 1)
+                {
+                    <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick='() => _confirmBatch = "export"'>Export all ready (@ExportReadyIds.Count)</button>
+                }
+            }
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+        </div>
     </div>
 
     @if (_loading)
@@ -133,6 +152,43 @@
         _loading = false;
         if (r.Succeeded) _charges = r.Value!;
         else _fb = r.ToFeedback();
+    }
+
+    // Batch actions follow the same rules as the row buttons: Review on Pending rows; Export on Reviewed rows
+    // whose DFT has been sent, for users who may export.
+    private string? _confirmBatch;
+
+    private List<long> PendingIds =>
+        _charges.Where(c => c.Status == BillingEventStatus.Pending).Select(c => c.Id).ToList();
+
+    private List<long> ExportReadyIds => Session.Has(PermissionCodes.BillingExport)
+        ? _charges.Where(c => c.Status == BillingEventStatus.Reviewed && !c.DftBlocksExport).Select(c => c.Id).ToList()
+        : [];
+
+    private async Task RunBatchAsync()
+    {
+        var review = _confirmBatch == "review";
+        var ids = review ? PendingIds : ExportReadyIds;
+        _confirmBatch = null;
+        _busy = true;
+        var done = 0;
+        Feedback? failure = null;
+        foreach (var id in ids)
+        {
+            var r = review ? await Api.ReviewChargeAsync(id) : await Api.ExportChargeAsync(id);
+            if (!r.Succeeded)
+            {
+                // Stop at the first refusal so nothing is skipped silently; the rest stay in the queue.
+                failure = Feedback.Fail($"Stopped after {done} of {ids.Count}: charge #{id}: {r.FailureSummary()}");
+                break;
+            }
+
+            done++;
+        }
+
+        _busy = false;
+        _fb = failure ?? Feedback.Succeed($"{done} charge{(done == 1 ? "" : "s")} {(review ? "reviewed" : "exported")}.");
+        await LoadAsync();
     }
 
     private async Task ReviewAsync(long id)

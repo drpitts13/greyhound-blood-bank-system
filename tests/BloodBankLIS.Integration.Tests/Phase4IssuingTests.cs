@@ -321,6 +321,29 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task GetLatestForUnitNumber_ReturnsNewestIssue_IgnoringCaseAndSpaces()
+    {
+        var s = await SeedAsync("LATEST-ISSUE");
+        long newerId;
+        await using (var seed = _factory.Create())
+        {
+            // Only one open issue per unit; an earlier issue that came back is how a unit gets a second one.
+            var older = new Issue { BloodProductId = s.UnitId, PatientId = s.PatientId, IssuedUtc = _factory.Clock.UtcNow.AddHours(-5), IssuedBy = "tech1", Status = IssueStatus.Returned };
+            var newer = new Issue { BloodProductId = s.UnitId, PatientId = s.PatientId, IssuedUtc = _factory.Clock.UtcNow.AddHours(-1), IssuedBy = "tech1" };
+            seed.Issues.AddRange(older, newer);
+            await seed.SaveChangesAsync();
+            newerId = newer.Id;
+        }
+
+        await using var context = _factory.Create();
+        var found = await Issuing(context).GetLatestForUnitNumberAsync("  u-latest-issue ");
+        var missing = await Issuing(context).GetLatestForUnitNumberAsync("U-NOT-A-UNIT");
+
+        Assert.Equal(newerId, found?.Id);
+        Assert.Null(missing);
+    }
+
+    [Fact]
     public async Task Allocate_OpenAntibodyIdWorkup_WarnsAndReserves()
     {
         var s = await SeedAsync("ABID-ALLOC-OPEN");
