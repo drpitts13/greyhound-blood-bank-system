@@ -117,6 +117,20 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
+    public async Task GetByAccession_FindsSpecimen_IgnoringCaseAndSpaces()
+    {
+        var patientId = await EnsurePatientAsync("MRN-ACC-LOOKUP");
+        var id = await AccessionAsync("ACC-LOOKUP-1", patientId);
+        await using var context = _factory.Create();
+
+        var found = await Specimens(context).GetByAccessionAsync("  acc-lookup-1 ");
+        var missing = await Specimens(context).GetByAccessionAsync("ACC-NOT-THERE");
+
+        Assert.Equal(id, found?.Id);
+        Assert.Null(missing);
+    }
+
+    [Fact]
     public async Task Accession_ComputesExpiry_AndAcceptsSpecimen()
     {
         var patientId = await EnsurePatientAsync("MRN-ACC");

@@ -16,7 +16,7 @@
         <div class="bb-card-title"><h3>Print specimen label</h3></div>
         <Outcome Value="_specFb" />
         <div class="form-row">
-            <div class="field"><label>Specimen id</label><input type="number" @bind="_specimenId" /></div>
+            <div class="field"><label>Accession number</label><input class="mono" @bind="_specimenAccession" @bind:event="oninput" @onkeydown="OnSpecimenKey" placeholder="Type or scan, e.g. ACC0001" /></div>
             <div class="field"><label>Format</label>
                 <select @bind="_specFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@FormatLabel(f)</option> }</select>
             </div>
@@ -167,7 +167,7 @@
 </div>
 
 @code {
-    private long _specimenId;
+    private string _specimenAccession = string.Empty;
     private LabelFormat _specFormat = LabelFormat.Pdf;
     private Feedback? _specFb;
     private Feedback? _outputFb;
@@ -215,7 +215,9 @@
 
         if (SpecimenId is long specimenId)
         {
-            _specimenId = specimenId;
+            // Links from other pages still pass the id; show the accession number people recognize.
+            var specimen = await Api.GetSpecimenAsync(specimenId);
+            if (specimen.Succeeded && specimen.Value is not null) _specimenAccession = specimen.Value.AccessionNumber;
         }
 
         if (UnitId is long unitId)
@@ -257,10 +259,29 @@
         if (r.Succeeded) _jobs = r.Value!;
     }
 
+    private async Task OnSpecimenKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !_busy && CanPrint) await PrintSpecimenAsync();
+    }
+
     private async Task PrintSpecimenAsync()
     {
+        if (string.IsNullOrWhiteSpace(_specimenAccession))
+        {
+            _specFb = Feedback.Fail("Enter the specimen's accession number.");
+            return;
+        }
+
         _busy = true;
-        var r = await Api.PrintSpecimenLabelAsync(_specimenId, new PrintRequestVm(_specFormat));
+        var specimen = await Api.GetSpecimenByAccessionAsync(_specimenAccession);
+        if (!specimen.Succeeded || specimen.Value is null)
+        {
+            _busy = false;
+            _specFb = specimen.ToFeedback();
+            return;
+        }
+
+        var r = await Api.PrintSpecimenLabelAsync(specimen.Value.Id, new PrintRequestVm(_specFormat));
         _busy = false;
         _specFb = r.ToFeedback("Specimen label queued.");
         if (r.Succeeded) { await ShowJobAsync(r.Value); await LoadJobsAsync(); }

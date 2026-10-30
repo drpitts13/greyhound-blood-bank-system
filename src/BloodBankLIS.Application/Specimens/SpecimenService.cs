@@ -79,6 +79,22 @@ public sealed class SpecimenService
         return specimen is null ? null : await MapAsync(specimen, ct);
     }
 
+    /// <summary>
+    /// Finds a specimen by its accession number (unique), ignoring case and surrounding spaces,
+    /// so screens can ask for the number staff read off the tube instead of an internal id.
+    /// </summary>
+    public async Task<SpecimenDto?> GetByAccessionAsync(string accessionNumber, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(accessionNumber))
+        {
+            return null;
+        }
+
+        var wanted = accessionNumber.Trim().ToUpper();
+        var matches = await _specimens.ListAsync(s => s.AccessionNumber.ToUpper() == wanted, ct);
+        return matches.Count == 1 ? await MapAsync(matches[0], ct) : null;
+    }
+
     public async Task<IReadOnlyList<SpecimenDto>> GetByPatientAsync(long patientId, CancellationToken ct = default)
     {
         var specimens = await _specimens.ListAsync(s => s.PatientId == patientId, ct);

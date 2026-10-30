@@ -248,6 +248,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<SpecimenDto>> GetSpecimenAsync(long id, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Get, $"api/specimens/{id}", ct: ct);
 
+    public Task<ApiResult<SpecimenDto>> GetSpecimenByAccessionAsync(string accessionNumber, CancellationToken ct = default) =>
+        SendAsync<SpecimenDto>(HttpMethod.Get, $"api/specimens/by-accession/{Uri.EscapeDataString(accessionNumber.Trim())}", ct: ct);
+
     public Task<ApiResult<SpecimenDto>> RejectSpecimenAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<SpecimenDto>(HttpMethod.Post, $"api/specimens/{id}/reject", new ReasonRequestVm(reason), ct);
 
