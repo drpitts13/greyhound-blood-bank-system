@@ -100,12 +100,11 @@
                         <th>XM</th>
                         <th>Status</th>
                         <th>Specimen</th>
-                        <th></th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach (var row in _readyItems)
-                    {
+                @foreach (var row in _readyItems)
+                {
+                    <tbody class="record">
                         <tr>
                             <td><a href="@($"/patients/{row.PatientId}?tab=products")">@(row.PatientDisplayName ?? "—")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
                             <td>
@@ -136,82 +135,86 @@
                                 }
                                 @SpecimenExpiryCell(row.SpecimenExpiresUtc, row.SpecimenExpired)
                             </td>
-                            <td class="right nowrap">
-                                @if (row.OpenAntibodyWorkup)
-                                {
-                                    <span class="badge badge-amber" title="@row.OpenAntibodyWorkupNotice">Open ABID</span>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(row.ReactionNotice))
-                                {
-                                    <span class="badge badge-amber" title="@row.ReactionNotice">Reaction</span>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(row.DonationRestrictionNotice))
-                                {
-                                    <span class="badge badge-amber" title="@row.DonationRestrictionNotice">@row.DonationRestrictionNotice</span>
-                                }
-                                @if (row.ExpiresSoon)
-                                {
-                                    <span class="badge badge-amber">Expires soon</span>
-                                }
-                                @if (row.CrossmatchBlocksRoutineIssue)
-                                {
-                                    <span class="badge badge-red" title="@row.CrossmatchNotice">Crossmatch</span>
-                                }
-                                else if (!string.IsNullOrWhiteSpace(row.CrossmatchNotice))
-                                {
-                                    <span class="badge badge-amber" title="@row.CrossmatchNotice">XM incompatible</span>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(row.SpecialRequirementNotice))
-                                {
-                                    <span class="badge badge-red" title="@row.SpecialRequirementNotice">Special need</span>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(row.AntigenNotice))
-                                {
-                                    <span class="badge badge-amber" title="@row.AntigenNotice">Antigen</span>
-                                }
-                                @if (row.AboRhDiscrepancyBlocksIssue)
-                                {
-                                    <span class="badge badge-red" title="@row.AboRhDiscrepancyNotice">ABO discrepancy</span>
-                                }
-                                else if (!string.IsNullOrWhiteSpace(row.AboRhDiscrepancyNotice))
-                                {
-                                    <span class="badge badge-amber" title="@row.AboRhDiscrepancyNotice">ABO discrepancy</span>
-                                }
-                                @if (row.SpecimenBlocksIssue)
-                                {
-                                    <span class="badge badge-red" title="@row.SpecimenBlockReason">Specimen</span>
-                                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">New specimen</a>
-                                }
-                                else if (row.UnitOutdated)
-                                {
-                                    <span class="badge badge-red" title="@row.UnitBlockReason">Outdated</span>
-                                }
-                                else if (!string.IsNullOrWhiteSpace(row.SpecialRequirementNotice))
-                                {
-                                }
-                                else if (row.AboRhDiscrepancyBlocksIssue)
-                                {
-                                }
-                                else if (row.NeedsSecondAbo || row.CrossmatchBlocksRoutineIssue)
-                                {
-                                    @if (row.NeedsSecondAbo)
+                        </tr>
+                        <tr class="row-actions">
+                            <td colspan="9">
+                                <div class="row-actions-bar">
+                                    @if (row.OpenAntibodyWorkup)
                                     {
-                                        <span class="badge badge-amber" title="@ReadyToIssueFormCue.SecondAbo">Second ABO</span>
-                                        <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=tests")">Enter type</a>
+                                        <span class="badge badge-amber" title="@row.OpenAntibodyWorkupNotice">Open ABID</span>
                                     }
-                                    @if (Session.Has(PermissionCodes.IssueEmergencyRelease))
+                                    @if (!string.IsNullOrWhiteSpace(row.ReactionNotice))
                                     {
-                                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectEmergencyIssue(row)">Emergency</button>
+                                        <span class="badge badge-amber" title="@row.ReactionNotice">Reaction</span>
                                     }
-                                }
-                                else
-                                {
-                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectReadyToIssue(row)">Issue</button>
-                                }
+                                    @if (!string.IsNullOrWhiteSpace(row.DonationRestrictionNotice))
+                                    {
+                                        <span class="badge badge-amber" title="@row.DonationRestrictionNotice">@row.DonationRestrictionNotice</span>
+                                    }
+                                    @if (row.ExpiresSoon)
+                                    {
+                                        <span class="badge badge-amber">Expires soon</span>
+                                    }
+                                    @if (row.CrossmatchBlocksRoutineIssue)
+                                    {
+                                        <span class="badge badge-red" title="@row.CrossmatchNotice">Crossmatch</span>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(row.CrossmatchNotice))
+                                    {
+                                        <span class="badge badge-amber" title="@row.CrossmatchNotice">XM incompatible</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(row.SpecialRequirementNotice))
+                                    {
+                                        <span class="badge badge-red" title="@row.SpecialRequirementNotice">Special need</span>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(row.AntigenNotice))
+                                    {
+                                        <span class="badge badge-amber" title="@row.AntigenNotice">Antigen</span>
+                                    }
+                                    @if (row.AboRhDiscrepancyBlocksIssue)
+                                    {
+                                        <span class="badge badge-red" title="@row.AboRhDiscrepancyNotice">ABO discrepancy</span>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(row.AboRhDiscrepancyNotice))
+                                    {
+                                        <span class="badge badge-amber" title="@row.AboRhDiscrepancyNotice">ABO discrepancy</span>
+                                    }
+                                    @if (row.SpecimenBlocksIssue)
+                                    {
+                                        <span class="badge badge-red" title="@row.SpecimenBlockReason">Specimen</span>
+                                        <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=specimens")">New specimen</a>
+                                    }
+                                    else if (row.UnitOutdated)
+                                    {
+                                        <span class="badge badge-red" title="@row.UnitBlockReason">Outdated</span>
+                                    }
+                                    else if (!string.IsNullOrWhiteSpace(row.SpecialRequirementNotice))
+                                    {
+                                    }
+                                    else if (row.AboRhDiscrepancyBlocksIssue)
+                                    {
+                                    }
+                                    else if (row.NeedsSecondAbo || row.CrossmatchBlocksRoutineIssue)
+                                    {
+                                        @if (row.NeedsSecondAbo)
+                                        {
+                                            <span class="badge badge-amber" title="@ReadyToIssueFormCue.SecondAbo">Second ABO</span>
+                                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{row.PatientId}?tab=tests")">Enter type</a>
+                                        }
+                                        @if (Session.Has(PermissionCodes.IssueEmergencyRelease))
+                                        {
+                                            <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectEmergencyIssue(row)">Emergency</button>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectReadyToIssue(row)">Issue</button>
+                                    }
+                                </div>
                             </td>
                         </tr>
-                    }
-                </tbody>
+                    </tbody>
+                }
             </table>
         }
     </div>
@@ -240,12 +243,11 @@
                         <th>Issue details</th>
                         <th>Issued to</th>
                         <th>Issued / due</th>
-                        <th></th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach (var row in _retroItems)
-                    {
+                @foreach (var row in _retroItems)
+                {
+                    <tbody class="record">
                         <tr>
                             <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
                             <td>
@@ -277,15 +279,19 @@
                                     <span class="badge badge-amber">Overdue</span>
                                 }
                             </td>
-                            <td class="right nowrap">
-                                @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
-                                {
-                                    <a class="btn btn-primary btn-sm" href="@RetroXmHref(row)">Record crossmatch</a>
-                                }
+                        </tr>
+                        <tr class="row-actions">
+                            <td colspan="9">
+                                <div class="row-actions-bar">
+                                    @if (Session.Has(PermissionCodes.CompatibilityCrossmatch))
+                                    {
+                                        <a class="btn btn-primary btn-sm" href="@RetroXmHref(row)">Record crossmatch</a>
+                                    }
+                                </div>
                             </td>
                         </tr>
-                    }
-                </tbody>
+                    </tbody>
+                }
             </table>
         }
     </div>
@@ -314,12 +320,11 @@
                         <th>Issue details</th>
                         <th>Issued to</th>
                         <th>Issued / due</th>
-                        <th></th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach (var row in _inTransitItems)
-                    {
+                @foreach (var row in _inTransitItems)
+                {
+                    <tbody class="record">
                         <tr>
                             <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
                             <td>
@@ -354,15 +359,19 @@
                                     <span class="badge badge-amber">Overdue</span>
                                 }
                             </td>
-                            <td>
-                                @if (Session.Has(PermissionCodes.TransfusionDocument))
-                                {
-                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
-                                }
+                        </tr>
+                        <tr class="row-actions">
+                            <td colspan="9">
+                                <div class="row-actions-bar">
+                                    @if (Session.Has(PermissionCodes.TransfusionDocument))
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
+                                    }
+                                </div>
                             </td>
                         </tr>
-                    }
-                </tbody>
+                    </tbody>
+                }
             </table>
         }
     </div>
@@ -392,12 +401,11 @@
                         <th>Ward receipt</th>
                         <th>Issued to</th>
                         <th>Issued / time out</th>
-                        <th></th>
                     </tr>
                 </thead>
-                <tbody>
-                    @foreach (var row in _outstandingItems)
-                    {
+                @foreach (var row in _outstandingItems)
+                {
+                    <tbody class="record">
                         <tr>
                             <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
                             <td>
@@ -436,23 +444,27 @@
                             </td>
                             <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
                             <td><span class="nowrap">@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</span><span class="sub">@ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</span></td>
-                            <td class="right nowrap">
-                                @if (row.WardReceivedUtc is null && Session.Has(PermissionCodes.TransfusionDocument))
-                                {
-                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
-                                }
-                                @if (Session.Has(PermissionCodes.IssueReturn))
-                                {
-                                    <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectReturnIssue(row)">Return</button>
-                                }
-                                @if (row.WardReceivedUtc is not null && Session.Has(PermissionCodes.TransfusionDocument))
-                                {
-                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(row)">Document</button>
-                                }
+                        </tr>
+                        <tr class="row-actions">
+                            <td colspan="10">
+                                <div class="row-actions-bar">
+                                    @if (row.WardReceivedUtc is null && Session.Has(PermissionCodes.TransfusionDocument))
+                                    {
+                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SelectWardIssue(row.IssueId, row.ProductName, row.UnitExpiresUtc, row.UnitBloodType, row.SpecimenAccession, row.CrossmatchExpiresUtc, row.LatestCrossmatchResult, row.IssuedTo, row.CoolerId, row.IssuedToLocation, row.IssuedBy, row.EmergencyReleaseDetails, row.SecondVerifier, row.EmergencyReleaseAuthorizer, row.IssueAppearance, row.PtagCode, row.CrossmatchStatus)">Receive</button>
+                                    }
+                                    @if (Session.Has(PermissionCodes.IssueReturn))
+                                    {
+                                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => SelectReturnIssue(row)">Return</button>
+                                    }
+                                    @if (row.WardReceivedUtc is not null && Session.Has(PermissionCodes.TransfusionDocument))
+                                    {
+                                        <button type="button" class="btn btn-primary btn-sm" @onclick="() => SelectTransfusionIssue(row)">Document</button>
+                                    }
+                                </div>
                             </td>
                         </tr>
-                    }
-                </tbody>
+                    </tbody>
+                }
             </table>
         }
     </div>
@@ -559,7 +571,7 @@
                     }
                     <div class="field" style="min-width:14rem;margin:0;">
                         <label>Scanned P-tag ID</label>
-                        <input @bind="_ptagScan" autocomplete="off" />
+                        <input @bind="_ptagScan" @bind:event="oninput" autocomplete="off" />
                     </div>
                     @if (_ptagJobId is long preparedJob)
                     {
@@ -723,7 +735,7 @@
             <Outcome Value="_returnFb" />
             <div class="form-row">
                 <div class="field"><label>Unit number</label><input class="mono" @bind="_returnUnitLookup" @bind:after="LookUpReturnUnitAsync" placeholder="Type or scan, or Return from Issued units" /></div>
-                <div class="field"><label>Reason</label><input @bind="_returnReason" /></div>
+                <div class="field"><label>Reason</label><input @bind="_returnReason" @bind:event="oninput" /></div>
                 <div class="field"><label>Destination</label>
                     <select @bind="_returnDestination">
                         @if (ReturnCanBeAvailable)
