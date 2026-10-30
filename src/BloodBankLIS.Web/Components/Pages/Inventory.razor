@@ -597,7 +597,7 @@
 <div class="bb-card">
     <div class="bb-card-title"><h3>Search</h3></div>
     <div class="form-row">
-        <div class="field"><label>Unit number</label><input @bind="_searchUnit" /></div>
+        <div class="field"><label>Unit number</label><input @bind="_searchUnit" @bind:event="oninput" @onkeydown="OnUnitSearchKey" placeholder="Type or scan, then Enter" /></div>
         <div class="field"><label>Status</label>
             <select @bind="_searchStatus"><option value="">Any</option>@foreach (var s in Enum.GetValues<UnitStatus>()) { <option value="@s">@s</option> }</select>
         </div>
@@ -822,6 +822,20 @@
         StorageLocationLabel.ForInventoryList(
             id,
             _locations.Select(l => new StorageLocationLabel.CatalogLocation(l.Id, l.Name, l.Code)));
+
+    /// <summary>
+    /// Enter searches. A unit number that finds exactly one unit (typically a scanned label) opens that unit,
+    /// saving the Search and Manage clicks.
+    /// </summary>
+    private async Task OnUnitSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        await SearchAsync();
+        if (!string.IsNullOrWhiteSpace(_searchUnit) && _units.Count == 1)
+        {
+            Nav.NavigateTo(InventoryUrls.Unit(_units[0].Id));
+        }
+    }
 
     private async Task SearchAsync()
     {
