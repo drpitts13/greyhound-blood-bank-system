@@ -486,10 +486,29 @@
 
     private async Task OnResultSaved()
     {
+        var savedLineId = _expandedLineId;
+        var previousOrder = _items.Select(i => i.OrderLineId).ToList();
         _expandedLineId = null;
         await LoadAsync();
+
+        // Open the next test below the one just saved, so the bench can key results row after row
+        // without an extra click each time. Rows that cannot take a result yet are skipped.
+        var next = savedLineId is long savedId
+            ? previousOrder
+                .SkipWhile(id => id != savedId)
+                .Skip(1)
+                .Select(id => _items.FirstOrDefault(i => i.OrderLineId == id))
+                .FirstOrDefault(i => i is { CanEnterResults: true, NeedsSpecimenLink: false })
+            : null;
+        _expandedLineId = next?.OrderLineId;
+
         // The row's own confirmation disappears when it collapses, so confirm at page level.
-        if (_fb is null || _fb.Success) _fb = Feedback.Succeed("Result saved.");
+        if (_fb is null || _fb.Success)
+        {
+            _fb = Feedback.Succeed(next is null
+                ? "Result saved."
+                : $"Result saved. Next: {next.TestName} for {next.PatientName}.");
+        }
     }
 
     private static bool IsRush(OrderPriority priority) =>
