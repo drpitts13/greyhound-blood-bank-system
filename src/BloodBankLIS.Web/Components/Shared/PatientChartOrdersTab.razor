@@ -225,10 +225,11 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Date/time / visit</th><th>Type / source</th><th>Order</th><th>Priority</th><th>Location / provider</th><th>Specimen</th><th>Status</th><th>Result</th><th>Comment</th><th></th></tr></thead>
-            <tbody>
+            <thead><tr><th>Date/time / visit</th><th>Type / source</th><th>Order</th><th>Priority</th><th>Location / provider</th><th>Specimen</th><th>Status / result</th><th>Comment</th></tr></thead>
                 @foreach (var o in Orders)
                 {
+                    @* One record per tbody: the facts, the row's actions on a line underneath, then any open form. *@
+                    <tbody class="record">
                     <tr class="@OrderRowClass(o)">
                         <td class="nowrap">@o.OrderedUtc.ToString("yyyy-MM-dd HH:mm")<span class="sub mono">@o.VisitNumber</span></td>
                         <td>@o.OrderCategory<span class="sub">@o.Source</span></td>
@@ -277,39 +278,41 @@
                             {
                                 <div class="muted">@(string.IsNullOrWhiteSpace(o.CancellationReasonCode) ? o.CancellationReason : $"{o.CancellationReasonCode} — {o.CancellationReason}")</div>
                             }
-                        </td>
-                        <td>
-                            @(o.CurrentResultValue ?? o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")
+                            <span class="sub">@(o.CurrentResultValue ?? o.ResultStatus?.ToString() ?? o.FulfillmentStatus?.ToString() ?? "—")</span>
                             @if (o.HasPostedInterfaceOrInstrumentValue)
                             {
                                 <span class="badge badge-amber">@(o.CurrentResultSource)</span>
                             }
                         </td>
                         <td>@(string.IsNullOrWhiteSpace(o.Comment) ? "—" : o.Comment)</td>
-                        <td class="right nowrap">
-                            @if (CanVerifyPostedOrderResult(o))
-                            {
-                                <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnVerify.InvokeAsync(o)">Verify</button>
-                            }
-                            @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive)
-                            {
-                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginEdit.InvokeAsync(o)">@(EditingOrderId == o.Id ? "Cancel" : "Edit")</button>
-                                <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnBeginCancel.InvokeAsync(o)">Cancel order</button>
-                            }
-                            @if (Session.Has(PermissionCodes.CompatibilityAllocate) && o.IsActive && o.Lines.Any(l => l.LineCategory == OrderCategory.Product) && o.SpecimenId is > 0)
-                            {
-                                <button type="button" class="btn btn-primary btn-sm" @onclick="() => OnBeginAllocate.InvokeAsync(o)">@(AllocatingOrderId == o.Id ? "Cancel" : "Allocate")</button>
-                            }
-                            @if (Session.Has(PermissionCodes.InventoryModify) && o.IsActive && o.Lines.Any(l => l.LineCategory == OrderCategory.Product) && HasAllocatedUnitFor(o))
-                            {
-                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginAddAction.InvokeAsync(o)">@(AddingActionOrderId == o.Id ? "Cancel" : "Modify")</button>
-                            }
+                    </tr>
+                    <tr class="row-actions @OrderRowClass(o)">
+                        <td colspan="8">
+                            <div class="row-actions-bar">
+                                @if (CanVerifyPostedOrderResult(o))
+                                {
+                                    <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => OnVerify.InvokeAsync(o)">Verify</button>
+                                }
+                                @if (Session.Has(PermissionCodes.PatientWrite) && o.IsActive)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginEdit.InvokeAsync(o)">@(EditingOrderId == o.Id ? "Cancel" : "Edit")</button>
+                                    <button type="button" class="btn btn-ghost btn-sm" disabled="@Busy" @onclick="() => OnBeginCancel.InvokeAsync(o)">Cancel order</button>
+                                }
+                                @if (Session.Has(PermissionCodes.CompatibilityAllocate) && o.IsActive && o.Lines.Any(l => l.LineCategory == OrderCategory.Product) && o.SpecimenId is > 0)
+                                {
+                                    <button type="button" class="btn btn-primary btn-sm" @onclick="() => OnBeginAllocate.InvokeAsync(o)">@(AllocatingOrderId == o.Id ? "Cancel" : "Allocate")</button>
+                                }
+                                @if (Session.Has(PermissionCodes.InventoryModify) && o.IsActive && o.Lines.Any(l => l.LineCategory == OrderCategory.Product) && HasAllocatedUnitFor(o))
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => OnBeginAddAction.InvokeAsync(o)">@(AddingActionOrderId == o.Id ? "Cancel" : "Modify")</button>
+                                }
+                            </div>
                         </td>
                     </tr>
                     @if (LinkingOrderId == o.Id)
                     {
                         <tr>
-                            <td colspan="10">
+                            <td colspan="8">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Link specimen to order <span class="mono">@o.OrderNumber</span>. Tests on this order will appear on the worklist for the selected specimen.</p>
                                     <div class="flex gap" style="align-items:end;">
@@ -344,7 +347,7 @@
                     @if (AllocatingOrderId == o.Id && Session.Has(PermissionCodes.CompatibilityAllocate))
                     {
                         <tr>
-                            <td colspan="10">
+                            <td colspan="8">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Allocate a compatible unit to order <span class="mono">@o.OrderNumber</span>.</p>
                                     <div class="flex gap" style="align-items:end;flex-wrap:wrap;">
@@ -367,7 +370,7 @@
                     @if (AddingActionOrderId == o.Id)
                     {
                         <tr>
-                            <td colspan="10">
+                            <td colspan="8">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Eligible modifications for the allocated unit on order <span class="mono">@o.OrderNumber</span>.</p>
                                     @if (EligibleModifications.Count == 0)
@@ -397,7 +400,7 @@
                     @if (EditingOrderId == o.Id)
                     {
                         <tr>
-                            <td colspan="10">
+                            <td colspan="8">
                                 <div class="alert alert-info" style="margin:.25rem 0;">
                                     <p class="muted" style="margin:0 0 .5rem;">Editing order <span class="mono">@o.OrderNumber</span></p>
                                     <div class="form-row">
@@ -500,8 +503,8 @@
                             </td>
                         </tr>
                     }
+                    </tbody>
                 }
-            </tbody>
         </table>
     }
 </div>

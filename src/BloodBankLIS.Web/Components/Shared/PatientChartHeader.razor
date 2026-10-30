@@ -1,7 +1,7 @@
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<div class="flex-between" style="margin-bottom:1rem;">
+<div class="flex-between" style="margin-bottom:1rem;flex-wrap:wrap;">
     <div>
         <h1>@DisplayName(Patient)</h1>
         <div class="muted">
@@ -25,7 +25,7 @@
             </div>
         }
     </div>
-    <div class="flex gap">
+    <div class="flex gap" style="flex-wrap:wrap;justify-content:flex-end;">
         <div class="stat" style="text-align:center;padding:.6rem 1rem;">
             <div class="label">Blood type</div>
             <div class="value" style="font-size:1.4rem;">@(CurrentType is null ? "—" : Ui.BloodType(CurrentType.Abo, CurrentType.RhD))</div>

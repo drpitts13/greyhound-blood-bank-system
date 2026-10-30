@@ -185,6 +185,12 @@ table.bb tbody tr:hover { background: #fafbfe; }
 /* Row action cells: let several buttons wrap onto a second line instead of widening the table. */
 table.bb td.right.nowrap { white-space: normal; }
 table.bb td .btn { white-space: nowrap; margin: .1rem 0; }
+/* One record across several rows (facts, details, actions): a single rule under the whole record. */
+table.bb tbody.record { border-bottom: 1px solid var(--bb-border); }
+table.bb tbody.record td { border-bottom: 0; }
+table.bb tr.row-actions > td { padding-top: 0; }
+.row-actions-bar { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: .35rem; }
+table.bb tr.row-actions:not(:has(.btn, .badge, .muted)) { display: none; }
 /* Secondary line inside a cell, so related facts share one column. */
 .sub { display: block; font-size: .78rem; color: var(--bb-muted); }
 

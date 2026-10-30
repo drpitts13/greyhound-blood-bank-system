@@ -42,22 +42,23 @@
     else
     {
         <table class="bb">
-            <thead><tr><th>Test</th><th>Order #</th><th>Accession</th><th>Expires</th><th>eXM</th><th>Status</th><th>Result</th><th>Source</th><th>Priority</th><th>Ordered</th><th>Comment</th><th></th></tr></thead>
-            <tbody>
+            <thead><tr><th>Test</th><th>Order / accession</th><th>eXM</th><th>Result</th><th>Priority / ordered</th><th>Comment</th></tr></thead>
                 @foreach (var item in Items)
                 {
+                    @* One record per tbody: the facts, the row's actions on a line underneath, then any open entry panel. *@
+                    <tbody class="record">
                     <tr class="@TestRowClass(item)">
                         <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span></td>
-                        <td class="mono">@item.OrderNumber</td>
-                        <td class="mono">@(item.AccessionNumber ?? "—")</td>
-                        <td class="nowrap">
+                        <td>
+                            <span class="mono">@item.OrderNumber</span>
+                            <span class="sub mono">@(item.AccessionNumber ?? "—")</span>
                             @if (item.SpecimenExpiresUtc is DateTime expires)
                             {
-                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "muted")">@expires.ToString("yyyy-MM-dd HH:mm")</span>
+                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "sub") nowrap">@expires.ToString("yyyy-MM-dd HH:mm")</span>
                             }
                             else
                             {
-                                <span class="muted">—</span>
+                                <span class="sub">—</span>
                             }
                         </td>
                         <td>
@@ -79,15 +80,13 @@
                             {
                                 <span class="badge badge-gray">Pending</span>
                             }
-                        </td>
-                        <td class="mono">
-                            @(item.CurrentResultValue ?? "—")
+                            <span class="sub mono">@(item.CurrentResultValue ?? "—")</span>
                             @if (item.AboRhDeltaHold)
                             {
                                 <span class="badge badge-amber" title="@(item.AboRhDeltaDetail ?? "ABO/Rh disagrees with history")">Discrepancy</span>
                             }
+                            <span class="sub">Source: @(item.CurrentResultSource?.ToString() ?? "—")</span>
                         </td>
-                        <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
                         <td>
                             @if (IsRush(item.Priority))
                             {
@@ -97,32 +96,36 @@
                             {
                                 @item.Priority
                             }
+                            <span class="sub nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</span>
                         </td>
-                        <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@(string.IsNullOrWhiteSpace(item.Comment) ? "—" : item.Comment)</td>
-                        <td class="right">
-                            @if (item.NeedsSpecimenLink)
-                            {
-                                <button type="button" class="btn btn-ghost btn-sm" @onclick="OnAccession">Accession</button>
-                            }
-                            @if (item.OffersAntibodyIdHandoff)
-                            {
-                                <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
-                            }
-                            <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => OnToggleEntry.InvokeAsync(item.OrderLineId)">
-                                @(ExpandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
-                            </button>
+                    </tr>
+                    <tr class="row-actions @TestRowClass(item)">
+                        <td colspan="6">
+                            <div class="row-actions-bar">
+                                @if (item.NeedsSpecimenLink)
+                                {
+                                    <button type="button" class="btn btn-ghost btn-sm" @onclick="OnAccession">Accession</button>
+                                }
+                                @if (item.OffersAntibodyIdHandoff)
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="@item.AntibodyIdHref">@item.AntibodyIdHandoffLabel</a>
+                                }
+                                <button class="btn btn-ghost btn-sm" title="@item.BlockReason" @onclick="() => OnToggleEntry.InvokeAsync(item.OrderLineId)">
+                                    @(ExpandedLineId == item.OrderLineId ? "Hide" : item.BenchActionLabel)
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     @if (ExpandedLineId == item.OrderLineId)
                     {
-                        <tr><td colspan="12">
+                        <tr><td colspan="6">
                             <TestLineCommentEditor WorkItem="item" />
                             <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
                         </td></tr>
                     }
+                    </tbody>
                 }
-            </tbody>
         </table>
     }
 </div>

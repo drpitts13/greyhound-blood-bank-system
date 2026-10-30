@@ -20,23 +20,24 @@
     else
     {
         <table class="bb">
-                    <thead><tr><th>Unit number</th><th>Product code</th><th>Product</th><th>Expires</th><th>Unit type</th><th>Location</th><th>Crossmatch</th><th>Status</th><th>Unit</th><th></th></tr></thead>
-            <tbody>
+                    <thead><tr><th>Unit / product</th><th>Expires</th><th>Unit type</th><th>Location</th><th>Crossmatch</th><th>Status</th><th>Unit</th></tr></thead>
                 @foreach (var a in Allocations)
                 {
+                    @* One record per tbody: the facts, then the row's actions on a line underneath. *@
+                    <tbody class="record">
                     <tr>
-                        <td class="mono">
+                        <td>
                             @if (a.BloodUnitId > 0)
                             {
-                                <a href="@InventoryUrls.Unit(a.BloodUnitId)">@(string.IsNullOrWhiteSpace(a.UnitNumber) ? $"#{a.BloodUnitId}" : a.UnitNumber)</a>
+                                <a class="mono" href="@InventoryUrls.Unit(a.BloodUnitId)">@(string.IsNullOrWhiteSpace(a.UnitNumber) ? $"#{a.BloodUnitId}" : a.UnitNumber)</a>
                             }
                             else
                             {
-                                @(string.IsNullOrWhiteSpace(a.UnitNumber) ? "—" : a.UnitNumber)
+                                <span class="mono">@(string.IsNullOrWhiteSpace(a.UnitNumber) ? "—" : a.UnitNumber)</span>
                             }
+                            <span class="sub">@(string.IsNullOrWhiteSpace(a.ProductName) ? "—" : a.ProductName)</span>
+                            <span class="sub mono">@a.ProductCode</span>
                         </td>
-                        <td class="mono">@a.ProductCode</td>
-                        <td>@(string.IsNullOrWhiteSpace(a.ProductName) ? "—" : a.ProductName)</td>
                         <td class="nowrap">@(a.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
                         <td><strong>@(string.IsNullOrWhiteSpace(a.UnitBloodType) ? "—" : a.UnitBloodType)</strong></td>
                         <td>@(string.IsNullOrWhiteSpace(a.StorageLocationName) ? "—" : a.StorageLocationName)</td>
@@ -49,8 +50,10 @@
                         </td>
                         <td><span class="@Ui.Badge(a.DisplayStatus)">@DisplayAllocationStatus(a.DisplayStatus)</span></td>
                         <td><span class="@Ui.Badge(a.UnitStatus)">@Ui.StatusLabel(a.UnitStatus)</span></td>
-                        <td>
-                            <div class="flex gap" style="flex-wrap:wrap;">
+                    </tr>
+                    <tr class="row-actions">
+                        <td colspan="7">
+                            <div class="row-actions-bar">
                                 @if (Session.Has(PermissionCodes.CompatibilityCrossmatch) && Session.Has(PermissionCodes.ResultEnter) && NeedsCrossmatchEntry(a))
                                 {
                                     @if (a.OrderSpecimenLinked)
@@ -100,8 +103,8 @@
                             </div>
                         </td>
                     </tr>
+                    </tbody>
                 }
-            </tbody>
         </table>
     }
 

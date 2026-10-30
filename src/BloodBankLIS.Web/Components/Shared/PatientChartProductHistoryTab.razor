@@ -57,57 +57,36 @@
             </button>
         </div>
         <table class="bb">
-            <thead><tr><th>Date/time</th><th>Event</th><th>Unit</th><th>Product</th><th>Unit type</th><th>Location</th><th>Performed by</th><th>Compatibility</th><th>Disposition</th><th></th></tr></thead>
-            <tbody>
+            <thead><tr><th>Date/time</th><th>Event</th><th>Unit / product</th><th>Unit type</th><th>Location</th><th>Performed by</th><th>Compatibility</th><th>Disposition</th></tr></thead>
                 @foreach (var h in Rows)
                 {
+                    @* One record per tbody: the facts, any details, then the row's actions on a line underneath. *@
+                    <tbody class="record">
                     <tr class="@HistoryRowClass(h)">
                         <td class="nowrap">@h.EventUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td><strong>@h.EventType</strong></td>
-                        <td class="mono">
+                        <td>
                             @if (h.UnitId is long historyUnitId)
                             {
-                                <a href="@InventoryUrls.Unit(historyUnitId)">@(h.UnitNumber ?? $"#{historyUnitId}")</a>
+                                <a class="mono" href="@InventoryUrls.Unit(historyUnitId)">@(h.UnitNumber ?? $"#{historyUnitId}")</a>
                             }
                             else
                             {
-                                @(h.UnitNumber ?? "—")
+                                <span class="mono">@(h.UnitNumber ?? "—")</span>
                             }
+                            <span class="sub">@(h.ProductTypeName ?? "—")</span>
                         </td>
-                        <td>@(h.ProductTypeName ?? "—")</td>
                         <td>@(h.UnitBloodType ?? "—")</td>
                         <td>@(h.IssuedToLocation ?? "—")</td>
                         <td>@(string.IsNullOrWhiteSpace(h.PerformedBy) ? "—" : h.PerformedBy)</td>
                         <td>@(h.CompatibilityStatus ?? "—")</td>
                         <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <a class="badge badge-red" href="@($"/reactions?patientId={PatientId}")">Reaction</a> }</td>
-                        <td class="right nowrap">
-                            @if (h.UnitId is long inventoryUnitId)
-                            {
-                                <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(inventoryUnitId)">Open unit</a>
-                            }
-                            @if (h.IssueId is long historyIssueId && h.UnitId is long issueUnitId)
-                            {
-                                <a class="btn btn-ghost btn-sm" href="@($"/issuing?bloodUnitId={issueUnitId}")">Open Issuing</a>
-                                @if (h.EventType == PatientProductHistoryEventType.Issued && OnMarkTransfused.HasDelegate && Session.Has(PermissionCodes.TransfusionDocument))
-                                {
-                                    @if (_confirmIssueId == historyIssueId)
-                                    {
-                                        <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => ConfirmTransfusedAsync(historyIssueId)">Confirm transfused</button>
-                                        <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _confirmIssueId = null">Cancel</button>
-                                    }
-                                    else
-                                    {
-                                        <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="() => _confirmIssueId = historyIssueId">Transfuse</button>
-                                    }
-                                }
-                            }
-                        </td>
                     </tr>
                     @if (_showAllColumns)
                     {
                         @* The secondary facts sit under their row in a grid, so the full history fits the page width. *@
                         <tr class="@HistoryRowClass(h)">
-                            <td colspan="10" class="bb-facts" style="padding-top:0;">
+                            <td colspan="8" class="bb-facts" style="padding-top:0;">
                                 <ul>
                                     <li>Issue type: @(string.IsNullOrWhiteSpace(h.IssueType) ? "—" : h.IssueType)</li>
                                     <li>Release reason: @(string.IsNullOrWhiteSpace(h.EmergencyReleaseReason) ? "—" : h.EmergencyReleaseReason)</li>
@@ -132,8 +111,34 @@
                             </td>
                         </tr>
                     }
+                    <tr class="row-actions @HistoryRowClass(h)">
+                        <td colspan="8">
+                            <div class="row-actions-bar">
+                                @if (h.UnitId is long inventoryUnitId)
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(inventoryUnitId)">Open unit</a>
+                                }
+                                @if (h.IssueId is long historyIssueId && h.UnitId is long issueUnitId)
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="@($"/issuing?bloodUnitId={issueUnitId}")">Open Issuing</a>
+                                    @if (h.EventType == PatientProductHistoryEventType.Issued && OnMarkTransfused.HasDelegate && Session.Has(PermissionCodes.TransfusionDocument))
+                                    {
+                                        @if (_confirmIssueId == historyIssueId)
+                                        {
+                                            <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => ConfirmTransfusedAsync(historyIssueId)">Confirm transfused</button>
+                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _confirmIssueId = null">Cancel</button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="() => _confirmIssueId = historyIssueId">Transfuse</button>
+                                        }
+                                    }
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
                 }
-            </tbody>
         </table>
     }
 </div>

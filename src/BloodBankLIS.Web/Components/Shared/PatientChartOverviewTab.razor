@@ -59,16 +59,15 @@
         else
         {
             <table class="bb">
-                <thead><tr><th>Type</th><th>Subgroup</th><th>Source</th><th>Current</th><th>Recorded</th></tr></thead>
+                <thead><tr><th>Type</th><th>Subgroup</th><th>Source</th><th>Recorded</th></tr></thead>
                 <tbody>
                     @foreach (var t in TypeHistory)
                     {
                         <tr>
-                            <td><strong>@Ui.BloodType(t.Abo, t.RhD)</strong></td>
+                            <td><strong>@Ui.BloodType(t.Abo, t.RhD)</strong>@if (t.IsCurrent) { <span class="sub">Current</span> }</td>
                             <td>@t.AboSubgroup</td>
                             <td>@t.Source</td>
-                            <td>@(t.IsCurrent ? "Yes" : "")</td>
-                            <td class="nowrap">@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         </tr>
                     }
                 </tbody>
