@@ -10,7 +10,8 @@
 @inject UserSession Session
 @inject NavigationManager Nav
 
-<PageTitle>Patient &middot; Greyhound Blood Bank LIS</PageTitle>
+@* MRN, not the name, so open charts are told apart without putting names in tab titles, history or screen shares. *@
+<PageTitle>@(_patient is null ? "Patient" : $"Chart {_patient.MedicalRecordNumber}") &middot; Greyhound Blood Bank LIS</PageTitle>
 
 @if (_loading)
 {
