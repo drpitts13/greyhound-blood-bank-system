@@ -1,6 +1,7 @@
 @page "/inventory/par"
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@inject IJSRuntime Js
 
 <PageTitle>Stock par &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -16,17 +17,29 @@
     }
     else
     {
+        @if (ShortCount > 0)
+        {
+            <p class="text-error" style="margin:0 0 .5rem;">@ShortCount below minimum.</p>
+        }
         <table class="bb">
-            <thead><tr><th>Product</th><th>ABO</th><th>On hand</th><th>Minimum</th><th>Short</th></tr></thead>
+            <thead><tr><th>Product</th><th>Name</th><th>ABO</th><th>On hand</th><th>Minimum</th><th>Short</th><th></th></tr></thead>
             <tbody>
-                @foreach (var row in _rows)
+                @* Shortages first, largest first, so what needs ordering is at the top. *@
+                @foreach (var row in _rows.OrderByDescending(r => r.Shortfall).ThenBy(r => r.ProductCode).ThenBy(r => r.Abo))
                 {
-                    <tr>
+                    <tr class="@(row.Shortfall > 0 ? "row-urgent" : null)">
                         <td class="mono">@row.ProductCode</td>
+                        <td>@ProductName(row.ProductTypeId)</td>
                         <td>@(row.Abo?.ToString() ?? "Any")</td>
                         <td>@row.OnHand</td>
                         <td>@row.MinimumAvailable</td>
-                        <td>@row.Shortfall</td>
+                        <td>@(row.Shortfall > 0 ? row.Shortfall.ToString() : "—")</td>
+                        <td class="right">
+                            @if (Session.Has(PermissionCodes.AdminConfigEdit))
+                            {
+                                <button class="btn btn-ghost btn-sm" type="button" @onclick="() => EditRow(row)">Change</button>
+                            }
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -36,7 +49,7 @@
 
 @if (Session.Has(PermissionCodes.AdminConfigEdit))
 {
-    <div class="bb-card">
+    <div class="bb-card" id="stock-par-form">
         <div class="bb-card-title"><h3>Set a minimum</h3></div>
         <div class="form-row">
             <div class="field">
@@ -84,6 +97,20 @@
     {
         var rows = await Api.GetStockParAsync();
         if (rows.Succeeded) _rows = rows.Value ?? new();
+    }
+
+    private int ShortCount => _rows.Count(r => r.Shortfall > 0);
+
+    private string ProductName(long productTypeId) =>
+        _products.FirstOrDefault(p => p.Id == productTypeId)?.Name ?? "—";
+
+    /// <summary>Prefill the form from a row, so changing a minimum does not mean re-picking product and ABO.</summary>
+    private async Task EditRow(StockParBoardRowDto row)
+    {
+        _productId = row.ProductTypeId;
+        _abo = row.Abo?.ToString() ?? string.Empty;
+        _minimum = row.MinimumAvailable;
+        await Js.ScrollIntoViewAsync("stock-par-form");
     }
 
     private async Task SaveAsync()
