@@ -176,7 +176,7 @@ else
                     @foreach (var w in Visible)
                     {
                         <tr>
-                            <td>@(w.PatientName ?? "—")</td>
+                            <td class="nowrap"><a href="@($"/patients/{w.PatientId}")">@(w.PatientName ?? $"Patient #{w.PatientId}")</a></td>
                             <td class="mono">@(w.PatientMrn ?? "—")</td>
                             <td>
                                 @if (string.IsNullOrWhiteSpace(w.SpecimenAccession))
