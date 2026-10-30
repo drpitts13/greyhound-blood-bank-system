@@ -334,7 +334,7 @@ else
                             @foreach (var r in _trace.CoRecipients)
                             {
                                 <tr>
-                                    <td><a href="@($"/patients/{r.PatientId}")">@r.PatientName</a></td>
+                                    <td class="nowrap"><a href="@($"/patients/{r.PatientId}")">@r.PatientName</a></td>
                                     <td class="mono">@r.MedicalRecordNumber</td>
                                     <td class="mono">@r.Din</td>
                                     <td class="mono">@r.UnitNumber</td>
