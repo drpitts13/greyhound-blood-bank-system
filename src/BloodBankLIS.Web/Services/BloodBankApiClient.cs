@@ -605,6 +605,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<ReadyToIssueWorkItemDto>>> GetReadyToIssueAllocationsAsync(CancellationToken ct = default) =>
         SendAsync<List<ReadyToIssueWorkItemDto>>(HttpMethod.Get, "api/issues/ready-to-issue", ct: ct);
 
+    public Task<ApiResult<IssueDto>> GetLatestIssueForUnitAsync(string unitNumber, CancellationToken ct = default) =>
+        SendAsync<IssueDto>(HttpMethod.Get, $"api/issues/latest-for-unit/{Uri.EscapeDataString(unitNumber.Trim())}", ct: ct);
+
     public Task<ApiResult<IssueDto>> GetIssueAsync(long id, CancellationToken ct = default) =>
         SendAsync<IssueDto>(HttpMethod.Get, $"api/issues/{id}", ct: ct);
 

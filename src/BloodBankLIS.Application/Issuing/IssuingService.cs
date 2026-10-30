@@ -548,6 +548,29 @@ public sealed class IssuingService
         _issues.GetByIdAsync(id, ct);
 
     /// <summary>
+    /// The most recent issue of the unit with this unit number (exact, ignoring case and spaces), so staff can
+    /// work from the number on the bag instead of an internal issue id. Null when the unit or an issue is not found.
+    /// </summary>
+    public async Task<Issue?> GetLatestForUnitNumberAsync(string unitNumber, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(unitNumber))
+        {
+            return null;
+        }
+
+        var wanted = unitNumber.Trim();
+        var candidates = await _inventory.SearchAsync(new InventorySearchCriteria(UnitNumber: wanted), ct);
+        var unit = candidates.FirstOrDefault(u => string.Equals(u.UnitNumber, wanted, StringComparison.OrdinalIgnoreCase));
+        if (unit is null)
+        {
+            return null;
+        }
+
+        var issues = await _issues.ListAsync(i => i.BloodProductId == unit.Id, ct);
+        return issues.OrderByDescending(i => i.IssuedUtc).ThenByDescending(i => i.Id).FirstOrDefault();
+    }
+
+    /// <summary>
     /// Emergency / MTP issues still waiting for a retrospective compatible crossmatch.
     /// Returned units drop off; transfused units stay until XM is documented.
     /// </summary>

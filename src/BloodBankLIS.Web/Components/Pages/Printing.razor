@@ -28,7 +28,7 @@
         <div class="bb-card-title"><h3>Print compatibility tag</h3></div>
         <Outcome Value="_tagFb" />
         <div class="form-row">
-            <div class="field"><label>Issue id</label><input type="number" @bind="_issueId" /></div>
+            <div class="field"><label>Unit number</label><input class="mono" @bind="_tagUnitNumber" @bind:event="oninput" @onkeydown="OnTagKey" placeholder="Issued unit; prints its latest issue" /></div>
             <div class="field"><label>Format</label>
                 <select @bind="_tagFormat">@foreach (var f in Enum.GetValues<LabelFormat>()) { <option value="@f">@FormatLabel(f)</option> }</select>
             </div>
@@ -174,7 +174,8 @@
     private bool CanPrint => Session.Has(PermissionCodes.PrintLabel);
     private Feedback? _jobsFb;
 
-    private long _issueId;
+    private string _tagUnitNumber = string.Empty;
+    private (long IssueId, string UnitNumber)? _prefilledIssue;
     private LabelFormat _tagFormat = LabelFormat.Pdf;
     private Feedback? _tagFb;
 
@@ -210,7 +211,17 @@
     {
         if (IssueId is long issueId)
         {
-            _issueId = issueId;
+            // Links from an issue pass its id; show the unit number on the bag and keep printing that exact issue.
+            var issue = await Api.GetIssueAsync(issueId);
+            if (issue.Succeeded && issue.Value is not null)
+            {
+                var unit = await Api.GetUnitAsync(issue.Value.BloodUnitId);
+                if (unit.Succeeded && unit.Value is not null)
+                {
+                    _tagUnitNumber = unit.Value.UnitNumber;
+                    _prefilledIssue = (issueId, unit.Value.UnitNumber);
+                }
+            }
         }
 
         if (SpecimenId is long specimenId)
@@ -287,10 +298,40 @@
         if (r.Succeeded) { await ShowJobAsync(r.Value); await LoadJobsAsync(); }
     }
 
+    private async Task OnTagKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !_busy && CanPrint) await PrintTagAsync();
+    }
+
     private async Task PrintTagAsync()
     {
+        if (string.IsNullOrWhiteSpace(_tagUnitNumber))
+        {
+            _tagFb = Feedback.Fail("Enter the issued unit's number.");
+            return;
+        }
+
         _busy = true;
-        var r = await Api.PrintCompatibilityTagAsync(_issueId, new PrintRequestVm(_tagFormat));
+        // A link from an issue names that exact issue; a typed or scanned number prints the unit's latest issue.
+        long issueId;
+        if (_prefilledIssue is { } prefilled && string.Equals(prefilled.UnitNumber, _tagUnitNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            issueId = prefilled.IssueId;
+        }
+        else
+        {
+            var issue = await Api.GetLatestIssueForUnitAsync(_tagUnitNumber);
+            if (!issue.Succeeded || issue.Value is null)
+            {
+                _busy = false;
+                _tagFb = issue.ToFeedback();
+                return;
+            }
+
+            issueId = issue.Value.Id;
+        }
+
+        var r = await Api.PrintCompatibilityTagAsync(issueId, new PrintRequestVm(_tagFormat));
         _busy = false;
         _tagFb = r.ToFeedback("Compatibility tag queued.");
         if (r.Succeeded) { await ShowJobAsync(r.Value); await LoadJobsAsync(); }
