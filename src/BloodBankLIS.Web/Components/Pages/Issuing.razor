@@ -91,11 +91,8 @@
             <table class="bb">
                 <thead>
                     <tr>
-                        <th>Patient</th>
-                        <th>MRN</th>
-                        <th>Unit</th>
-                        <th>Product</th>
-                        <th>Expires</th>
+                        <th>Patient / MRN</th>
+                        <th>Unit / product / expires</th>
                         <th>Unit type</th>
                         <th>Location</th>
                         <th>Patient type</th>
@@ -110,11 +107,12 @@
                     @foreach (var row in _readyItems)
                     {
                         <tr>
-                            <td class="nowrap"><a href="@($"/patients/{row.PatientId}?tab=products")">@(row.PatientDisplayName ?? "—")</a></td>
-                            <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
-                            <td><UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" /></td>
-                            <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
-                            <td>@(row.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
+                            <td><a href="@($"/patients/{row.PatientId}?tab=products")">@(row.PatientDisplayName ?? "—")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
+                            <td>
+                                <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
+                                <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                            </td>
                             <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
                             <td>@(string.IsNullOrWhiteSpace(row.StorageLocationName) ? "—" : row.StorageLocationName)</td>
                             <td>@(row.CurrentBloodType ?? "—")</td>
@@ -233,29 +231,15 @@
             <table class="bb">
                 <thead>
                     <tr>
-                        <th>Patient</th>
-                        <th>MRN</th>
-                        <th>Unit</th>
-                        <th>Product</th>
-                        <th>Expires</th>
-                        <th>Unit type</th>
-                        <th>Patient type</th>
+                        <th>Patient / MRN</th>
+                        <th>Unit / product / expires</th>
+                        <th>Unit / patient type</th>
                         <th>Antibodies</th>
                         <th>Specimen</th>
-                        <th>Crossmatch</th>
-                        <th>XM at issue</th>
-                        <th>Issue type</th>
-                        <th>Release reason</th>
-                        <th>Authorized by</th>
-                        <th>Cooler</th>
-                        <th>Location</th>
+                        <th>Crossmatch / at issue</th>
+                        <th>Issue details</th>
                         <th>Issued to</th>
-                        <th>Issued by</th>
-                        <th>Second verifier</th>
-                        <th>Appearance</th>
-                        <th>P-tag</th>
-                        <th>Issued</th>
-                        <th>Due</th>
+                        <th>Issued / due</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -263,13 +247,13 @@
                     @foreach (var row in _retroItems)
                     {
                         <tr>
-                            <td class="nowrap"><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
-                            <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
-                            <td><UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" /></td>
-                            <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
-                            <td>@(row.UnitExpiresUtc is DateTime retroExpires ? retroExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
-                            <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
-                            <td>@(row.CurrentBloodType ?? "—")</td>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
+                            <td>
+                                <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
+                                <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime retroExpires ? retroExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                            </td>
+                            <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
                             <td>
                                 @(row.AccessionNumber ?? "—")
@@ -281,21 +265,13 @@
                                 {
                                     <div class="muted">@retroXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
                                 }
+                                <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
                             </td>
-                            <td>@row.CrossmatchStatus</td>
-                            <td>@row.IssueType</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseDetails) ? "—" : row.EmergencyReleaseDetails)</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseAuthorizer) ? "—" : row.EmergencyReleaseAuthorizer)</td>
-                            <td class="mono">@(string.IsNullOrWhiteSpace(row.CoolerId) ? "—" : row.CoolerId)</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</td>
-                            <td>@(row.IssuedBy ?? "—")</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.SecondVerifier) ? "—" : row.SecondVerifier)</td>
-                            <td>@row.IssueAppearance</td>
-                            <td class="mono">@(string.IsNullOrWhiteSpace(row.PtagCode) ? "—" : row.PtagCode)</td>
-                            <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>
-                                @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                            <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
+                            <td class="nowrap">
+                                @row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")
+                                <span class="sub">Due @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
                                 @if (row.IsOverdue)
                                 {
                                     <span class="badge badge-amber">Overdue</span>
@@ -329,29 +305,15 @@
             <table class="bb">
                 <thead>
                     <tr>
-                        <th>Patient</th>
-                        <th>MRN</th>
-                        <th>Unit</th>
-                        <th>Product</th>
-                        <th>Expires</th>
-                        <th>Unit type</th>
-                        <th>Patient type</th>
+                        <th>Patient / MRN</th>
+                        <th>Unit / product / expires</th>
+                        <th>Unit / patient type</th>
                         <th>Antibodies</th>
                         <th>Specimen</th>
-                        <th>Crossmatch</th>
-                        <th>XM at issue</th>
-                        <th>Issue type</th>
-                        <th>Release reason</th>
-                        <th>Authorized by</th>
-                        <th>Cooler</th>
-                        <th>Location</th>
+                        <th>Crossmatch / at issue</th>
+                        <th>Issue details</th>
                         <th>Issued to</th>
-                        <th>Issued by</th>
-                        <th>Second verifier</th>
-                        <th>Appearance</th>
-                        <th>P-tag</th>
-                        <th>Issued</th>
-                        <th>Due</th>
+                        <th>Issued / due</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -359,13 +321,13 @@
                     @foreach (var row in _inTransitItems)
                     {
                         <tr>
-                            <td class="nowrap"><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
-                            <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
-                            <td><UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" /></td>
-                            <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
-                            <td>@(row.UnitExpiresUtc is DateTime transitExpires ? transitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
-                            <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
-                            <td>@(row.CurrentBloodType ?? "—")</td>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
+                            <td>
+                                <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
+                                <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime transitExpires ? transitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                            </td>
+                            <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
                             <td>
                                 @if (!string.IsNullOrWhiteSpace(row.SpecimenAccession))
@@ -380,21 +342,13 @@
                                 {
                                     <div class="muted">@transitXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
                                 }
+                                <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
                             </td>
-                            <td>@row.CrossmatchStatus</td>
-                            <td>@row.IssueType</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseDetails) ? "—" : row.EmergencyReleaseDetails)</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseAuthorizer) ? "—" : row.EmergencyReleaseAuthorizer)</td>
-                            <td class="mono">@(row.CoolerId ?? "—")</td>
-                            <td>@(row.IssuedToLocation ?? "—")</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</td>
-                            <td>@(row.IssuedBy ?? "—")</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.SecondVerifier) ? "—" : row.SecondVerifier)</td>
-                            <td>@row.IssueAppearance</td>
-                            <td class="mono">@(string.IsNullOrWhiteSpace(row.PtagCode) ? "—" : row.PtagCode)</td>
-                            <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>
-                                @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
+                            <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
+                            <td>@(row.IssuedToLocation ?? "—")<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
+                            <td class="nowrap">
+                                @row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")
+                                <span class="sub">Due @(row.DueUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")</span>
                                 @if (row.IsOverdue)
                                 {
                                     <span class="badge badge-amber">Overdue</span>
@@ -428,31 +382,16 @@
             <table class="bb">
                 <thead>
                     <tr>
-                        <th>Patient</th>
-                        <th>MRN</th>
-                        <th>Unit</th>
-                        <th>Product</th>
-                        <th>Expires</th>
-                        <th>Unit type</th>
-                        <th>Patient type</th>
+                        <th>Patient / MRN</th>
+                        <th>Unit / product / expires</th>
+                        <th>Unit / patient type</th>
                         <th>Antibodies</th>
                         <th>Specimen</th>
-                        <th>Crossmatch</th>
-                        <th>XM at issue</th>
-                        <th>Issue type</th>
-                        <th>Release reason</th>
-                        <th>Authorized by</th>
+                        <th>Crossmatch / at issue</th>
+                        <th>Issue details</th>
                         <th>Ward receipt</th>
-                        <th>Ward appearance</th>
-                        <th>Cooler</th>
-                        <th>Location</th>
                         <th>Issued to</th>
-                        <th>Issued by</th>
-                        <th>Second verifier</th>
-                        <th>Appearance</th>
-                        <th>P-tag</th>
-                        <th>Issued</th>
-                        <th>Time out</th>
+                        <th>Issued / time out</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -460,13 +399,13 @@
                     @foreach (var row in _outstandingItems)
                     {
                         <tr>
-                            <td class="nowrap"><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
-                            <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
-                            <td><UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" /></td>
-                            <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
-                            <td>@(row.UnitExpiresUtc is DateTime issuedExpires ? issuedExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
-                            <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
-                            <td>@(row.CurrentBloodType ?? "—")</td>
+                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a><span class="sub mono">@(row.MedicalRecordNumber ?? "—")</span></td>
+                            <td>
+                                <UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" />
+                                <span class="sub">@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</span>
+                                <span class="sub nowrap">@(row.UnitExpiresUtc is DateTime issuedExpires ? issuedExpires.ToString("yyyy-MM-dd HH:mm") : "—")</span>
+                            </td>
+                            <td class="nowrap">Unit <strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong><span class="sub">Patient @(row.CurrentBloodType ?? "—")</span></td>
                             <td>@AntibodyCell(row.HasAntibodyHistory, row.AntibodySummary)</td>
                             <td>
                                 @if (!string.IsNullOrWhiteSpace(row.SpecimenAccession))
@@ -481,11 +420,9 @@
                                 {
                                     <div class="muted">@issuedXmExpires.ToString("yyyy-MM-dd HH:mm")</div>
                                 }
+                                <span class="sub">At issue: @Words(row.CrossmatchStatus)</span>
                             </td>
-                            <td>@row.CrossmatchStatus</td>
-                            <td>@row.IssueType</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseDetails) ? "—" : row.EmergencyReleaseDetails)</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.EmergencyReleaseAuthorizer) ? "—" : row.EmergencyReleaseAuthorizer)</td>
+                            <td>@IssueDetailsCell(row.IssueType.ToString(), row.EmergencyReleaseDetails, row.EmergencyReleaseAuthorizer, row.CoolerId, row.IssuedBy, row.SecondVerifier, row.IssueAppearance.ToString(), row.PtagCode)</td>
                             <td>
                                 @if (row.WardReceivedUtc is DateTime received)
                                 {
@@ -495,17 +432,10 @@
                                 {
                                     <span class="muted">Awaiting</span>
                                 }
+                                <span class="sub">Appearance: @(string.IsNullOrWhiteSpace(row.WardAppearance) ? "—" : row.WardAppearance)</span>
                             </td>
-                            <td>@(string.IsNullOrWhiteSpace(row.WardAppearance) ? "—" : row.WardAppearance)</td>
-                            <td class="mono">@(string.IsNullOrWhiteSpace(row.CoolerId) ? "—" : row.CoolerId)</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</td>
-                            <td>@(row.IssuedBy ?? "—")</td>
-                            <td>@(string.IsNullOrWhiteSpace(row.SecondVerifier) ? "—" : row.SecondVerifier)</td>
-                            <td>@row.IssueAppearance</td>
-                            <td class="mono">@(string.IsNullOrWhiteSpace(row.PtagCode) ? "—" : row.PtagCode)</td>
-                            <td>@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                            <td>@ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</td>
+                            <td>@(string.IsNullOrWhiteSpace(row.IssuedToLocation) ? "—" : row.IssuedToLocation)<span class="sub">@(string.IsNullOrWhiteSpace(row.IssuedTo) ? "—" : row.IssuedTo)</span></td>
+                            <td><span class="nowrap">@row.IssuedUtc.ToString("yyyy-MM-dd HH:mm")</span><span class="sub">@ReturnReissueRule.TimeOutLabel(row.StorageTimeOutGoverned, row.StorageTimeOutAcceptable)</span></td>
                             <td class="right nowrap">
                                 @if (row.WardReceivedUtc is null && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
@@ -1346,6 +1276,29 @@
             builder.OpenElement(0, "span");
             builder.AddAttribute(1, "class", "muted");
             builder.AddContent(2, "None");
+            builder.CloseElement();
+        }
+    };
+
+    // "NotCrossmatchedEmergency" -> "Not Crossmatched Emergency", so a long status can wrap in a narrow column.
+    private static string Words(object value) =>
+        System.Text.RegularExpressions.Regex.Replace(value.ToString() ?? "", "(?<=[a-z])(?=[A-Z])", " ");
+
+    // Issue facts recorded at issue, one labeled line each, so the worklists fit the page width
+    // instead of spending a column on each fact. Blank facts show as —.
+    private static RenderFragment IssueDetailsCell(string? issueType, string? releaseReason, string? authorizedBy, string? cooler, string? issuedBy, string? secondVerifier, string? appearance, string? ptag) => builder =>
+    {
+        builder.AddContent(0, string.IsNullOrWhiteSpace(issueType) ? "—" : issueType);
+        (string Label, string? Value)[] facts =
+        [
+            ("Release reason", releaseReason), ("Authorized by", authorizedBy), ("Cooler", cooler), ("Issued by", issuedBy),
+            ("Second verifier", secondVerifier), ("Appearance", appearance), ("P-tag", ptag)
+        ];
+        foreach (var (label, value) in facts)
+        {
+            builder.OpenElement(1, "span");
+            builder.AddAttribute(2, "class", "sub");
+            builder.AddContent(3, $"{label}: {(string.IsNullOrWhiteSpace(value) ? "—" : value)}");
             builder.CloseElement();
         }
     };

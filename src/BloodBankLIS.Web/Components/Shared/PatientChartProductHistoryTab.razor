@@ -53,25 +53,17 @@
     {
         <div class="flex gap" style="justify-content:flex-end;margin-bottom:.4rem;">
             <button type="button" class="btn btn-ghost btn-sm" aria-pressed="@_showAllColumns" @onclick="() => _showAllColumns = !_showAllColumns">
-                @(_showAllColumns ? "Show key columns only" : "Show all columns (19 more)")
+                @(_showAllColumns ? "Show key columns only" : "Show all details (19 more)")
             </button>
         </div>
-        <table class="bb @(_showAllColumns ? null : "hide-detail-cols")">
-            <thead><tr><th>Date/time</th><th>Event</th><th class="detail-col">Issue type</th><th class="detail-col">Release reason</th><th class="detail-col">Second verifier</th><th class="detail-col">Authorized by</th><th class="detail-col">Appearance</th><th class="detail-col">Ward appearance</th><th class="detail-col">P-tag</th><th class="detail-col">XM at issue</th><th>Unit</th><th>Product</th><th>Unit type</th><th class="detail-col">Expires</th><th class="detail-col">Visit</th><th class="detail-col">Order</th><th class="detail-col">Specimen</th><th>Location</th><th class="detail-col">Issued to</th><th class="detail-col">Cooler</th><th class="detail-col">Volume</th><th class="detail-col">Transfusionist</th><th>Performed by</th><th>Compatibility</th><th>Disposition</th><th class="detail-col">Return reason</th><th class="detail-col">Reissue</th><th class="detail-col">Source</th><th></th></tr></thead>
+        <table class="bb">
+            <thead><tr><th>Date/time</th><th>Event</th><th>Unit</th><th>Product</th><th>Unit type</th><th>Location</th><th>Performed by</th><th>Compatibility</th><th>Disposition</th><th></th></tr></thead>
             <tbody>
                 @foreach (var h in Rows)
                 {
                     <tr class="@HistoryRowClass(h)">
                         <td class="nowrap">@h.EventUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td><strong>@h.EventType</strong></td>
-                        <td class="detail-col">@(string.IsNullOrWhiteSpace(h.IssueType) ? "—" : h.IssueType)</td>
-                        <td class="detail-col">@(string.IsNullOrWhiteSpace(h.EmergencyReleaseReason) ? "—" : h.EmergencyReleaseReason)</td>
-                        <td class="detail-col">@(string.IsNullOrWhiteSpace(h.SecondVerifier) ? "—" : h.SecondVerifier)</td>
-                        <td class="detail-col">@(string.IsNullOrWhiteSpace(h.EmergencyReleaseAuthorizer) ? "—" : h.EmergencyReleaseAuthorizer)</td>
-                        <td class="detail-col">@(string.IsNullOrWhiteSpace(h.IssueAppearance) ? "—" : h.IssueAppearance)</td>
-                        <td class="detail-col">@(string.IsNullOrWhiteSpace(h.WardAppearance) ? "—" : h.WardAppearance)</td>
-                        <td class="detail-col mono">@(string.IsNullOrWhiteSpace(h.PtagCode) ? "—" : h.PtagCode)</td>
-                        <td class="detail-col">@(string.IsNullOrWhiteSpace(h.IssueCrossmatchStatus) ? "—" : h.IssueCrossmatchStatus)</td>
                         <td class="mono">
                             @if (h.UnitId is long historyUnitId)
                             {
@@ -84,21 +76,10 @@
                         </td>
                         <td>@(h.ProductTypeName ?? "—")</td>
                         <td>@(h.UnitBloodType ?? "—")</td>
-                        <td class="detail-col nowrap">@(h.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
-                        <td class="detail-col mono">@(h.HasMissingVisitContext ? "—" : (h.VisitNumber ?? "—"))</td>
-                        <td class="detail-col mono">@(h.OrderNumber ?? "—")</td>
-                        <td class="detail-col mono">@(h.AccessionNumber ?? "—")</td>
                         <td>@(h.IssuedToLocation ?? "—")</td>
-                        <td class="detail-col">@(string.IsNullOrWhiteSpace(h.IssuedTo) ? "—" : h.IssuedTo)</td>
-                        <td class="detail-col mono">@(string.IsNullOrWhiteSpace(h.CoolerId) ? "—" : h.CoolerId)</td>
-                        <td class="detail-col mono">@(h.VolumeTransfused is { } vol ? vol.ToString("0.###") : "—")</td>
-                        <td class="detail-col">@(h.Transfusionist ?? "—")</td>
                         <td>@(string.IsNullOrWhiteSpace(h.PerformedBy) ? "—" : h.PerformedBy)</td>
                         <td>@(h.CompatibilityStatus ?? "—")</td>
                         <td>@(h.FinalDisposition ?? "—")@if (h.ReactionSuspected) { <a class="badge badge-red" href="@($"/reactions?patientId={PatientId}")">Reaction</a> }</td>
-                        <td class="detail-col">@(string.IsNullOrWhiteSpace(h.ReturnReason) ? "—" : h.ReturnReason)</td>
-                        <td class="detail-col">@(h.ReissueEligible is bool eligible ? (eligible ? "Eligible" : "Not eligible") : "—")</td>
-                        <td class="detail-col mono">@(h.PatientIdentificationMethod ?? "—")</td>
                         <td class="right nowrap">
                             @if (h.UnitId is long inventoryUnitId)
                             {
@@ -122,6 +103,35 @@
                             }
                         </td>
                     </tr>
+                    @if (_showAllColumns)
+                    {
+                        @* The secondary facts sit under their row in a grid, so the full history fits the page width. *@
+                        <tr class="@HistoryRowClass(h)">
+                            <td colspan="10" class="bb-facts" style="padding-top:0;">
+                                <ul>
+                                    <li>Issue type: @(string.IsNullOrWhiteSpace(h.IssueType) ? "—" : h.IssueType)</li>
+                                    <li>Release reason: @(string.IsNullOrWhiteSpace(h.EmergencyReleaseReason) ? "—" : h.EmergencyReleaseReason)</li>
+                                    <li>Second verifier: @(string.IsNullOrWhiteSpace(h.SecondVerifier) ? "—" : h.SecondVerifier)</li>
+                                    <li>Authorized by: @(string.IsNullOrWhiteSpace(h.EmergencyReleaseAuthorizer) ? "—" : h.EmergencyReleaseAuthorizer)</li>
+                                    <li>Appearance: @(string.IsNullOrWhiteSpace(h.IssueAppearance) ? "—" : h.IssueAppearance)</li>
+                                    <li>Ward appearance: @(string.IsNullOrWhiteSpace(h.WardAppearance) ? "—" : h.WardAppearance)</li>
+                                    <li>P-tag: <span class="mono">@(string.IsNullOrWhiteSpace(h.PtagCode) ? "—" : h.PtagCode)</span></li>
+                                    <li>XM at issue: @(string.IsNullOrWhiteSpace(h.IssueCrossmatchStatus) ? "—" : h.IssueCrossmatchStatus)</li>
+                                    <li>Expires: @(h.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</li>
+                                    <li>Visit: <span class="mono">@(h.HasMissingVisitContext ? "—" : (h.VisitNumber ?? "—"))</span></li>
+                                    <li>Order: <span class="mono">@(h.OrderNumber ?? "—")</span></li>
+                                    <li>Specimen: <span class="mono">@(h.AccessionNumber ?? "—")</span></li>
+                                    <li>Issued to: @(string.IsNullOrWhiteSpace(h.IssuedTo) ? "—" : h.IssuedTo)</li>
+                                    <li>Cooler: <span class="mono">@(string.IsNullOrWhiteSpace(h.CoolerId) ? "—" : h.CoolerId)</span></li>
+                                    <li>Volume: <span class="mono">@(h.VolumeTransfused is { } vol ? vol.ToString("0.###") : "—")</span></li>
+                                    <li>Transfusionist: @(h.Transfusionist ?? "—")</li>
+                                    <li>Return reason: @(string.IsNullOrWhiteSpace(h.ReturnReason) ? "—" : h.ReturnReason)</li>
+                                    <li>Reissue: @(h.ReissueEligible is bool eligible ? (eligible ? "Eligible" : "Not eligible") : "—")</li>
+                                    <li>Source: <span class="mono">@(h.PatientIdentificationMethod ?? "—")</span></li>
+                                </ul>
+                            </td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>

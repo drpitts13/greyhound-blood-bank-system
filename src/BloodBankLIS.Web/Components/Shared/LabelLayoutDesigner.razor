@@ -129,7 +129,8 @@
     private int _startX;
     private int _startY;
 
-    private double Scale => Kind == LabelLayoutKind.Specimen ? 2.2 : _page == 1 ? 1.05 : 0.42;
+    // Sized so the canvas and both side panels fit a 1366px-wide window without sideways scrolling.
+    private double Scale => Kind == LabelLayoutKind.Specimen ? 1.5 : _page == 1 ? 0.75 : 0.36;
 
     private List<PlacedLabelField> Fields =>
         _document is null ? [] : _page == 2 ? _document.Page2 : _document.Page1;

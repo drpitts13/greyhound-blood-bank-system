@@ -42,8 +42,7 @@ else
             <table class="bb">
                 <thead>
                     <tr>
-                        <th>Patient</th>
-                        <th>MRN</th>
+                        <th>Patient / MRN</th>
                         <th>Unit</th>
                         <th>Patient type</th>
                         <th>Unit type</th>
@@ -51,10 +50,8 @@ else
                         <th>Antibodies</th>
                         <th>Workup</th>
                         <th>Remainder</th>
-                        <th>Severity</th>
-                        <th>Status</th>
-                        <th>Fatality</th>
-                        <th>Written report due</th>
+                        <th>Severity / status</th>
+                        <th>Fatality / report due</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -62,8 +59,7 @@ else
                     @foreach (var r in VisibleRows)
                     {
                         <tr>
-                            <td class="nowrap"><a href="@($"/patients/{r.PatientId}")">@(r.PatientDisplayName ?? $"Patient #{r.PatientId}")</a></td>
-                            <td class="mono">@(r.MedicalRecordNumber ?? "—")</td>
+                            <td><a href="@($"/patients/{r.PatientId}")">@(r.PatientDisplayName ?? $"Patient #{r.PatientId}")</a><span class="sub mono">@(r.MedicalRecordNumber ?? "—")</span></td>
                             <td><UnitLink Id="r.BloodProductId" Number="@r.UnitNumber" /></td>
                             <td>
                                 <strong>@(r.CurrentBloodType ?? "—")</strong>
@@ -128,8 +124,7 @@ else
                                     <span class="badge badge-red">Not held</span>
                                 }
                             </td>
-                            <td>@r.Severity</td>
-                            <td>@r.Status</td>
+                            <td>@r.Severity<span class="sub">@r.Status</span></td>
                             <td>
                                 @if (r.IsFatality)
                                 {
@@ -139,8 +134,8 @@ else
                                         <span class="badge badge-amber" title="@r.FatalityFollowUpDetail">Follow-up due</span>
                                     }
                                 }
+                                <span class="sub nowrap">Report due @(r.WrittenReportDueUtc?.ToString("yyyy-MM-dd") ?? "—")</span>
                             </td>
-                            <td class="nowrap">@(r.WrittenReportDueUtc?.ToString("yyyy-MM-dd") ?? "—")</td>
                             @* The patient name and unit number already open the chart and the unit. *@
                             <td class="right nowrap">
                                 <a class="btn btn-ghost btn-sm" href="@($"/reactions?id={r.Id}")">Open investigation</a>

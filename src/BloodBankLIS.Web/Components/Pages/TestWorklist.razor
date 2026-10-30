@@ -52,20 +52,14 @@
         <table class="bb">
             <thead>
                 <tr>
-                    <th>Patient</th>
-                    <th>MRN</th>
+                    <th>Patient / MRN</th>
                     <th>ABO/Rh</th>
                     <th>Antibodies</th>
                     <th>Test</th>
-                    <th>Order #</th>
-                    <th>Accession</th>
-                    <th>Expires</th>
+                    <th>Order / accession</th>
                     <th>eXM</th>
-                    <th>Status</th>
                     <th>Result</th>
-                    <th>Source</th>
-                    <th>Priority</th>
-                    <th>Ordered</th>
+                    <th>Priority / ordered</th>
                     <th>Comment</th>
                     <th></th>
                 </tr>
@@ -74,8 +68,7 @@
                 @foreach (var item in _items)
                 {
                     <tr class="@RowClass(item)">
-                        <td class="nowrap"><a href="@($"/patients/{item.PatientId}?tab=tests")">@item.PatientName</a></td>
-                        <td class="mono">@item.Mrn</td>
+                        <td><a href="@($"/patients/{item.PatientId}?tab=tests")">@item.PatientName</a><span class="sub mono">@item.Mrn</span></td>
                         <td><strong>@(item.CurrentBloodType ?? "—")</strong></td>
                         <td>
                             @if (item.HasAntibodyHistory)
@@ -88,16 +81,16 @@
                             }
                         </td>
                         <td><strong>@item.TestName</strong> <span class="mono muted">@item.TestCode</span></td>
-                        <td class="mono">@item.OrderNumber</td>
-                        <td class="mono">@(item.AccessionNumber ?? "—")</td>
-                        <td class="nowrap">
+                        <td>
+                            <span class="mono">@item.OrderNumber</span>
+                            <span class="sub mono">@(item.AccessionNumber ?? "—")</span>
                             @if (item.SpecimenExpiresUtc is DateTime expires)
                             {
-                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "muted")">@expires.ToString("yyyy-MM-dd HH:mm")</span>
+                                <span class="@(item.SpecimenExpired ? "badge badge-red" : "sub") nowrap">@expires.ToString("yyyy-MM-dd HH:mm")</span>
                             }
                             else
                             {
-                                <span class="muted">—</span>
+                                <span class="sub">—</span>
                             }
                         </td>
                         <td>
@@ -121,15 +114,13 @@
                             {
                                 <span class="badge badge-gray">Pending</span>
                             }
-                        </td>
-                        <td class="mono">
-                            @(item.CurrentResultValue ?? "—")
+                            <span class="sub mono">@(item.CurrentResultValue ?? "—")</span>
                             @if (item.AboRhDeltaHold)
                             {
                                 <span class="badge badge-amber" title="@(item.AboRhDeltaDetail ?? "ABO/Rh disagrees with history")">Discrepancy</span>
                             }
+                            <span class="sub">Source: @(item.CurrentResultSource?.ToString() ?? "—")</span>
                         </td>
-                        <td>@(item.CurrentResultSource?.ToString() ?? "—")</td>
                         <td>
                             @if (IsRush(item.Priority))
                             {
@@ -139,8 +130,8 @@
                             {
                                 @item.Priority
                             }
+                            <span class="sub nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</span>
                         </td>
-                        <td class="nowrap">@item.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@(string.IsNullOrWhiteSpace(item.Comment) ? "—" : item.Comment)</td>
                         <td class="right nowrap">
                             <a class="btn btn-ghost btn-sm" href="@($"/patients/{item.PatientId}?tab=tests")">Open chart · Tests</a>
@@ -159,7 +150,7 @@
                     </tr>
                     @if (_expandedLineId == item.OrderLineId)
                     {
-                        <tr><td colspan="16">
+                        <tr><td colspan="10">
                             <TestLineCommentEditor WorkItem="item" />
                             <TestResultEntryPanel WorkItem="item" OnSaved="OnResultSaved" />
                         </td></tr>
