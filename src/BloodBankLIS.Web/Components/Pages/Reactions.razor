@@ -5,7 +5,17 @@
 <PageTitle>Reaction investigations &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Transfusion reaction investigations</h1>
-<p class="muted">Opened automatically when a transfusion is documented with a suspected reaction. The board lists work still due. A closed fatality stays here until CBER notification and the written report are both recorded. Each of those steps is recorded once. Choosing severity Fatal starts that same follow-up. Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA. Close still requires the existing clerical, visual, and DAT gate.</p>
+<p class="muted">Opened automatically when a transfusion is documented with a suspected reaction. The board lists work still due.</p>
+<details class="bb-help">
+    <summary>About this page</summary>
+    <ul>
+        <li>A closed fatality stays here until CBER notification and the written report are both recorded.</li>
+        <li>Each of those steps is recorded once.</li>
+        <li>Choosing severity Fatal starts that same follow-up.</li>
+        <li>Fatality fields support 21 CFR 606.170 record-keeping; this LIS does not file with FDA.</li>
+        <li>Close still requires the existing clerical, visual, and DAT gate.</li>
+    </ul>
+</details>
 
 @if (!Session.Has(PermissionCodes.ReactionInvestigate))
 {

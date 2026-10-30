@@ -6,7 +6,17 @@
 <PageTitle>Lookback &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Lookback &amp; traceback</h1>
-<p class="muted">Donor lookback finds every component sharing a DIN. Recipient traceback lists units issued to a patient and other recipients of those donations. Recalling pulls in-stock components and opens one notification for each issued or transfused component. Those calls stay on this page until they are completed. A finished call stays finished, and the DIN report does not offer another attempt. A later recall does not add a second row. The LIS does not auto-notify patients.</p>
+<p class="muted">Donor lookback finds every component sharing a DIN. Recipient traceback lists units issued to a patient and other recipients of those donations.</p>
+<details class="bb-help">
+    <summary>About this page</summary>
+    <ul>
+        <li>Recalling pulls in-stock components and opens one notification for each issued or transfused component.</li>
+        <li>Those calls stay on this page until they are completed.</li>
+        <li>A finished call stays finished, and the DIN report does not offer another attempt.</li>
+        <li>A later recall does not add a second row.</li>
+        <li>The LIS does not auto-notify patients.</li>
+    </ul>
+</details>
 
 @if (!Session.Has(PermissionCodes.LookbackManage))
 {
