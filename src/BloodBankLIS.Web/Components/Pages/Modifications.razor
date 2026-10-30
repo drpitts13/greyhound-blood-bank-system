@@ -257,7 +257,7 @@
                     var releaseCue = ModificationResultNextStep.ReleaseCue(u.Status, location);
                     var releaseHref = ModificationResultNextStep.ReleaseHref(u.Status, u.Id, Session.Has(PermissionCodes.InventoryRelease));
                     <tr>
-                        <td class="mono">@u.UnitNumber</td>
+                        <td><UnitLink Id="u.Id" Number="@u.UnitNumber" /></td>
                         <td class="mono">@(u.ProductCodeData ?? u.Isbt128ProductCode ?? "—")</td>
                         <td>@FormatVolume(u.Volume)</td>
                         <td>@Ui.BloodType(u.Abo, u.RhD)</td>

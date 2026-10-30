@@ -65,7 +65,7 @@
                     @foreach (var row in _secondAboItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}?tab=tests")">@row.DisplayName</a></td>
+                            <td class="nowrap"><a href="@($"/patients/{row.PatientId}?tab=tests")">@row.DisplayName</a></td>
                             <td class="mono">@row.MedicalRecordNumber</td>
                             <td class="mono">@row.CurrentAboRh</td>
                             <td>@row.ReservedUnitCount</td>
@@ -110,9 +110,9 @@
                     @foreach (var row in _readyItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}?tab=products")">@(row.PatientDisplayName ?? "—")</a></td>
+                            <td class="nowrap"><a href="@($"/patients/{row.PatientId}?tab=products")">@(row.PatientDisplayName ?? "—")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
-                            <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
+                            <td><UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" /></td>
                             <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
                             <td>@(row.UnitExpiresUtc is DateTime unitExpires ? unitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
                             <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
@@ -263,9 +263,9 @@
                     @foreach (var row in _retroItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
+                            <td class="nowrap"><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
-                            <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
+                            <td><UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" /></td>
                             <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
                             <td>@(row.UnitExpiresUtc is DateTime retroExpires ? retroExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
                             <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
@@ -359,9 +359,9 @@
                     @foreach (var row in _inTransitItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
+                            <td class="nowrap"><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
-                            <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
+                            <td><UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" /></td>
                             <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
                             <td>@(row.UnitExpiresUtc is DateTime transitExpires ? transitExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
                             <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>
@@ -460,9 +460,9 @@
                     @foreach (var row in _outstandingItems)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
+                            <td class="nowrap"><a href="@($"/patients/{row.PatientId}")">@(row.PatientDisplayName ?? $"Issue #{row.IssueId}")</a></td>
                             <td class="mono">@(row.MedicalRecordNumber ?? "—")</td>
-                            <td class="mono">@(row.UnitNumber ?? $"#{row.BloodUnitId}")</td>
+                            <td><UnitLink Id="row.BloodUnitId" Number="@row.UnitNumber" /></td>
                             <td>@(string.IsNullOrWhiteSpace(row.ProductName) ? "—" : row.ProductName)</td>
                             <td>@(row.UnitExpiresUtc is DateTime issuedExpires ? issuedExpires.ToString("yyyy-MM-dd HH:mm") : "—")</td>
                             <td><strong>@(string.IsNullOrWhiteSpace(row.UnitBloodType) ? "—" : row.UnitBloodType)</strong></td>

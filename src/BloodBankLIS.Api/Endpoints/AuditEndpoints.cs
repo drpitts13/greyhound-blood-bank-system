@@ -65,5 +65,14 @@ public static class AuditEndpoints
                 .Distinct()
                 .OrderBy(t => t)
                 .ToListAsync(ct)));
+
+        // The user filter also matches exactly, so offer the user names actually recorded.
+        group.MapGet("/users", async (BloodBankDbContext context, CancellationToken ct) =>
+            Results.Ok(await context.AuditEvents.AsNoTracking()
+                .Select(a => a.UserName)
+                .Where(u => u != null && u != "")
+                .Distinct()
+                .OrderBy(u => u)
+                .ToListAsync(ct)));
     }
 }

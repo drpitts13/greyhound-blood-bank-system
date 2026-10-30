@@ -19,7 +19,16 @@
                 }
             </select>
         </div>
-        <div class="field"><label>User</label><input @bind="_userName" @bind:event="oninput" @onkeydown="OnFilterKey" placeholder="e.g. tech1" /></div>
+        <div class="field"><label>User</label>
+            @* Exact-match filter, like Entity type: pick from the user names recorded in the trail. *@
+            <select @bind="_userName">
+                <option value="">All users</option>
+                @foreach (var u in UserChoices)
+                {
+                    <option value="@u">@u</option>
+                }
+            </select>
+        </div>
         <div class="field"><label>Entity type</label>
             @* Exact-match filter: pick from the types recorded in the trail rather than guessing the name. *@
             <select @bind="_entityType">
@@ -131,10 +140,19 @@
             ? _entityTypes
             : _entityTypes.Append(_entityType);
 
+    private List<string> _users = new();
+
+    private IEnumerable<string> UserChoices =>
+        string.IsNullOrWhiteSpace(_userName) || _users.Contains(_userName!)
+            ? _users
+            : _users.Append(_userName!);
+
     protected override async Task OnInitializedAsync()
     {
         var types = await Api.GetAuditEntityTypesAsync();
         if (types.Succeeded) _entityTypes = types.Value ?? new();
+        var users = await Api.GetAuditUsersAsync();
+        if (users.Succeeded) _users = users.Value ?? new();
         await LoadAsync(0);
     }
 

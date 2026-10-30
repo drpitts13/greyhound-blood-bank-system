@@ -62,9 +62,9 @@ else
                     @foreach (var r in VisibleRows)
                     {
                         <tr>
-                            <td><a href="@($"/patients/{r.PatientId}")">@(r.PatientDisplayName ?? $"Patient #{r.PatientId}")</a></td>
+                            <td class="nowrap"><a href="@($"/patients/{r.PatientId}")">@(r.PatientDisplayName ?? $"Patient #{r.PatientId}")</a></td>
                             <td class="mono">@(r.MedicalRecordNumber ?? "—")</td>
-                            <td class="mono">@(r.UnitNumber ?? $"#{r.BloodProductId}")</td>
+                            <td><UnitLink Id="r.BloodProductId" Number="@r.UnitNumber" /></td>
                             <td>
                                 <strong>@(r.CurrentBloodType ?? "—")</strong>
                                 @if (r.RepeatPatientAboRhDiscrepancy)

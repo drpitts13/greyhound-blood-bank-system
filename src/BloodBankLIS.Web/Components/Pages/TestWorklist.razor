@@ -74,7 +74,7 @@
                 @foreach (var item in _items)
                 {
                     <tr class="@RowClass(item)">
-                        <td>@item.PatientName</td>
+                        <td class="nowrap"><a href="@($"/patients/{item.PatientId}?tab=tests")">@item.PatientName</a></td>
                         <td class="mono">@item.Mrn</td>
                         <td><strong>@(item.CurrentBloodType ?? "—")</strong></td>
                         <td>
@@ -211,7 +211,7 @@
                 @foreach (var row in VisiblePendingSpecimens)
                 {
                     <tr>
-                        <td>@row.PatientName</td>
+                        <td class="nowrap"><a href="@($"/patients/{row.PatientId}?tab=specimens")">@row.PatientName</a></td>
                         <td class="mono">@row.Mrn</td>
                         <td class="mono">@row.AccessionNumber</td>
                         <td>@row.SpecimenType</td>
