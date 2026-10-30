@@ -43,7 +43,17 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Expected inbound</h3></div>
-        <p class="muted">Packing-list units that have not arrived. Confirm arrival here with appearance, cooler temperature, and a second verifier — the same receive gates as the Manage drawer. A unit that fails appearance or temperature is returned to the supplier from this row. An outdated unit says Outdated and is not received; return it to the supplier. Overdue after the facility arrival window (default 24 hours). Late arrival is still allowed.</p>
+        <p class="muted">Packing-list units that have not arrived. Confirm arrival from the row.</p>
+        <details class="bb-help">
+            <summary>Arrival rules</summary>
+            <ul>
+                <li>Confirm arrival here with appearance, cooler temperature, and a second verifier — the same receive gates as the Manage drawer.</li>
+                <li>A unit that fails appearance or temperature is returned to the supplier from this row.</li>
+                <li>An outdated unit says Outdated and is not received; return it to the supplier.</li>
+                <li>Overdue after the facility arrival window (default 24 hours).</li>
+                <li>Late arrival is still allowed.</li>
+            </ul>
+        </details>
         @if (_expectedItems.Count == 0)
         {
             <div class="muted">No expected inbound units.</div>
@@ -171,7 +181,15 @@
             <h3>Pending ABO/Rh retype</h3>
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadRetypesAsync">Refresh</button>
         </div>
-        <p class="muted">This is the product-retype desk. Received units need a front-type confirmation before they become Available. A match releases the unit; a mismatch quarantines it. An outdated unit is marked Outdated: a matching retype records the type and moves it to Expired instead of Available. The test worklist lists the same units and opens this board. The Manage drawer can still record a retype while you are already on the unit.</p>
+        <p class="muted">Received units need a front-type confirmation before they become Available. A match releases the unit; a mismatch quarantines it.</p>
+        <details class="bb-help">
+            <summary>About retypes</summary>
+            <ul>
+                <li>An outdated unit is marked Outdated: a matching retype records the type and moves it to Expired instead of Available.</li>
+                <li>The test worklist lists the same units and opens this board.</li>
+                <li>The Manage drawer can still record a retype while you are already on the unit.</li>
+            </ul>
+        </details>
         @if (_retypesLoading)
         {
             <div class="loading">Loading retypes...</div>

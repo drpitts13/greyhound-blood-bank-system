@@ -12,7 +12,15 @@
         <span class="muted"> · Prefill stays on this desk so you do not re-search MRN.</span>
     </p>
 }
-<p class="muted">Record crossmatches and reserve units for a patient identified by MRN and name, not an internal id. ABO/Rh incompatibility is a hard stop. Electronic XM HardStops while an antibody-identification workup is open. Serologic XM warns (`ABID-XM-OPEN`) and still records. Allocation warns (`ABID-ALLOC-OPEN`) but still reserves so serologic XM can proceed.</p>
+<p class="muted">Record crossmatches and reserve units for a patient. ABO/Rh incompatibility is a hard stop.</p>
+<details class="bb-help">
+    <summary>Antibody-workup rules</summary>
+    <ul>
+        <li>Electronic XM is blocked while an antibody-identification workup is open.</li>
+        <li>Serologic XM warns (<span class="mono">ABID-XM-OPEN</span>) and still records.</li>
+        <li>Allocation warns (<span class="mono">ABID-ALLOC-OPEN</span>) but still reserves so serologic XM can proceed.</li>
+    </ul>
+</details>
 
 <div class="bb-grid cols-2">
     <div class="bb-card">
