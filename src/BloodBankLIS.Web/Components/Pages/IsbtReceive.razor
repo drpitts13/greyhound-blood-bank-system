@@ -45,7 +45,7 @@
     <div class="bb-card">
         <div class="form-row">
             <div class="field"><label>Open delivery</label>
-                <select @bind="_deliveryId" @bind:after="LoadDeliveryAsync">
+                <select @bind="_deliveryId" @bind:after="OnDeliveryChosenAsync">
                     <option value="0">— select —</option>
                     @foreach (var delivery in _openDeliveries)
                     {
@@ -94,7 +94,7 @@
             <div class="bb-card-title"><h3>Manual entry</h3></div>
             <div class="field">
                 <label>Donation / unit number</label>
-                <input @bind="_donationNumber" maxlength="20" placeholder="G123417654321 or G1234 17 654321 A" />
+                <input id="isbt-din" @bind="_donationNumber" maxlength="20" placeholder="G123417654321 or G1234 17 654321 A" />
                 <span class="muted">Enter the full DIN as one string (facility + year + sequence). Spaces and an optional keyboard check character are allowed.</span>
             </div>
             <div class="form-row">
@@ -251,6 +251,17 @@ Valid: @_session.Validation?.Valid</pre>
         if (patients.Succeeded) _patients = patients.Value ?? new();
     }
 
+    /// <summary>Once a delivery (and so a product) is chosen, the next step is scanning: put the cursor there.</summary>
+    private async Task OnDeliveryChosenAsync()
+    {
+        await LoadDeliveryAsync();
+        if (DeliverySelected)
+        {
+            StateHasChanged();
+            await Js.FocusSelectAsync("isbt-din");
+        }
+    }
+
     private async Task LoadDeliveryAsync()
     {
         var previousProduct = _productTypeId;
@@ -309,6 +320,7 @@ Valid: @_session.Validation?.Valid</pre>
     {
         if (_busy || !DeliveryReady(f => _manualFeedback = f)) return;
         _busy = true;
+        var readyForNextScan = false;
         try
         {
             var count = Math.Clamp(_quantity, 1, 50);
@@ -350,12 +362,15 @@ Valid: @_session.Validation?.Valid</pre>
                 ? $"Received {created[0]} (status {last!.Status}). Next DIN is {_donationNumber}."
                 : $"Received {count} units ({created[0]} through {created[^1]}, status {last!.Status}). Next DIN is {_donationNumber}.");
             await LoadDeliveryAsync();
+            readyForNextScan = true;
         }
         finally
         {
             _busy = false;
             StateHasChanged();
             await Js.ScrollIntoViewAsync("isbt-manual-outcome");
+            // Select the suggested next DIN so the next label scan simply replaces it.
+            if (readyForNextScan) await Js.FocusSelectAsync("isbt-din", preventScroll: true);
         }
     }
 
