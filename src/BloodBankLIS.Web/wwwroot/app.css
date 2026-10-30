@@ -250,6 +250,13 @@ table.bb tbody tr:hover { background: #fafbfe; }
 .bb-facts-lead { font-size: .9rem; }
 .bb-facts ul { list-style: none; margin: .35rem 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: .15rem 1rem; font-size: .84rem; color: var(--bb-muted); }
 
+/* Issue page desk tabs: worklists (with waiting counts) grouped apart from the forms. */
+.desk-nav { display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem; }
+.desk-group { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; }
+.desk-group-label { font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--bb-muted); width: 5.5rem; }
+.desk-count { display: inline-block; min-width: 1.3rem; padding: 0 .35rem; border-radius: 999px; background: var(--bb-primary); color: #fff; font-size: .72rem; line-height: 1.3rem; text-align: center; }
+.btn-primary .desk-count { background: #fff; color: var(--bb-primary); }
+
 /* Wide tables: secondary columns hidden until the user asks for all columns. */
 table.hide-detail-cols .detail-col { display: none; }
 .text-error { color: var(--bb-primary-dark); }

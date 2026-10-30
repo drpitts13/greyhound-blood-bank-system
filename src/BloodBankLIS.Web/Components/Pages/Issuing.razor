@@ -15,23 +15,30 @@
 }
 <p class="muted">The issue gate runs all safety checks, including storage-location policy and electronic / remote issue eligibility (AABB 5.16). Overrides require a reason and an electronic signature. Reserved units appear on Ready to issue so the desk does not re-key patient and unit after allocate.</p>
 
-<div class="flex gap" style="margin-bottom:1rem;flex-wrap:wrap;">
-    @if (Session.Has(PermissionCodes.IssueCreate))
-    {
-        <button type="button" class="btn @DeskClass("ready")" @onclick='() => SelectDesk("ready")'>Ready to issue</button>
-        <button type="button" class="btn @DeskClass("second")" @onclick='() => SelectDesk("second")'>Second ABO/Rh</button>
-        <button type="button" class="btn @DeskClass("retro")" @onclick='() => SelectDesk("retro")'>Retrospective</button>
-        <button type="button" class="btn @DeskClass("transit")" @onclick='() => SelectDesk("transit")'>In transit</button>
-    }
+@* Worklists show how many items wait on each, so nobody clicks through empty desks; the forms are grouped apart. *@
+<div class="desk-nav">
     @if (Session.Has(PermissionCodes.IssueCreate) || Session.Has(PermissionCodes.IssueReturn) || Session.Has(PermissionCodes.TransfusionDocument))
     {
-        <button type="button" class="btn @DeskClass("issued")" @onclick='() => SelectDesk("issued")'>Issued units</button>
-        <button type="button" class="btn @DeskClass("disposition")" @onclick='() => SelectDesk("disposition")'>Final disposition</button>
+        <div class="desk-group">
+            <span class="desk-group-label">Worklists</span>
+            @if (Session.Has(PermissionCodes.IssueCreate))
+            {
+                <button type="button" class="btn btn-sm @DeskClass("ready")" @onclick='() => SelectDesk("ready")'>Ready to issue@(CountBadge(_readyItems.Count))</button>
+                <button type="button" class="btn btn-sm @DeskClass("second")" @onclick='() => SelectDesk("second")'>Second ABO/Rh@(CountBadge(_secondAboItems.Count))</button>
+                <button type="button" class="btn btn-sm @DeskClass("retro")" @onclick='() => SelectDesk("retro")'>Retrospective@(CountBadge(_retroItems.Count))</button>
+                <button type="button" class="btn btn-sm @DeskClass("transit")" @onclick='() => SelectDesk("transit")'>In transit@(CountBadge(_inTransitItems.Count))</button>
+            }
+            <button type="button" class="btn btn-sm @DeskClass("issued")" @onclick='() => SelectDesk("issued")'>Issued units@(CountBadge(_outstandingItems.Count))</button>
+            <button type="button" class="btn btn-sm @DeskClass("disposition")" @onclick='() => SelectDesk("disposition")'>Final disposition@(CountBadge(_dispositionItems.Count))</button>
+        </div>
     }
-    <button type="button" class="btn @DeskClass("issue")" @onclick='() => SelectDesk("issue")'>Issue</button>
-    <button type="button" class="btn @DeskClass("receipt")" @onclick='() => SelectDesk("receipt")'>Ward receipt</button>
-    <button type="button" class="btn @DeskClass("return")" @onclick='() => SelectDesk("return")'>Return</button>
-    <button type="button" class="btn @DeskClass("transfuse")" @onclick='() => SelectDesk("transfuse")'>Document transfusion</button>
+    <div class="desk-group">
+        <span class="desk-group-label">Forms</span>
+        <button type="button" class="btn btn-sm @DeskClass("issue")" @onclick='() => SelectDesk("issue")'>Issue</button>
+        <button type="button" class="btn btn-sm @DeskClass("receipt")" @onclick='() => SelectDesk("receipt")'>Ward receipt</button>
+        <button type="button" class="btn btn-sm @DeskClass("return")" @onclick='() => SelectDesk("return")'>Return</button>
+        <button type="button" class="btn btn-sm @DeskClass("transfuse")" @onclick='() => SelectDesk("transfuse")'>Document transfusion</button>
+    </div>
 </div>
 
 @if (Session.Has(PermissionCodes.IssueCreate) && _desk == "second")
@@ -1078,6 +1085,15 @@
         _directoryUsers.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
 
     private string DeskClass(string desk) => _desk == desk ? "btn-primary" : "btn-secondary";
+
+    private static RenderFragment CountBadge(int count) => builder =>
+    {
+        if (count <= 0) return;
+        builder.OpenElement(0, "span");
+        builder.AddAttribute(1, "class", "desk-count");
+        builder.AddContent(2, count);
+        builder.CloseElement();
+    };
 
     private void SelectDesk(string desk) => _desk = desk;
 
