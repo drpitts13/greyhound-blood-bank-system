@@ -805,6 +805,10 @@ public sealed class BloodBankApiClient
         return SendAsync<AuditPageVm>(HttpMethod.Get, $"api/audit-events?{string.Join("&", q)}", ct: ct);
     }
 
+    /// <summary>Entity types that appear in the audit trail, for the exact-match filter.</summary>
+    public Task<ApiResult<List<string>>> GetAuditEntityTypesAsync(CancellationToken ct = default) =>
+        SendAsync<List<string>>(HttpMethod.Get, "api/audit-events/entity-types", ct: ct);
+
     public Task<ApiResult<DowntimeReconciliationSnapshot>> GetDowntimeReconciliationAsync(
         CancellationToken ct = default) =>
         SendAsync<DowntimeReconciliationSnapshot>(

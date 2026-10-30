@@ -56,5 +56,14 @@ public static class AuditEndpoints
 
             return Results.Ok(new { total, skip, take, items = events });
         });
+
+        // The entity-type filter matches exactly, so offer the types actually recorded instead of free text.
+        group.MapGet("/entity-types", async (BloodBankDbContext context, CancellationToken ct) =>
+            Results.Ok(await context.AuditEvents.AsNoTracking()
+                .Select(a => a.EntityType)
+                .Where(t => t != null && t != "")
+                .Distinct()
+                .OrderBy(t => t)
+                .ToListAsync(ct)));
     }
 }

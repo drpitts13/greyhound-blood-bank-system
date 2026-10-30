@@ -20,7 +20,16 @@
             </select>
         </div>
         <div class="field"><label>User</label><input @bind="_userName" @bind:event="oninput" @onkeydown="OnFilterKey" placeholder="e.g. tech1" /></div>
-        <div class="field"><label>Entity type</label><input @bind="_entityType" @bind:event="oninput" @onkeydown="OnFilterKey" placeholder="e.g. BloodUnit, TestResult" /></div>
+        <div class="field"><label>Entity type</label>
+            @* Exact-match filter: pick from the types recorded in the trail rather than guessing the name. *@
+            <select @bind="_entityType">
+                <option value="">All types</option>
+                @foreach (var t in EntityTypeChoices)
+                {
+                    <option value="@t">@t</option>
+                }
+            </select>
+        </div>
         <div class="field"><label>Entity id (optional)</label><input type="number" @bind="_entityId" @bind:event="oninput" @onkeydown="OnFilterKey" /></div>
     </div>
     <div class="form-row">
@@ -115,7 +124,19 @@
     private bool _busy;
     private Feedback? _fb;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync(0);
+    private List<string> _entityTypes = new();
+
+    private IEnumerable<string> EntityTypeChoices =>
+        string.IsNullOrWhiteSpace(_entityType) || _entityTypes.Contains(_entityType)
+            ? _entityTypes
+            : _entityTypes.Append(_entityType);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var types = await Api.GetAuditEntityTypesAsync();
+        if (types.Succeeded) _entityTypes = types.Value ?? new();
+        await LoadAsync(0);
+    }
 
     private static bool HasValues(AuditEventVm e) =>
         !string.IsNullOrWhiteSpace(e.OldValueJson) || !string.IsNullOrWhiteSpace(e.NewValueJson);
