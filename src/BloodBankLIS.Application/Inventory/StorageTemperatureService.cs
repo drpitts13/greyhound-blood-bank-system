@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
@@ -53,6 +54,7 @@ public sealed class StorageTemperatureService
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
+    private readonly AlertService? _alerts;
 
     public StorageTemperatureService(
         IRepository<StorageTemperatureReading> readings,
@@ -62,7 +64,8 @@ public sealed class StorageTemperatureService
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        AlertService? alerts = null)
     {
         _readings = readings;
         _locations = locations;
@@ -72,6 +75,7 @@ public sealed class StorageTemperatureService
         _clock = clock;
         _currentUser = currentUser;
         _audit = audit;
+        _alerts = alerts;
     }
 
     public async Task<OperationResult<StorageTemperatureReadingDto>> RecordAsync(
@@ -151,6 +155,17 @@ public sealed class StorageTemperatureService
             new { location.Code, reading.ReadingC, reading.ReadingUtc, reading.Status, reading.DeviationId },
             StorageTemperatureRule.IsExcursion(status) ? "Storage temperature excursion recorded." : "Storage temperature recorded.");
         await _unitOfWork.SaveChangesAsync(ct);
+
+        if (_alerts is not null && StorageTemperatureRule.IsExcursion(status))
+        {
+            await _alerts.RaiseAsync(new AlertCandidate(
+                AlertRule.TemperatureExcursion,
+                $"TEMP:{reading.Id}",
+                AlertSeverity.Critical,
+                $"Temperature excursion at {location.Code}",
+                $"{location.Name} read {reading.ReadingC} °C at {readingUtc:yyyy-MM-dd HH:mm} UTC. Deviation DEV-{reading.DeviationId} is open.",
+                "/storage-temps"), ct);
+        }
 
         return OperationResult<StorageTemperatureReadingDto>.Ok(ToDto(reading, location.Code));
     }

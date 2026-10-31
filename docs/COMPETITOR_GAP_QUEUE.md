@@ -8,7 +8,6 @@ Each open item is one implementation slice. When this list has no open items, st
 
 Round 2 (2026-10-31). Scope is the transfusion service only, by product-owner decision. Work one item per loop tick, top to bottom. Each item needs automated tests, a full `dotnet test` run, a TEST-BB ID, an iteration-log entry, and a traceability row.
 
-5. **G5 Alert inbox.** Today the dashboard shows counts only. Plan: add alerts with acknowledgement. Sources are the expiration sweep, temperature excursions, par shortages, near-expiry units, and overdue reagent QC. In-app only.
 6. **G6 CSV export.** Reports export to PDF and XLSX only. Plan: add CSV export to reports and the audit trail. Quote fields per RFC 4180 and neutralize formula injection.
 7. **G7 Supplier order from par shortfall.** Plan: generate an editable order from the par board, sign it to submit, export it as PDF or CSV, and link a received delivery to its order. No EDI.
 8. **G8 Backup and restore check.** Plan: add backup and verify scripts (SQL Server `WITH CHECKSUM` and `RESTORE VERIFYONLY`, or a SQLite copy), a backup log, and an admin last-backup view.
@@ -27,6 +26,7 @@ Round 2 (2026-10-31). Scope is the transfusion service only, by product-owner de
 9. G2 Storage temperature log. Readings against the location range; an excursion opens a Major deviation and a dashboard count. No automatic quarantine (OCD-036). TEST-BB-296.
 10. G3 Coded discard reasons. Admin catalog, code required on discard (comment when the code says so), and a wastage report by month, product, and code. TEST-BB-297.
 11. G4 Utilization. C:T ratio and transfused share by ordering location and provider on `/utilization`; numbers only, no benchmark. TEST-BB-298.
+12. G5 Alert inbox. In-app alerts with a top-bar count; excursion and expiry events, plus par, near-expiry, and reagent QC conditions that resolve themselves. TEST-BB-299.
 
 ## Excluded
 

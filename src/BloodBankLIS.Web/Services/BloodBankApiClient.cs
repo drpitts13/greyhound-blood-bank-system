@@ -1492,6 +1492,15 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ModificationResultVm>> ApplyBatchModificationAsync(PerformBatchModificationRequest req, CancellationToken ct = default) =>
         SendAsync<ModificationResultVm>(HttpMethod.Post, "api/inventory/modifications/batch", req, ct);
 
+    public Task<ApiResult<List<AlertDto>>> GetAlertsAsync(bool openOnly = false, CancellationToken ct = default) =>
+        SendAsync<List<AlertDto>>(HttpMethod.Get, $"api/alerts?openOnly={openOnly.ToString().ToLowerInvariant()}", ct: ct);
+
+    public Task<ApiResult<AlertCountVm>> GetOpenAlertCountAsync(CancellationToken ct = default) =>
+        SendAsync<AlertCountVm>(HttpMethod.Get, "api/alerts/count", ct: ct);
+
+    public Task<ApiResult<AlertDto>> AcknowledgeAlertAsync(long id, string? note, CancellationToken ct = default) =>
+        SendAsync<AlertDto>(HttpMethod.Post, $"api/alerts/{id}/acknowledge", new AcknowledgeAlertRequest(note), ct);
+
     public Task<ApiResult<UtilizationReportDto>> GetUtilizationAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct = default) =>
         SendAsync<UtilizationReportDto>(
             HttpMethod.Get,

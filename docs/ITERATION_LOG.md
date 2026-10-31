@@ -6922,3 +6922,50 @@ Competitor products report blood utilization, for example the C:T ratio by servi
 ### Next ranked residual
 
 G5: in-app alert inbox.
+
+
+## Iteration 256 — In-app alert inbox, competitor gap G5 (2026-10-31)
+
+Competitor products push alerts for storage, expiry, and QC. Here the dashboard showed counts only, and each worklist had to be opened to see a problem.
+
+### Implemented
+
+- `Alert` entity and `Alerts` table. Migration `20261031160000_Alerts`, plus the development SQLite bootstrap and the SQLite-to-SQL Server copy list.
+- `AlertRule`: severity, source constants, open versus active, and a pure `Reconcile` that returns keys to raise and active alerts to resolve. An active key is not raised again, even after acknowledgement.
+- `AlertService`:
+  - `RaiseAsync` raises an event alert, deduplicated against active alerts.
+  - `SyncAsync` reconciles one condition source.
+  - Lists open alerts plus those closed in the last 7 days, and counts open ones.
+  - `AcknowledgeAsync` records user, time, and note, is audited, and can happen only once.
+- Producers:
+  - `StorageTemperatureService` raises a Critical alert on an excursion that names the deviation.
+  - The scheduled expiry sweep raises "N unit(s) expired".
+  - `AlertScanner` with the hosted `AlertScanService` (every `Alerts:ScanSeconds`, default 300) syncs three condition sources: par shortfalls, near-expiry units, and reagent QC work (overdue, failed, unreviewed; failed is Critical).
+- `/api/alerts` (list, count, acknowledge). Added the `/alerts` page (open and closed in 7 days, link to the worklist, optional note), an `AlertBadge` in the top bar (reloads on navigation, every minute, and after an acknowledgement), an "Alerts" nav link, and a help topic.
+- In-app only: no email or SMS contract exists (recorded under Excluded). Alerts never change a unit, deviation, or QC row.
+
+### Requirements / risk
+
+- URS-BB-409, FRS-BB-444, SRS-BB-406, RISK-BB-511.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-299: `AlertRuleTests` (5) and `AlertWorkflowTests` (5). They cover:
+  - deduplication after acknowledgement
+  - sync raising and resolving without touching other sources
+  - acknowledgement audit, single use, and not found
+  - the scanner raising par, near-expiry, and QC alerts, raising nothing on a repeat scan, and resolving par once stock arrives
+  - the expired-sweep event, including zero units
+  - the excursion producer firing only out of range
+- Full suite: 2,857 passed, 0 failed (previously 2,847). Application 83, Astm 19, HL7 63, Domain 1,631, Printing 21, Help 5, Integration 1,035.
+- Run check (development database, DevMode):
+  - On startup the scan created the table and raised 2 alerts: "Reagent QC overdue: lot UXLOT1" and "Below par: RBC-LR group O", with 6 on hand against a minimum of 50. Correctly, no near-expiry alert: the soonest unit expires in about 47 hours against a 24-hour window.
+  - The badge showed "Alerts (2)". Acknowledging the QC alert with a note moved it to Closed with name and note, and the badge dropped to 1.
+  - A 26.5 °C reading on PLT-1 opened DEV-3 and raised a Critical alert listed first, and the badge showed 2.
+  - No server errors.
+- Development database changes: the alerts above, deviation DEV-3, and one PLT-1 reading.
+
+### Next ranked residual
+
+G6: CSV export for reports and the audit trail.

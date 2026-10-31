@@ -67,6 +67,7 @@ builder.Services.AddHostedService<AstmListenerService>();
 builder.Services.AddHostedService<AstmClientService>();
 builder.Services.AddHostedService<ExpiredSpecimenOrderSweepService>();
 builder.Services.AddHostedService<ExpiredUnitSweepService>();
+builder.Services.AddHostedService<AlertScanService>();
 
 // Real environment descriptor for audit stamping (overrides the infrastructure default).
 builder.Services.AddSingleton<IEnvironmentInfo>(
@@ -169,6 +170,7 @@ app.MapReagentEndpoints();
 app.MapStorageTemperatureEndpoints();
 app.MapStockParEndpoints();
 app.MapUtilizationEndpoints();
+app.MapAlertEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();

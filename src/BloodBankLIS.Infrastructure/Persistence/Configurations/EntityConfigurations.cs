@@ -2087,3 +2087,23 @@ public sealed class StorageTemperatureReadingConfiguration : IEntityTypeConfigur
         b.HasIndex(r => new { r.InventoryLocationId, r.ReadingUtc });
     }
 }
+
+public sealed class AlertConfiguration : IEntityTypeConfiguration<Alert>
+{
+    public void Configure(EntityTypeBuilder<Alert> b)
+    {
+        b.ToTable("Alerts");
+        b.HasKey(a => a.Id);
+        b.Property(a => a.Source).HasMaxLength(50).IsRequired();
+        b.Property(a => a.Key).HasMaxLength(200).IsRequired();
+        b.Property(a => a.Title).HasMaxLength(200).IsRequired();
+        b.Property(a => a.Message).HasMaxLength(1000).IsRequired();
+        b.Property(a => a.Link).HasMaxLength(300);
+        b.Property(a => a.AcknowledgedBy).HasMaxLength(100);
+        b.Property(a => a.AcknowledgeNote).HasMaxLength(500);
+        b.Property(a => a.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(a => a.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(a => new { a.Source, a.ResolvedUtc });
+        b.HasIndex(a => a.Key);
+    }
+}

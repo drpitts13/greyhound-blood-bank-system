@@ -170,6 +170,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureCompetitorGapTablesAsync(context, cancellationToken);
         await EnsureStorageTemperatureTableAsync(context, cancellationToken);
         await EnsureUnitDiscardReasonsTableAsync(context, cancellationToken);
+        await EnsureAlertsTableAsync(context, cancellationToken);
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
@@ -685,6 +686,43 @@ public static class DevelopmentSqliteBootstrap
                 )
                 """, ct);
         }
+    }
+
+    private static async Task EnsureAlertsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "Alerts", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "Alerts" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_Alerts" PRIMARY KEY AUTOINCREMENT,
+                "Source" TEXT NOT NULL,
+                "Key" TEXT NOT NULL,
+                "Severity" INTEGER NOT NULL,
+                "Title" TEXT NOT NULL,
+                "Message" TEXT NOT NULL,
+                "Link" TEXT NULL,
+                "RaisedUtc" TEXT NOT NULL,
+                "AcknowledgedBy" TEXT NULL,
+                "AcknowledgedUtc" TEXT NULL,
+                "AcknowledgeNote" TEXT NULL,
+                "ResolvedUtc" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_Alerts_Source_ResolvedUtc" ON "Alerts" ("Source", "ResolvedUtc")""", ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_Alerts_Key" ON "Alerts" ("Key")""", ct);
     }
 
     private static async Task EnsureUnitDiscardReasonsTableAsync(BloodBankDbContext context, CancellationToken ct)

@@ -1,0 +1,131 @@
+@page "/alerts"
+@inject BloodBankApiClient Api
+
+<PageTitle>Alerts &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Alerts</h1>
+<p class="muted">Conditions that need someone to look: temperature excursions, expired units, par shortfalls, units near expiry, and reagent QC work.</p>
+<details class="bb-help">
+    <summary>How it works</summary>
+    <ul>
+        <li>Alerts appear in the app only. Nothing is emailed or texted.</li>
+        <li>Par, near-expiry, and reagent QC alerts close on their own when the worklist no longer shows the condition. The system checks every five minutes by default.</li>
+        <li>Temperature excursion and expired-unit alerts stay open until someone acknowledges them.</li>
+        <li>Acknowledging records your name and note. It does not change a unit, deviation, or QC row. Open the link to act.</li>
+    </ul>
+</details>
+<Outcome Value="_feedback" />
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Open (@Open.Count)</h3></div>
+    @if (Open.Count == 0)
+    {
+        <div class="muted">No open alerts.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Severity</th><th>Alert</th><th>Raised (UTC)</th><th>Note</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var alert in Open)
+                {
+                    <tr>
+                        <td><span class="badge @SeverityClass(alert.Severity)">@alert.Severity</span></td>
+                        <td>
+                            <div>@if (alert.Link is not null) { <a href="@alert.Link">@alert.Title</a> } else { @alert.Title }</div>
+                            <div class="muted">@alert.Message</div>
+                        </td>
+                        <td class="nowrap">@alert.RaisedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td><input placeholder="Optional" value="@NoteFor(alert.Id)" @onchange="e => _notes[alert.Id] = e.Value?.ToString() ?? string.Empty" /></td>
+                        <td><button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => AcknowledgeAsync(alert.Id)">Acknowledge</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Closed in the last 7 days</h3></div>
+    @if (Closed.Count == 0)
+    {
+        <div class="muted">None.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Severity</th><th>Alert</th><th>Raised (UTC)</th><th>Closed</th></tr></thead>
+            <tbody>
+                @foreach (var alert in Closed)
+                {
+                    <tr>
+                        <td><span class="badge @SeverityClass(alert.Severity)">@alert.Severity</span></td>
+                        <td>@alert.Title</td>
+                        <td class="nowrap">@alert.RaisedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td>
+                            @if (alert.AcknowledgedUtc is DateTime ack)
+                            {
+                                <span>Acknowledged by @alert.AcknowledgedBy @ack.ToString("yyyy-MM-dd HH:mm")@(alert.AcknowledgeNote is null ? "" : $": {alert.AcknowledgeNote}")</span>
+                            }
+                            else if (alert.ResolvedUtc is DateTime resolved)
+                            {
+                                <span>Condition cleared @resolved.ToString("yyyy-MM-dd HH:mm")</span>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<AlertDto> _alerts = new();
+    private readonly Dictionary<long, string> _notes = new();
+    private Feedback? _feedback;
+    private bool _busy;
+
+    private List<AlertDto> Open => _alerts.Where(a => a.AcknowledgedUtc is null && a.ResolvedUtc is null).ToList();
+
+    private List<AlertDto> Closed => _alerts.Where(a => a.AcknowledgedUtc is not null || a.ResolvedUtc is not null).ToList();
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.GetAlertsAsync();
+        if (result.Succeeded) _alerts = result.Value ?? new();
+        else _feedback = result.ToFeedback();
+    }
+
+    private string NoteFor(long id) => _notes.TryGetValue(id, out var note) ? note : string.Empty;
+
+    private async Task AcknowledgeAsync(long id)
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var note = NoteFor(id);
+            var result = await Api.AcknowledgeAlertAsync(id, string.IsNullOrWhiteSpace(note) ? null : note);
+            _feedback = result.ToFeedback("Alert acknowledged.");
+            if (result.Succeeded)
+            {
+                _notes.Remove(id);
+                await LoadAsync();
+                AlertBadge.NotifyChanged();
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string SeverityClass(AlertSeverity severity) => severity switch
+    {
+        AlertSeverity.Critical => "badge-red",
+        AlertSeverity.Warning => "badge-amber",
+        _ => "badge-gray"
+    };
+}

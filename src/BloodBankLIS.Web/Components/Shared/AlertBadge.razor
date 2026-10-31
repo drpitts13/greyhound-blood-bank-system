@@ -1,0 +1,76 @@
+@implements IDisposable
+@inject BloodBankApiClient Api
+@inject NavigationManager Nav
+
+@* Open-alert count in the top bar. Reloads on navigation, every minute, and after an acknowledgement. *@
+<a class="btn btn-sm @(_open > 0 ? "btn-danger" : "btn-ghost")" href="/alerts" title="Open alerts">
+    Alerts@(_open > 0 ? $" ({_open})" : "")
+</a>
+
+@code {
+    private static event Action? Changed;
+
+    private int _open;
+    private PeriodicTimer? _timer;
+    private CancellationTokenSource? _cts;
+
+    /// <summary>Asks every badge in this process to reload its count.</summary>
+    public static void NotifyChanged() => Changed?.Invoke();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        Changed += OnChanged;
+        await LoadAsync();
+        _cts = new CancellationTokenSource();
+        _timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+        _ = PollAsync(_timer, _cts.Token);
+    }
+
+    private async Task PollAsync(PeriodicTimer timer, CancellationToken ct)
+    {
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                await InvokeAsync(LoadAndRenderAsync);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
+        _ = InvokeAsync(LoadAndRenderAsync);
+
+    private void OnChanged() => _ = InvokeAsync(LoadAndRenderAsync);
+
+    private async Task LoadAndRenderAsync()
+    {
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            var result = await Api.GetOpenAlertCountAsync();
+            if (result.Succeeded && result.Value is not null) _open = result.Value.Open;
+        }
+        catch (Exception)
+        {
+            // A missed count leaves the last value; the next tick retries.
+        }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        Changed -= OnChanged;
+        _cts?.Cancel();
+        _timer?.Dispose();
+        _cts?.Dispose();
+    }
+}

@@ -414,3 +414,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-406 | Inventory staff can log storage temperatures per location, see when a reading is outside the range, and have the excursion investigated. | P3 | FRS-BB-441 |
 | URS-BB-407 | Inventory and quality staff can report wastage by month, product, and a coded discard reason. | P4 | FRS-BB-442 |
 | URS-BB-408 | Transfusion service leadership can review crossmatch-to-transfusion utilization by ordering location and provider. | P7 | FRS-BB-443 |
+| URS-BB-409 | Staff are told in the app about temperature excursions, expired units, par shortfalls, near-expiry units, and reagent QC work without opening each worklist. | P7 | FRS-BB-444 |
