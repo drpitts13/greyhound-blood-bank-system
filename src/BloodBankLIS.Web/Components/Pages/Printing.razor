@@ -81,6 +81,10 @@
                     </div>
                     <button class="btn btn-primary btn-sm" disabled="@(_busy || !CanPrint)" @onclick="DeliverPdfAsync">Print to</button>
                 }
+                else
+                {
+                    <span class="muted">@NoPrinterHint("PDF")</span>
+                }
             </div>
         }
         else if (!string.IsNullOrEmpty(_lastJob.RenderedZpl))
@@ -100,6 +104,10 @@
                     </div>
                     <button class="btn btn-primary btn-sm" disabled="@(_busy || !CanPrint)" @onclick="DeliverZebraAsync">Send to Zebra</button>
                 </div>
+            }
+            else if (_lastJob.Format == LabelFormat.Zpl)
+            {
+                <p class="muted" style="margin:.6rem 0 0;">@NoPrinterHint("Zebra")</p>
             }
         }
     </div>
@@ -202,6 +210,23 @@
     private string? _pdfUrl;
     private List<PrinterChoiceDto> _pdfPrinters = new();
     private List<PrinterChoiceDto> _zebraPrinters = new();
+
+    // Without a printer the send control is hidden; say why instead of leaving a preview with no way to print.
+    private RenderFragment NoPrinterHint(string kind) => builder =>
+    {
+        builder.AddContent(0, $"No active {kind} printer is set up, so this label can't be sent from here. ");
+        if (Session.Has(PermissionCodes.AdminConfigEdit))
+        {
+            builder.OpenElement(1, "a");
+            builder.AddAttribute(2, "href", "/admin/printers");
+            builder.AddContent(3, "Set one up on Admin → Printers.");
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.AddContent(4, "Ask an administrator to add one on Admin → Printers.");
+        }
+    };
     private long _deliverPdfId;
     private long _deliverZebraId;
     private long? _reprintId;

@@ -53,7 +53,15 @@ else
             </div>
             <div class="field">
                 <label>Incoming technologist (optional)</label>
-                <input @bind="_toUser" placeholder="Username" />
+                @* A pick list of active users, so a mistyped username cannot address the handoff to nobody. *@
+                <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
+                    Items="IncomingChoices"
+                    @bind-Value="_toUser"
+                    DisplayText="@(u => u.Label)"
+                    ItemValue="@(u => u.UserName)"
+                    SearchText="@(u => u.Label)"
+                    Clearable="true"
+                    Placeholder="Anyone on the next shift" />
             </div>
         </div>
         <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_notes))" @onclick="CreateAsync">Record handoff</button>
@@ -126,11 +134,23 @@ else
     private ShiftHandoffDto? _open;
     private string _notes = string.Empty;
     private string? _toUser;
+    private List<DirectoryUserDto> _users = new();
+
+    private IEnumerable<DirectoryUserDto> IncomingChoices =>
+        _users.Where(u => !string.Equals(u.UserName, Session.UserName, StringComparison.OrdinalIgnoreCase));
     private bool _busy;
     private bool _loading = true;
     private Feedback? _fb;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        if (Session.Has(PermissionCodes.AuditRead))
+        {
+            var users = await Api.GetDirectoryUsersAsync();
+            if (users.Succeeded) _users = users.Value ?? new();
+        }
+    }
 
     private async Task LoadAsync()
     {

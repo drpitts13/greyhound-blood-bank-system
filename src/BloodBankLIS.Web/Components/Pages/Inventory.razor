@@ -620,7 +620,7 @@
             <select @bind="_searchStatus"><option value="">Any</option>@foreach (var s in Enum.GetValues<UnitStatus>()) { <option value="@s">@s</option> }</select>
         </div>
         <div class="field"><label>Product</label>
-            <select @bind="_searchProductTypeId"><option value="">Any</option>@foreach (var p in _productTypes) { <option value="@p.Id">@p.DisplayProductCode</option> }</select>
+            <select @bind="_searchProductTypeId"><option value="">Any</option>@foreach (var p in _productTypes) { <option value="@p.Id">@p.ChoiceLabel</option> }</select>
         </div>
         <div class="field"><label>ABO</label>
             <select @bind="_searchAbo"><option value="">Any</option>@foreach (var a in Enum.GetValues<AboGroup>()) { <option value="@a">@a</option> }</select>

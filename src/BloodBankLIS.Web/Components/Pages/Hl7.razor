@@ -15,121 +15,118 @@
     </ul>
 </details>
 
-<div class="bb-grid cols-2">
-    <div class="bb-card">
-        <div class="bb-card-title"><h3>Submit inbound message</h3></div>
-        @if (_ackFb is not null)
-        {
-            <Outcome Value="_ackFb" />
-        }
-        @if (!string.IsNullOrEmpty(_ack))
-        {
-            <div class="bb-card-title"><strong>ACK / NAK</strong></div>
-            <div class="pre">@_ack</div>
-        }
-        <div class="field">
-            <label>Raw HL7 (use \r or new lines between segments)</label>
-            <textarea rows="8" class="mono" @bind="_raw" placeholder="MSH|^~\&amp;|..."></textarea>
-        </div>
-        <button class="btn btn-primary" disabled="@_busy" @onclick="SubmitAsync">Submit</button>
-        <button class="btn btn-secondary" @onclick="LoadSample">Load ADT sample</button>
+@* The error queue is the operational work, so it leads at full width; manual submit is occasional. *@
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Error queue</h3>
+        <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
     </div>
-
-    <div class="bb-card">
-        <div class="bb-card-title"><h3>Error queue</h3>
-            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
-        </div>
-        @if (_errors.Count == 0)
-        {
-            <div class="empty">No unresolved errors.</div>
-        }
-        else
-        {
-            <table class="bb">
-                <thead>
+    <Outcome Value="_queueFb" />
+    @if (_errors.Count == 0)
+    {
+        <div class="empty">No unresolved errors.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead>
+                <tr>
+                    <th>Control id</th>
+                    <th>Dir</th>
+                    <th>Patient</th>
+                    <th>MRN</th>
+                    <th>Order / test / unit</th>
+                    <th>Message</th>
+                    <th>Error</th>
+                    <th>Detail</th>
+                    <th>Retries</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var e in _errors)
+                {
                     <tr>
-                        <th>Control id</th>
-                        <th>Dir</th>
-                        <th>Patient</th>
-                        <th>MRN</th>
-                        <th>Order / test / unit</th>
-                        <th>Message</th>
-                        <th>Error</th>
-                        <th>Detail</th>
-                        <th>Retries</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var e in _errors)
-                    {
-                        <tr>
-                            <td class="mono">@(e.MessageControlId ?? "—")</td>
-                            <td>@(e.Direction?.ToString() ?? "—")</td>
-                            <td>
-                                @if (e.PatientId is long patientId)
+                        <td class="mono">@(e.MessageControlId ?? "—")</td>
+                        <td>@(e.Direction?.ToString() ?? "—")</td>
+                        <td class="nowrap">
+                            @if (e.PatientId is long patientId)
+                            {
+                                <a href="@($"/patients/{patientId}")">@(e.PatientDisplayName ?? e.PatientMrn)</a>
+                            }
+                            else
+                            {
+                                @(e.PatientDisplayName ?? "—")
+                            }
+                        </td>
+                        <td class="mono">@(e.PatientMrn ?? "—")</td>
+                        <td class="mono">@FormatContext(e.PlacerOrderNumber, e.TestCode, e.UnitNumber)</td>
+                        <td>@(string.IsNullOrEmpty(e.MessageType) ? $"#{e.Hl7MessageId}" : $"{e.MessageType}{(string.IsNullOrEmpty(e.TriggerEvent) ? "" : $"^{e.TriggerEvent}")}")</td>
+                        <td>@e.ErrorType</td>
+                        <td>@e.ErrorDetail</td>
+                        <td>@e.RetryCount</td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(e.Hl7MessageId)">View</button>
+                            @if (e.Direction is null or Hl7Direction.Inbound)
+                            {
+                                @if (e.ReplayAllowed == false)
                                 {
-                                    <a href="@($"/patients/{patientId}")">@(e.PatientDisplayName ?? e.PatientMrn)</a>
+                                    <span class="muted">Replay off</span>
+                                }
+                                else if (e.ControlAlreadyApplied == true)
+                                {
+                                    <span class="muted" title="This control id already applied. Replay is not offered.">Applied</span>
                                 }
                                 else
                                 {
-                                    @(e.PatientDisplayName ?? "—")
+                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(e.Hl7MessageId)">Replay</button>
                                 }
-                            </td>
-                            <td class="mono">@(e.PatientMrn ?? "—")</td>
-                            <td class="mono">@FormatContext(e.PlacerOrderNumber, e.TestCode, e.UnitNumber)</td>
-                            <td>@(string.IsNullOrEmpty(e.MessageType) ? $"#{e.Hl7MessageId}" : $"{e.MessageType}{(string.IsNullOrEmpty(e.TriggerEvent) ? "" : $"^{e.TriggerEvent}")}")</td>
-                            <td>@e.ErrorType</td>
-                            <td>@e.ErrorDetail</td>
-                            <td>@e.RetryCount</td>
-                            <td class="right nowrap">
-                                @if (e.PatientId is long errorChartId)
+                            }
+                            <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => BeginResolve(e)">Resolve</button>
+                            @if (e.Direction == Hl7Direction.Outbound)
+                            {
+                                @if (e.RetriesExhausted == true)
                                 {
-                                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{errorChartId}")">Open chart</a>
+                                    <span class="muted" title="This outbound message has used the endpoint retry limit. Resolve the row, or raise Max retries on the interface.">Retries used</span>
                                 }
-                                <button class="btn btn-ghost btn-sm" @onclick="() => ViewAsync(e.Hl7MessageId)">View</button>
-                                @if (e.Direction is null or Hl7Direction.Inbound)
+                                else
                                 {
-                                    @if (e.ReplayAllowed == false)
-                                    {
-                                        <span class="muted">Replay off</span>
-                                    }
-                                    else if (e.ControlAlreadyApplied == true)
-                                    {
-                                        <span class="muted" title="This control id already applied. Replay is not offered.">Applied</span>
-                                    }
-                                    else
-                                    {
-                                        <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReplayAsync(e.Hl7MessageId)">Replay</button>
-                                    }
+                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(e.Hl7MessageId)">Send</button>
                                 }
-                                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => BeginResolve(e)">Resolve</button>
-                                @if (e.Direction == Hl7Direction.Outbound)
-                                {
-                                    @if (e.RetriesExhausted == true)
-                                    {
-                                        <span class="muted" title="This outbound message has used the endpoint retry limit. Resolve the row, or raise Max retries on the interface.">Retries used</span>
-                                    }
-                                    else
-                                    {
-                                        <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SendAsync(e.Hl7MessageId)">Send</button>
-                                    }
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-            @if (_resolveId is not null)
-            {
-                <div class="alert alert-info" style="margin-top:1rem;">
-                    <div class="field"><label>Reason for resolving without replay</label><input @bind="_resolveReason" /></div>
-                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="ResolveAsync">Resolve without replay</button>
-                    <button class="btn btn-ghost btn-sm" @onclick="() => _resolveId = null">Cancel</button>
-                </div>
-            }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (_resolveId is not null)
+        {
+            <div @key="_resolveId" class="alert alert-info" style="margin-top:1rem;" data-scroll-on-show>
+                <strong>Resolve @_resolveLabel without replay</strong>
+                <div class="field" style="margin-top:.5rem;"><label>Reason for resolving without replay</label><input @bind="_resolveReason" /></div>
+                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="ResolveAsync">Resolve without replay</button>
+                <button class="btn btn-ghost btn-sm" @onclick="() => _resolveId = null">Cancel</button>
+            </div>
         }
+    }
+</div>
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Submit inbound message</h3></div>
+    @if (_ackFb is not null)
+    {
+        <Outcome Value="_ackFb" />
+    }
+    @if (!string.IsNullOrEmpty(_ack))
+    {
+        <div class="bb-card-title"><strong>ACK / NAK</strong></div>
+        <div class="pre">@_ack</div>
+    }
+    <div class="field">
+        <label>Raw HL7 (use \r or new lines between segments)</label>
+        <textarea rows="8" class="mono" @bind="_raw" placeholder="MSH|^~\&amp;|..."></textarea>
     </div>
+    <button class="btn btn-primary" disabled="@_busy" @onclick="SubmitAsync">Submit</button>
+    <button class="btn btn-secondary" @onclick="LoadSample">Load ADT sample</button>
 </div>
 
 <div class="bb-card">
@@ -247,6 +244,9 @@
     private string? _ack;
     private Feedback? _ackFb;
     private Feedback? _logFb;
+    // Results show in the card whose button was pressed, not in the manual-submit card.
+    private Feedback? _queueFb;
+    private string? _resolveLabel;
 
     private List<Hl7MessageVm> _messages = new();
     private List<Hl7ErrorVm> _errors = new();
@@ -309,6 +309,7 @@
     private void BeginResolve(Hl7ErrorVm error)
     {
         _resolveId = error.Id;
+        _resolveLabel = error.MessageControlId is { Length: > 0 } control ? $"message {control}" : $"message #{error.Hl7MessageId}";
         _resolveReason = string.Empty;
     }
 
@@ -318,7 +319,7 @@
         _busy = true;
         var r = await Api.ResolveHl7ErrorAsync(_resolveId.Value, _resolveReason);
         _busy = false;
-        _ackFb = r.ToFeedback("Error queue row resolved. The stored message was not replayed.");
+        _queueFb = r.ToFeedback("Error queue row resolved. The stored message was not replayed.");
         if (r.Succeeded)
         {
             _resolveId = null;
@@ -334,7 +335,7 @@
         var r = await Api.ReplayHl7Async(id);
         _busy = false;
         _ack = r.Value?.Ack;
-        _ackFb = r.Succeeded
+        _queueFb = r.Succeeded
             ? new Feedback(
                 true,
                 r.Value?.AckCode == "AA" ? "Replay accepted (AA). Mapping error cleared when the work item resolved." : $"Replay completed ({r.Value?.AckCode}).",
@@ -359,7 +360,7 @@
         _busy = true;
         var r = await Api.SendOutboundHl7Async(id);
         _busy = false;
-        _ackFb = r.ToFeedback(r.Value?.AckCode == "AA" ? "Outbound message acknowledged (AA)." : "Outbound send completed.");
+        _queueFb = r.ToFeedback(r.Value?.AckCode == "AA" ? "Outbound message acknowledged (AA)." : "Outbound send completed.");
         await LoadAsync();
     }
 
@@ -368,10 +369,12 @@
         _busy = true;
         var r = await Api.FlushOutboundHl7Async();
         _busy = false;
-        _ackFb = r.Succeeded
+        var fb = r.Succeeded
             ? new Feedback(true, $"Sent {r.Value!.Sent} queued outbound message(s).", Array.Empty<RuleMessage>(), false, false, Array.Empty<RuleMessage>(), null)
             : r.ToFeedback();
         await LoadAsync();
+        // LoadAsync clears the log message on success, so report after it (unless the reload failed).
+        _logFb ??= fb;
     }
 
     private async Task PollFileDropAsync()
@@ -379,10 +382,12 @@
         _busy = true;
         var r = await Api.PollHl7FileDropAsync();
         _busy = false;
-        _ackFb = r.Succeeded
+        var fb = r.Succeeded
             ? new Feedback(true, $"Processed {r.Value!.Processed} inbound file-drop message(s).", Array.Empty<RuleMessage>(), false, false, Array.Empty<RuleMessage>(), null)
             : r.ToFeedback();
         await LoadAsync();
+        // LoadAsync clears the log message on success, so report after it (unless the reload failed).
+        _logFb ??= fb;
     }
 
     private void LoadSample()

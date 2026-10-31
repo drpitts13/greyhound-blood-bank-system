@@ -58,7 +58,7 @@
                     <option value="0">Select</option>
                     @foreach (var product in _products)
                     {
-                        <option value="@product.Id">@product.ProductCode</option>
+                        <option value="@product.Id">@ProductTypeLabel.ForChoice(product.Id, product.ProductCode, product.Name)</option>
                     }
                 </select>
             </div>
