@@ -305,5 +305,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-294 | A | `ReflexRuleChoiceTests.CatalogList_KeepsTheCodeAndDoesNotUseItAsTheName` | URS-BB-404 / FRS-BB-439 / RISK-BB-506 |
 | TEST-BB-295 | I | `InventoryServiceTests.ScheduledExpirationSweep_ExpiresDueUnits_WithoutUserPermission`; `InventoryServiceTests.ScheduledExpirationSweep_SkipsTerminalStatuses` | URS-BB-405 / FRS-BB-440 / RISK-BB-507 |
 | TEST-BB-296 | D / A / I | `StorageTemperatureRuleTests`; `DashboardQueueCatalogTests.Select_TemperatureExcursions_FollowsReceiveOrDeviationPermission`; `StorageTemperatureServiceTests` | URS-BB-406 / FRS-BB-441 / RISK-BB-508 |
+| TEST-BB-297 | D / I | `DiscardReasonRuleTests`; `InventoryServiceTests.Discard_StoresTheCode_AndBlocksUnknownInactiveOrMissingComment`; `DiscardReasonWorkflowTests` | URS-BB-407 / FRS-BB-442 / RISK-BB-509 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

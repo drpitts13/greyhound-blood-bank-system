@@ -129,6 +129,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<ExceptionDefinition> ExceptionDefinitions => Set<ExceptionDefinition>();
     public DbSet<CodedCommentDefinition> CodedCommentDefinitions => Set<CodedCommentDefinition>();
     public DbSet<OrderCancellationReason> OrderCancellationReasons => Set<OrderCancellationReason>();
+    public DbSet<UnitDiscardReason> UnitDiscardReasons => Set<UnitDiscardReason>();
     public DbSet<CrossmatchSettings> CrossmatchSettings => Set<CrossmatchSettings>();
     public DbSet<ExpirationModificationCode> ExpirationModificationCodes => Set<ExpirationModificationCode>();
     public DbSet<AutoThawProduct> AutoThawProducts => Set<AutoThawProduct>();

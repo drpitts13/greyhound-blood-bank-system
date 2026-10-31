@@ -43,6 +43,7 @@ public static class ReportViewSql
             $"{CaseEnum("c.Method", typeof(CrossmatchMethod))}{join}' '{join}{CaseEnum("c.Result", typeof(CrossmatchResult))}";
         var dateOfBirth = sqlServer ? "CONVERT(varchar(10), p.DateOfBirth, 23)" : "p.DateOfBirth";
         var activeTest = "td.Code = r.TestCode AND td.IsActive = 1 AND td.IsDraft = 0";
+        var discardedMonth = sqlServer ? "CONVERT(varchar(7), h.DiscardedUtc, 126)" : "substr(h.DiscardedUtc, 1, 7)";
         var testName = sqlServer
             ? $"(SELECT TOP 1 td.Name FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC)"
             : $"(SELECT td.Name FROM TestDefinitions td WHERE {activeTest} ORDER BY td.Id DESC LIMIT 1)";
@@ -95,9 +96,18 @@ public static class ReportViewSql
                 {CaseEnum("u.RhD", typeof(RhType))} AS rh,
                 {CaseEnum("u.Status", typeof(UnitStatus))} AS status,
                 u.DiscardReason AS discard_reason,
+                u.DiscardReasonCode AS discard_reason_code,
+                h.DiscardedUtc AS discarded_utc,
+                {discardedMonth} AS discarded_month,
                 u.ExpiresUtc AS expires_utc
             FROM BloodProducts u
             INNER JOIN ProductTypes pt ON pt.Id = u.ProductTypeId
+            LEFT JOIN (
+                SELECT BloodProductId, MAX(ChangedUtc) AS DiscardedUtc
+                FROM InventoryStatusHistory
+                WHERE ToStatus = {(int)UnitStatus.Discarded}
+                GROUP BY BloodProductId
+            ) h ON h.BloodProductId = u.Id
             WHERE u.Status = {(int)UnitStatus.Discarded} OR u.DiscardReason IS NOT NULL
             """);
 

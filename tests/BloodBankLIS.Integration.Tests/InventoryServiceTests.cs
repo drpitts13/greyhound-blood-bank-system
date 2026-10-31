@@ -24,6 +24,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
     private InventoryService CreateService(BloodBankDbContext context, IPermissionEvaluator? permissions = null)
     {
+        EnsureDiscardReasons(context);
         var repository = new InventoryRepository(context);
         var audit = new AuditWriter(context, _factory.Clock, _factory.CurrentUser);
         var lookups = new IsbtLookupCatalog(
@@ -53,7 +54,24 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             productTypes: new EfRepository<ProductType>(context),
             permissions: permissions,
             retype: retype,
-            retypeResults: new EfRepository<ProductRetypeResult>(context));
+            retypeResults: new EfRepository<ProductRetypeResult>(context),
+            discardReasons: new EfRepository<UnitDiscardReason>(context));
+    }
+
+    /// <summary>The three discard codes these tests use, added once per database.</summary>
+    private static void EnsureDiscardReasons(BloodBankDbContext context)
+    {
+        if (context.UnitDiscardReasons.Any())
+        {
+            return;
+        }
+
+        context.UnitDiscardReasons.AddRange(
+            new UnitDiscardReason { Code = "EXPIRED", Text = "Expired before use", SortOrder = 10 },
+            new UnitDiscardReason { Code = "BAG", Text = "Bag, port, or seal damaged", SortOrder = 20 },
+            new UnitDiscardReason { Code = "OTHER", Text = "Other", RequiresComment = true, SortOrder = 90 },
+            new UnitDiscardReason { Code = "RETIRED", Text = "Retired code", SortOrder = 95, IsActive = false });
+        context.SaveChanges();
     }
 
     private static async Task<(long PosId, long NegId)> EnsureRhRetypeCatalogAsync(BloodBankDbContext context)
@@ -276,7 +294,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var act = _factory.Create())
         {
-            var discarded = await CreateService(act).DiscardAsync(unitId, "Outdated before issue", "tech2");
+            var discarded = await CreateService(act).DiscardAsync(unitId, new DiscardUnitCommand("EXPIRED", "Outdated before issue", "tech2"));
             Assert.True(discarded.Succeeded, discarded.Error);
             Assert.Equal(UnitStatus.Discarded, discarded.Unit!.Status);
         }
@@ -3302,9 +3320,50 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var result = await CreateService(context).DiscardAsync(unitId, "  ");
+            var result = await CreateService(context).DiscardAsync(unitId, new DiscardUnitCommand("  ", "Comment only"));
             Assert.False(result.Succeeded);
-            Assert.Contains("reason is required", result.Error);
+            Assert.Contains(result.Evaluation!.HardStops, r => r.Code == DiscardReasonRule.RequiredCode);
+        }
+    }
+
+    // TEST-BB-297: discard stores the catalog code; unknown, inactive, and missing-comment codes block.
+    [Fact]
+    public async Task Discard_StoresTheCode_AndBlocksUnknownInactiveOrMissingComment()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long unitId;
+        await using (var context = _factory.Create())
+        {
+            unitId = (await CreateService(context).ReceiveUnitAsync(NewUnitRequest("U-DISC-CODE", productTypeId))).Unit!.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var service = CreateService(context);
+            var unknown = await service.DiscardAsync(unitId, new DiscardUnitCommand("NOPE", null, "tech2"));
+            Assert.Contains(unknown.Evaluation!.HardStops, r => r.Code == DiscardReasonRule.UnknownCode);
+            var retired = await service.DiscardAsync(unitId, new DiscardUnitCommand("RETIRED", null, "tech2"));
+            Assert.Contains(retired.Evaluation!.HardStops, r => r.Code == DiscardReasonRule.UnknownCode);
+            var noComment = await service.DiscardAsync(unitId, new DiscardUnitCommand("OTHER", " ", "tech2"));
+            Assert.Contains(noComment.Evaluation!.HardStops, r => r.Code == DiscardReasonRule.CommentRequiredCode);
+            Assert.NotEqual(UnitStatus.Discarded, (await context.BloodUnits.FindAsync(unitId))!.Status);
+
+            var discarded = await service.DiscardAsync(unitId, new DiscardUnitCommand(" bag ", null, "tech2"));
+            Assert.True(discarded.Succeeded, discarded.Error);
+        }
+
+        await using (var verify = _factory.Create())
+        {
+            var unit = await verify.BloodUnits.SingleAsync(u => u.Id == unitId);
+            Assert.Equal(UnitStatus.Discarded, unit.Status);
+            Assert.Equal("BAG", unit.DiscardReasonCode);
+            Assert.Equal("Bag, port, or seal damaged", unit.DiscardReason);
+            var history = await verify.InventoryStatusHistory
+                .SingleAsync(h => h.BloodProductId == unitId && h.ToStatus == UnitStatus.Discarded);
+            Assert.StartsWith("BAG: ", history.Reason);
+            var audit = await verify.AuditEvents
+                .SingleAsync(a => a.EntityId == unitId && a.EventType == AuditEventType.Discard);
+            Assert.Contains("\"DiscardReasonCode\":\"BAG\"", audit.NewValueJson);
         }
     }
 
@@ -3321,13 +3380,13 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var ctx = _factory.Create();
         var denied = await CreateService(ctx, new FixedPermissionEvaluator(1, PermissionCodes.InventoryReceive))
-            .DiscardAsync(unitId, "Bag integrity compromised", "tech2");
+            .DiscardAsync(unitId, new DiscardUnitCommand("BAG", "Bag integrity compromised", "tech2"));
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == InventoryAuthorizationRule.DiscardCode);
         Assert.NotEqual(UnitStatus.Discarded, (await ctx.BloodUnits.FindAsync(unitId))!.Status);
 
         var allowed = await CreateService(ctx, new FixedPermissionEvaluator(1, PermissionCodes.InventoryDiscard))
-            .DiscardAsync(unitId, "Bag integrity compromised", "tech2");
+            .DiscardAsync(unitId, new DiscardUnitCommand("BAG", "Bag integrity compromised", "tech2"));
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.Equal(UnitStatus.Discarded, allowed.Unit!.Status);
     }
@@ -3344,7 +3403,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var result = await CreateService(context).DiscardAsync(unitId, "Bag integrity compromised", "tech2");
+            var result = await CreateService(context).DiscardAsync(unitId, new DiscardUnitCommand("BAG", "Bag integrity compromised", "tech2"));
             Assert.True(result.Succeeded);
             Assert.Equal(UnitStatus.Discarded, result.Unit!.Status);
         }
@@ -3370,7 +3429,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        var result = await CreateService(ctx).DiscardAsync(unitId, "Bag integrity compromised");
+        var result = await CreateService(ctx).DiscardAsync(unitId, new DiscardUnitCommand("BAG", "Bag integrity compromised"));
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == DiscardVerifierRule.Code);
     }
@@ -3388,10 +3447,10 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var ctx = _factory.Create();
         var service = CreateService(ctx);
-        var same = await service.DiscardAsync(unitId, "attempt", "tech-test");
+        var same = await service.DiscardAsync(unitId, new DiscardUnitCommand("OTHER", "attempt", "tech-test"));
         Assert.Contains(same.Evaluation!.HardStops, r => r.Code == DiscardVerifierRule.Code);
 
-        var unknown = await service.DiscardAsync(unitId, "attempt", "not-a-user");
+        var unknown = await service.DiscardAsync(unitId, new DiscardUnitCommand("OTHER", "attempt", "not-a-user"));
         Assert.Contains(unknown.Evaluation!.HardStops, r => r.Code == SecondVerifierDirectoryRule.Code);
     }
 
@@ -3419,7 +3478,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using (var context = _factory.Create())
         {
-            var result = await CreateService(context).DiscardAsync(unitId, "attempt");
+            var result = await CreateService(context).DiscardAsync(unitId, new DiscardUnitCommand("OTHER", "attempt"));
             Assert.False(result.Succeeded);
             Assert.NotNull(result.Evaluation);
             Assert.True(result.Evaluation!.IsHardStopped);

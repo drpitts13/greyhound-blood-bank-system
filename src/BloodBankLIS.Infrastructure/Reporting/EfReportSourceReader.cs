@@ -114,6 +114,10 @@ public sealed class EfReportSourceReader : IReportSourceReader
                 unit.RhD,
                 unit.Status,
                 unit.DiscardReason,
+                unit.DiscardReasonCode,
+                DiscardedUtc = _db.InventoryStatusHistory
+                    .Where(h => h.BloodProductId == unit.Id && h.ToStatus == UnitStatus.Discarded)
+                    .Max(h => (DateTime?)h.ChangedUtc),
                 unit.ExpiresUtc
             }).ToListAsync(cancellationToken);
 
@@ -124,6 +128,9 @@ public sealed class EfReportSourceReader : IReportSourceReader
             ("rh", row.RhD.ToString()),
             ("status", row.Status.ToString()),
             ("discard_reason", ReportValueFormat.Text(row.DiscardReason)),
+            ("discard_reason_code", ReportValueFormat.Text(row.DiscardReasonCode)),
+            ("discarded_utc", row.DiscardedUtc is DateTime discarded ? ReportValueFormat.Date(discarded) : null),
+            ("discarded_month", row.DiscardedUtc?.ToString("yyyy-MM", System.Globalization.CultureInfo.InvariantCulture)),
             ("expires_utc", ReportValueFormat.Date(row.ExpiresUtc)))).ToList();
     }
 

@@ -8,7 +8,6 @@ Each open item is one implementation slice. When this list has no open items, st
 
 Round 2 (2026-10-31). Scope is the transfusion service only, by product-owner decision. Work one item per loop tick, top to bottom. Each item needs automated tests, a full `dotnet test` run, a TEST-BB ID, an iteration-log entry, and a traceability row.
 
-3. **G3 Coded discard reasons and a wastage report.** Discard reasons are free text today. Plan: add a versioned discard-reason catalog with an admin page, require a code on discard (free text stays optional), and seed a wastage report by product, reason, and month.
 4. **G4 Utilization report.** Plan: seed a crossmatch-to-transfusion ratio report by ordering location and provider, plus the share of issued units that were transfused.
 5. **G5 Alert inbox.** Today the dashboard shows counts only. Plan: add alerts with acknowledgement. Sources are the expiration sweep, temperature excursions, par shortages, near-expiry units, and overdue reagent QC. In-app only.
 6. **G6 CSV export.** Reports export to PDF and XLSX only. Plan: add CSV export to reports and the audit trail. Quote fields per RFC 4180 and neutralize formula injection.
@@ -27,6 +26,7 @@ Round 2 (2026-10-31). Scope is the transfusion service only, by product-owner de
 7. Par-level stock board. On-hand versus a minimum by product and optional ABO. No blood-center order. TEST-BB-285.
 8. G1 Scheduled unit expiration. Hosted sweep every `Inventory:ExpirationSweepSeconds` (default 300) as the system account. The manual sweep keeps its permission check. TEST-BB-295.
 9. G2 Storage temperature log. Readings against the location range; an excursion opens a Major deviation and a dashboard count. No automatic quarantine (OCD-036). TEST-BB-296.
+10. G3 Coded discard reasons. Admin catalog, code required on discard (comment when the code says so), and a wastage report by month, product, and code. TEST-BB-297.
 
 ## Excluded
 

@@ -25,7 +25,17 @@ public static class ReportSeedCatalog
         Visual("RPT-DISCARDS", "Discards and waste",
             "Units discarded or recorded with a discard reason.",
             ReportSourceCatalog.Discards,
-            ["unit_number", "product_name", "abo", "rh", "status", "discard_reason", "expires_utc"]),
+            ["unit_number", "product_name", "abo", "rh", "status", "discard_reason_code", "discard_reason", "discarded_utc", "expires_utc"],
+            filters: [DateRange("discarded-range", "discarded_utc")],
+            sorts: [Sort("discarded_utc", ReportSortDirection.Descending)]),
+        Visual("RPT-WASTAGE", "Wastage by product and reason",
+            "Count of discarded units by month, product, and discard reason code.",
+            ReportSourceCatalog.Discards,
+            ["discarded_month", "product_name", "discard_reason_code"],
+            filters: [DateRange("discarded-range", "discarded_utc")],
+            sorts: [Sort("discarded_month", ReportSortDirection.Descending), Sort("product_name"), Sort("discard_reason_code")],
+            groupBy: ["discarded_month", "product_name", "discard_reason_code"],
+            aggregates: [new ReportAggregate { Function = ReportAggregateFunction.Count, Alias = "units" }]),
         Visual("RPT-REACTIONS", "Transfusion reaction investigations",
             "Open and closed reaction investigations.",
             ReportSourceCatalog.Reactions,
@@ -63,7 +73,9 @@ public static class ReportSeedCatalog
         string source,
         IReadOnlyList<string> columns,
         IReadOnlyList<ReportFilter>? filters = null,
-        IReadOnlyList<ReportSort>? sorts = null) =>
+        IReadOnlyList<ReportSort>? sorts = null,
+        IReadOnlyList<string>? groupBy = null,
+        IReadOnlyList<ReportAggregate>? aggregates = null) =>
         new()
         {
             Code = code,
@@ -76,7 +88,9 @@ public static class ReportSeedCatalog
                 SourceCode = source,
                 Columns = columns.ToList(),
                 Filters = filters?.ToList() ?? new List<ReportFilter>(),
-                Sorts = sorts?.ToList() ?? new List<ReportSort>()
+                Sorts = sorts?.ToList() ?? new List<ReportSort>(),
+                GroupBy = groupBy?.ToList() ?? new List<string>(),
+                Aggregates = aggregates?.ToList() ?? new List<ReportAggregate>()
             })
         };
 

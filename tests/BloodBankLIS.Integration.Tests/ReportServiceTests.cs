@@ -28,7 +28,7 @@ public class ReportServiceTests : IDisposable
         var service = Service(db);
         var list = await service.ListAsync();
         Assert.True(list.Succeeded);
-        Assert.Equal(8, list.Value!.Count);
+        Assert.Equal(9, list.Value!.Count);
         Assert.All(list.Value, report => Assert.True(report.IsSystemOwned));
 
         foreach (var report in list.Value)

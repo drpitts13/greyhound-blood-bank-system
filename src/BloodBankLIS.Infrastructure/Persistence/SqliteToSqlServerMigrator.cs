@@ -41,6 +41,7 @@ public sealed class SqliteToSqlServerMigrator
         "ExceptionDefinitions",
         "CodedCommentDefinitions",
         "OrderCancellationReasons",
+        "UnitDiscardReasons",
         "ChargeCodes",
         "ActionDefinitions",
         "ActionBillings",

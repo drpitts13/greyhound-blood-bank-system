@@ -140,6 +140,16 @@ public static class ReferenceEndpoints
             return Results.Ok(items.Select(r => new OrderCancellationReasonRefDto(r.Code, r.Text, r.SortOrder)));
         });
 
+        group.MapGet("/discard-reasons", async (BloodBankDbContext context, CancellationToken ct) =>
+        {
+            var items = await context.UnitDiscardReasons.AsNoTracking()
+                .Where(r => r.IsActive)
+                .OrderBy(r => r.SortOrder)
+                .ThenBy(r => r.Code)
+                .ToListAsync(ct);
+            return Results.Ok(items.Select(r => new UnitDiscardReasonRefDto(r.Code, r.Text, r.RequiresComment, r.SortOrder)));
+        });
+
         group.MapGet("/coded-comments", async (BloodBankDbContext context, CommentPage? page, CancellationToken ct) =>
         {
             var query = context.CodedCommentDefinitions.AsNoTracking().Where(c => c.IsActive);

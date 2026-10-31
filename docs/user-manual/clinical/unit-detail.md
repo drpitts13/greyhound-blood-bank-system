@@ -22,6 +22,8 @@ Open a unit from Inventory, from a delivery, or from a patient's product row. Th
 
 **Actions** are the moves that are legal from the current status: quarantine, hold, release, transfer to another location, allocate to a patient order, discard, return to the supplier, or mark missing or damaged. Each action asks for the reason the rule requires. Discard and some releases need a higher permission than everyday receive and transfer. If the button is disabled, you either lack the permission or the unit status does not allow the move.
 
+**Discard** asks for a coded reason from the list an administrator keeps in Admin › Discard Reasons, plus an optional comment. A code marked comment required, such as Other, needs the comment before Discard is enabled. The unit stores the code, and the **Wastage by product and reason** report counts discards by month, product, and code.
+
 **Attributes** lists antigens and modifications (irradiated, leukoreduced, and the others recorded on the unit). Antigen typing you performed is recorded with [Unit antigen typing](unit-antigen-typing) or on the retype tab.
 
 **History** is the status log. It is append-only. You cannot delete a prior status to tidy the story.

@@ -14,6 +14,8 @@ public sealed record TransferUnitRequest(long ToLocationId, string? Reason);
 
 public sealed record DiscardUnitRequest(string Reason, string? SecondVerifier = null);
 
+public sealed record DiscardCodedUnitRequest(string ReasonCode, string? Comment = null, string? SecondVerifier = null);
+
 public static class InventoryEndpoints
 {
     public static void MapInventoryEndpoints(this WebApplication app)
@@ -209,8 +211,8 @@ public static class InventoryEndpoints
             ToHttpResult(await service.TransferAsync(id, request.ToLocationId, request.Reason, ct)))
             .RequirePermission(PermissionCodes.InventoryTransfer);
 
-        group.MapPost("/units/{id:long}/discard", async (long id, DiscardUnitRequest request, InventoryService service, CancellationToken ct) =>
-            ToHttpResult(await service.DiscardAsync(id, request.Reason, request.SecondVerifier, ct)))
+        group.MapPost("/units/{id:long}/discard", async (long id, DiscardCodedUnitRequest request, InventoryService service, CancellationToken ct) =>
+            ToHttpResult(await service.DiscardAsync(id, new DiscardUnitCommand(request.ReasonCode, request.Comment, request.SecondVerifier), ct)))
             .RequirePermission(PermissionCodes.InventoryDiscard);
 
         // Operational sweep that expires units past their expiration date/time.

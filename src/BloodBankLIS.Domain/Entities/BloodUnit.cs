@@ -110,6 +110,9 @@ public class BloodUnit : BaseEntity
 
     public string? DiscardReason { get; set; }
 
+    /// <summary>Catalog code from <c>UnitDiscardReasons</c>; the wastage report groups on it.</summary>
+    public string? DiscardReasonCode { get; set; }
+
     public string? RecallReason { get; set; }
 
     /// <summary>Visual inspection at receipt (AABB / SoftBank intake appearance check).</summary>

@@ -118,6 +118,8 @@ public sealed record ModificationResultVm(long ModificationId, List<BloodUnitDto
 public sealed record TransferRequestVm(long ToLocationId, string? Reason);
 public sealed record ReasonRequestVm(string Reason);
 public sealed record DiscardUnitRequestVm(string Reason, string? SecondVerifier = null);
+
+public sealed record DiscardCodedUnitRequestVm(string ReasonCode, string? Comment = null, string? SecondVerifier = null);
 public sealed record PrintRequestVm(LabelFormat Format = LabelFormat.Zpl, string? TemplateCode = null, string? TargetPrinter = null);
 
 public sealed record PtagIdRequiredVm(bool Required);

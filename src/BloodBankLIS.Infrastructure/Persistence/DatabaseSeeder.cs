@@ -43,6 +43,7 @@ public static partial class DatabaseSeeder
         await SeedExceptionDefinitionsAsync(context, cancellationToken);
         await SeedCodedCommentDefinitionsAsync(context, cancellationToken);
         await SeedOrderCancellationReasonsAsync(context, cancellationToken);
+        await SeedUnitDiscardReasonsAsync(context, cancellationToken);
         await SeedProductTypesAsync(context, cancellationToken);
         await EnsureCellularProductCrossmatchFlagsAsync(context, cancellationToken);
         await EnsureModificationProductTypesAsync(context, cancellationToken);
@@ -1060,6 +1061,48 @@ public static partial class DatabaseSeeder
                 role.SecurityLevel = level;
                 changed = true;
             }
+        }
+
+        if (changed)
+        {
+            await context.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>
+    /// Starter discard codes for wastage reporting. They are facility-editable examples,
+    /// not a regulatory list. OTHER requires a comment.
+    /// </summary>
+    private static async Task SeedUnitDiscardReasonsAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        var seeds = new (string Code, string Text, bool RequiresComment, int Sort)[]
+        {
+            ("EXPIRED", "Expired before use", false, 10),
+            ("BAG", "Bag, port, or seal damaged", false, 20),
+            ("VISUAL", "Failed visual inspection", false, 30),
+            ("TEMP", "Storage or transport temperature out of range", false, 40),
+            ("RETURN", "Returned and not eligible for reissue", false, 50),
+            ("RECALL", "Supplier recall or lookback", false, 60),
+            ("OTHER", "Other", true, 90)
+        };
+
+        var changed = false;
+        foreach (var (code, text, requiresComment, sort) in seeds)
+        {
+            if (await context.UnitDiscardReasons.AnyAsync(r => r.Code == code, ct))
+            {
+                continue;
+            }
+
+            context.UnitDiscardReasons.Add(new UnitDiscardReason
+            {
+                Code = code,
+                Text = text,
+                RequiresComment = requiresComment,
+                SortOrder = sort,
+                IsActive = true
+            });
+            changed = true;
         }
 
         if (changed)

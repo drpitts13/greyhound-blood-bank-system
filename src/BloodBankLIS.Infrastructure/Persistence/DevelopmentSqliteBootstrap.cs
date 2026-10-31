@@ -132,6 +132,7 @@ public static class DevelopmentSqliteBootstrap
         ("InventoryLocations", "StorageTempMaxC", """ALTER TABLE "InventoryLocations" ADD COLUMN "StorageTempMaxC" TEXT NULL"""),
         ("InventoryLocations", "DefaultInTransitHours", """ALTER TABLE "InventoryLocations" ADD COLUMN "DefaultInTransitHours" INTEGER NULL"""),
         ("InventoryLocations", "Notes", """ALTER TABLE "InventoryLocations" ADD COLUMN "Notes" TEXT NULL"""),
+        ("BloodProducts", "DiscardReasonCode", """ALTER TABLE "BloodProducts" ADD COLUMN "DiscardReasonCode" TEXT NULL"""),
         ("InventoryLocations", "TimeOutGoverned", """ALTER TABLE "InventoryLocations" ADD COLUMN "TimeOutGoverned" INTEGER NOT NULL DEFAULT 1"""),
         ("UnitModifications", "SupplyDescription", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyDescription" TEXT NULL"""),
         ("UnitModifications", "SupplyLot", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyLot" TEXT NULL"""),
@@ -168,6 +169,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureOrderCancellationReasonsTableAsync(context, cancellationToken);
         await EnsureCompetitorGapTablesAsync(context, cancellationToken);
         await EnsureStorageTemperatureTableAsync(context, cancellationToken);
+        await EnsureUnitDiscardReasonsTableAsync(context, cancellationToken);
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
@@ -683,6 +685,37 @@ public static class DevelopmentSqliteBootstrap
                 )
                 """, ct);
         }
+    }
+
+    private static async Task EnsureUnitDiscardReasonsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "UnitDiscardReasons", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "UnitDiscardReasons" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_UnitDiscardReasons" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Text" TEXT NOT NULL,
+                "RequiresComment" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_UnitDiscardReasons_Code" ON "UnitDiscardReasons" ("Code")""", ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_UnitDiscardReasons_IsActive_SortOrder" ON "UnitDiscardReasons" ("IsActive", "SortOrder")""", ct);
     }
 
     private static async Task EnsureStorageTemperatureTableAsync(BloodBankDbContext context, CancellationToken ct)

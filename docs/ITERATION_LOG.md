@@ -6848,3 +6848,42 @@ Competitor equipment-QC modules log storage temperatures. Here, locations had a 
 ### Next ranked residual
 
 G3: coded discard reasons and a wastage report.
+
+
+## Iteration 254 — Coded discard reasons and wastage report, competitor gap G3 (2026-10-31)
+
+Competitor products report wastage by cause. Here the discard reason was free text, and the discards report could not group it.
+
+### Implemented
+
+- `UnitDiscardReason` admin catalog (code, text, comment required, sort, active), cloned from the order-cancellation-reason pattern. It has an admin service with configuration history, `/api/admin/discard-reasons`, `/api/reference/discard-reasons`, the `/admin/discard-reasons` page, a nav link, an Admin Home card, and a help topic.
+- Starter codes, seeded only when missing: EXPIRED, BAG, VISUAL, TEMP, RETURN, RECALL, and OTHER (comment required). These are facility-editable examples, not a regulatory list.
+- `BloodProducts.DiscardReasonCode`. Migration `20261031140000_UnitDiscardReasons`, plus the development SQLite bootstrap table and column, and the SQLite-to-SQL Server copy list.
+- `DiscardReasonRule`: a blank, unknown, or inactive code, or a missing required comment, is a HardStop. `DiscardAsync` now takes a `DiscardUnitCommand` (code, comment, second verifier). Using a record makes an old positional free-text call fail to compile instead of being read as a code. The unit stores the code and the text "catalog text: comment". History reads "CODE: text"; the audit carries `DiscardReasonCode`. The permission and second-verifier checks are unchanged.
+- Unit page: discard has a reason dropdown and a comment field. The comment shows "(required)" for a code that needs it, and Discard stays disabled until the input is complete.
+- Reports: the discards source and the `rpt_discards` view add `discard_reason_code`, `discarded_utc` (latest status-history row to Discarded), and `discarded_month`. New seeded report RPT-WASTAGE ("Wastage by product and reason") groups by month, product, and code with a unit count. The RPT-DISCARDS layout gains those columns, but only on new databases: existing system reports are not rewritten.
+
+### Requirements / risk
+
+- URS-BB-407, FRS-BB-442, SRS-BB-404, RISK-BB-509.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-297:
+  - `DiscardReasonRuleTests` (7 cases)
+  - `InventoryServiceTests.Discard_StoresTheCode_AndBlocksUnknownInactiveOrMissingComment`
+  - `DiscardReasonWorkflowTests.Catalog_NormalizesCode_RejectsDuplicates_AndKeepsTheCommentFlag`
+  - `DiscardReasonWorkflowTests.WastageReport_CountsDiscardsByMonthProductAndCode` (the visual grouping and the SQL view)
+- Updated: the nine existing discard calls now pass a code. The blank-reason test now expects `DISCARD-REASON-REQUIRED`. The seeded report count changed from 8 to 9.
+- Full suite: 2,839 passed, 0 failed (previously 2,829). Application 83, Astm 19, HL7 63, Domain 1,620, Printing 21, Help 5, Integration 1,028.
+- Run check (development database, DevMode):
+  - The admin page listed the seven codes, with OTHER marked "Required".
+  - On unit W0001230001009, Discard stayed disabled with OTHER and no comment, and enabled once a comment was typed.
+  - The first submit was blocked by the existing second-verifier policy (INV-DISC-2ND). With tech1 as verifier, the unit was discarded.
+  - RPT-WASTAGE showed `2026-10 | Apheresis Platelets | OTHER | 1`, plus one blank-code row for a seed unit discarded before this change. No server errors.
+- Development database change: unit W0001230001009 is now Discarded (OTHER, "Verification test: dropped during handling").
+
+### Next ranked residual
+
+G4: crossmatch-to-transfusion ratio and utilization report.

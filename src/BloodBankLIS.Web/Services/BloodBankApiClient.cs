@@ -532,8 +532,8 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<BloodUnitDto>> TransferUnitAsync(long id, long toLocationId, string? reason, CancellationToken ct = default) =>
         SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/transfer", new TransferRequestVm(toLocationId, reason), ct);
 
-    public Task<ApiResult<BloodUnitDto>> DiscardUnitAsync(long id, string reason, string? secondVerifier = null, CancellationToken ct = default) =>
-        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/discard", new DiscardUnitRequestVm(reason, secondVerifier), ct);
+    public Task<ApiResult<BloodUnitDto>> DiscardUnitAsync(long id, string reasonCode, string? comment, string? secondVerifier = null, CancellationToken ct = default) =>
+        SendAsync<BloodUnitDto>(HttpMethod.Post, $"api/inventory/units/{id}/discard", new DiscardCodedUnitRequestVm(reasonCode, comment, secondVerifier), ct);
 
     public Task<ApiResult<ExpireDueVm>> ExpireDueAsync(CancellationToken ct = default) =>
         SendAsync<ExpireDueVm>(HttpMethod.Post, "api/inventory/expire-due", ct: ct);
@@ -1181,6 +1181,31 @@ public sealed class BloodBankApiClient
             HttpMethod.Post,
             $"api/admin/order-cancellation-reasons/{id}/{(active ? "activate" : "deactivate")}",
             ct: ct);
+
+    public Task<ApiResult<List<UnitDiscardReasonDto>>> GetAdminUnitDiscardReasonsAsync(
+        bool includeInactive = true, CancellationToken ct = default) =>
+        SendAsync<List<UnitDiscardReasonDto>>(
+            HttpMethod.Get,
+            $"api/admin/discard-reasons?includeInactive={includeInactive.ToString().ToLowerInvariant()}",
+            ct: ct);
+
+    public Task<ApiResult<UnitDiscardReasonDto>> CreateAdminUnitDiscardReasonAsync(
+        SaveUnitDiscardReasonRequest req, CancellationToken ct = default) =>
+        SendAsync<UnitDiscardReasonDto>(HttpMethod.Post, "api/admin/discard-reasons", req, ct);
+
+    public Task<ApiResult<UnitDiscardReasonDto>> UpdateAdminUnitDiscardReasonAsync(
+        long id, SaveUnitDiscardReasonRequest req, CancellationToken ct = default) =>
+        SendAsync<UnitDiscardReasonDto>(HttpMethod.Put, $"api/admin/discard-reasons/{id}", req, ct);
+
+    public Task<ApiResult<UnitDiscardReasonDto>> SetAdminUnitDiscardReasonActiveAsync(
+        long id, bool active, CancellationToken ct = default) =>
+        SendAsync<UnitDiscardReasonDto>(
+            HttpMethod.Post,
+            $"api/admin/discard-reasons/{id}/{(active ? "activate" : "deactivate")}",
+            ct: ct);
+
+    public Task<ApiResult<List<UnitDiscardReasonRefDto>>> GetDiscardReasonsAsync(CancellationToken ct = default) =>
+        SendAsync<List<UnitDiscardReasonRefDto>>(HttpMethod.Get, "api/reference/discard-reasons", ct: ct);
 
     public Task<ApiResult<CodedCommentDefinitionDto>> CreateAdminCodedCommentAsync(
         SaveCodedCommentDefinitionRequest req, CancellationToken ct = default) =>

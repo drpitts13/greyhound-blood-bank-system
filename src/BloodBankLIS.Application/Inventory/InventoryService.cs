@@ -53,6 +53,7 @@ public sealed class InventoryService
     private readonly IRepository<ProductRetypeResult>? _retypeResults;
     private readonly DeliveryService? _deliveries;
     private readonly IRepository<UnitModificationUnit>? _modificationUnits;
+    private readonly IRepository<UnitDiscardReason>? _discardReasons;
 
     public InventoryService(
         IInventoryRepository repository,
@@ -72,7 +73,8 @@ public sealed class InventoryService
         ProductRetypeService? retype = null,
         IRepository<ProductRetypeResult>? retypeResults = null,
         DeliveryService? deliveries = null,
-        IRepository<UnitModificationUnit>? modificationUnits = null)
+        IRepository<UnitModificationUnit>? modificationUnits = null,
+        IRepository<UnitDiscardReason>? discardReasons = null)
     {
         _repository = repository;
         _unitAttributes = unitAttributes;
@@ -92,6 +94,7 @@ public sealed class InventoryService
         _retype = retype;
         _retypeResults = retypeResults;
         _modificationUnits = modificationUnits;
+        _discardReasons = discardReasons;
     }
 
     public Task<IReadOnlyList<BloodUnit>> SearchAsync(InventorySearchCriteria criteria, CancellationToken ct = default) =>
@@ -1747,12 +1750,21 @@ public sealed class InventoryService
     /// automatic Update audit (see docs/safety-rules.md 5).
     /// </summary>
     public async Task<InventoryActionResult> DiscardAsync(
-        long unitId, string reason, string? secondVerifier = null, CancellationToken ct = default)
+        long unitId, DiscardUnitCommand command, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(reason))
+        ArgumentNullException.ThrowIfNull(command);
+        var secondVerifier = command.SecondVerifier;
+        var reasonCode = command.ReasonCode?.Trim().ToUpperInvariant();
+        var catalogReason = string.IsNullOrEmpty(reasonCode) || _discardReasons is null
+            ? null
+            : await _discardReasons.FirstOrDefaultAsync(r => r.Code == reasonCode, ct);
+        var coded = DiscardReasonRule.Evaluate(reasonCode, catalogReason, command.Comment);
+        if (coded.Severity == RuleSeverity.HardStop)
         {
-            return InventoryActionResult.Fail("A reason is required to discard a unit.");
+            return InventoryActionResult.Blocked(new RuleEvaluation([coded]));
         }
+
+        var reason = DiscardReasonRule.StoredText(catalogReason!, command.Comment);
 
         var denied = await RejectUnauthorizedDiscardAsync(ct);
         if (denied is not null)
@@ -1789,9 +1801,10 @@ public sealed class InventoryService
         var fromStatus = unit.Status;
         unit.Status = UnitStatus.Discarded;
         unit.DiscardReason = reason;
+        unit.DiscardReasonCode = catalogReason!.Code;
         var historyReason = string.IsNullOrWhiteSpace(secondVerifier)
-            ? reason
-            : $"{reason}; second verifier {secondVerifier.Trim()}";
+            ? $"{catalogReason.Code}: {reason}"
+            : $"{catalogReason.Code}: {reason}; second verifier {secondVerifier.Trim()}";
 
         _repository.AddStatusHistory(new InventoryStatusHistory
         {
@@ -1810,7 +1823,7 @@ public sealed class InventoryService
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { Status = fromStatus },
-            newValue: new { Status = UnitStatus.Discarded, DiscardReason = reason, SecondVerifier = secondVerifier },
+            newValue: new { Status = UnitStatus.Discarded, DiscardReasonCode = catalogReason.Code, DiscardReason = reason, SecondVerifier = secondVerifier },
             reason: historyReason);
 
         await _unitOfWork.SaveChangesAsync(ct);

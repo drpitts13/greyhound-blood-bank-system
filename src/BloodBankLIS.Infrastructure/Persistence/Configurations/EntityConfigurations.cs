@@ -456,6 +456,7 @@ public sealed class BloodUnitConfiguration : IEntityTypeConfiguration<BloodUnit>
         b.Property(u => u.DirectedConvertedBy).HasMaxLength(100);
         b.Property(u => u.ExpectedArrivalDueUtc);
         b.Property(u => u.DiscardReason).HasMaxLength(500);
+        b.Property(u => u.DiscardReasonCode).HasMaxLength(20);
         b.Property(u => u.RecallReason).HasMaxLength(500);
         b.Property(u => u.ReceiveVisualNotes).HasMaxLength(500);
         b.Property(u => u.ReceiveAppearance);
@@ -1100,6 +1101,22 @@ public sealed class OrderCancellationReasonConfiguration : IEntityTypeConfigurat
     public void Configure(EntityTypeBuilder<OrderCancellationReason> b)
     {
         b.ToTable("OrderCancellationReasons");
+        b.HasKey(r => r.Id);
+        b.Property(r => r.Code).HasMaxLength(20).IsRequired();
+        b.Property(r => r.Text).HasMaxLength(500).IsRequired();
+        b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.ModifiedBy).HasMaxLength(100);
+
+        b.HasIndex(r => r.Code).IsUnique();
+        b.HasIndex(r => new { r.IsActive, r.SortOrder });
+    }
+}
+
+public sealed class UnitDiscardReasonConfiguration : IEntityTypeConfiguration<UnitDiscardReason>
+{
+    public void Configure(EntityTypeBuilder<UnitDiscardReason> b)
+    {
+        b.ToTable("UnitDiscardReasons");
         b.HasKey(r => r.Id);
         b.Property(r => r.Code).HasMaxLength(20).IsRequired();
         b.Property(r => r.Text).HasMaxLength(500).IsRequired();

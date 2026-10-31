@@ -346,7 +346,20 @@ else
                 @if (Session.Has(PermissionCodes.InventoryDiscard))
                 {
                     <div class="flex gap" style="flex-wrap:wrap;">
-                        <input @bind="_discardReason" @bind:event="oninput" placeholder="Discard reason" style="flex:1;min-width:12rem;" />
+                        <div class="field" style="min-width:14rem;">
+                            <label>Discard reason</label>
+                            <select @bind="_discardReasonCode">
+                                <option value="">Select</option>
+                                @foreach (var reason in _discardReasons)
+                                {
+                                    <option value="@reason.Code">@reason.Code — @reason.Text</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="field" style="flex:1;min-width:12rem;">
+                            <label>Comment@(DiscardCommentRequired ? " (required)" : "")</label>
+                            <input @bind="_discardComment" @bind:event="oninput" />
+                        </div>
                         <div class="field" style="min-width:16rem;">
                             <label>Second verifier</label>
                             <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
@@ -358,7 +371,7 @@ else
                                 Clearable="true"
                                 Placeholder="Different active user" />
                         </div>
-                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_discardReason))" @onclick="() => DiscardAsync(_unit.Id)">Discard</button>
+                        <button class="btn btn-danger btn-sm" disabled="@(_busy || !DiscardReady)" @onclick="() => DiscardAsync(_unit.Id)">Discard</button>
                     </div>
                 }
             </div>
@@ -545,7 +558,16 @@ else
     private bool _changeVisualOk = true;
     private long _transferTo;
     private string _transferReason = string.Empty;
-    private string _discardReason = string.Empty;
+    private List<UnitDiscardReasonRefDto> _discardReasons = new();
+    private string _discardReasonCode = string.Empty;
+    private string _discardComment = string.Empty;
+
+    private bool DiscardCommentRequired =>
+        _discardReasons.FirstOrDefault(r => r.Code == _discardReasonCode)?.RequiresComment == true;
+
+    private bool DiscardReady =>
+        !string.IsNullOrWhiteSpace(_discardReasonCode)
+        && (!DiscardCommentRequired || !string.IsNullOrWhiteSpace(_discardComment));
     private string? _discardSecondVerifier;
     private string _holdReason = string.Empty;
     private UnitQuarantineReason _quarantineCode = UnitQuarantineReason.SupervisorReview;
@@ -623,6 +645,12 @@ else
         {
             var users = await Api.GetDirectoryUsersAsync();
             if (users.Succeeded) _directoryUsers = users.Value ?? new();
+        }
+
+        if (_discardReasons.Count == 0)
+        {
+            var reasons = await Api.GetDiscardReasonsAsync();
+            if (reasons.Succeeded) _discardReasons = reasons.Value ?? new();
         }
 
         if (_patients.Count == 0)
@@ -1027,11 +1055,13 @@ else
     private async Task DiscardAsync(long id)
     {
         _busy = true;
-        var r = await Api.DiscardUnitAsync(id, _discardReason, _discardSecondVerifier);
+        var r = await Api.DiscardUnitAsync(
+            id, _discardReasonCode, string.IsNullOrWhiteSpace(_discardComment) ? null : _discardComment, _discardSecondVerifier);
         _busy = false;
         if (r.Succeeded)
         {
-            _discardReason = string.Empty;
+            _discardReasonCode = string.Empty;
+            _discardComment = string.Empty;
             _discardSecondVerifier = null;
         }
 
