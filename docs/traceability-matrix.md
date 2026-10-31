@@ -446,6 +446,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-407 / FRS-BB-442 | Coded discard reason and wastage report | `DiscardReasonRule`; `UnitDiscardReasonAdminService`; `AdminDiscardReasons.razor`; `UnitDetail.razor`; RPT-WASTAGE | TEST-BB-297 | D / I | Competitor gap G3. Starter codes are facility-editable examples, not a regulatory list |
 | URS-BB-408 / FRS-BB-443 | Crossmatch-to-transfusion utilization by ordering location and provider | `UtilizationRule`; `UtilizationService`; `UtilizationEndpoints`; `Utilization.razor` | TEST-BB-298 | D / I | Competitor gap G4. No benchmark supplied |
 | URS-BB-409 / FRS-BB-444 | In-app alert inbox with condition reconciliation and acknowledgement | `AlertRule`; `AlertService`; `AlertScanner`; `AlertScanService`; `Alerts.razor`; `AlertBadge.razor` | TEST-BB-299 | D / I | Competitor gap G5. In-app only |
+| URS-BB-410 / FRS-BB-445 | CSV export for reports and the audit trail with a formula guard | `CsvFormat`; `ReportService`; `AuditCsvExport`; `AuditEndpoints`; `ReportRun.razor`; `Audit.razor` | TEST-BB-300 | D / I | Competitor gap G6 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

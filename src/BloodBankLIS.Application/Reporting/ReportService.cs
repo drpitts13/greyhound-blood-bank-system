@@ -208,8 +208,9 @@ public sealed class ReportService
         var grid = compiled.Value!;
         var pdf = string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase);
         var excel = string.Equals(format, "xlsx", StringComparison.OrdinalIgnoreCase) || string.Equals(format, "excel", StringComparison.OrdinalIgnoreCase);
-        if (!pdf && !excel)
-            return OperationResult<ReportFile>.Fail("Export format must be pdf or xlsx.");
+        var csv = string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase);
+        if (!pdf && !excel && !csv)
+            return OperationResult<ReportFile>.Fail("Export format must be pdf, xlsx, or csv.");
 
         byte[] bytes;
         string contentType;
@@ -221,6 +222,12 @@ public sealed class ReportService
                 bytes = _renderer.ToPdf(entity.Name, grid.Columns, grid.Rows, grid.Truncated);
                 contentType = "application/pdf";
                 extension = "pdf";
+            }
+            else if (csv)
+            {
+                bytes = CsvFormat.Write(grid.Columns, grid.Rows);
+                contentType = CsvFormat.ContentType;
+                extension = "csv";
             }
             else
             {

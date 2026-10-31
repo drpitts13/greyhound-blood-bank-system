@@ -811,6 +811,46 @@ public sealed class BloodBankApiClient
         return SendAsync<AuditPageVm>(HttpMethod.Get, $"api/audit-events?{string.Join("&", q)}", ct: ct);
     }
 
+    /// <summary>CSV of the audit trail with the same filters as the search; the export is audited by the API.</summary>
+    public async Task<ApiResult<byte[]>> ExportAuditCsvAsync(
+        string? entityType,
+        long? entityId,
+        string? eventType,
+        string? userName,
+        DateTime? fromUtc,
+        DateTime? toUtc,
+        CancellationToken ct = default)
+    {
+        var q = new List<string>();
+        if (!string.IsNullOrWhiteSpace(entityType)) q.Add($"entityType={Uri.EscapeDataString(entityType)}");
+        if (entityId is not null) q.Add($"entityId={entityId}");
+        if (!string.IsNullOrWhiteSpace(eventType)) q.Add($"eventType={Uri.EscapeDataString(eventType)}");
+        if (!string.IsNullOrWhiteSpace(userName)) q.Add($"userName={Uri.EscapeDataString(userName)}");
+        if (fromUtc is not null) q.Add($"fromUtc={Uri.EscapeDataString(fromUtc.Value.ToUniversalTime().ToString("o"))}");
+        if (toUtc is not null) q.Add($"toUtc={Uri.EscapeDataString(toUtc.Value.ToUniversalTime().ToString("o"))}");
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.GetAsync($"api/audit-events/export?{string.Join("&", q)}", ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<byte[]>.Fail($"Could not reach the API: {ex.Message}", 0);
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(ct);
+                return ApiResult<byte[]>.Fail(string.IsNullOrWhiteSpace(error) ? "Export failed." : error, (int)response.StatusCode);
+            }
+
+            return ApiResult<byte[]>.Ok(await response.Content.ReadAsByteArrayAsync(ct));
+        }
+    }
+
     /// <summary>Entity types that appear in the audit trail, for the exact-match filter.</summary>
     public Task<ApiResult<List<string>>> GetAuditEntityTypesAsync(CancellationToken ct = default) =>
         SendAsync<List<string>>(HttpMethod.Get, "api/audit-events/entity-types", ct: ct);

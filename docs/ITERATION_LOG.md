@@ -6969,3 +6969,37 @@ Competitor products push alerts for storage, expiry, and QC. Here the dashboard 
 ### Next ranked residual
 
 G6: CSV export for reports and the audit trail.
+
+
+## Iteration 257 — CSV export for reports and the audit trail, competitor gap G6 (2026-10-31)
+
+Competitor products export to CSV for downstream systems. Here, reports exported only to PDF and XLSX, and the audit trail could only be read on screen.
+
+### Implemented
+
+- `CsvFormat` (Domain): UTF-8 with a byte-order mark, RFC 4180 quoting (comma, quote, CR/LF, or leading or trailing space), and CRLF lines. A cell starting with =, +, -, @, tab, or CR gets a leading apostrophe so a spreadsheet does not execute it. A signed number such as -18.5 stays a number.
+- Report export accepts `csv` (`RPT-CODE.csv`, `text/csv; charset=utf-8`) and is audited like PDF and XLSX. The run page has an **Export CSV** button.
+- `AuditCsvExport` and `GET /api/audit-events/export` (inside the `audit.read` group): the current filters, newest first, up to 50,000 rows. Columns include old and new JSON and the hash chain. Each export writes an Export audit event (entity `AuditTrail`, with filters and row count). The audit page has an **Export CSV** button.
+- User manual: updated the reports, report-run, and audit pages.
+
+### Requirements / risk
+
+- URS-BB-410, FRS-BB-445, SRS-BB-407, RISK-BB-512.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-300: `CsvFormatTests` (16 cases) and `CsvExportTests` (2).
+  - `CsvFormatTests` covers quoting, the formula guard, signed numbers, the byte-order mark, and CRLF.
+  - `CsvExportTests` covers the report CSV (columns, a quoted product name, a guarded `=CMD()` discard reason, the audit event, and a rejected `txt` format) and the audit CSV (JSON quoting, a guarded `@` reason, and the record hash as the last column).
+- Two of my own test expectations were wrong on the first run and were corrected: a tab after the apostrophe needs no quotes, and the audit test now filters to its own event because the database holds seed events.
+- Full suite: 2,875 passed, 0 failed (previously 2,857). Application 83, Astm 19, HL7 63, Domain 1,647, Printing 21, Help 5, Integration 1,037.
+- Run check (development database, DevMode):
+  - RPT-WASTAGE CSV: 200, `text/csv; charset=utf-8`, attachment `RPT-WASTAGE.csv`, with the same rows as the screen.
+  - Audit CSV filtered to Discard returned the G3 discard event with its JSON and hashes.
+  - The Export audit filter showed the `AuditTrail` export events (two: the first test script attempt also exported).
+  - No server errors.
+
+### Next ranked residual
+
+G7: supplier order from the par shortfall.

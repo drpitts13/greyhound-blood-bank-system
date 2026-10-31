@@ -57,6 +57,43 @@ public static class AuditEndpoints
             return Results.Ok(new { total, skip, take, items = events });
         });
 
+        // CSV of the filtered trail, newest first, capped at AuditCsvExport.MaxRows. The export itself is audited.
+        group.MapGet("/export", async (
+            string? entityType,
+            long? entityId,
+            string? eventType,
+            string? userName,
+            DateTime? fromUtc,
+            DateTime? toUtc,
+            BloodBankDbContext context,
+            Application.Abstractions.IAuditWriter audit,
+            CancellationToken ct) =>
+        {
+            if (!AuditTrailQuery.TryParseEventType(eventType, out var parsedEventType))
+            {
+                return Results.BadRequest(new { error = $"Unknown audit event type '{eventType}'." });
+            }
+
+            var events = await AuditTrailQuery.Apply(
+                    context.AuditEvents.AsNoTracking(), entityType, entityId, parsedEventType, userName, fromUtc, toUtc)
+                .OrderByDescending(a => a.OccurredUtc)
+                .ThenByDescending(a => a.Id)
+                .Take(AuditCsvExport.MaxRows)
+                .ToListAsync(ct);
+            var bytes = AuditCsvExport.Write(events);
+
+            audit.Record(
+                Domain.Enums.AuditEventType.Export,
+                "AuditTrail",
+                null,
+                null,
+                new { Format = "csv", Rows = events.Count, entityType, entityId, eventType, userName, fromUtc, toUtc },
+                "Audit trail exported.");
+            await context.SaveChangesAsync(ct);
+
+            return Results.File(bytes, Domain.Reporting.CsvFormat.ContentType, $"audit-trail-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv");
+        });
+
         // The entity-type filter matches exactly, so offer the types actually recorded instead of free text.
         group.MapGet("/entity-types", async (BloodBankDbContext context, CancellationToken ct) =>
             Results.Ok(await context.AuditEvents.AsNoTracking()

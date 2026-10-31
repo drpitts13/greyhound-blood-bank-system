@@ -56,6 +56,7 @@ else
         <button class="btn btn-primary" disabled="@_busy" @onclick="RunAsync">Run</button>
         <button class="btn btn-secondary" disabled="@_busy" @onclick='() => ExportAsync("pdf")'>Export PDF</button>
         <button class="btn btn-secondary" disabled="@_busy" @onclick='() => ExportAsync("xlsx")'>Export Excel</button>
+        <button class="btn btn-secondary" disabled="@_busy" @onclick='() => ExportAsync("csv")'>Export CSV</button>
     </div>
 
     @if (_result is not null)
@@ -158,9 +159,12 @@ else
             return;
         }
 
-        var contentType = format == "pdf"
-            ? "application/pdf"
-            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        var contentType = format switch
+        {
+            "pdf" => "application/pdf",
+            "csv" => BloodBankLIS.Domain.Reporting.CsvFormat.ContentType,
+            _ => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        };
         var name = (_report?.Code ?? "report") + "." + format;
         var token = Downloads.Put(name, contentType, result.Value);
         await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");

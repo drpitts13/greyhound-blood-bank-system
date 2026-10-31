@@ -1,6 +1,8 @@
 @page "/audit"
 @using BloodBankLIS.Domain.Enums
 @inject BloodBankApiClient Api
+@inject ReportDownloadCache Downloads
+@inject IJSRuntime Js
 
 <PageTitle>Audit Trail &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -46,6 +48,7 @@
         <div class="field"><label>To date (UTC, inclusive)</label><input type="date" @bind="_toDate" /></div>
     </div>
     <button class="btn btn-secondary" disabled="@_busy" @onclick="() => LoadAsync(0)">Search</button>
+    <button class="btn btn-ghost" disabled="@_busy" @onclick="ExportCsvAsync" title="Up to 50,000 rows with the current filters, newest first">Export CSV</button>
 </div>
 
 <div class="bb-card">
@@ -179,6 +182,36 @@
     private async Task OnFilterKey(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !_busy) await LoadAsync(0);
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var fromUtc = _fromDate is DateTime from ? DateTime.SpecifyKind(from.Date, DateTimeKind.Utc) : (DateTime?)null;
+            var toUtc = _toDate is DateTime to ? DateTime.SpecifyKind(to.Date.AddDays(1), DateTimeKind.Utc) : (DateTime?)null;
+            var r = await Api.ExportAuditCsvAsync(
+                string.IsNullOrWhiteSpace(_entityType) ? null : _entityType,
+                _entityId is > 0 ? _entityId : null,
+                string.IsNullOrWhiteSpace(_eventType) ? null : _eventType,
+                string.IsNullOrWhiteSpace(_userName) ? null : _userName,
+                fromUtc,
+                toUtc);
+            if (!r.Succeeded || r.Value is null)
+            {
+                _fb = r.ToFeedback();
+                return;
+            }
+
+            var token = Downloads.Put($"audit-trail-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv", BloodBankLIS.Domain.Reporting.CsvFormat.ContentType, r.Value);
+            await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
+        }
+        finally
+        {
+            _busy = false;
+        }
     }
 
     private async Task LoadAsync(int skip)
