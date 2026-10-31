@@ -1264,6 +1264,7 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
                 new EfRepository<Hl7MessageLog>(context),
                 new EfRepository<InterfaceEndpoint>(context),
                 new EfRepository<InterfaceErrorQueueItem>(context),
+                new Hl7OutboundClaimStore(context, _factory.CurrentUser),
                 context,
                 _factory.Clock);
             var result = await sender.SendOneAsync(messageId);
@@ -1344,6 +1345,7 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
                 new EfRepository<Hl7MessageLog>(context),
                 new EfRepository<InterfaceEndpoint>(context),
                 new EfRepository<InterfaceErrorQueueItem>(context),
+                new Hl7OutboundClaimStore(context, _factory.CurrentUser),
                 context,
                 _factory.Clock);
             var result = await sender.SendOneAsync(messageId);
@@ -1408,6 +1410,7 @@ public class Phase5Hl7Tests : IClassFixture<SqliteContextFactory>
             new EfRepository<Hl7MessageLog>(context),
             new EfRepository<InterfaceEndpoint>(context),
             new EfRepository<InterfaceErrorQueueItem>(context),
+            new Hl7OutboundClaimStore(context, _factory.CurrentUser),
             context,
             _factory.Clock);
         var result = await sender.SendOneAsync(messageId);

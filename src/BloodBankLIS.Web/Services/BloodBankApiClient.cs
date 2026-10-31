@@ -33,12 +33,37 @@ namespace BloodBankLIS.Web.Services;
 public sealed class BloodBankApiClient
 {
     private readonly HttpClient _http;
+    private readonly UserSession _session;
 
     private static readonly JsonSerializerOptions Json = ClinicalJson.WebOptions;
 
-    public BloodBankApiClient(HttpClient http)
+    public BloodBankApiClient(HttpClient http, UserSession session)
     {
         _http = http;
+        _session = session;
+    }
+
+    /// <summary>
+    /// Attaches this circuit's session token and workstation to the request. Done here
+    /// rather than in a DelegatingHandler because IHttpClientFactory builds handlers in
+    /// its own DI scope and shares them across circuits, so a handler would not see the
+    /// signed-in operator's <see cref="UserSession"/>.
+    /// </summary>
+    private Task<HttpResponseMessage> SendWithIdentityAsync(HttpRequestMessage request, CancellationToken ct)
+    {
+        request.Headers.Remove("Authorization");
+        if (!string.IsNullOrWhiteSpace(_session.SessionToken))
+        {
+            request.Headers.TryAddWithoutValidation("Authorization", $"Bearer {_session.SessionToken}");
+        }
+
+        request.Headers.Remove("X-Workstation");
+        if (!string.IsNullOrWhiteSpace(_session.Workstation))
+        {
+            request.Headers.Add("X-Workstation", _session.Workstation);
+        }
+
+        return _http.SendAsync(request, ct);
     }
 
     // ---- Identity ----
@@ -636,7 +661,7 @@ public sealed class BloodBankApiClient
         };
         try
         {
-            using var response = await _http.SendAsync(request, ct);
+            using var response = await SendWithIdentityAsync(request, ct);
             var body = await response.Content.ReadAsStringAsync(ct);
             return response.IsSuccessStatusCode
                 ? ApiResult<string>.Ok(body)
@@ -708,7 +733,7 @@ public sealed class BloodBankApiClient
         HttpResponseMessage response;
         try
         {
-            response = await _http.SendAsync(request, ct);
+            response = await SendWithIdentityAsync(request, ct);
         }
         catch (Exception ex)
         {
@@ -1580,7 +1605,7 @@ public sealed class BloodBankApiClient
         HttpResponseMessage response;
         try
         {
-            response = await _http.SendAsync(request, ct);
+            response = await SendWithIdentityAsync(request, ct);
         }
         catch (Exception ex)
         {
@@ -1775,7 +1800,7 @@ public sealed class BloodBankApiClient
         HttpResponseMessage response;
         try
         {
-            response = await _http.SendAsync(message, ct);
+            response = await SendWithIdentityAsync(message, ct);
         }
         catch (Exception ex)
         {
@@ -1822,7 +1847,7 @@ public sealed class BloodBankApiClient
         HttpResponseMessage response;
         try
         {
-            response = await _http.SendAsync(request, ct);
+            response = await SendWithIdentityAsync(request, ct);
         }
         catch (Exception ex)
         {

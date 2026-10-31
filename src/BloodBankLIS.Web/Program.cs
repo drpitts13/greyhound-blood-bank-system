@@ -27,15 +27,18 @@ var devMode = new DevModeState
 };
 builder.Services.AddSingleton(devMode);
 
-// Per-circuit operator identity, and a handler that forwards it to the API.
 var desktopHost = builder.Configuration.GetSection(DesktopHostOptions.SectionName).Get<DesktopHostOptions>()
     ?? new DesktopHostOptions();
 builder.Services.AddSingleton(desktopHost);
 builder.Services.AddSingleton<DesktopHostLifetime>();
-builder.Services.AddSingleton<CircuitHandler, DesktopShutdownCircuitHandler>();
+if (!desktopHost.IsServer)
+{
+    // A shared server stays up regardless of how many browser sessions are open.
+    builder.Services.AddSingleton<CircuitHandler, DesktopShutdownCircuitHandler>();
+}
 
+// Per-circuit operator identity; BloodBankApiClient forwards it to the API on every request.
 builder.Services.AddScoped<UserSession>();
-builder.Services.AddScoped<IdentityHeaderHandler>();
 
 // Typed client over the HTTP API. Default to the API's HTTP endpoint to avoid dev-cert
 // friction for server-to-server calls; override with Api:BaseUrl in configuration.
@@ -52,8 +55,7 @@ builder.Services.AddHttpClient<BloodBankApiClient>(client =>
     {
         client.BaseAddress = new Uri(apiBaseUrl);
         client.Timeout = TimeSpan.FromMinutes(2);
-    })
-    .AddHttpMessageHandler<IdentityHeaderHandler>();
+    });
 
 var app = builder.Build();
 

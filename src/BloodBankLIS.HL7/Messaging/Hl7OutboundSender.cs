@@ -12,12 +12,17 @@ namespace BloodBankLIS.HL7.Messaging;
 /// <summary>
 /// Transmits queued outbound ORU/DFT messages over MLLP or a file-drop folder
 /// and records the ACK. <see cref="Hl7OutboundService"/> only persists the payload.
+/// Every send first claims the row with a conditional UPDATE (status
+/// <see cref="Hl7MessageStatus.Sending"/>), so the background loop and a manual send
+/// never transmit the same message twice. A claim left behind by a crashed sender is
+/// taken over after <see cref="ClaimTimeout"/>.
 /// </summary>
 public sealed class Hl7OutboundSender
 {
     private readonly IRepository<Hl7MessageLog> _logs;
     private readonly IRepository<InterfaceEndpoint> _endpoints;
     private readonly IRepository<InterfaceErrorQueueItem> _errors;
+    private readonly IHl7OutboundClaimStore _claims;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
 
@@ -25,17 +30,25 @@ public sealed class Hl7OutboundSender
         IRepository<Hl7MessageLog> logs,
         IRepository<InterfaceEndpoint> endpoints,
         IRepository<InterfaceErrorQueueItem> errors,
+        IHl7OutboundClaimStore claims,
         IUnitOfWork unitOfWork,
         IClock clock)
     {
         _logs = logs;
         _endpoints = endpoints;
         _errors = errors;
+        _claims = claims;
         _unitOfWork = unitOfWork;
         _clock = clock;
     }
 
     public const int DefaultMaxRetries = 5;
+
+    /// <summary>
+    /// How long a <see cref="Hl7MessageStatus.Sending"/> claim is honoured before another
+    /// sender may take it over. Comfortably longer than any MLLP ACK timeout.
+    /// </summary>
+    public static readonly TimeSpan ClaimTimeout = TimeSpan.FromMinutes(5);
 
     public static int EffectiveMaxRetries(InterfaceEndpoint? endpoint) =>
         endpoint?.MaxRetryCount is > 0 ? endpoint.MaxRetryCount.Value : DefaultMaxRetries;
@@ -45,9 +58,13 @@ public sealed class Hl7OutboundSender
 
     public async Task<int> SendPendingAsync(int maxBatch = 20, CancellationToken ct = default)
     {
+        var staleBefore = _clock.UtcNow - ClaimTimeout;
         var pending = await _logs.ListAsync(
             m => m.Direction == Hl7Direction.Outbound
-                 && (m.Status == Hl7MessageStatus.Received || m.Status == Hl7MessageStatus.Errored),
+                 && (m.Status == Hl7MessageStatus.Received
+                     || m.Status == Hl7MessageStatus.Errored
+                     || (m.Status == Hl7MessageStatus.Sending
+                         && (m.ClaimedUtc == null || m.ClaimedUtc < staleBefore))),
             ct);
 
         var sent = 0;
@@ -67,51 +84,82 @@ public sealed class Hl7OutboundSender
 
     public async Task<OperationResult<Hl7MessageLog>> SendOneAsync(long messageId, CancellationToken ct = default)
     {
-        var row = await _logs.GetByIdAsync(messageId, ct);
-        if (row is null)
+        // Validate against an untracked snapshot; the tracked row comes from the claim.
+        var snapshot = (await _logs.ListAsync(m => m.Id == messageId, ct)).FirstOrDefault();
+        if (snapshot is null)
             return OperationResult<Hl7MessageLog>.Fail("HL7 message not found.");
 
-        if (row.Direction != Hl7Direction.Outbound)
-            return OperationResult<Hl7MessageLog>.Fail("Only outbound messages can be sent.");
-
-        if (row.Status == Hl7MessageStatus.Acked)
-            return OperationResult<Hl7MessageLog>.Fail("Message was already acknowledged.");
-
-        if (row.ErrorDetail == BillingService.UnsentDftWithheldDetail)
+        var now = _clock.UtcNow;
+        var staleBefore = now - ClaimTimeout;
+        if (snapshot.Status == Hl7MessageStatus.Sending
+            && snapshot.ClaimedUtc is { } claimedUtc && claimedUtc >= staleBefore)
         {
-            return OperationResult<Hl7MessageLog>.Fail(
-                "This DFT was withheld because the charge was cancelled before it was sent.");
+            return OperationResult<Hl7MessageLog>.Fail("Message is already being sent.");
         }
 
-        var endpoint = await ResolveEndpointAsync(row, ct);
-        if (endpoint is null)
-            return OperationResult<Hl7MessageLog>.Fail("No enabled outbound endpoint is configured.");
+        var check = await ValidateSendAsync(snapshot, ct);
+        if (!check.Succeeded)
+            return OperationResult<Hl7MessageLog>.Fail(check.Error!);
 
+        var endpoint = check.Value!;
+        var row = await _claims.TryClaimAsync(messageId, snapshot.Status, now, staleBefore, ct);
+        if (row is null)
+            return OperationResult<Hl7MessageLog>.Fail("Message is already being sent or was sent by another process.");
+
+        // Another sender may have retried it between the snapshot and the claim.
         if (RetriesExhausted(row.Direction, row.RetryCount, endpoint))
         {
+            row.Status = snapshot.Status;
+            await _unitOfWork.SaveChangesAsync(ct);
             return OperationResult<Hl7MessageLog>.Fail(
                 $"Outbound retries are exhausted ({row.RetryCount} of {EffectiveMaxRetries(endpoint)}).");
         }
 
         row.EndpointId ??= endpoint.Id;
         row.RetryCount++;
-        row.ProcessedUtc = _clock.UtcNow;
+        row.ProcessedUtc = now;
 
         if (endpoint.Transport == InterfaceTransport.File)
         {
             await ApplyFileSendAsync(row, endpoint, ct);
         }
-        else if (endpoint.Transport == InterfaceTransport.Mllp)
-        {
-            await ApplyMllpSendAsync(row, endpoint, ct);
-        }
         else
         {
-            return OperationResult<Hl7MessageLog>.Fail($"Endpoint '{endpoint.Name}' uses an unsupported transport.");
+            await ApplyMllpSendAsync(row, endpoint, ct);
         }
 
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Hl7MessageLog>.Ok(row);
+    }
+
+    private async Task<OperationResult<InterfaceEndpoint>> ValidateSendAsync(Hl7MessageLog row, CancellationToken ct)
+    {
+        if (row.Direction != Hl7Direction.Outbound)
+            return OperationResult<InterfaceEndpoint>.Fail("Only outbound messages can be sent.");
+
+        if (row.Status == Hl7MessageStatus.Acked)
+            return OperationResult<InterfaceEndpoint>.Fail("Message was already acknowledged.");
+
+        if (row.ErrorDetail == BillingService.UnsentDftWithheldDetail)
+        {
+            return OperationResult<InterfaceEndpoint>.Fail(
+                "This DFT was withheld because the charge was cancelled before it was sent.");
+        }
+
+        var endpoint = await ResolveEndpointAsync(row, ct);
+        if (endpoint is null)
+            return OperationResult<InterfaceEndpoint>.Fail("No enabled outbound endpoint is configured.");
+
+        if (RetriesExhausted(row.Direction, row.RetryCount, endpoint))
+        {
+            return OperationResult<InterfaceEndpoint>.Fail(
+                $"Outbound retries are exhausted ({row.RetryCount} of {EffectiveMaxRetries(endpoint)}).");
+        }
+
+        if (endpoint.Transport is not (InterfaceTransport.File or InterfaceTransport.Mllp))
+            return OperationResult<InterfaceEndpoint>.Fail($"Endpoint '{endpoint.Name}' uses an unsupported transport.");
+
+        return OperationResult<InterfaceEndpoint>.Ok(endpoint);
     }
 
     private async Task ApplyFileSendAsync(Hl7MessageLog row, InterfaceEndpoint endpoint, CancellationToken ct)

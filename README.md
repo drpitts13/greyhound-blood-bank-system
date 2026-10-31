@@ -95,6 +95,15 @@ Safety-gated endpoints return `422 Unprocessable Entity` with `{ blocked, overri
 
 Inbound MLLP TCP listeners start automatically for each **enabled** inbound MLLP interface in Admin → Interface Setup (API process, all interfaces / `0.0.0.0`). Restart the API after enabling or changing a port. Optionally force a fallback listener with `Hl7:Mllp:Enabled=true` (`Hl7:Mllp:Port`, default `2575`). The HTTP `POST /api/hl7/inbound` endpoint exercises the same processing pipeline without binding a socket. Messages must be MLLP-framed (`0x0B` … `0x1C 0x0D`).
 
+## Desktop vs. shared-server hosting
+
+The Web UI reads `DesktopHost:Mode` (`Desktop` by default, or `Server`).
+
+- **Desktop** (the `scripts/desktop/Start-BloodBankLIS.ps1` shortcut, which also sets `DesktopHost:ShutdownOnExit=true`): one PC, one user. Closing the last browser tab or choosing **Exit** stops the Web UI and the background API.
+- **Server**: one shared server for many workstations. The Web UI never stops itself when browser sessions close, never stops or starts the API process, and hides **Exit** (users only **Sign out**). Run the API and Web UI as long-lived services (IIS, Windows services, or containers) pointed at SQL Server.
+
+To run in Server mode, set the environment variable `DesktopHost__Mode=Server` on the Web process, or put the `DesktopHost` section from `src/BloodBankLIS.Web/appsettings.Server.json` into that host's `appsettings.Production.json`. (Running the Web process with `ASPNETCORE_ENVIRONMENT=Server` also loads that file.) Leave `DesktopHost:ShutdownOnExit` unset on servers; it is ignored in Server mode.
+
 ## Database migrations
 
 The EF Core CLI is pinned as a local tool (`dotnet-tools.json`).

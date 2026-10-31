@@ -15,6 +15,7 @@ public sealed class SignatureService : ISignatureService
 {
     private readonly IRepository<User> _users;
     private readonly IRepository<ElectronicSignature> _signatures;
+    private readonly ISignatureConsumptionStore _consumption;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
@@ -24,6 +25,7 @@ public sealed class SignatureService : ISignatureService
     public SignatureService(
         IRepository<User> users,
         IRepository<ElectronicSignature> signatures,
+        ISignatureConsumptionStore consumption,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
@@ -32,6 +34,7 @@ public sealed class SignatureService : ISignatureService
     {
         _users = users;
         _signatures = signatures;
+        _consumption = consumption;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
@@ -128,16 +131,24 @@ public sealed class SignatureService : ISignatureService
             || string.Equals(signature.Action, expectedAction, StringComparison.Ordinal);
     }
 
-    public async Task ConsumeAsync(long signatureId, CancellationToken cancellationToken = default)
+    public async Task<bool> ConsumeAsync(long signatureId, CancellationToken cancellationToken = default)
     {
-        var signature = await _signatures.GetByIdAsync(signatureId, cancellationToken);
-        if (signature is null || signature.ConsumedUtc is not null)
+        var consumedUtc = _clock.UtcNow;
+        if (!await _consumption.TryConsumeAsync(signatureId, consumedUtc, cancellationToken))
         {
-            return;
+            return false;
         }
 
-        signature.ConsumedUtc = _clock.UtcNow;
+        // The conditional UPDATE bypasses the SaveChanges audit hook, so record it here.
+        _audit?.Record(
+            AuditEventType.Update,
+            nameof(ElectronicSignature),
+            signatureId,
+            newValue: new { ConsumedUtc = consumedUtc },
+            reason: "Electronic signature consumed",
+            signatureId: signatureId);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     private static (bool Succeeded, string? Error, ElectronicSignatureAuthenticationMethod Method) Authenticate(

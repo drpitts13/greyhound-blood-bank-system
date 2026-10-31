@@ -56,7 +56,9 @@
 
     private string _userName = string.Empty;
     private string _password = string.Empty;
-    private string _workstation = Environment.MachineName;
+    private string _workstation = string.Empty;
+
+    protected override void OnInitialized() => _workstation = Session.Workstation;
     private string? _error;
     private bool _busy;
 

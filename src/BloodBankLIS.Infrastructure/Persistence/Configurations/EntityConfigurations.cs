@@ -619,6 +619,25 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
     }
 }
 
+public sealed class AuditChainHeadConfiguration : IEntityTypeConfiguration<AuditChainHead>
+{
+    public void Configure(EntityTypeBuilder<AuditChainHead> b)
+    {
+        b.ToTable("AuditChainHead");
+        b.HasKey(h => h.Id);
+        b.Property(h => h.Id).ValueGeneratedNever();
+        b.Property(h => h.TipHash).HasMaxLength(64).IsRequired();
+
+        // EnsureCreated databases start with no hashed rows. The SQL Server migration
+        // seeds the row from the existing chain tip instead.
+        b.HasData(new AuditChainHead
+        {
+            Id = AuditChainHead.SingletonId,
+            TipHash = BloodBankLIS.Domain.Rules.AuditHashChainRule.GenesisPreviousHash
+        });
+    }
+}
+
 public sealed class CrossmatchConfiguration : IEntityTypeConfiguration<Crossmatch>
 {
     public void Configure(EntityTypeBuilder<Crossmatch> b)

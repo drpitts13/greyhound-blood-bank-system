@@ -14,6 +14,7 @@ public sealed class AuthSessionService : IAuthSessionService
 
     private readonly IRepository<User> _users;
     private readonly IRepository<AuthSession> _sessions;
+    private readonly IUserSignInStore _signIns;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly IAuditWriter _audit;
@@ -23,6 +24,7 @@ public sealed class AuthSessionService : IAuthSessionService
     public AuthSessionService(
         IRepository<User> users,
         IRepository<AuthSession> sessions,
+        IUserSignInStore signIns,
         IUnitOfWork unitOfWork,
         IClock clock,
         IAuditWriter audit,
@@ -31,6 +33,7 @@ public sealed class AuthSessionService : IAuthSessionService
     {
         _users = users;
         _sessions = sessions;
+        _signIns = signIns;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _audit = audit;
@@ -70,14 +73,16 @@ public sealed class AuthSessionService : IAuthSessionService
         if (string.IsNullOrEmpty(user.PasswordHash)
             || !SecretHasher.Verify(password ?? string.Empty, user.PasswordHash))
         {
-            user.FailedSignInCount++;
-            if (user.FailedSignInCount >= FailedSignInLockoutThreshold)
+            // One conditional UPDATE per step, so concurrent failures never lose a count;
+            // the explicit audit events below carry what the bypassed audit hook would have.
+            var failure = await _signIns.RecordFailedSignInAsync(user.Id, FailedSignInLockoutThreshold, cancellationToken);
+            if (failure.LockedNow)
             {
-                user.IsLocked = true;
                 _audit.Record(
                     AuditEventType.Lockout,
                     nameof(User),
                     user.Id,
+                    newValue: new { failure.FailedSignInCount, IsLocked = true },
                     reason: "Failed sign-in lockout",
                     actingUserName: user.UserName);
                 await RevokeOpenSessionsAsync(user.Id, "Account locked after failed sign-in", cancellationToken);
@@ -88,6 +93,7 @@ public sealed class AuthSessionService : IAuthSessionService
                     AuditEventType.SignatureFailed,
                     nameof(User),
                     user.Id,
+                    newValue: new { failure.FailedSignInCount },
                     reason: "Failed sign-in",
                     actingUserName: user.UserName);
             }
@@ -97,6 +103,12 @@ public sealed class AuthSessionService : IAuthSessionService
         }
 
         var now = _clock.UtcNow;
+        if (!await _signIns.RecordSuccessfulSignInAsync(user.Id, now, cancellationToken))
+        {
+            // Locked or deactivated by a concurrent request after the checks above.
+            return OperationResult<AuthLoginResult>.Fail("Sign-in failed.");
+        }
+
         var idle = TimeSpan.FromMinutes(Math.Max(1, _options.IdleTimeoutMinutes));
         var absolute = TimeSpan.FromHours(Math.Max(1, _options.AbsoluteTimeoutHours));
         var rawToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
@@ -116,8 +128,6 @@ public sealed class AuthSessionService : IAuthSessionService
         };
 
         await _sessions.AddAsync(session, cancellationToken);
-        user.LastLoginUtc = now;
-        user.FailedSignInCount = 0;
         _audit.Record(
             AuditEventType.Login,
             nameof(User),

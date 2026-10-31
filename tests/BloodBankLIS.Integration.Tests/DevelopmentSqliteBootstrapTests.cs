@@ -1,3 +1,5 @@
+using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Infrastructure.Common;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.Data.Sqlite;
@@ -51,6 +53,49 @@ public class DevelopmentSqliteBootstrapTests
 
             Assert.True(await ColumnExistsAsync(context, "TestServiceBillings", "ChargeCodeId"));
             Assert.True(await ColumnExistsAsync(context, "ProductBillings", "ChargeCodeId"));
+        }
+        finally
+        {
+            SqliteConnection.ClearAllPools();
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task InitializeAsync_AddsAuditChainHeadAtTheExistingTip()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"gbb-bootstrap-{Guid.NewGuid():N}.db");
+        try
+        {
+            var options = new DbContextOptionsBuilder<BloodBankDbContext>()
+                .UseSqlite($"Data Source={path}")
+                .Options;
+            await using var context = new BloodBankDbContext(
+                options,
+                new SystemClock(),
+                new StaticCurrentUser("test"));
+
+            await context.Database.EnsureCreatedAsync();
+            context.Patients.Add(new Patient
+            {
+                MedicalRecordNumber = "MRN-BOOT-HEAD",
+                LastName = "Head",
+                FirstName = "Chain",
+                DateOfBirth = new DateOnly(1980, 1, 1),
+                Sex = Sex.Female
+            });
+            await context.SaveChangesAsync();
+            var tip = await context.AuditEvents.OrderByDescending(a => a.Id).Select(a => a.RecordHash).FirstAsync();
+            await context.Database.ExecuteSqlRawAsync("""DROP TABLE "AuditChainHead";""");
+
+            await DevelopmentSqliteBootstrap.InitializeAsync(context, NullLogger.Instance);
+
+            Assert.True(await context.Patients.AnyAsync(p => p.MedicalRecordNumber == "MRN-BOOT-HEAD"));
+            var head = await context.AuditChainHeads.AsNoTracking().SingleAsync();
+            Assert.Equal(tip, head.TipHash);
         }
         finally
         {

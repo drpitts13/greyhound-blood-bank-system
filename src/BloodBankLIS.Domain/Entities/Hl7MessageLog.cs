@@ -36,4 +36,10 @@ public class Hl7MessageLog : BaseEntity
     public string? ErrorDetail { get; set; }
 
     public int RetryCount { get; set; }
+
+    /// <summary>
+    /// When an outbound sender last claimed this message (status
+    /// <see cref="Hl7MessageStatus.Sending"/>); a stale claim can be taken over.
+    /// </summary>
+    public DateTime? ClaimedUtc { get; set; }
 }

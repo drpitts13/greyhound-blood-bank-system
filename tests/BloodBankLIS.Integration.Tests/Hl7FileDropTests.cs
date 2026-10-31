@@ -69,6 +69,7 @@ public class Hl7FileDropTests : IClassFixture<SqliteContextFactory>, IDisposable
                 new EfRepository<Hl7MessageLog>(context),
                 new EfRepository<InterfaceEndpoint>(context),
                 new EfRepository<InterfaceErrorQueueItem>(context),
+                new Hl7OutboundClaimStore(context, _factory.CurrentUser),
                 context,
                 _factory.Clock);
             var result = await sender.SendOneAsync(messageId);

@@ -8,10 +8,8 @@ using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
-using System.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
-using Microsoft.EntityFrameworkCore.Storage;
 
 namespace BloodBankLIS.Infrastructure.Persistence;
 
@@ -112,6 +110,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<ElectronicSignature> ElectronicSignatures => Set<ElectronicSignature>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
+    public DbSet<AuditChainHead> AuditChainHeads => Set<AuditChainHead>();
 
     // Admin configuration
     public DbSet<ConfigurationChangeHistory> ConfigurationChangeHistory => Set<ConfigurationChangeHistory>();
@@ -200,27 +199,23 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
         ApplyAuditMetadata();
         var captures = CaptureAuditEntries();
 
-        if (captures.Count == 0)
+        if (captures.Count == 0 && !HasPendingAuditEvents())
         {
-            return await PersistWithAuditHashAsync(acceptAllChangesOnSuccess, cancellationToken);
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
 
         // If a transaction is already in progress (e.g. a multi-step workflow), reuse it.
+        // The chain head stays locked until that transaction's owner commits.
         if (Database.CurrentTransaction is not null)
         {
-            var inner = await PersistWithAuditHashAsync(acceptAllChangesOnSuccess, cancellationToken);
-            AppendAuditEvents(captures);
-            await PersistWithAuditHashAsync(acceptAllChangesOnSuccess, cancellationToken);
-            return inner;
+            return await PersistWithAuditChainAsync(captures, acceptAllChangesOnSuccess, cancellationToken);
         }
 
         var strategy = Database.CreateExecutionStrategy();
         return await strategy.ExecuteAsync(async () =>
         {
             await using var transaction = await Database.BeginTransactionAsync(cancellationToken);
-            var result = await PersistWithAuditHashAsync(acceptAllChangesOnSuccess, cancellationToken);
-            AppendAuditEvents(captures);
-            await PersistWithAuditHashAsync(acceptAllChangesOnSuccess, cancellationToken);
+            var result = await PersistWithAuditChainAsync(captures, acceptAllChangesOnSuccess, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
             return result;
         });
@@ -307,34 +302,41 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
         return captures;
     }
 
-    private async Task<int> PersistWithAuditHashAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken)
+    private bool HasPendingAuditEvents() =>
+        ChangeTracker.Entries<AuditEvent>().Any(e => e.State == EntityState.Added);
+
+    /// <summary>
+    /// Saves the tracked changes, then their interceptor audit rows, inside the caller's
+    /// transaction. Each save first extends the hash chain from the locked head row.
+    /// </summary>
+    private async Task<int> PersistWithAuditChainAsync(
+        List<AuditCapture> captures,
+        bool acceptAllChangesOnSuccess,
+        CancellationToken cancellationToken)
     {
-        const int maxAttempts = 5;
-        for (var attempt = 1; ; attempt++)
+        await StampAuditHashChainAsync(cancellationToken);
+        var result = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+
+        if (captures.Count > 0)
         {
-            StampAuditHashChain();
-            try
-            {
-                return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
-            }
-            catch (DbUpdateException ex) when (attempt < maxAttempts && IsAuditHashConflict(ex))
-            {
-                foreach (var entry in ChangeTracker.Entries<AuditEvent>())
-                {
-                    if (entry.State == EntityState.Added)
-                    {
-                        entry.Entity.PreviousHash = null;
-                        entry.Entity.RecordHash = null;
-                    }
-                }
-            }
+            AppendAuditEvents(captures);
+            await StampAuditHashChainAsync(cancellationToken);
+            await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
+
+        return result;
     }
 
-    private void StampAuditHashChain()
+    /// <summary>
+    /// Chains every pending AuditEvent, in tracker order, from the head row and moves the
+    /// head to the last new hash. Must run inside a transaction: the head stays locked until
+    /// commit, so concurrent writers queue behind each other instead of forking the chain.
+    /// Pending rows are always restamped, so a save retried after a failure re-reads the head.
+    /// </summary>
+    private async Task StampAuditHashChainAsync(CancellationToken cancellationToken)
     {
         var pending = ChangeTracker.Entries<AuditEvent>()
-            .Where(e => e.State == EntityState.Added && string.IsNullOrWhiteSpace(e.Entity.RecordHash))
+            .Where(e => e.State == EntityState.Added)
             .Select(e => e.Entity)
             .ToList();
         if (pending.Count == 0)
@@ -342,80 +344,49 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
             return;
         }
 
-        var previous = LoadPersistedChainTip();
-
+        var tip = await ReadLockedChainHeadAsync(cancellationToken);
+        var previous = tip;
         foreach (var evt in pending)
         {
             evt.PreviousHash = previous;
             evt.RecordHash = AuditHashChainRule.ComputeRecordHash(evt);
             previous = evt.RecordHash;
         }
-    }
 
-    /// <summary>
-    /// Reads the committed (or same-transaction) tip via SQL so Added tracker
-    /// rows with Id 0 cannot hide the real last hash.
-    /// </summary>
-    private string LoadPersistedChainTip()
-    {
-        var sqlite = string.Equals(
-            Database.ProviderName,
-            "Microsoft.EntityFrameworkCore.Sqlite",
-            StringComparison.Ordinal);
-        var sql = sqlite
-            ? """
-              SELECT a.RecordHash
-              FROM AuditEvents a
-              WHERE a.RecordHash IS NOT NULL AND a.RecordHash <> ''
-                AND NOT EXISTS (
-                    SELECT 1 FROM AuditEvents c WHERE c.PreviousHash = a.RecordHash)
-              LIMIT 1
-              """
-            : """
-              SELECT TOP 1 a.RecordHash
-              FROM AuditEvents a
-              WHERE a.RecordHash IS NOT NULL AND a.RecordHash <> ''
-                AND NOT EXISTS (
-                    SELECT 1 FROM AuditEvents c WHERE c.PreviousHash = a.RecordHash)
-              """;
-
-        var connection = Database.GetDbConnection();
-        var openedHere = connection.State != ConnectionState.Open;
-        if (openedHere)
+        var moved = await Database.ExecuteSqlAsync(
+            $"UPDATE AuditChainHead SET TipHash = {previous} WHERE Id = {AuditChainHead.SingletonId} AND TipHash = {tip}",
+            cancellationToken);
+        if (moved != 1)
         {
-            connection.Open();
-        }
-
-        try
-        {
-            using var command = connection.CreateCommand();
-            command.Transaction = Database.CurrentTransaction?.GetDbTransaction();
-            command.CommandText = sql;
-            var result = command.ExecuteScalar();
-            var tip = result as string ?? result?.ToString();
-            return string.IsNullOrWhiteSpace(tip) ? AuditHashChainRule.GenesisPreviousHash : tip;
-        }
-        finally
-        {
-            if (openedHere)
-            {
-                connection.Close();
-            }
+            throw new InvalidOperationException("The audit chain head changed while it was locked.");
         }
     }
 
-    private static bool IsAuditHashConflict(DbUpdateException exception)
+    private async Task<string> ReadLockedChainHeadAsync(CancellationToken cancellationToken)
     {
-        if (exception.Entries.Any(e => e.Entity is AuditEvent))
+        string? tip;
+        if (Database.IsSqlServer())
         {
-            return true;
+            tip = (await Database.SqlQuery<string>(
+                    $"SELECT TipHash AS Value FROM AuditChainHead WITH (UPDLOCK, HOLDLOCK) WHERE Id = {AuditChainHead.SingletonId}")
+                .ToListAsync(cancellationToken)).SingleOrDefault();
+        }
+        else
+        {
+            // SQLite has no row locks. Writing first takes the database write lock now, so a
+            // deferred transaction cannot read the head and then lose the race to upgrade.
+            await Database.ExecuteSqlAsync(
+                $"UPDATE AuditChainHead SET TipHash = TipHash WHERE Id = {AuditChainHead.SingletonId}",
+                cancellationToken);
+            tip = (await Database.SqlQuery<string>(
+                    $"SELECT TipHash AS Value FROM AuditChainHead WHERE Id = {AuditChainHead.SingletonId}")
+                .ToListAsync(cancellationToken)).SingleOrDefault();
         }
 
-        var text = exception.InnerException?.Message ?? exception.Message;
-        return text.Contains("PreviousHash", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("RecordHash", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("IX_AuditEvents_PreviousHash", StringComparison.OrdinalIgnoreCase)
-            || text.Contains("IX_AuditEvents_RecordHash", StringComparison.OrdinalIgnoreCase);
+        return string.IsNullOrWhiteSpace(tip)
+            ? throw new InvalidOperationException(
+                "The AuditChainHead row is missing. Apply database migrations before saving.")
+            : tip;
     }
 
     private void AppendAuditEvents(IEnumerable<AuditCapture> captures)

@@ -15,10 +15,14 @@
 </head>
 
 <body>
-    <Routes @rendermode="InteractiveServer" />
+    <Routes @rendermode="InteractiveServer" ClientAddress="@HttpContext?.Connection.RemoteIpAddress?.ToString()" />
     <ReconnectModal />
     <script src="@Assets["ui.js"]"></script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+}

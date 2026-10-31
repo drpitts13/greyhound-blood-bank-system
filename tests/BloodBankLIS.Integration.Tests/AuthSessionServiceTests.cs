@@ -25,6 +25,7 @@ public class AuthSessionServiceTests
         return new AuthSessionService(
             new EfRepository<User>(c),
             new EfRepository<AuthSession>(c),
+            new UserSignInStore(c, factory.Clock, factory.CurrentUser),
             c,
             factory.Clock,
             new AuditWriter(c, factory.Clock, factory.CurrentUser, env),
