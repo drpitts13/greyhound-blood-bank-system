@@ -3609,6 +3609,94 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Expired, (await context.BloodUnits.FindAsync(pastDueId))!.Status);
     }
 
+    // TEST-BB-295: the scheduled sweep expires due units without a user permission,
+    // leaves in-date units alone, is safe to repeat, and audits its own path.
+    [Fact]
+    public async Task ScheduledExpirationSweep_ExpiresDueUnits_WithoutUserPermission()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long pastDueId;
+        long futureId;
+        await using (var setup = _factory.Create())
+        {
+            var pastDue = new BloodUnit
+            {
+                UnitNumber = "U-SCHED-PAST",
+                ProductTypeId = productTypeId,
+                Abo = AboGroup.A,
+                RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-5),
+                Status = UnitStatus.Available
+            };
+            var future = new BloodUnit
+            {
+                UnitNumber = "U-SCHED-FUTURE",
+                ProductTypeId = productTypeId,
+                Abo = AboGroup.A,
+                RhD = RhType.Positive,
+                ExpiresUtc = _factory.Clock.UtcNow.AddDays(3),
+                Status = UnitStatus.Available
+            };
+            setup.BloodUnits.AddRange(pastDue, future);
+            await setup.SaveChangesAsync();
+            pastDueId = pastDue.Id;
+            futureId = future.Id;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var noPermissions = new FixedPermissionEvaluator(1, PermissionCodes.InventoryRelease);
+            var first = await CreateService(context, noPermissions).RunScheduledExpirationSweepAsync();
+            Assert.True(first.Succeeded, first.Error);
+            Assert.True(first.AffectedCount >= 1);
+
+            var second = await CreateService(context, noPermissions).RunScheduledExpirationSweepAsync();
+            Assert.True(second.Succeeded, second.Error);
+            Assert.Equal(0, second.AffectedCount);
+        }
+
+        await using (var verify = _factory.Create())
+        {
+            Assert.Equal(UnitStatus.Expired, (await verify.BloodUnits.FindAsync(pastDueId))!.Status);
+            Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(futureId))!.Status);
+            Assert.Single(
+                await verify.InventoryStatusHistory
+                    .Where(h => h.BloodProductId == pastDueId && h.ToStatus == UnitStatus.Expired)
+                    .ToListAsync());
+            var audits = await verify.AuditEvents
+                .Where(e => e.EntityId == pastDueId && e.EventType == AuditEventType.ProductStatus)
+                .ToListAsync();
+            Assert.Contains(audits, e => e.NewValueJson != null && e.NewValueJson.Contains("ScheduledExpireSweep"));
+        }
+    }
+
+    [Fact]
+    public async Task ScheduledExpirationSweep_SkipsTerminalStatuses()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+        long transfusedId;
+        await using (var setup = _factory.Create())
+        {
+            var transfused = new BloodUnit
+            {
+                UnitNumber = "U-SCHED-TX",
+                ProductTypeId = productTypeId,
+                Abo = AboGroup.O,
+                RhD = RhType.Negative,
+                ExpiresUtc = _factory.Clock.UtcNow.AddHours(-2),
+                Status = UnitStatus.Transfused
+            };
+            setup.BloodUnits.Add(transfused);
+            await setup.SaveChangesAsync();
+            transfusedId = transfused.Id;
+        }
+
+        await using var context = _factory.Create();
+        var result = await CreateService(context).RunScheduledExpirationSweepAsync();
+        Assert.True(result.Succeeded, result.Error);
+        Assert.Equal(UnitStatus.Transfused, (await context.BloodUnits.FindAsync(transfusedId))!.Status);
+    }
+
     [Fact]
     public async Task Search_FiltersByStatus()
     {

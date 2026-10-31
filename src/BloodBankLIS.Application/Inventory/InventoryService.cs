@@ -1826,6 +1826,18 @@ public sealed class InventoryService
             return denied;
         }
 
+        return await SweepExpiredUnitsAsync("ExpireSweep", ct);
+    }
+
+    /// <summary>
+    /// Scheduled expiration sweep for the hosted service. It runs as the system
+    /// account with no user permission check, so no endpoint may call it.
+    /// </summary>
+    public Task<InventoryActionResult> RunScheduledExpirationSweepAsync(CancellationToken ct = default) =>
+        SweepExpiredUnitsAsync("ScheduledExpireSweep", ct);
+
+    private async Task<InventoryActionResult> SweepExpiredUnitsAsync(string path, CancellationToken ct)
+    {
         var now = _clock.UtcNow;
         var due = await _repository.GetExpirableUnitsAsync(now, ct);
         if (due.Count == 0)
@@ -1865,7 +1877,7 @@ public sealed class InventoryService
                 {
                     unit.UnitNumber,
                     Status = UnitStatus.Expired,
-                    Path = "ExpireSweep",
+                    Path = path,
                     unit.ExpiresUtc
                 },
                 reason: "Unit expired.");

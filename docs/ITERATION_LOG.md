@@ -6787,3 +6787,30 @@ The reflex-rule catalog listed each rule by its stored name. A blank name left a
 ### Next ranked residual
 
 The order-and-test rule catalog still shows a blank name as empty beside the code. Keep the code in the catalog, and show Rule {id} when the name is blank. Do not rewrite the stored name or the edit form. Do not post elution findings as structured antibody history. OCD-004 remains open: do not invent ICCBBA tables.
+
+## Iteration 252 — Scheduled unit expiration, competitor gap G1 (2026-10-31)
+
+Round 2 of the competitor comparison (SafeTrace Tx, SoftBank.web, WellSky Transfusion; transfusion side only by product-owner decision) found nine gaps. They are queued in `docs/COMPETITOR_GAP_QUEUE.md`. G1: units past expiration moved to Expired only when someone ran the sweep by hand.
+
+### Implemented
+
+- `ExpiredUnitSweepService` (Api hosted service) runs `InventoryService.RunScheduledExpirationSweepAsync` every `Inventory:ExpirationSweepSeconds` (default 300; 0 disables).
+- The scheduled method and the manual `ExpireDueUnitsAsync` share one core sweep. The manual path keeps its `inventory.discard` check. No endpoint maps the scheduled method.
+- Status history and audit are written as the system account with path `ScheduledExpireSweep`. Terminal statuses are skipped through `InventoryStatusTransition`. A second run expires nothing new.
+- The issue gate is unchanged and still blocks expired units on its own.
+- User manual: the inventory page has a new Expiration section.
+
+### Requirements / risk
+
+- URS-BB-405, FRS-BB-440, SRS-BB-402, RISK-BB-507.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-295 (`InventoryServiceTests.ScheduledExpirationSweep_ExpiresDueUnits_WithoutUserPermission`, `InventoryServiceTests.ScheduledExpirationSweep_SkipsTerminalStatuses`).
+- Full suite: 2,807 passed, 0 failed (baseline 2,805). Application 82, Astm 19, HL7 63, Domain 1,598, Printing 21, Help 5, Integration 1,019.
+- Run check: the API started with the log line "Expired-unit sweep running every 300s." and the first run expired 1 past-due unit in the development database. No server errors.
+
+### Next ranked residual
+
+G2: storage temperature log and excursions. Do not auto-quarantine on an excursion until an OCD row is decided.

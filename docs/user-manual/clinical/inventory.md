@@ -24,6 +24,10 @@ The row shows the storage location by name. A missing name falls back to the loc
 
 The other boards cover expected inbound units, units near expiry, units on hold, discrepancy units (missing or damaged), and open deliveries. Open the row rather than changing status from memory.
 
+## Expiration
+
+The system moves units that have reached their expiration date to Expired by itself, every five minutes by default. The history and audit trail record the change under the system account. **Run expiration sweep** still does the same thing on demand for staff with discard permission. A unit is blocked at issue once it expires, even before the sweep runs.
+
 ## Start the next task
 
 **New delivery** starts a shipment from a supplier. **ISBT Receive** and **Modify Products** are in the sidebar under Receive and modify. Open a unit number to see its full chart: status, attributes, history, and the actions that are legal for the state it is in.

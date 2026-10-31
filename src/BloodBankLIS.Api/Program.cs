@@ -66,6 +66,7 @@ builder.Services.AddHostedService<Hl7FileDropService>();
 builder.Services.AddHostedService<AstmListenerService>();
 builder.Services.AddHostedService<AstmClientService>();
 builder.Services.AddHostedService<ExpiredSpecimenOrderSweepService>();
+builder.Services.AddHostedService<ExpiredUnitSweepService>();
 
 // Real environment descriptor for audit stamping (overrides the infrastructure default).
 builder.Services.AddSingleton<IEnvironmentInfo>(

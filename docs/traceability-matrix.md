@@ -441,6 +441,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-402 / FRS-BB-437 | The blood-attribute catalog keeps the code and shows the attribute id when an antigen or antibody name is blank | `BloodAttributeLabel`; `BloodAttributeDefinitionDto`; `AdminBloodAttributes.razor` | TEST-BB-292 | A | Does not claim AABB compliance. The stored names and the edit form are unchanged |
 | URS-BB-403 / FRS-BB-438 | The special-requirement catalog keeps the code and shows the requirement id when the name is blank | `SpecialRequirementLabel`; `SpecialRequirementDefinitionDto.NameLabel`; `AdminSpecialRequirements.razor` | TEST-BB-293 | A | Does not claim AABB compliance. The stored name and the edit form are unchanged |
 | URS-BB-404 / FRS-BB-439 | The reflex-rule catalog keeps the code and shows the reflex id when the name is blank | `ReflexRuleLabel`; `ReflexRuleDto.NameLabel`; `AdminReflexRules.razor` | TEST-BB-294 | A | Does not claim AABB compliance. The stored name and the edit form are unchanged |
+| URS-BB-405 / FRS-BB-440 | Units past expiration move to Expired on a schedule as the system account | `ExpiredUnitSweepService`; `InventoryService.RunScheduledExpirationSweepAsync` | TEST-BB-295 | I | Competitor gap G1. The manual sweep keeps its permission check. The issue gate is unchanged |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
