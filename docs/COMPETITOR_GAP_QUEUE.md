@@ -43,4 +43,4 @@ These differences stay recorded and are not built in this loop.
 - Donor and collection modules (SafeTrace donor, SoftDonor, WellSky Donor). Product-owner decision of 2026-10-31: this product stays a transfusion service.
 - Infectious-disease result entry on units. Units arrive tested by the supplier. That entry belongs to the donor side.
 - Email and SMS delivery of alerts. No messaging contract is defined. Alerts stay in-app (G5).
-- Ordering-appropriateness or patient-blood-management criteria. The thresholds are clinical and REQUIRE REGULATORY / SME VERIFICATION. Do not invent them.
+- Shipped PBM thresholds. The criteria engine exists (item 18), but its content is clinical and REQUIRES REGULATORY / SME VERIFICATION (OCD-038). Do not invent thresholds.
