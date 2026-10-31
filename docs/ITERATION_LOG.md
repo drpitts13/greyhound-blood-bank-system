@@ -7003,3 +7003,53 @@ Competitor products export to CSV for downstream systems. Here, reports exported
 ### Next ranked residual
 
 G7: supplier order from the par shortfall.
+
+
+## Iteration 258 — Supplier order from par shortfall, competitor gap G7 (2026-10-31)
+
+SafeTrace Tx generates blood orders to the supplier. Here the par board showed the shortfall, but the order was placed outside the system.
+
+### Implemented
+
+- `SupplierOrder` and `SupplierOrderLine` entities. Migration `20261031180000_SupplierOrders`, plus the development SQLite bootstrap and the SQLite-to-SQL Server copy list (after `BloodDeliveries`).
+- `SupplierOrderRule`:
+  - Lifecycle is Draft → Submitted → Received, or Cancelled from Draft or Submitted with a reason.
+  - Only a draft can be edited; quantity must be 0 to 999 (an entry guard, not an ordering rule).
+  - Submit needs units and a valid signature. Receive needs a Submitted order and a delivery from the same supplier.
+- `SupplierOrderService`:
+  - Creates a draft from the par shortfall (fails when nothing is short or the supplier is inactive). Order numbers are SO-yyyyMMdd-NNN.
+  - Edits replace lines; zeroed lines are kept and hidden, never deleted.
+  - Submit validates the e-signature with `ISignatureService` for the current user and action `SupplierOrderSubmit`, consumes it, and writes the signature id on the audit event.
+  - Also handles receive, cancel, and audited PDF or CSV export.
+- `/api/inventory/supplier-orders` endpoints (changes require `inventory.receive`).
+- `/inventory/orders` page (create from par, edit, sign and submit, export, link delivery, cancel), a "Supplier orders" nav link, and a help topic.
+
+### Requirements / risk
+
+- URS-BB-411, FRS-BB-446, SRS-BB-408, RISK-BB-513.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-301: `SupplierOrderRuleTests` (11 cases) and `SupplierOrderTests` (3, with a signature double). They cover:
+  - the shortfall becoming a draft line
+  - edit, merge, zero, and over-limit
+  - an invalid signature rejected, and a valid one consumed and written on the audit
+  - no edit after submit
+  - a delivery from the wrong supplier rejected and the right one linked
+  - no cancel after receive
+  - CSV content, PDF header, a rejected format, and audited exports
+  - nothing below par, an inactive supplier, and cancel without a reason
+- Full suite: 2,889 passed, 0 failed (previously 2,875). Application 83, Astm 19, HL7 63, Domain 1,658, Printing 21, Help 5, Integration 1,040.
+- Run check (development database, DevMode):
+  - Create draft for American Red Cross gave SO-20261031-001 with RBC-LR group O for 44 units (the par shortfall).
+  - Quantity changed to 40 and a note was saved.
+  - Sign and submit with a placeholder secret was refused ("Password or PIN re-authentication is required to sign"). The development account has a password, and none was guessed. Submit and receive are verified by the integration tests, not in the UI.
+  - The CSV export matched the saved order.
+  - The order was then cancelled ("Verification test only").
+  - No server errors.
+- Development database change: cancelled order SO-20261031-001.
+
+### Next ranked residual
+
+G8: database backup and restore check.

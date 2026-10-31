@@ -171,6 +171,7 @@ app.MapStorageTemperatureEndpoints();
 app.MapStockParEndpoints();
 app.MapUtilizationEndpoints();
 app.MapAlertEndpoints();
+app.MapSupplierOrderEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();

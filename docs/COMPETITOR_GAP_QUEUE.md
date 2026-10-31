@@ -8,7 +8,6 @@ Each open item is one implementation slice. When this list has no open items, st
 
 Round 2 (2026-10-31). Scope is the transfusion service only, by product-owner decision. Work one item per loop tick, top to bottom. Each item needs automated tests, a full `dotnet test` run, a TEST-BB ID, an iteration-log entry, and a traceability row.
 
-7. **G7 Supplier order from par shortfall.** Plan: generate an editable order from the par board, sign it to submit, export it as PDF or CSV, and link a received delivery to its order. No EDI.
 8. **G8 Backup and restore check.** Plan: add backup and verify scripts (SQL Server `WITH CHECKSUM` and `RESTORE VERIFYONLY`, or a SQLite copy), a backup log, and an admin last-backup view.
 9. **G9 MFA for privileged users.** Plan: add TOTP for users with admin or supervisor permissions behind a policy that defaults off. The secret is protected with ASP.NET Data Protection.
 
@@ -27,6 +26,7 @@ Round 2 (2026-10-31). Scope is the transfusion service only, by product-owner de
 11. G4 Utilization. C:T ratio and transfused share by ordering location and provider on `/utilization`; numbers only, no benchmark. TEST-BB-298.
 12. G5 Alert inbox. In-app alerts with a top-bar count; excursion and expiry events, plus par, near-expiry, and reagent QC conditions that resolve themselves. TEST-BB-299.
 13. G6 CSV export. Reports and the audit trail export CSV with RFC 4180 quoting and a formula-injection guard; audit exports are themselves audited. TEST-BB-300.
+14. G7 Supplier order. Draft from the par shortfall, e-signed submit, PDF/CSV export, delivery link from the same supplier; no EDI. TEST-BB-301.
 
 ## Excluded
 

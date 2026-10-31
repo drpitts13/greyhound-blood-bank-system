@@ -1,0 +1,312 @@
+@page "/inventory/orders"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+@inject ReportDownloadCache Downloads
+@inject IJSRuntime Js
+
+<PageTitle>Supplier orders &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Supplier orders</h1>
+<p class="muted">Build a blood order from the par shortfall, sign it, send it, and link the delivery when it arrives.</p>
+<details class="bb-help">
+    <summary>How it works</summary>
+    <ul>
+        <li>A new order has one line per par row that is short, for the shortfall. Change quantities before you submit. A zero removes the line.</li>
+        <li>Submitting needs your electronic signature. The order is then fixed.</li>
+        <li>Export PDF or CSV and send it to the supplier by your usual route. Nothing is sent electronically.</li>
+        <li>When the delivery arrives, link it to the order. The delivery must be from the same supplier.</li>
+    </ul>
+</details>
+<Outcome Value="_feedback" />
+
+@if (CanEdit)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>New order from par</h3></div>
+        <div class="form-row">
+            <div class="field">
+                <label>Supplier</label>
+                <select @bind="_supplierId">
+                    <option value="0">Select</option>
+                    @foreach (var supplier in _suppliers)
+                    {
+                        <option value="@supplier.Id">@supplier.DisplayName</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <button class="btn btn-primary btn-sm" disabled="@(_busy || _supplierId == 0)" @onclick="CreateAsync">Create draft</button>
+    </div>
+}
+
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Orders</h3></div>
+    @if (_orders.Count == 0)
+    {
+        <div class="muted">No supplier orders yet.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Order</th><th>Supplier</th><th>Status</th><th class="right">Units</th><th>Created</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var order in _orders)
+                {
+                    <tr class="@(order.Id == _selected?.Id ? "selected" : null)">
+                        <td class="mono">@order.OrderNumber</td>
+                        <td>@order.SupplierName</td>
+                        <td><span class="badge @StatusClass(order.Status)">@order.Status</span></td>
+                        <td class="right">@order.UnitsOrdered</td>
+                        <td>@order.CreatedUtc.ToString("yyyy-MM-dd HH:mm") &middot; @order.CreatedBy</td>
+                        <td><button class="btn btn-ghost btn-sm" @onclick="() => Select(order)">Open</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_selected is { } current)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>@current.OrderNumber &middot; @current.SupplierName &middot; @current.Status</h3></div>
+        <table class="bb">
+            <thead><tr><th>Product</th><th>ABO</th><th class="right">Quantity</th></tr></thead>
+            <tbody>
+                @foreach (var line in _editLines)
+                {
+                    <tr>
+                        <td><span class="mono">@line.ProductCode</span> @line.ProductName</td>
+                        <td>@(line.Abo?.ToString() ?? "Any")</td>
+                        <td class="right">
+                            @if (IsDraft && CanEdit)
+                            {
+                                <input type="number" min="0" max="@SupplierOrderRule.MaxLineQuantity" style="width:6rem;" @bind="line.Quantity" />
+                            }
+                            else
+                            {
+                                @line.Quantity
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <div class="form-row" style="margin-top:.75rem;">
+            <div class="field" style="flex:2;">
+                <label>Notes</label>
+                @if (IsDraft && CanEdit)
+                {
+                    <input @bind="_notes" maxlength="500" />
+                }
+                else
+                {
+                    <div>@(current.Notes ?? "—")</div>
+                }
+            </div>
+        </div>
+        @if (current.SubmittedUtc is DateTime submitted)
+        {
+            <p class="muted">Submitted by @current.SubmittedBy @submitted.ToString("yyyy-MM-dd HH:mm") UTC.</p>
+        }
+        @if (current.ReceivedUtc is DateTime received)
+        {
+            <p class="muted">Received against delivery @current.DeliveryId at @received.ToString("yyyy-MM-dd HH:mm") UTC.</p>
+        }
+        @if (current.CancelReason is not null)
+        {
+            <p class="muted">Cancelled: @current.CancelReason</p>
+        }
+
+        <div class="flex gap" style="flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick='() => ExportAsync("pdf")'>Export PDF</button>
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick='() => ExportAsync("csv")'>Export CSV</button>
+            @if (IsDraft && CanEdit)
+            {
+                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="SaveAsync">Save changes</button>
+            }
+        </div>
+
+        @if (IsDraft && CanEdit)
+        {
+            <div class="form-row" style="margin-top:1rem;">
+                <div class="field"><label>Password or PIN to sign</label><input type="password" @bind="_secret" autocomplete="off" /></div>
+            </div>
+            <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_secret))" @onclick="SubmitAsync">Sign and submit</button>
+        }
+
+        @if (current.Status == SupplierOrderStatus.Submitted && CanEdit)
+        {
+            <div class="form-row" style="margin-top:1rem;">
+                <div class="field">
+                    <label>Delivery received</label>
+                    <select @bind="_deliveryId">
+                        <option value="0">Select</option>
+                        @foreach (var delivery in _deliveries.Where(d => d.BloodSupplierId == current.SupplierId))
+                        {
+                            <option value="@delivery.Id">@(delivery.PackingListNumber ?? $"Delivery {delivery.Id}") &middot; @delivery.ReceivedUtc.ToString("yyyy-MM-dd")</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-sm" disabled="@(_busy || _deliveryId == 0)" @onclick="ReceiveAsync">Link delivery</button>
+        }
+
+        @if (current.Status is SupplierOrderStatus.Draft or SupplierOrderStatus.Submitted && CanEdit)
+        {
+            <div class="form-row" style="margin-top:1rem;">
+                <div class="field" style="flex:2;"><label>Cancel reason</label><input @bind="_cancelReason" /></div>
+            </div>
+            <button class="btn btn-ghost btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_cancelReason))" @onclick="CancelAsync">Cancel order</button>
+        }
+    </div>
+}
+
+@code {
+    private sealed class EditLine
+    {
+        public long ProductTypeId { get; init; }
+        public string ProductCode { get; init; } = string.Empty;
+        public string ProductName { get; init; } = string.Empty;
+        public AboGroup? Abo { get; init; }
+        public int Quantity { get; set; }
+    }
+
+    private List<SupplierOrderDto> _orders = new();
+    private List<BloodSupplierRefDto> _suppliers = new();
+    private List<OpenDeliveryDto> _deliveries = new();
+    private SupplierOrderDto? _selected;
+    private List<EditLine> _editLines = new();
+    private Feedback? _feedback;
+    private bool _busy;
+    private long _supplierId;
+    private long _deliveryId;
+    private string _notes = string.Empty;
+    private string _secret = string.Empty;
+    private string _cancelReason = string.Empty;
+
+    private bool CanEdit => Session.Has(PermissionCodes.InventoryReceive);
+
+    private bool IsDraft => _selected?.Status == SupplierOrderStatus.Draft;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var suppliers = await Api.GetBloodSuppliersAsync();
+        if (suppliers.Succeeded) _suppliers = suppliers.Value ?? new();
+        if (_suppliers.Count == 1) _supplierId = _suppliers[0].Id;
+        await ReloadAsync();
+    }
+
+    private async Task ReloadAsync()
+    {
+        var orders = await Api.GetSupplierOrdersAsync();
+        if (orders.Succeeded) _orders = orders.Value ?? new();
+        var deliveries = await Api.GetOpenDeliveriesAsync();
+        if (deliveries.Succeeded) _deliveries = deliveries.Value ?? new();
+        if (_selected is not null)
+        {
+            var fresh = _orders.FirstOrDefault(o => o.Id == _selected.Id);
+            if (fresh is not null) Select(fresh);
+        }
+    }
+
+    private void Select(SupplierOrderDto order)
+    {
+        _selected = order;
+        _notes = order.Notes ?? string.Empty;
+        _secret = string.Empty;
+        _cancelReason = string.Empty;
+        _deliveryId = 0;
+        _editLines = order.Lines
+            .Select(l => new EditLine { ProductTypeId = l.ProductTypeId, ProductCode = l.ProductCode, ProductName = l.ProductName, Abo = l.Abo, Quantity = l.Quantity })
+            .ToList();
+    }
+
+    private async Task RunAsync(Func<Task<ApiResult<SupplierOrderDto>>> call, string success)
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var result = await call();
+            _feedback = result.ToFeedback(success);
+            if (result.Succeeded && result.Value is not null)
+            {
+                _selected = result.Value;
+                await ReloadAsync();
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private Task CreateAsync() =>
+        RunAsync(() => Api.CreateSupplierOrderAsync(new CreateSupplierOrderRequest(_supplierId)), "Draft order created from the par shortfall.");
+
+    private Task SaveAsync() =>
+        RunAsync(() => Api.UpdateSupplierOrderAsync(_selected!.Id, new UpdateSupplierOrderRequest(
+            _editLines.Select(l => new SupplierOrderLineInput(l.ProductTypeId, l.Abo, l.Quantity)).ToList(), _notes)), "Order saved.");
+
+    private async Task SubmitAsync()
+    {
+        if (_selected is null || _busy) return;
+        // Save edits first so the signed order is the one on screen.
+        var saved = await Api.UpdateSupplierOrderAsync(_selected.Id, new UpdateSupplierOrderRequest(
+            _editLines.Select(l => new SupplierOrderLineInput(l.ProductTypeId, l.Abo, l.Quantity)).ToList(), _notes));
+        if (!saved.Succeeded)
+        {
+            _feedback = saved.ToFeedback();
+            return;
+        }
+
+        var sig = await Api.RecordSignatureAsync(new SignatureRequestVm(
+            SupplierOrderRule.SignatureAction, "I submit this blood order to the supplier", "SupplierOrder", _selected.Id, _secret));
+        _secret = string.Empty;
+        if (!sig.Succeeded || sig.Value is null)
+        {
+            _feedback = sig.ToFeedback();
+            return;
+        }
+
+        await RunAsync(() => Api.SubmitSupplierOrderAsync(_selected.Id, new SubmitSupplierOrderRequest(sig.Value.Id)), "Order submitted.");
+    }
+
+    private Task ReceiveAsync() =>
+        RunAsync(() => Api.ReceiveSupplierOrderAsync(_selected!.Id, new ReceiveSupplierOrderRequest(_deliveryId)), "Delivery linked. The order is received.");
+
+    private Task CancelAsync() =>
+        RunAsync(() => Api.CancelSupplierOrderAsync(_selected!.Id, new CancelSupplierOrderRequest(_cancelReason)), "Order cancelled.");
+
+    private async Task ExportAsync(string format)
+    {
+        if (_selected is null || _busy) return;
+        _busy = true;
+        try
+        {
+            var file = await Api.ExportSupplierOrderAsync(_selected.Id, format);
+            if (!file.Succeeded || file.Value is null)
+            {
+                _feedback = file.ToFeedback();
+                return;
+            }
+
+            var contentType = format == "csv" ? BloodBankLIS.Domain.Reporting.CsvFormat.ContentType : "application/pdf";
+            var token = Downloads.Put($"{_selected.OrderNumber}.{format}", contentType, file.Value);
+            await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string StatusClass(SupplierOrderStatus status) => status switch
+    {
+        SupplierOrderStatus.Draft => "badge-gray",
+        SupplierOrderStatus.Submitted => "badge-blue",
+        SupplierOrderStatus.Received => "badge-green",
+        _ => "badge-amber"
+    };
+}

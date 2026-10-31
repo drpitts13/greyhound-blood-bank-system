@@ -1532,6 +1532,48 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ModificationResultVm>> ApplyBatchModificationAsync(PerformBatchModificationRequest req, CancellationToken ct = default) =>
         SendAsync<ModificationResultVm>(HttpMethod.Post, "api/inventory/modifications/batch", req, ct);
 
+    public Task<ApiResult<List<SupplierOrderDto>>> GetSupplierOrdersAsync(CancellationToken ct = default) =>
+        SendAsync<List<SupplierOrderDto>>(HttpMethod.Get, "api/inventory/supplier-orders", ct: ct);
+
+    public Task<ApiResult<SupplierOrderDto>> CreateSupplierOrderAsync(CreateSupplierOrderRequest req, CancellationToken ct = default) =>
+        SendAsync<SupplierOrderDto>(HttpMethod.Post, "api/inventory/supplier-orders", req, ct);
+
+    public Task<ApiResult<SupplierOrderDto>> UpdateSupplierOrderAsync(long id, UpdateSupplierOrderRequest req, CancellationToken ct = default) =>
+        SendAsync<SupplierOrderDto>(HttpMethod.Put, $"api/inventory/supplier-orders/{id}", req, ct);
+
+    public Task<ApiResult<SupplierOrderDto>> SubmitSupplierOrderAsync(long id, SubmitSupplierOrderRequest req, CancellationToken ct = default) =>
+        SendAsync<SupplierOrderDto>(HttpMethod.Post, $"api/inventory/supplier-orders/{id}/submit", req, ct);
+
+    public Task<ApiResult<SupplierOrderDto>> ReceiveSupplierOrderAsync(long id, ReceiveSupplierOrderRequest req, CancellationToken ct = default) =>
+        SendAsync<SupplierOrderDto>(HttpMethod.Post, $"api/inventory/supplier-orders/{id}/receive", req, ct);
+
+    public Task<ApiResult<SupplierOrderDto>> CancelSupplierOrderAsync(long id, CancelSupplierOrderRequest req, CancellationToken ct = default) =>
+        SendAsync<SupplierOrderDto>(HttpMethod.Post, $"api/inventory/supplier-orders/{id}/cancel", req, ct);
+
+    public async Task<ApiResult<byte[]>> ExportSupplierOrderAsync(long id, string format, CancellationToken ct = default)
+    {
+        HttpResponseMessage response;
+        try
+        {
+            response = await _http.GetAsync($"api/inventory/supplier-orders/{id}/export?format={Uri.EscapeDataString(format)}", ct);
+        }
+        catch (Exception ex)
+        {
+            return ApiResult<byte[]>.Fail($"Could not reach the API: {ex.Message}", 0);
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync(ct);
+                return ApiResult<byte[]>.Fail(string.IsNullOrWhiteSpace(error) ? "Export failed." : error, (int)response.StatusCode);
+            }
+
+            return ApiResult<byte[]>.Ok(await response.Content.ReadAsByteArrayAsync(ct));
+        }
+    }
+
     public Task<ApiResult<List<AlertDto>>> GetAlertsAsync(bool openOnly = false, CancellationToken ct = default) =>
         SendAsync<List<AlertDto>>(HttpMethod.Get, $"api/alerts?openOnly={openOnly.ToString().ToLowerInvariant()}", ct: ct);
 

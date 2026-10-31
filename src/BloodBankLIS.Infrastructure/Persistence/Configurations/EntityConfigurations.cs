@@ -2107,3 +2107,34 @@ public sealed class AlertConfiguration : IEntityTypeConfiguration<Alert>
         b.HasIndex(a => a.Key);
     }
 }
+
+public sealed class SupplierOrderConfiguration : IEntityTypeConfiguration<SupplierOrder>
+{
+    public void Configure(EntityTypeBuilder<SupplierOrder> b)
+    {
+        b.ToTable("SupplierOrders");
+        b.HasKey(o => o.Id);
+        b.Property(o => o.OrderNumber).HasMaxLength(30).IsRequired();
+        b.Property(o => o.Notes).HasMaxLength(500);
+        b.Property(o => o.SubmittedBy).HasMaxLength(100);
+        b.Property(o => o.CancelledBy).HasMaxLength(100);
+        b.Property(o => o.CancelReason).HasMaxLength(500);
+        b.Property(o => o.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(o => o.ModifiedBy).HasMaxLength(100);
+        b.HasOne(o => o.BloodSupplier).WithMany().HasForeignKey(o => o.BloodSupplierId).OnDelete(DeleteBehavior.Restrict);
+        b.HasMany(o => o.Lines).WithOne(l => l.SupplierOrder).HasForeignKey(l => l.SupplierOrderId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(o => o.OrderNumber).IsUnique();
+    }
+}
+
+public sealed class SupplierOrderLineConfiguration : IEntityTypeConfiguration<SupplierOrderLine>
+{
+    public void Configure(EntityTypeBuilder<SupplierOrderLine> b)
+    {
+        b.ToTable("SupplierOrderLines");
+        b.HasKey(l => l.Id);
+        b.Property(l => l.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(l => l.ModifiedBy).HasMaxLength(100);
+        b.HasOne<ProductType>().WithMany().HasForeignKey(l => l.ProductTypeId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

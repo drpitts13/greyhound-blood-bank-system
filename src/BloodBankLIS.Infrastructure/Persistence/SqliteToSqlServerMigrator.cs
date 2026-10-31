@@ -90,6 +90,8 @@ public sealed class SqliteToSqlServerMigrator
         "CompatibilityRules",
         "BloodSuppliers",
         "BloodDeliveries",
+        "SupplierOrders",
+        "SupplierOrderLines",
         "BloodDeliveryLines",
         "BloodProducts",
         "ProductRetypeResults",

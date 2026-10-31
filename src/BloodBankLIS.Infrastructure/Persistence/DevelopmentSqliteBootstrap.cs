@@ -171,6 +171,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureStorageTemperatureTableAsync(context, cancellationToken);
         await EnsureUnitDiscardReasonsTableAsync(context, cancellationToken);
         await EnsureAlertsTableAsync(context, cancellationToken);
+        await EnsureSupplierOrderTablesAsync(context, cancellationToken);
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
@@ -686,6 +687,68 @@ public static class DevelopmentSqliteBootstrap
                 )
                 """, ct);
         }
+    }
+
+    private static async Task EnsureSupplierOrderTablesAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "SupplierOrders", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "SupplierOrders" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_SupplierOrders" PRIMARY KEY AUTOINCREMENT,
+                "OrderNumber" TEXT NOT NULL,
+                "BloodSupplierId" INTEGER NOT NULL,
+                "Status" INTEGER NOT NULL,
+                "Notes" TEXT NULL,
+                "SubmittedBy" TEXT NULL,
+                "SubmittedUtc" TEXT NULL,
+                "SubmitSignatureId" INTEGER NULL,
+                "BloodDeliveryId" INTEGER NULL,
+                "ReceivedUtc" TEXT NULL,
+                "CancelledBy" TEXT NULL,
+                "CancelReason" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_SupplierOrders_BloodSuppliers_BloodSupplierId"
+                    FOREIGN KEY ("BloodSupplierId") REFERENCES "BloodSuppliers" ("Id") ON DELETE RESTRICT
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "SupplierOrderLines" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_SupplierOrderLines" PRIMARY KEY AUTOINCREMENT,
+                "SupplierOrderId" INTEGER NOT NULL,
+                "ProductTypeId" INTEGER NOT NULL,
+                "Abo" INTEGER NULL,
+                "Quantity" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_SupplierOrderLines_SupplierOrders_SupplierOrderId"
+                    FOREIGN KEY ("SupplierOrderId") REFERENCES "SupplierOrders" ("Id") ON DELETE CASCADE,
+                CONSTRAINT "FK_SupplierOrderLines_ProductTypes_ProductTypeId"
+                    FOREIGN KEY ("ProductTypeId") REFERENCES "ProductTypes" ("Id") ON DELETE RESTRICT
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_SupplierOrders_OrderNumber" ON "SupplierOrders" ("OrderNumber")""", ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_SupplierOrders_BloodSupplierId" ON "SupplierOrders" ("BloodSupplierId")""", ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_SupplierOrderLines_SupplierOrderId" ON "SupplierOrderLines" ("SupplierOrderId")""", ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_SupplierOrderLines_ProductTypeId" ON "SupplierOrderLines" ("ProductTypeId")""", ct);
     }
 
     private static async Task EnsureAlertsTableAsync(BloodBankDbContext context, CancellationToken ct)
