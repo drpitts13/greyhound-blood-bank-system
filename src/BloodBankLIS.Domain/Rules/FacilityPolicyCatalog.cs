@@ -138,7 +138,13 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Boolean, "false", "Facility security policy / OCD-037"),
         new(FacilityPolicyKeys.ExcursionQuarantineMinutes, "Inventory", "Quarantine after excursion minutes",
             "Units at a storage location are quarantined automatically once a temperature excursion has lasted longer than this many minutes (measured from the first out-of-range reading while readings stay out of range). 0 turns automatic quarantine off.",
-            FacilityPolicyValueKind.Integer, "30", "OCD-036", 0, 1440)
+            FacilityPolicyValueKind.Integer, "30", "OCD-036", 0, 1440),
+        new(FacilityPolicyKeys.PbmEvaluateOrders, "Order", "Evaluate product orders against transfusion criteria",
+            "When true, each product order is compared with the facility's transfusion indication criteria (Admin › Transfusion Criteria) and the result is recorded for patient-blood-management review. The software ships no criteria or thresholds. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)"),
+        new(FacilityPolicyKeys.PbmRequireJustification, "Order", "Require a reason for orders outside criteria",
+            "When true (and evaluation is on), a manual product order outside the criteria needs a selected indication or a written reason before it is saved. Interface orders are recorded, never stopped. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)")
     ];
 
     public static FacilityPolicyDefinition? Find(string key) =>

@@ -108,6 +108,12 @@ public sealed class FacilityPolicyService
     public Task<int> GetExcursionQuarantineMinutesAsync(CancellationToken ct = default) =>
         GetIntAsync(FacilityPolicyKeys.ExcursionQuarantineMinutes, 30, ct);
 
+    public Task<bool> GetPbmEvaluateOrdersAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.PbmEvaluateOrders, false, ct);
+
+    public Task<bool> GetPbmRequireJustificationAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.PbmRequireJustification, false, ct);
+
     public Task<bool> GetAllowElectronicCrossmatchAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowElectronicCrossmatch, false, ct);
 

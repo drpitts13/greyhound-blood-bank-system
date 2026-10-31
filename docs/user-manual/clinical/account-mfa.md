@@ -24,7 +24,9 @@ After your password is accepted, the sign-in page asks for the current code. A c
 
 ## Facility policy
 
-When an administrator turns on **Require MFA for privileged users** in Facility Policies, anyone who can administer users, roles, or configuration, or approve overrides, is sent to this page after signing in until they set up an authenticator. They cannot remove it themselves. Anyone else can remove their authenticator with a current code.
+Authenticator sign-in is a facility option: **Enable authenticator-app sign-in** in Facility Policies (default off). While it is off, nobody is asked for a code and setup is unavailable.
+
+With it on, **Require MFA for privileged users** or **Require MFA for all users** decides who must have an authenticator. Someone in scope who has none **cannot sign in**: after the password, the sign-in screen shows a key to add to the app, and the first valid code completes setup and signs in. They cannot remove their authenticator themselves. Anyone else can remove theirs with a current code.
 
 ## Lost device
 

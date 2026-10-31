@@ -220,6 +220,7 @@ else
             CanVerifyPostedOrderResult="CanVerifyPostedOrderResult"
             OnToggleAdd="ToggleAddOrder"
             OnSave="AddOrderAsync"
+            BeforeSave="PbmPanel"
             @bind-NewVisitNumber="_newVisitNumber"
             @bind-NewVisitAdmit="_newVisitAdmit"
             OnSaveVisit="AddVisitAsync"
@@ -1780,12 +1781,75 @@ else
         return lines;
     }
 
+    // OCD-038: transfusion-criteria check results and the orderer's answers, per product type.
+    private List<ProductIndicationResultDto> _pbmResults = new();
+    private readonly Dictionary<long, string> _pbmIndication = new();
+    private readonly Dictionary<long, string> _pbmReason = new();
+
+    private RenderFragment PbmPanel => __builder =>
+    {
+        var pending = _pbmResults.Where(r => r.Status == PbmStatus.OutsideCriteria && _newOrderProductTypeIds.Contains(r.ProductTypeId)).ToList();
+        if (pending.Count == 0) return;
+        <div class="alert alert-danger" style="margin:.75rem 0;">
+            <strong>Outside the facility's transfusion criteria.</strong> Select an indication or enter a reason for each product.
+            @foreach (var r in pending)
+            {
+                var id = r.ProductTypeId;
+                <div style="margin-top:.5rem;">
+                    <div><span class="mono">@r.ProductCode</span>: @r.Detail</div>
+                    <div class="form-row">
+                        @if (r.Options.Count > 0)
+                        {
+                            <div class="field">
+                                <label>Indication</label>
+                                <select value="@(_pbmIndication.GetValueOrDefault(id) ?? "")" @onchange="e => _pbmIndication[id] = e.Value?.ToString() ?? string.Empty">
+                                    <option value="">None</option>
+                                    @foreach (var o in r.Options)
+                                    {
+                                        <option value="@o.Code">@o.Code — @o.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+                        <div class="field" style="flex:2;">
+                            <label>Reason</label>
+                            <input value="@(_pbmReason.GetValueOrDefault(id) ?? "")" maxlength="1000" @onchange="e => _pbmReason[id] = e.Value?.ToString() ?? string.Empty" />
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    };
+
+    private List<ProductIndicationInputDto> PbmInputs() =>
+        _newOrderProductTypeIds
+            .Select(id => new ProductIndicationInputDto(
+                id,
+                string.IsNullOrWhiteSpace(_pbmIndication.GetValueOrDefault(id)) ? null : _pbmIndication[id],
+                string.IsNullOrWhiteSpace(_pbmReason.GetValueOrDefault(id)) ? null : _pbmReason[id].Trim()))
+            .ToList();
+
     private async Task AddOrderAsync()
     {
         if (_newOrderEncounterId <= 0) { _orderFb = Feedback.Fail("Select a visit."); return; }
         if (_newOrderLocationId <= 0) { _orderFb = Feedback.Fail("Select an ordering location."); return; }
         var lines = BuildLineInputs(_newOrderTestCodes, _newOrderProductTypeIds);
         if (lines.Count == 0) { _orderFb = Feedback.Fail("Select at least one test or product."); return; }
+
+        // Check criteria before anything is saved, so a missing reason never leaves a specimen behind.
+        if (_newOrderProductTypeIds.Count > 0)
+        {
+            var check = await Api.CheckTransfusionCriteriaAsync(Id, new PbmCheckRequest(_newOrderProductTypeIds.ToList(), PbmInputs()));
+            if (check.Succeeded && check.Value is not null)
+            {
+                _pbmResults = check.Value;
+                if (_pbmResults.Any(r => r.ReasonRequired))
+                {
+                    _orderFb = Feedback.Fail("This order is outside the facility's transfusion criteria. Select an indication or enter a reason, then save again.");
+                    return;
+                }
+            }
+        }
 
         long? specimenId = _newOrderAccessionNow ? null : (_newOrderSpecimenId > 0 ? _newOrderSpecimenId : null);
         _busy = true;
@@ -1835,7 +1899,8 @@ else
             "Manual",
             null,
             specimenId,
-            string.IsNullOrWhiteSpace(_newOrderComment) ? null : _newOrderComment);
+            string.IsNullOrWhiteSpace(_newOrderComment) ? null : _newOrderComment,
+            Indications: _newOrderProductTypeIds.Count > 0 ? PbmInputs() : null);
         var r = await Api.CreatePatientOrderAsync(Id, req);
         _busy = false;
         if (!r.Succeeded) { _orderFb = r.ToFeedback(); return; }
@@ -1851,6 +1916,9 @@ else
         _newOrderTestCodes.Clear();
         _newOrderGrouperCodes.Clear();
         _newOrderProductTypeIds.Clear();
+        _pbmResults.Clear();
+        _pbmIndication.Clear();
+        _pbmReason.Clear();
         _newOrderSpecimenId = 0;
         _newOrderAccessionNow = false;
         _newOrderComment = null;

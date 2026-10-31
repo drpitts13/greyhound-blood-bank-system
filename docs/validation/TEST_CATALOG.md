@@ -312,5 +312,8 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-301 | D / I | `SupplierOrderRuleTests`; `SupplierOrderTests` | URS-BB-411 / FRS-BB-446 / RISK-BB-513 |
 | TEST-BB-302 | D / I | `DatabaseBackupRuleTests`; `DatabaseBackupServiceTests` | URS-BB-412 / FRS-BB-447 / RISK-BB-514 |
 | TEST-BB-303 | D / I | `TotpTests`; `MfaTests` | URS-BB-413 / FRS-BB-448 / RISK-BB-515 |
+| TEST-BB-304 | D / I | `StorageExcursionQuarantineRuleTests`; `StorageTemperatureServiceTests.SustainedExcursion_*`, `ShortExcursion_*`, `QuarantineMinutesZero_*` | URS-BB-414 / FRS-BB-449 / RISK-BB-516 |
+| TEST-BB-305 | D / I | `TotpTests.MfaRule_*`, `TotpTests.IsRequired_*`; `MfaTests` | URS-BB-415 / FRS-BB-450 / RISK-BB-517 |
+| TEST-BB-306 | D / I | `TransfusionIndicationRuleTests`; `TransfusionIndicationTests` | URS-BB-416 / FRS-BB-451 / RISK-BB-518 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -1575,6 +1575,26 @@ public sealed class BloodBankApiClient
         }
     }
 
+    public Task<ApiResult<List<ProductIndicationResultDto>>> CheckTransfusionCriteriaAsync(long patientId, PbmCheckRequest req, CancellationToken ct = default) =>
+        SendAsync<List<ProductIndicationResultDto>>(HttpMethod.Post, $"api/patients/{patientId}/pbm-check", req, ct);
+
+    public Task<ApiResult<List<PbmReviewRowDto>>> GetPbmReviewAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct = default) =>
+        SendAsync<List<PbmReviewRowDto>>(
+            HttpMethod.Get,
+            $"api/pbm/review?fromUtc={Uri.EscapeDataString(fromUtc.ToString("O"))}&toUtc={Uri.EscapeDataString(toUtc.ToString("O"))}",
+            ct: ct);
+
+    public Task<ApiResult<List<TransfusionIndicationCriterionDto>>> GetTransfusionCriteriaAsync(CancellationToken ct = default) =>
+        SendAsync<List<TransfusionIndicationCriterionDto>>(HttpMethod.Get, "api/admin/transfusion-criteria", ct: ct);
+
+    public Task<ApiResult<TransfusionIndicationCriterionDto>> SaveTransfusionCriterionAsync(long? id, SaveTransfusionIndicationCriterionRequest req, CancellationToken ct = default) =>
+        id is long existing
+            ? SendAsync<TransfusionIndicationCriterionDto>(HttpMethod.Put, $"api/admin/transfusion-criteria/{existing}", req, ct)
+            : SendAsync<TransfusionIndicationCriterionDto>(HttpMethod.Post, "api/admin/transfusion-criteria", req, ct);
+
+    public Task<ApiResult<TransfusionIndicationCriterionDto>> SetTransfusionCriterionActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<TransfusionIndicationCriterionDto>(HttpMethod.Post, $"api/admin/transfusion-criteria/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
     public Task<ApiResult<MfaStatusDto>> GetMfaStatusAsync(CancellationToken ct = default) =>
         SendAsync<MfaStatusDto>(HttpMethod.Get, "api/account/mfa", ct: ct);
 

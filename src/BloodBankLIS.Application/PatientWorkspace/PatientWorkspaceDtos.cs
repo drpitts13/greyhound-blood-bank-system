@@ -92,7 +92,8 @@ public sealed record CreateOrderRequest(
     string? OrderedByUser,
     long? SpecimenId = null,
     string? Comment = null,
-    IReadOnlyList<long>? ActionDefinitionIds = null);
+    IReadOnlyList<long>? ActionDefinitionIds = null,
+    IReadOnlyList<ProductIndicationInputDto>? Indications = null);
 
 public sealed record CancelOrderRequest(string ReasonCode);
 

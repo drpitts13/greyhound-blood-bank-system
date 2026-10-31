@@ -450,6 +450,9 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-411 / FRS-BB-446 | Supplier order from the par shortfall with a signed submit, export, and delivery link | `SupplierOrderRule`; `SupplierOrderService`; `SupplierOrderEndpoints`; `SupplierOrders.razor` | TEST-BB-301 | D / I | Competitor gap G7. No EDI |
 | URS-BB-412 / FRS-BB-447 | Verified database backup with manifest, retention, and failure or overdue alerts | `DatabaseBackupRule`; `DatabaseBackupService`; `DatabaseBackupScheduleService`; `BackupEndpoints`; `AdminBackups.razor` | TEST-BB-302 | D / I | Competitor gap G8. SQL Server path not exercised in tests |
 | URS-BB-413 / FRS-BB-448 | TOTP second factor for sign-in, with policy for privileged users | `Totp`; `MfaRule`; `AuthSessionService`; `MfaService`; `MfaEndpoints`; `AccountMfa.razor`; `Login.razor` | TEST-BB-303 | D / I | Competitor gap G9. Policy default off |
+| URS-BB-414 / FRS-BB-449 | Automatic quarantine after a sustained storage excursion | `StorageTemperatureRule`; `StorageTemperatureService`; `AlertScanService` | TEST-BB-304 | D / I | OCD-036 decided 2026-10-31 |
+| URS-BB-415 / FRS-BB-450 | MFA facility option; refused sign-in until enrolled | `MfaRule`; `AuthSessionService`; `Login.razor` | TEST-BB-305 | D / I | OCD-037 decided 2026-10-31 |
+| URS-BB-416 / FRS-BB-451 | PBM ordering criteria and review | `TransfusionIndicationRule`; `TransfusionIndicationService`; `OrderService`; `PbmEndpoints`; `AdminTransfusionCriteria.razor` | TEST-BB-306 | D / I | OCD-038 open: no criteria shipped |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

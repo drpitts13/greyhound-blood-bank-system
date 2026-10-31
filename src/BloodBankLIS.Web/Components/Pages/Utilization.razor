@@ -52,7 +52,37 @@
     </div>
 }
 
+<div class="bb-card">
+    <div class="bb-card-title"><h3>Orders outside transfusion criteria</h3></div>
+    @if (_review.Count == 0)
+    {
+        <div class="muted">None in this period. Product orders are only checked when the facility turns on the transfusion-criteria policy and sets up criteria.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Ordered (UTC)</th><th>Order</th><th>MRN</th><th>Product</th><th>Location</th><th>Provider</th><th>Finding</th><th>Reason given</th></tr></thead>
+            <tbody>
+                @foreach (var row in _review)
+                {
+                    <tr>
+                        <td class="nowrap">@row.OrderedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="mono">@row.OrderNumber</td>
+                        <td class="mono">@row.Mrn</td>
+                        <td class="mono">@row.ProductCode</td>
+                        <td>@row.OrderingLocation</td>
+                        <td>@row.OrderingProvider</td>
+                        <td>@row.Detail</td>
+                        <td>@(row.Justification ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
 @code {
+    private List<PbmReviewRowDto> _review = new();
     private UtilizationReportDto? _report;
     private Feedback? _feedback;
     private bool _busy;
@@ -69,6 +99,8 @@
         {
             var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Utc);
             var to = DateTime.SpecifyKind(_to.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+            var review = await Api.GetPbmReviewAsync(from, to);
+            _review = review.Succeeded ? review.Value ?? new() : new();
             var result = await Api.GetUtilizationAsync(from, to);
             _report = result.Succeeded ? result.Value : null;
             _feedback = result.Succeeded ? null : result.ToFeedback();

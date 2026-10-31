@@ -18,7 +18,7 @@ Open the application. If you are not signed in, the sign-in screen asks for thre
 
 Choose **Sign in**. A wrong password or an unknown account shows an error and does not open a session. After five failed attempts the account is locked until an administrator unlocks it.
 
-If you have set up an authenticator app, the page then asks for the 6-digit code. A wrong code counts as a failed attempt. If facility policy requires an authenticator for your role and you have not set one up, you are taken to the **Authenticator** page after signing in until you do.
+If you have set up an authenticator app, the page then asks for the 6-digit code. A wrong code counts as a failed attempt. If facility policy requires an authenticator for your role and you have not set one up, you cannot sign in until you do: the page shows a key to add to your authenticator app, and the first code from the app completes setup and signs you in.
 
 ## After you sign in
 

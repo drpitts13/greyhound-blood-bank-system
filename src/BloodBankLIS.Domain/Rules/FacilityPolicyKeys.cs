@@ -76,4 +76,6 @@ public static class FacilityPolicyKeys
     public const string MfaEnabled = "Security.MfaEnabled";
     public const string RequireAllUsersMfa = "Security.RequireAllUsersMfa";
     public const string ExcursionQuarantineMinutes = "Inventory.ExcursionQuarantineMinutes";
+    public const string PbmEvaluateOrders = "Order.PbmEvaluate";
+    public const string PbmRequireJustification = "Order.PbmRequireJustification";
 }

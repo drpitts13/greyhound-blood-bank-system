@@ -15,3 +15,5 @@ A crossmatched unit is one patient and one unit with a compatible crossmatch in 
 The location and provider come from the order on the first crossmatch of that unit for that patient. A crossmatch with no order is listed as "(no order)".
 
 **C:T ratio** is crossmatched units divided by transfused units. A dash means nothing was transfused, so there is no ratio. **Transfused / crossmatched** and **Transfused / issued** are percentages. The page reports the numbers only. Your facility sets any target and decides what to review.
+
+**Orders outside transfusion criteria** lists product orders recorded outside the facility's transfusion criteria in the same dates, with the finding and any reason the orderer gave. It fills only when the transfusion-criteria policy is on and criteria are set up (Admin › Transfusion Criteria).

@@ -419,3 +419,6 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-411 | Inventory staff can turn the par shortfall into a signed supplier order, send it as a file, and link the delivery that fills it. | P7 | FRS-BB-446 |
 | URS-BB-412 | The facility has verified database backups on a schedule and on demand, is told when a backup fails or is overdue, and can reconcile a restore against a manifest. | P3 | FRS-BB-447 |
 | URS-BB-413 | Users with administrative or override-approval rights can be required to sign in with a second factor from an authenticator app. | P6 | FRS-BB-448 |
+| URS-BB-414 | Units stored through a sustained temperature excursion are taken out of use automatically. | P0 | FRS-BB-449 |
+| URS-BB-415 | The facility decides whether MFA is used and who must use it; required users cannot sign in without it. | P6 | FRS-BB-450 |
+| URS-BB-416 | The transfusion service can compare product orders with facility-approved transfusion criteria and review orders outside them. | P7 | FRS-BB-451 |

@@ -33,3 +33,7 @@ Cancel requires a reason from the cancellation catalog. Cancellation does not de
 ## From the order to the unit
 
 Product orders are what you allocate against on the Products tab and in Inventory. If the order is missing, allocation will not offer the patient. Place or release the order before you reserve a unit.
+
+## Transfusion criteria
+
+When the facility turns on **Evaluate product orders against transfusion criteria**, each product on a new order is compared with the facility's criteria when you save. If **Require a reason for orders outside criteria** is also on and a product is outside the criteria, the form shows what the check found and asks for an indication or a reason before anything is saved, including any specimen being accessioned. The check never decides whether the patient is transfused; it records the order for patient-blood-management review.

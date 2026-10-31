@@ -210,6 +210,9 @@ public sealed class OrderLineConfiguration : IEntityTypeConfiguration<OrderLine>
         b.Property(l => l.LineName).HasMaxLength(200).IsRequired();
         b.Property(l => l.TestCode).HasMaxLength(50);
         b.Property(l => l.Comment).HasMaxLength(2000);
+        b.Property(l => l.PbmIndicationCode).HasMaxLength(20);
+        b.Property(l => l.PbmJustification).HasMaxLength(1000);
+        b.Property(l => l.PbmDetail).HasMaxLength(1000);
         b.Property(l => l.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(l => l.ModifiedBy).HasMaxLength(100);
 
@@ -2158,5 +2161,22 @@ public sealed class DatabaseBackupConfiguration : IEntityTypeConfiguration<Datab
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
         b.HasIndex(x => x.StartedUtc);
+    }
+}
+
+public sealed class TransfusionIndicationCriterionConfiguration : IEntityTypeConfiguration<TransfusionIndicationCriterion>
+{
+    public void Configure(EntityTypeBuilder<TransfusionIndicationCriterion> b)
+    {
+        b.ToTable("TransfusionIndicationCriteria");
+        b.HasKey(c => c.Id);
+        b.Property(c => c.Code).HasMaxLength(20).IsRequired();
+        b.Property(c => c.Name).HasMaxLength(200).IsRequired();
+        b.Property(c => c.LabTestCode).HasMaxLength(50);
+        b.Property(c => c.Threshold).HasPrecision(18, 3);
+        b.Property(c => c.Unit).HasMaxLength(30);
+        b.Property(c => c.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(c => c.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(c => c.Code).IsUnique();
     }
 }

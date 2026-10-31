@@ -7146,3 +7146,77 @@ Hosted competitor products offer multi-factor sign-in. Here sign-in was password
 ### Next ranked residual
 
 The round 2 competitor queue is empty. Stop the competitor-gap loop. Open SME items: OCD-036 (excursion response) and OCD-037 (MFA enforcement).
+
+
+## Iteration 261 — OCD-036 and OCD-037 decisions applied (2026-10-31)
+
+The product owner decided both open items.
+
+- **OCD-036:** an excursion lasting more than 30 minutes quarantines the units automatically.
+  - The limit is `Inventory.ExcursionQuarantineMinutes`, default 30 (0 turns it off). Duration runs from the first reading of the unbroken out-of-range run.
+  - The check runs on each reading and in the 5-minute alert scan.
+  - Quarantined units get the new reason `StorageTemperatureExcursion`, plus history, audit, a deviation note, and a critical alert.
+  - Consecutive excursion readings now share one deviation and one alert.
+- **OCD-037:** MFA is a facility option, and required users are refused sign-in.
+  - `Security.MfaEnabled` is the master switch (default off). `Security.RequireAllUsersMfa` and `Security.RequirePrivilegedMfa` choose who must enroll.
+  - A required user without an authenticator gets no session. Login returns the pending key, and the first valid code enrolls the user and signs in. Permissions are withheld until the session exists.
+  - The earlier layout hold was removed.
+- Tests:
+  - TEST-BB-304: `StorageExcursionQuarantineRuleTests` and three `StorageTemperatureServiceTests`.
+  - TEST-BB-305: the rewritten `MfaTests` (5) and the `MfaRule` / `IsRequired` theories.
+  - The G5 alert test was updated for the per-excursion alert key.
+- The full suite passed: 2,932 passed, 0 failed.
+- Not checked in the running app before the commit (`e93a029`).
+
+## Iteration 262 — Patient-blood-management ordering criteria (2026-11-01)
+
+The product owner asked for ordering-appropriateness (PBM) criteria, previously excluded, with the clinical thresholds left to SMEs.
+
+### Implemented
+
+- `TransfusionIndicationCriterion` admin catalog. A criterion is either:
+  - laboratory: test code, comparison, threshold, unit, and look-back hours; or
+  - orderer-selected: no test.
+- **No criteria are seeded.** The `/admin/transfusion-criteria` page carries a REQUIRES SME VERIFICATION banner. Changes are kept in configuration history.
+- `TransfusionIndicationRule`:
+  - Met when any active laboratory criterion is satisfied by the latest verified, current, numeric result within the look-back before the order, or when the orderer selects an active attestation criterion.
+  - Otherwise outside criteria, with a detail line.
+  - The justification rule and criterion validation are here too.
+- New facility policies, both default off:
+  - `Order.PbmEvaluate`: evaluate and record.
+  - `Order.PbmRequireJustification`: a manual order outside criteria needs an indication or a reason.
+- `OrderService.CreateCoreAsync`:
+  - Evaluates product lines and stores PbmStatus, PbmIndicationCode, PbmJustification, and PbmDetail on each `OrderLine` (migration `20261101090000_TransfusionIndicationCriteria`, plus the development SQLite table and columns).
+  - Refuses a manual order with `PBM-JUSTIFY` when a reason is required. Interface orders are never stopped.
+- The chart order form runs `POST /api/patients/{id}/pbm-check` before accessioning a specimen, and shows an indication choice and a reason field per product outside criteria.
+- `GET /api/pbm/review` feeds the new "Orders outside transfusion criteria" card on Utilization.
+- Help topic added for the admin page, plus updates to the patient orders and utilization pages.
+- OCD-038 is open: the criteria content, reason policy, and reviewers are **REQUIRES REGULATORY / SME VERIFICATION**.
+
+### Requirements / risk
+
+- URS-BB-416, FRS-BB-451, SRS-BB-413, RISK-BB-518, OCD-038.
+- Also URS-BB-414–415, FRS-BB-449–450, SRS-BB-411–412, and RISK-BB-516–517 for iteration 261.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-306: `TransfusionIndicationRuleTests` (10 cases) and `TransfusionIndicationTests` (4). The test thresholds are fixtures. They cover:
+  - evaluation off, and no criteria
+  - the latest verified result deciding, with stale, future, unverified, and superseded results ignored
+  - attestation options and selection
+  - a manual order refused without a reason and saved with one; an interface order recorded; an attested order met
+  - the review list
+  - catalog validation, uppercase normalization, duplicates, and history
+- Full suite: 2,946 passed, 0 failed (previously 2,932). Application 83, Astm 19, HL7 63, Domain 1,699, Printing 21, Help 5, Integration 1,056.
+- Run check (development database, DevMode):
+  - `/admin/transfusion-criteria` showed "No criteria" and the SME banner.
+  - Facility Policies listed both PBM policies as false.
+  - `pbm-check` for RBC-LR returned NotEvaluated (policy off), so ordering is unchanged.
+  - The Utilization review card showed its empty state.
+  - No server errors.
+- Not exercised in the UI: the reason panel on the chart. It appears only with the policies on and criteria present, and it is covered by `TransfusionIndicationTests` at the service level.
+
+### Next ranked residual
+
+OCD-038: SME criteria content. Also verify OCD-036 and OCD-037 in the running app.

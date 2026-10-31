@@ -34,4 +34,16 @@ public class OrderLine : BaseEntity
 
     /// <summary>Free-text test-line comment. Coded comments from the Test catalog may be inserted.</summary>
     public string? Comment { get; set; }
+
+    /// <summary>Patient-blood-management check for a product line (OCD-038).</summary>
+    public BloodBankLIS.Domain.Rules.PbmStatus PbmStatus { get; set; }
+
+    /// <summary>Criterion that was met, automatically or selected by the orderer.</summary>
+    public string? PbmIndicationCode { get; set; }
+
+    /// <summary>Orderer's reason when the order is outside the facility criteria.</summary>
+    public string? PbmJustification { get; set; }
+
+    /// <summary>What the check found, for the review list.</summary>
+    public string? PbmDetail { get; set; }
 }

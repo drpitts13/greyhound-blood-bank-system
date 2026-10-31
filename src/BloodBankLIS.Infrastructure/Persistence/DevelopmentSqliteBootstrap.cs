@@ -136,6 +136,10 @@ public static class DevelopmentSqliteBootstrap
         ("InventoryLocations", "StorageTempMaxC", """ALTER TABLE "InventoryLocations" ADD COLUMN "StorageTempMaxC" TEXT NULL"""),
         ("InventoryLocations", "DefaultInTransitHours", """ALTER TABLE "InventoryLocations" ADD COLUMN "DefaultInTransitHours" INTEGER NULL"""),
         ("InventoryLocations", "Notes", """ALTER TABLE "InventoryLocations" ADD COLUMN "Notes" TEXT NULL"""),
+        ("OrderLines", "PbmStatus", """ALTER TABLE "OrderLines" ADD COLUMN "PbmStatus" INTEGER NOT NULL DEFAULT 0"""),
+        ("OrderLines", "PbmIndicationCode", """ALTER TABLE "OrderLines" ADD COLUMN "PbmIndicationCode" TEXT NULL"""),
+        ("OrderLines", "PbmJustification", """ALTER TABLE "OrderLines" ADD COLUMN "PbmJustification" TEXT NULL"""),
+        ("OrderLines", "PbmDetail", """ALTER TABLE "OrderLines" ADD COLUMN "PbmDetail" TEXT NULL"""),
         ("BloodProducts", "DiscardReasonCode", """ALTER TABLE "BloodProducts" ADD COLUMN "DiscardReasonCode" TEXT NULL"""),
         ("InventoryLocations", "TimeOutGoverned", """ALTER TABLE "InventoryLocations" ADD COLUMN "TimeOutGoverned" INTEGER NOT NULL DEFAULT 1"""),
         ("UnitModifications", "SupplyDescription", """ALTER TABLE "UnitModifications" ADD COLUMN "SupplyDescription" TEXT NULL"""),
@@ -177,6 +181,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureAlertsTableAsync(context, cancellationToken);
         await EnsureSupplierOrderTablesAsync(context, cancellationToken);
         await EnsureDatabaseBackupsTableAsync(context, cancellationToken);
+        await EnsureTransfusionIndicationCriteriaTableAsync(context, cancellationToken);
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
@@ -692,6 +697,40 @@ public static class DevelopmentSqliteBootstrap
                 )
                 """, ct);
         }
+    }
+
+    private static async Task EnsureTransfusionIndicationCriteriaTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "TransfusionIndicationCriteria", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "TransfusionIndicationCriteria" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_TransfusionIndicationCriteria" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Name" TEXT NOT NULL,
+                "ComponentClass" INTEGER NOT NULL,
+                "LabTestCode" TEXT NULL,
+                "Comparison" INTEGER NULL,
+                "Threshold" TEXT NULL,
+                "Unit" TEXT NULL,
+                "LookbackHours" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_TransfusionIndicationCriteria_Code" ON "TransfusionIndicationCriteria" ("Code")""", ct);
     }
 
     private static async Task EnsureDatabaseBackupsTableAsync(BloodBankDbContext context, CancellationToken ct)

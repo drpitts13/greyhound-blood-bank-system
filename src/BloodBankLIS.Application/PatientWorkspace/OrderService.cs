@@ -40,6 +40,7 @@ public sealed class OrderService
     private readonly IRepository<ActionDefinition>? _actionDefinitions;
     private readonly IRepository<OrderCancellationReason>? _cancellationReasons;
     private readonly IRepository<Allocation>? _allocations;
+    private readonly TransfusionIndicationService? _indications;
 
     public OrderService(
         IRepository<Order> orders,
@@ -67,7 +68,8 @@ public sealed class OrderService
         IRepository<OrderAction>? orderActions = null,
         IRepository<ActionDefinition>? actionDefinitions = null,
         IRepository<OrderCancellationReason>? cancellationReasons = null,
-        IRepository<Allocation>? allocations = null)
+        IRepository<Allocation>? allocations = null,
+        TransfusionIndicationService? indications = null)
     {
         _ruleEngine = ruleEngine;
         _audit = audit;
@@ -82,6 +84,7 @@ public sealed class OrderService
         _actionDefinitions = actionDefinitions;
         _cancellationReasons = cancellationReasons;
         _allocations = allocations;
+        _indications = indications;
         _orders = orders;
         _orderLines = orderLines;
         _orderSpecimens = orderSpecimens;
@@ -333,6 +336,41 @@ public sealed class OrderService
         if (validation.IsHardStopped)
         {
             return OperationResult<Order>.Fail(validation.HardStops.First().Message);
+        }
+
+        // OCD-038: compare product lines with the facility's transfusion criteria. Only a manual
+        // order can be asked for a reason; interface orders are recorded for review.
+        if (_indications is not null)
+        {
+            var productLines = builtLines.Where(l => l.LineCategory == OrderCategory.Product && l.ProductTypeId != null).ToList();
+            if (productLines.Count > 0)
+            {
+                var outcomes = await _indications.EvaluateAsync(
+                    patientId, productLines.Select(l => l.ProductTypeId!.Value).ToList(), request.OrderedUtc, request.Indications, ct);
+                var missingReason = outcomes.Where(o => o.ReasonRequired).ToList();
+                if (request.Source == OrderSource.Manual && missingReason.Count > 0)
+                {
+                    return OperationResult<Order>.Fail(
+                        $"{TransfusionIndicationRule.JustificationCode}: {string.Join(" ", missingReason.Select(o => $"{o.ProductCode} is outside the facility's transfusion criteria ({o.Detail})"))} Select an indication or enter a reason.");
+                }
+
+                foreach (var line in productLines)
+                {
+                    var outcome = outcomes.FirstOrDefault(o => o.ProductTypeId == line.ProductTypeId);
+                    if (outcome is null)
+                    {
+                        continue;
+                    }
+
+                    var input = request.Indications?.FirstOrDefault(i => i.ProductTypeId == line.ProductTypeId);
+                    line.PbmStatus = outcome.Status;
+                    line.PbmIndicationCode = outcome.MetCode;
+                    line.PbmDetail = string.IsNullOrEmpty(outcome.Detail) ? null : Truncate(outcome.Detail, 1000);
+                    line.PbmJustification = outcome.Status == PbmStatus.OutsideCriteria && !string.IsNullOrWhiteSpace(input?.Justification)
+                        ? Truncate(input.Justification.Trim(), 1000)
+                        : null;
+                }
+            }
         }
 
         await _orders.AddAsync(order, ct);
@@ -880,6 +918,8 @@ public sealed class OrderService
 
         await _unitOfWork.SaveChangesAsync(ct);
     }
+
+    private static string Truncate(string value, int max) => value.Length <= max ? value : value[..max];
 
     private async Task<IReadOnlyList<OrderLine>> BuildLinesAsync(
         IReadOnlyList<OrderLineInputDto> inputs,

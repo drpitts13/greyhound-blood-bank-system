@@ -28,6 +28,8 @@ None. Round 2 is complete. Stop the competitor-gap loop and do not arm another w
 14. G7 Supplier order. Draft from the par shortfall, e-signed submit, PDF/CSV export, delivery link from the same supplier; no EDI. TEST-BB-301.
 15. G8 Database backup. Scheduled and on-demand verified backups (SQLite integrity check, SQL Server VERIFYONLY), audit manifest for restore, retention, failure and overdue alerts. TEST-BB-302.
 16. G9 MFA. RFC 6238 authenticator-app second factor; policy (default off) asks privileged users to enroll; key protected with Data Protection; admin reset. TEST-BB-303.
+17. OCD-036 / OCD-037 decisions applied: automatic quarantine after a sustained storage excursion; MFA as a facility option with refused sign-in until enrollment. TEST-BB-304, TEST-BB-305.
+18. PBM ordering criteria. Facility-entered transfusion indications (none shipped), optional reason for orders outside criteria, review list (OCD-038). TEST-BB-306.
 
 ## Excluded
 

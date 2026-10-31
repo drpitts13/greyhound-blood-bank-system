@@ -1,0 +1,168 @@
+@page "/admin/transfusion-criteria"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Transfusion Criteria &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Transfusion criteria</h1>
+    @if (CanEdit)
+    {
+        <button type="button" class="btn btn-primary" @onclick="NewDraft">New criterion</button>
+    }
+</div>
+<p class="muted">Facility-approved indications for ordering each component (patient blood management). The software ships none: enter only criteria your medical director has approved.</p>
+<div class="alert alert-danger">Thresholds are clinical decisions. <strong>REQUIRES SME VERIFICATION</strong> (OCD-038). Product orders are checked only when "Evaluate product orders against transfusion criteria" is on in Facility Policies.</div>
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_items.Count == 0)
+    {
+        <div class="empty">No criteria.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Component</th><th>Code</th><th>Name</th><th>Rule</th><th>Look-back</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var c in _items)
+                {
+                    <tr>
+                        <td>@c.ComponentClass</td>
+                        <td class="mono">@c.Code</td>
+                        <td>@c.Name</td>
+                        <td>@(c.LabTestCode is null ? "Selected by the orderer" : $"{c.LabTestCode} {TransfusionIndicationRule.Symbol(c.Comparison ?? IndicationComparison.LessThan)} {c.Threshold:0.###} {c.Unit}")</td>
+                        <td>@(c.LabTestCode is null ? "—" : $"{c.LookbackHours} h")</td>
+                        <td>@if (c.IsActive) { <span class="badge badge-green">Active</span> } else { <span class="badge badge-gray">Inactive</span> }</td>
+                        <td class="right nowrap">
+                            @if (CanEdit) { <button type="button" class="btn btn-ghost btn-sm" @onclick="() => Edit(c)">Edit</button> }
+                            @if (CanActivate) { <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(c)">@(c.IsActive ? "Deactivate" : "Activate")</button> }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing)
+{
+    <div class="bb-card" style="margin-top:1rem;">
+        <h2>@(_editId is null ? "New criterion" : "Edit criterion")</h2>
+        <div class="form-row">
+            <div class="field">
+                <label>Component</label>
+                <select @bind="_component">
+                    @foreach (var cls in Enum.GetValues<ComponentClass>())
+                    {
+                        <option value="@cls">@cls</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Code</label><input class="mono" @bind="_code" maxlength="20" /></div>
+            <div class="field" style="flex:2;"><label>Name</label><input @bind="_name" maxlength="200" /></div>
+            <div class="field"><label>Sort</label><input type="number" @bind="_sort" /></div>
+        </div>
+        <div class="form-row">
+            <div class="field"><label>Test code (blank = orderer selects)</label><input class="mono" @bind="_labTest" maxlength="50" /></div>
+            <div class="field">
+                <label>Comparison</label>
+                <select @bind="_comparison">
+                    @foreach (var cmp in Enum.GetValues<IndicationComparison>())
+                    {
+                        <option value="@cmp">@TransfusionIndicationRule.Symbol(cmp) (@cmp)</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Threshold</label><input type="number" step="any" @bind="_threshold" /></div>
+            <div class="field"><label>Unit</label><input @bind="_unit" maxlength="30" /></div>
+            <div class="field"><label>Look-back hours</label><input type="number" @bind="_lookback" /></div>
+        </div>
+        <div class="flex gap">
+            <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="() => _editing = false">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<TransfusionIndicationCriterionDto> _items = [];
+    private Feedback? _feedback;
+    private bool _busy;
+    private bool _editing;
+    private long? _editId;
+    private ComponentClass _component;
+    private string _code = string.Empty;
+    private string _name = string.Empty;
+    private int _sort;
+    private string _labTest = string.Empty;
+    private IndicationComparison _comparison = IndicationComparison.LessThan;
+    private decimal? _threshold;
+    private string _unit = string.Empty;
+    private int _lookback = 24;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var r = await Api.GetTransfusionCriteriaAsync();
+        _items = r.Value ?? [];
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+    }
+
+    private void NewDraft()
+    {
+        _editId = null;
+        _component = ComponentClass.RedBloodCells;
+        _code = _name = _labTest = _unit = string.Empty;
+        _comparison = IndicationComparison.LessThan;
+        _threshold = null;
+        _lookback = 24;
+        _sort = (_items.Count + 1) * 10;
+        _editing = true;
+    }
+
+    private void Edit(TransfusionIndicationCriterionDto c)
+    {
+        _editId = c.Id;
+        _component = c.ComponentClass;
+        _code = c.Code;
+        _name = c.Name;
+        _labTest = c.LabTestCode ?? string.Empty;
+        _comparison = c.Comparison ?? IndicationComparison.LessThan;
+        _threshold = c.Threshold;
+        _unit = c.Unit ?? string.Empty;
+        _lookback = c.LookbackHours;
+        _sort = c.SortOrder;
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        var lab = string.IsNullOrWhiteSpace(_labTest) ? null : _labTest;
+        var req = new SaveTransfusionIndicationCriterionRequest(
+            _code, _name, _component, lab, lab is null ? null : _comparison, lab is null ? null : _threshold,
+            string.IsNullOrWhiteSpace(_unit) ? null : _unit, _lookback, _sort);
+        _busy = true;
+        var r = await Api.SaveTransfusionCriterionAsync(_editId, req);
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Criterion added." : "Criterion updated.");
+        if (r.Succeeded)
+        {
+            _editing = false;
+            await LoadAsync();
+        }
+    }
+
+    private async Task SetActiveAsync(TransfusionIndicationCriterionDto c)
+    {
+        _busy = true;
+        var r = await Api.SetTransfusionCriterionActiveAsync(c.Id, !c.IsActive);
+        _busy = false;
+        _feedback = r.ToFeedback(c.IsActive ? "Criterion deactivated." : "Criterion activated.");
+        if (r.Succeeded) await LoadAsync();
+    }
+}

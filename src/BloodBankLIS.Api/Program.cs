@@ -190,6 +190,7 @@ app.MapAlertEndpoints();
 app.MapSupplierOrderEndpoints();
 app.MapBackupEndpoints();
 app.MapMfaEndpoints();
+app.MapPbmEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();

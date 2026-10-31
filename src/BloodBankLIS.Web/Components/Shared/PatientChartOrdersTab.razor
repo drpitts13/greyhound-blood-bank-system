@@ -183,6 +183,7 @@
                     <label>Comment</label>
                     <CodedCommentField Page="CommentPage.Order" Value="@NewOrderComment" ValueChanged="OnNewCommentChanged" />
                 </div>
+                @BeforeSave
                 <button type="button" class="btn btn-primary" disabled="@Busy" @onclick="OnSave">Save order</button>
             }
         </div>
@@ -582,6 +583,9 @@
     [Parameter] public Func<PatientOrderDto, bool> CanVerifyPostedOrderResult { get; set; } = _ => false;
     [Parameter] public EventCallback OnToggleAdd { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
+
+    /// <summary>Shown above Save order, for example the transfusion-criteria panel.</summary>
+    [Parameter] public RenderFragment? BeforeSave { get; set; }
     [Parameter] public string NewVisitNumber { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> NewVisitNumberChanged { get; set; }
     [Parameter] public DateTime? NewVisitAdmit { get; set; }
