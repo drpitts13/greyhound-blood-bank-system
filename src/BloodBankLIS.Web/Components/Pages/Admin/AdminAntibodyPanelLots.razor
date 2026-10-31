@@ -16,10 +16,15 @@
         }
     </div>
 </div>
-<p class="muted">
-    Create, withdraw, or restore reagent manufacturers and lots used for antibody identification.
-    A new lot requires an active manufacturer, cells, and typed antigens. Creating or deactivating a manufacturer or lot does not identify antibodies and does not void an open workup; Accept and complete HardStop on a deactivated attached lot until it is restored or the workup is voided.
-</p>
+<p class="muted">Create, withdraw, or restore reagent manufacturers and lots used for antibody identification.</p>
+<details class="bb-help">
+    <summary>How it works</summary>
+    <ul>
+        <li>A new lot requires an active manufacturer, cells, and typed antigens.</li>
+        <li>Creating or deactivating a manufacturer or lot does not identify antibodies and does not void an open workup.</li>
+        <li>Accept and complete HardStop on a deactivated attached lot until it is restored or the workup is voided.</li>
+    </ul>
+</details>
 
 @if (!_creating) { <Outcome Value="_feedback" /> }
 
