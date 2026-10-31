@@ -331,7 +331,7 @@
                                     <div class="flex gap" style="flex-wrap:wrap;align-items:flex-end;">
                                         <div class="field" style="flex:1;min-width:12rem;">
                                             <label>Discard reason</label>
-                                            <input @bind="_nearExpiryDiscardReason" />
+                                            <input @bind="_nearExpiryDiscardReason" @bind:event="oninput" />
                                         </div>
                                         <div class="field" style="min-width:16rem;">
                                             <label>Second verifier</label>

@@ -153,8 +153,8 @@
         <h2>New manufacturer</h2>
         <p class="muted">In-house or commercial panel source. This does not identify antibodies.</p>
         <div class="form-row">
-            <div class="field"><label>Code</label><input class="mono" @bind="_mfgCode" /></div>
-            <div class="field"><label>Name</label><input @bind="_mfgName" /></div>
+            <div class="field"><label>Code</label><input class="mono" @bind="_mfgCode" @bind:event="oninput" /></div>
+            <div class="field"><label>Name</label><input @bind="_mfgName" @bind:event="oninput" /></div>
         </div>
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_mfgCode) || string.IsNullOrWhiteSpace(_mfgName))" @onclick="CreateManufacturerAsync">Create manufacturer</button>
@@ -225,7 +225,7 @@
             }
         }
         <div class="field"><label>Reason (required)</label>
-            <input @bind="_mfgReason" placeholder="Vendor withdrawn, replaced, or other reason." />
+            <input @bind="_mfgReason" @bind:event="oninput" placeholder="Vendor withdrawn, replaced, or other reason." />
         </div>
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-danger" disabled="@(_busy || string.IsNullOrWhiteSpace(_mfgReason))" @onclick="ConfirmDeactivateManufacturerAsync">Deactivate</button>
@@ -573,7 +573,7 @@
             }
         }
         <div class="field"><label>Reason (required)</label>
-            <input @bind="_reason" placeholder="QC failure, recall, or other withdrawal reason." />
+            <input @bind="_reason" @bind:event="oninput" placeholder="QC failure, recall, or other withdrawal reason." />
         </div>
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-danger" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason))" @onclick="ConfirmDeactivateAsync">Deactivate</button>

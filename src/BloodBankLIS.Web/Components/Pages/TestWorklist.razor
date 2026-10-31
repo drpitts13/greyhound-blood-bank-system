@@ -236,7 +236,7 @@
                         <tr>
                             <td colspan="8">
                                 <div class="flex gap" style="flex-wrap:wrap;">
-                                    <input @bind="_rejectReason" placeholder="Rejection reason" style="flex:1;" />
+                                    <input @bind="_rejectReason" @bind:event="oninput" placeholder="Rejection reason" style="flex:1;" />
                                     <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_rejectReason))" @onclick="() => RejectPendingAsync(row.SpecimenId)">Confirm reject</button>
                                     <button class="btn btn-secondary btn-sm" @onclick="() => { _rejectingSpecimenId = null; _rejectReason = string.Empty; }">Cancel</button>
                                 </div>
