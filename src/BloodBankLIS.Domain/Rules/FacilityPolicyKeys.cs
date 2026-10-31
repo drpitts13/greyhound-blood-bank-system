@@ -72,4 +72,5 @@ public static class FacilityPolicyKeys
 
     /// <summary>When true, a modification requires a supply lot. Default off.</summary>
     public const string RequireModificationSupplyLot = "Modification.RequireSupplyLot";
+    public const string RequirePrivilegedMfa = "Security.RequirePrivilegedMfa";
 }

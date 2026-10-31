@@ -1036,6 +1036,8 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         b.Property(u => u.Email).HasMaxLength(256);
         b.Property(u => u.PasswordHash).HasMaxLength(500);
         b.Property(u => u.PinHash).HasMaxLength(500);
+        b.Property(u => u.TotpSecretProtected).HasMaxLength(1000);
+        b.Property(u => u.TotpPendingSecretProtected).HasMaxLength(1000);
         b.Property(u => u.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(u => u.ModifiedBy).HasMaxLength(100);
 

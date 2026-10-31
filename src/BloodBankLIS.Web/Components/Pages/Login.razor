@@ -20,6 +20,13 @@
             <label>Password</label>
             <input @ref="_passwordInput" type="password" @bind="_password" @bind:event="oninput" placeholder="Demo password is demo" autocomplete="current-password" @onkeydown="OnKey" />
         </div>
+        @if (_codeRequired)
+        {
+            <div class="field">
+                <label>Authenticator code</label>
+                <input @ref="_codeInput" inputmode="numeric" maxlength="6" @bind="_oneTimeCode" @bind:event="oninput" autocomplete="one-time-code" placeholder="6-digit code" @onkeydown="OnKey" />
+            </div>
+        }
         <div class="field">
             <label>Workstation</label>
             <input @bind="_workstation" @bind:event="oninput" placeholder="Workstation id" @onkeydown="OnKey" />
@@ -58,6 +65,9 @@
     private string _password = string.Empty;
     private string _workstation = Environment.MachineName;
     private string? _error;
+    private bool _codeRequired;
+    private string _oneTimeCode = string.Empty;
+    private ElementReference _codeInput;
     private bool _busy;
 
     private static readonly string[] _demoUsers = { "admin", "supervisor", "tech1", "viewer" };
@@ -122,13 +132,27 @@
         }
 
         _busy = true;
-        var login = await Api.LoginAsync(new LoginRequestVm(_userName.Trim(), _password, _workstation));
+        var login = await Api.LoginAsync(new LoginRequestVm(
+            _userName.Trim(), _password, _workstation, _codeRequired ? _oneTimeCode.Trim() : null));
         _busy = false;
 
         if (!login.Succeeded || login.Value is null)
         {
+            if (login.StatusCode == 401 && login.Error?.Contains("MFA_REQUIRED", StringComparison.Ordinal) == true)
+            {
+                // Password accepted; ask for the authenticator code and keep what was typed.
+                _codeRequired = true;
+                _error = "Enter the 6-digit code from your authenticator app.";
+                StateHasChanged();
+                await _codeInput.FocusAsync();
+                return;
+            }
+
+            _oneTimeCode = string.Empty;
             _error = login.StatusCode is 401 or 404
-                ? "Sign-in failed. Check the username and password."
+                ? _codeRequired
+                    ? "Sign-in failed. Check the password and the current code."
+                    : "Sign-in failed. Check the username and password."
                 : login.FailureSummary();
             return;
         }
@@ -140,7 +164,10 @@
             login.Value.Permissions,
             login.Value.SecurityLevel,
             login.Value.SessionToken);
-        Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
+        Session.MfaEnrollmentRequired = login.Value.MfaEnrollmentRequired;
+        Nav.NavigateTo(login.Value.MfaEnrollmentRequired
+            ? "/account/mfa"
+            : string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
     }
 
     private void ExitApplication() => DesktopHost.RequestImmediateStop();

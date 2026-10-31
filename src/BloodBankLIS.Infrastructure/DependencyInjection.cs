@@ -177,6 +177,7 @@ public static class DependencyInjection
         services.AddScoped<UserAdminService>();
         services.TryAddSingleton(new AuthSessionOptions());
         services.AddScoped<IAuthSessionService, AuthSessionService>();
+        services.AddScoped<MfaService>();
         services.AddScoped<IConfigurationHistoryReader, ConfigurationHistoryReader>();
 
         services.AddSingleton<IClock, SystemClock>();

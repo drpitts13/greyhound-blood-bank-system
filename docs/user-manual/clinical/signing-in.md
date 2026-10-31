@@ -18,6 +18,8 @@ Open the application. If you are not signed in, the sign-in screen asks for thre
 
 Choose **Sign in**. A wrong password or an unknown account shows an error and does not open a session. After five failed attempts the account is locked until an administrator unlocks it.
 
+If you have set up an authenticator app, the page then asks for the 6-digit code. A wrong code counts as a failed attempt. If facility policy requires an authenticator for your role and you have not set one up, you are taken to the **Authenticator** page after signing in until you do.
+
 ## After you sign in
 
 The sidebar shows only the areas your permissions allow. The dashboard lists those permission codes under **Your access**. A role change does not apply to a session that is already open. Sign out and sign in again after an administrator changes your roles.

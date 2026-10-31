@@ -7097,3 +7097,52 @@ Hosted competitor products include managed backup. Here, restore was described i
 ### Next ranked residual
 
 G9: MFA for privileged users.
+
+
+## Iteration 260 — MFA for privileged users, competitor gap G9 (2026-10-31)
+
+Hosted competitor products offer multi-factor sign-in. Here sign-in was password only (with a PIN for signatures).
+
+### Implemented
+
+- `Totp` (Domain): RFC 6238 (HMAC-SHA1, 30 s, 6 digits), ±1 step drift, replay blocked by last used step, constant-time compare, RFC 4648 base32, and an `otpauth://` provisioning URI.
+- `MfaRule`: an enrolled user is always challenged. With the policy on, a privileged user who has not enrolled is asked to enroll. Privileged = admin.users.manage, admin.roles.manage, admin.config.edit, admin.config.activate, or override.approve.
+- `Users` gains columns `TotpSecretProtected`, `TotpPendingSecretProtected`, `TotpEnrolledUtc`, and `TotpLastStep`. Migration `20261031220000_UserTotp`, plus the development SQLite columns.
+- New facility policy `Security.RequirePrivilegedMfa`, default false, listed under Facility Policies.
+- `ISecretProtector` with `DataProtectionSecretProtector` (ASP.NET Core Data Protection, keys in `dataprotection-keys` under the API content root, git-ignored).
+- `AuthSessionService.LoginAsync` takes an optional one-time code:
+  - A missing code returns `MFA_REQUIRED` (HTTP 401 with `mfaRequired`) and no failure is counted.
+  - A wrong code goes through the same failed sign-in and lockout path.
+  - The login audit records `SecondFactor: TOTP` or `MfaEnrollmentRequired`.
+- `MfaService` handles status, begin (key shown once), confirm with a code, self-remove with a code (refused while policy requires it), and an administrator reset (not for yourself). All are audited.
+- Web:
+  - The login page asks for the code when the API says so.
+  - A new `/account/mfa` page, linked as "Authenticator" under the user name.
+  - The layout holds a user with the enrollment flag on `/account/mfa`.
+  - Admin Users has a **Reset authenticator** button.
+  - New help topic, plus updated signing-in and users pages.
+- OCD-037 records the enforcement choice (session plus a UI hold, not refusal) and the list of privileged permissions.
+
+### Requirements / risk
+
+- URS-BB-413, FRS-BB-448, SRS-BB-410, RISK-BB-515, OCD-037.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-303:
+  - `TotpTests` (20 cases): five RFC 6238 SHA-1 vectors, drift window, replay, malformed codes, five RFC 4648 base32 vectors, secret round trip and URI, the `MfaRule` table, and the privileged set.
+  - `MfaTests` (4): enrolled sign-in without a code (no failure counted), a wrong code (counted), the right code (session plus TOTP in the audit), and a replayed code rejected; the policy flagging only the privileged; enrollment rejecting a wrong or early code and a second enrollment; self-remove blocked under policy, self-reset refused, admin reset clearing and audited, and self-remove allowed with policy off.
+- The existing `AuthSessionServiceTests` pass unchanged.
+- Full suite: 2,921 passed, 0 failed (previously 2,897). Application 83, Astm 19, HL7 63, Domain 1,682, Printing 21, Help 5, Integration 1,048.
+- Run check (development database, DevMode):
+  - `/account/mfa` showed the key. A code computed by an independent Python HMAC TOTP implementation was accepted, so the page interoperates with standard authenticator apps.
+  - The database held a Data Protection payload (`CfDJ8…`, 176 characters) and not the plain key, with the enrolled time and last step set.
+  - Remove authenticator with a fresh code worked, and the development account is back to not enrolled.
+  - Facility Policies lists `Security.RequirePrivilegedMfa` = false. No server errors.
+- Not checked in the UI: the sign-in code prompt, because DevMode skips the login page. It is covered by `MfaTests` at the service level and by the API's 401 `mfaRequired` mapping.
+- Development changes: a Data Protection key file in `src/BloodBankLIS.Api/dataprotection-keys` (git-ignored), and audit rows for the enroll and remove.
+
+### Next ranked residual
+
+The round 2 competitor queue is empty. Stop the competitor-gap loop. Open SME items: OCD-036 (excursion response) and OCD-037 (MFA enforcement).

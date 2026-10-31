@@ -20,10 +20,13 @@ public static class MeEndpoints
             IAuthSessionService sessions,
             CancellationToken ct) =>
         {
-            var result = await sessions.LoginAsync(request.UserName, request.Password, request.Workstation, ct);
+            var result = await sessions.LoginAsync(request.UserName, request.Password, request.Workstation, request.OneTimeCode, ct);
             if (!result.Succeeded || result.Value is null)
             {
-                return Results.Unauthorized();
+                // The password was right but a code is needed: say so, without a session.
+                return result.Error?.StartsWith(AuthSessionService.MfaRequiredError, StringComparison.Ordinal) == true
+                    ? Results.Json(new { error = result.Error, mfaRequired = true }, statusCode: StatusCodes.Status401Unauthorized)
+                    : Results.Unauthorized();
             }
 
             return Results.Ok(ToLoginResponse(result.Value));
@@ -75,8 +78,9 @@ public static class MeEndpoints
         userName = login.UserName,
         displayName = login.DisplayName,
         securityLevel = login.SecurityLevel,
-        permissions = login.Permissions
+        permissions = login.Permissions,
+        mfaEnrollmentRequired = login.MfaEnrollmentRequired
     };
 }
 
-public sealed record LoginRequest(string UserName, string? Password = null, string? Workstation = null);
+public sealed record LoginRequest(string UserName, string? Password = null, string? Workstation = null, string? OneTimeCode = null);

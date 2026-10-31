@@ -1,0 +1,110 @@
+@page "/account/mfa"
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+<PageTitle>Authenticator &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Authenticator app</h1>
+<p class="muted">Sign in with a 6-digit code from an authenticator app as well as your password.</p>
+<Outcome Value="_feedback" />
+
+@if (_status is { } status)
+{
+    <div class="bb-card">
+        @if (status.Enrolled)
+        {
+            <p><span class="badge badge-green">On</span> Set up @status.EnrolledUtc?.ToString("yyyy-MM-dd HH:mm") UTC. You enter a code each time you sign in.</p>
+            @if (status.RequiredByPolicy)
+            {
+                <p class="muted">Facility policy requires an authenticator for your account. If you lose your device, ask an administrator to reset it.</p>
+            }
+            else
+            {
+                <div class="form-row">
+                    <div class="field"><label>Current code</label><input inputmode="numeric" maxlength="6" @bind="_code" autocomplete="one-time-code" /></div>
+                </div>
+                <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="DisableAsync">Remove authenticator</button>
+            }
+        }
+        else
+        {
+            @if (status.RequiredByPolicy)
+            {
+                <div class="alert alert-danger">Facility policy requires an authenticator for your account. Set it up now.</div>
+            }
+
+            @if (_enrollment is null)
+            {
+                <p>Not set up.</p>
+                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="BeginAsync">Set up an authenticator</button>
+            }
+            else
+            {
+                <ol>
+                    <li>In your authenticator app, add an account by entering this key: <div class="mono" style="font-size:1.1em;letter-spacing:.08em;margin:.4rem 0;">@Grouped(_enrollment.SecretBase32)</div>
+                        <details><summary class="muted">Setup link</summary><div class="mono" style="word-break:break-all;">@_enrollment.ProvisioningUri</div></details></li>
+                    <li>Enter the 6-digit code the app shows.</li>
+                </ol>
+                <div class="form-row">
+                    <div class="field"><label>Code</label><input inputmode="numeric" maxlength="6" @bind="_code" autocomplete="one-time-code" /></div>
+                </div>
+                <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="ConfirmAsync">Confirm</button>
+                <p class="muted" style="margin-top:.75rem;">The key is shown only now. It is stored protected and cannot be displayed again.</p>
+            }
+        }
+    </div>
+}
+
+@code {
+    private MfaStatusDto? _status;
+    private MfaEnrollmentDto? _enrollment;
+    private Feedback? _feedback;
+    private string _code = string.Empty;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var r = await Api.GetMfaStatusAsync();
+        if (r.Succeeded) _status = r.Value;
+        else _feedback = r.ToFeedback();
+    }
+
+    private async Task BeginAsync()
+    {
+        _busy = true;
+        var r = await Api.BeginMfaEnrollmentAsync();
+        _busy = false;
+        if (r.Succeeded) _enrollment = r.Value;
+        else _feedback = r.ToFeedback();
+    }
+
+    private async Task ConfirmAsync()
+    {
+        _busy = true;
+        var r = await Api.ConfirmMfaEnrollmentAsync(_code);
+        _busy = false;
+        _code = string.Empty;
+        _feedback = r.ToFeedback("Authenticator set up. You will enter a code at each sign-in.");
+        if (r.Succeeded)
+        {
+            _enrollment = null;
+            Session.MfaEnrollmentRequired = false;
+            await LoadAsync();
+        }
+    }
+
+    private async Task DisableAsync()
+    {
+        _busy = true;
+        var r = await Api.DisableMfaAsync(_code);
+        _busy = false;
+        _code = string.Empty;
+        _feedback = r.ToFeedback("Authenticator removed.");
+        if (r.Succeeded) await LoadAsync();
+    }
+
+    private static string Grouped(string key) =>
+        string.Join(' ', Enumerable.Range(0, (key.Length + 3) / 4).Select(i => key.Substring(i * 4, Math.Min(4, key.Length - i * 4))));
+}

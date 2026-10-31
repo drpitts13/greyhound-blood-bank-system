@@ -12,6 +12,9 @@ public sealed class AuthSessionService : IAuthSessionService
 {
     public const int FailedSignInLockoutThreshold = 5;
 
+    /// <summary>Error prefix when the password was right and a one-time code is still needed.</summary>
+    public const string MfaRequiredError = "MFA_REQUIRED";
+
     private readonly IRepository<User> _users;
     private readonly IRepository<AuthSession> _sessions;
     private readonly IUnitOfWork _unitOfWork;
@@ -19,6 +22,8 @@ public sealed class AuthSessionService : IAuthSessionService
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator _permissions;
     private readonly AuthSessionOptions _options;
+    private readonly FacilityPolicyService? _policy;
+    private readonly ISecretProtector? _protector;
 
     public AuthSessionService(
         IRepository<User> users,
@@ -27,7 +32,9 @@ public sealed class AuthSessionService : IAuthSessionService
         IClock clock,
         IAuditWriter audit,
         IPermissionEvaluator permissions,
-        AuthSessionOptions options)
+        AuthSessionOptions options,
+        FacilityPolicyService? policy = null,
+        ISecretProtector? protector = null)
     {
         _users = users;
         _sessions = sessions;
@@ -36,12 +43,15 @@ public sealed class AuthSessionService : IAuthSessionService
         _audit = audit;
         _permissions = permissions;
         _options = options;
+        _policy = policy;
+        _protector = protector;
     }
 
     public async Task<OperationResult<AuthLoginResult>> LoginAsync(
         string userName,
         string? password,
         string? workstation,
+        string? oneTimeCode = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(userName))
@@ -70,33 +80,32 @@ public sealed class AuthSessionService : IAuthSessionService
         if (string.IsNullOrEmpty(user.PasswordHash)
             || !SecretHasher.Verify(password ?? string.Empty, user.PasswordHash))
         {
-            user.FailedSignInCount++;
-            if (user.FailedSignInCount >= FailedSignInLockoutThreshold)
-            {
-                user.IsLocked = true;
-                _audit.Record(
-                    AuditEventType.Lockout,
-                    nameof(User),
-                    user.Id,
-                    reason: "Failed sign-in lockout",
-                    actingUserName: user.UserName);
-                await RevokeOpenSessionsAsync(user.Id, "Account locked after failed sign-in", cancellationToken);
-            }
-            else
-            {
-                _audit.Record(
-                    AuditEventType.SignatureFailed,
-                    nameof(User),
-                    user.Id,
-                    reason: "Failed sign-in",
-                    actingUserName: user.UserName);
-            }
-
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-            return OperationResult<AuthLoginResult>.Fail("Sign-in failed.");
+            return await FailSignInAsync(user, "Failed sign-in", cancellationToken);
         }
 
         var now = _clock.UtcNow;
+        var codes = await _permissions.GetPermissionsAsync(user.UserName, cancellationToken);
+        var policyOn = _policy is not null && await _policy.GetRequirePrivilegedMfaAsync(cancellationToken);
+        var mfa = MfaRule.Evaluate(policyOn, MfaRule.IsPrivileged(codes), user.TotpSecretProtected is not null);
+        if (mfa == MfaRequirement.Challenge)
+        {
+            if (string.IsNullOrWhiteSpace(oneTimeCode))
+            {
+                // Right password, code still needed: not a failed attempt.
+                return OperationResult<AuthLoginResult>.Fail($"{MfaRequiredError}: Enter the 6-digit code from your authenticator app.");
+            }
+
+            var step = _protector is null
+                ? null
+                : Totp.Verify(Totp.FromBase32(_protector.Unprotect(user.TotpSecretProtected!)), oneTimeCode, now, user.TotpLastStep);
+            if (step is null)
+            {
+                return await FailSignInAsync(user, "Failed one-time code", cancellationToken);
+            }
+
+            user.TotpLastStep = step;
+        }
+
         var idle = TimeSpan.FromMinutes(Math.Max(1, _options.IdleTimeoutMinutes));
         var absolute = TimeSpan.FromHours(Math.Max(1, _options.AbsoluteTimeoutHours));
         var rawToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
@@ -122,18 +131,53 @@ public sealed class AuthSessionService : IAuthSessionService
             AuditEventType.Login,
             nameof(User),
             user.Id,
-            newValue: new { session.Workstation, AbsoluteExpiresUtc = session.AbsoluteExpiresUtc },
+            newValue: new
+            {
+                session.Workstation,
+                AbsoluteExpiresUtc = session.AbsoluteExpiresUtc,
+                SecondFactor = mfa == MfaRequirement.Challenge ? "TOTP" : null,
+                MfaEnrollmentRequired = mfa == MfaRequirement.EnrollmentRequired
+            },
             actingUserName: user.UserName);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var codes = await _permissions.GetPermissionsAsync(user.UserName, cancellationToken);
         var securityLevel = await _permissions.GetMaxSecurityLevelAsync(user.UserName, cancellationToken);
         return OperationResult<AuthLoginResult>.Ok(new AuthLoginResult(
             rawToken,
             user.UserName,
             user.DisplayName,
             securityLevel,
-            codes.OrderBy(c => c).ToArray()));
+            codes.OrderBy(c => c).ToArray(),
+            mfa == MfaRequirement.EnrollmentRequired));
+    }
+
+    /// <summary>Counts a failed attempt; the fifth in a row locks the account.</summary>
+    private async Task<OperationResult<AuthLoginResult>> FailSignInAsync(User user, string reason, CancellationToken cancellationToken)
+    {
+        user.FailedSignInCount++;
+        if (user.FailedSignInCount >= FailedSignInLockoutThreshold)
+        {
+            user.IsLocked = true;
+            _audit.Record(
+                AuditEventType.Lockout,
+                nameof(User),
+                user.Id,
+                reason: reason + " lockout",
+                actingUserName: user.UserName);
+            await RevokeOpenSessionsAsync(user.Id, "Account locked after failed sign-in", cancellationToken);
+        }
+        else
+        {
+            _audit.Record(
+                AuditEventType.SignatureFailed,
+                nameof(User),
+                user.Id,
+                reason: reason,
+                actingUserName: user.UserName);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        return OperationResult<AuthLoginResult>.Fail("Sign-in failed.");
     }
 
     public async Task<OperationResult<bool>> LogoutAsync(string? token, CancellationToken cancellationToken = default)

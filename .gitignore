@@ -40,3 +40,6 @@ testdata/isbt128/extracts/*
 
 # Database backups written by the API (Backup:Folder)
 **/backups/
+
+# ASP.NET Data Protection keys (protect authenticator secrets; back up with the database)
+**/dataprotection-keys/

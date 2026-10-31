@@ -8,7 +8,7 @@ Each open item is one implementation slice. When this list has no open items, st
 
 Round 2 (2026-10-31). Scope is the transfusion service only, by product-owner decision. Work one item per loop tick, top to bottom. Each item needs automated tests, a full `dotnet test` run, a TEST-BB ID, an iteration-log entry, and a traceability row.
 
-9. **G9 MFA for privileged users.** Plan: add TOTP for users with admin or supervisor permissions behind a policy that defaults off. The secret is protected with ASP.NET Data Protection.
+None. Round 2 is complete. Stop the competitor-gap loop and do not arm another wake.
 
 ## Done
 
@@ -27,6 +27,7 @@ Round 2 (2026-10-31). Scope is the transfusion service only, by product-owner de
 13. G6 CSV export. Reports and the audit trail export CSV with RFC 4180 quoting and a formula-injection guard; audit exports are themselves audited. TEST-BB-300.
 14. G7 Supplier order. Draft from the par shortfall, e-signed submit, PDF/CSV export, delivery link from the same supplier; no EDI. TEST-BB-301.
 15. G8 Database backup. Scheduled and on-demand verified backups (SQLite integrity check, SQL Server VERIFYONLY), audit manifest for restore, retention, failure and overdue alerts. TEST-BB-302.
+16. G9 MFA. RFC 6238 authenticator-app second factor; policy (default off) asks privileged users to enroll; key protected with Data Protection; admin reset. TEST-BB-303.
 
 ## Excluded
 

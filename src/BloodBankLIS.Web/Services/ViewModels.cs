@@ -105,9 +105,10 @@ public sealed record LoginResultVm(
     string UserName,
     string DisplayName,
     int SecurityLevel,
-    string[] Permissions);
+    string[] Permissions,
+    bool MfaEnrollmentRequired = false);
 
-public sealed record LoginRequestVm(string UserName, string? Password = null, string? Workstation = null);
+public sealed record LoginRequestVm(string UserName, string? Password = null, string? Workstation = null, string? OneTimeCode = null);
 
 public sealed record ExpireDueVm(int Expired);
 

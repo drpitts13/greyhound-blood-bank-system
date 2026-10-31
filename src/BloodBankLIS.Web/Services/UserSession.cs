@@ -24,6 +24,9 @@ public sealed class UserSession
     /// <summary>Max role security level for UI gating of exception overrides. API re-checks.</summary>
     public int SecurityLevel { get; private set; }
 
+    /// <summary>Policy asks this user to set up an authenticator; the layout keeps them on that page until they do.</summary>
+    public bool MfaEnrollmentRequired { get; set; }
+
     public DateTime LastActivityUtc { get; private set; } = DateTime.UtcNow;
 
     public static TimeSpan IdleTimeout { get; } = TimeSpan.FromMinutes(30);

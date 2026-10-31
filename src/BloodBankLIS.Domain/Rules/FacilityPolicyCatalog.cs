@@ -126,7 +126,10 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Integer, "24", "Facility SOP", 1, 168),
         new(FacilityPolicyKeys.RequireModificationSupplyLot, "Modification", "Require supply lot",
             "When true, a modification requires a supply lot. Default off.",
-            FacilityPolicyValueKind.Boolean, "false", "Facility SOP")
+            FacilityPolicyValueKind.Boolean, "false", "Facility SOP"),
+        new(FacilityPolicyKeys.RequirePrivilegedMfa, "Security", "Require MFA for privileged users",
+            "When true, a user who can administer users, roles, or configuration, or approve overrides, is asked to set up an authenticator app at sign-in. Anyone who has enrolled always enters a code. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "Facility security policy")
     ];
 
     public static FacilityPolicyDefinition? Find(string key) =>

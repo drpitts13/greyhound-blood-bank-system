@@ -5,4 +5,5 @@ public sealed record AuthLoginResult(
     string UserName,
     string DisplayName,
     int SecurityLevel,
-    IReadOnlyList<string> Permissions);
+    IReadOnlyList<string> Permissions,
+    bool MfaEnrollmentRequired = false);

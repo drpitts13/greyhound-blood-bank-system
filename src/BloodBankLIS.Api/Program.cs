@@ -16,6 +16,7 @@ using BloodBankLIS.Printing.Delivery;
 using BloodBankLIS.Security;
 using BloodBankLIS.Domain.ValueObjects;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +50,13 @@ if (!builder.Environment.IsDevelopment())
 }
 
 builder.Services.AddSingleton(authOptions);
+// Authenticator keys are protected with keys kept beside the app (Auth:DataProtectionKeysFolder).
+builder.Services.AddDataProtection()
+    .SetApplicationName("BloodBankLIS")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(
+        builder.Environment.ContentRootPath,
+        builder.Configuration.GetValue("Auth:DataProtectionKeysFolder", "dataprotection-keys")!)));
+builder.Services.AddSingleton<BloodBankLIS.Application.Abstractions.ISecretProtector, DataProtectionSecretProtector>();
 builder.Services.AddInfrastructure(connectionString, dbProvider);
 var backupSection = builder.Configuration.GetSection("Backup");
 var backupFolder = backupSection.GetValue<string>("Folder");
@@ -181,6 +189,7 @@ app.MapUtilizationEndpoints();
 app.MapAlertEndpoints();
 app.MapSupplierOrderEndpoints();
 app.MapBackupEndpoints();
+app.MapMfaEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();

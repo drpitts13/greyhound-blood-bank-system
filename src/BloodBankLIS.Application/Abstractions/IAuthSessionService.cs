@@ -10,6 +10,7 @@ public interface IAuthSessionService
         string userName,
         string? password,
         string? workstation,
+        string? oneTimeCode = null,
         CancellationToken cancellationToken = default);
 
     Task<OperationResult<bool>> LogoutAsync(string? token, CancellationToken cancellationToken = default);

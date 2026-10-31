@@ -106,6 +106,7 @@
                     <button class="btn btn-secondary" disabled="@_busy" @onclick="() => SetLockedAsync(true)">Lock</button>
                 }
                 <button class="btn btn-ghost" disabled="@_busy" @onclick="ResetPasswordAsync">Reset password</button>
+                <button class="btn btn-ghost" disabled="@_busy" @onclick="ResetMfaAsync" title="Removes the user's authenticator so they can set it up again">Reset authenticator</button>
             }
             <button class="btn btn-ghost" @onclick="() => _editing = null">Cancel</button>
         </div>
@@ -211,6 +212,15 @@
         var r = await Api.ResetUserPasswordAsync(_editId.Value, _changeReason);
         _busy = false;
         _feedback = r.ToFeedback("Password reset recorded (placeholder).");
+    }
+
+    private async Task ResetMfaAsync()
+    {
+        if (_editId is null) return;
+        _busy = true;
+        var r = await Api.ResetUserMfaAsync(_editId.Value);
+        _busy = false;
+        _feedback = r.ToFeedback("Authenticator reset. The user sets it up again at next sign-in if policy requires it.");
     }
 
     private sealed class EditModel

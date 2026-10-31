@@ -31,5 +31,16 @@ public class User : BaseEntity
     /// <summary>Optional PIN hash for electronic-signature re-authentication.</summary>
     public string? PinHash { get; set; }
 
+    /// <summary>Authenticator key, protected with Data Protection; set once enrollment is confirmed.</summary>
+    public string? TotpSecretProtected { get; set; }
+
+    /// <summary>Key issued at enrollment start, kept until the user confirms a code.</summary>
+    public string? TotpPendingSecretProtected { get; set; }
+
+    public DateTime? TotpEnrolledUtc { get; set; }
+
+    /// <summary>Last accepted time step, so a code cannot be used twice.</summary>
+    public long? TotpLastStep { get; set; }
+
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }

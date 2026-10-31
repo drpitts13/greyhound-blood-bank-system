@@ -418,3 +418,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-410 | Staff can export report results and the audit trail as CSV for other systems, without opening the file executing a formula. | P8 | FRS-BB-445 |
 | URS-BB-411 | Inventory staff can turn the par shortfall into a signed supplier order, send it as a file, and link the delivery that fills it. | P7 | FRS-BB-446 |
 | URS-BB-412 | The facility has verified database backups on a schedule and on demand, is told when a backup fails or is overdue, and can reconcile a restore against a manifest. | P3 | FRS-BB-447 |
+| URS-BB-413 | Users with administrative or override-approval rights can be required to sign in with a second factor from an authenticator app. | P6 | FRS-BB-448 |

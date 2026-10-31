@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using BloodBankLIS.Application.Admin;
+using BloodBankLIS.Application.Identity;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Compliance;
@@ -1573,6 +1574,21 @@ public sealed class BloodBankApiClient
             return ApiResult<byte[]>.Ok(await response.Content.ReadAsByteArrayAsync(ct));
         }
     }
+
+    public Task<ApiResult<MfaStatusDto>> GetMfaStatusAsync(CancellationToken ct = default) =>
+        SendAsync<MfaStatusDto>(HttpMethod.Get, "api/account/mfa", ct: ct);
+
+    public Task<ApiResult<MfaEnrollmentDto>> BeginMfaEnrollmentAsync(CancellationToken ct = default) =>
+        SendAsync<MfaEnrollmentDto>(HttpMethod.Post, "api/account/mfa/begin", ct: ct);
+
+    public Task<ApiResult<MfaStatusDto>> ConfirmMfaEnrollmentAsync(string code, CancellationToken ct = default) =>
+        SendAsync<MfaStatusDto>(HttpMethod.Post, "api/account/mfa/confirm", new MfaCodeRequest(code), ct);
+
+    public Task<ApiResult<MfaStatusDto>> DisableMfaAsync(string code, CancellationToken ct = default) =>
+        SendAsync<MfaStatusDto>(HttpMethod.Post, "api/account/mfa/disable", new MfaCodeRequest(code), ct);
+
+    public Task<ApiResult<bool>> ResetUserMfaAsync(long userId, CancellationToken ct = default) =>
+        SendAsync<bool>(HttpMethod.Post, $"api/admin/users/{userId}/mfa/reset", ct: ct);
 
     public Task<ApiResult<DatabaseBackupStatusVm>> GetDatabaseBackupsAsync(CancellationToken ct = default) =>
         SendAsync<DatabaseBackupStatusVm>(HttpMethod.Get, "api/admin/backups", ct: ct);

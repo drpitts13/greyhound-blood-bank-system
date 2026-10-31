@@ -16,6 +16,7 @@
             <div class="bb-user">
                 <div class="name">@Session.DisplayName</div>
                 <div class="role">@Session.UserName &middot; @Session.Workstation</div>
+                <a class="btn btn-ghost btn-sm" style="padding-left:0;" href="/account/mfa">Authenticator</a>
                 @if (!Dev.Enabled)
                 {
                     <button class="btn btn-ghost btn-sm" style="padding-left:0;" @onclick="SignOut">Sign out</button>
@@ -104,6 +105,13 @@ else if (IsPublicHelp)
         if (Session.IsSignedIn)
         {
             Session.Touch();
+            if (Session.MfaEnrollmentRequired && !IsHelpPath(Nav)
+                && !Nav.ToBaseRelativePath(Nav.Uri).StartsWith("account/mfa", StringComparison.OrdinalIgnoreCase))
+            {
+                Nav.NavigateTo("/account/mfa");
+                return;
+            }
+
             if (!Dev.Enabled && DateTime.UtcNow - _lastProfileRefreshUtc > TimeSpan.FromSeconds(15))
             {
                 _lastProfileRefreshUtc = DateTime.UtcNow;

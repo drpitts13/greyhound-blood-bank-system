@@ -18,6 +18,8 @@ The username is what the person types at sign-in. The display name is what other
 
 Status is active, locked, or inactive. Lock is what you do after five failed passwords or when someone should be stopped immediately. Inactive is for someone who has left. Both end the ability to sign in. An open session is revoked when the account is locked or deactivated.
 
+**Reset authenticator** removes a user's authenticator app, for example after a lost phone. The user sets it up again; if facility policy requires it for their role, they are sent to the setup page at their next sign-in. You cannot reset your own; another administrator must. The reset is recorded in the audit trail.
+
 ## Privilege changes
 
 Adding a role that grants more permission, especially emergency release, result correction, user administration, or configuration edit, requires a reason. The reason is audited. Removing a role should also say why. After you change roles, tell the person to sign out and sign in. The session they already have keeps the old permissions until it ends.

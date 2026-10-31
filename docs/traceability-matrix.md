@@ -449,6 +449,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-410 / FRS-BB-445 | CSV export for reports and the audit trail with a formula guard | `CsvFormat`; `ReportService`; `AuditCsvExport`; `AuditEndpoints`; `ReportRun.razor`; `Audit.razor` | TEST-BB-300 | D / I | Competitor gap G6 |
 | URS-BB-411 / FRS-BB-446 | Supplier order from the par shortfall with a signed submit, export, and delivery link | `SupplierOrderRule`; `SupplierOrderService`; `SupplierOrderEndpoints`; `SupplierOrders.razor` | TEST-BB-301 | D / I | Competitor gap G7. No EDI |
 | URS-BB-412 / FRS-BB-447 | Verified database backup with manifest, retention, and failure or overdue alerts | `DatabaseBackupRule`; `DatabaseBackupService`; `DatabaseBackupScheduleService`; `BackupEndpoints`; `AdminBackups.razor` | TEST-BB-302 | D / I | Competitor gap G8. SQL Server path not exercised in tests |
+| URS-BB-413 / FRS-BB-448 | TOTP second factor for sign-in, with policy for privileged users | `Totp`; `MfaRule`; `AuthSessionService`; `MfaService`; `MfaEndpoints`; `AccountMfa.razor`; `Login.razor` | TEST-BB-303 | D / I | Competitor gap G9. Policy default off |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
