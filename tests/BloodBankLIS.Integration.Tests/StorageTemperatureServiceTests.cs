@@ -1,3 +1,4 @@
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Application.Inventory;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
@@ -23,7 +24,10 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
             c,
             _factory.Clock,
             _factory.CurrentUser,
-            new AuditWriter(c, _factory.Clock, _factory.CurrentUser));
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
+            null,
+            new FacilityPolicyService(new EfRepository<SystemSetting>(c)),
+            new InventoryRepository(c));
 
     [Fact]
     public async Task InRangeReading_IsStored_WithoutDeviation()
@@ -44,7 +48,7 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
     }
 
     [Fact]
-    public async Task Excursion_OpensMajorDeviation_NamingStoredUnits_AndDoesNotQuarantine()
+    public async Task Excursion_OpensMajorDeviation_NamingStoredUnits_AndDoesNotQuarantineAtOnce()
     {
         await using var c = _factory.Create();
         var location = await AddLocationAsync(c, "TMP-HOT", 1m, 6m);
@@ -147,6 +151,90 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
         Assert.Equal(2, history.Count);
         Assert.Equal(5m, history[0].ReadingC);
         Assert.All(history, h => Assert.Equal(6m, h.RangeMaxC));
+    }
+
+    // TEST-BB-304 (OCD-036): an excursion that lasts longer than 30 minutes quarantines the stored units.
+    [Fact]
+    public async Task SustainedExcursion_QuarantinesStoredUnits_AndSharesOneDeviation()
+    {
+        await using var c = _factory.Create();
+        var start = _factory.Clock.UtcNow;
+        var location = await AddLocationAsync(c, "TMP-SUST", 1m, 6m);
+        var product = new ProductType { ProductCode = "RBC-SUST", Name = "Red cells" };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        c.BloodUnits.AddRange(
+            Unit("U-SUST-1", product.Id, location.Id, UnitStatus.Available),
+            Unit("U-SUST-2", product.Id, location.Id, UnitStatus.Allocated),
+            Unit("U-SUST-3", product.Id, location.Id, UnitStatus.Issued));
+        await c.SaveChangesAsync();
+        var service = Service(c);
+
+        var first = await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 9m, start));
+        _factory.Clock.UtcNow = start.AddMinutes(20);
+        var second = await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 9.5m));
+        Assert.Equal(first.Value!.DeviationId, second.Value!.DeviationId);
+        Assert.Equal(UnitStatus.Available, (await c.BloodUnits.AsNoTracking().SingleAsync(u => u.UnitNumber == "U-SUST-1")).Status);
+
+        _factory.Clock.UtcNow = start.AddMinutes(31);
+        var quarantined = await service.EnforceSustainedExcursionsAsync();
+
+        Assert.Equal(2, quarantined);
+        var units = await c.BloodUnits.AsNoTracking().Where(u => u.UnitNumber.StartsWith("U-SUST")).ToDictionaryAsync(u => u.UnitNumber);
+        Assert.Equal(UnitStatus.Quarantine, units["U-SUST-1"].Status);
+        Assert.Equal(UnitStatus.Quarantine, units["U-SUST-2"].Status);
+        Assert.Equal(UnitStatus.Issued, units["U-SUST-3"].Status);
+        Assert.Equal(UnitQuarantineReason.StorageTemperatureExcursion, units["U-SUST-1"].QuarantineReasonCode);
+        Assert.True(await c.InventoryStatusHistory.AnyAsync(h => h.BloodProductId == units["U-SUST-1"].Id && h.ToStatus == UnitStatus.Quarantine));
+        Assert.True(await c.AuditEvents.AnyAsync(e => e.EntityId == units["U-SUST-2"].Id && e.NewValueJson!.Contains("TemperatureExcursion")));
+        var deviation = await c.Deviations.AsNoTracking().SingleAsync(d => d.Id == first.Value.DeviationId);
+        Assert.Contains("2 unit(s) quarantined automatically", deviation.Description);
+        Assert.Equal(0, await service.EnforceSustainedExcursionsAsync());
+        _factory.Clock.UtcNow = start;
+    }
+
+    [Fact]
+    public async Task ShortExcursion_EndedByAnInRangeReading_DoesNotQuarantine()
+    {
+        await using var c = _factory.Create();
+        var start = _factory.Clock.UtcNow;
+        var location = await AddLocationAsync(c, "TMP-SHORT", 1m, 6m);
+        var product = new ProductType { ProductCode = "RBC-SHORT", Name = "Red cells" };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        c.BloodUnits.Add(Unit("U-SHORT-1", product.Id, location.Id, UnitStatus.Available));
+        await c.SaveChangesAsync();
+        var service = Service(c);
+
+        await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 9m, start));
+        _factory.Clock.UtcNow = start.AddMinutes(25);
+        await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 4m));
+        _factory.Clock.UtcNow = start.AddMinutes(90);
+
+        Assert.Equal(0, await service.EnforceSustainedExcursionsAsync());
+        Assert.Equal(UnitStatus.Available, (await c.BloodUnits.AsNoTracking().SingleAsync(u => u.UnitNumber == "U-SHORT-1")).Status);
+        _factory.Clock.UtcNow = start;
+    }
+
+    [Fact]
+    public async Task QuarantineMinutesZero_TurnsAutomaticQuarantineOff()
+    {
+        await using var c = _factory.Create();
+        var start = _factory.Clock.UtcNow;
+        c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.ExcursionQuarantineMinutes, Value = "0" });
+        var location = await AddLocationAsync(c, "TMP-OFF0", 1m, 6m);
+        var product = new ProductType { ProductCode = "RBC-OFF0", Name = "Red cells" };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        c.BloodUnits.Add(Unit("U-OFF0-1", product.Id, location.Id, UnitStatus.Available));
+        await c.SaveChangesAsync();
+
+        await Service(c).RecordAsync(new RecordStorageTemperatureRequest(location.Id, 9m, start));
+        _factory.Clock.UtcNow = start.AddHours(3);
+        Assert.Equal(0, await Service(c).EnforceSustainedExcursionsAsync());
+        c.SystemSettings.Remove(await c.SystemSettings.SingleAsync(s => s.Key == FacilityPolicyKeys.ExcursionQuarantineMinutes));
+        await c.SaveChangesAsync();
+        _factory.Clock.UtcNow = start;
     }
 
     private static BloodUnit Unit(string number, long productTypeId, long locationId, UnitStatus status) => new()

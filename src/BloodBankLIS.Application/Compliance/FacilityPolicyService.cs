@@ -99,6 +99,15 @@ public sealed class FacilityPolicyService
     public Task<bool> GetRequirePrivilegedMfaAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.RequirePrivilegedMfa, false, ct);
 
+    public Task<bool> GetMfaEnabledAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.MfaEnabled, false, ct);
+
+    public Task<bool> GetRequireAllUsersMfaAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.RequireAllUsersMfa, false, ct);
+
+    public Task<int> GetExcursionQuarantineMinutesAsync(CancellationToken ct = default) =>
+        GetIntAsync(FacilityPolicyKeys.ExcursionQuarantineMinutes, 30, ct);
+
     public Task<bool> GetAllowElectronicCrossmatchAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowElectronicCrossmatch, false, ct);
 

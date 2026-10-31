@@ -76,15 +76,26 @@ public class TotpTests
 
     [Theory]
     [InlineData(false, false, false, MfaRequirement.None)]
-    [InlineData(false, true, false, MfaRequirement.None)]
+    [InlineData(false, true, true, MfaRequirement.None)]
     [InlineData(true, false, false, MfaRequirement.None)]
     [InlineData(true, true, false, MfaRequirement.EnrollmentRequired)]
-    [InlineData(false, false, true, MfaRequirement.Challenge)]
+    [InlineData(true, false, true, MfaRequirement.Challenge)]
     [InlineData(true, true, true, MfaRequirement.Challenge)]
-    public void MfaRule_EnrolledAlwaysChallenges_PolicyOnlyAsksPrivilegedToEnroll(
-        bool policy, bool privileged, bool enrolled, MfaRequirement expected)
+    public void MfaRule_IsAFacilityOption_EnrolledChallenges_RequiredMustEnroll(
+        bool enabled, bool required, bool enrolled, MfaRequirement expected)
     {
-        Assert.Equal(expected, MfaRule.Evaluate(policy, privileged, enrolled));
+        Assert.Equal(expected, MfaRule.Evaluate(enabled, required, enrolled));
+    }
+
+    [Theory]
+    [InlineData(false, true, true, true, false)]
+    [InlineData(true, false, false, true, false)]
+    [InlineData(true, false, true, false, false)]
+    [InlineData(true, false, true, true, true)]
+    [InlineData(true, true, false, false, true)]
+    public void IsRequired_FollowsTheFacilitySettings(bool enabled, bool all, bool privilegedPolicy, bool privileged, bool expected)
+    {
+        Assert.Equal(expected, MfaRule.IsRequired(enabled, all, privilegedPolicy, privileged));
     }
 
     [Fact]

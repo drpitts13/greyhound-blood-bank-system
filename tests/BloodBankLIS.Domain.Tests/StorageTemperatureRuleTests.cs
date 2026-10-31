@@ -68,3 +68,33 @@ public class StorageTemperatureRuleTests
         Assert.DoesNotContain(UnitStatus.Discarded, StorageTemperatureRule.StoredStatuses);
     }
 }
+
+// TEST-BB-304: OCD-036 sustained-excursion quarantine timing.
+public class StorageExcursionQuarantineRuleTests
+{
+    private static readonly DateTime T0 = new(2026, 10, 31, 12, 0, 0, DateTimeKind.Utc);
+
+    [Fact]
+    public void OngoingStart_IsTheFirstReadingOfTheUnbrokenOutOfRangeRun()
+    {
+        var readings = new[]
+        {
+            (T0, StorageTemperatureStatus.AboveRange),
+            (T0.AddMinutes(10), StorageTemperatureStatus.InRange),
+            (T0.AddMinutes(20), StorageTemperatureStatus.AboveRange),
+            (T0.AddMinutes(40), StorageTemperatureStatus.BelowRange)
+        };
+        Assert.Equal(T0.AddMinutes(20), StorageTemperatureRule.OngoingExcursionStart(readings));
+        Assert.Null(StorageTemperatureRule.OngoingExcursionStart([(T0, StorageTemperatureStatus.AboveRange), (T0.AddMinutes(5), StorageTemperatureStatus.InRange)]));
+        Assert.Null(StorageTemperatureRule.OngoingExcursionStart([]));
+    }
+
+    [Fact]
+    public void Quarantine_OnlyAfterMoreThanTheLimit_AndZeroTurnsItOff()
+    {
+        Assert.False(StorageTemperatureRule.RequiresQuarantine(T0, T0.AddMinutes(30), 30));
+        Assert.True(StorageTemperatureRule.RequiresQuarantine(T0, T0.AddMinutes(30).AddSeconds(1), 30));
+        Assert.False(StorageTemperatureRule.RequiresQuarantine(null, T0.AddHours(5), 30));
+        Assert.False(StorageTemperatureRule.RequiresQuarantine(T0, T0.AddHours(5), 0));
+    }
+}

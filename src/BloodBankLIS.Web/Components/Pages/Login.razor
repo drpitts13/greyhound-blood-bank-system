@@ -20,7 +20,16 @@
             <label>Password</label>
             <input @ref="_passwordInput" type="password" @bind="_password" @bind:event="oninput" placeholder="Demo password is demo" autocomplete="current-password" @onkeydown="OnKey" />
         </div>
-        @if (_codeRequired)
+        @if (_challenge is { Kind: "EnrollmentRequired" } setup)
+        {
+            <div class="alert alert-danger" style="margin-bottom:.75rem;">
+                Facility policy requires an authenticator app for your account before you can sign in.
+                In the app, add an account with this key, then enter the code it shows.
+                <div class="mono" style="font-size:1.05em;letter-spacing:.08em;margin:.4rem 0;">@Grouped(setup.SecretBase32 ?? "")</div>
+                <details><summary>Setup link</summary><div class="mono" style="word-break:break-all;">@setup.ProvisioningUri</div></details>
+            </div>
+        }
+        @if (_challenge is not null)
         {
             <div class="field">
                 <label>Authenticator code</label>
@@ -65,7 +74,7 @@
     private string _password = string.Empty;
     private string _workstation = Environment.MachineName;
     private string? _error;
-    private bool _codeRequired;
+    private LoginChallengeVm? _challenge;
     private string _oneTimeCode = string.Empty;
     private ElementReference _codeInput;
     private bool _busy;
@@ -133,27 +142,30 @@
 
         _busy = true;
         var login = await Api.LoginAsync(new LoginRequestVm(
-            _userName.Trim(), _password, _workstation, _codeRequired ? _oneTimeCode.Trim() : null));
+            _userName.Trim(), _password, _workstation, _challenge is not null ? _oneTimeCode.Trim() : null));
         _busy = false;
 
         if (!login.Succeeded || login.Value is null)
         {
-            if (login.StatusCode == 401 && login.Error?.Contains("MFA_REQUIRED", StringComparison.Ordinal) == true)
-            {
-                // Password accepted; ask for the authenticator code and keep what was typed.
-                _codeRequired = true;
-                _error = "Enter the 6-digit code from your authenticator app.";
-                StateHasChanged();
-                await _codeInput.FocusAsync();
-                return;
-            }
-
             _oneTimeCode = string.Empty;
             _error = login.StatusCode is 401 or 404
-                ? _codeRequired
+                ? _challenge is not null
                     ? "Sign-in failed. Check the password and the current code."
                     : "Sign-in failed. Check the username and password."
                 : login.FailureSummary();
+            return;
+        }
+
+        if (login.Value.Challenge is { } challenge || string.IsNullOrEmpty(login.Value.SessionToken))
+        {
+            // Password accepted, no session yet: ask for the code (and show the key to set up).
+            _challenge = login.Value.Challenge ?? new LoginChallengeVm("Challenge");
+            _oneTimeCode = string.Empty;
+            _error = _challenge.Kind == "EnrollmentRequired"
+                ? null
+                : "Enter the 6-digit code from your authenticator app.";
+            StateHasChanged();
+            await _codeInput.FocusAsync();
             return;
         }
 
@@ -164,11 +176,11 @@
             login.Value.Permissions,
             login.Value.SecurityLevel,
             login.Value.SessionToken);
-        Session.MfaEnrollmentRequired = login.Value.MfaEnrollmentRequired;
-        Nav.NavigateTo(login.Value.MfaEnrollmentRequired
-            ? "/account/mfa"
-            : string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
+        Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
     }
 
     private void ExitApplication() => DesktopHost.RequestImmediateStop();
+
+    private static string Grouped(string key) =>
+        string.Join(' ', Enumerable.Range(0, (key.Length + 3) / 4).Select(i => key.Substring(i * 4, Math.Min(4, key.Length - i * 4))));
 }

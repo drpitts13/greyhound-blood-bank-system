@@ -7,7 +7,7 @@ using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Identity;
 
-public sealed record MfaStatusDto(bool Enrolled, DateTime? EnrolledUtc, bool Pending, bool RequiredByPolicy);
+public sealed record MfaStatusDto(bool Enrolled, DateTime? EnrolledUtc, bool Pending, bool RequiredByPolicy, bool Enabled = true);
 
 public sealed record MfaEnrollmentDto(string SecretBase32, string ProvisioningUri);
 
@@ -59,7 +59,8 @@ public sealed class MfaService
                 user.TotpSecretProtected is not null,
                 user.TotpEnrolledUtc,
                 user.TotpPendingSecretProtected is not null,
-                await RequiredAsync(user, ct)));
+                await RequiredAsync(user, ct),
+                await _policy.GetMfaEnabledAsync(ct)));
     }
 
     public async Task<OperationResult<MfaEnrollmentDto>> BeginEnrollmentAsync(CancellationToken ct = default)
@@ -68,6 +69,11 @@ public sealed class MfaService
         if (user is null)
         {
             return OperationResult<MfaEnrollmentDto>.Fail("The current identity does not map to an active account.");
+        }
+
+        if (!await _policy.GetMfaEnabledAsync(ct))
+        {
+            return OperationResult<MfaEnrollmentDto>.Fail(DisabledMessage);
         }
 
         if (user.TotpSecretProtected is not null)
@@ -92,6 +98,11 @@ public sealed class MfaService
             return OperationResult<MfaStatusDto>.Fail("The current identity does not map to an active account.");
         }
 
+        if (!await _policy.GetMfaEnabledAsync(ct))
+        {
+            return OperationResult<MfaStatusDto>.Fail(DisabledMessage);
+        }
+
         if (user.TotpPendingSecretProtected is null)
         {
             return OperationResult<MfaStatusDto>.Fail("Start authenticator setup first.");
@@ -111,7 +122,7 @@ public sealed class MfaService
         _users.Update(user);
         _audit.Record(AuditEventType.Update, nameof(User), user.Id, new { MfaEnrolled = false }, new { MfaEnrolled = true }, "Authenticator enrolled.");
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<MfaStatusDto>.Ok(new MfaStatusDto(true, user.TotpEnrolledUtc, false, await RequiredAsync(user, ct)));
+        return OperationResult<MfaStatusDto>.Ok(new MfaStatusDto(true, user.TotpEnrolledUtc, false, await RequiredAsync(user, ct), true));
     }
 
     /// <summary>The user removes their own authenticator with a current code, unless policy requires it.</summary>
@@ -125,7 +136,7 @@ public sealed class MfaService
 
         if (await RequiredAsync(user, ct))
         {
-            return OperationResult<MfaStatusDto>.Fail("Facility policy requires an authenticator for your account. An administrator can reset it if your device is lost.");
+            return OperationResult<MfaStatusDto>.Fail("Facility policy requires an authenticator for your account. An administrator can reset it if your device is lost; you then set it up again at sign-in.");
         }
 
         var step = Totp.Verify(Totp.FromBase32(_protector.Unprotect(user.TotpSecretProtected)), request?.Code, _clock.UtcNow, user.TotpLastStep);
@@ -137,7 +148,7 @@ public sealed class MfaService
         Clear(user);
         _audit.Record(AuditEventType.Update, nameof(User), user.Id, new { MfaEnrolled = true }, new { MfaEnrolled = false }, "Authenticator removed by the user.");
         await _unitOfWork.SaveChangesAsync(ct);
-        return OperationResult<MfaStatusDto>.Ok(new MfaStatusDto(false, null, false, false));
+        return OperationResult<MfaStatusDto>.Ok(new MfaStatusDto(false, null, false, false, await _policy.GetMfaEnabledAsync(ct)));
     }
 
     /// <summary>Administrator reset for a lost device. The endpoint requires admin.users.manage.</summary>
@@ -171,9 +182,14 @@ public sealed class MfaService
         _users.Update(user);
     }
 
+    private const string DisabledMessage = "Authenticator sign-in is turned off in Facility Policies.";
+
     private async Task<bool> RequiredAsync(User user, CancellationToken ct) =>
-        await _policy.GetRequirePrivilegedMfaAsync(ct)
-        && MfaRule.IsPrivileged(await _permissions.GetPermissionsAsync(user.UserName, ct));
+        MfaRule.IsRequired(
+            await _policy.GetMfaEnabledAsync(ct),
+            await _policy.GetRequireAllUsersMfaAsync(ct),
+            await _policy.GetRequirePrivilegedMfaAsync(ct),
+            MfaRule.IsPrivileged(await _permissions.GetPermissionsAsync(user.UserName, ct)));
 
     private Task<User?> CurrentAsync(CancellationToken ct) =>
         _users.FirstOrDefaultAsync(u => u.UserName == _currentUser.UserName && u.IsActive && !u.IsLocked, ct);

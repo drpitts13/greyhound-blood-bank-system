@@ -324,7 +324,10 @@ public enum UnitQuarantineReason
     InspectedAfterDamage = 7,
     FailedReturnInspection = 8,
     SupervisorReview = 9,
-    Other = 10
+    Other = 10,
+
+    /// <summary>Placed by the system when a storage excursion lasted past the facility limit (OCD-036).</summary>
+    StorageTemperatureExcursion = 11
 }
 
 /// <summary>

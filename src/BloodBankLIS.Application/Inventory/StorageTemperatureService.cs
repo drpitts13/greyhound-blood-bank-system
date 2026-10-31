@@ -39,8 +39,9 @@ public sealed record RecordStorageTemperatureRequest(
 
 /// <summary>
 /// Storage temperature log. A reading outside the location's range opens a deviation
-/// so the excursion is investigated. Units are not quarantined automatically: that
-/// decision stays with staff (OCD-036).
+/// (one per unbroken run of out-of-range readings). Once an excursion has lasted longer
+/// than <c>Inventory.ExcursionQuarantineMinutes</c> (default 30), the units stored at that
+/// location are quarantined automatically (OCD-036, decided 2026-10-31).
 /// </summary>
 public sealed class StorageTemperatureService
 {
@@ -55,6 +56,8 @@ public sealed class StorageTemperatureService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly AlertService? _alerts;
+    private readonly FacilityPolicyService? _policy;
+    private readonly IInventoryRepository? _inventory;
 
     public StorageTemperatureService(
         IRepository<StorageTemperatureReading> readings,
@@ -65,7 +68,9 @@ public sealed class StorageTemperatureService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        AlertService? alerts = null)
+        AlertService? alerts = null,
+        FacilityPolicyService? policy = null,
+        IInventoryRepository? inventory = null)
     {
         _readings = readings;
         _locations = locations;
@@ -76,6 +81,8 @@ public sealed class StorageTemperatureService
         _currentUser = currentUser;
         _audit = audit;
         _alerts = alerts;
+        _policy = policy;
+        _inventory = inventory;
     }
 
     public async Task<OperationResult<StorageTemperatureReadingDto>> RecordAsync(
@@ -119,7 +126,15 @@ public sealed class StorageTemperatureService
         await _readings.AddAsync(reading, ct);
         await _unitOfWork.SaveChangesAsync(ct);
 
-        if (StorageTemperatureRule.IsExcursion(status))
+        // A reading that continues an excursion joins that excursion's open deviation.
+        var runDeviation = StorageTemperatureRule.IsExcursion(status)
+            ? await OpenRunDeviationAsync(location.Id, reading.Id, ct)
+            : null;
+        if (runDeviation is not null)
+        {
+            reading.DeviationId = runDeviation.Id;
+        }
+        else if (StorageTemperatureRule.IsExcursion(status))
         {
             var stored = await CountStoredUnitsAsync(location.Id, ct);
             var deviation = new Deviation
@@ -158,16 +173,137 @@ public sealed class StorageTemperatureService
 
         if (_alerts is not null && StorageTemperatureRule.IsExcursion(status))
         {
+            // One alert per excursion: the key follows the excursion's deviation.
             await _alerts.RaiseAsync(new AlertCandidate(
                 AlertRule.TemperatureExcursion,
-                $"TEMP:{reading.Id}",
+                $"TEMP:DEV-{reading.DeviationId}",
                 AlertSeverity.Critical,
                 $"Temperature excursion at {location.Code}",
                 $"{location.Name} read {reading.ReadingC} °C at {readingUtc:yyyy-MM-dd HH:mm} UTC. Deviation DEV-{reading.DeviationId} is open.",
                 "/storage-temps"), ct);
         }
 
+        await EnforceLocationAsync(location, ct);
         return OperationResult<StorageTemperatureReadingDto>.Ok(ToDto(reading, location.Code));
+    }
+
+    /// <summary>
+    /// Quarantines the units at every location whose excursion has lasted past the facility
+    /// limit. Runs after each reading and on the background schedule, so an excursion with no
+    /// further reading is still caught. Returns the number of units quarantined.
+    /// </summary>
+    public async Task<int> EnforceSustainedExcursionsAsync(CancellationToken ct = default)
+    {
+        var total = 0;
+        foreach (var location in await _locations.ListAsync(l => l.IsActive, ct))
+        {
+            total += await EnforceLocationAsync(location, ct);
+        }
+
+        return total;
+    }
+
+    private async Task<int> EnforceLocationAsync(InventoryLocation location, CancellationToken ct)
+    {
+        if (_policy is null || _inventory is null)
+        {
+            return 0;
+        }
+
+        var minutes = await _policy.GetExcursionQuarantineMinutesAsync(ct);
+        var runs = (await _readings.ListAsync(r => r.InventoryLocationId == location.Id, ct))
+            .OrderByDescending(r => r.ReadingUtc)
+            .ThenByDescending(r => r.Id)
+            .ToList();
+        var start = StorageTemperatureRule.OngoingExcursionStart(runs.Select(r => (r.ReadingUtc, r.Status)));
+        var now = _clock.UtcNow;
+        if (!StorageTemperatureRule.RequiresQuarantine(start, now, minutes))
+        {
+            return 0;
+        }
+
+        var note = $"Storage excursion at {location.Code} since {start:yyyy-MM-dd HH:mm} UTC lasted more than {minutes} minutes.";
+        var stored = StorageTemperatureRule.StoredStatuses.ToList();
+        var candidates = await _units.ListAsync(
+            u => u.CurrentLocationId == location.Id && stored.Contains(u.Status) && u.Status != UnitStatus.Quarantine,
+            ct);
+        var quarantined = new List<string>();
+        foreach (var candidate in candidates)
+        {
+            var unit = await _units.GetByIdAsync(candidate.Id, ct);
+            if (unit is null || !InventoryStatusTransition.IsAllowed(unit.Status, UnitStatus.Quarantine))
+            {
+                continue;
+            }
+
+            var from = unit.Status;
+            unit.Status = UnitStatus.Quarantine;
+            unit.QuarantineReasonCode = UnitQuarantineReason.StorageTemperatureExcursion;
+            unit.QuarantineReason = note;
+            _units.Update(unit);
+            _inventory.AddStatusHistory(new InventoryStatusHistory
+            {
+                BloodProductId = unit.Id,
+                FromStatus = from,
+                ToStatus = UnitStatus.Quarantine,
+                FromLocationId = unit.CurrentLocationId,
+                ToLocationId = unit.CurrentLocationId,
+                Reason = note,
+                ChangedBy = _currentUser.UserName,
+                ChangedUtc = now
+            });
+            _audit.Record(
+                AuditEventType.ProductStatus,
+                nameof(BloodUnit),
+                unit.Id,
+                oldValue: new { Status = from },
+                newValue: new { unit.UnitNumber, Status = UnitStatus.Quarantine, Path = "TemperatureExcursion", ReasonCode = UnitQuarantineReason.StorageTemperatureExcursion, Notes = note },
+                reason: "Unit quarantined automatically after a sustained storage excursion.");
+            quarantined.Add(unit.UnitNumber);
+        }
+
+        if (quarantined.Count == 0)
+        {
+            return 0;
+        }
+
+        var deviationId = runs.First().DeviationId;
+        if (deviationId is long id && await _deviations.GetByIdAsync(id, ct) is { } deviation)
+        {
+            deviation.Description += $" {now:yyyy-MM-dd HH:mm} UTC: {quarantined.Count} unit(s) quarantined automatically ({string.Join(", ", quarantined)}).";
+            _deviations.Update(deviation);
+        }
+
+        await _unitOfWork.SaveChangesAsync(ct);
+
+        if (_alerts is not null)
+        {
+            await _alerts.RaiseAsync(new AlertCandidate(
+                AlertRule.TemperatureExcursion,
+                $"TEMP-QUAR:{location.Id}:{now:yyyyMMddHHmm}",
+                AlertSeverity.Critical,
+                $"{quarantined.Count} unit(s) quarantined at {location.Code}",
+                note + $" Deviation DEV-{deviationId}. Review each unit before release.",
+                "/inventory?board=quarantine"), ct);
+        }
+
+        return quarantined.Count;
+    }
+
+    /// <summary>The open deviation of the excursion this reading continues, if the previous reading was out of range.</summary>
+    private async Task<Deviation?> OpenRunDeviationAsync(long locationId, long currentReadingId, CancellationToken ct)
+    {
+        var previous = (await _readings.ListAsync(r => r.InventoryLocationId == locationId && r.Id != currentReadingId, ct))
+            .OrderByDescending(r => r.ReadingUtc)
+            .ThenByDescending(r => r.Id)
+            .FirstOrDefault();
+        if (previous is null || !StorageTemperatureRule.IsExcursion(previous.Status) || previous.DeviationId is not long id)
+        {
+            return null;
+        }
+
+        var deviation = await _deviations.GetByIdAsync(id, ct);
+        return deviation is { Status: not DeviationStatus.Closed } ? deviation : null;
     }
 
     public async Task<IReadOnlyList<StorageTemperatureReadingDto>> ListReadingsAsync(

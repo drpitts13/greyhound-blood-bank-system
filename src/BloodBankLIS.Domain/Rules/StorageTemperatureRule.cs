@@ -61,6 +61,36 @@ public static class StorageTemperatureRule
         Enums.UnitStatus.Damaged
     };
 
+    /// <summary>
+    /// Start of the excursion still in progress at a location: the earliest reading of the
+    /// unbroken run of out-of-range readings that ends with the latest reading. Null when
+    /// the latest reading is in range or has no range.
+    /// </summary>
+    public static DateTime? OngoingExcursionStart(IEnumerable<(DateTime ReadingUtc, StorageTemperatureStatus Status)> readings)
+    {
+        DateTime? start = null;
+        foreach (var reading in readings.OrderByDescending(r => r.ReadingUtc))
+        {
+            if (!IsExcursion(reading.Status))
+            {
+                break;
+            }
+
+            start = reading.ReadingUtc;
+        }
+
+        return start;
+    }
+
+    /// <summary>
+    /// OCD-036 (decided 2026-10-31): units are quarantined once an excursion has lasted
+    /// longer than the configured minutes. Zero turns automatic quarantine off.
+    /// </summary>
+    public static bool RequiresQuarantine(DateTime? excursionStartUtc, DateTime nowUtc, int thresholdMinutes) =>
+        thresholdMinutes > 0
+        && excursionStartUtc is DateTime start
+        && nowUtc - start > TimeSpan.FromMinutes(thresholdMinutes);
+
     public static bool IsExcursion(StorageTemperatureStatus status) =>
         status is StorageTemperatureStatus.BelowRange or StorageTemperatureStatus.AboveRange;
 

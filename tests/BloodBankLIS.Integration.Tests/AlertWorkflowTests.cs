@@ -186,7 +186,7 @@ public class AlertWorkflowTests : IDisposable
         var excursion = await temps.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 9m));
         var alert = await c.Alerts.SingleAsync(a => a.Source == AlertRule.TemperatureExcursion);
         Assert.Equal(AlertSeverity.Critical, alert.Severity);
-        Assert.Equal($"TEMP:{excursion.Value!.Id}", alert.Key);
+        Assert.Equal($"TEMP:DEV-{excursion.Value!.DeviationId}", alert.Key);
         Assert.Contains($"DEV-{excursion.Value.DeviationId}", alert.Message);
     }
 }

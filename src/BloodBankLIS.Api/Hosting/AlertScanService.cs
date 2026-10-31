@@ -37,6 +37,15 @@ public sealed class AlertScanService : BackgroundService
             try
             {
                 using var scope = _scopeFactory.CreateScope();
+
+                // OCD-036: catch an excursion that outlasts the limit with no further reading.
+                var temps = scope.ServiceProvider.GetRequiredService<Application.Inventory.StorageTemperatureService>();
+                var quarantined = await temps.EnforceSustainedExcursionsAsync(stoppingToken);
+                if (quarantined > 0)
+                {
+                    _logger.LogWarning("Sustained storage excursion: quarantined {Count} unit(s).", quarantined);
+                }
+
                 var scanner = scope.ServiceProvider.GetRequiredService<AlertScanner>();
                 var (raised, resolved) = await scanner.ScanAsync(stoppingToken);
                 if (raised > 0 || resolved > 0)

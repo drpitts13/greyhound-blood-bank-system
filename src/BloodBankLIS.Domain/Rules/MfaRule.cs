@@ -8,15 +8,19 @@ public enum MfaRequirement
     /// <summary>A one-time code is required with the password.</summary>
     Challenge = 1,
 
-    /// <summary>Policy requires MFA but the user has not enrolled; sign-in proceeds and enrollment is requested.</summary>
+    /// <summary>
+    /// Policy requires an authenticator and the user has none: no session is issued.
+    /// The user sets one up on the sign-in screen and signs in with its first code.
+    /// </summary>
     EnrollmentRequired = 2
 }
 
 /// <summary>
-/// Who must use a second factor. An enrolled user always gets the challenge. With the
-/// facility policy on, a privileged user who has not enrolled is asked to enroll at
-/// sign-in. Privileged means holding a permission that administers users, roles, or
-/// configuration, or approves overrides.
+/// Who must use a second factor (OCD-037, decided 2026-10-31). Authenticator sign-in is a
+/// facility option: with it off, nobody is asked for a code. With it on, an enrolled user
+/// always gets the challenge, and a user the facility requires to use MFA (everyone, or
+/// privileged users) cannot sign in until they enroll. Privileged means holding a
+/// permission that administers users, roles, or configuration, or approves overrides.
 /// </summary>
 public static class MfaRule
 {
@@ -32,15 +36,22 @@ public static class MfaRule
     public static bool IsPrivileged(IEnumerable<string> permissions) =>
         permissions.Any(PrivilegedPermissions.Contains);
 
-    public static MfaRequirement Evaluate(bool policyRequiresPrivilegedMfa, bool privileged, bool enrolled)
+    /// <summary>Whether facility settings require this user to have an authenticator.</summary>
+    public static bool IsRequired(bool mfaEnabled, bool requireAllUsers, bool requirePrivileged, bool privileged) =>
+        mfaEnabled && (requireAllUsers || (requirePrivileged && privileged));
+
+    public static MfaRequirement Evaluate(bool mfaEnabled, bool requiredForUser, bool enrolled)
     {
+        if (!mfaEnabled)
+        {
+            return MfaRequirement.None;
+        }
+
         if (enrolled)
         {
             return MfaRequirement.Challenge;
         }
 
-        return policyRequiresPrivilegedMfa && privileged
-            ? MfaRequirement.EnrollmentRequired
-            : MfaRequirement.None;
+        return requiredForUser ? MfaRequirement.EnrollmentRequired : MfaRequirement.None;
     }
 }

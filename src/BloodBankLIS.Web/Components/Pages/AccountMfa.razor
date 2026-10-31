@@ -8,7 +8,11 @@
 <p class="muted">Sign in with a 6-digit code from an authenticator app as well as your password.</p>
 <Outcome Value="_feedback" />
 
-@if (_status is { } status)
+@if (_status is { Enabled: false, Enrolled: false })
+{
+    <div class="bb-card"><p class="muted">Authenticator sign-in is turned off in Facility Policies.</p></div>
+}
+else if (_status is { } status)
 {
     <div class="bb-card">
         @if (status.Enrolled)
@@ -16,7 +20,7 @@
             <p><span class="badge badge-green">On</span> Set up @status.EnrolledUtc?.ToString("yyyy-MM-dd HH:mm") UTC. You enter a code each time you sign in.</p>
             @if (status.RequiredByPolicy)
             {
-                <p class="muted">Facility policy requires an authenticator for your account. If you lose your device, ask an administrator to reset it.</p>
+                <p class="muted">Facility policy requires an authenticator for your account. If you lose your device, ask an administrator to reset it; you then set it up again when you sign in.</p>
             }
             else
             {
@@ -90,7 +94,6 @@
         if (r.Succeeded)
         {
             _enrollment = null;
-            Session.MfaEnrollmentRequired = false;
             await LoadAsync();
         }
     }

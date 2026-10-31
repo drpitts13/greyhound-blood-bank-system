@@ -23,10 +23,7 @@ public static class MeEndpoints
             var result = await sessions.LoginAsync(request.UserName, request.Password, request.Workstation, request.OneTimeCode, ct);
             if (!result.Succeeded || result.Value is null)
             {
-                // The password was right but a code is needed: say so, without a session.
-                return result.Error?.StartsWith(AuthSessionService.MfaRequiredError, StringComparison.Ordinal) == true
-                    ? Results.Json(new { error = result.Error, mfaRequired = true }, statusCode: StatusCodes.Status401Unauthorized)
-                    : Results.Unauthorized();
+                return Results.Unauthorized();
             }
 
             return Results.Ok(ToLoginResponse(result.Value));
@@ -74,12 +71,20 @@ public static class MeEndpoints
 
     private static object ToLoginResponse(AuthLoginResult login) => new
     {
-        sessionToken = login.SessionToken,
+        sessionToken = login.SignedIn ? login.SessionToken : null,
         userName = login.UserName,
         displayName = login.DisplayName,
         securityLevel = login.SecurityLevel,
         permissions = login.Permissions,
-        mfaEnrollmentRequired = login.MfaEnrollmentRequired
+        // Set when the password was right but a code (or authenticator setup) is still needed; no session was issued.
+        challenge = login.Challenge is null
+            ? null
+            : new
+            {
+                kind = login.Challenge.Kind.ToString(),
+                secretBase32 = login.Challenge.SecretBase32,
+                provisioningUri = login.Challenge.ProvisioningUri
+            }
     };
 }
 

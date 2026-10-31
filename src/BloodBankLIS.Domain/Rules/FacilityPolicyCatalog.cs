@@ -127,9 +127,18 @@ public static class FacilityPolicyCatalog
         new(FacilityPolicyKeys.RequireModificationSupplyLot, "Modification", "Require supply lot",
             "When true, a modification requires a supply lot. Default off.",
             FacilityPolicyValueKind.Boolean, "false", "Facility SOP"),
+        new(FacilityPolicyKeys.MfaEnabled, "Security", "Enable authenticator-app sign-in",
+            "When true, users can set up an authenticator app, and anyone who has set one up enters a code at sign-in. When false, no code is asked and setup is unavailable. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "Facility security policy / OCD-037"),
         new(FacilityPolicyKeys.RequirePrivilegedMfa, "Security", "Require MFA for privileged users",
-            "When true, a user who can administer users, roles, or configuration, or approve overrides, is asked to set up an authenticator app at sign-in. Anyone who has enrolled always enters a code. Default off.",
-            FacilityPolicyValueKind.Boolean, "false", "Facility security policy")
+            "When true (and authenticator sign-in is enabled), a user who can administer users, roles, or configuration, or approve overrides, cannot sign in without an authenticator; setup happens on the sign-in screen. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "Facility security policy / OCD-037"),
+        new(FacilityPolicyKeys.RequireAllUsersMfa, "Security", "Require MFA for all users",
+            "When true (and authenticator sign-in is enabled), no user can sign in without an authenticator; setup happens on the sign-in screen. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "Facility security policy / OCD-037"),
+        new(FacilityPolicyKeys.ExcursionQuarantineMinutes, "Inventory", "Quarantine after excursion minutes",
+            "Units at a storage location are quarantined automatically once a temperature excursion has lasted longer than this many minutes (measured from the first out-of-range reading while readings stay out of range). 0 turns automatic quarantine off.",
+            FacilityPolicyValueKind.Integer, "30", "OCD-036", 0, 1440)
     ];
 
     public static FacilityPolicyDefinition? Find(string key) =>

@@ -101,12 +101,15 @@ public sealed record AuditPageVm(int Total, int Skip, int Take, List<AuditEventV
 public sealed record MeVm(string UserName, string DisplayName, int SecurityLevel, string[] Permissions);
 
 public sealed record LoginResultVm(
-    string SessionToken,
+    string? SessionToken,
     string UserName,
     string DisplayName,
     int SecurityLevel,
     string[] Permissions,
-    bool MfaEnrollmentRequired = false);
+    LoginChallengeVm? Challenge = null);
+
+/// <summary>Password accepted; a code ("Challenge") or authenticator setup ("EnrollmentRequired") is still needed.</summary>
+public sealed record LoginChallengeVm(string Kind, string? SecretBase32 = null, string? ProvisioningUri = null);
 
 public sealed record LoginRequestVm(string UserName, string? Password = null, string? Workstation = null, string? OneTimeCode = null);
 

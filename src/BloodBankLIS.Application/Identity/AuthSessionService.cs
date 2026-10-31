@@ -12,9 +12,6 @@ public sealed class AuthSessionService : IAuthSessionService
 {
     public const int FailedSignInLockoutThreshold = 5;
 
-    /// <summary>Error prefix when the password was right and a one-time code is still needed.</summary>
-    public const string MfaRequiredError = "MFA_REQUIRED";
-
     private readonly IRepository<User> _users;
     private readonly IRepository<AuthSession> _sessions;
     private readonly IUnitOfWork _unitOfWork;
@@ -85,25 +82,79 @@ public sealed class AuthSessionService : IAuthSessionService
 
         var now = _clock.UtcNow;
         var codes = await _permissions.GetPermissionsAsync(user.UserName, cancellationToken);
-        var policyOn = _policy is not null && await _policy.GetRequirePrivilegedMfaAsync(cancellationToken);
-        var mfa = MfaRule.Evaluate(policyOn, MfaRule.IsPrivileged(codes), user.TotpSecretProtected is not null);
+        var mfaEnabled = _policy is not null && await _policy.GetMfaEnabledAsync(cancellationToken);
+        var required = mfaEnabled && MfaRule.IsRequired(
+            mfaEnabled,
+            await _policy!.GetRequireAllUsersMfaAsync(cancellationToken),
+            await _policy.GetRequirePrivilegedMfaAsync(cancellationToken),
+            MfaRule.IsPrivileged(codes));
+        var mfa = MfaRule.Evaluate(mfaEnabled, required, user.TotpSecretProtected is not null);
+        if (mfa != MfaRequirement.None && _protector is null)
+        {
+            // A second factor is needed but cannot be checked here: refuse rather than skip it.
+            return OperationResult<AuthLoginResult>.Fail("Sign-in failed.");
+        }
+
         if (mfa == MfaRequirement.Challenge)
         {
             if (string.IsNullOrWhiteSpace(oneTimeCode))
             {
-                // Right password, code still needed: not a failed attempt.
-                return OperationResult<AuthLoginResult>.Fail($"{MfaRequiredError}: Enter the 6-digit code from your authenticator app.");
+                // Right password, code still needed: not a failed attempt, and no session yet.
+                return OperationResult<AuthLoginResult>.Ok(Pending(user, new MfaChallenge(MfaRequirement.Challenge)));
             }
 
-            var step = _protector is null
-                ? null
-                : Totp.Verify(Totp.FromBase32(_protector.Unprotect(user.TotpSecretProtected!)), oneTimeCode, now, user.TotpLastStep);
+            var step = Totp.Verify(Totp.FromBase32(_protector!.Unprotect(user.TotpSecretProtected!)), oneTimeCode, now, user.TotpLastStep);
             if (step is null)
             {
                 return await FailSignInAsync(user, "Failed one-time code", cancellationToken);
             }
 
             user.TotpLastStep = step;
+        }
+        else if (mfa == MfaRequirement.EnrollmentRequired)
+        {
+            // OCD-037: no session until the user has an authenticator. The key is set up on
+            // the sign-in screen and the first valid code completes enrollment and sign-in.
+            if (user.TotpPendingSecretProtected is null)
+            {
+                user.TotpPendingSecretProtected = _protector!.Protect(Totp.ToBase32(Totp.NewSecret()));
+            }
+
+            var pending = Totp.FromBase32(_protector!.Unprotect(user.TotpPendingSecretProtected));
+            if (string.IsNullOrWhiteSpace(oneTimeCode))
+            {
+                _audit.Record(
+                    AuditEventType.Login,
+                    nameof(User),
+                    user.Id,
+                    newValue: new { Refused = "Authenticator required by facility policy" },
+                    reason: "Sign-in refused until an authenticator is set up.",
+                    actingUserName: user.UserName);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                return OperationResult<AuthLoginResult>.Ok(Pending(user, new MfaChallenge(
+                    MfaRequirement.EnrollmentRequired,
+                    Totp.ToBase32(pending),
+                    Totp.ProvisioningUri(MfaService.Issuer, user.UserName, pending))));
+            }
+
+            var step = Totp.Verify(pending, oneTimeCode, now, null);
+            if (step is null)
+            {
+                return await FailSignInAsync(user, "Failed one-time code during authenticator setup", cancellationToken);
+            }
+
+            user.TotpSecretProtected = user.TotpPendingSecretProtected;
+            user.TotpPendingSecretProtected = null;
+            user.TotpEnrolledUtc = now;
+            user.TotpLastStep = step;
+            _audit.Record(
+                AuditEventType.Update,
+                nameof(User),
+                user.Id,
+                new { MfaEnrolled = false },
+                new { MfaEnrolled = true },
+                "Authenticator enrolled at sign-in.",
+                actingUserName: user.UserName);
         }
 
         var idle = TimeSpan.FromMinutes(Math.Max(1, _options.IdleTimeoutMinutes));
@@ -135,8 +186,7 @@ public sealed class AuthSessionService : IAuthSessionService
             {
                 session.Workstation,
                 AbsoluteExpiresUtc = session.AbsoluteExpiresUtc,
-                SecondFactor = mfa == MfaRequirement.Challenge ? "TOTP" : null,
-                MfaEnrollmentRequired = mfa == MfaRequirement.EnrollmentRequired
+                SecondFactor = mfa == MfaRequirement.None ? null : "TOTP"
             },
             actingUserName: user.UserName);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -147,9 +197,12 @@ public sealed class AuthSessionService : IAuthSessionService
             user.UserName,
             user.DisplayName,
             securityLevel,
-            codes.OrderBy(c => c).ToArray(),
-            mfa == MfaRequirement.EnrollmentRequired));
+            codes.OrderBy(c => c).ToArray()));
     }
+
+    /// <summary>Password accepted, second factor outstanding: no token and no permissions.</summary>
+    private static AuthLoginResult Pending(User user, MfaChallenge challenge) =>
+        new(string.Empty, user.UserName, user.DisplayName, 0, [], challenge);
 
     /// <summary>Counts a failed attempt; the fifth in a row locks the account.</summary>
     private async Task<OperationResult<AuthLoginResult>> FailSignInAsync(User user, string reason, CancellationToken cancellationToken)

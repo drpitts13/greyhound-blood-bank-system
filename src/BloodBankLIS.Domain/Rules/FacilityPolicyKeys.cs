@@ -73,4 +73,7 @@ public static class FacilityPolicyKeys
     /// <summary>When true, a modification requires a supply lot. Default off.</summary>
     public const string RequireModificationSupplyLot = "Modification.RequireSupplyLot";
     public const string RequirePrivilegedMfa = "Security.RequirePrivilegedMfa";
+    public const string MfaEnabled = "Security.MfaEnabled";
+    public const string RequireAllUsersMfa = "Security.RequireAllUsersMfa";
+    public const string ExcursionQuarantineMinutes = "Inventory.ExcursionQuarantineMinutes";
 }
