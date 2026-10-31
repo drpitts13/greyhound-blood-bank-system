@@ -209,6 +209,8 @@
             }
             case DashboardQueueCatalog.Supervisor:
                 return await CountList(card.Key, Api.GetSupervisorQueueAsync());
+            case DashboardQueueCatalog.TemperatureExcursions:
+                return await CountList(card.Key, Api.GetOpenTemperatureExcursionsAsync());
             case DashboardQueueCatalog.Handoff:
             {
                 var result = await Api.GetOpenShiftHandoffAsync();

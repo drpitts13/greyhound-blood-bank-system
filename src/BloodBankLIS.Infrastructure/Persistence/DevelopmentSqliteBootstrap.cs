@@ -167,6 +167,7 @@ public static class DevelopmentSqliteBootstrap
     {
         await EnsureOrderCancellationReasonsTableAsync(context, cancellationToken);
         await EnsureCompetitorGapTablesAsync(context, cancellationToken);
+        await EnsureStorageTemperatureTableAsync(context, cancellationToken);
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
@@ -682,6 +683,44 @@ public static class DevelopmentSqliteBootstrap
                 )
                 """, ct);
         }
+    }
+
+    private static async Task EnsureStorageTemperatureTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "StorageTemperatureReadings", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "StorageTemperatureReadings" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_StorageTemperatureReadings" PRIMARY KEY AUTOINCREMENT,
+                "InventoryLocationId" INTEGER NOT NULL,
+                "ReadingC" TEXT NOT NULL,
+                "ReadingUtc" TEXT NOT NULL,
+                "RecordedBy" TEXT NOT NULL,
+                "RangeMinC" TEXT NULL,
+                "RangeMaxC" TEXT NULL,
+                "Status" INTEGER NOT NULL,
+                "DeviationId" INTEGER NULL,
+                "Comment" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_StorageTemperatureReadings_InventoryLocations_InventoryLocationId"
+                    FOREIGN KEY ("InventoryLocationId") REFERENCES "InventoryLocations" ("Id") ON DELETE RESTRICT
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE INDEX "IX_StorageTemperatureReadings_InventoryLocationId_ReadingUtc"
+                ON "StorageTemperatureReadings" ("InventoryLocationId", "ReadingUtc")
+            """, ct);
     }
 
     private static async Task<string?> FindMissingTableAsync(BloodBankDbContext context, CancellationToken ct)

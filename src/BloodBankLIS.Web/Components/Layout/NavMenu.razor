@@ -17,6 +17,7 @@
     }
     <NavLink href="inventory" ActiveClass="active">Inventory</NavLink>
     <NavLink href="inventory/par" ActiveClass="active">Stock par</NavLink>
+    <NavLink href="storage-temps" ActiveClass="active">Storage temps</NavLink>
     @if (Session.HasAny(PermissionCodes.InventoryReceive, PermissionCodes.InventoryModify))
     {
         <details class="nav-group" open="@InventoryDeskOpen()">

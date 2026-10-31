@@ -92,6 +92,21 @@ public class DashboardQueueCatalogTests
         Assert.Equal("ready", IssuingDeskQuery.Resolve(null, canIssue: true, canSeeIssued: true, hasPatientOrUnit: false));
     }
 
+    // TEST-BB-296: the excursion card follows inventory receipt or deviation management.
+    [Fact]
+    public void Select_TemperatureExcursions_FollowsReceiveOrDeviationPermission()
+    {
+        Assert.Contains(
+            DashboardQueueCatalog.Select(Has(PermissionCodes.InventoryReceive)),
+            card => card.Key == DashboardQueueCatalog.TemperatureExcursions && card.Href == "/storage-temps");
+        Assert.Contains(
+            DashboardQueueCatalog.Select(Has(PermissionCodes.DeviationManage)),
+            card => card.Key == DashboardQueueCatalog.TemperatureExcursions);
+        Assert.DoesNotContain(
+            DashboardQueueCatalog.Select(Has(PermissionCodes.ResultEnter)),
+            card => card.Key == DashboardQueueCatalog.TemperatureExcursions);
+    }
+
     private static Func<string, bool> Has(params string[] codes) =>
         code => codes.Contains(code, StringComparer.Ordinal);
 }

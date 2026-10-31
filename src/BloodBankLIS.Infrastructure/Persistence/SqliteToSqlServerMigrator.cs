@@ -35,6 +35,7 @@ public sealed class SqliteToSqlServerMigrator
         "ExpirationModificationCodes",
         "ModificationRules",
         "InventoryLocations",
+        "StorageTemperatureReadings",
         "OrderingLocations",
         "OrderingProviders",
         "ExceptionDefinitions",

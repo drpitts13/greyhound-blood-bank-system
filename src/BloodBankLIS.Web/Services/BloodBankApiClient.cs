@@ -1467,6 +1467,21 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ModificationResultVm>> ApplyBatchModificationAsync(PerformBatchModificationRequest req, CancellationToken ct = default) =>
         SendAsync<ModificationResultVm>(HttpMethod.Post, "api/inventory/modifications/batch", req, ct);
 
+    public Task<ApiResult<List<StorageLocationTemperatureDto>>> GetStorageTemperatureLocationsAsync(CancellationToken ct = default) =>
+        SendAsync<List<StorageLocationTemperatureDto>>(HttpMethod.Get, "api/storage-temps/locations", ct: ct);
+
+    public Task<ApiResult<List<StorageTemperatureReadingDto>>> GetStorageTemperatureReadingsAsync(long? locationId, int days, CancellationToken ct = default) =>
+        SendAsync<List<StorageTemperatureReadingDto>>(
+            HttpMethod.Get,
+            locationId is long id ? $"api/storage-temps/readings?locationId={id}&days={days}" : $"api/storage-temps/readings?days={days}",
+            ct: ct);
+
+    public Task<ApiResult<StorageTemperatureReadingDto>> RecordStorageTemperatureAsync(RecordStorageTemperatureRequest req, CancellationToken ct = default) =>
+        SendAsync<StorageTemperatureReadingDto>(HttpMethod.Post, "api/storage-temps/readings", req, ct);
+
+    public Task<ApiResult<List<StorageTemperatureReadingDto>>> GetOpenTemperatureExcursionsAsync(CancellationToken ct = default) =>
+        SendAsync<List<StorageTemperatureReadingDto>>(HttpMethod.Get, "api/storage-temps/excursions", ct: ct);
+
     public Task<ApiResult<List<ReagentDto>>> GetReagentsAsync(CancellationToken ct = default) =>
         SendAsync<List<ReagentDto>>(HttpMethod.Get, "api/reagents", ct: ct);
 

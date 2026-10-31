@@ -6814,3 +6814,37 @@ Round 2 of the competitor comparison (SafeTrace Tx, SoftBank.web, WellSky Transf
 ### Next ranked residual
 
 G2: storage temperature log and excursions. Do not auto-quarantine on an excursion until an OCD row is decided.
+
+## Iteration 253 — Storage temperature log and excursions, competitor gap G2 (2026-10-31)
+
+Competitor equipment-QC modules log storage temperatures. Here, locations had a minimum and maximum, but nothing compared readings against them.
+
+### Implemented
+
+- New `StorageTemperatureReading` entity, append-only. It holds location, reading in °C, time, recorded-by, the range in force at the time, status, deviation link, and comment. Added SQL Server migration `20261031120000_StorageTemperatureReadings`, the development SQLite bootstrap table, and the SQLite-to-SQL Server copy order (after `InventoryLocations`).
+- `StorageTemperatureRule`: in range, below, above, or no range. A plausibility guard rejects values below -100 or above 60 °C, and a reading time is allowed at most five minutes in the future. `StoredStatuses` defines which units are still physically at a location.
+- `StorageTemperatureService`: records a reading, then opens a Major deviation for an excursion (`ContextType = StorageTemperatureReading`). The deviation names the location, the reading, the range, and the number of units stored there. Both writes are audited. It also lists locations with their last reading, 7-day history, and open excursions (until the deviation is closed).
+- `/api/storage-temps` endpoints. Recording requires `inventory.receive`.
+- `/storage-temps` page, a "Storage temps" nav link, a "Temperature excursions" dashboard card (for `inventory.receive` or `deviation.manage`), and a help topic (`docs/user-manual/clinical/storage-temps.md`).
+- No automatic quarantine. Recorded as OCD-036, **REQUIRES REGULATORY / SME VERIFICATION**.
+
+### Found during verification
+
+- The full suite failed `HelpCatalogTests.Every_page_route_has_a_topic` until the help topic was added.
+- In the running app, one in-range test produced two identical rows. The record handler set `_busy` but did not check it on entry, so a second click that arrived before the disabled button rendered went through. Added the guard. Re-test: two programmatic clicks in a row stored one reading and one deviation.
+
+### Requirements / risk
+
+- URS-BB-406, FRS-BB-441, SRS-BB-403, RISK-BB-508, OCD-036.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-296: `StorageTemperatureRuleTests` (15 cases), `DashboardQueueCatalogTests.Select_TemperatureExcursions_FollowsReceiveOrDeviationPermission`, and `StorageTemperatureServiceTests` (6). The service tests cover in range, excursion with deviation and no quarantine, no range, rejects, the open list clearing when the deviation closes, and the range snapshot.
+- Full suite: 2,829 passed, 0 failed (previously 2,807). Application 83, Astm 19, HL7 63, Domain 1,613, Printing 21, Help 5, Integration 1,025.
+- Run check (development database, DevMode): FRIDGE-1 at 4.0 °C was recorded in range. OR-FRIDGE at 9.5 °C opened DEV-2 (Major, Open, linked to reading #3), and the dashboard card showed 1. No server errors. Not checked in the UI: a user without `inventory.receive` (DevMode grants every permission). The endpoint uses the same `RequirePermission` filter as the other endpoints.
+- The development database keeps three verification readings (two duplicate FRIDGE-1 rows from before the fix, plus the OR-FRIDGE excursion) and deviation DEV-2. Readings are append-only by design.
+
+### Next ranked residual
+
+G3: coded discard reasons and a wastage report.

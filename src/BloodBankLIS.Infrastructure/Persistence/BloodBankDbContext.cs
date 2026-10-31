@@ -139,6 +139,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<Reagent> Reagents => Set<Reagent>();
     public DbSet<ReagentLot> ReagentLots => Set<ReagentLot>();
     public DbSet<ReagentDailyQc> ReagentDailyQcs => Set<ReagentDailyQc>();
+    public DbSet<StorageTemperatureReading> StorageTemperatureReadings => Set<StorageTemperatureReading>();
     public DbSet<StockParLevel> StockParLevels => Set<StockParLevel>();
 
     // ISBT 128 component identity / lookups / workflow

@@ -77,6 +77,7 @@ public static class DependencyInjection
         services.AddScoped<ProductRetypeService>();
         services.AddScoped<BloodProductModificationService>();
         services.AddScoped<ReagentQcService>();
+        services.AddScoped<StorageTemperatureService>();
         services.AddScoped<StockParService>();
         services.AddSingleton<IDinCheckCharacterValidator, Iso7064Mod37_2DinCheckCharacterValidator>();
         services.AddScoped<FacilityPolicyService>();

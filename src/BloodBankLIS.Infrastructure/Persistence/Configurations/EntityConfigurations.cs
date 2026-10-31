@@ -2049,3 +2049,24 @@ public sealed class AutoThawRequestConfiguration : IEntityTypeConfiguration<Auto
         b.HasIndex(r => r.Status);
     }
 }
+
+public sealed class StorageTemperatureReadingConfiguration : IEntityTypeConfiguration<StorageTemperatureReading>
+{
+    public void Configure(EntityTypeBuilder<StorageTemperatureReading> b)
+    {
+        b.ToTable("StorageTemperatureReadings");
+        b.HasKey(r => r.Id);
+        b.Property(r => r.ReadingC).HasPrecision(18, 1);
+        b.Property(r => r.RangeMinC).HasPrecision(18, 1);
+        b.Property(r => r.RangeMaxC).HasPrecision(18, 1);
+        b.Property(r => r.RecordedBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.Comment).HasMaxLength(500);
+        b.Property(r => r.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(r => r.ModifiedBy).HasMaxLength(100);
+        b.HasOne(r => r.InventoryLocation)
+            .WithMany()
+            .HasForeignKey(r => r.InventoryLocationId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(r => new { r.InventoryLocationId, r.ReadingUtc });
+    }
+}
