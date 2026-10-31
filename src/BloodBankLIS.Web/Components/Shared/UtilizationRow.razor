@@ -1,0 +1,19 @@
+@* One utilization line; the total row reuses it in bold. *@
+<tr style="@(Bold ? "font-weight:600;" : null)">
+    <td>@Row.OrderingLocation</td>
+    <td>@Row.OrderingProvider</td>
+    <td class="right">@Row.Crossmatched</td>
+    <td class="right">@Row.Issued</td>
+    <td class="right">@Row.Transfused</td>
+    <td class="right">@(Row.CrossmatchToTransfusionRatio is decimal r ? r.ToString("0.00") : "—")</td>
+    <td class="right">@Pct(Row.TransfusedPercentOfCrossmatched)</td>
+    <td class="right">@Pct(Row.TransfusedPercentOfIssued)</td>
+</tr>
+
+@code {
+    [Parameter, EditorRequired] public UtilizationRowDto Row { get; set; } = default!;
+
+    [Parameter] public bool Bold { get; set; }
+
+    private static string Pct(decimal? value) => value is decimal v ? $"{v:0.0}%" : "—";
+}

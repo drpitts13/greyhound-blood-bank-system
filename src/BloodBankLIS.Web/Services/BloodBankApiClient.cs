@@ -1492,6 +1492,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<ModificationResultVm>> ApplyBatchModificationAsync(PerformBatchModificationRequest req, CancellationToken ct = default) =>
         SendAsync<ModificationResultVm>(HttpMethod.Post, "api/inventory/modifications/batch", req, ct);
 
+    public Task<ApiResult<UtilizationReportDto>> GetUtilizationAsync(DateTime fromUtc, DateTime toUtc, CancellationToken ct = default) =>
+        SendAsync<UtilizationReportDto>(
+            HttpMethod.Get,
+            $"api/utilization?fromUtc={Uri.EscapeDataString(fromUtc.ToString("O"))}&toUtc={Uri.EscapeDataString(toUtc.ToString("O"))}",
+            ct: ct);
+
     public Task<ApiResult<List<StorageLocationTemperatureDto>>> GetStorageTemperatureLocationsAsync(CancellationToken ct = default) =>
         SendAsync<List<StorageLocationTemperatureDto>>(HttpMethod.Get, "api/storage-temps/locations", ct: ct);
 

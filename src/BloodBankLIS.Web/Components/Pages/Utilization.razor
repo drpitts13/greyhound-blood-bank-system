@@ -1,0 +1,81 @@
+@page "/utilization"
+@inject BloodBankApiClient Api
+
+<PageTitle>Utilization &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<h1>Blood utilization</h1>
+<p class="muted">Crossmatch-to-transfusion ratio by ordering location and provider.</p>
+<details class="bb-help">
+    <summary>How it works</summary>
+    <ul>
+        <li>A crossmatched unit is one patient and one unit with a compatible crossmatch in the period, by any method. Repeat crossmatches of the same unit for the same patient count once.</li>
+        <li>Issued and transfused are counted for that patient and unit whenever they happened. A transfusion counts when it was documented as completed or stopped after it started.</li>
+        <li>The location and provider come from the order on the first crossmatch. A crossmatch with no order is listed as "(no order)".</li>
+        <li>C:T ratio is crossmatched units divided by transfused units. The page shows the numbers only. Your facility sets any target.</li>
+    </ul>
+</details>
+<Outcome Value="_feedback" />
+
+<div class="bb-card">
+    <div class="form-row">
+        <div class="field"><label>From (UTC date)</label><input type="date" @bind="_from" /></div>
+        <div class="field"><label>To (UTC date)</label><input type="date" @bind="_to" /></div>
+    </div>
+    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="LoadAsync">Run</button>
+</div>
+
+@if (_report is not null)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>@_report.FromUtc.ToString("yyyy-MM-dd") to @_report.ToUtc.ToString("yyyy-MM-dd")</h3></div>
+        @if (_report.Total.Crossmatched == 0)
+        {
+            <div class="muted">No compatible crossmatches in this period.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr><th>Ordering location</th><th>Provider</th><th class="right">Crossmatched</th><th class="right">Issued</th><th class="right">Transfused</th><th class="right">C:T ratio</th><th class="right">Transfused / crossmatched</th><th class="right">Transfused / issued</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _report.Rows)
+                    {
+                        <UtilizationRow Row="row" />
+                    }
+                </tbody>
+                <tfoot>
+                    <UtilizationRow Row="_report.Total" Bold="true" />
+                </tfoot>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    private UtilizationReportDto? _report;
+    private Feedback? _feedback;
+    private bool _busy;
+    private DateTime _to = DateTime.UtcNow.Date;
+    private DateTime _from = DateTime.UtcNow.Date.AddDays(-30);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Utc);
+            var to = DateTime.SpecifyKind(_to.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
+            var result = await Api.GetUtilizationAsync(from, to);
+            _report = result.Succeeded ? result.Value : null;
+            _feedback = result.Succeeded ? null : result.ToFeedback();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

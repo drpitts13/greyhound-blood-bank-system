@@ -168,6 +168,7 @@ app.MapModificationEndpoints();
 app.MapReagentEndpoints();
 app.MapStorageTemperatureEndpoints();
 app.MapStockParEndpoints();
+app.MapUtilizationEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();

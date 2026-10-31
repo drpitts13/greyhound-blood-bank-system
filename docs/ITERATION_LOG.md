@@ -6887,3 +6887,38 @@ Competitor products report wastage by cause. Here the discard reason was free te
 ### Next ranked residual
 
 G4: crossmatch-to-transfusion ratio and utilization report.
+
+
+## Iteration 255 — Crossmatch-to-transfusion utilization, competitor gap G4 (2026-10-31)
+
+Competitor products report blood utilization, for example the C:T ratio by service and physician. Here, crossmatch and transfusion rows existed only as an ungrouped activity report.
+
+### Implemented
+
+- `UtilizationRule` defines the arithmetic:
+  - A unit counts as transfused when the transfusion is completed or stopped (wasted and returned do not count).
+  - C:T ratio = crossmatched units / transfused units, rounded to 2 places, or null when nothing was transfused.
+  - Percentages are rounded to 1 place, or null with a zero base.
+- `UtilizationService` works over a crossmatch date range:
+  - It counts each patient-and-unit pair with a compatible crossmatch (any method) once. Issue and transfusion are matched on that pair whenever they happened.
+  - The ordering location and provider come from the earliest crossmatch's order (catalog provider name, otherwise free text). A crossmatch with no order is listed as "(no order)".
+  - It returns rows by location and provider, plus a total.
+- `GET /api/utilization` (requires `report.run`). Added the `/utilization` page (date range, default last 30 days, total row in bold), a "Utilization" nav link beside Reports, and a help topic.
+- No target or benchmark is supplied. Any threshold is a facility decision.
+
+### Requirements / risk
+
+- URS-BB-408, FRS-BB-443, SRS-BB-405, RISK-BB-510.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-298: `UtilizationRuleTests` (6 cases) and `UtilizationServiceTests` (2).
+  - The fixture has 3 groups and covers: a repeat crossmatch counted once, incompatible and out-of-range crossmatches excluded, a wasted unit counted as issued but not transfused, a catalog provider and a free-text provider, no order, and a zero-transfusion row showing a dash.
+  - The empty-period case also checks that reversed dates are swapped.
+- Full suite: 2,847 passed, 0 failed (previously 2,839). Application 83, Astm 19, HL7 63, Domain 1,626, Printing 21, Help 5, Integration 1,030.
+- Run check (development database, DevMode): `/utilization` loaded and showed one compatible crossmatch with no order, 0 issued, and C:T "—", for both the last 30 days and a range from 2025-01-01. The development seed has only one compatible crossmatch. No server errors.
+
+### Next ranked residual
+
+G5: in-app alert inbox.

@@ -79,6 +79,7 @@ public static class DependencyInjection
         services.AddScoped<ReagentQcService>();
         services.AddScoped<StorageTemperatureService>();
         services.AddScoped<StockParService>();
+        services.AddScoped<UtilizationService>();
         services.AddSingleton<IDinCheckCharacterValidator, Iso7064Mod37_2DinCheckCharacterValidator>();
         services.AddScoped<FacilityPolicyService>();
         services.AddScoped<SpecialRequirementService>();
