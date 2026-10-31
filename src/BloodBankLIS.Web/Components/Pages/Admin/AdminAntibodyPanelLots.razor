@@ -501,6 +501,10 @@
                         </tbody>
                     </table>
                     <button class="btn btn-ghost btn-sm" type="button" @onclick="() => AddAntigen(cell)">Add antigen</button>
+                    @if (_attributes.Any(a => cell.Antigens.All(ag => ag.BloodAttributeDefinitionId != a.Id)))
+                    {
+                        <button class="btn btn-ghost btn-sm" type="button" @onclick="() => AddAllAntigens(cell)">Add all antigens</button>
+                    }
                 }
                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => RemoveCell(cell)">Remove cell</button>
             </div>
@@ -807,27 +811,43 @@
         }
     }
 
+    // A new cell is typed for the same antigens as the cell before it (every active antigen for the
+    // first), all Absent, so the tech marks only what is present instead of adding each row by hand.
+    // Absent is the safe default: a wrongly saved Present could rule out an antibody that is there.
     private void AddCell()
     {
-        _createCells.Add(new LotCellDraft
+        var previous = _createCells.Count > 0 ? _createCells[^1] : null;
+        var cell = new LotCellDraft
         {
             CellNumber = (_createCells.Count + 1).ToString(),
             Role = _createSelected ? PanelCellRole.Selected : PanelCellRole.Panel,
             SortOrder = _createCells.Count + 1
-        });
-        AddAntigen(_createCells[^1]);
+        };
+        var antigenIds = previous is { Antigens.Count: > 0 }
+            ? previous.Antigens.Select(a => a.BloodAttributeDefinitionId).Where(id => id > 0).ToList()
+            : _attributes.Select(a => a.Id).ToList();
+        foreach (var id in antigenIds)
+        {
+            cell.Antigens.Add(new LotAntigenDraft { BloodAttributeDefinitionId = id });
+        }
+
+        _createCells.Add(cell);
+    }
+
+    private void AddAllAntigens(LotCellDraft cell)
+    {
+        foreach (var attr in _attributes.Where(a => cell.Antigens.All(ag => ag.BloodAttributeDefinitionId != a.Id)))
+        {
+            cell.Antigens.Add(new LotAntigenDraft { BloodAttributeDefinitionId = attr.Id });
+        }
     }
 
     private void RemoveCell(LotCellDraft cell) => _createCells.Remove(cell);
 
     private void AddAntigen(LotCellDraft cell)
     {
-        var first = _attributes.FirstOrDefault();
-        cell.Antigens.Add(new LotAntigenDraft
-        {
-            BloodAttributeDefinitionId = first?.Id ?? 0,
-            Expression = AntigenExpression.Present
-        });
+        var next = _attributes.FirstOrDefault(a => cell.Antigens.All(ag => ag.BloodAttributeDefinitionId != a.Id));
+        cell.Antigens.Add(new LotAntigenDraft { BloodAttributeDefinitionId = next?.Id ?? 0 });
     }
 
     private static void RemoveAntigen(LotCellDraft cell, LotAntigenDraft antigen) =>
@@ -890,7 +910,7 @@
     private sealed class LotAntigenDraft
     {
         public long BloodAttributeDefinitionId { get; set; }
-        public AntigenExpression Expression { get; set; } = AntigenExpression.Present;
+        public AntigenExpression Expression { get; set; } = AntigenExpression.Absent;
     }
 
     private async Task ViewLotAsync(long lotId)
