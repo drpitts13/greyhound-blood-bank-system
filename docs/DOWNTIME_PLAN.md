@@ -37,8 +37,15 @@ Recommended paper capture (minimum):
 
 ## 4. Recovery and reconciliation
 
-1. Restore the database from the last verified backup. Confirm audit-table
-   row counts against the backup manifest.
+1. Restore the database from the last verified backup listed in
+   Admin › Database Backups (Verified, with an audit manifest).
+   - SQLite: stop the API, copy the `.db` backup over the database file
+     (keep the damaged file aside), and start the API.
+   - SQL Server: `RESTORE DATABASE [BloodBankLIS] FROM DISK = '<path>.bak'
+     WITH CHECKSUM, REPLACE` with the API stopped.
+   Confirm that the restored `AuditEvents` row count and the last
+   `RecordHash` match the backup's manifest before anyone works in the
+   system. Events after the backup time must be re-entered from paper.
 2. Replay interface queues: pending → processed; error → manual review.
    Idempotency keys (`MessageControlId` + business key) must reject duplicates.
 3. Enter downtime paper records. Do not reuse an invalid specimen merely

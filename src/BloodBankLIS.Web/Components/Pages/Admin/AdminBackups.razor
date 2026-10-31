@@ -1,0 +1,111 @@
+@page "/admin/backups"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Database Backups &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Database backups</h1>
+    @if (Session.Has(PermissionCodes.AdminConfigEdit))
+    {
+        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="BackUpNowAsync">Back up now</button>
+    }
+</div>
+<p class="muted">Verified copies of the database, written on a schedule and on demand.</p>
+<Outcome Value="_feedback" />
+
+@if (_status is { } status)
+{
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Status</h3></div>
+        <p>
+            Last verified backup:
+            <strong>@(status.LastGoodUtc is DateTime last ? $"{last:yyyy-MM-dd HH:mm} UTC" : "none")</strong>
+            @if (status.Overdue)
+            {
+                <span class="badge badge-red" style="margin-left:.5rem;">Overdue</span>
+            }
+        </p>
+        <p class="muted">
+            Scheduled every @(status.IntervalHours > 0 ? $"{status.IntervalHours} hours" : "— (scheduled backups are off)") &middot;
+            overdue after @status.OverdueHours hours &middot; keeps the newest @status.KeepCount verified files &middot;
+            folder <span class="mono">@status.Folder</span>
+        </p>
+    </div>
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>Recent backups</h3></div>
+        @if (status.Recent.Count == 0)
+        {
+            <div class="muted">No backups yet.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Started (UTC)</th><th>Trigger</th><th>File</th><th class="right">Size</th><th>Result</th><th>Manifest</th></tr></thead>
+                <tbody>
+                    @foreach (var b in status.Recent)
+                    {
+                        <tr>
+                            <td class="nowrap">@b.StartedUtc.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>@b.Trigger &middot; @b.RequestedBy</td>
+                            <td>
+                                <span class="mono">@b.FileName</span>
+                                @if (b.FileDeletedUtc is not null) { <span class="muted"> (removed by retention)</span> }
+                                @if (b.Sha256 is not null) { <div class="muted mono" style="font-size:.8em;">SHA-256 @b.Sha256[..16]…</div> }
+                            </td>
+                            <td class="right">@(b.SizeBytes is long size ? $"{size / 1024.0:0.#} KB" : "—")</td>
+                            <td>
+                                @if (b.Succeeded && b.Verified) { <span class="badge badge-green">Verified</span> }
+                                else { <span class="badge badge-red">Failed</span> }
+                                <div class="muted">@(b.Error ?? b.VerifyDetail)</div>
+                            </td>
+                            <td class="muted">
+                                @if (b.AuditEventCount is long count)
+                                {
+                                    <span>@count audit events</span>
+                                    @if (b.LastAuditHash is not null) { <div class="mono" style="font-size:.8em;">last @b.LastAuditHash[..Math.Min(16, b.LastAuditHash.Length)]…</div> }
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    private DatabaseBackupStatusVm? _status;
+    private Feedback? _feedback;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var result = await Api.GetDatabaseBackupsAsync();
+        if (result.Succeeded) _status = result.Value;
+        else _feedback = result.ToFeedback();
+    }
+
+    private async Task BackUpNowAsync()
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var result = await Api.RunDatabaseBackupAsync();
+            _feedback = result.Succeeded && result.Value is { Succeeded: true, Verified: true }
+                ? Feedback.Succeed($"Backup {result.Value.FileName} written and verified.")
+                : result.Succeeded
+                    ? Feedback.Fail($"Backup failed: {result.Value?.Error ?? result.Value?.VerifyDetail}")
+                    : result.ToFeedback();
+            await LoadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

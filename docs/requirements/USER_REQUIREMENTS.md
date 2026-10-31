@@ -417,3 +417,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-409 | Staff are told in the app about temperature excursions, expired units, par shortfalls, near-expiry units, and reagent QC work without opening each worklist. | P7 | FRS-BB-444 |
 | URS-BB-410 | Staff can export report results and the audit trail as CSV for other systems, without opening the file executing a formula. | P8 | FRS-BB-445 |
 | URS-BB-411 | Inventory staff can turn the par shortfall into a signed supplier order, send it as a file, and link the delivery that fills it. | P7 | FRS-BB-446 |
+| URS-BB-412 | The facility has verified database backups on a schedule and on demand, is told when a backup fails or is overdue, and can reconcile a restore against a manifest. | P3 | FRS-BB-447 |

@@ -37,3 +37,6 @@ Thumbs.db
 ## Facility-supplied ICCBBA extracts (licensed; do not commit)
 testdata/isbt128/extracts/*
 !testdata/isbt128/extracts/README.md
+
+# Database backups written by the API (Backup:Folder)
+**/backups/

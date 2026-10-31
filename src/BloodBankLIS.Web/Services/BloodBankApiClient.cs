@@ -1574,6 +1574,12 @@ public sealed class BloodBankApiClient
         }
     }
 
+    public Task<ApiResult<DatabaseBackupStatusVm>> GetDatabaseBackupsAsync(CancellationToken ct = default) =>
+        SendAsync<DatabaseBackupStatusVm>(HttpMethod.Get, "api/admin/backups", ct: ct);
+
+    public Task<ApiResult<DatabaseBackupVm>> RunDatabaseBackupAsync(CancellationToken ct = default) =>
+        SendAsync<DatabaseBackupVm>(HttpMethod.Post, "api/admin/backups", ct: ct);
+
     public Task<ApiResult<List<AlertDto>>> GetAlertsAsync(bool openOnly = false, CancellationToken ct = default) =>
         SendAsync<List<AlertDto>>(HttpMethod.Get, $"api/alerts?openOnly={openOnly.ToString().ToLowerInvariant()}", ct: ct);
 

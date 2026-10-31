@@ -162,6 +162,10 @@
                 {
                     <NavLink href="admin/history" ActiveClass="active">Config History</NavLink>
                 }
+                @if (Session.Has(PermissionCodes.AdminConfigView))
+                {
+                    <NavLink href="admin/backups" ActiveClass="active">Database Backups</NavLink>
+                }
                 @if (Session.HasAny(PermissionCodes.AdminConfigView, PermissionCodes.AdminRolesManage))
                 {
                     <NavLink href="admin/roles" ActiveClass="active">Roles</NavLink>
@@ -210,6 +214,7 @@
                 || path.StartsWith("admin/instruments", StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith("admin/printers", StringComparison.OrdinalIgnoreCase),
             "directory" => path.StartsWith("admin/history", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("admin/backups", StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith("admin/roles", StringComparison.OrdinalIgnoreCase)
                 || path.StartsWith("admin/users", StringComparison.OrdinalIgnoreCase),
             _ => false

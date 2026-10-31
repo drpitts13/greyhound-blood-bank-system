@@ -310,5 +310,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-299 | D / I | `AlertRuleTests`; `AlertWorkflowTests` | URS-BB-409 / FRS-BB-444 / RISK-BB-511 |
 | TEST-BB-300 | D / I | `CsvFormatTests`; `CsvExportTests` | URS-BB-410 / FRS-BB-445 / RISK-BB-512 |
 | TEST-BB-301 | D / I | `SupplierOrderRuleTests`; `SupplierOrderTests` | URS-BB-411 / FRS-BB-446 / RISK-BB-513 |
+| TEST-BB-302 | D / I | `DatabaseBackupRuleTests`; `DatabaseBackupServiceTests` | URS-BB-412 / FRS-BB-447 / RISK-BB-514 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

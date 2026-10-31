@@ -2138,3 +2138,23 @@ public sealed class SupplierOrderLineConfiguration : IEntityTypeConfiguration<Su
         b.HasOne<ProductType>().WithMany().HasForeignKey(l => l.ProductTypeId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+public sealed class DatabaseBackupConfiguration : IEntityTypeConfiguration<DatabaseBackup>
+{
+    public void Configure(EntityTypeBuilder<DatabaseBackup> b)
+    {
+        b.ToTable("DatabaseBackups");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Trigger).HasMaxLength(20).IsRequired();
+        b.Property(x => x.RequestedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.Provider).HasMaxLength(20).IsRequired();
+        b.Property(x => x.FilePath).HasMaxLength(500).IsRequired();
+        b.Property(x => x.Sha256).HasMaxLength(64);
+        b.Property(x => x.VerifyDetail).HasMaxLength(500);
+        b.Property(x => x.LastAuditHash).HasMaxLength(128);
+        b.Property(x => x.Error).HasMaxLength(1000);
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.StartedUtc);
+    }
+}

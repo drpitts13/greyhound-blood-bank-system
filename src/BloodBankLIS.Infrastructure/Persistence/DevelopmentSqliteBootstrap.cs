@@ -172,6 +172,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureUnitDiscardReasonsTableAsync(context, cancellationToken);
         await EnsureAlertsTableAsync(context, cancellationToken);
         await EnsureSupplierOrderTablesAsync(context, cancellationToken);
+        await EnsureDatabaseBackupsTableAsync(context, cancellationToken);
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
@@ -687,6 +688,45 @@ public static class DevelopmentSqliteBootstrap
                 )
                 """, ct);
         }
+    }
+
+    private static async Task EnsureDatabaseBackupsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "DatabaseBackups", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "DatabaseBackups" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_DatabaseBackups" PRIMARY KEY AUTOINCREMENT,
+                "StartedUtc" TEXT NOT NULL,
+                "CompletedUtc" TEXT NULL,
+                "Trigger" TEXT NOT NULL,
+                "RequestedBy" TEXT NOT NULL,
+                "Provider" TEXT NOT NULL,
+                "FilePath" TEXT NOT NULL,
+                "SizeBytes" INTEGER NULL,
+                "Sha256" TEXT NULL,
+                "Succeeded" INTEGER NOT NULL,
+                "Verified" INTEGER NOT NULL,
+                "VerifyDetail" TEXT NULL,
+                "AuditEventCount" INTEGER NULL,
+                "LastAuditHash" TEXT NULL,
+                "Error" TEXT NULL,
+                "FileDeletedUtc" TEXT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_DatabaseBackups_StartedUtc" ON "DatabaseBackups" ("StartedUtc")""", ct);
     }
 
     private static async Task EnsureSupplierOrderTablesAsync(BloodBankDbContext context, CancellationToken ct)

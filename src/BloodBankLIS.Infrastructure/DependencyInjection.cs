@@ -83,6 +83,7 @@ public static class DependencyInjection
         services.AddScoped<AlertService>();
         services.AddScoped<AlertScanner>();
         services.AddScoped<SupplierOrderService>();
+        services.AddScoped<DatabaseBackupService>();
         services.AddSingleton<IDinCheckCharacterValidator, Iso7064Mod37_2DinCheckCharacterValidator>();
         services.AddScoped<FacilityPolicyService>();
         services.AddScoped<SpecialRequirementService>();

@@ -50,6 +50,13 @@ if (!builder.Environment.IsDevelopment())
 
 builder.Services.AddSingleton(authOptions);
 builder.Services.AddInfrastructure(connectionString, dbProvider);
+var backupSection = builder.Configuration.GetSection("Backup");
+var backupFolder = backupSection.GetValue<string>("Folder");
+builder.Services.AddSingleton(new DatabaseBackupOptions(
+    Path.IsPathRooted(backupFolder ?? "") ? backupFolder! : Path.Combine(builder.Environment.ContentRootPath, backupFolder ?? "backups"),
+    backupSection.GetValue("KeepCount", 14),
+    backupSection.GetValue("IntervalHours", 24),
+    backupSection.GetValue("OverdueHours", 48)));
 builder.Services.AddSingleton<IIccbbaExtractDirectory>(
     IccbbaExtractDirectory.FromConfiguration(builder.Configuration, builder.Environment.ContentRootPath));
 
@@ -68,6 +75,7 @@ builder.Services.AddHostedService<AstmClientService>();
 builder.Services.AddHostedService<ExpiredSpecimenOrderSweepService>();
 builder.Services.AddHostedService<ExpiredUnitSweepService>();
 builder.Services.AddHostedService<AlertScanService>();
+builder.Services.AddHostedService<DatabaseBackupScheduleService>();
 
 // Real environment descriptor for audit stamping (overrides the infrastructure default).
 builder.Services.AddSingleton<IEnvironmentInfo>(
@@ -172,6 +180,7 @@ app.MapStockParEndpoints();
 app.MapUtilizationEndpoints();
 app.MapAlertEndpoints();
 app.MapSupplierOrderEndpoints();
+app.MapBackupEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();

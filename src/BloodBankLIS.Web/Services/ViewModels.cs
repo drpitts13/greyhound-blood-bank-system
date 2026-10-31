@@ -121,6 +121,33 @@ public sealed record DiscardUnitRequestVm(string Reason, string? SecondVerifier 
 
 public sealed record AlertCountVm(int Open);
 
+public sealed record DatabaseBackupVm(
+    long Id,
+    DateTime StartedUtc,
+    DateTime? CompletedUtc,
+    string Trigger,
+    string RequestedBy,
+    string Provider,
+    string FileName,
+    long? SizeBytes,
+    string? Sha256,
+    bool Succeeded,
+    bool Verified,
+    string? VerifyDetail,
+    long? AuditEventCount,
+    string? LastAuditHash,
+    string? Error,
+    DateTime? FileDeletedUtc);
+
+public sealed record DatabaseBackupStatusVm(
+    DateTime? LastGoodUtc,
+    bool Overdue,
+    int IntervalHours,
+    int OverdueHours,
+    int KeepCount,
+    string Folder,
+    List<DatabaseBackupVm> Recent);
+
 public sealed record DiscardCodedUnitRequestVm(string ReasonCode, string? Comment = null, string? SecondVerifier = null);
 public sealed record PrintRequestVm(LabelFormat Format = LabelFormat.Zpl, string? TemplateCode = null, string? TargetPrinter = null);
 

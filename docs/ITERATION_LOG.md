@@ -7053,3 +7053,47 @@ SafeTrace Tx generates blood orders to the supplier. Here the par board showed t
 ### Next ranked residual
 
 G8: database backup and restore check.
+
+
+## Iteration 259 — Database backup and restore check, competitor gap G8 (2026-10-31)
+
+Hosted competitor products include managed backup. Here, restore was described in `DOWNTIME_PLAN.md`, but nothing created or checked backups.
+
+### Implemented
+
+- `DatabaseBackup` entity and table. Migration `20261031200000_DatabaseBackups`, plus the development SQLite bootstrap and the SQLite-to-SQL Server copy list.
+- `DatabaseBackupRule`: good means written and verified. It also defines last good, due, overdue, retention (the newest N good files; failed or already-removed ones ignored), and the file name.
+- `DatabaseBackupService` (Infrastructure):
+  - SQLite writes `VACUUM INTO`, then opens the copy read-only and runs `PRAGMA integrity_check`. It records the size and SHA-256, and the audit event count and last `RecordHash` from inside the copy as the manifest.
+  - SQL Server runs `BACKUP DATABASE … WITH COPY_ONLY, CHECKSUM, INIT`, then `RESTORE VERIFYONLY … WITH CHECKSUM` (written on the database server).
+  - Every attempt is logged and audited. A failure raises a critical `backup-failed` alert.
+  - Retention deletes old files only inside the configured folder, and keeps the log rows.
+  - A `backup-overdue` condition alert opens and resolves with the backup state.
+- `DatabaseBackupScheduleService` checks hourly against the `Backup` settings (Folder, IntervalHours 24, KeepCount 14, OverdueHours 48). `/api/admin/backups` GET and POST. Added the `/admin/backups` page (status, Back up now, recent attempts with hash and manifest), the Admin nav, an Admin Home card, and a help topic.
+- `DOWNTIME_PLAN.md` section 4 now gives SQLite and SQL Server restore steps and the manifest check. `**/backups/` is git-ignored.
+
+### Requirements / risk
+
+- URS-BB-412, FRS-BB-447, SRS-BB-409, RISK-BB-514.
+- Does not claim AABB compliance.
+
+### Tests
+
+- TEST-BB-302: `DatabaseBackupRuleTests` (4) and `DatabaseBackupServiceTests` (4, against the in-memory SQLite database). They cover:
+  - a verified copy with matching SHA-256 and manifest
+  - the copy opened as a database and containing the probe audit row (a restore read)
+  - status and due checks
+  - retention removing the oldest of three with keep 2, while log rows stay
+  - a failure logged with a critical alert
+  - the overdue alert opening with no backup and resolving after a good one
+- Not exercised: the SQL Server BACKUP and RESTORE VERIFYONLY path. Tests and development run on SQLite.
+- Full suite: 2,897 passed, 0 failed (previously 2,889). Application 83, Astm 19, HL7 63, Domain 1,662, Printing 21, Help 5, Integration 1,044.
+- Run check (development database, DevMode):
+  - On startup the schedule wrote `bloodbanklis-20261031-181247.db` (3,584,000 bytes), verified with integrity_check ok and a manifest of 1,885 audit events.
+  - **Back up now** wrote `bloodbanklis-20261031-181300.db`, verified with 1,888 audit events.
+  - The page showed both with SHA-256 and the last hash. The files are in `src/BloodBankLIS.Api/backups` and are git-ignored.
+  - No server errors.
+
+### Next ranked residual
+
+G9: MFA for privileged users.
