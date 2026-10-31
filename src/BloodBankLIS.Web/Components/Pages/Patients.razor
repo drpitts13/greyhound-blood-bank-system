@@ -15,7 +15,7 @@
 
 @if (_showCreate)
 {
-    <div class="bb-card">
+    <div class="bb-card" data-scroll-on-show>
         <div class="bb-card-title"><h3>Register a patient</h3></div>
         <Outcome Value="_createFb" />
         <EditForm Model="_new" OnValidSubmit="CreateAsync">
@@ -63,7 +63,13 @@
     }
     else if (Filtered.Count == 0)
     {
-        <div class="empty">No patients found.</div>
+        <div class="empty">
+            No patients found.
+            @if (!string.IsNullOrWhiteSpace(_filter) && Session.Has(PermissionCodes.PatientWrite))
+            {
+                <button class="btn btn-secondary btn-sm" style="margin-left:.5rem;" @onclick="RegisterFromSearch">Register "@_filter.Trim()"</button>
+            }
+        </div>
     }
     else
     {
@@ -151,6 +157,33 @@
     }
 
     private void ToggleCreate() => _showCreate = !_showCreate;
+
+    /// <summary>
+    /// Open Register with what was just searched for, so a new admission is not typed twice:
+    /// "Last, First" fills the names, a single token with digits is an MRN, anything else a last name.
+    /// </summary>
+    private void RegisterFromSearch()
+    {
+        var text = _filter.Trim();
+        _new = new NewPatient();
+        if (text.Contains(','))
+        {
+            var parts = text.Split(',', 2, StringSplitOptions.TrimEntries);
+            _new.LastName = parts[0];
+            _new.FirstName = parts[1];
+        }
+        else if (!text.Contains(' ') && text.Any(char.IsDigit))
+        {
+            _new.MedicalRecordNumber = text;
+        }
+        else
+        {
+            _new.LastName = text;
+        }
+
+        _createFb = null;
+        _showCreate = true;
+    }
 
     private async Task CreateAsync()
     {
