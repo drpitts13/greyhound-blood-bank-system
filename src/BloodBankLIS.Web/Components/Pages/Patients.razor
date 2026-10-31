@@ -154,9 +154,16 @@
 
     private async Task CreateAsync()
     {
+        // No default date: a skipped field must not register the patient with a made-up DOB.
+        if (_new.DateOfBirth is not DateOnly dateOfBirth)
+        {
+            _createFb = Feedback.Fail("Enter the date of birth.");
+            return;
+        }
+
         _saving = true;
         var req = new CreatePatientRequest(_new.MedicalRecordNumber, _new.LastName, _new.FirstName,
-            string.IsNullOrWhiteSpace(_new.MiddleName) ? null : _new.MiddleName, _new.DateOfBirth, _new.Sex,
+            string.IsNullOrWhiteSpace(_new.MiddleName) ? null : _new.MiddleName, dateOfBirth, _new.Sex,
             string.IsNullOrWhiteSpace(_new.Comment) ? null : _new.Comment);
         var result = await Api.CreatePatientAsync(req);
         _saving = false;
@@ -174,7 +181,7 @@
         public string LastName { get; set; } = string.Empty;
         public string FirstName { get; set; } = string.Empty;
         public string? MiddleName { get; set; }
-        public DateOnly DateOfBirth { get; set; } = new(1980, 1, 1);
+        public DateOnly? DateOfBirth { get; set; }
         public Sex Sex { get; set; } = Sex.Unknown;
         public string? Comment { get; set; }
     }
