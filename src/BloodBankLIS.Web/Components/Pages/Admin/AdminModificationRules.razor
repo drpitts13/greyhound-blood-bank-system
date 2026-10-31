@@ -17,13 +17,15 @@
     </div>
 </div>
 
-<p class="muted">
-    Each rule maps a modification code, source product code, and modification type
-    to a target product code and an expiration modification code. The same modification
-    code may be reused on different source or target products. The expiration code's offset is
-    applied from modification or collection date/time and capped at the source unit's original expiration.
-    A product choice keeps its code. A blank name stays Product {id} and is not replaced by the code.
-</p>
+<p class="muted">Each rule maps a modification code, source product and modification type to a target product and an expiration code.</p>
+<details class="bb-help">
+    <summary>How it works</summary>
+    <ul>
+        <li>The same modification code may be reused on different source or target products.</li>
+        <li>The expiration code's offset is applied from modification or collection date/time and capped at the source unit's original expiration.</li>
+        <li>A product choice keeps its code. A blank name stays Product {id} and is not replaced by the code.</li>
+    </ul>
+</details>
 
 <Outcome Value="_feedback" />
 

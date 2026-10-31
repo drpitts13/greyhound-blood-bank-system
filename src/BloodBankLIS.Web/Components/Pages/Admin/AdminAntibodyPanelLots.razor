@@ -16,10 +16,15 @@
         }
     </div>
 </div>
-<p class="muted">
-    Create, withdraw, or restore reagent manufacturers and lots used for antibody identification.
-    A new lot requires an active manufacturer, cells, and typed antigens. Creating or deactivating a manufacturer or lot does not identify antibodies and does not void an open workup; Accept and complete HardStop on a deactivated attached lot until it is restored or the workup is voided.
-</p>
+<p class="muted">Create, withdraw, or restore reagent manufacturers and lots used for antibody identification.</p>
+<details class="bb-help">
+    <summary>How it works</summary>
+    <ul>
+        <li>A new lot requires an active manufacturer, cells, and typed antigens.</li>
+        <li>Creating or deactivating a manufacturer or lot does not identify antibodies and does not void an open workup.</li>
+        <li>Accept and complete HardStop on a deactivated attached lot until it is restored or the workup is voided.</li>
+    </ul>
+</details>
 
 @if (!_creating) { <Outcome Value="_feedback" /> }
 
@@ -153,8 +158,8 @@
         <h2>New manufacturer</h2>
         <p class="muted">In-house or commercial panel source. This does not identify antibodies.</p>
         <div class="form-row">
-            <div class="field"><label>Code</label><input class="mono" @bind="_mfgCode" /></div>
-            <div class="field"><label>Name</label><input @bind="_mfgName" /></div>
+            <div class="field"><label>Code</label><input class="mono" @bind="_mfgCode" @bind:event="oninput" /></div>
+            <div class="field"><label>Name</label><input @bind="_mfgName" @bind:event="oninput" /></div>
         </div>
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_mfgCode) || string.IsNullOrWhiteSpace(_mfgName))" @onclick="CreateManufacturerAsync">Create manufacturer</button>
@@ -225,7 +230,7 @@
             }
         }
         <div class="field"><label>Reason (required)</label>
-            <input @bind="_mfgReason" placeholder="Vendor withdrawn, replaced, or other reason." />
+            <input @bind="_mfgReason" @bind:event="oninput" placeholder="Vendor withdrawn, replaced, or other reason." />
         </div>
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-danger" disabled="@(_busy || string.IsNullOrWhiteSpace(_mfgReason))" @onclick="ConfirmDeactivateManufacturerAsync">Deactivate</button>
@@ -496,6 +501,10 @@
                         </tbody>
                     </table>
                     <button class="btn btn-ghost btn-sm" type="button" @onclick="() => AddAntigen(cell)">Add antigen</button>
+                    @if (_attributes.Any(a => cell.Antigens.All(ag => ag.BloodAttributeDefinitionId != a.Id)))
+                    {
+                        <button class="btn btn-ghost btn-sm" type="button" @onclick="() => AddAllAntigens(cell)">Add all antigens</button>
+                    }
                 }
                 <button class="btn btn-ghost btn-sm" type="button" @onclick="() => RemoveCell(cell)">Remove cell</button>
             </div>
@@ -573,7 +582,7 @@
             }
         }
         <div class="field"><label>Reason (required)</label>
-            <input @bind="_reason" placeholder="QC failure, recall, or other withdrawal reason." />
+            <input @bind="_reason" @bind:event="oninput" placeholder="QC failure, recall, or other withdrawal reason." />
         </div>
         <div class="flex gap" style="margin-top:.6rem;">
             <button class="btn btn-danger" disabled="@(_busy || string.IsNullOrWhiteSpace(_reason))" @onclick="ConfirmDeactivateAsync">Deactivate</button>
@@ -802,27 +811,43 @@
         }
     }
 
+    // A new cell is typed for the same antigens as the cell before it (every active antigen for the
+    // first), all Absent, so the tech marks only what is present instead of adding each row by hand.
+    // Absent is the safe default: a wrongly saved Present could rule out an antibody that is there.
     private void AddCell()
     {
-        _createCells.Add(new LotCellDraft
+        var previous = _createCells.Count > 0 ? _createCells[^1] : null;
+        var cell = new LotCellDraft
         {
             CellNumber = (_createCells.Count + 1).ToString(),
             Role = _createSelected ? PanelCellRole.Selected : PanelCellRole.Panel,
             SortOrder = _createCells.Count + 1
-        });
-        AddAntigen(_createCells[^1]);
+        };
+        var antigenIds = previous is { Antigens.Count: > 0 }
+            ? previous.Antigens.Select(a => a.BloodAttributeDefinitionId).Where(id => id > 0).ToList()
+            : _attributes.Select(a => a.Id).ToList();
+        foreach (var id in antigenIds)
+        {
+            cell.Antigens.Add(new LotAntigenDraft { BloodAttributeDefinitionId = id });
+        }
+
+        _createCells.Add(cell);
+    }
+
+    private void AddAllAntigens(LotCellDraft cell)
+    {
+        foreach (var attr in _attributes.Where(a => cell.Antigens.All(ag => ag.BloodAttributeDefinitionId != a.Id)))
+        {
+            cell.Antigens.Add(new LotAntigenDraft { BloodAttributeDefinitionId = attr.Id });
+        }
     }
 
     private void RemoveCell(LotCellDraft cell) => _createCells.Remove(cell);
 
     private void AddAntigen(LotCellDraft cell)
     {
-        var first = _attributes.FirstOrDefault();
-        cell.Antigens.Add(new LotAntigenDraft
-        {
-            BloodAttributeDefinitionId = first?.Id ?? 0,
-            Expression = AntigenExpression.Present
-        });
+        var next = _attributes.FirstOrDefault(a => cell.Antigens.All(ag => ag.BloodAttributeDefinitionId != a.Id));
+        cell.Antigens.Add(new LotAntigenDraft { BloodAttributeDefinitionId = next?.Id ?? 0 });
     }
 
     private static void RemoveAntigen(LotCellDraft cell, LotAntigenDraft antigen) =>
@@ -885,7 +910,7 @@
     private sealed class LotAntigenDraft
     {
         public long BloodAttributeDefinitionId { get; set; }
-        public AntigenExpression Expression { get; set; } = AntigenExpression.Present;
+        public AntigenExpression Expression { get; set; } = AntigenExpression.Absent;
     }
 
     private async Task ViewLotAsync(long lotId)

@@ -168,8 +168,8 @@
                                 <p class="muted" style="margin:0 0 .5rem;">Change the specimen barcode. Accession number stays the same. A reason is required and is audited.</p>
                                 <div class="form-row">
                                     <div class="field"><label>Current barcode</label><input value="@(s.Barcode ?? "—")" disabled /></div>
-                                    <div class="field"><label>New barcode</label><input @bind="RelabelBarcode" @bind:after="() => RelabelBarcodeChanged.InvokeAsync(RelabelBarcode)" /></div>
-                                    <div class="field" style="grid-column:1/-1;"><label>Reason</label><input @bind="RelabelReason" @bind:after="() => RelabelReasonChanged.InvokeAsync(RelabelReason)" /></div>
+                                    <div class="field"><label>New barcode</label><input @bind="RelabelBarcode" @bind:event="oninput" @bind:after="() => RelabelBarcodeChanged.InvokeAsync(RelabelBarcode)" /></div>
+                                    <div class="field" style="grid-column:1/-1;"><label>Reason</label><input @bind="RelabelReason" @bind:event="oninput" @bind:after="() => RelabelReasonChanged.InvokeAsync(RelabelReason)" /></div>
                                 </div>
                                 <div class="flex gap">
                                     <button class="btn btn-primary btn-sm" disabled="@(Busy || string.IsNullOrWhiteSpace(RelabelBarcode) || string.IsNullOrWhiteSpace(RelabelReason))" @onclick="() => OnRelabel.InvokeAsync(s.Id)">Save relabel</button>

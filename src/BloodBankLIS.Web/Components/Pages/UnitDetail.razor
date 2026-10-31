@@ -178,12 +178,12 @@ else
                         }
                         <div class="field" style="min-width:16rem;">
                             <label>Cancel reason</label>
-                            <input @bind="_cancelExpectedReason" placeholder="Not shipped / cancelled ASN" />
+                            <input @bind="_cancelExpectedReason" @bind:event="oninput" placeholder="Not shipped / cancelled ASN" />
                         </div>
                         <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_cancelExpectedReason))" @onclick="() => CancelExpectedAsync(_unit.Id)">Cancel expected</button>
                         <div class="field" style="min-width:16rem;">
                             <label>Return to supplier</label>
-                            <input @bind="_supplierReturnReason" placeholder="Failed inspection / refused at dock" />
+                            <input @bind="_supplierReturnReason" @bind:event="oninput" placeholder="Failed inspection / refused at dock" />
                         </div>
                         <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_supplierReturnReason))" @onclick="() => ReturnToSupplierAsync(_unit.Id)">Return to supplier</button>
                     }
@@ -258,7 +258,7 @@ else
                                 <option value="@UnitStatus.Discarded">Disposed</option>
                             </select>
                         </div>
-                        <input @bind="_changeStatusReason" placeholder="Reason" style="flex:1;min-width:12rem;" />
+                        <input @bind="_changeStatusReason" @bind:event="oninput" placeholder="Reason" style="flex:1;min-width:12rem;" />
                         @if (_changeStatusDestination == UnitStatus.Available)
                         {
                             <label class="checkbox-item"><input type="checkbox" @bind="_changeTempOk" /> Temperature acceptable</label>
@@ -272,7 +272,7 @@ else
                 @if (CanPlaceOnHold(_unit.Status) && Session.Has(PermissionCodes.InventoryRelease))
                 {
                     <div class="flex gap">
-                        <input @bind="_holdReason" placeholder="Hold reason (paperwork, pending review)" style="flex:1;" />
+                        <input @bind="_holdReason" @bind:event="oninput" placeholder="Hold reason (paperwork, pending review)" style="flex:1;" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_holdReason))" @onclick="() => HoldAsync(_unit.Id)">Place on hold</button>
                     </div>
                 }
@@ -286,7 +286,7 @@ else
                                 <option value="@q">@q</option>
                             }
                         </select>
-                        <input @bind="_quarantineNotes" placeholder="Notes (required when Other)" style="flex:1;min-width:12rem;" />
+                        <input @bind="_quarantineNotes" @bind:event="oninput" placeholder="Notes (required when Other)" style="flex:1;min-width:12rem;" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || (_quarantineCode == UnitQuarantineReason.Other && string.IsNullOrWhiteSpace(_quarantineNotes)))" @onclick="() => PlaceInQuarantineAsync(_unit.Id)">Place in quarantine</button>
                     </div>
                 }
@@ -294,7 +294,7 @@ else
                 @if (CanMarkMissing(_unit.Status) && Session.Has(PermissionCodes.InventoryRelease))
                 {
                     <div class="flex gap">
-                        <input @bind="_missingReason" placeholder="Missing reason (physical inventory, lost in transit)" style="flex:1;" />
+                        <input @bind="_missingReason" @bind:event="oninput" placeholder="Missing reason (physical inventory, lost in transit)" style="flex:1;" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_missingReason))" @onclick="() => MarkMissingAsync(_unit.Id)">Mark missing</button>
                     </div>
                 }
@@ -302,7 +302,7 @@ else
                 @if (CanMarkDamaged(_unit.Status) && Session.Has(PermissionCodes.InventoryRelease))
                 {
                     <div class="flex gap">
-                        <input @bind="_damagedReason" placeholder="Damage reason (leaking bag, crushed, storage mishandling)" style="flex:1;" />
+                        <input @bind="_damagedReason" @bind:event="oninput" placeholder="Damage reason (leaking bag, crushed, storage mishandling)" style="flex:1;" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_damagedReason))" @onclick="() => MarkDamagedAsync(_unit.Id)">Mark damaged</button>
                     </div>
                 }
@@ -310,7 +310,7 @@ else
                 @if (CanReturnToSupplier(_unit.Status) && Session.Has(PermissionCodes.InventoryReceive))
                 {
                     <div class="flex gap">
-                        <input @bind="_supplierReturnReason" placeholder="Return-to-supplier reason (failed inspection, unused credit)" style="flex:1;" />
+                        <input @bind="_supplierReturnReason" @bind:event="oninput" placeholder="Return-to-supplier reason (failed inspection, unused credit)" style="flex:1;" />
                         <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_supplierReturnReason))" @onclick="() => ReturnToSupplierAsync(_unit.Id)">Return to supplier</button>
                     </div>
                 }
@@ -318,7 +318,7 @@ else
                 @if (CanConvertDirected(_unit) && Session.Has(PermissionCodes.InventoryRelease))
                 {
                     <div class="flex gap" style="flex-wrap:wrap;">
-                        <input @bind="_directedConversionReason" placeholder="Why this directed unit can enter volunteer inventory" style="flex:1;min-width:12rem;" />
+                        <input @bind="_directedConversionReason" @bind:event="oninput" placeholder="Why this directed unit can enter volunteer inventory" style="flex:1;min-width:12rem;" />
                         <div class="field" style="min-width:16rem;">
                             <label>Second verifier</label>
                             <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
@@ -346,7 +346,7 @@ else
                 @if (Session.Has(PermissionCodes.InventoryDiscard))
                 {
                     <div class="flex gap" style="flex-wrap:wrap;">
-                        <input @bind="_discardReason" placeholder="Discard reason" style="flex:1;min-width:12rem;" />
+                        <input @bind="_discardReason" @bind:event="oninput" placeholder="Discard reason" style="flex:1;min-width:12rem;" />
                         <div class="field" style="min-width:16rem;">
                             <label>Second verifier</label>
                             <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"

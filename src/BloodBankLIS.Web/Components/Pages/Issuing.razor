@@ -13,7 +13,14 @@
         <span class="muted"> · Patient and unit stay prefilled on this desk.</span>
     </p>
 }
-<p class="muted">The issue gate runs all safety checks, including storage-location policy and electronic / remote issue eligibility (AABB 5.16). Overrides require a reason and an electronic signature. Reserved units appear on Ready to issue so the desk does not re-key patient and unit after allocate.</p>
+<p class="muted">Reserved units appear on Ready to issue so the desk does not re-key patient and unit after allocate.</p>
+<details class="bb-help">
+    <summary>How it works</summary>
+    <ul>
+        <li>The issue gate runs all safety checks, including storage-location policy and electronic / remote issue eligibility (AABB 5.16).</li>
+        <li>Overrides require a reason and an electronic signature.</li>
+    </ul>
+</details>
 
 @* Worklists show how many items wait on each, so nobody clicks through empty desks; the forms are grouped apart. *@
 <div class="desk-nav">
@@ -559,7 +566,7 @@
                     }
                     <div class="field" style="min-width:14rem;margin:0;">
                         <label>Scanned P-tag ID</label>
-                        <input @bind="_ptagScan" autocomplete="off" />
+                        <input @bind="_ptagScan" @bind:event="oninput" autocomplete="off" />
                     </div>
                     @if (_ptagJobId is long preparedJob)
                     {
@@ -723,7 +730,7 @@
             <Outcome Value="_returnFb" />
             <div class="form-row">
                 <div class="field"><label>Unit number</label><input class="mono" @bind="_returnUnitLookup" @bind:after="LookUpReturnUnitAsync" placeholder="Type or scan, or Return from Issued units" /></div>
-                <div class="field"><label>Reason</label><input @bind="_returnReason" /></div>
+                <div class="field"><label>Reason</label><input @bind="_returnReason" @bind:event="oninput" /></div>
                 <div class="field"><label>Destination</label>
                     <select @bind="_returnDestination">
                         @if (ReturnCanBeAvailable)
