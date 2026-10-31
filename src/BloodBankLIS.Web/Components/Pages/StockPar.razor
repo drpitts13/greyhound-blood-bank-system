@@ -31,7 +31,7 @@
                         <td class="mono">@row.ProductCode</td>
                         <td>@ProductName(row.ProductTypeId)</td>
                         <td>@(row.Abo?.ToString() ?? "Any")</td>
-                        <td>@row.OnHand</td>
+                        <td><a href="@OnHandUrl(row)" title="Show these units in Inventory">@row.OnHand</a></td>
                         <td>@row.MinimumAvailable</td>
                         <td>@(row.Shortfall > 0 ? row.Shortfall.ToString() : "—")</td>
                         <td class="right">
@@ -80,6 +80,10 @@
 
 @code {
     private List<StockParBoardRowDto> _rows = new();
+
+    // The same search the board counts with (Available, product, ABO when set), so the number opens its units.
+    private static string OnHandUrl(StockParBoardRowDto row) =>
+        $"/inventory?productTypeId={row.ProductTypeId}&status={UnitStatus.Available}" + (row.Abo is { } abo ? $"&abo={abo}" : "");
     private List<ProductTypeDto> _products = new();
     private Feedback? _feedback;
     private long _productId;
