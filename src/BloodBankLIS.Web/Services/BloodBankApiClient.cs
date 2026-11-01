@@ -1752,6 +1752,9 @@ public sealed class BloodBankApiClient
         LicensedIsbtCatalogImportRequest req, CancellationToken ct = default) =>
         SendAsync<LicensedIsbtCatalogImportResult>(HttpMethod.Post, "api/admin/isbt-product-codes/import-licensed", req, ct);
 
+    public Task<ApiResult<IsbtReadinessDto>> GetIsbtReadinessAsync(CancellationToken ct = default) =>
+        SendAsync<IsbtReadinessDto>(HttpMethod.Get, "api/admin/isbt-product-codes/readiness", ct: ct);
+
     public Task<ApiResult<List<IccbbaExtractFileDto>>> GetAdminIsbtExtractsAsync(CancellationToken ct = default) =>
         SendAsync<List<IccbbaExtractFileDto>>(HttpMethod.Get, "api/admin/isbt-product-codes/extracts", ct: ct);
 

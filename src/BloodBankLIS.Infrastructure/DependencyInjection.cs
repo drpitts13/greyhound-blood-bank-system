@@ -151,6 +151,7 @@ public static class DependencyInjection
         services.AddScoped<ExpirationModificationCodeAdminService>();
         services.AddScoped<AutoThawProductAdminService>();
         services.AddScoped<IsbtProductCodeAdminService>();
+        services.AddScoped<IsbtReadinessService>();
         services.TryAddSingleton<IIccbbaExtractDirectory>(sp =>
             IccbbaExtractDirectory.FromConfiguration(sp.GetService<IConfiguration>()));
         services.AddScoped<OrderingProviderAdminService>();

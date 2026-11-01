@@ -506,6 +506,11 @@ public static class AdminEndpoints
             Results.Ok(await svc.ListAsync(ct)))
             .RequirePermission(PermissionCodes.AdminConfigView);
 
+        // OCD-004: read-only report of what still relies on placeholder or unknown ISBT codes.
+        group.MapGet("/readiness", async (IsbtReadinessService svc, CancellationToken ct) =>
+            Results.Ok(await svc.GetAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+
         group.MapGet("/extracts", (IsbtProductCodeAdminService svc) =>
             Results.Ok(svc.ListExtracts()))
             .RequirePermission(PermissionCodes.AdminConfigView);

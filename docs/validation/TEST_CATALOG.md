@@ -326,5 +326,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-315 | D / I | `AppearanceAttestationRuleTests`; `Phase4IssuingTests.Issue_WithoutAppearance_*`, `Issue_WithFacilityDefault_*`, `WardReceipt_WithoutAppearance_*`; `InventoryServiceTests.ReceiveUnit_WithoutAppearance_*`; `AttestationDefaultTests.Appearance_*` | URS-BB-425 / FRS-BB-460 / RISK-BB-527 |
 | TEST-BB-316 | D / I | `CrossmatchSettingsTests.UpdateOrder_OverrideReasonWithoutAuthorizer_SaysWhoIsMissing`; `Phase3ServicesTests.Update_ExpiryChange_ReasonWithoutAuthorizer_SaysWhoIsMissing` | URS-BB-424 / FRS-BB-459 / RISK-BB-526 |
 | TEST-BB-317 | D / I | `EluateVerificationRuleTests`; `EluateFindingTests` | URS-BB-426 / FRS-BB-461 / RISK-BB-528 |
+| TEST-BB-318 | D / I | `IsbtReadinessRuleTests`; `IsbtReadinessTests` | URS-BB-427 / FRS-BB-462 / RISK-BB-529 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

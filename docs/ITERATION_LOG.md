@@ -7793,3 +7793,48 @@ The patient chart's **DAT / Elution** tab had a button and a help page but **no 
 ### Next ranked residual
 
 OCD-004 readiness report, then OCD-038 inactive draft criteria, then OCD-043 read-only FHIR R4 API.
+
+## Iteration 274 — ISBT licensed-code readiness report (2026-11-01)
+
+OCD-004 decision (product owner, 2026-11-01): with no licensed extract available yet, build a readiness report so the gap is visible and measurable. The software still invents no codes.
+
+### Implemented
+
+- `IsbtReadinessRule` classifies a code as Licensed, Placeholder, Unknown, or None, using the `IsPlaceholder` flag each catalog row already carries. It also sets the readiness test (a licensed version is loaded, and nothing in use is on placeholder or unknown codes) and writes the summary sentence.
+- `IsbtReadinessService` (read-only):
+  - catalog counts for product, ABO/RhD, and collection-type codes, and the licensed versions loaded
+  - active products whose ISBT product code is missing, placeholder, or unknown
+  - on-hand units whose product code or ABO/RhD code is placeholder or unknown
+  - the first 200 problems are listed; the totals are exact
+  - units without ISBT codes are counted separately and do not block readiness
+- `GET /api/admin/isbt-product-codes/readiness` (`admin.config.view`). A "Licensed-code readiness" card sits at the top of the ISBT product-codes admin page, and each problem row links to its product or unit.
+- Help: a "Licensed-code readiness" section in the admin `isbt-product-codes` topic.
+
+### Requirements / risk
+
+- URS-BB-427, FRS-BB-462, SRS-BB-424, RISK-BB-529. OCD-004 stays open until a licensed extract is loaded.
+
+### Tests
+
+- TEST-BB-318:
+  - `IsbtReadinessRuleTests` (12 cases)
+  - `IsbtReadinessTests` (4 cases):
+    - a placeholder-only catalog is not ready and names what is in use
+    - a licensed catalog with everything mapped is ready
+    - unknown codes and unmapped products block readiness
+    - units without ISBT codes, and units not on hand, are not counted
+- Full suite: 3,090 passed, 0 failed (previously 3,074). Domain 1,748, Integration 1,119, Help 29, Application 91, HL7 63, Printing 21, Astm 19.
+- Run check (development database, DevMode). The dev ports were free this time:
+  - The card showed "Not ready: no licensed ICCBBA extract has been imported; 24 codes in use rely on placeholder rows; 1 code is not in the catalog at all."
+  - Catalog counts: 51 product codes, 2 ABO/RhD codes, and 1 collection type, all placeholder.
+  - 18 active products and 40 on-hand units were checked; 34 units have no ISBT codes.
+  - No server errors.
+- The same run confirmed the Cycle 273 DAT / Elution tab now renders, showing its empty state and New workup. Creating a workup was not exercised, to avoid writing to the development data.
+
+### Correction
+
+The Cycle 273 summary to the product owner gave its commit as `7a4f1b5`. The actual commit is `ffe59e5`.
+
+### Next ranked residual
+
+OCD-038: an inactive draft set of PBM criteria. Then OCD-043: a read-only FHIR R4 API.
