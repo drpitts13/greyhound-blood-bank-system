@@ -7881,6 +7881,8 @@ A draft cannot go live just by being switched on. Validation refuses any active 
 - Run check (development database, DevMode):
   - `/admin/transfusion-criteria` shows **Load draft criteria** next to **New criterion**, over the empty list.
   - The button was not pressed. It writes configuration into the development database, so loading is left to the product owner.
+  - Afterwards, at the product owner's request, the drafts were loaded through the button. The page confirmed "Added 9 unverified draft criteria, inactive", and all nine rows list as Inactive with DRAFT codes and names.
+  - Activating a draft was not tried in the app; it was outside the request. The refusal is covered by `Draft_CannotBeActivated_UntilRenamed`.
   - No server errors.
 
 ### Next ranked residual
