@@ -21,7 +21,7 @@ them silently and do not invent ICCBBA tables.
 
 ## Capability matrix (Cycle 263)
 
-Clinical rows are unchanged from Cycle 251 below, with these updates since then: storage temperature log and automatic quarantine on a sustained excursion (OCD-036), coded discard reasons and wastage, utilization and PBM ordering criteria (engine only, OCD-038), alert inbox, supplier orders, scheduled backup, and MFA. Remaining clinical Partial rows are blocked on SME or license decisions (OCD-004 ISBT tables, OCD-038 PBM content, eluate findings into antibody history, FHIR).
+Clinical rows are unchanged from Cycle 251 below, with these updates since then: storage temperature log and automatic quarantine on a sustained excursion (OCD-036), coded discard reasons and wastage, utilization and PBM ordering criteria (engine, plus an inactive unverified draft set since Cycle 275, OCD-038), alert inbox, supplier orders, scheduled backup, and MFA. Remaining clinical Partial rows are blocked on SME or license decisions (OCD-004 ISBT tables, OCD-038 PBM content, eluate findings into antibody history, FHIR).
 
 Cycle 263 adds the UX objectives as rows, because they were not tracked.
 

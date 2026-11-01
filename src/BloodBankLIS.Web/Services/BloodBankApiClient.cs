@@ -1611,6 +1611,9 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<TransfusionIndicationCriterionDto>> SetTransfusionCriterionActiveAsync(long id, bool active, CancellationToken ct = default) =>
         SendAsync<TransfusionIndicationCriterionDto>(HttpMethod.Post, $"api/admin/transfusion-criteria/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
 
+    public Task<ApiResult<LoadDraftCriteriaResultDto>> LoadDraftTransfusionCriteriaAsync(CancellationToken ct = default) =>
+        SendAsync<LoadDraftCriteriaResultDto>(HttpMethod.Post, "api/admin/transfusion-criteria/load-drafts", ct: ct);
+
     public Task<ApiResult<MfaStatusDto>> GetMfaStatusAsync(CancellationToken ct = default) =>
         SendAsync<MfaStatusDto>(HttpMethod.Get, "api/account/mfa", ct: ct);
 

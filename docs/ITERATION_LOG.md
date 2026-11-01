@@ -7838,3 +7838,51 @@ The Cycle 273 summary to the product owner gave its commit as `7a4f1b5`. The act
 ### Next ranked residual
 
 OCD-038: an inactive draft set of PBM criteria. Then OCD-043: a read-only FHIR R4 API.
+
+## Iteration 275 — Inactive, unverified draft PBM criteria (2026-11-01)
+
+OCD-038 decision (product owner, 2026-11-01): seed a small set of commonly published restrictive thresholds, **inactive** and labeled unverified, for the transfusion committee to review, edit, and activate.
+
+### Design
+
+The drafts are not seeded at startup. An explicit **Load draft criteria** action adds them, so the facility decides when they appear, and the action is recorded in configuration history.
+
+A draft cannot go live just by being switched on. Validation refuses any active criterion whose code starts with `DRAFT-` or whose name starts with DRAFT (`PBM-DRAFT`). Activation, which did not run validation before, now does.
+
+### Implemented
+
+- `PbmDraftCriteria`, nine drafts. Lab test codes HGB, PLT, INR, and FIB are placeholders to map to the facility's own test codes.
+  - Red cells: Hb < 7 g/dL; Hb < 8 g/dL in cardiac or orthopedic surgery or cardiovascular disease; active bleeding (orderer attests).
+  - Platelets: < 10 ×10^9/L for prophylaxis; < 50 ×10^9/L before a major invasive procedure; active bleeding (attests).
+  - Plasma: INR > 1.5 with bleeding or before an invasive procedure; massive transfusion protocol (attests).
+  - Cryoprecipitate: fibrinogen < 150 mg/dL with bleeding.
+  - **REQUIRES REGULATORY / SME VERIFICATION.** These are not a recommendation of this software.
+- `TransfusionIndicationAdminService.LoadDraftsAsync` adds the drafts inactive and skips existing codes without overwriting them. Each row gets a configuration-history entry with reason "Unverified draft loaded inactive for transfusion committee review (OCD-038)."
+- `POST /api/admin/transfusion-criteria/load-drafts` (`admin.config.edit`) and a **Load draft criteria** button on the admin page. The result message says to review, map the test code, and remove DRAFT before activating.
+- The help page describes the draft set and the activation rule.
+
+### Requirements / risk
+
+- URS-BB-428, FRS-BB-463, SRS-BB-425, RISK-BB-530. OCD-038 content still requires SME verification.
+
+### Tests
+
+- TEST-BB-319:
+  - `PbmDraftCriteriaTests` (7 cases):
+    - every draft is valid while inactive and marked as a draft
+    - every draft is refused when active
+    - draft detection checks both code and name
+    - a renamed draft can be active
+  - Three integration tests in `TransfusionIndicationTests`:
+    - loading adds all drafts inactive, with history, and an order still sees "no criteria"
+    - a second load skips everything and leaves an edited threshold alone
+    - a draft cannot be activated until it is renamed, then it can
+- Full suite: 3,100 passed, 0 failed (previously 3,090). Domain 1,755, Integration 1,122, Help 29, Application 91, HL7 63, Printing 21, Astm 19.
+- Run check (development database, DevMode):
+  - `/admin/transfusion-criteria` shows **Load draft criteria** next to **New criterion**, over the empty list.
+  - The button was not pressed. It writes configuration into the development database, so loading is left to the product owner.
+  - No server errors.
+
+### Next ranked residual
+
+OCD-043: a read-only FHIR R4 API.

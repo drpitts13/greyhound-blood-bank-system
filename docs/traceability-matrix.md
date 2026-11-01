@@ -464,6 +464,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-425 / FRS-BB-460 | Appearance attested at issue, ward receipt, and receipt | `AppearanceAttestationRule`; `IssuingService`; `InventoryService`; `AppearanceSelect.razor` | TEST-BB-315 | D / I | Completes OCD-040 |
 | URS-BB-426 / FRS-BB-461 | Eluate alloantibodies post to antibody history on verification | `EluateVerificationRule`; `DatElutionWorkupService`; `ImmunohematologyEndpoints`; `PatientChartDatElutionTab.razor` | TEST-BB-317 | D / I | OCD-042 |
 | URS-BB-427 / FRS-BB-462 | ISBT licensed-code readiness report | `IsbtReadinessRule`; `IsbtReadinessService`; `AdminEndpoints`; `AdminIsbtProductCodes.razor` | TEST-BB-318 | D / I | OCD-004 stays open until a licensed extract is loaded |
+| URS-BB-428 / FRS-BB-463 | Unverified draft PBM criteria, inactive until reviewed | `PbmDraftCriteria`; `TransfusionIndicationRule`; `TransfusionIndicationAdminService`; `PbmEndpoints`; `AdminTransfusionCriteria.razor` | TEST-BB-319 | D / I | OCD-038 content still requires SME verification |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 
