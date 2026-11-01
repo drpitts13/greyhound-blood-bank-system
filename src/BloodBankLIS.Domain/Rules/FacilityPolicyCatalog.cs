@@ -144,8 +144,15 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)"),
         new(FacilityPolicyKeys.PbmRequireJustification, "Order", "Require a reason for orders outside criteria",
             "When true (and evaluation is on), a manual product order outside the criteria needs a selected indication or a written reason before it is saved. Interface orders are recorded, never stopped. Default off.",
-            FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)")
+            FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)"),
+        new(FacilityPolicyKeys.PrefillPatientIdentifiers, "Issue", "Pre-fill patient identifiers at issue and bedside",
+            "When true, the issue forms and bedside transfusion documentation start with the patient's MRN and date of birth already entered, and staff confirm them visually. When false, staff scan or type both identifiers from the wristband or requisition, so the two-identifier check compares what was read with the record. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-039")
     ];
+
+    /// <summary>The catalog default of a yes/no policy; true for a key the catalog does not define.</summary>
+    public static bool BoolDefault(string key) =>
+        !bool.TryParse(Find(key)?.DefaultValue, out var value) || value;
 
     public static FacilityPolicyDefinition? Find(string key) =>
         All.FirstOrDefault(d => string.Equals(d.Key, key, StringComparison.Ordinal));

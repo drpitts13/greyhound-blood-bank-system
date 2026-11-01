@@ -484,3 +484,8 @@ tr.row-muted td { opacity: .75; }
     border: 1px solid var(--bb-border); background: var(--bb-surface); color: var(--bb-ink);
 }
 .bb-chip:hover { text-decoration: none; border-color: var(--bb-accent); }
+
+/* Live identifier match hint (OCD-039) */
+.bb-id-hint { font-size: .8rem; margin-top: .2rem; }
+.bb-id-hint.ok { color: var(--bb-ok); }
+.bb-id-hint.stop { color: var(--bb-stop); font-weight: 600; }

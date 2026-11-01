@@ -319,5 +319,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-308 | D / I | `PatientTimelineTests` | URS-BB-418 / FRS-BB-453 / RISK-BB-520 |
 | TEST-BB-309 | D / I | `SpecimenTimelineTests` | URS-BB-419 / FRS-BB-454 / RISK-BB-521 |
 | TEST-BB-310 | D / I | `DashboardHomeTests` | URS-BB-420 / FRS-BB-455 / RISK-BB-522 |
+| TEST-BB-311 | D / I | `PatientIdentifierEntryRuleTests`; `RazorFormBindingTests.Patient_identifier_fields_are_not_filled_from_the_record_directly` | URS-BB-421 / FRS-BB-456 / RISK-BB-523 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

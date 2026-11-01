@@ -457,6 +457,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-418 / FRS-BB-453 | Patient timeline | `PatientTimelineService`; `PatientWorkspaceEndpoints`; `PatientChartTimelineTab.razor` | TEST-BB-308 | D / I | Read-only |
 | URS-BB-419 / FRS-BB-454 | Specimen history | `SpecimenTimelineService`; `SpecimenEndpoints`; `SpecimenTimelinePanel.razor`; `PatientChartSpecimensTab.razor` | TEST-BB-309 | D / I | Read-only; audit-row driven |
 | URS-BB-420 / FRS-BB-455 | Role-focused home | `DashboardHome`; `DashboardQueueCatalog`; `Home.razor` | TEST-BB-310 | D / I | No permission change; order and grouping only |
+| URS-BB-421 / FRS-BB-456 | Patient identifiers read, not copied, at issue and bedside | `PatientIdentifierEntryRule`; `FacilityPolicyCatalog`; `ReferenceEndpoints`; `IdentifierMatchHint.razor`; `Issuing.razor`; `PatientChartProductsTab.razor` | TEST-BB-311 | D / I | OCD-039 decided: policy, default off |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

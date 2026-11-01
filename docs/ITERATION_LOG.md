@@ -7423,3 +7423,56 @@ The dashboard showed up to 12 queue cards in a fixed order. An empty queue looke
 ### Next ranked residual
 
 The remaining UX Partial row is keyboard. There is no shortcut map, and the issue desk's scan-verify-issue path needs the mouse between steps.
+
+## Iteration 267 — Patient identifiers read, not copied, at issue and bedside (2026-11-01)
+
+The ranked item was keyboard flow on the issue desk. Inspecting it turned up a higher-priority identification defect (P1), which was fixed first.
+
+### Finding
+
+The issue gate hard-stops unless two independent patient identifiers match the patient record (`PatientIdentityMatchRule`). Four forms copied the record's MRN and date of birth straight into those fields, so the check always compared the record with itself:
+
+- choosing a Ready-to-issue row
+- choosing a patient on the issue form
+- bedside transfusion documentation
+- the chart's issue form
+
+This had been in place since September. The product owner decided it in conversation as OCD-039: pre-fill is a facility policy, off by default.
+
+### Implemented
+
+- Facility policy `Issue.PrefillPatientIdentifiers` (Boolean, default false, category Issue). It is editable on Facility Policies with configuration history, and readable at the bench through `GET /api/reference/policies/{key}`.
+  - That endpoint used to fall back to **true** for any unset policy. It now uses the catalog default (`FacilityPolicyCatalog.BoolDefault`), so a default-off policy is never reported as on. The existing second-ABO policy keeps its default of true.
+- `PatientIdentifierEntryRule.Prefill` decides the starting values at all four sites. A failed policy read is treated as off.
+- `IdentifierMatchHint` shows "✓ Matches the patient record" or "✗ Does not match this patient" under each field as it is typed or scanned.
+  - It uses the issue gate's own matcher, so it cannot disagree with the hard stop.
+  - It never shows the expected value.
+  - The server check is unchanged.
+- Keyboard: Enter in the MRN field moves focus to the date-of-birth field, because wristband scanners end with Enter. The fields bind on input, so the hint updates while typing.
+- Ready-to-issue intro text, and the issuing and chart help topics, now say to read the identifiers from the wristband or requisition.
+
+### Requirements / risk
+
+- URS-BB-421, FRS-BB-456, SRS-BB-418, RISK-BB-523 (wrong-patient issue or transfusion because the two-identifier check passed without reading the wristband). OCD-039 recorded as decided.
+
+### Tests
+
+- TEST-BB-311: `PatientIdentifierEntryRuleTests` (11 cases). They cover:
+  - pre-fill off leaves both fields empty; on fills them from the record
+  - the policy ships off as an Issue Boolean
+  - `BoolDefault` keeps the other policies' defaults, with unknown keys defaulting to true
+  - the hint agrees with `PatientIdentityMatchRule` for empty, matching, wrong, and unreadable values
+- `RazorFormBindingTests.Patient_identifier_fields_are_not_filled_from_the_record_directly` fails if any page assigns the MRN or DOB to an identifier field outside the rule. Against the previous commit's pages it finds 8 such lines (6 on the issue page, 2 on the chart).
+- Full suite: 3,013 passed, 0 failed (previously 3,001). Application 91, Astm 19, HL7 63, Domain 1,713, Printing 21, Help 9, Integration 1,097.
+- Run check (development database, DevMode, policy unset):
+  - Issue on a Ready row opened the form with both identifier fields empty.
+  - `MRN9999` showed "Does not match this patient".
+  - `MRN0001` showed "Matches the patient record", and Enter moved focus to the date-of-birth field.
+  - Nothing was issued, and there were no server errors.
+- Not exercised in the UI: the bedside form and the chart issue form. Both use the same rule and component, and the source-scan test covers them.
+- Observed, not changed: after choosing a Ready row, the Unit number picker on the issue form showed "1" instead of the unit number. Not investigated in this iteration.
+
+### Next ranked residual
+
+1. The Unit number picker display on the issue form, observed above.
+2. Keyboard: a shortcut map, and Enter-driven flow through unit scan verification to Issue.

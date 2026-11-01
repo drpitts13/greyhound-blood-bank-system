@@ -114,6 +114,9 @@ public sealed class FacilityPolicyService
     public Task<bool> GetPbmRequireJustificationAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.PbmRequireJustification, false, ct);
 
+    public Task<bool> GetPrefillPatientIdentifiersAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.PrefillPatientIdentifiers, false, ct);
+
     public Task<bool> GetAllowElectronicCrossmatchAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowElectronicCrossmatch, false, ct);
 

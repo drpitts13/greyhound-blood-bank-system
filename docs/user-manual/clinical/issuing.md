@@ -24,7 +24,11 @@ Ready to issue opens first. Reserved units are listed so you do not retype the p
 - A unit inside the near-expiry window is marked and can still be issued.
 - When electronic crossmatch is not eligible, the row shows the reason. Serologic issue is unchanged.
 
-**Issue** on the row switches to the Issue board with the unit, MRN, and date of birth filled in. A link that already names the patient or the unit opens that same board. Complete a second identifier, appearance, location, and who is taking the unit. Print the compatibility tag when the issue requires a P-tag, then scan the P-tag id before you issue. Facility policy decides whether the tag is required.
+**Issue** on the row switches to the Issue board with the unit and patient filled in. A link that already names the patient or the unit opens that same board.
+
+**Patient identifiers.** Scan the MRN from the wristband, or type it from the requisition, then the date of birth. The scanner's Enter moves you to the date of birth. Under each field a line says **Matches the patient record** or **Does not match this patient**. It never shows the value it expected. By default both fields start empty, so the check compares what you read with the record. A facility can choose to start them filled in (Facility Policies › *Pre-fill patient identifiers at issue and bedside*, OCD-039), and staff then confirm them visually. The server still refuses an issue whose two identifiers do not match.
+
+Then complete appearance, location, and who is taking the unit. Print the compatibility tag when the issue requires a P-tag, then scan the P-tag id before you issue. Facility policy decides whether the tag is required.
 
 > Hard stop. Two independent identity tokens are required. Confirming a single checkbox does not satisfy the check. A hard stop cannot be signed away.
 
@@ -42,7 +46,7 @@ You still need a current specimen for the patient, an in-date unit, acceptable a
 
 ## Document the transfusion
 
-**Issued units** lists outstanding issues so you can document or return them without looking up an internal issue number. **Document** opens Document transfusion and records the identifiers checked at the bedside, the start, and the disposition your procedure captures. Dual identification is required here the same way it is required at issue.
+**Issued units** lists outstanding issues so you can document or return them without looking up an internal issue number. **Document** opens Document transfusion and records the identifiers checked at the bedside, the start, and the disposition your procedure captures. Dual identification is required here the same way it is required at issue. Read both identifiers from the patient's wristband at the bedside. The fields start empty unless your facility has turned on pre-fill, and the same match line shows under each.
 
 ## Final disposition
 

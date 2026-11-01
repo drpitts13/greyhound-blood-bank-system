@@ -148,10 +148,14 @@
                     <input @bind="IssueIssuedTo" @bind:after="() => IssueIssuedToChanged.InvokeAsync(IssueIssuedTo)" placeholder="Nurse / courier / recipient" />
                 </div>
                 <div class="field"><label>Patient ID 1 (MRN)</label>
-                    <input @bind="IssueId1" @bind:after="() => IssueId1Changed.InvokeAsync(IssueId1)" />
+                    <input @bind="IssueId1" @bind:event="oninput" @bind:after="() => IssueId1Changed.InvokeAsync(IssueId1)"
+                           autocomplete="off" placeholder="Scan wristband or type" @onkeydown="OnId1KeyDownAsync" />
+                    <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@IssueId1" Patient="Patient" />
                 </div>
                 <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label>
-                    <input @bind="IssueId2" @bind:after="() => IssueId2Changed.InvokeAsync(IssueId2)" />
+                    <input @ref="_id2Input" @bind="IssueId2" @bind:event="oninput" @bind:after="() => IssueId2Changed.InvokeAsync(IssueId2)"
+                           autocomplete="off" placeholder="From wristband or requisition" />
+                    <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@IssueId2" Patient="Patient" />
                 </div>
                 <div class="field"><label>Second verifier</label>
                     <FilterableComboBox TItem="DirectoryUserDto" TValue="string?"
@@ -419,6 +423,19 @@
     [Parameter] public EventCallback<string> IssueLocationChanged { get; set; }
     [Parameter] public string IssueIssuedTo { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> IssueIssuedToChanged { get; set; }
+    [Parameter] public PatientDto? Patient { get; set; }
+
+    private ElementReference _id2Input;
+
+    /// <summary>A wristband scanner ends with Enter: move to the second identifier instead of submitting.</summary>
+    private async Task OnId1KeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await _id2Input.FocusAsync();
+        }
+    }
+
     [Parameter] public string IssueId1 { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> IssueId1Changed { get; set; }
     [Parameter] public string IssueId2 { get; set; } = string.Empty;

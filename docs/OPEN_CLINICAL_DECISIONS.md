@@ -67,3 +67,9 @@ the history.
 | OCD-036 | A storage excursion lasting more than 30 minutes automatically quarantines the units at that location. | `Inventory.ExcursionQuarantineMinutes` (default 30; 0 disables). Duration = first out-of-range reading of the unbroken run to now. Checked on each reading and every alert scan (5 min). Stored units move to Quarantine with reason `StorageTemperatureExcursion`, history, audit, a critical alert, and a note on the excursion deviation. Consecutive out-of-range readings share one deviation. TEST-BB-304. |
 | OCD-037 | MFA is a facility option; users the facility requires to use MFA are refused sign-in until enrolled. | `Security.MfaEnabled` (default off) is the master switch; `Security.RequirePrivilegedMfa` and `Security.RequireAllUsersMfa` choose who must enroll. No session is issued until a valid code: setup happens on the sign-in screen (key shown after the password, first code enrolls and signs in). TEST-BB-305. |
 
+
+## Decided 2026-11-01 (product owner, in conversation)
+
+| ID | Decision | Software behavior |
+|---|---|---|
+| OCD-039 | Pre-filling the two patient identifiers at issue and at the bedside is a facility policy, off by default. Found in iteration 267: four forms copied the record's MRN and date of birth into the identifier fields, so the two-identifier hard stop compared the record with itself. | `Issue.PrefillPatientIdentifiers` (default off; changes kept in configuration history). Off: the issue desk, the chart issue form, and bedside transfusion documentation start with empty identifier fields; staff scan the wristband or type from the requisition. A live hint says whether each entry matches the patient record, without showing the expected value. Enter in the first field moves to the second. A failed policy read keeps the fields empty. The server two-identifier hard stop (`PatientIdentityMatchRule`) is unchanged. TEST-BB-311. |

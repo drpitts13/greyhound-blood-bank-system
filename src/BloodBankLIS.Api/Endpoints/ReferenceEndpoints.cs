@@ -20,7 +20,8 @@ public static class ReferenceEndpoints
     /// <summary>Yes/no facility policies that bench pages may read to show the right prompts. Each defaults to true.</summary>
     private static readonly HashSet<string> ReadablePolicyKeys = new(StringComparer.OrdinalIgnoreCase)
     {
-        FacilityPolicyKeys.RequireSecondAboForCellularIssue
+        FacilityPolicyKeys.RequireSecondAboForCellularIssue,
+        FacilityPolicyKeys.PrefillPatientIdentifiers
     };
 
     public static void MapReferenceEndpoints(this WebApplication app)
@@ -51,7 +52,8 @@ public static class ReferenceEndpoints
                 return Results.NotFound(new { error = "Unknown or restricted facility policy." });
             }
 
-            return Results.Ok(new FacilityPolicyValueDto(key, await policy.GetBoolAsync(key, defaultValue: true, ct)));
+            // An unset policy reads as its catalog default, so a default-off policy is never reported on.
+            return Results.Ok(new FacilityPolicyValueDto(key, await policy.GetBoolAsync(key, FacilityPolicyCatalog.BoolDefault(key), ct)));
         });
 
         group.MapGet("/product-types", async (BloodBankDbContext context, CancellationToken ct) =>

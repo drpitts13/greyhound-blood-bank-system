@@ -337,6 +337,7 @@ else
             @bind-IssueLocation="_issueLocation"
             @bind-IssueIssuedTo="_issueIssuedTo"
             @bind-IssueId1="_issueId1"
+            Patient="_patient"
             @bind-IssueId2="_issueId2"
             @bind-IssueSecondVerifier="_issueSecondVerifier"
             @bind-IssueComment="_issueComment"
@@ -500,6 +501,9 @@ else
     private ElectronicCrossmatchEligibilityDto? _exm;
     private List<BloodTypeDto> _typeHistory = new();
     private bool _requireSecondAbo = true;
+
+    // OCD-039: identifier fields start empty unless the facility allows pre-fill. A failed read keeps them empty.
+    private bool _prefillIdentifiers;
     private List<AntibodyDto> _antibodyHistory = new();
     private List<AntibodyIdWorkupListItemDto> _abidWorkups = new();
 
@@ -1117,8 +1121,9 @@ else
         _issueAuthorizedBy = Session.UserName ?? string.Empty;
         _issueSignatureMeaning = "I authorize issue override";
         _issueSignatureSecret = string.Empty;
-        _issueId1 = _patient?.MedicalRecordNumber ?? string.Empty;
-        _issueId2 = _patient?.DateOfBirth.ToString("yyyy-MM-dd") ?? string.Empty;
+        var (id1, id2) = PatientIdentifierEntryRule.Prefill(_prefillIdentifiers, _patient?.MedicalRecordNumber, _patient?.DateOfBirth);
+        _issueId1 = id1 ?? string.Empty;
+        _issueId2 = id2 ?? string.Empty;
         _issueSecondVerifier = string.Empty;
         _issueAppearance = UnitAppearance.Acceptable;
         _issueScan.Clear();
@@ -2887,6 +2892,9 @@ else
         {
             _requireSecondAbo = policy.Value.Enabled;
         }
+
+        var prefill = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.PrefillPatientIdentifiers);
+        _prefillIdentifiers = prefill.Succeeded && prefill.Value?.Enabled == true;
     }
 
     private RenderFragment RenderResults(SpecimenDto s) => __builder =>

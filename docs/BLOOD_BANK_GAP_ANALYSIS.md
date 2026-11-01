@@ -30,7 +30,8 @@ Cycle 263 adds the UX objectives as rows, because they were not tracked.
 | Search everywhere | Present (Cycle 263) | Top-bar find box on every page: DIN, unit number, accession, tube barcode, order number, MRN, prior MRN, partial name. |
 | Barcode-first entry | Present | Scanner sanitizing and DIN parsing at receive, issue, release, and now the top bar. One exact scan opens the record. |
 | Safe identification on lookup | Present (Cycle 263) | Never opens on a partial or multi-match; merged MRN names the survivor; a malformed `=` scan does not fall back to name search (RISK-BB-519). |
-| Keyboard-friendly | Partial | `/` and Ctrl+K focus the find box; Enter submits on search and record forms. No global shortcut map yet. |
+| Keyboard-friendly | Partial | `/` and Ctrl+K focus the find box; Enter submits on search and record forms. Cycle 267: Enter moves from the first patient identifier to the second at issue and bedside (wristband scanners end with Enter). No global shortcut map yet. |
+| Two-identifier check at issue and bedside | Present (Cycle 267) | Fields read from the wristband or requisition, not copied from the record, unless the facility turns on `Issue.PrefillPatientIdentifiers` (OCD-039); live match hint (RISK-BB-523). |
 | Role-based home | Present (Cycle 266) | Focus (Bench, Issue desk, Supervisor, Everything) inferred from permissions and switchable; Start here, Needs attention in every focus, could-not-load never clear, other desks folded (RISK-BB-522). |
 | Action-oriented queues | Present | Worklists, supervisor queue, alert inbox, near-expiry, ready to issue. |
 | Next-step guidance | Present | Patient workflow ribbon and inventory desk ribbon. |
@@ -38,7 +39,7 @@ Cycle 263 adds the UX objectives as rows, because they were not tracked.
 | Alert / warning / hard-stop separation | Present | Rule severities Pass / Warning / HardStop with override reasons where allowed. |
 | Human-readable errors | Present | Recent cycles rewrote messages in plain wording. |
 
-Cycle 264 added the patient timeline, Cycle 265 the specimen history, and Cycle 266 the role-focused home. The remaining UX Partial row is keyboard: there is no shortcut map and no keyboard path through the issue desk. See the iteration log for the next ranking.
+Cycle 264 added the patient timeline, Cycle 265 the specimen history, and Cycle 266 the role-focused home. The remaining UX Partial row is keyboard: there is no shortcut map and no keyboard path through the issue desk. See the iteration log for the next ranking. Cycle 267 found and closed a two-identifier bypass (OCD-039) while inspecting the issue desk.
 
 ## Capability matrix (Cycle 251)
 

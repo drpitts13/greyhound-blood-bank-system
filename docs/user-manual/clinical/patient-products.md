@@ -26,7 +26,7 @@ The crossmatch dialog asks for the specimen and the method. Electronic crossmatc
 
 ![Issue unit](figures/patient-issue-dialog.png)
 
-Enter two independent identifiers. MRN, date of birth, and name are the tokens the gate compares. A single checkbox is not an identifier. Record appearance. If the unit is going out in a cooler, record the cooler or transport id and the destination. When facility policy requires a second verifier or a scanned P-tag, those fields are mandatory before **Issue unit** is available.
+Enter two independent identifiers, read from the wristband or requisition. The fields start empty unless your facility has turned on pre-fill (OCD-039). Each one shows whether it matches the patient record. MRN, date of birth, and name are the tokens the gate compares. A single checkbox is not an identifier. Record appearance. If the unit is going out in a cooler, record the cooler or transport id and the destination. When facility policy requires a second verifier or a scanned P-tag, those fields are mandatory before **Issue unit** is available.
 
 If the gate returns a warning, the panel asks for an override reason and an electronic signature. A hard stop has no override. Read the message, fix the condition (specimen, type, allocation, or special requirement), and try again.
 

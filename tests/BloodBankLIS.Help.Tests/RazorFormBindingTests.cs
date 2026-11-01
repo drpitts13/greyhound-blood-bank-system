@@ -128,6 +128,32 @@ public partial class RazorFormBindingTests
             + string.Join(Environment.NewLine, problems));
     }
 
+    /// <summary>
+    /// OCD-039: the two patient identifiers at issue and bedside are what staff read from the wristband or
+    /// requisition. A page must not copy the record's MRN or date of birth into them except through
+    /// PatientIdentifierEntryRule.Prefill, which honours the facility policy (default off).
+    /// </summary>
+    [Fact]
+    public void Patient_identifier_fields_are_not_filled_from_the_record_directly()
+    {
+        var root = RepoRoot();
+        var files = Directory.EnumerateFiles(Path.Combine(root, "src", "BloodBankLIS.Web", "Components"), "*.razor", SearchOption.AllDirectories);
+        var problems = new List<string>();
+        foreach (var file in files)
+        {
+            var text = File.ReadAllText(file);
+            foreach (Match m in IdentifierFromRecord().Matches(text))
+            {
+                var line = text[..m.Index].Count(c => c == '\n') + 1;
+                problems.Add($"{Path.GetRelativePath(root, file)}:{line} {m.Value.Trim()}");
+            }
+        }
+
+        Assert.True(problems.Count == 0,
+            "These lines copy the record into a patient identifier field; use PatientIdentifierEntryRule.Prefill:" + Environment.NewLine
+            + string.Join(Environment.NewLine, problems));
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -165,6 +191,9 @@ public partial class RazorFormBindingTests
     // Name="value" preceded by whitespace, so @bind-Name="..." is not matched.
     [GeneratedRegex(@"(?<=\s)(\w+)=""([A-Za-z_]\w*(?:\.\w+)*)""")]
     private static partial Regex BareIdentifierAttribute();
+
+    [GeneratedRegex(@"(?:PatientIdentifier[12]Value|_issueId[12]|_txPatientIdentifier[12])\s*=\s*[^;=]*(?:MedicalRecordNumber|DateOfBirth)[^;]*;")]
+    private static partial Regex IdentifierFromRecord();
 
     // _editing, or any _draft / _xxxDraft editor, optionally with extra && conditions (e.g. CanEdit).
     [GeneratedRegex(@"^@if \((?:_editing|_editing is not null|_\w*[dD]raft is not null)(?: && .*)?\)\s*$")]

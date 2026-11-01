@@ -78,4 +78,7 @@ public static class FacilityPolicyKeys
     public const string ExcursionQuarantineMinutes = "Inventory.ExcursionQuarantineMinutes";
     public const string PbmEvaluateOrders = "Order.PbmEvaluate";
     public const string PbmRequireJustification = "Order.PbmRequireJustification";
+
+    /// <summary>When true, issue and bedside forms start with the patient's MRN and DOB filled in. Default off (OCD-039).</summary>
+    public const string PrefillPatientIdentifiers = "Issue.PrefillPatientIdentifiers";
 }
