@@ -434,3 +434,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-426 | Alloantibodies identified in an eluate become part of the patient's antibody history after a second person verifies them, so they protect later unit selection, while autoantibody and nonspecific eluate reactivity does not. | P2 | FRS-BB-461 |
 | URS-BB-427 | Administrators can see how far the facility is from running on a licensed ICCBBA catalog, and exactly which products and units still rely on placeholder or unknown codes. | P5 | FRS-BB-462 |
 | URS-BB-428 | The transfusion committee can start from an unverified draft set of transfusion indications, and no draft can take effect until the committee has reviewed it. | P7 | FRS-BB-463 |
+| URS-BB-429 | The EHR can read a patient's current blood type, antibodies, transfusion requirements, orders, and blood product status from the LIS without being able to change them, and every such read is traceable. | P8 | FRS-BB-464 |

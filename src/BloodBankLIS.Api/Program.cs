@@ -192,6 +192,7 @@ app.MapBackupEndpoints();
 app.MapMfaEndpoints();
 app.MapPbmEndpoints();
 app.MapLookupEndpoints();
+app.MapFhirEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();

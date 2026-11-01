@@ -7888,3 +7888,48 @@ A draft cannot go live just by being switched on. Validation refuses any active 
 ### Next ranked residual
 
 OCD-043: a read-only FHIR R4 API.
+
+## Iteration 276 — Read-only FHIR R4 API (2026-11-01)
+
+OCD-043 decision (product owner, 2026-11-01): a read-only FHIR R4 API.
+
+### Design
+
+- No new package. R4 JSON is built with System.Text.Json in `FhirMapper`.
+- No invented terminology. Coded fields use local systems (`urn:greyhound-lis:...`) with readable text. LOINC or SNOMED CT mapping requires interface / SME verification.
+- GET only, signed-in users only. Errors are OperationOutcome resources.
+- Safety: only the current ABO/Rh and active antibodies are served, by search and by direct read, so a superseded type can never reach the EHR as "final". The first live check found that a direct read of `Observation/abo-1` returned a superseded type; direct reads were then restricted to match search.
+- Traceability: every read that returns patient data writes a PatientAccess audit event (channel FHIR), like opening the chart. Searches that find nothing write no event.
+
+### Implemented
+
+- `FhirMapper`: Patient (MRN identifier; a merged record has `link` replaced-by the survivor), Observation (ABO/Rh, antibody), Flag (special requirements; ended ones inactive with a period end), ServiceRequest (status and priority mapped), BiologicallyDerivedProduct (unit number and DIN identifiers, category, status, expiry), Bundle, OperationOutcome, CapabilityStatement.
+- `FhirReadService`: reads and searches. Token search accepts a bare value or `system|value`; a foreign system matches nothing.
+- `FhirEndpoints`: `/fhir/metadata`, `/fhir/Patient[/{id}]`, `/fhir/Observation[/{id}]`, `/fhir/Flag[/{id}]`, `/fhir/ServiceRequest[/{id}]`, `/fhir/BiologicallyDerivedProduct[/{id}]`, content type `application/fhir+json`.
+- The help page for HL7 interface setup describes the API.
+
+### Requirements / risk
+
+- URS-BB-429, FRS-BB-464, SRS-BB-426, RISK-BB-531. OCD-043 updated. Gap analysis: FHIR implemented.
+
+### Tests
+
+- TEST-BB-320, `FhirReadServiceTests` (24 cases):
+  - patient mapping and audit; unknown patient is null with no audit; merged patient links to the survivor
+  - MRN search with bare, local-system, empty-system, foreign-system, and unknown identifiers
+  - observations are the current type and active antibodies only; direct reads of a superseded type or retired antibody return nothing
+  - no LOINC or SNOMED codes and no null values in any output
+  - flags include ended requirements as inactive; service request status and priority
+  - product by DIN, and a wrong system finds nothing; patient reference parsing; capability is read-only R4
+- Full suite before the direct-read fix: 3,123 passed, 0 failed (previously 3,100). The FHIR class was rerun after the fix: 24 passed.
+- Run check (development database, DevMode, API on port 5177):
+  - metadata, Patient/1, MRN search, Observation, Flag, ServiceRequest, and BiologicallyDerivedProduct return `application/fhir+json`
+  - a missing search parameter returns 400 and an unknown patient returns 404, both as OperationOutcome
+  - POST returns 405
+  - `Observation/abo-1` (superseded) returns 404 and `abo-2` (current) returns 200
+  - the audit trail shows PatientAccess events with `{"Channel":"FHIR"}`
+  - no server errors
+
+### Next ranked residual
+
+All four decided Partial items (OCD-042, OCD-004 readiness, OCD-038 drafts, OCD-043) are now addressed. Next: rescan the capability matrix for unblocked work. The leading candidate is the RhIG workflow (gap 11), which still needs SME indications, so the scan should first look for UX rows still rated Partial.
