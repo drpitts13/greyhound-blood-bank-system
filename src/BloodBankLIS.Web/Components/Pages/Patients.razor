@@ -92,8 +92,8 @@
                         <td>@p.DateOfBirth.ToString("yyyy-MM-dd")</td>
                         <td>@p.Sex</td>
                         <td><span class="badge badge-gray">@p.Status</span></td>
+                        @* The MRN and name already open the chart; only the extra destination gets a button. *@
                         <td class="right nowrap">
-                            <a class="btn btn-ghost btn-sm" href="@($"/patients/{p.Id}")">Open chart</a>
                             @if (Session.Has(PermissionCodes.LookbackManage))
                             {
                                 <a class="btn btn-ghost btn-sm" href="@($"/lookback?mrn={Uri.EscapeDataString(p.MedicalRecordNumber)}")">Open Lookback</a>

@@ -78,11 +78,21 @@ else
             <Outcome Value="_fb" />
             <div class="form-row">
                 <div class="field"><label>DIN (13 characters)</label><input class="mono" @bind="_din" @bind:event="oninput" @onkeydown="OnDinKey" placeholder="W0000X1234567" /></div>
-                <div class="field"><label>Recall reason</label><input @bind="_reason" placeholder="Required to recall" /></div>
+                <div class="field"><label>Recall reason</label><input @bind="_reason" @bind:event="oninput" placeholder="Required to recall" /></div>
             </div>
-            <div class="flex gap">
+            <div class="flex gap" style="align-items:center;flex-wrap:wrap;">
                 <button class="btn btn-primary" disabled="@_busy" @onclick="SearchDinAsync">Search</button>
-                <button class="btn btn-danger" disabled="@_busy" @onclick="RecallAsync">Recall all components</button>
+                @* A recall reaches every component of the DIN, so it waits for a reason and asks once more. *@
+                @if (_confirmRecall)
+                {
+                    <span class="text-error">Recall @RecallScope of <span class="mono">@_din.Trim()</span>?</span>
+                    <button class="btn btn-danger" disabled="@_busy" @onclick="RecallAsync">Yes, recall</button>
+                    <button class="btn btn-ghost" @onclick="() => _confirmRecall = false">Cancel</button>
+                }
+                else
+                {
+                    <button class="btn btn-danger" disabled="@(_busy || string.IsNullOrWhiteSpace(_din) || string.IsNullOrWhiteSpace(_reason))" @onclick="() => _confirmRecall = true">Recall all components</button>
+                }
             </div>
         </div>
 
@@ -482,8 +492,17 @@ else
         if (r.Succeeded) _report = r.Value;
     }
 
+    private bool _confirmRecall;
+
+    // Names the count when the DIN has been searched, so the confirmation says what it will touch.
+    private string RecallScope =>
+        _report is not null && string.Equals(_report.Din, _din.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? $"all {_report.Units.Count} component(s)"
+            : "every component";
+
     private async Task RecallAsync()
     {
+        _confirmRecall = false;
         _busy = true;
         var r = await Api.RecallByDinAsync(_din, _reason);
         _busy = false;

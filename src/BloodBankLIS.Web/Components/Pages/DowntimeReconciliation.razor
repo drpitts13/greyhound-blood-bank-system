@@ -6,8 +6,7 @@
 
 <h1>Downtime reconciliation snapshot</h1>
 <p class="muted">
-    Read-only counts from existing queues after an outage. This is not a paper-form
-    importer, failover topology, or facility SOP. Clinical and audit rows are not purged.
+    After an outage, see what is left to work in each queue. This page only counts; it changes nothing.
 </p>
 
 @if (!Session.Has(PermissionCodes.AuditRead))
@@ -38,22 +37,22 @@ else
             <tbody>
                 <tr>
                     <td>Unresolved interface errors</td>
-                    <td class="mono">@_snap.UnresolvedInterfaceErrors</td>
+                    <td class="mono">@Work(_snap.UnresolvedInterfaceErrors)</td>
                     <td><a href="/hl7">Open HL7</a></td>
                 </tr>
                 <tr>
                     <td>Pending outbound HL7 (received, errored, or nacked)</td>
-                    <td class="mono">@_snap.PendingOutboundHl7</td>
+                    <td class="mono">@Work(_snap.PendingOutboundHl7)</td>
                     <td><a href="/hl7">Open HL7</a></td>
                 </tr>
                 <tr>
                     <td>Open issues (still Issued)</td>
-                    <td class="mono">@_snap.OpenIssues</td>
+                    <td class="mono">@Work(_snap.OpenIssues)</td>
                     <td><a href="/issuing">Open Issue &amp; Transfuse</a></td>
                 </tr>
                 <tr>
                     <td>Pending retrospective crossmatches</td>
-                    <td class="mono">@_snap.PendingRetrospectiveCrossmatches</td>
+                    <td class="mono">@Work(_snap.PendingRetrospectiveCrossmatches)</td>
                     <td><a href="/issuing">Open Issue &amp; Transfuse</a></td>
                 </tr>
                 <tr>
@@ -71,10 +70,7 @@ else
         <p class="muted" style="margin-top:.75rem;">
             Audit chain <span class="mono">@_snap.AuditChainCode</span>: @_snap.AuditChainMessage
         </p>
-        <p class="muted">
-            Paper downtime records still require manual entry per the facility SOP.
-            Do not invent OCR, multi-site failover, or a purge job.
-        </p>
+        <p class="muted">Enter paper downtime records by hand, following the facility's downtime procedure.</p>
     </div>
 }
 
@@ -83,6 +79,11 @@ else
     private bool _loading = true;
     private bool _busy;
     private Feedback? _fb;
+
+    // Queues with work left stand out; empty ones fade, so the remaining work is visible at a glance.
+    private static RenderFragment Work(int count) => count > 0
+        ? @<span class="badge badge-amber">@count</span>
+        : @<span class="muted">0</span>;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

@@ -40,6 +40,17 @@ else
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>@_items.Count item@(_items.Count == 1 ? "" : "s")</h3></div>
+        @* Supervisors tend to clear one kind at a time; the filter appears only when kinds are mixed. *@
+        @if (Kinds.Count > 1)
+        {
+            <div class="flex gap" style="flex-wrap:wrap;margin-bottom:.6rem;">
+                <button class="btn btn-sm @(_kind is null ? "btn-secondary" : "btn-ghost")" @onclick="() => _kind = null">All (@_items.Count)</button>
+                @foreach (var (kind, count) in Kinds)
+                {
+                    <button class="btn btn-sm @(_kind == kind ? "btn-secondary" : "btn-ghost")" @onclick="() => _kind = kind">@KindLabel(kind) (@count)</button>
+                }
+            </div>
+        }
         <table class="bb">
             <thead>
                 <tr>
@@ -50,7 +61,7 @@ else
                 </tr>
             </thead>
             <tbody>
-                @foreach (var row in _items)
+                @foreach (var row in Visible)
                 {
                     <tr>
                         <td><span class="badge badge-gray">@KindLabel(row.Kind)</span></td>
@@ -70,6 +81,13 @@ else
     private bool _loading = true;
     private Feedback? _fb;
     private List<SupervisorQueueItemDto> _items = new();
+    private string? _kind;
+
+    private List<(string Kind, int Count)> Kinds =>
+        _items.GroupBy(i => i.Kind).Select(g => (g.Key, g.Count())).ToList();
+
+    private IEnumerable<SupervisorQueueItemDto> Visible =>
+        _kind is null ? _items : _items.Where(i => i.Kind == _kind);
 
     private bool CanSeeQueue =>
         Session.Has(PermissionCodes.ImmunoOverride)

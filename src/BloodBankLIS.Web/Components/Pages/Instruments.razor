@@ -83,7 +83,7 @@
                 <tbody>
                     @foreach (var msg in _messages)
                     {
-                        <tr>
+                        <tr class="@(_detail?.Message.Id == msg.Id ? "row-active" : null)">
                             <td class="nowrap">@msg.ReceivedUtc.ToString("HH:mm:ss")</td>
                             <td>@msg.MessageKind</td>
                             <td>@msg.Status</td>
@@ -99,7 +99,8 @@
 
 @if (_detail is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    @* Opens below both tables; keyed so each View re-adds the card and scrolls it into view. *@
+    <div @key="_detail.Message.Id" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <div class="bb-card-title"><h3>Message @_detail.Message.Id</h3>
             <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ReplayAsync">Replay</button>
             <button class="btn btn-ghost btn-sm" @onclick="() => _detail = null">Close</button>

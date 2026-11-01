@@ -375,11 +375,11 @@
                             </div>
                             <div class="field"><label>Authorized by</label><input @bind="_authorizedBy" placeholder="@Session.UserName" /></div>
                         </div>
-                        <div class="field"><label>Override reason</label><input @bind="_overrideReason" /></div>
-                        <div class="field"><label>Meaning of signature</label><input @bind="_signatureMeaning" placeholder="I authorize ABO/Rh discrepancy override" /></div>
+                        <div class="field"><label>Override reason</label><input @bind="_overrideReason" @bind:event="oninput" /></div>
+                        <div class="field"><label>Meaning of signature</label><input @bind="_signatureMeaning" @bind:event="oninput" placeholder="I authorize ABO/Rh discrepancy override" /></div>
                         <div class="field"><label>Password / PIN</label><input type="password" @bind="_signatureSecret" /></div>
                         <div class="flex gap" style="margin-top:.5rem;">
-                            <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="CompleteDeltaOverrideAsync">Sign &amp; verify with override</button>
+                            <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_overrideReason) || string.IsNullOrWhiteSpace(_signatureMeaning))" @onclick="CompleteDeltaOverrideAsync">Sign &amp; verify with override</button>
                             <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Cancel</button>
                         </div>
                     }

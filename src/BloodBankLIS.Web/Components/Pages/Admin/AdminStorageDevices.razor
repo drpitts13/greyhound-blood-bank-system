@@ -71,7 +71,14 @@
                             }
                             @if (CanActivate)
                             {
-                                @if (d.IsActive)
+                                @if (d.IsActive && (t?.UnitsStored ?? 0) > 0)
+                                {
+                                    @* The server refuses while units are stored; say so here instead of after a confirm. *@
+                                    <span title="@($"Holds {t!.UnitsStored} unit{(t.UnitsStored == 1 ? "" : "s")}. Move them before deactivating.")">
+                                        <button class="btn btn-ghost btn-sm" disabled>Deactivate</button>
+                                    </span>
+                                }
+                                else if (d.IsActive)
                                 {
                                     <button class="btn btn-ghost btn-sm" @onclick="() => _confirm = d">Deactivate</button>
                                 }

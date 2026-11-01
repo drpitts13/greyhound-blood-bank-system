@@ -55,6 +55,10 @@ else
                 }
             </div>
             <div class="field"><label>Received</label><div>@_delivery.ReceivedUtc.ToString("yyyy-MM-dd HH:mm")</div></div>
+            @if (_order is not null)
+            {
+                <div class="field"><label>Supplier order</label><div><a class="mono" href="@($"/inventory/orders?id={_order.Id}")">@_order.OrderNumber</a></div></div>
+            }
             <div class="field"><label>Packing list</label>
                 @if (_delivery.Status == DeliveryStatus.Open)
                 {
@@ -188,7 +192,13 @@ else
 
         _missing = false;
         Apply(r.Value);
+
+        // The order records which delivery filled it; show that link from this side too.
+        var orders = await Api.GetSupplierOrdersAsync();
+        _order = orders.Succeeded ? orders.Value?.FirstOrDefault(o => o.DeliveryId == Id) : null;
     }
+
+    private SupplierOrderDto? _order;
 
     private void Apply(DeliveryDetailDto delivery)
     {

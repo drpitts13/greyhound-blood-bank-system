@@ -21,7 +21,14 @@
         <div class="field"><label>From (UTC date)</label><input type="date" @bind="_from" /></div>
         <div class="field"><label>To (UTC date)</label><input type="date" @bind="_to" /></div>
     </div>
-    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="LoadAsync">Run</button>
+    <div class="flex gap" style="flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="LoadAsync">Run</button>
+        <span class="muted">or</span>
+        @foreach (var (label, range) in Presets())
+        {
+            <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => RunPresetAsync(range)">@label</button>
+        }
+    </div>
 </div>
 
 @if (_report is not null)
@@ -54,7 +61,11 @@
 
 <div class="bb-card">
     <div class="bb-card-title"><h3>Orders outside transfusion criteria</h3></div>
-    @if (_review.Count == 0)
+    @if (_reviewError is not null)
+    {
+        <div class="alert alert-danger">The review could not be loaded: @_reviewError</div>
+    }
+    else if (_review.Count == 0)
     {
         <div class="muted">None in this period. Product orders are only checked when the facility turns on the transfusion-criteria policy and sets up criteria.</div>
     }
@@ -88,6 +99,25 @@
     private bool _busy;
     private DateTime _to = DateTime.UtcNow.Date;
     private DateTime _from = DateTime.UtcNow.Date.AddDays(-30);
+    private string? _reviewError;
+
+    // Reviews usually cover a calendar period; one click sets the dates and runs.
+    private static IEnumerable<(string Label, (DateTime From, DateTime To) Range)> Presets()
+    {
+        var today = DateTime.UtcNow.Date;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+        var quarterStart = new DateTime(today.Year, (today.Month - 1) / 3 * 3 + 1, 1);
+        yield return ("Last 30 days", (today.AddDays(-30), today));
+        yield return ("This month", (monthStart, today));
+        yield return ("Last month", (monthStart.AddMonths(-1), monthStart.AddDays(-1)));
+        yield return ("Last quarter", (quarterStart.AddMonths(-3), quarterStart.AddDays(-1)));
+    }
+
+    private async Task RunPresetAsync((DateTime From, DateTime To) range)
+    {
+        (_from, _to) = range;
+        await LoadAsync();
+    }
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
@@ -101,6 +131,8 @@
             var to = DateTime.SpecifyKind(_to.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc);
             var review = await Api.GetPbmReviewAsync(from, to);
             _review = review.Succeeded ? review.Value ?? new() : new();
+            // An empty list would read as "none in this period", so say when it failed instead.
+            _reviewError = review.Succeeded ? null : review.FailureSummary();
             var result = await Api.GetUtilizationAsync(from, to);
             _report = result.Succeeded ? result.Value : null;
             _feedback = result.Succeeded ? null : result.ToFeedback();

@@ -135,7 +135,7 @@
                             <td class="@(StorageTemperatureRule.IsExcursion(r.Status) ? "text-error" : null)">@StatusText(r.Status)</td>
                             <td>@RangeText(r.RangeMinC, r.RangeMaxC)</td>
                             <td>@r.RecordedBy</td>
-                            <td>@if (r.DeviationId is long id) { <a href="/deviations">DEV-@id</a> }</td>
+                            <td>@if (r.DeviationId is long id) { <a href="@($"/deviations?id={id}")">DEV-@id</a> }</td>
                             <td>@r.Comment</td>
                         </tr>
                     }

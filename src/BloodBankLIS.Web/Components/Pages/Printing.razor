@@ -162,8 +162,8 @@
                     {
                         <tr><td colspan="8">
                             <div class="flex gap">
-                                <input @bind="_reprintReason" placeholder="Reprint reason" style="flex:1;" />
-                                <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => ReprintAsync(j.Id)">Confirm reprint</button>
+                                <input @bind="_reprintReason" @bind:event="oninput" placeholder="Reprint reason" style="flex:1;" />
+                                <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_reprintReason))" @onclick="() => ReprintAsync(j.Id)">Confirm reprint</button>
                                 <button class="btn btn-secondary btn-sm" @onclick="() => _reprintId = null">Cancel</button>
                             </div>
                         </td></tr>

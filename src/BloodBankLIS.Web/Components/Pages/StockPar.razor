@@ -6,7 +6,7 @@
 <PageTitle>Stock par &middot; Greyhound Blood Bank LIS</PageTitle>
 
 <h1>Stock par</h1>
-<p class="muted">Available units compared with a minimum for a product and, when set, one ABO group. This board does not place a blood-center order.</p>
+<p class="muted">Available units compared with a minimum for a product and, when set, one ABO group. Orders for a shortfall are built on <a href="/inventory/orders">Supplier orders</a>.</p>
 <Outcome Value="_feedback" />
 
 <div class="bb-card">
@@ -19,7 +19,13 @@
     {
         @if (ShortCount > 0)
         {
-            <p class="text-error" style="margin:0 0 .5rem;">@ShortCount below minimum.</p>
+            <p class="text-error" style="margin:0 0 .5rem;">
+                @ShortCount below minimum.
+                @if (Session.Has(PermissionCodes.InventoryReceive))
+                {
+                    <a class="btn btn-secondary btn-sm" style="margin-left:.5rem;" href="/inventory/orders">Order the shortfall</a>
+                }
+            </p>
         }
         <table class="bb">
             <thead><tr><th>Product</th><th>Name</th><th>ABO</th><th>On hand</th><th>Minimum</th><th>Short</th><th></th></tr></thead>

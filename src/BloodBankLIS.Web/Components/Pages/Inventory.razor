@@ -159,7 +159,7 @@
                                             }
                                             <div class="field" style="min-width:16rem;margin:0;">
                                                 <label>Return to supplier</label>
-                                                <input @bind="_supplierReturnReason" placeholder="Failed inspection / refused at dock" />
+                                                <input @bind="_supplierReturnReason" @bind:event="oninput" placeholder="Failed inspection / refused at dock" />
                                             </div>
                                             <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(SupplierReturnReasonForExpected()))" @onclick="() => ReturnExpectedToSupplierAsync(row.UnitId)">Return to supplier</button>
                                         </div>

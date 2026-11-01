@@ -75,7 +75,8 @@
 
 @if (_pdfDraft is not null && CanEdit)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    @* Editors open below the printer lists; keyed so each opening scrolls into view. *@
+    <div @key="_pdfEditId" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_pdfEditId is null ? "New PDF printer" : "Edit PDF printer")</h2>
         <div class="form-row">
             <div class="field"><label>Display name</label><input @bind="_pdfDraft.Name" /></div>
@@ -148,7 +149,7 @@
 
 @if (_zebraDraft is not null && CanEdit)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div @key="_zebraEditId" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_zebraEditId is null ? "New Zebra printer" : "Edit Zebra printer")</h2>
         <div class="form-row">
             <div class="field"><label>Display name</label><input @bind="_zebraDraft.Name" /></div>
