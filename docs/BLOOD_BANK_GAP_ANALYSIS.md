@@ -19,6 +19,27 @@ Keep them in the continuous-improvement loop: ask the decision in the
 active conversation, wait for the answer, then implement. Do not skip
 them silently and do not invent ICCBBA tables.
 
+## Capability matrix (Cycle 263)
+
+Clinical rows are unchanged from Cycle 251 below, with these updates since then: storage temperature log and automatic quarantine on a sustained excursion (OCD-036), coded discard reasons and wastage, utilization and PBM ordering criteria (engine only, OCD-038), alert inbox, supplier orders, scheduled backup, and MFA. Remaining clinical Partial rows are blocked on SME or license decisions (OCD-004 ISBT tables, OCD-038 PBM content, eluate findings into antibody history, FHIR).
+
+Cycle 263 adds the UX objectives as rows, because they were not tracked.
+
+| UX capability | Status | Notes |
+|---|---|---|
+| Search everywhere | Present (Cycle 263) | Top-bar find box on every page: DIN, unit number, accession, tube barcode, order number, MRN, prior MRN, partial name. |
+| Barcode-first entry | Present | Scanner sanitizing and DIN parsing at receive, issue, release, and now the top bar. One exact scan opens the record. |
+| Safe identification on lookup | Present (Cycle 263) | Never opens on a partial or multi-match; merged MRN names the survivor; a malformed `=` scan does not fall back to name search (RISK-BB-519). |
+| Keyboard-friendly | Partial | `/` and Ctrl+K focus the find box; Enter submits on search and record forms. No global shortcut map yet. |
+| Role-based home | Partial | Dashboard cards are filtered by permission (Cycle 243), not laid out per role. |
+| Action-oriented queues | Present | Worklists, supervisor queue, alert inbox, near-expiry, ready to issue. |
+| Next-step guidance | Present | Patient workflow ribbon and inventory desk ribbon. |
+| Timeline views | **Absent** for patient and specimen | Patient history is split across nine chart tabs. Units have status history and activity. Next ranked UX item. |
+| Alert / warning / hard-stop separation | Present | Rule severities Pass / Warning / HardStop with override reasons where allowed. |
+| Human-readable errors | Present | Recent cycles rewrote messages in plain wording. |
+
+Next ranked improvement: a unified, read-only patient timeline (orders, specimens, results and corrections, antibodies, allocations, crossmatches, issues, returns, transfusions, reactions) in one chronological view on the chart, then a specimen timeline.
+
 ## Capability matrix (Cycle 251)
 
 Status is relative to a mature transfusion-service LIS. Present means a

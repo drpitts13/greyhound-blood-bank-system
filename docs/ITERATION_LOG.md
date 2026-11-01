@@ -7220,3 +7220,52 @@ The product owner asked for ordering-appropriateness (PBM) criteria, previously 
 ### Next ranked residual
 
 OCD-038: SME criteria content. Also verify OCD-036 and OCD-037 in the running app.
+
+## Iteration 263 — Top-bar "scan anything" lookup (2026-11-01)
+
+The capability matrix had no UX rows. Adding them showed that there was no way to search from everywhere. A tech holding a tube, a bag, or a wristband first had to know which page to open. The patient timeline is also missing, and is the next item.
+
+### Implemented
+
+- `UniversalLookupService` (`Application/Search`) classifies input after scanner sanitizing:
+  - A parsed DIN (scanner `=` form or human-readable) or an exact unit number or component identity finds units. All components that share a DIN are returned.
+  - An exact accession or tube barcode, order number, MRN, or active prior MRN finds specimens, orders, and patients.
+  - A merged MRN resolves to the surviving chart and names the survivor.
+  - Partial MRN, name, alias, and unit-number matches are offered only when nothing matched exactly, up to 20 of each kind, with a "type more" note when capped.
+  - A malformed `=` scan returns a plain message and does not fall back to a name search.
+- `OpenDirectly` is true only for exactly one exact match. A partial match, even a single one, is listed and never opened.
+- `POST /api/lookup` (authenticated user). POST keeps MRNs and names out of URLs and request logs.
+- `GlobalLookupBar` in the top bar of every signed-in page. `/` or Ctrl+K focuses it, Enter runs it, arrow keys and Enter pick a row, and Esc closes the list.
+- Routes: patient chart; specimen → the chart's Specimens tab; order → the chart's Orders tab; unit → the unit chart. No new pages and no schema change.
+- Not audited: the search itself. Opening a chart still records `PatientAccess`. REQUIRES REGULATORY / SME VERIFICATION if a facility audits searches.
+- Help topic `finding-records`. The gap analysis now has a Cycle 263 matrix with UX rows.
+
+### Requirements / risk
+
+- URS-BB-417, FRS-BB-452, SRS-BB-414, RISK-BB-519 (wrong record opened from an ambiguous scan).
+
+### Tests
+
+- TEST-BB-307: `UniversalLookupTests` (17 cases). They cover:
+  - scanned DIN and human-readable DIN open directly
+  - a DIN shared by two components lists both and does not open
+  - a malformed scan gives a message and no hits
+  - an accession in any case, an order number, an MRN with scanner CR/LF, a prior MRN, and a merged MRN
+  - a partial name that matches two patients, and a single partial match, are both listed and not opened
+  - an exact match hides partial matches
+  - the cap, blank input, and unknown input
+- Full suite: 2,971 passed, 0 failed (previously 2,946). Application 83, Astm 19, HL7 63, Domain 1,702, Printing 21, Help 7, Integration 1,076.
+- No API-host test harness exists. The endpoint uses the shared authenticated-user filter, like the other endpoints.
+- Run check (development database, DevMode):
+  - Partial `W000123` listed units and did not open any.
+  - `acc0013` opened `/patients/5?tab=specimens`.
+  - `W0001230000001` opened the unit.
+  - `=A9999` showed the bad-scan message.
+  - `ZZZ-NOPE` showed "No patient, unit, specimen, or order matches".
+  - Esc closed the list.
+  - A `/` keydown focused the box.
+  - No server or console errors.
+
+### Next ranked residual
+
+A unified, read-only patient timeline on the chart, then a specimen timeline. SME items OCD-004 and OCD-038 stay open.

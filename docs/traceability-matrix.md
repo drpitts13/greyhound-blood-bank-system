@@ -453,6 +453,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-414 / FRS-BB-449 | Automatic quarantine after a sustained storage excursion | `StorageTemperatureRule`; `StorageTemperatureService`; `AlertScanService` | TEST-BB-304 | D / I | OCD-036 decided 2026-10-31 |
 | URS-BB-415 / FRS-BB-450 | MFA facility option; refused sign-in until enrolled | `MfaRule`; `AuthSessionService`; `Login.razor` | TEST-BB-305 | D / I | OCD-037 decided 2026-10-31 |
 | URS-BB-416 / FRS-BB-451 | PBM ordering criteria and review | `TransfusionIndicationRule`; `TransfusionIndicationService`; `OrderService`; `PbmEndpoints`; `AdminTransfusionCriteria.razor` | TEST-BB-306 | D / I | OCD-038 open: no criteria shipped |
+| URS-BB-417 / FRS-BB-452 | Top-bar scan-anything lookup | `UniversalLookupService`; `LookupEndpoints`; `GlobalLookupBar.razor`; `MainLayout.razor` | TEST-BB-307 | D / I | Read-only. Endpoint uses the shared authenticated-user filter |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

@@ -315,5 +315,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-304 | D / I | `StorageExcursionQuarantineRuleTests`; `StorageTemperatureServiceTests.SustainedExcursion_*`, `ShortExcursion_*`, `QuarantineMinutesZero_*` | URS-BB-414 / FRS-BB-449 / RISK-BB-516 |
 | TEST-BB-305 | D / I | `TotpTests.MfaRule_*`, `TotpTests.IsRequired_*`; `MfaTests` | URS-BB-415 / FRS-BB-450 / RISK-BB-517 |
 | TEST-BB-306 | D / I | `TransfusionIndicationRuleTests`; `TransfusionIndicationTests` | URS-BB-416 / FRS-BB-451 / RISK-BB-518 |
+| TEST-BB-307 | D / I | `UniversalLookupTests` (17 cases) | URS-BB-417 / FRS-BB-452 / RISK-BB-519 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

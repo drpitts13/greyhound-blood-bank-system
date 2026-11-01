@@ -1,0 +1,210 @@
+@implements IAsyncDisposable
+@using BloodBankLIS.Application.Search
+@inject BloodBankApiClient Api
+@inject NavigationManager Nav
+@inject IJSRuntime Js
+
+@* Top-bar "scan anything" lookup: one exact match opens; anything else lists the matches to choose from. *@
+<div class="bb-lookup" @onfocusout="OnFocusOut">
+    <input @ref="_input"
+           class="bb-lookup-input"
+           aria-label="Find a patient, unit, specimen, or order"
+           placeholder="Scan or type MRN, unit, accession, order, or name ( / )"
+           autocomplete="off"
+           spellcheck="false"
+           @bind="_query" @bind:event="oninput"
+           @onkeydown="OnKeyDown"
+           @onkeydown:preventDefault="_suppressKey" />
+    @if (_open)
+    {
+        <div class="bb-lookup-panel" role="listbox">
+            @if (_busy)
+            {
+                <div class="bb-lookup-note">Searching...</div>
+            }
+            else if (_error is not null)
+            {
+                <div class="bb-lookup-note bb-lookup-error">@_error</div>
+            }
+            else if (_result is not null)
+            {
+                @if (_result.Hits.Count == 0)
+                {
+                    <div class="bb-lookup-note">@(_result.Message ?? "Nothing found.")</div>
+                }
+                else
+                {
+                    @if (!_result.Hits.All(h => h.Exact))
+                    {
+                        <div class="bb-lookup-note">Partial matches. Choose the right record.</div>
+                    }
+                    else if (_result.Hits.Count > 1)
+                    {
+                        <div class="bb-lookup-note">@_result.Hits.Count records match. Choose the right one.</div>
+                    }
+                    @for (var i = 0; i < _result.Hits.Count; i++)
+                    {
+                        var hit = _result.Hits[i];
+                        var index = i;
+                        <a class="bb-lookup-hit @(index == _active ? "active" : "")" role="option"
+                           aria-selected="@(index == _active ? "true" : "false")"
+                           href="@hit.Href" @onclick="Close" @onmouseover="() => _active = index">
+                            <span class="badge @KindBadge(hit.Kind)">@hit.Kind</span>
+                            <span class="bb-lookup-id">@hit.Identifier</span>
+                            <span class="bb-lookup-title">@hit.Title</span>
+                            @if (!string.IsNullOrWhiteSpace(hit.Detail))
+                            {
+                                <span class="bb-lookup-detail">@hit.Detail</span>
+                            }
+                        </a>
+                    }
+                    @if (_result.Truncated && _result.Message is not null)
+                    {
+                        <div class="bb-lookup-note">@_result.Message</div>
+                    }
+                }
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private ElementReference _input;
+    private IJSObjectReference? _module;
+    private string _query = string.Empty;
+    private LookupResultDto? _result;
+    private string? _error;
+    private bool _open;
+    private bool _busy;
+    private int _active = -1;
+    private bool _suppressKey;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            _module = await Js.InvokeAsync<IJSObjectReference>("import", "./Components/Shared/GlobalLookupBar.razor.js");
+            await _module.InvokeVoidAsync("registerHotkey", _input);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        _suppressKey = e.Key is "ArrowDown" or "ArrowUp";
+        switch (e.Key)
+        {
+            case "Enter":
+                await EnterAsync();
+                break;
+            case "Escape":
+                Close();
+                if (_module is not null)
+                {
+                    await _module.InvokeVoidAsync("blur", _input);
+                }
+                break;
+            case "ArrowDown" when _result is { Hits.Count: > 0 }:
+                _active = Math.Min(_active + 1, _result.Hits.Count - 1);
+                break;
+            case "ArrowUp" when _result is { Hits.Count: > 0 }:
+                _active = Math.Max(_active - 1, 0);
+                break;
+        }
+    }
+
+    private async Task EnterAsync()
+    {
+        // Enter on a highlighted row opens that row; otherwise Enter runs the lookup for what was typed or scanned.
+        var query = _query.Trim();
+        if (_open && _result is not null && _active >= 0 && _active < _result.Hits.Count
+            && string.Equals(_result.Query, query, StringComparison.Ordinal))
+        {
+            Go(_result.Hits[_active].Href);
+            return;
+        }
+
+        if (query.Length == 0)
+        {
+            Close();
+            return;
+        }
+
+        _open = true;
+        _busy = true;
+        _error = null;
+        _result = null;
+        _active = -1;
+        StateHasChanged();
+
+        var response = await Api.LookupAsync(new LookupRequest(query));
+        _busy = false;
+        if (!response.Succeeded || response.Value is null)
+        {
+            _error = response.Error ?? "The lookup could not be run. Try again.";
+            return;
+        }
+
+        _result = response.Value;
+        if (_result.OpenDirectly)
+        {
+            Go(_result.Hits[0].Href);
+            return;
+        }
+
+        _active = _result.Hits.Count > 0 ? 0 : -1;
+    }
+
+    private void Go(string href)
+    {
+        _query = string.Empty;
+        Close();
+        Nav.NavigateTo(href);
+    }
+
+    private void Close()
+    {
+        _open = false;
+        _active = -1;
+    }
+
+    private async Task OnFocusOut(FocusEventArgs e)
+    {
+        // Let a click on a result land before the panel closes.
+        await Task.Delay(150);
+        Close();
+        StateHasChanged();
+    }
+
+    private static string KindBadge(LookupHitKind kind) => kind switch
+    {
+        LookupHitKind.Patient => "badge-blue",
+        LookupHitKind.Unit => "badge-red",
+        LookupHitKind.Specimen => "badge-green",
+        _ => "badge-gray"
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _module.InvokeVoidAsync("unregisterHotkey");
+            await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+}

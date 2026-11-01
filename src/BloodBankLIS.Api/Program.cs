@@ -191,6 +191,7 @@ app.MapSupplierOrderEndpoints();
 app.MapBackupEndpoints();
 app.MapMfaEndpoints();
 app.MapPbmEndpoints();
+app.MapLookupEndpoints();
 app.MapIsbtEndpoints();
 app.MapSpecimenEndpoints();
 app.MapResultEndpoints();

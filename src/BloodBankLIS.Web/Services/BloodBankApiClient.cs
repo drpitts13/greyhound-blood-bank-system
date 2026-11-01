@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using BloodBankLIS.Application.Search;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Identity;
 using BloodBankLIS.Application.Billing;
@@ -1574,6 +1575,9 @@ public sealed class BloodBankApiClient
             return ApiResult<byte[]>.Ok(await response.Content.ReadAsByteArrayAsync(ct));
         }
     }
+
+    public Task<ApiResult<LookupResultDto>> LookupAsync(LookupRequest req, CancellationToken ct = default) =>
+        SendAsync<LookupResultDto>(HttpMethod.Post, "api/lookup", req, ct);
 
     public Task<ApiResult<List<ProductIndicationResultDto>>> CheckTransfusionCriteriaAsync(long patientId, PbmCheckRequest req, CancellationToken ct = default) =>
         SendAsync<List<ProductIndicationResultDto>>(HttpMethod.Post, $"api/patients/{patientId}/pbm-check", req, ct);

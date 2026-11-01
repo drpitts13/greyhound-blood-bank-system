@@ -14,6 +14,7 @@ using BloodBankLIS.Application.Services;
 using BloodBankLIS.Application.Patients;
 using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Application.Specimens;
+using BloodBankLIS.Application.Search;
 using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Identity;
 using BloodBankLIS.Domain.Isbt128;
@@ -106,6 +107,7 @@ public static class DependencyInjection
         services.AddScoped<PatientService>();
         services.AddScoped<PatientMergeService>();
         services.AddScoped<SpecimenService>();
+        services.AddScoped<UniversalLookupService>();
         services.AddScoped<ExpiredSpecimenOrderService>();
         services.AddScoped<OrderingProviderService>();
         services.AddScoped<OrderingLocationService>();

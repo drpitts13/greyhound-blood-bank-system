@@ -422,3 +422,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-414 | Units stored through a sustained temperature excursion are taken out of use automatically. | P0 | FRS-BB-449 |
 | URS-BB-415 | The facility decides whether MFA is used and who must use it; required users cannot sign in without it. | P6 | FRS-BB-450 |
 | URS-BB-416 | The transfusion service can compare product orders with facility-approved transfusion criteria and review orders outside them. | P7 | FRS-BB-451 |
+| URS-BB-417 | Staff can scan or type any patient, unit, specimen, or order identifier from one place on every screen and reach that record without first choosing the right page. | P9 | FRS-BB-452 |

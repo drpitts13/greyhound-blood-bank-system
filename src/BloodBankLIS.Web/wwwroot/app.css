@@ -395,3 +395,48 @@ tr.row-muted td { opacity: .75; }
 .temp-trend .pt-out { fill: var(--bb-stop); stroke: var(--bb-surface); stroke-width: 2; }
 .temp-trend .hit { fill: transparent; }
 .temp-trend text { fill: var(--bb-muted); font-size: 11px; }
+
+/* Top-bar scan-anything lookup */
+.bb-lookup { position: relative; }
+.bb-lookup-input {
+    width: 26rem;
+    max-width: 40vw;
+    padding: .35rem .6rem;
+    border: 1px solid var(--bb-border);
+    border-radius: 6px;
+    font-size: .88rem;
+    background: var(--bb-bg);
+    color: var(--bb-ink);
+}
+.bb-lookup-input:focus { outline: 2px solid var(--bb-accent); background: var(--bb-surface); }
+.bb-lookup-panel {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    width: 34rem;
+    max-width: 90vw;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: var(--bb-surface);
+    border: 1px solid var(--bb-border);
+    border-radius: 8px;
+    box-shadow: var(--bb-shadow);
+    z-index: 20;
+    padding: .35rem;
+}
+.bb-lookup-note { padding: .4rem .5rem; color: var(--bb-muted); font-size: .82rem; }
+.bb-lookup-error { color: var(--bb-stop); }
+.bb-lookup-hit {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: .15rem .5rem;
+    align-items: center;
+    padding: .45rem .5rem;
+    border-radius: 6px;
+    color: var(--bb-ink);
+}
+.bb-lookup-hit:hover, .bb-lookup-hit.active { background: var(--bb-bg); text-decoration: none; }
+.bb-lookup-id { font-family: Consolas, "Courier New", monospace; font-weight: 600; }
+.bb-lookup-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bb-lookup-detail { grid-column: 2 / -1; color: var(--bb-muted); font-size: .8rem; }
+@media (max-width: 760px) { .bb-lookup-input { width: 12rem; } }
