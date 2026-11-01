@@ -1,0 +1,96 @@
+@using System.Globalization
+
+@* One device's readings over time against its range. Hover a point for its value; the table below the chart has every reading. *@
+<svg class="temp-trend" viewBox="0 0 @W @H" role="img" aria-label="@AriaLabel">
+    @foreach (var tick in YTicks)
+    {
+        <g>
+        <line class="grid" x1="@F(Left)" x2="@F(W - Right)" y1="@F(Y(tick))" y2="@F(Y(tick))" />
+        <text x="@F(Left - 6)" y="@F(Y(tick) + 4)" text-anchor="end">@tick.ToString("0.#", CultureInfo.InvariantCulture)°</text>
+        </g>
+    }
+    @if (RangeMinC is not null || RangeMaxC is not null)
+    {
+        var top = Y(RangeMaxC ?? _hi);
+        var bottom = Y(RangeMinC ?? _lo);
+        <rect class="band" x="@F(Left)" width="@F(W - Left - Right)" y="@F(top)" height="@F(Math.Max(0, bottom - top))" />
+        @if (RangeMaxC is decimal max) { <line class="limit" x1="@F(Left)" x2="@F(W - Right)" y1="@F(Y(max))" y2="@F(Y(max))" /> }
+        @if (RangeMinC is decimal min) { <line class="limit" x1="@F(Left)" x2="@F(W - Right)" y1="@F(Y(min))" y2="@F(Y(min))" /> }
+    }
+    @foreach (var tick in XTicks)
+    {
+        <g><text x="@F(X(tick))" y="@F(H - 6)" text-anchor="middle">@tick.ToString("MM-dd", CultureInfo.InvariantCulture)</text></g>
+    }
+    <polyline class="line" points="@Points" />
+    @foreach (var r in _ordered)
+    {
+        var excursion = StorageTemperatureRule.IsExcursion(r.Status);
+        <g>
+            <title>@r.ReadingUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) UTC · @r.ReadingC °C@(excursion ? " · out of range" : "")</title>
+            <circle class="hit" cx="@F(X(r.ReadingUtc))" cy="@F(Y(r.ReadingC))" r="8" />
+            <circle class="@(excursion ? "pt-out" : "pt")" cx="@F(X(r.ReadingUtc))" cy="@F(Y(r.ReadingC))" r="@(excursion ? "5" : (_ordered.Count > 150 ? "0" : "2.5"))" />
+        </g>
+    }
+</svg>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<StorageTemperatureReadingDto> Readings { get; set; } = [];
+    [Parameter] public DateTime FromUtc { get; set; }
+    [Parameter] public DateTime ToUtc { get; set; }
+    [Parameter] public decimal? RangeMinC { get; set; }
+    [Parameter] public decimal? RangeMaxC { get; set; }
+
+    private const double W = 800, H = 240, Left = 44, Right = 12, Top = 10, Bottom = 24;
+
+    private List<StorageTemperatureReadingDto> _ordered = new();
+    private decimal _lo, _hi;
+
+    protected override void OnParametersSet()
+    {
+        _ordered = Readings.OrderBy(r => r.ReadingUtc).ToList();
+        var values = _ordered.Select(r => r.ReadingC)
+            .Concat(new[] { RangeMinC, RangeMaxC }.OfType<decimal>())
+            .DefaultIfEmpty(0m)
+            .ToList();
+        _lo = values.Min();
+        _hi = values.Max();
+        var pad = Math.Max(1m, (_hi - _lo) * 0.1m);
+        _lo = Math.Floor(_lo - pad);
+        _hi = Math.Ceiling(_hi + pad);
+    }
+
+    private string AriaLabel =>
+        $"{_ordered.Count} readings from {_lo} to {_hi} °C; {_ordered.Count(r => StorageTemperatureRule.IsExcursion(r.Status))} out of range.";
+
+    private IEnumerable<decimal> YTicks
+    {
+        get
+        {
+            var span = _hi - _lo;
+            var step = span <= 10 ? 1m : span <= 25 ? 5m : 10m;
+            for (var v = Math.Ceiling(_lo / step) * step; v <= _hi; v += step) yield return v;
+        }
+    }
+
+    private IEnumerable<DateTime> XTicks
+    {
+        get
+        {
+            var days = Math.Max(1, (ToUtc - FromUtc).TotalDays);
+            var step = Math.Max(1, (int)Math.Ceiling(days / 8));
+            for (var d = FromUtc.Date; d <= ToUtc; d = d.AddDays(step)) yield return d;
+        }
+    }
+
+    private string Points => string.Join(" ", _ordered.Select(r => $"{F(X(r.ReadingUtc))},{F(Y(r.ReadingC))}"));
+
+    private double X(DateTime t)
+    {
+        var span = Math.Max(1, (ToUtc - FromUtc).TotalSeconds);
+        return Left + (W - Left - Right) * Math.Clamp((t - FromUtc).TotalSeconds / span, 0, 1);
+    }
+
+    private double Y(decimal c) => Top + (H - Top - Bottom) * (double)((_hi - c) / Math.Max(0.1m, _hi - _lo));
+
+    private static string F(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
+}

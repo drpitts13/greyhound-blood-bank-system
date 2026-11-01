@@ -26,7 +26,8 @@ public class InventoryLocationAuthorizationTests : IClassFixture<SqliteContextFa
             _factory.CurrentUser,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser, env),
             new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env),
-            permissionEvaluator: permissions);
+            permissionEvaluator: permissions,
+            units: new EfRepository<BloodUnit>(c));
     }
 
     private static SaveInventoryLocationRequest Request(string code) =>
@@ -94,5 +95,38 @@ public class InventoryLocationAuthorizationTests : IClassFixture<SqliteContextFa
             .Where(a => a.EntityType == nameof(InventoryLocation) && a.EntityId == created.Value.Id)
             .ToListAsync();
         Assert.Equal(2, events.Count(a => a.EventType == AuditEventType.Configure));
+    }
+
+    [Fact]
+    public async Task Deactivate_WhileUnitsAreStored_IsRefused()
+    {
+        await using var c = _factory.Create();
+        var created = await Locations(c).CreateAsync(Request($"F{Guid.NewGuid():N}"[..8].ToUpperInvariant()));
+        Assert.True(created.Succeeded, created.Error);
+        var product = new ProductType { ProductCode = $"RBC-{Guid.NewGuid():N}"[..12], Name = "Red cells" };
+        c.ProductTypes.Add(product);
+        await c.SaveChangesAsync();
+        var unit = new BloodUnit
+        {
+            UnitNumber = $"U{Guid.NewGuid():N}"[..12],
+            ProductTypeId = product.Id,
+            Abo = AboGroup.O,
+            RhD = RhType.Positive,
+            ExpiresUtc = _factory.Clock.UtcNow.AddDays(20),
+            Status = UnitStatus.Available,
+            CurrentLocationId = created.Value!.Id
+        };
+        c.BloodUnits.Add(unit);
+        await c.SaveChangesAsync();
+
+        var refused = await Locations(c).SetActiveAsync(created.Value.Id, false);
+        Assert.False(refused.Succeeded);
+        Assert.Contains("1 unit(s)", refused.Error);
+        Assert.True((await c.InventoryLocations.SingleAsync(e => e.Id == created.Value.Id)).IsActive);
+
+        unit.Status = UnitStatus.Transfused;
+        await c.SaveChangesAsync();
+        var allowed = await Locations(c).SetActiveAsync(created.Value.Id, false);
+        Assert.True(allowed.Succeeded, allowed.Error);
     }
 }

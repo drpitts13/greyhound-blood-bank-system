@@ -4,12 +4,21 @@
 
 <PageTitle>Storage temperatures &middot; Greyhound Blood Bank LIS</PageTitle>
 
-<h1>Storage temperatures</h1>
+<div class="flex-between">
+    <h1>Storage temperatures</h1>
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/storage-temps/report">Temperature history report</a>
+        @if (Session.Has(PermissionCodes.AdminConfigView))
+        {
+            <a class="btn btn-ghost" href="/admin/storage-devices">Manage refrigerators &amp; freezers</a>
+        }
+    </div>
+</div>
 <p class="muted">Record refrigerator, freezer, and platelet-storage readings against each location's range.</p>
 <details class="bb-help">
     <summary>How it works</summary>
     <ul>
-        <li>The range comes from the location's minimum and maximum in Admin &rsaquo; Inventory locations. A location with no range records readings but cannot raise an excursion.</li>
+        <li>The range comes from the device's minimum and maximum in Admin &rsaquo; Refrigerators &amp; Freezers. A location with no range records readings but cannot raise an excursion.</li>
         <li>A reading outside the range opens a Major deviation that names the location and the number of units stored there.</li>
         <li>Units are not quarantined automatically. Review them from Inventory and quarantine any that need it.</li>
         <li>Readings are never edited. Record a new reading to correct one.</li>
@@ -61,7 +70,10 @@
                         </td>
                         <td>@loc.LastReadingUtc?.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@loc.UnitsStored</td>
-                        <td><button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(loc.LocationId)">History</button></td>
+                        <td class="right nowrap">
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(loc.LocationId)">History</button>
+                            <a class="btn btn-ghost btn-sm" href="@($"/storage-temps/report?device={loc.LocationId}")">Report</a>
+                        </td>
                     </tr>
                 }
             </tbody>
