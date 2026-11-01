@@ -1799,10 +1799,25 @@ public sealed class DatElutionWorkupConfiguration : IEntityTypeConfiguration<Dat
         b.Property(x => x.CompletedBy).HasMaxLength(100);
         b.Property(x => x.VoidedBy).HasMaxLength(100);
         b.Property(x => x.VoidReason).HasMaxLength(500);
+        b.Property(x => x.VerifiedBy).HasMaxLength(100);
         b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
         b.HasIndex(x => x.PatientId);
         b.HasIndex(x => x.Status);
+    }
+}
+
+public sealed class DatElutionEluateFindingConfiguration : IEntityTypeConfiguration<DatElutionEluateFinding>
+{
+    public void Configure(EntityTypeBuilder<DatElutionEluateFinding> b)
+    {
+        b.ToTable("DatElutionEluateFindings");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Specificity).HasMaxLength(200).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.WorkupId);
+        b.HasOne<DatElutionWorkup>().WithMany().HasForeignKey(x => x.WorkupId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

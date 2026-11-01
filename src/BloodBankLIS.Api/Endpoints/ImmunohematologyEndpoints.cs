@@ -111,5 +111,24 @@ public static class ImmunohematologyEndpoints
         datElution.MapPost("/{id:long}/void", async (long id, VoidDatElutionWorkupRequest request, DatElutionWorkupService service, CancellationToken ct) =>
             EndpointResults.From(await service.VoidAsync(id, request, ct), w => DatElutionWorkupDto.From(w)))
             .RequirePermission(PermissionCodes.ImmunoRecord);
+
+        // OCD-042: structured eluate findings; nothing posts until a second person verifies the completed workup.
+        datElution.MapPost("/{id:long}/eluate-findings", async (long id, RecordEluateFindingsRequest request, DatElutionWorkupService service, CancellationToken ct) =>
+            {
+                var result = await service.RecordEluateFindingsAsync(id, request, ct);
+                return result.Succeeded
+                    ? Results.Ok(await service.GetAsync(id, ct))
+                    : EndpointResults.From(result, w => DatElutionWorkupDto.From(w));
+            })
+            .RequirePermission(PermissionCodes.ImmunoRecord);
+
+        datElution.MapPost("/{id:long}/verify", async (long id, DatElutionWorkupService service, CancellationToken ct) =>
+            {
+                var result = await service.VerifyAsync(id, ct);
+                return result.Succeeded
+                    ? Results.Ok(await service.GetAsync(id, ct))
+                    : EndpointResults.From(result, w => DatElutionWorkupDto.From(w));
+            })
+            .RequirePermission(PermissionCodes.ImmunoOverride);
     }
 }

@@ -431,3 +431,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-423 | At issue, ward receipt, and the bedside, staff can scan or type each identifier and unit-label field in turn without the mouse, and a scanner's Enter never performs the issue, receipt, or documentation. | P9 | FRS-BB-458 |
 | URS-BB-424 | A returned unit goes back to available stock only after a person records its temperature, seal, and visual inspection, and every override names who authorized it rather than defaulting to the user. | P0 | FRS-BB-459 |
 | URS-BB-425 | A unit's appearance at issue, ward receipt, and receipt into inventory is what a person saw on the bag, not a default. | P0 | FRS-BB-460 |
+| URS-BB-426 | Alloantibodies identified in an eluate become part of the patient's antibody history after a second person verifies them, so they protect later unit selection, while autoantibody and nonspecific eluate reactivity does not. | P2 | FRS-BB-461 |

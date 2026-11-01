@@ -1,0 +1,356 @@
+@using BloodBankLIS.Application.Immunohematology
+@using BloodBankLIS.Application.Reference
+@using BloodBankLIS.Application.Specimens
+@inject BloodBankApiClient Api
+@inject UserSession Session
+
+@* DAT and elution workups. Eluate alloantibodies reach antibody history only when a second person verifies the
+   completed workup (OCD-042); autoantibody, panreactive, and nonspecific findings stay on the workup. *@
+<div class="bb-card">
+    <div class="bb-card-title flex-between">
+        <h3>DAT / Elution</h3>
+        @if (CanRecord)
+        {
+            <button type="button" class="btn btn-primary btn-sm" @onclick="() => _showNew = !_showNew">@(_showNew ? "Cancel" : "New workup")</button>
+        }
+    </div>
+    <Outcome Value="_fb" />
+
+    @if (_showNew && CanRecord)
+    {
+        <div class="alert alert-info" style="margin-bottom:.75rem;" data-scroll-on-show>
+            @Fields(_new)
+            <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="CreateAsync">Create workup</button>
+        </div>
+    }
+
+    @if (_loading)
+    {
+        <div class="loading">Loading DAT/elution workups...</div>
+    }
+    else if (_workups.Count == 0)
+    {
+        <div class="empty">No DAT or elution workups for this patient.</div>
+    }
+    else
+    {
+        @foreach (var w in _workups)
+        {
+            var id = w.Id;
+            <div class="bb-card" style="margin:.75rem 0;">
+                <div class="flex-between" style="flex-wrap:wrap;gap:.5rem;">
+                    <strong>Workup @w.Id <span class="@StatusBadge(w)">@StatusText(w)</span></strong>
+                    <span class="muted">Created @w.CreatedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @w.CreatedBy@(w.SpecimenAccession is null ? "" : $" · specimen {w.SpecimenAccession}")</span>
+                </div>
+
+                @if (w.Status == DatElutionWorkupStatus.Open && CanRecord && _edit.TryGetValue(id, out var form))
+                {
+                    @Fields(form)
+                    <div class="flex gap" style="flex-wrap:wrap;">
+                        <button type="button" class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => SaveAsync(id)">Save</button>
+                        <button type="button" class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => CompleteAsync(id)">Complete</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="muted" style="margin:.35rem 0;">
+                        DAT @w.DatResult@(string.IsNullOrWhiteSpace(w.DatMethod) ? "" : $" ({w.DatMethod})")
+                        · Elution: @(w.ElutionResult ?? (w.ElutionNotPerformedReason is null ? "not recorded" : $"not performed ({w.ElutionNotPerformedReason})"))
+                        @if (!string.IsNullOrWhiteSpace(w.Comment)) { <span> · @w.Comment</span> }
+                    </div>
+                }
+
+                @if (w.CompletedUtc is DateTime done)
+                {
+                    <div class="muted">Completed @done.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @w.CompletedBy</div>
+                }
+                @if (w.VerifiedUtc is DateTime verified)
+                {
+                    <div class="muted">Verified @verified.ToLocalTime().ToString("yyyy-MM-dd HH:mm") by @w.VerifiedBy</div>
+                }
+                @if (w.Status == DatElutionWorkupStatus.Voided)
+                {
+                    <div class="muted">Voided by @w.VoidedBy: @w.VoidReason</div>
+                }
+
+                <h4 class="bb-home-section">Eluate findings</h4>
+                @if (FindingsEditable(w) && CanRecord)
+                {
+                    var rows = Rows(w);
+                    @for (var i = 0; i < rows.Count; i++)
+                    {
+                        var row = rows[i];
+                        var index = i;
+                        <div class="form-row" style="align-items:flex-end;">
+                            <div class="field" style="min-width:11rem;"><label>Kind</label>
+                                <select @bind="row.Kind">
+                                    @foreach (var k in Enum.GetValues<EluateFindingKind>()) { <option value="@k">@KindLabel(k)</option> }
+                                </select>
+                            </div>
+                            @if (row.Kind == EluateFindingKind.Alloantibody)
+                            {
+                                <div class="field" style="min-width:14rem;"><label>Antibody</label>
+                                    <select @bind="row.DefinitionId">
+                                        <option value="">Choose antibody...</option>
+                                        @foreach (var a in _catalog) { <option value="@a.Id">@a.AntibodyName</option> }
+                                    </select>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="field" style="min-width:14rem;"><label>Description (optional)</label><input @bind="row.Text" /></div>
+                            }
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => rows.RemoveAt(index)">Remove</button>
+                        </div>
+                    }
+                    <div class="flex gap" style="flex-wrap:wrap;">
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => rows.Add(new FindingRow())">Add finding</button>
+                        <button type="button" class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => SaveFindingsAsync(id)">Save findings</button>
+                    </div>
+                    <p class="muted" style="margin-top:.35rem;">Nothing reaches antibody history until another person verifies the completed workup. Only alloantibodies are posted.</p>
+                }
+                else if (w.EluateFindings is { Count: > 0 } findings)
+                {
+                    <ul style="margin:.25rem 0 .5rem 1.1rem;">
+                        @foreach (var f in findings)
+                        {
+                            <li>
+                                @KindLabel(f.Kind): <strong>@f.Specificity</strong>
+                                @if (f.PostedAntibodyHistoryId is not null) { <span class="badge badge-red">Posted to antibody history</span> }
+                                else if (w.VerifiedUtc is not null && f.Kind == EluateFindingKind.Alloantibody) { <span class="badge badge-gray">Already on file</span> }
+                                else if (f.Kind != EluateFindingKind.Alloantibody) { <span class="badge badge-gray">Not posted</span> }
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <div class="muted">None recorded.</div>
+                }
+
+                @if (w.Status == DatElutionWorkupStatus.Completed && w.VerifiedUtc is null && CanVerify)
+                {
+                    @if (string.Equals(w.CompletedBy, Session.UserName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <p class="muted">Waiting for another person to verify. You completed this workup.</p>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning" style="margin-top:.5rem;">
+                            Verifying adds @AlloCount(w) alloantibod@(AlloCount(w) == 1 ? "y" : "ies") from the eluate to the patient's antibody history, where @(AlloCount(w) == 1 ? "it drives" : "they drive") antigen-negative selection.
+                            <button type="button" class="btn btn-primary btn-sm" style="margin-left:.5rem;" disabled="@_busy" @onclick="() => VerifyAsync(id)">Verify workup</button>
+                        </div>
+                    }
+                }
+
+                @if (w.Status != DatElutionWorkupStatus.Voided && w.VerifiedUtc is null && CanRecord)
+                {
+                    <div class="flex gap" style="margin-top:.5rem;flex-wrap:wrap;">
+                        <input placeholder="Reason to void" @bind="_voidReason[id]" @bind:event="oninput" style="min-width:16rem;" />
+                        <button type="button" class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_voidReason.GetValueOrDefault(id)))" @onclick="() => VoidAsync(id)">Void</button>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public long PatientId { get; set; }
+
+    private sealed class WorkupForm
+    {
+        public long? SpecimenId { get; set; }
+        public DatWorkupResult DatResult { get; set; } = DatWorkupResult.NotRecorded;
+        public string? DatMethod { get; set; }
+        public string? ElutionResult { get; set; }
+        public string? ElutionNotPerformedReason { get; set; }
+        public string? Comment { get; set; }
+    }
+
+    private sealed class FindingRow
+    {
+        public EluateFindingKind Kind { get; set; } = EluateFindingKind.Alloantibody;
+        public long? DefinitionId { get; set; }
+        public string? Text { get; set; }
+    }
+
+    private List<DatElutionWorkupDto> _workups = [];
+    private List<SpecimenDto> _specimens = [];
+    private List<BloodAttributeListItemDto> _catalog = [];
+    private readonly Dictionary<long, WorkupForm> _edit = new();
+    private readonly Dictionary<long, List<FindingRow>> _rows = new();
+    private readonly Dictionary<long, string> _voidReason = new();
+    private WorkupForm _new = new();
+    private Feedback? _fb;
+    private bool _loading;
+    private bool _busy;
+    private bool _showNew;
+    private long _loadedFor;
+
+    private bool CanRecord => Session.Has(PermissionCodes.ImmunoRecord);
+    private bool CanVerify => Session.Has(PermissionCodes.ImmunoOverride);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor != PatientId)
+        {
+            _catalog = ((await Api.GetReferenceBloodAttributesAsync()).Value ?? [])
+                .Where(a => !string.IsNullOrWhiteSpace(a.AntibodyName))
+                .OrderBy(a => a.SortOrder).ThenBy(a => a.AntibodyName)
+                .ToList();
+            _specimens = (await Api.GetPatientSpecimensAsync(PatientId)).Value ?? [];
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var result = await Api.GetDatElutionWorkupsAsync(PatientId);
+        _loading = false;
+        _loadedFor = PatientId;
+        _workups = result.Value ?? [];
+        if (!result.Succeeded)
+        {
+            _fb = result.ToFeedback();
+        }
+
+        _edit.Clear();
+        _rows.Clear();
+        foreach (var w in _workups.Where(w => w.Status == DatElutionWorkupStatus.Open))
+        {
+            _edit[w.Id] = new WorkupForm
+            {
+                SpecimenId = w.SpecimenId, DatResult = w.DatResult, DatMethod = w.DatMethod, ElutionResult = w.ElutionResult,
+                ElutionNotPerformedReason = w.ElutionNotPerformedReason, Comment = w.Comment
+            };
+        }
+    }
+
+    private RenderFragment Fields(WorkupForm f) => __builder =>
+    {
+        <div class="form-row">
+            <div class="field"><label>Specimen</label>
+                <select @bind="f.SpecimenId">
+                    <option value="">None</option>
+                    @foreach (var s in _specimens) { <option value="@s.Id">@s.AccessionNumber (@s.Status)</option> }
+                </select>
+            </div>
+            <div class="field"><label>DAT result</label>
+                <select @bind="f.DatResult">
+                    @foreach (var r in Enum.GetValues<DatWorkupResult>()) { <option value="@r">@r</option> }
+                </select>
+            </div>
+            <div class="field"><label>DAT method</label><input @bind="f.DatMethod" placeholder="e.g. polyspecific AHG" /></div>
+        </div>
+        <div class="form-row">
+            <div class="field"><label>Elution result</label><input @bind="f.ElutionResult" placeholder="Summary of eluate reactivity" /></div>
+            <div class="field"><label>Elution not performed because</label><input @bind="f.ElutionNotPerformedReason" /></div>
+            <div class="field"><label>Comment</label><input @bind="f.Comment" /></div>
+        </div>
+    };
+
+    private List<FindingRow> Rows(DatElutionWorkupDto w)
+    {
+        if (!_rows.TryGetValue(w.Id, out var rows))
+        {
+            rows = (w.EluateFindings ?? [])
+                .Select(f => new FindingRow { Kind = f.Kind, DefinitionId = f.BloodAttributeDefinitionId, Text = f.Kind == EluateFindingKind.Alloantibody ? null : f.Specificity })
+                .ToList();
+            _rows[w.Id] = rows;
+        }
+
+        return rows;
+    }
+
+    private static bool FindingsEditable(DatElutionWorkupDto w) =>
+        w.VerifiedUtc is null && w.Status != DatElutionWorkupStatus.Voided;
+
+    private static int AlloCount(DatElutionWorkupDto w) =>
+        (w.EluateFindings ?? []).Count(f => f.Kind == EluateFindingKind.Alloantibody);
+
+    private static string KindLabel(EluateFindingKind k) => k switch
+    {
+        EluateFindingKind.Alloantibody => "Alloantibody",
+        EluateFindingKind.Autoantibody => "Autoantibody",
+        EluateFindingKind.Panreactive => "Panreactive",
+        _ => "Nonspecific"
+    };
+
+    private static string StatusText(DatElutionWorkupDto w) =>
+        w.VerifiedUtc is not null ? "Verified" : w.Status.ToString();
+
+    private static string StatusBadge(DatElutionWorkupDto w) =>
+        w.VerifiedUtc is not null ? "badge badge-green"
+        : w.Status == DatElutionWorkupStatus.Completed ? "badge badge-amber"
+        : w.Status == DatElutionWorkupStatus.Voided ? "badge badge-gray"
+        : "badge badge-blue";
+
+    private async Task RunAsync(Func<Task<Feedback>> action)
+    {
+        _busy = true;
+        _fb = await action();
+        _busy = false;
+        await LoadAsync();
+    }
+
+    private Task CreateAsync() => RunAsync(async () =>
+    {
+        var r = await Api.CreateDatElutionWorkupAsync(PatientId, new CreateDatElutionWorkupRequest(
+            _new.SpecimenId, _new.DatResult, _new.DatMethod, _new.ElutionResult, _new.ElutionNotPerformedReason, _new.Comment));
+        if (r.Succeeded)
+        {
+            _new = new WorkupForm();
+            _showNew = false;
+        }
+
+        return r.ToFeedback("Workup created.");
+    });
+
+    private Task SaveAsync(long id) => RunAsync(async () =>
+    {
+        var f = _edit[id];
+        var r = await Api.UpdateDatElutionWorkupAsync(id, new UpdateDatElutionWorkupRequest(
+            f.SpecimenId, f.DatResult, f.DatMethod, f.ElutionResult, f.ElutionNotPerformedReason, f.Comment));
+        return r.ToFeedback("Workup saved.");
+    });
+
+    private Task CompleteAsync(long id) => RunAsync(async () =>
+    {
+        var f = _edit[id];
+        var saved = await Api.UpdateDatElutionWorkupAsync(id, new UpdateDatElutionWorkupRequest(
+            f.SpecimenId, f.DatResult, f.DatMethod, f.ElutionResult, f.ElutionNotPerformedReason, f.Comment));
+        if (!saved.Succeeded)
+        {
+            return saved.ToFeedback();
+        }
+
+        return (await Api.CompleteDatElutionWorkupAsync(id)).ToFeedback("Workup completed. Another person can now verify it.");
+    });
+
+    private Task SaveFindingsAsync(long id) => RunAsync(async () =>
+    {
+        var rows = _rows.GetValueOrDefault(id) ?? [];
+        var inputs = rows
+            .Select(r => r.Kind == EluateFindingKind.Alloantibody
+                ? new EluateFindingInput(r.Kind, _catalog.FirstOrDefault(a => a.Id == r.DefinitionId)?.AntibodyName, r.DefinitionId)
+                : new EluateFindingInput(r.Kind, r.Text, null))
+            .ToList();
+        return (await Api.RecordEluateFindingsAsync(id, new RecordEluateFindingsRequest(inputs))).ToFeedback("Eluate findings saved.");
+    });
+
+    private Task VerifyAsync(long id) => RunAsync(async () =>
+        (await Api.VerifyDatElutionWorkupAsync(id)).ToFeedback("Workup verified."));
+
+    private Task VoidAsync(long id) => RunAsync(async () =>
+    {
+        var r = await Api.VoidDatElutionWorkupAsync(id, _voidReason.GetValueOrDefault(id) ?? string.Empty);
+        if (r.Succeeded)
+        {
+            _voidReason.Remove(id);
+        }
+
+        return r.ToFeedback("Workup voided.");
+    });
+}

@@ -362,6 +362,12 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<DatElutionWorkupDto>> VoidDatElutionWorkupAsync(long id, string reason, CancellationToken ct = default) =>
         SendAsync<DatElutionWorkupDto>(HttpMethod.Post, $"api/dat-elution/{id}/void", new VoidDatElutionWorkupRequest(reason), ct);
 
+    public Task<ApiResult<DatElutionWorkupDto>> RecordEluateFindingsAsync(long id, RecordEluateFindingsRequest req, CancellationToken ct = default) =>
+        SendAsync<DatElutionWorkupDto>(HttpMethod.Post, $"api/dat-elution/{id}/eluate-findings", req, ct);
+
+    public Task<ApiResult<DatElutionWorkupDto>> VerifyDatElutionWorkupAsync(long id, CancellationToken ct = default) =>
+        SendAsync<DatElutionWorkupDto>(HttpMethod.Post, $"api/dat-elution/{id}/verify", ct: ct);
+
     public Task<ApiResult<List<AntigenProfileDto>>> GetAntigenProfilesAsync(long patientId, CancellationToken ct = default) =>
         SendAsync<List<AntigenProfileDto>>(HttpMethod.Get, $"api/patients/{patientId}/antigen-profiles", ct: ct);
 

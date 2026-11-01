@@ -462,6 +462,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-423 / FRS-BB-458 | Enter flow through issue, ward receipt, and bedside fields; shortcut list | `ui.js`; `Issuing.razor`; `PatientChartProductsTab.razor`; `UnitScanVerificationPanel.razor` | TEST-BB-313 | D / I | Never presses an action button |
 | URS-BB-424 / FRS-BB-459 | Return inspection attested; override authorizer named | `ReturnInspectionRule`; `OverrideFieldsRule`; `IssuingService`; `InspectionAnswer.razor`; `AuthorizerField.razor` | TEST-BB-314 | D / I | OCD-040 (return part), OCD-041 |
 | URS-BB-425 / FRS-BB-460 | Appearance attested at issue, ward receipt, and receipt | `AppearanceAttestationRule`; `IssuingService`; `InventoryService`; `AppearanceSelect.razor` | TEST-BB-315 | D / I | Completes OCD-040 |
+| URS-BB-426 / FRS-BB-461 | Eluate alloantibodies post to antibody history on verification | `EluateVerificationRule`; `DatElutionWorkupService`; `ImmunohematologyEndpoints`; `PatientChartDatElutionTab.razor` | TEST-BB-317 | D / I | OCD-042 |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

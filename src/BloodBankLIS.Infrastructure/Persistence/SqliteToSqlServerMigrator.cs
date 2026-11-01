@@ -77,6 +77,7 @@ public sealed class SqliteToSqlServerMigrator
         "ChargeRules",
         "Specimens",
         "DatElutionWorkups",
+        "DatElutionEluateFindings",
         "Orders",
         "OrderLines",
         "OrderActions",

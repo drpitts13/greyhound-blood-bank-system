@@ -7737,3 +7737,59 @@ The UX rows are all Present. The next loop should rescan for unblocked work. I c
   - The scripts now compute all content before opening a file for writing.
 - In iteration 271, a failed cleanup step let a plain `git commit` include the other writer's six staged files under a log message. That local commit was undone with `git reset --soft` and the index verified unchanged.
   - Commits now go through an explicitly checked staged list.
+
+## Iteration 273 — Eluate alloantibodies post to antibody history on verification (2026-11-01)
+
+The product owner asked to work the pending Partial rows and decided four open items in conversation:
+- eluate findings post verified alloantibodies (OCD-042)
+- an ISBT licensed-code readiness report (OCD-004)
+- an inactive draft set of PBM criteria (OCD-038)
+- a read-only FHIR R4 API (OCD-043)
+
+This iteration does the eluate item. The other three are next.
+
+### Found
+
+The patient chart's **DAT / Elution** tab had a button and a help page but **no screen**. Nothing rendered for it, and the workup was reachable only through the API. Eluate results were free text, so an alloantibody seen only in an eluate never reached antibody history and never protected later unit selection.
+
+### Implemented
+
+- `DatElutionEluateFinding` (kind, catalog antibody, specificity, IsActive, posted history id), plus `VerifiedBy` / `VerifiedUtc` on the workup. This comes with migration `20261102090000_EluateFindings`, the development SQLite bootstrap (nullable columns are added in place, so there is no recreate), and the SQLite-to-SQL-Server copy order. The migrator coverage test caught the missing copy-order entry.
+- `EluateVerificationRule`:
+  - verification needs a completed workup and a person other than the one who completed it, and happens only once
+  - an alloantibody must match the antibody catalog when recorded
+  - only alloantibodies post
+  - after verification, findings are locked and the workup cannot be voided
+- `DatElutionWorkupService`:
+  - `RecordEluateFindingsAsync` replaces findings by retiring the old rows, never deleting them, with a before/after audit row
+  - `VerifyAsync` (permission `immuno.override`) posts each alloantibody not already active for the patient as Identified, with a comment naming the workup and verifier, an audit row with source Eluate, and the finding linked to the new history row
+- Endpoints: `POST /api/dat-elution/{id}/eluate-findings` and `/verify`.
+- `PatientChartDatElutionTab`, the first screen for this tab:
+  - create, edit, complete, and void with a reason
+  - an eluate-findings editor with a catalog antibody picker
+  - Verify for a second person, with a plain statement of what will be added
+  - per-finding Posted / Already on file / Not posted markers
+- The help page now describes the workflow.
+
+### Requirements / risk
+
+- URS-BB-426, FRS-BB-461, SRS-BB-423, RISK-BB-528. OCD-042 decided; OCD-043 (FHIR) recorded.
+
+### Tests
+
+- TEST-BB-317:
+  - `EluateVerificationRuleTests` (7 cases)
+  - `EluateFindingTests` (7 integration tests):
+    - posts alloantibody only, with source and audit
+    - the completer cannot verify
+    - an open workup cannot be verified
+    - an unmatched alloantibody is refused and earlier findings stay
+    - replaced findings are retired, not deleted
+    - an antibody already on file is not posted twice
+    - a verified workup cannot be voided or have its findings changed
+- Full suite: 3,074 passed, 0 failed (previously 3,059). Domain 1,736, Integration 1,115, Help 29, Application 91, HL7 63, Printing 21, Astm 19. Built with output in an ignored `obj` folder: the normal output folders are held by `BloodBankLIS.Api` and `BloodBankLIS.Web` processes that this session did not start.
+- **Not checked in the running app.** The dev servers on the configured ports belong to another writer and run an older build without this tab. They were left alone. The tab is covered by the service tests, not by a browser check.
+
+### Next ranked residual
+
+OCD-004 readiness report, then OCD-038 inactive draft criteria, then OCD-043 read-only FHIR R4 API.

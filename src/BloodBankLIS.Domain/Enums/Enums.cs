@@ -987,6 +987,15 @@ public enum DatElutionWorkupStatus
     Voided = 2
 }
 
+/// <summary>What an eluate finding is (OCD-042). Only <see cref="Alloantibody"/> posts to antibody history.</summary>
+public enum EluateFindingKind
+{
+    Alloantibody = 0,
+    Autoantibody = 1,
+    Panreactive = 2,
+    Nonspecific = 3
+}
+
 public enum LookbackNotificationStatus
 {
     Pending = 0,

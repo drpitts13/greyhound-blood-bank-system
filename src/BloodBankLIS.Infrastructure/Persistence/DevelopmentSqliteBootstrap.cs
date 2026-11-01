@@ -18,6 +18,8 @@ public static class DevelopmentSqliteBootstrap
     private static readonly (string Table, string Column, string AlterSql)[] AdditiveColumns =
     [
         ("Issues", "Comment", """ALTER TABLE "Issues" ADD COLUMN "Comment" TEXT NULL"""),
+        ("DatElutionWorkups", "VerifiedBy", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedBy" TEXT NULL"""),
+        ("DatElutionWorkups", "VerifiedUtc", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedUtc" TEXT NULL"""),
         ("Issues", "VerifiedScanJson", """ALTER TABLE "Issues" ADD COLUMN "VerifiedScanJson" TEXT NULL"""),
         ("Issues", "CrossmatchStatus", """ALTER TABLE "Issues" ADD COLUMN "CrossmatchStatus" INTEGER NOT NULL DEFAULT 2"""),
         ("Issues", "EmergencyReleaseDetails", """ALTER TABLE "Issues" ADD COLUMN "EmergencyReleaseDetails" TEXT NULL"""),
@@ -184,6 +186,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureTransfusionIndicationCriteriaTableAsync(context, cancellationToken);
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
+        await EnsureEluateFindingsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
             ?? await FindMissingRequiredColumnAsync(context, cancellationToken);
@@ -296,6 +299,37 @@ public static class DevelopmentSqliteBootstrap
     /// <summary>
     /// Creates the DAT/elution workup table when an existing dev database predates it.
     /// </summary>
+    private static async Task EnsureEluateFindingsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "DatElutionWorkups", ct)
+            || await TableExistsAsync(context, "DatElutionEluateFindings", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "DatElutionEluateFindings" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_DatElutionEluateFindings" PRIMARY KEY AUTOINCREMENT,
+                "WorkupId" INTEGER NOT NULL,
+                "Kind" INTEGER NOT NULL,
+                "BloodAttributeDefinitionId" INTEGER NULL,
+                "Specificity" TEXT NOT NULL,
+                "PostedAntibodyHistoryId" INTEGER NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL,
+                CONSTRAINT "FK_DatElutionEluateFindings_DatElutionWorkups_WorkupId" FOREIGN KEY ("WorkupId") REFERENCES "DatElutionWorkups" ("Id") ON DELETE RESTRICT
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE INDEX "IX_DatElutionEluateFindings_WorkupId" ON "DatElutionEluateFindings" ("WorkupId")""", ct);
+    }
+
     private static async Task EnsureDatElutionWorkupsTableAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.Database.CanConnectAsync(ct)
