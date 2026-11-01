@@ -1100,7 +1100,8 @@ public sealed class OrderService
 
         if (!overrideAttempted)
         {
-            return EvaluationResult<Order>.Blocked(new RuleEvaluation([rule]));
+            return EvaluationResult<Order>.Blocked(
+                OverrideFieldsRule.WithMissing(new RuleEvaluation([rule]), request.OverrideReason, request.AuthorizedBy));
         }
 
         if (_exceptionDefinitions is null || _permissions is null || _currentUser is null)

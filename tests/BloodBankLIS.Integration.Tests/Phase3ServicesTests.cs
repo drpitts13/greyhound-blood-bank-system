@@ -668,6 +668,29 @@ public class Phase3ServicesTests : IClassFixture<SqliteContextFactory>
         Assert.False(await context.Overrides.AnyAsync(o => o.ContextId == specimenId));
     }
 
+    // TEST-BB-316 (OCD-041): an override started without an authorizer says so and records nothing.
+    [Fact]
+    public async Task Update_ExpiryChange_ReasonWithoutAuthorizer_SaysWhoIsMissing()
+    {
+        var patientId = await EnsurePatientAsync("MRN-EDIT-NOAUTH");
+        var specimenId = await AccessionAsync("ACC-EDIT-NOAUTH", patientId);
+        var collected = _factory.Clock.UtcNow.AddHours(-2);
+
+        await using var context = _factory.Create();
+        await EnsureExpirationOverrideExceptionAsync(context);
+        var denied = await Specimens(context, new FixedPermissionEvaluator(3)).UpdateAsync(
+            specimenId,
+            new UpdateSpecimenRequest(
+                collected,
+                ExpiresUtc: collected.AddHours(240),
+                OverrideReason: "Extended for delayed XM",
+                AuthorizedBy: "  "));
+
+        Assert.False(denied.Succeeded);
+        Assert.Contains("name who authorized it", denied.Error, StringComparison.Ordinal);
+        Assert.False(await context.Overrides.AnyAsync(o => o.ContextId == specimenId));
+    }
+
     [Fact]
     public async Task Update_ExpiryChange_TechLevel1_IsBlocked()
     {

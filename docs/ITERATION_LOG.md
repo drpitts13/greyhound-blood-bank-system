@@ -7694,3 +7694,46 @@ The rename stays uncommitted in the working tree, with its staged files restored
 ### Next ranked residual
 
 Return to the clinical matrix. Its remaining Partial rows are SME- or license-blocked (OCD-004, OCD-038, eluate history, FHIR). The next unblocked candidate is the order-edit override path, which refuses a blank authorizer without saying so (iteration 270).
+
+## Iteration 272 — The last two override paths say which field is missing (2026-11-01)
+
+Iteration 270 added the `OVR-FIELDS` message (OCD-041) to the issue, result, compatibility, and allocation override paths. Two more paths refused an incomplete override without naming the missing field.
+
+The iteration 270 log described the order-edit path as returning a bool. In fact, the bool is only the "record the override" check. The refusal path returns a blocked result.
+
+1. **Order edit (complex crossmatch downgrade).**
+   - Before: with only a reason or only an authorizer, the refusal re-showed the antibody-history crossmatch warning and nothing else.
+   - Now: it adds the `OVR-FIELDS` warning. The override form stays available.
+2. **Specimen expiry override.**
+   - Before: an incomplete override returned only the expiry warning text.
+   - Now: it appends the missing-field sentence, for example "…To override, name who authorized it (the physician or supervisor, or yourself)."
+
+### Tests
+
+- TEST-BB-316 adds two integration tests. In each, a reason without an authorizer is refused with "name who authorized it", and no override row is written.
+- Full suite: 3,059 passed, 0 failed (previously 3,057). Domain 1,729, Integration 1,107, Help 29, Application 91, HL7 63, Printing 21, Astm 19.
+- The Help tests were run with build output in an ignored `obj` folder. Two `BloodBankLIS.Api` and `BloodBankLIS.Web` processes, not started by this session, held the normal output folders. They were left running.
+- No UI change, so there was no run check.
+
+### Working tree
+
+The other writer's uncommitted "Stock par → Minimum stock" rename is still in the working tree, and its staged files are unchanged. This commit contains only this iteration's files. The test catalog was committed as the previous commit plus this row.
+
+### Next ranked residual
+
+The remaining clinical Partial rows are SME- or license-blocked:
+- OCD-004: ICCBBA tables
+- OCD-038: PBM criteria
+- eluate findings into antibody history
+- FHIR
+
+The UX rows are all Present. The next loop should rescan for unblocked work. I checked the patient chart's second-verifier field as a candidate: it already uses the directory list, so it is not a gap.
+
+### Process errors this iteration
+
+- While writing the test-catalog row, a script opened the working `TEST_CATALOG.md` for writing before computing its content. When the computation failed, the file was left empty, wiping the other writer's uncommitted one-line rename change in it.
+  - It was rebuilt exactly as the previous commit plus that line, which came from the rename's dropped stash commit `4f19203`.
+  - The other five shared documents were checked and are intact.
+  - The scripts now compute all content before opening a file for writing.
+- In iteration 271, a failed cleanup step let a plain `git commit` include the other writer's six staged files under a log message. That local commit was undone with `git reset --soft` and the index verified unchanged.
+  - Commits now go through an explicitly checked staged list.

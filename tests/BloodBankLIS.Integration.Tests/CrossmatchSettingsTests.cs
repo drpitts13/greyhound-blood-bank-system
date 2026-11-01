@@ -102,6 +102,33 @@ public class CrossmatchSettingsTests : IClassFixture<SqliteContextFactory>
             o.RuleCode == AntibodyHistoryCrossmatchRule.RuleCode && o.ContextType == nameof(Order)));
     }
 
+    // TEST-BB-316 (OCD-041): an order override started without an authorizer says so and records nothing.
+    [Fact]
+    public async Task UpdateOrder_OverrideReasonWithoutAuthorizer_SaysWhoIsMissing()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedProductAndScreenAsync(c, positiveScreen: true, antibodyHistory: true);
+        await Results(c).VerifyResultAsync(seed.ScreenResult.Id);
+
+        var blocked = await Orders(c).UpdateAsync(seed.Patient.Id, seed.ProductOrder.Id, new UpdateOrderRequest(
+            seed.Encounter.Id,
+            seed.Location.Id,
+            [
+                new OrderLineInputDto(OrderCategory.Product, null, seed.Product.Id),
+                new OrderLineInputDto(OrderCategory.Test, "XM", null)
+            ],
+            OrderPriority.Routine,
+            null,
+            "Clinically indicated IS XM",
+            null));
+
+        Assert.False(blocked.Succeeded);
+        Assert.True(blocked.RequiresOverride);
+        Assert.Contains(blocked.Evaluation!.Warnings, w => w.Code == OverrideFieldsRule.Code && w.Message.Contains("name who authorized it"));
+        Assert.Contains(blocked.Evaluation.Warnings, w => w.Code == AntibodyHistoryCrossmatchRule.RuleCode);
+        Assert.False(await c.Overrides.AnyAsync(o => o.ContextType == nameof(Order) && o.ContextId == seed.ProductOrder.Id));
+    }
+
     [Fact]
     public async Task ProductOrder_Create_BeforeScreen_HasNoCrossmatchLine()
     {

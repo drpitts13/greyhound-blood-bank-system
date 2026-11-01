@@ -749,7 +749,9 @@ public sealed class SpecimenService
             && !string.IsNullOrWhiteSpace(request.AuthorizedBy);
         if (!overrideAttempted)
         {
-            return OperationResult<Specimen>.Fail(warning.Message);
+            // OCD-041: once an override is started, say which field is missing as well as why it is needed.
+            var missing = OverrideFieldsRule.Missing(request.OverrideReason, request.AuthorizedBy);
+            return OperationResult<Specimen>.Fail(missing is null ? warning.Message : $"{warning.Message} {missing.Message}");
         }
 
         if (_exceptionDefinitions is null || _permissions is null || _currentUser is null)
