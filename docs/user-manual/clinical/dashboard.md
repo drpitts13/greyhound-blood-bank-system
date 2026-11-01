@@ -27,6 +27,27 @@ A retrospective count names how many items are past their stored due time. An in
 
 A queue you cannot open is left off the row. A queue that does not load shows an em dash. That is not a zero. Opening a card does not issue, receive, verify, or close anything.
 
+## Focus and what comes first
+
+**Focus** sets which desk the page leads with: **Bench**, **Issue desk**, **Supervisor**, or **Everything**. The first focus comes from your permissions. A user who can work only one desk starts on that desk, and anyone else starts on Everything. Change it with the buttons. The choice is remembered for you in this browser only.
+
+| Focus | Its queues |
+|---|---|
+| Bench | Pending specimens, pending tests, second ABO/Rh, supervisor queue |
+| Issue desk | Ready to issue, second ABO/Rh, in transit, outstanding issued, retrospective crossmatch, final disposition |
+| Supervisor | Supervisor queue, reaction investigations, temperature excursions, retrospective crossmatch, final disposition, shift handoff |
+
+The page is arranged in this order:
+
+1. **Start here**: one link to the most urgent queue. When nothing is urgent, it links to the first focus queue that has work.
+2. **Needs attention**: any queue with an overdue or follow-up note, plus temperature excursions, reaction investigations, and an open shift handoff whenever they are above zero. These show **whatever the focus is**, so changing focus never hides them. The most urgent comes first: temperature excursions, reactions, retrospective crossmatch, in transit, then shift handoff.
+3. **Queues with work**: focus queues above zero, in workflow order.
+4. **Could not load**: any queue whose count failed. It is never counted as clear. Open it to check.
+5. **Clear**: focus queues at zero, as small links.
+6. **Other desks**: queues outside the focus, folded. The heading counts their items.
+
+Every queue you can open is still on the page. Focus changes only the order and grouping.
+
 Patients on file, available units, and units in quarantine stay on the next row. Charges waiting for review appear when you can see billing. Use a card or the sidebar to open the queue. The sidebar is the full map: Patient and Lab, Transfusion, Operations, and Administration. **Help** is always present.
 
 ## Your access

@@ -31,14 +31,14 @@ Cycle 263 adds the UX objectives as rows, because they were not tracked.
 | Barcode-first entry | Present | Scanner sanitizing and DIN parsing at receive, issue, release, and now the top bar. One exact scan opens the record. |
 | Safe identification on lookup | Present (Cycle 263) | Never opens on a partial or multi-match; merged MRN names the survivor; a malformed `=` scan does not fall back to name search (RISK-BB-519). |
 | Keyboard-friendly | Partial | `/` and Ctrl+K focus the find box; Enter submits on search and record forms. No global shortcut map yet. |
-| Role-based home | Partial | Dashboard cards are filtered by permission (Cycle 243), not laid out per role. |
+| Role-based home | Present (Cycle 266) | Focus (Bench, Issue desk, Supervisor, Everything) inferred from permissions and switchable; Start here, Needs attention in every focus, could-not-load never clear, other desks folded (RISK-BB-522). |
 | Action-oriented queues | Present | Worklists, supervisor queue, alert inbox, near-expiry, ready to issue. |
 | Next-step guidance | Present | Patient workflow ribbon and inventory desk ribbon. |
 | Timeline views | Present (patient Cycle 264, specimen Cycle 265) | Patient chart **Timeline** tab (RISK-BB-520). Specimen **History** panel from audit rows with user, workstation, and field changes; a scanned accession opens it (RISK-BB-521). Units have status history and activity. |
 | Alert / warning / hard-stop separation | Present | Rule severities Pass / Warning / HardStop with override reasons where allowed. |
 | Human-readable errors | Present | Recent cycles rewrote messages in plain wording. |
 
-Cycle 264 added the patient timeline and Cycle 265 the specimen history. Next ranked improvement: role-based home (Partial). The dashboard filters cards by permission but does not lead with the work for the signed-in role (bench tech, issue desk, supervisor). See the iteration log for the ranking.
+Cycle 264 added the patient timeline, Cycle 265 the specimen history, and Cycle 266 the role-focused home. The remaining UX Partial row is keyboard: there is no shortcut map and no keyboard path through the issue desk. See the iteration log for the next ranking.
 
 ## Capability matrix (Cycle 251)
 

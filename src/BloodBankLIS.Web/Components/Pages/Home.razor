@@ -3,6 +3,7 @@
 @inject BloodBankApiClient Api
 @inject UserSession Session
 @inject NavigationManager Nav
+@inject IJSRuntime Js
 
 <PageTitle>Dashboard &middot; Greyhound Blood Bank LIS</PageTitle>
 
@@ -13,20 +14,89 @@
 
 @if (_cards.Count > 0)
 {
-    <h2 style="font-size:1rem;margin:0 0 .75rem;">Your work</h2>
-    <div class="bb-grid cols-4">
-        @foreach (var card in _cards)
+    <div class="flex-between" style="margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem;">
+        <h2 style="font-size:1rem;margin:0;">Your work</h2>
+        <div class="flex gap" role="group" aria-label="Work focus">
+            <span class="muted" style="font-size:.85rem;">Focus:</span>
+            @foreach (var choice in DashboardHome.Choices)
+            {
+                var c = choice;
+                <button type="button" class="btn btn-sm @(_focus == c ? "btn-primary" : "btn-secondary")"
+                        aria-pressed="@(_focus == c ? "true" : "false")" @onclick="() => SetFocusAsync(c)">@DashboardHome.Label(c)</button>
+            }
+        </div>
+    </div>
+
+    @if (!_loaded)
+    {
+        <div class="loading">Loading your queues...</div>
+    }
+    else
+    {
+        var home = Layout;
+        @if (home.StartHere is { } start)
         {
-            <a class="stat" href="@card.Href">
-                <div class="label">@card.Label</div>
-                <div class="value">@CountText(card.Key)</div>
-                @if (Note(card.Key) is { } note)
-                {
-                    <div class="detail">@note</div>
-                }
+            <a class="bb-start-here @(home.Attention.Contains(start) ? "urgent" : "")" href="@start.Card.Href">
+                <span class="bb-start-label">Start here</span>
+                <span class="bb-start-title">@start.Card.Label: @start.Count</span>
+                @if (start.Note is not null) { <span class="bb-start-note">@start.Note</span> }
+                <span class="bb-start-go">Open &rarr;</span>
             </a>
         }
-    </div>
+        else if (home.Unavailable.Count == 0)
+        {
+            <div class="alert alert-success" style="margin-bottom:1rem;">All of your @(DashboardHome.Label(_focus).ToLowerInvariant() == "everything" ? "" : DashboardHome.Label(_focus).ToLowerInvariant() + " ")queues are clear.</div>
+        }
+
+        @if (home.Attention.Count > 0)
+        {
+            <h3 class="bb-home-section">Needs attention</h3>
+            <div class="bb-grid cols-4">
+                @foreach (var card in home.Attention) { @Card(card, "attention") }
+            </div>
+        }
+
+        @if (home.Queues.Count > 0)
+        {
+            <h3 class="bb-home-section">@(_focus == WorkFocus.Everything ? "Queues with work" : $"{DashboardHome.Label(_focus)} queues with work")</h3>
+            <div class="bb-grid cols-4">
+                @foreach (var card in home.Queues) { @Card(card, null) }
+            </div>
+        }
+
+        @if (home.Unavailable.Count > 0)
+        {
+            <div class="alert alert-warning" style="margin-top:1rem;">
+                Could not load:
+                @foreach (var card in home.Unavailable)
+                {
+                    <a class="bb-chip" href="@card.Card.Href">@card.Card.Label</a>
+                }
+                Open the queue to check it. A queue that did not load is not counted as clear.
+            </div>
+        }
+
+        @if (home.Clear.Count > 0)
+        {
+            <div class="bb-home-clear">
+                <span class="muted">Clear:</span>
+                @foreach (var card in home.Clear)
+                {
+                    <a class="bb-chip" href="@card.Card.Href">@card.Card.Label</a>
+                }
+            </div>
+        }
+
+        @if (home.OtherDesks.Count > 0)
+        {
+            <details class="bb-help" style="margin-top:.75rem;">
+                <summary>Other desks (@home.OtherDesks.Sum(c => c.Count ?? 0) item@(home.OtherDesks.Sum(c => c.Count ?? 0) == 1 ? "" : "s") in @home.OtherDesks.Count queue@(home.OtherDesks.Count == 1 ? "" : "s"))</summary>
+                <div class="bb-grid cols-4" style="margin-top:.5rem;">
+                    @foreach (var card in home.OtherDesks) { @Card(card, null) }
+                </div>
+            </details>
+        }
+    }
 }
 
 <div class="bb-grid cols-4" style="margin-top:1.25rem;">
@@ -90,6 +160,8 @@
     private const string Missing = "\u2014";
 
     private IReadOnlyList<DashboardQueueCatalog.Card> _cards = [];
+    private WorkFocus _focus = WorkFocus.Everything;
+    private bool _loaded;
     private readonly Dictionary<string, int> _counts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _notes = new(StringComparer.Ordinal);
     private int? _patients;
@@ -100,6 +172,7 @@
     protected override async Task OnInitializedAsync()
     {
         _cards = DashboardQueueCatalog.Select(Session.Has);
+        _focus = DashboardHome.InferFocus(Session.Has);
         var loads = _cards.Select(LoadCardAsync).ToList();
         loads.Add(LoadSnapshotAsync());
         var loaded = await Task.WhenAll(loads);
@@ -115,10 +188,64 @@
                 _notes[item.Key] = item.Note;
             }
         }
+
+        _loaded = true;
     }
 
-    private string CountText(string key) =>
-        _counts.TryGetValue(key, out var count) ? count.ToString() : Missing;
+    private DashboardHomeLayout Layout => DashboardHome.Arrange(
+        _cards.Select(card => new DashboardCardState(
+            card,
+            _counts.TryGetValue(card.Key, out var count) ? count : null,
+            Note(card.Key))),
+        _focus);
+
+    private RenderFragment Card(DashboardCardState state, string? css) => __builder =>
+    {
+        <a class="stat @css" href="@state.Card.Href">
+            <div class="label">@state.Card.Label</div>
+            <div class="value">@(state.Count?.ToString() ?? Missing)</div>
+            @if (state.Note is { } note)
+            {
+                <div class="detail">@note</div>
+            }
+        </a>
+    };
+
+    private string FocusKey => $"bb.home.focus.{Session.UserName}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        // Per-browser convenience only; any failure keeps the inferred focus.
+        try
+        {
+            var saved = await Js.InvokeAsync<string?>("localStorage.getItem", FocusKey);
+            if (Enum.TryParse<WorkFocus>(saved, out var focus) && focus != _focus)
+            {
+                _focus = focus;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task SetFocusAsync(WorkFocus focus)
+    {
+        _focus = focus;
+        try
+        {
+            await Js.InvokeVoidAsync("localStorage.setItem", FocusKey, focus.ToString());
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
 
     private string? Note(string key) =>
         _notes.TryGetValue(key, out var note) ? note : null;

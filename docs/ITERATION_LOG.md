@@ -7371,3 +7371,55 @@ The facts about one tube were spread across the specimen row, the audit trail, t
 ### Next ranked residual
 
 The UX matrix now has two Partial rows: role-based home and keyboard. Role-based home ranks first. The dashboard filters cards by permission but does not lead with the signed-in role's own work, such as the issue desk's ready-to-issue and in-transit queues, the bench's pending specimens and tests, or the supervisor's review queue.
+
+## Iteration 266 — Role-focused home (2026-11-01)
+
+The dashboard showed up to 12 queue cards in a fixed order. An empty queue looked as important as one with an overdue emergency crossmatch, and a temperature excursion sat in the same grid as routine pending tests. The capability matrix rated role-based home as Partial.
+
+### Implemented
+
+- `DashboardHome` (Application, no I/O) arranges the permitted cards.
+  - **Focus**: Bench, Issue desk, Supervisor, or Everything. It is inferred from permissions: a user who holds exactly one desk's permissions starts there; anyone else, including an administrator, starts on Everything.
+  - **Start here**: the most urgent card, otherwise the first focus queue with work.
+  - **Needs attention**: any card with an overdue or follow-up note, plus temperature excursions, reactions, or an open handoff above zero.
+    - Shown in **every** focus, in urgency order: excursions, reactions, retrospective crossmatch, in transit, handoff, disposition, supervisor.
+  - **Queues with work**: focus queues above zero, in workflow order.
+  - **Could not load**: a failed count. It is never treated as clear, and the page says so.
+  - **Clear**: focus queues at zero, shown as compact links.
+  - **Other desks**: folded, with an item count.
+  - Every permitted card appears exactly once, so focus changes the order and grouping only.
+- `Home.razor`:
+  - Focus buttons with `aria-pressed`, and the Start here link.
+  - The grouped sections, with Needs-attention cards marked by a red edge.
+  - Focus is remembered per user in browser `localStorage` (`bb.home.focus.{user}`). Storage failures are ignored and fall back to the inferred focus.
+- No API, permission, or schema change. Counts still come from the existing worklist endpoints.
+- Help: a "Focus and what comes first" section in `dashboard`, with the desk table.
+
+### Requirements / risk
+
+- URS-BB-420, FRS-BB-455, SRS-BB-417, RISK-BB-522 (urgent work waits behind routine queues, or a failed count reads as clear).
+
+### Tests
+
+- TEST-BB-310: `DashboardHomeTests` (8 cases). They cover:
+  - focus inference for a single desk, several desks, all permissions, and none
+  - urgent items leading in urgency order even outside the focus
+  - Start here falling back to the first focus queue
+  - a failed load is unavailable and never clear, in every focus
+  - all clear gives no Start here
+  - every card appears exactly once in every focus
+  - Everything has no other desks
+  - a routine non-zero queue without a note is not attention, except the urgent queues
+- Full suite: 3,001 passed, 0 failed (previously 2,993). Application 91, Astm 19, HL7 63, Domain 1,702, Printing 21, Help 8, Integration 1,097.
+- Run check (development database, DevMode):
+  - The admin started on Everything.
+  - Start here was "Reaction investigations: 1".
+  - Needs attention listed reactions, retrospective crossmatch ("1 past due"), and in transit ("1 past the arrival window").
+  - Bench showed bench queues, with "Other desks (5 items in 5 queues)" folded.
+  - After a reload, Bench was still selected. I reset the focus to Everything afterwards.
+  - No server errors.
+- Known: on a reload with a saved focus, the page first renders the inferred focus for a moment, then switches. This happens because browser storage is read only after the first render.
+
+### Next ranked residual
+
+The remaining UX Partial row is keyboard. There is no shortcut map, and the issue desk's scan-verify-issue path needs the mouse between steps.
