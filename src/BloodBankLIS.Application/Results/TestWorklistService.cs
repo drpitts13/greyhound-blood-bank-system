@@ -1,5 +1,6 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Compatibility;
+using BloodBankLIS.Application.Compliance;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
@@ -26,6 +27,7 @@ public sealed class TestWorklistService
     private readonly IClock _clock;
     private readonly ElectronicCrossmatchEligibilityService? _eligibility;
     private readonly IRepository<AntibodyIdentificationWorkup>? _workups;
+    private readonly FacilityPolicyService? _policy;
 
     public TestWorklistService(
         IRepository<Order> orders,
@@ -40,7 +42,8 @@ public sealed class TestWorklistService
         IRepository<SpecimenTypeDefinition> specimenTypes,
         IClock clock,
         ElectronicCrossmatchEligibilityService? eligibility = null,
-        IRepository<AntibodyIdentificationWorkup>? workups = null)
+        IRepository<AntibodyIdentificationWorkup>? workups = null,
+        FacilityPolicyService? policy = null)
     {
         _orders = orders;
         _orderLines = orderLines;
@@ -55,6 +58,7 @@ public sealed class TestWorklistService
         _clock = clock;
         _eligibility = eligibility;
         _workups = workups;
+        _policy = policy;
     }
 
     public Task<IReadOnlyList<TestWorkItemDto>> ListForPatientAsync(
@@ -190,6 +194,10 @@ public sealed class TestWorklistService
             r => r.OrderId != null && orderIds.Contains(r.OrderId.Value), ct);
         var currentResults = BuildCurrentResults(results);
 
+        // Same read as ResultService.VerifyAsync, so the Verify button matches what the server allows.
+        // Fail closed: a missing policy service still blocks ABO self-verify.
+        var blockAboSelfVerify = _policy is null || await _policy.GetBlockAboSelfVerifyAsync(ct);
+
         var items = new List<TestWorkItemDto>();
         foreach (var line in lines.OrderByDescending(l => orderById[l.OrderId].OrderedUtc).ThenBy(l => l.LineNumber))
         {
@@ -304,7 +312,8 @@ public sealed class TestWorklistService
                 current?.EnteredBy,
                 aboRhDeltaHold,
                 aboRhDeltaDetail,
-                line.Comment));
+                line.Comment,
+                blockAboSelfVerify));
         }
 
         return items

@@ -22,7 +22,8 @@ public static class ReferenceEndpoints
     {
         FacilityPolicyKeys.RequireSecondAboForCellularIssue,
         FacilityPolicyKeys.PrefillPatientIdentifiers,
-        FacilityPolicyKeys.InspectionDefaultAcceptable
+        FacilityPolicyKeys.InspectionDefaultAcceptable,
+        FacilityPolicyKeys.BlockAboSelfVerify
     };
 
     public static void MapReferenceEndpoints(this WebApplication app)

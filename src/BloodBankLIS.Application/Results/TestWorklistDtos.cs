@@ -44,7 +44,8 @@ public sealed record TestWorkItemDto(
     string? CurrentResultEnteredBy = null,
     bool AboRhDeltaHold = false,
     string? AboRhDeltaDetail = null,
-    string? Comment = null)
+    string? Comment = null,
+    bool BlockAboSelfVerify = true)
 {
     public bool HasPostedInterfaceOrInstrumentValue =>
         CurrentResultStatus is ResultStatus.PendingVerification
@@ -56,7 +57,8 @@ public sealed record TestWorkItemDto(
             : "Blocked";
 
     public bool IsAboSelfVerifyBlocked(string? userName) =>
-        CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
+        BlockAboSelfVerify
+        && CurrentResultStatus is ResultStatus.Entered or ResultStatus.PendingVerification or ResultStatus.Corrected
         && string.Equals(TestCode, ResultService.AboRhTestCode, StringComparison.OrdinalIgnoreCase)
         && !string.IsNullOrWhiteSpace(CurrentResultEnteredBy)
         && string.Equals(CurrentResultEnteredBy, userName, StringComparison.OrdinalIgnoreCase);

@@ -5,6 +5,7 @@ using BloodBankLIS.Application.Results;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Infrastructure.Audit;
 using BloodBankLIS.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,8 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
             new EfRepository<TestResult>(c),
             new EfRepository<TestDefinition>(c), new EfRepository<SpecimenTypeDefinition>(c), _factory.Clock,
             eligibility: Eligibility(c),
-            workups: new EfRepository<AntibodyIdentificationWorkup>(c));
+            workups: new EfRepository<AntibodyIdentificationWorkup>(c),
+            policy: new BloodBankLIS.Application.Compliance.FacilityPolicyService(new EfRepository<SystemSetting>(c)));
 
     private ElectronicCrossmatchEligibilityService Eligibility(BloodBankDbContext c) =>
         new(new EfRepository<Patient>(c),
@@ -544,6 +546,34 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("historical", item.AboRhDeltaDetail, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("O-", item.AboRhDeltaDetail);
         Assert.Contains("A+", item.AboRhDeltaDetail);
+    }
+
+    [Fact]
+    public async Task PendingWorklist_AboSelfVerifyBlock_FollowsFacilityPolicy()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c, testCode: "ABORH");
+        var save = await Results(c).EnterAboRhAsync(new EnterAboRhRequest(
+            seed.specimen!.Id, AboGroup.O, RhType.Positive, OrderId: seed.order.Id));
+        Assert.True(save.Succeeded, save.Error);
+
+        // Unset policy defaults to blocking the enterer.
+        var blocked = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.True(blocked.IsAboSelfVerifyBlocked(save.Value!.EnteredBy));
+
+        var setting = new SystemSetting { Key = FacilityPolicyKeys.BlockAboSelfVerify, Value = "false", Category = "Result" };
+        c.SystemSettings.Add(setting);
+        await c.SaveChangesAsync();
+        try
+        {
+            var allowed = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+            Assert.False(allowed.IsAboSelfVerifyBlocked(save.Value.EnteredBy));
+        }
+        finally
+        {
+            c.SystemSettings.Remove(setting);
+            await c.SaveChangesAsync();
+        }
     }
 
     [Fact]
