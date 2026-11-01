@@ -650,7 +650,7 @@ public sealed class CompatibilityService
     {
         if (string.IsNullOrWhiteSpace(request.OverrideReason) || string.IsNullOrWhiteSpace(request.AuthorizedBy))
         {
-            return evaluation;
+            return OverrideFieldsRule.WithMissing(evaluation, request.OverrideReason, request.AuthorizedBy);
         }
 
         if (_permissions is null || _exceptionDefinitions is null || _overrides is null)

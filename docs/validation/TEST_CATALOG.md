@@ -322,5 +322,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-311 | D / I | `PatientIdentifierEntryRuleTests`; `RazorFormBindingTests.Patient_identifier_fields_are_not_filled_from_the_record_directly` | URS-BB-421 / FRS-BB-456 / RISK-BB-523 |
 | TEST-BB-312 | D / I | `ComboBoxDisplayTests` | URS-BB-422 / FRS-BB-457 / RISK-BB-524 |
 | TEST-BB-313 | D / I | `EnterFlowTests` | URS-BB-423 / FRS-BB-458 / RISK-BB-525 |
+| TEST-BB-314 | D / I | `ReturnInspectionRuleTests`; `Phase4IssuingTests.Return_WithUnansweredInspection_*`, `Return_WithFacilityDefault_*`, `Return_ExplicitQuarantine_*`, `Return_ExplicitAvailable_*`; `AttestationDefaultTests` | URS-BB-424 / FRS-BB-459 / RISK-BB-526 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

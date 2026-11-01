@@ -355,7 +355,7 @@ public sealed class IssuingService
         {
             if (string.IsNullOrWhiteSpace(request.OverrideReason) || string.IsNullOrWhiteSpace(request.AuthorizedBy))
             {
-                return EvaluationResult<Issue>.Blocked(evaluation);
+                return EvaluationResult<Issue>.Blocked(OverrideFieldsRule.WithMissing(evaluation, request.OverrideReason, request.AuthorizedBy));
             }
 
             var overrideAuth = IssueAuthorizationRule.EvaluateOverride(
@@ -1099,10 +1099,21 @@ public sealed class IssuingService
         var returnMinutes = await _policy.GetReturnToAvailableMinutesAsync(ct);
         var governed = await StorageTimeOutGovernedAsync(unit.CurrentLocationId, ct);
         var timeOk = ReturnReissueRule.TimeOutAcceptable(governed, issue.IssuedUtc, now, returnMinutes);
-        var reissueEval = ReturnReissueRule.Evaluate(
+        var inspection = ReturnInspectionRule.Resolve(
             request.TemperatureAcceptable,
             request.SealIntegrityAcceptable,
             request.VisualInspectionAcceptable,
+            await _policy.GetInspectionDefaultAcceptableAsync(ct),
+            mayReturnToAvailable: request.Destination is null or UnitStatus.Available);
+        if (inspection.Result.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Return>.Blocked(new RuleEvaluation([inspection.Result]));
+        }
+
+        var reissueEval = ReturnReissueRule.Evaluate(
+            inspection.TemperatureAcceptable,
+            inspection.SealIntegrityAcceptable,
+            inspection.VisualInspectionAcceptable,
             timeOk,
             unitUnexpired);
 
@@ -1135,7 +1146,7 @@ public sealed class IssuingService
             }
 
             destination = requested;
-            if ((!request.VisualInspectionAcceptable || !request.SealIntegrityAcceptable)
+            if ((!inspection.VisualInspectionAcceptable || !inspection.SealIntegrityAcceptable)
                 && destination == UnitStatus.Quarantine)
             {
                 destination = UnitStatus.Discarded;
@@ -1144,7 +1155,7 @@ public sealed class IssuingService
         else
         {
             destination = reissueOk ? UnitStatus.Available : UnitStatus.Quarantine;
-            if (!request.VisualInspectionAcceptable || !request.SealIntegrityAcceptable)
+            if (!inspection.VisualInspectionAcceptable || !inspection.SealIntegrityAcceptable)
             {
                 destination = UnitStatus.Discarded;
             }
@@ -1160,9 +1171,11 @@ public sealed class IssuingService
             ReissueEligible = reissueOk,
             ReissueEvaluationJson = JsonSerializer.Serialize(new
             {
-                request.TemperatureAcceptable,
-                request.SealIntegrityAcceptable,
-                request.VisualInspectionAcceptable,
+                inspection.TemperatureAcceptable,
+                inspection.SealIntegrityAcceptable,
+                inspection.VisualInspectionAcceptable,
+                InspectionUnanswered = inspection.AnyUnanswered,
+                InspectionFromFacilityDefault = inspection.UsedFacilityDefault,
                 TimeOutOfStorageAcceptable = timeOk,
                 TimeOutGoverned = governed,
                 CallerTimeOutOfStorageAcceptable = request.TimeOutOfStorageAcceptable,

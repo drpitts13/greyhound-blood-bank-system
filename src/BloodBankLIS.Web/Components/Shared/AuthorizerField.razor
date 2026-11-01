@@ -1,0 +1,32 @@
+@inject UserSession Session
+
+@* OCD-041: names who approved an override. Starts empty so the approving physician or supervisor is recorded;
+   "Me" fills the signed-in user only when they press it. The e-signature separately records who signed. *@
+<div class="field">
+    <label>@Label</label>
+    <div class="flex gap" style="flex-wrap:nowrap;">
+        <input value="@Value" @oninput="OnInputAsync" placeholder="Physician or supervisor who approved" autocomplete="off" />
+        <button type="button" class="btn btn-secondary btn-sm" title="I authorized this override" @onclick="UseMeAsync">Me</button>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "Authorized by";
+
+    /// <summary>The message to show when an override is submitted without an authorizer.</summary>
+    public const string MissingMessage = "Name who authorized the override, or press Me if it was you.";
+
+    private async Task OnInputAsync(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString() ?? string.Empty;
+        await ValueChanged.InvokeAsync(Value);
+    }
+
+    private async Task UseMeAsync()
+    {
+        Value = Session.UserName ?? string.Empty;
+        await ValueChanged.InvokeAsync(Value);
+    }
+}

@@ -7570,3 +7570,70 @@ The UX matrix rows are now Present. Return to the clinical matrix. Its remaining
 - FHIR
 
 The next unblocked candidate is an end-to-end workflow check of the bedside form under `Issue.PrefillPatientIdentifiers`, both on and off, followed by an inventory of other screens that copy identifiers from the record.
+
+## Iteration 270 — Attestations made by a person: return inspection and override authorizer (2026-11-01)
+
+After OCD-039, I audited the web app for other verification fields filled with the value they are meant to check. Two defects turned up, and the product owner decided both in conversation.
+
+### Findings
+
+1. **Return inspection (P0).**
+   - Temperature, seal, and visual inspection started checked on both return forms, and `ReturnUnitRequest` defaulted them to true.
+   - A return given only a reason therefore passed `ReturnReissueRule` and sent the unit back to **Available** with no inspection recorded.
+   - Time out of storage was already computed by the system and was safe.
+   - Appearance at issue, ward receipt, and delivery receipt also starts "Acceptable". That part is not yet changed.
+2. **Override "Authorized by".**
+   - Seven forms pre-filled it with the signed-in user.
+   - Four submits plus the result-entry panel replaced a blank value with the signed-in user, so an emergency release recorded the technologist as its authorizer unless someone typed over it.
+   - The server checks the signer's own override permission and e-signature separately, so this was mis-attribution, not a permission bypass.
+
+### Decisions
+
+- OCD-040: inspections become a facility policy, default off.
+- OCD-041: "Authorized by" starts empty, with a "Me" button.
+
+### Implemented
+
+- `Inspection.DefaultAcceptable` facility policy (Boolean, default false), readable at the bench.
+- `ReturnInspectionRule`: an unanswered inspection is a hard stop (`RET-INSPECT`, naming what is missing) when the unit could go back to Available, whether chosen explicitly or computed.
+  - An explicit Quarantine or Disposed return may leave inspections unanswered, and is recorded as unanswered.
+  - With the policy on, unanswered counts as acceptable.
+  - The return record adds `InspectionUnanswered` and `InspectionFromFacilityDefault`.
+- `ReturnUnitRequest` inspection fields are now `bool?`.
+- `InspectionAnswer` (Acceptable or Not acceptable, starting Not answered) replaces the checkboxes on the issue desk return form and the unit chart's issued-unit status change.
+  - Return stays disabled while an Available return is unanswered.
+  - Fields start acceptable only when the policy is on.
+- `AuthorizerField`: an empty input with a "Me" button, used on all 11 "Authorized by" inputs. The defaults and the silent fallbacks to `Session.UserName` are removed.
+- `OverrideFieldsRule` adds warning `OVR-FIELDS` naming the missing reason or authorizer once an override has been started with one of them. It is a warning, never a hard stop, so screens keep showing the override form. With both blank nothing is added.
+  - Wired into issue, result verify, compatibility, and two allocation paths.
+  - The order-edit path returns a bool and has no message slot. It still refuses, without the message.
+- Help: "Return inspection" and "Who authorized an override" in `issuing`.
+
+### Requirements / risk
+
+- URS-BB-424, FRS-BB-459, SRS-BB-421, RISK-BB-526. OCD-040 (return part done, appearance open) and OCD-041 recorded.
+
+### Tests
+
+- TEST-BB-314:
+  - `ReturnInspectionRuleTests` (11 cases): rule outcomes, the policy default, and `OverrideFieldsRule` messages and append behavior.
+  - Four new integration tests:
+    - an unanswered return is refused and the unit stays Issued
+    - the facility default allows it and is recorded
+    - explicit Quarantine without answers is allowed and recorded as unanswered
+    - explicit Available without answers is refused
+  - `AttestationDefaultTests` (3 source scans). Against the previous commit they flag 13 authorizer defaults or fallbacks and 12 inspection defaults.
+- Ten existing return tests now state their inspections explicitly. They test worklists, time windows, and authorization, not inspection.
+- Found while testing: `Phase4IssuingTests` shares one database across its tests. The facility-default test now turns the policy back off in `finally`; without that, an explicit-Available test passed or failed depending on order.
+- Full suite: 3,046 passed, 0 failed (previously 3,028). Domain 1,724, Integration 1,101, Help 27, Application 91, HL7 63, Printing 21, Astm 19.
+- Run check (development database, DevMode):
+  - Return on an issued unit showed all three inspections as "Not answered", with Return unit disabled.
+  - The seeded unit was past its return window, so only Quarantine and Disposed were offered and no inspection was required.
+  - Answering Seal marked it alone.
+  - On the issue form, ticking Override showed an empty "Authorized by", and Me filled `DEV_ADMIN`.
+  - Nothing was returned or issued, and there were no server errors.
+  - Not exercised in the UI: an Available return, which needs a freshly issued unit. It is covered by the integration tests.
+
+### Next ranked residual
+
+OCD-040, second part: appearance at issue, ward receipt, delivery receipt, and unit receive. This covers five request types plus server enforcement, with the same policy.

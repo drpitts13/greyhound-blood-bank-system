@@ -43,9 +43,10 @@ public sealed record ComponentScanVerificationRequest(
 
 public sealed record ReturnUnitRequest(
     string Reason,
-    bool TemperatureAcceptable = true,
-    bool SealIntegrityAcceptable = true,
-    bool VisualInspectionAcceptable = true,
+    // Null means not answered: refused unless facility policy treats it as acceptable (OCD-040).
+    bool? TemperatureAcceptable = null,
+    bool? SealIntegrityAcceptable = null,
+    bool? VisualInspectionAcceptable = null,
     bool TimeOutOfStorageAcceptable = true,
     UnitStatus? Destination = null);
 

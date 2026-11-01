@@ -224,7 +224,7 @@
                     <p class="muted">The issue gate reported warnings. Provide a reason, authorizer, and electronic signature to proceed.</p>
                     <div class="form-row">
                         <div class="field"><label>Override reason</label><input @bind="IssueOverrideReason" @bind:after="() => IssueOverrideReasonChanged.InvokeAsync(IssueOverrideReason)" /></div>
-                        <div class="field"><label>Authorized by</label><input @bind="IssueAuthorizedBy" @bind:after="() => IssueAuthorizedByChanged.InvokeAsync(IssueAuthorizedBy)" placeholder="@Session.UserName" /></div>
+                        <AuthorizerField Value="@IssueAuthorizedBy" ValueChanged="v => { IssueAuthorizedBy = v; return IssueAuthorizedByChanged.InvokeAsync(v); }" />
                         <div class="field"><label>Meaning of signature</label><input @bind="IssueSignatureMeaning" @bind:after="() => IssueSignatureMeaningChanged.InvokeAsync(IssueSignatureMeaning)" placeholder="I authorize issue override" /></div>
                         <div class="field"><label>Password / PIN</label><input type="password" @bind="IssueSignatureSecret" @bind:after="() => IssueSignatureSecretChanged.InvokeAsync(IssueSignatureSecret)" /></div>
                     </div>
@@ -372,7 +372,7 @@
                     </div>
                     <div class="form-row" style="margin-top:.5rem;">
                         <div class="field"><label>Override reason</label><input @bind="AllocOverrideReason" @bind:after="() => AllocOverrideReasonChanged.InvokeAsync(AllocOverrideReason)" /></div>
-                        <div class="field"><label>Authorized by</label><input @bind="AllocAuthorizedBy" @bind:after="() => AllocAuthorizedByChanged.InvokeAsync(AllocAuthorizedBy)" /></div>
+                        <AuthorizerField Value="@AllocAuthorizedBy" ValueChanged="v => { AllocAuthorizedBy = v; return AllocAuthorizedByChanged.InvokeAsync(v); }" />
                     </div>
                 }
             }

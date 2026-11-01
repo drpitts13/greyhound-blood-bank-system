@@ -81,4 +81,7 @@ public static class FacilityPolicyKeys
 
     /// <summary>When true, issue and bedside forms start with the patient's MRN and DOB filled in. Default off (OCD-039).</summary>
     public const string PrefillPatientIdentifiers = "Issue.PrefillPatientIdentifiers";
+
+    /// <summary>When true, unit inspections (return, appearance at issue and receipt) start as acceptable. Default off (OCD-040).</summary>
+    public const string InspectionDefaultAcceptable = "Inspection.DefaultAcceptable";
 }

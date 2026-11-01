@@ -676,7 +676,8 @@ public sealed class PatientAllocationService
                 if (string.IsNullOrWhiteSpace(request.OverrideReason)
                     || string.IsNullOrWhiteSpace(request.AuthorizedBy))
                 {
-                    return EvaluationResult<AllocatePatientUnitResultDto>.Blocked(new RuleEvaluation([abRule]));
+                    return EvaluationResult<AllocatePatientUnitResultDto>.Blocked(
+                        OverrideFieldsRule.WithMissing(new RuleEvaluation([abRule]), request.OverrideReason, request.AuthorizedBy));
                 }
 
                 var definition = await _exceptionDefinitions.FirstOrDefaultAsync(
@@ -759,7 +760,8 @@ public sealed class PatientAllocationService
             if (string.IsNullOrWhiteSpace(request.OverrideReason)
                 || string.IsNullOrWhiteSpace(request.AuthorizedBy))
             {
-                return EvaluationResult<AllocatePatientUnitResultDto>.Blocked(antigenEval);
+                return EvaluationResult<AllocatePatientUnitResultDto>.Blocked(
+                    OverrideFieldsRule.WithMissing(antigenEval, request.OverrideReason, request.AuthorizedBy));
             }
 
             var antigenDef = await _exceptionDefinitions.FirstOrDefaultAsync(

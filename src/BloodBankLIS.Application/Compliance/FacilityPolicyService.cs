@@ -117,6 +117,9 @@ public sealed class FacilityPolicyService
     public Task<bool> GetPrefillPatientIdentifiersAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.PrefillPatientIdentifiers, false, ct);
 
+    public Task<bool> GetInspectionDefaultAcceptableAsync(CancellationToken ct = default) =>
+        GetBoolAsync(FacilityPolicyKeys.InspectionDefaultAcceptable, false, ct);
+
     public Task<bool> GetAllowElectronicCrossmatchAsync(CancellationToken ct = default) =>
         GetBoolAsync(FacilityPolicyKeys.AllowElectronicCrossmatch, false, ct);
 

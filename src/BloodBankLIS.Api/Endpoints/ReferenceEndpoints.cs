@@ -21,7 +21,8 @@ public static class ReferenceEndpoints
     private static readonly HashSet<string> ReadablePolicyKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         FacilityPolicyKeys.RequireSecondAboForCellularIssue,
-        FacilityPolicyKeys.PrefillPatientIdentifiers
+        FacilityPolicyKeys.PrefillPatientIdentifiers,
+        FacilityPolicyKeys.InspectionDefaultAcceptable
     };
 
     public static void MapReferenceEndpoints(this WebApplication app)

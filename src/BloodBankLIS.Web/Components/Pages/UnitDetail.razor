@@ -238,7 +238,7 @@ else
                         @if (_showAllocOverride)
                         {
                             <div class="field"><label>Override reason</label><input @bind="_allocOverrideReason" /></div>
-                            <div class="field"><label>Authorized by</label><input @bind="_allocAuthorizedBy" /></div>
+                            <AuthorizerField @bind-Value="_allocAuthorizedBy" />
                         }
                     }
                     @if (_unit.Status == UnitStatus.Issued && _selectedIssueId is long issuedId && Session.Has(PermissionCodes.TransfusionDocument))
@@ -261,11 +261,11 @@ else
                         <input @bind="_changeStatusReason" @bind:event="oninput" placeholder="Reason" style="flex:1;min-width:12rem;" />
                         @if (_changeStatusDestination == UnitStatus.Available)
                         {
-                            <label class="checkbox-item"><input type="checkbox" @bind="_changeTempOk" /> Temperature acceptable</label>
-                            <label class="checkbox-item"><input type="checkbox" @bind="_changeSealOk" /> Seal intact</label>
-                            <label class="checkbox-item"><input type="checkbox" @bind="_changeVisualOk" /> Visual inspection acceptable</label>
+                            <InspectionAnswer Label="Temperature" @bind-Value="_changeTempOk" />
+                            <InspectionAnswer Label="Seal" YesText="Intact" NoText="Broken" @bind-Value="_changeSealOk" />
+                            <InspectionAnswer Label="Visual inspection" @bind-Value="_changeVisualOk" />
                         }
-                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_changeStatusReason))" @onclick="() => ChangeIssuedStatusAsync(_unit.Id)">Change status</button>
+                        <button class="btn btn-secondary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_changeStatusReason) || ChangeInspectionMissing)" @onclick="() => ChangeIssuedStatusAsync(_unit.Id)">Change status</button>
                     }
                 </div>
 
@@ -553,9 +553,14 @@ else
     private DateTime? _selectedIssuedUtc;
     private UnitStatus _changeStatusDestination = UnitStatus.Available;
     private string _changeStatusReason = string.Empty;
-    private bool _changeTempOk = true;
-    private bool _changeSealOk = true;
-    private bool _changeVisualOk = true;
+    // OCD-040: null = not answered; required only when the unit would go back to Available.
+    private bool? _changeTempOk;
+    private bool? _changeSealOk;
+    private bool? _changeVisualOk;
+
+    private bool ChangeInspectionMissing =>
+        _changeStatusDestination == UnitStatus.Available
+        && !ReturnInspectionRule.AllAnswered(_changeTempOk, _changeSealOk, _changeVisualOk);
     private long _transferTo;
     private string _transferReason = string.Empty;
     private List<UnitDiscardReasonRefDto> _discardReasons = new();
@@ -700,6 +705,11 @@ else
             _selectedIssuedUtc = row?.IssuedUtc
                 ?? _activity.LastOrDefault(a => a.EventType == "Issue")?.WhenUtc;
             _changeStatusDestination = IssuedCanReturnToAvailable ? UnitStatus.Available : UnitStatus.Quarantine;
+            var inspectionDefault = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.InspectionDefaultAcceptable);
+            bool? start = inspectionDefault.Succeeded && inspectionDefault.Value?.Enabled == true ? true : null;
+            _changeTempOk = start;
+            _changeSealOk = start;
+            _changeVisualOk = start;
         }
     }
 
@@ -806,7 +816,7 @@ else
             _showAllocOverride = true;
             if (string.IsNullOrWhiteSpace(_allocAuthorizedBy))
             {
-                _allocAuthorizedBy = Session.UserName ?? string.Empty;
+                _allocAuthorizedBy = string.Empty;
             }
 
             _actionFb = r.ToFeedback();
@@ -876,7 +886,10 @@ else
 
         _busy = true;
         var r = await Api.ChangeIssuedUnitStatusAsync(unitId, new ReturnUnitRequest(
-            _changeStatusReason.Trim(), _changeTempOk, _changeSealOk, _changeVisualOk,
+            _changeStatusReason.Trim(),
+            _changeStatusDestination == UnitStatus.Available ? _changeTempOk : null,
+            _changeStatusDestination == UnitStatus.Available ? _changeSealOk : null,
+            _changeStatusDestination == UnitStatus.Available ? _changeVisualOk : null,
             Destination: _changeStatusDestination));
         _busy = false;
         if (r.Succeeded) _changeStatusReason = string.Empty;

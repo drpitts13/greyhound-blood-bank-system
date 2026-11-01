@@ -144,7 +144,7 @@
                 <div class="alert alert-warning" style="margin-top:.75rem;">This unit is not antigen-negative for the patient's antibody. Reserve requires an authorized override.</div>
                 <div class="form-row">
                     <div class="field"><label>Override reason</label><input @bind="_allocOverrideReason" /></div>
-                    <div class="field"><label>Authorized by</label><input @bind="_allocAuthorizedBy" /></div>
+                    <AuthorizerField @bind-Value="_allocAuthorizedBy" />
                 </div>
             }
             <button class="btn btn-primary" disabled="@(_busy || _alloc.BloodUnitId is null || _alloc.PatientId == 0)" @onclick="AllocateAsync">Reserve unit</button>
@@ -587,7 +587,7 @@
             _showAllocOverride = true;
             if (string.IsNullOrWhiteSpace(_allocAuthorizedBy))
             {
-                _allocAuthorizedBy = Session.UserName ?? string.Empty;
+                _allocAuthorizedBy = string.Empty;
             }
 
             _allocFb = r.ToFeedback();

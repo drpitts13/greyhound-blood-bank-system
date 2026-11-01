@@ -373,7 +373,7 @@
                                     <option value="@AboRhHistoryResolution.Replace">Replace with current result</option>
                                 </select>
                             </div>
-                            <div class="field"><label>Authorized by</label><input @bind="_authorizedBy" placeholder="@Session.UserName" /></div>
+                            <AuthorizerField @bind-Value="_authorizedBy" />
                         </div>
                         <div class="field"><label>Override reason</label><input @bind="_overrideReason" @bind:event="oninput" /></div>
                         <div class="field"><label>Meaning of signature</label><input @bind="_signatureMeaning" @bind:event="oninput" placeholder="I authorize ABO/Rh discrepancy override" /></div>
@@ -825,7 +825,7 @@
 
         var req = new VerifyResultRequest(
             _overrideReason.Trim(),
-            string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy.Trim(),
+            _authorizedBy.Trim(),
             _historyResolution,
             sig.Value.Id);
         var r = await Api.VerifyResultAsync(resultId, req, sig.Value.Id);
@@ -924,7 +924,7 @@
             IsCrossmatchType ? _xmResult : null,
             _antibodyScreenNegative,
             includeOverride ? _overrideReason.Trim() : null,
-            includeOverride ? (string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy.Trim()) : null,
+            includeOverride ? _authorizedBy.Trim() : null,
             includeOverride ? _historyResolution : null,
             signatureId);
 

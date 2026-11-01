@@ -614,7 +614,7 @@
             {
                 <div class="form-row" style="margin-top:.5rem;">
                     <div class="field"><label>Override reason</label><input @bind="_overrideReason" /></div>
-                    <div class="field"><label>Authorized by</label><input @bind="_authorizedBy" /></div>
+                    <AuthorizerField @bind-Value="_authorizedBy" />
                     <div class="field"><label>Meaning of signature</label><input @bind="_signatureMeaning" placeholder="e.g. I authorize emergency release" /></div>
                     <div class="field"><label>Password / PIN</label><input type="password" @bind="_signatureSecret" /></div>
                 </div>
@@ -781,10 +781,14 @@
                 }
             </div>
             <p class="muted">Record temperature, seal, and visual inspection. A failed seal or appearance cannot return to available stock. The storage device decides the return-to-available window. A governed device cannot be declared acceptable after that window. An exempt device does not fail the window.</p>
-            <label class="checkbox-item"><input type="checkbox" @bind="_returnTempOk" @bind:after="SyncReturnDestination" /> Temperature acceptable</label>
-            <label class="checkbox-item"><input type="checkbox" @bind="_returnSealOk" @bind:after="SyncReturnDestination" /> Seal intact</label>
-            <label class="checkbox-item"><input type="checkbox" @bind="_returnVisualOk" @bind:after="SyncReturnDestination" /> Visual inspection acceptable</label>
-            <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_returnReason))" @onclick="ReturnAsync">Return unit</button>
+            <InspectionAnswer Label="Temperature" @bind-Value="_returnTempOk" @bind-Value:after="SyncReturnDestination" />
+            <InspectionAnswer Label="Seal" YesText="Intact" NoText="Broken" @bind-Value="_returnSealOk" @bind-Value:after="SyncReturnDestination" />
+            <InspectionAnswer Label="Visual inspection" @bind-Value="_returnVisualOk" @bind-Value:after="SyncReturnDestination" />
+            @if (ReturnInspectionMissing)
+            {
+                <p class="muted">Answer all three inspections before the unit can go back to available stock. Choose Quarantine or Disposed to return it without them.</p>
+            }
+            <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_returnReason) || ReturnInspectionMissing)" @onclick="ReturnAsync">Return unit</button>
             @if (_lastReturn is not null)
             {
                 <p class="muted" style="margin-top:.75rem;">
@@ -941,12 +945,20 @@
 
     private long _returnIssueId;
     private string _returnReason = string.Empty;
-    private bool _returnTempOk = true;
-    private bool _returnSealOk = true;
-    private bool _returnVisualOk = true;
+    // OCD-040: null = not answered. Start answered only when the facility defaults inspections to acceptable.
+    private bool _inspectionDefault;
+    private bool? _returnTempOk;
+    private bool? _returnSealOk;
+    private bool? _returnVisualOk;
+    private bool? InspectionStart => _inspectionDefault ? true : null;
+
+    private bool ReturnInspectionMissing =>
+        _returnDestination == UnitStatus.Available
+        && !ReturnInspectionRule.AllAnswered(_returnTempOk, _returnSealOk, _returnVisualOk);
     private bool _returnTimeOutAcceptable = true;
     private UnitStatus _returnDestination = UnitStatus.Available;
-    private bool ReturnCanBeAvailable => _returnTempOk && _returnSealOk && _returnVisualOk && _returnTimeOutAcceptable;
+    private bool ReturnCanBeAvailable =>
+        _returnTempOk != false && _returnSealOk != false && _returnVisualOk != false && _returnTimeOutAcceptable;
     private Feedback? _returnFb;
 
     private long _txIssueId;
@@ -1064,6 +1076,8 @@
 
         var prefill = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.PrefillPatientIdentifiers);
         _prefillIdentifiers = prefill.Succeeded && prefill.Value?.Enabled == true;
+        var inspectionDefault = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.InspectionDefaultAcceptable);
+        _inspectionDefault = inspectionDefault.Succeeded && inspectionDefault.Value?.Enabled == true;
 
         if (Session.HasAny(PermissionCodes.PrintLabel, PermissionCodes.IssueCreate, PermissionCodes.TransfusionDocument))
         {
@@ -1247,9 +1261,9 @@
         _returnWardAppearance = ReadyToIssueFormCue.WardAppearanceNotice(row.WardAppearance);
         _returnPatientName = row.PatientDisplayName;
         _returnPatientId = row.PatientId;
-        _returnTempOk = true;
-        _returnSealOk = true;
-        _returnVisualOk = true;
+        _returnTempOk = InspectionStart;
+        _returnSealOk = InspectionStart;
+        _returnVisualOk = InspectionStart;
         _returnDestination = row.StorageTimeOutAcceptable ? UnitStatus.Available : UnitStatus.Quarantine;
     }
 
@@ -1260,7 +1274,7 @@
             return;
         }
 
-        _returnDestination = _returnSealOk && _returnVisualOk
+        _returnDestination = _returnSealOk != false && _returnVisualOk != false
             ? UnitStatus.Quarantine
             : UnitStatus.Discarded;
     }
@@ -1506,7 +1520,7 @@
             return;
         }
 
-        var r = await Api.IssueUnitAsync(BuildRequest(_overrideReason, string.IsNullOrWhiteSpace(_authorizedBy) ? Session.UserName : _authorizedBy), sig.Value.Id);
+        var r = await Api.IssueUnitAsync(BuildRequest(_overrideReason, _authorizedBy.Trim()), sig.Value.Id);
         _issueFb = r.ToFeedback("Unit issued under override.");
         if (r.Succeeded)
         {
@@ -1591,9 +1605,9 @@
             _returnWardAppearance = null;
             _returnPatientName = null;
             _returnReason = string.Empty;
-            _returnTempOk = true;
-            _returnSealOk = true;
-            _returnVisualOk = true;
+            _returnTempOk = InspectionStart;
+            _returnSealOk = InspectionStart;
+            _returnVisualOk = InspectionStart;
             _returnDestination = UnitStatus.Available;
             await LoadWorklistsAsync();
         }

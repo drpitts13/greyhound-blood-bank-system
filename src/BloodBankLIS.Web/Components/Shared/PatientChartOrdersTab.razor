@@ -489,7 +489,7 @@
                                             else
                                             {
                                                 <div class="form-row">
-                                                    <div class="field"><label>Authorized by</label><input @bind="EditAuthorizedBy" @bind:after="() => EditAuthorizedByChanged.InvokeAsync(EditAuthorizedBy)" placeholder="@Session.UserName" /></div>
+                                                    <AuthorizerField Value="@EditAuthorizedBy" ValueChanged="v => { EditAuthorizedBy = v; return EditAuthorizedByChanged.InvokeAsync(v); }" />
                                                     <div class="field" style="grid-column:1/-1;"><label>Override comment</label><input @bind="EditOverrideReason" @bind:after="() => EditOverrideReasonChanged.InvokeAsync(EditOverrideReason)" /></div>
                                                 </div>
                                             }

@@ -498,3 +498,8 @@ tr.row-muted td { opacity: .75; }
     font-family: Consolas, "Courier New", monospace; font-size: .8rem; padding: .05rem .35rem;
     border: 1px solid var(--bb-border); border-radius: 4px; background: var(--bb-bg); white-space: nowrap;
 }
+
+/* Inspection answer (OCD-040) */
+.bb-inspection { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin: .35rem 0; }
+.bb-inspection-label { min-width: 9rem; font-weight: 500; }
+.bb-inspection-pending { color: var(--bb-warn); font-size: .82rem; }

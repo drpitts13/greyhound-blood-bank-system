@@ -149,7 +149,7 @@
                                         else
                                         {
                                             <div class="form-row">
-                                                <div class="field"><label>Authorized by</label><input @bind="Edit.AuthorizedBy" placeholder="@Session.UserName" /></div>
+                                                <AuthorizerField @bind-Value="Edit.AuthorizedBy" />
                                                 <div class="field" style="grid-column:1/-1;"><label>Override comment</label><input @bind="Edit.OverrideReason" /></div>
                                             </div>
                                         }

@@ -769,7 +769,7 @@ public sealed class ResultService
 
                 if (string.IsNullOrWhiteSpace(request.OverrideReason) || string.IsNullOrWhiteSpace(request.AuthorizedBy))
                 {
-                    return EvaluationResult<TestResult>.Blocked(evaluation);
+                    return EvaluationResult<TestResult>.Blocked(OverrideFieldsRule.WithMissing(evaluation, request.OverrideReason, request.AuthorizedBy));
                 }
 
                 if (request.HistoryResolution is null)

@@ -1014,7 +1014,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Never transfused"))).Succeeded);
+        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Never transfused", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true))).Succeeded);
         var pending = await Issuing(ctx).ListPendingRetrospectiveCrossmatchesAsync();
         Assert.DoesNotContain(pending, p => p.IssueId == issueId);
     }
@@ -1034,7 +1034,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed; cooler intact"));
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed; cooler intact", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
             Assert.True(returned.Succeeded);
         }
 
@@ -1047,6 +1047,103 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.Contains(history, h => h.FromStatus == UnitStatus.Issued && h.ToStatus == UnitStatus.Returned);
             Assert.Contains(history, h => h.FromStatus == UnitStatus.Returned && h.ToStatus == UnitStatus.Available);
         }
+    }
+
+    // TEST-BB-314 (OCD-040): a return that could go back to stock needs a recorded inspection.
+    private async Task<(Scenario S, long IssueId)> IssuedForReturnAsync(string tag)
+    {
+        var s = await SeedAsync(tag);
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await using var c = _factory.Create();
+        return (s, (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id);
+    }
+
+    [Fact]
+    public async Task Return_WithUnansweredInspection_IsRefused_AndTheUnitStaysIssued()
+    {
+        var (s, issueId) = await IssuedForReturnAsync("RET-INSP1");
+
+        await using (var c = _factory.Create())
+        {
+            var r = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed", TemperatureAcceptable: true));
+            Assert.False(r.Succeeded);
+            var stop = Assert.Single(r.Evaluation!.HardStops, h => h.Code == ReturnInspectionRule.Code);
+            Assert.Contains("seal integrity, visual inspection", stop.Message);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Issued, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.Empty(await verify.Returns.Where(x => x.IssueId == issueId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Return_WithFacilityDefault_TreatsUnansweredAsAcceptable_AndSaysSo()
+    {
+        var (s, issueId) = await IssuedForReturnAsync("RET-INSP2");
+        // This class shares one database across tests: turn the policy back off afterwards.
+        await SetInspectionDefaultAsync(true);
+        try
+        {
+            await using (var c = _factory.Create())
+            {
+                Assert.True((await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed"))).Succeeded);
+            }
+
+            await using var verify = _factory.Create();
+            Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+            var json = (await verify.Returns.SingleAsync(x => x.IssueId == issueId)).ReissueEvaluationJson!;
+            Assert.Contains("\"InspectionFromFacilityDefault\":true", json);
+        }
+        finally
+        {
+            await SetInspectionDefaultAsync(false);
+        }
+    }
+
+    private async Task SetInspectionDefaultAsync(bool on)
+    {
+        await using var c = _factory.Create();
+        var row = await c.SystemSettings.FirstOrDefaultAsync(x => x.Key == FacilityPolicyKeys.InspectionDefaultAcceptable);
+        if (row is null)
+        {
+            c.SystemSettings.Add(new SystemSetting { Key = FacilityPolicyKeys.InspectionDefaultAcceptable, Value = on ? "true" : "false", Category = "Inventory" });
+        }
+        else
+        {
+            row.Value = on ? "true" : "false";
+        }
+
+        await c.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Return_ExplicitQuarantine_WithoutInspection_IsAllowed_AndRecordedAsUnanswered()
+    {
+        var (s, issueId) = await IssuedForReturnAsync("RET-INSP3");
+
+        await using (var c = _factory.Create())
+        {
+            var r = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Unsure of storage", Destination: UnitStatus.Quarantine));
+            Assert.True(r.Succeeded, r.Error);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Quarantine, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        var json = (await verify.Returns.SingleAsync(x => x.IssueId == issueId)).ReissueEvaluationJson!;
+        Assert.Contains("\"InspectionUnanswered\":true", json);
+        Assert.Contains("\"InspectionFromFacilityDefault\":false", json);
+    }
+
+    [Fact]
+    public async Task Return_ExplicitAvailable_WithoutInspection_IsRefused()
+    {
+        var (_, issueId) = await IssuedForReturnAsync("RET-INSP4");
+
+        await using var c = _factory.Create();
+        var r = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Back to stock", Destination: UnitStatus.Available));
+        Assert.False(r.Succeeded);
+        Assert.Contains(r.Evaluation!.HardStops, h => h.Code == ReturnInspectionRule.Code);
     }
 
     [Fact]
@@ -1064,7 +1161,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Out of temperature range", TemperatureAcceptable: false));
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest("Out of temperature range", TemperatureAcceptable: false, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
             Assert.True(returned.Succeeded);
         }
 
@@ -1094,7 +1191,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         {
             var available = await Issuing(c).ReturnUnitAsync(
                 issueId,
-                new ReturnUnitRequest("Still unused", Destination: UnitStatus.Available));
+                new ReturnUnitRequest("Still unused", Destination: UnitStatus.Available, TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
             Assert.False(available.Succeeded);
             Assert.Contains("30 minutes", available.Error, StringComparison.OrdinalIgnoreCase);
 
@@ -1133,7 +1230,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         {
             var available = await Issuing(c).ReturnUnitAsync(
                 issueId,
-                new ReturnUnitRequest("Caller says the window is fine", TimeOutOfStorageAcceptable: true, Destination: UnitStatus.Available));
+                new ReturnUnitRequest("Caller says the window is fine", TimeOutOfStorageAcceptable: true, Destination: UnitStatus.Available, TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
             Assert.False(available.Succeeded);
             Assert.Contains("30 minutes", available.Error, StringComparison.OrdinalIgnoreCase);
 
@@ -1175,7 +1272,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                 new ReturnUnitRequest(
                     "Exempt device, still in temperature",
                     TimeOutOfStorageAcceptable: false,
-                    Destination: UnitStatus.Available));
+                    Destination: UnitStatus.Available, TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
             Assert.True(returned.Succeeded, returned.Error);
             Assert.Contains("\"TimeOutOfStorageAcceptable\":true", returned.Value!.ReissueEvaluationJson, StringComparison.Ordinal);
             Assert.Contains("\"TimeOutGoverned\":false", returned.Value.ReissueEvaluationJson, StringComparison.Ordinal);
@@ -2208,7 +2305,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        var returned = await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Never arrived on the ward"));
+        var returned = await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Never arrived on the ward", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
         Assert.True(returned.Succeeded);
     }
 
@@ -2762,7 +2859,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed after receipt"))).Succeeded);
+        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Not needed after receipt", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true))).Succeeded);
         Assert.DoesNotContain(await Issuing(ctx).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
     }
 
@@ -2965,7 +3062,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var ctx = _factory.Create();
-        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Cooler returned unused"))).Succeeded);
+        Assert.True((await Issuing(ctx).ReturnUnitAsync(issueId, new ReturnUnitRequest("Cooler returned unused", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true))).Succeeded);
         var after = await Issuing(ctx).ListInTransitAsync();
         Assert.DoesNotContain(after, t => t.IssueId == issueId);
     }

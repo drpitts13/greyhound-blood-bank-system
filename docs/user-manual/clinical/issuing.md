@@ -63,3 +63,11 @@ You still need a current specimen for the patient, an in-date unit, acceptable a
 ## What the gate will not do
 
 The gate will not issue the losing chart of a merged patient, a unit allocated to someone else, an autologous or directed unit to the wrong patient, a unit that fails appearance, or a unit that does not meet an enforced special requirement. Fix the record or choose another unit. See [Safety checks](safety) for the list you will see most often.
+
+## Return inspection
+
+When you return a unit, answer **Temperature**, **Seal**, and **Visual inspection**. Each starts as **Not answered**. Until all three are answered, **Return unit** stays unavailable when the unit would go back to available stock. A unit you send to **Quarantine** or **Disposed** can be returned without them, and the record says they were not answered. Your facility can choose to start them as acceptable (Facility Policies › *Start unit inspections as acceptable*, OCD-040). Time out of storage is always worked out by the system.
+
+## Who authorized an override
+
+**Authorized by** starts empty. Type the name of the physician or supervisor who approved the override. If you approved it yourself, press **Me**. A blank field is never filled in for you. If you give a reason but no name, the message says so. Your electronic signature separately records who signed.

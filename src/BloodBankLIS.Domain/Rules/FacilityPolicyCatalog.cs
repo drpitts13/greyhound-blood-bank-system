@@ -147,7 +147,10 @@ public static class FacilityPolicyCatalog
             FacilityPolicyValueKind.Boolean, "false", "OCD-038 (REQUIRES SME VERIFICATION)"),
         new(FacilityPolicyKeys.PrefillPatientIdentifiers, "Issue", "Pre-fill patient identifiers at issue and bedside",
             "When true, the issue forms and bedside transfusion documentation start with the patient's MRN and date of birth already entered, and staff confirm them visually. When false, staff scan or type both identifiers from the wristband or requisition, so the two-identifier check compares what was read with the record. Default off.",
-            FacilityPolicyValueKind.Boolean, "false", "OCD-039")
+            FacilityPolicyValueKind.Boolean, "false", "OCD-039"),
+        new(FacilityPolicyKeys.InspectionDefaultAcceptable, "Inventory", "Start unit inspections as acceptable",
+            "When true, return inspections (temperature, seal, visual) and unit appearance at issue, ward receipt, and delivery receipt start as acceptable, and a return that leaves an inspection unanswered counts it as acceptable. When false, staff must answer each inspection and the server refuses a return with an unanswered inspection. Time out of storage is always computed. Default off.",
+            FacilityPolicyValueKind.Boolean, "false", "OCD-040")
     ];
 
     /// <summary>The catalog default of a yes/no policy; true for a key the catalog does not define.</summary>
