@@ -7689,7 +7689,7 @@ This commit contains only the appearance work:
 - `Inventory.razor` was staged without the rename's one-comment change.
 - For the requirement, risk, traceability, and test-catalog documents, the staged version is the previous commit plus only this iteration's rows.
 
-The rename stays uncommitted in the working tree, with its staged files restored to their earlier index state. The suite above ran on the combined tree, so it covers the rename too. This commit alone has not been built separately.
+The rename stays uncommitted in the working tree, with its staged files restored to their earlier index state. The suite above ran on the combined tree, so it covers the rename too. Afterwards the commit (`d2b2947`) was checked out alone in a temporary worktree, without the rename, and built and tested: 3,057 passed, 0 failed.
 
 ### Next ranked residual
 
