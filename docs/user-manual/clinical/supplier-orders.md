@@ -3,16 +3,16 @@ slug: supplier-orders
 title: Supplier orders
 order: 249
 chapter: Inventory
-summary: Build a blood order from the par shortfall, sign it, send it, and link the delivery that fills it.
+summary: Build a blood order from the minimum stock shortfall, sign it, send it, and link the delivery that fills it.
 routes:
   - /inventory/orders
 ---
 
-**Supplier orders** turns the stock par shortfall into an order for your blood supplier.
+**Supplier orders** turns the minimum stock shortfall into an order for your blood supplier.
 
 ## Draft
 
-Staff with inventory receive permission choose a supplier and select **Create draft**. The draft has one line for each par row that is short, for the number of units short. If nothing is below par, no order is created. Change any quantity before you submit; a zero removes the line. Add notes for the supplier if needed. **Save changes** keeps the draft.
+Staff with inventory receive permission choose a supplier and select **Create draft**. The draft has one line for each minimum stock row that is short, for the number of units short. If nothing is below its minimum stock, no order is created. Change any quantity before you submit; a zero removes the line. Add notes for the supplier if needed. **Save changes** keeps the draft.
 
 ## Submit
 

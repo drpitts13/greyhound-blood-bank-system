@@ -7,7 +7,7 @@ namespace BloodBankLIS.Domain.Entities;
 /// Minimum available count for a product, optionally limited to one ABO group.
 /// The board compares on-hand stock with this minimum. It does not order blood.
 /// </summary>
-public class StockParLevel : BaseEntity
+public class MinimumStockLevel : BaseEntity
 {
     public long ProductTypeId { get; set; }
 

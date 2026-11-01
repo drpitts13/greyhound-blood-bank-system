@@ -42,7 +42,7 @@ public sealed record CancelSupplierOrderRequest(string Reason);
 public sealed record SupplierOrderFile(string FileName, string ContentType, byte[] Bytes);
 
 /// <summary>
-/// Supplier orders built from the par shortfall. The order is printed or exported and
+/// Supplier orders built from the minimum stock shortfall. The order is printed or exported and
 /// sent outside the system; no EDI or supplier interface is implied.
 /// </summary>
 public sealed class SupplierOrderService
@@ -52,7 +52,7 @@ public sealed class SupplierOrderService
     private readonly IRepository<BloodSupplier> _suppliers;
     private readonly IRepository<BloodDelivery> _deliveries;
     private readonly IRepository<ProductType> _products;
-    private readonly StockParService _par;
+    private readonly MinimumStockService _minimumStock;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IClock _clock;
     private readonly ICurrentUser _currentUser;
@@ -66,7 +66,7 @@ public sealed class SupplierOrderService
         IRepository<BloodSupplier> suppliers,
         IRepository<BloodDelivery> deliveries,
         IRepository<ProductType> products,
-        StockParService par,
+        MinimumStockService minimumStock,
         IUnitOfWork unitOfWork,
         IClock clock,
         ICurrentUser currentUser,
@@ -79,7 +79,7 @@ public sealed class SupplierOrderService
         _suppliers = suppliers;
         _deliveries = deliveries;
         _products = products;
-        _par = par;
+        _minimumStock = minimumStock;
         _unitOfWork = unitOfWork;
         _clock = clock;
         _currentUser = currentUser;
@@ -106,8 +106,8 @@ public sealed class SupplierOrderService
         return order is null ? null : await ToDtoAsync(order, ct);
     }
 
-    /// <summary>Draft order with one line per par row that is short, for the shortfall quantity.</summary>
-    public async Task<OperationResult<SupplierOrderDto>> CreateFromParAsync(CreateSupplierOrderRequest request, CancellationToken ct = default)
+    /// <summary>Draft order with one line per minimum stock row that is short, for the shortfall quantity.</summary>
+    public async Task<OperationResult<SupplierOrderDto>> CreateFromShortfallAsync(CreateSupplierOrderRequest request, CancellationToken ct = default)
     {
         var supplier = await _suppliers.GetByIdAsync(request.SupplierId, ct);
         if (supplier is null || !supplier.IsActive)
@@ -115,10 +115,10 @@ public sealed class SupplierOrderService
             return OperationResult<SupplierOrderDto>.Fail("Supplier not found.");
         }
 
-        var shortRows = (await _par.ListAsync(ct)).Where(row => row.Shortfall > 0).ToList();
+        var shortRows = (await _minimumStock.ListAsync(ct)).Where(row => row.Shortfall > 0).ToList();
         if (shortRows.Count == 0)
         {
-            return OperationResult<SupplierOrderDto>.Fail("No product is below par, so there is nothing to order.");
+            return OperationResult<SupplierOrderDto>.Fail("No product is below its minimum stock, so there is nothing to order.");
         }
 
         var order = new SupplierOrder
@@ -142,7 +142,7 @@ public sealed class SupplierOrderService
 
         _audit.Record(AuditEventType.Create, nameof(SupplierOrder), order.Id, null,
             new { order.OrderNumber, Supplier = supplier.Code, Lines = shortRows.Count, Units = shortRows.Sum(r => r.Shortfall) },
-            "Supplier order drafted from par shortfall.");
+            "Supplier order drafted from minimum stock shortfall.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<SupplierOrderDto>.Ok(await ToDtoAsync(order, ct));
     }

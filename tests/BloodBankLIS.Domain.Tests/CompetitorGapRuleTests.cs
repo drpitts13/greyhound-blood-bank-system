@@ -45,10 +45,10 @@ public class CompetitorGapRuleTests
     }
 
     [Fact]
-    public void ParShortfall_IsTheGapBelowTheMinimum()
+    public void MinimumStockShortfall_IsTheGapBelowTheMinimum()
     {
-        Assert.Equal(2, StockParRule.Shortfall(1, 3));
-        Assert.Equal(0, StockParRule.Shortfall(4, 3));
+        Assert.Equal(2, MinimumStockRule.Shortfall(1, 3));
+        Assert.Equal(0, MinimumStockRule.Shortfall(4, 3));
     }
 
     [Fact]

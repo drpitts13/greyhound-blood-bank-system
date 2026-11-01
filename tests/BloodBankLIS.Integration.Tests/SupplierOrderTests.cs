@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace BloodBankLIS.Integration.Tests;
 
-// TEST-BB-301: supplier order from the par shortfall through submit, receive, export, and cancel.
+// TEST-BB-301: supplier order from the minimum stock shortfall through submit, receive, export, and cancel.
 public class SupplierOrderTests : IDisposable
 {
     private readonly SqliteContextFactory _factory = new();
@@ -27,20 +27,20 @@ public class SupplierOrderTests : IDisposable
             new EfRepository<BloodSupplier>(c),
             new EfRepository<BloodDelivery>(c),
             new EfRepository<ProductType>(c),
-            new StockParService(new EfRepository<StockParLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c),
+            new MinimumStockService(new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c),
             c, _factory.Clock, _factory.CurrentUser,
             new AuditWriter(c, _factory.Clock, _factory.CurrentUser),
             _signatures,
             new TabularReportRenderer());
 
     [Fact]
-    public async Task Order_FromParShortfall_EditSubmitReceive()
+    public async Task Order_FromMinimumStockShortfall_EditSubmitReceive()
     {
         await using var c = _factory.Create();
         var f = await SeedAsync(c);
         var service = Service(c);
 
-        var created = await service.CreateFromParAsync(new CreateSupplierOrderRequest(f.Supplier.Id));
+        var created = await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id));
         Assert.True(created.Succeeded, created.Error);
         var order = created.Value!;
         Assert.Equal(SupplierOrderStatus.Draft, order.Status);
@@ -91,7 +91,7 @@ public class SupplierOrderTests : IDisposable
         await using var c = _factory.Create();
         var f = await SeedAsync(c);
         var service = Service(c);
-        var order = (await service.CreateFromParAsync(new CreateSupplierOrderRequest(f.Supplier.Id))).Value!;
+        var order = (await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id))).Value!;
 
         var csv = await service.ExportAsync(order.Id, "csv");
         Assert.True(csv.Succeeded, csv.Error);
@@ -117,19 +117,19 @@ public class SupplierOrderTests : IDisposable
         var inactive = new BloodSupplier { Code = "OLD", Name = "Old supplier", Registration = "R-OLD", IsActive = false };
         c.BloodSuppliers.Add(inactive);
         await c.SaveChangesAsync();
-        Assert.False((await service.CreateFromParAsync(new CreateSupplierOrderRequest(inactive.Id))).Succeeded);
+        Assert.False((await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(inactive.Id))).Succeeded);
 
-        var order = (await service.CreateFromParAsync(new CreateSupplierOrderRequest(f.Supplier.Id))).Value!;
+        var order = (await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id))).Value!;
         Assert.False((await service.CancelAsync(order.Id, new CancelSupplierOrderRequest(" "))).Succeeded);
         var cancelled = await service.CancelAsync(order.Id, new CancelSupplierOrderRequest("Covered by a standing order"));
         Assert.Equal(SupplierOrderStatus.Cancelled, cancelled.Value!.Status);
 
-        var level = await c.StockParLevels.SingleAsync(p => p.ProductTypeId == f.RedCells.Id);
+        var level = await c.MinimumStockLevels.SingleAsync(p => p.ProductTypeId == f.RedCells.Id);
         level.MinimumAvailable = 1;
         await c.SaveChangesAsync();
-        var none = await service.CreateFromParAsync(new CreateSupplierOrderRequest(f.Supplier.Id));
+        var none = await service.CreateFromShortfallAsync(new CreateSupplierOrderRequest(f.Supplier.Id));
         Assert.False(none.Succeeded);
-        Assert.Contains("below par", none.Error);
+        Assert.Contains("below its minimum stock", none.Error);
     }
 
     private sealed record Fixture(BloodSupplier Supplier, ProductType RedCells, ProductType Plasma, BloodDelivery Delivery, BloodDelivery OtherDelivery);
@@ -143,8 +143,8 @@ public class SupplierOrderTests : IDisposable
         c.AddRange(supplier, other, redCells, plasma);
         await c.SaveChangesAsync();
 
-        c.StockParLevels.Add(new StockParLevel { ProductTypeId = redCells.Id, Abo = AboGroup.O, MinimumAvailable = 3 });
-        c.StockParLevels.Add(new StockParLevel { ProductTypeId = plasma.Id, MinimumAvailable = 0 });
+        c.MinimumStockLevels.Add(new MinimumStockLevel { ProductTypeId = redCells.Id, Abo = AboGroup.O, MinimumAvailable = 3 });
+        c.MinimumStockLevels.Add(new MinimumStockLevel { ProductTypeId = plasma.Id, MinimumAvailable = 0 });
         c.BloodUnits.Add(new BloodUnit
         {
             UnitNumber = "U-SO-1",

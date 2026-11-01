@@ -1694,11 +1694,11 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<List<ReagentQcWorkItemDto>>> GetReagentQcWorklistAsync(CancellationToken ct = default) =>
         SendAsync<List<ReagentQcWorkItemDto>>(HttpMethod.Get, "api/reagents/worklist", ct: ct);
 
-    public Task<ApiResult<List<StockParBoardRowDto>>> GetStockParAsync(CancellationToken ct = default) =>
-        SendAsync<List<StockParBoardRowDto>>(HttpMethod.Get, "api/inventory/par", ct: ct);
+    public Task<ApiResult<List<MinimumStockRowDto>>> GetMinimumStockAsync(CancellationToken ct = default) =>
+        SendAsync<List<MinimumStockRowDto>>(HttpMethod.Get, "api/inventory/minimum-stock", ct: ct);
 
-    public Task<ApiResult<StockParBoardRowDto>> SaveStockParAsync(SaveStockParRequest req, CancellationToken ct = default) =>
-        SendAsync<StockParBoardRowDto>(HttpMethod.Post, "api/inventory/par", req, ct);
+    public Task<ApiResult<MinimumStockRowDto>> SaveMinimumStockAsync(SaveMinimumStockRequest req, CancellationToken ct = default) =>
+        SendAsync<MinimumStockRowDto>(HttpMethod.Post, "api/inventory/minimum-stock", req, ct);
 
     // ---- Admin: Modification rules ----
     public Task<ApiResult<List<ModificationRuleDto>>> GetAdminModificationRulesAsync(bool includeInactive = true, CancellationToken ct = default) =>

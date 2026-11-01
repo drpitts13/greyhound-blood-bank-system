@@ -146,7 +146,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<DatabaseBackup> DatabaseBackups => Set<DatabaseBackup>();
     public DbSet<SupplierOrder> SupplierOrders => Set<SupplierOrder>();
     public DbSet<SupplierOrderLine> SupplierOrderLines => Set<SupplierOrderLine>();
-    public DbSet<StockParLevel> StockParLevels => Set<StockParLevel>();
+    public DbSet<MinimumStockLevel> MinimumStockLevels => Set<MinimumStockLevel>();
 
     // ISBT 128 component identity / lookups / workflow
     public DbSet<BloodComponentRawScan> BloodComponentRawScans => Set<BloodComponentRawScan>();

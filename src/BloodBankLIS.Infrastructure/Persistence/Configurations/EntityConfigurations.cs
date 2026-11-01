@@ -2113,6 +2113,15 @@ public sealed class AlertConfiguration : IEntityTypeConfiguration<Alert>
     }
 }
 
+public sealed class MinimumStockLevelConfiguration : IEntityTypeConfiguration<MinimumStockLevel>
+{
+    public void Configure(EntityTypeBuilder<MinimumStockLevel> b)
+    {
+        // The table keeps its original name so existing databases need no migration.
+        b.ToTable("StockParLevels");
+    }
+}
+
 public sealed class SupplierOrderConfiguration : IEntityTypeConfiguration<SupplierOrder>
 {
     public void Configure(EntityTypeBuilder<SupplierOrder> b)

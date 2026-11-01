@@ -26,14 +26,15 @@ public static class AlertRule
 {
     public const string TemperatureExcursion = "temperature-excursion";
     public const string UnitsExpired = "units-expired";
-    public const string ParShortage = "par-shortage";
+    // The stored source value predates the "minimum stock" name; changing it would orphan open alerts.
+    public const string MinimumStockShortage = "par-shortage";
     public const string NearExpiry = "near-expiry";
     public const string ReagentQc = "reagent-qc";
     public const string BackupFailed = "backup-failed";
     public const string BackupOverdue = "backup-overdue";
 
     /// <summary>Sources the scan keeps in step with the current condition.</summary>
-    public static readonly IReadOnlyList<string> ConditionSources = [ParShortage, NearExpiry, ReagentQc, BackupOverdue];
+    public static readonly IReadOnlyList<string> ConditionSources = [MinimumStockShortage, NearExpiry, ReagentQc, BackupOverdue];
 
     /// <summary>Still active: the condition has not cleared. An acknowledged alert can still be active.</summary>
     public static bool IsActive(Alert alert) => alert.ResolvedUtc is null;

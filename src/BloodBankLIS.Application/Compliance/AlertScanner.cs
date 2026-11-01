@@ -4,20 +4,20 @@ using BloodBankLIS.Domain.Rules;
 namespace BloodBankLIS.Application.Compliance;
 
 /// <summary>
-/// Turns existing worklists into alerts. It reads par shortfalls, near-expiry units,
+/// Turns existing worklists into alerts. It reads minimum stock shortfalls, near-expiry units,
 /// and reagent QC work, and changes nothing on those records.
 /// </summary>
 public sealed class AlertScanner
 {
     private readonly AlertService _alerts;
-    private readonly StockParService _par;
+    private readonly MinimumStockService _minimumStock;
     private readonly InventoryService _inventory;
     private readonly ReagentQcService _reagents;
 
-    public AlertScanner(AlertService alerts, StockParService par, InventoryService inventory, ReagentQcService reagents)
+    public AlertScanner(AlertService alerts, MinimumStockService minimumStock, InventoryService inventory, ReagentQcService reagents)
     {
         _alerts = alerts;
-        _par = par;
+        _minimumStock = minimumStock;
         _inventory = inventory;
         _reagents = reagents;
     }
@@ -27,17 +27,17 @@ public sealed class AlertScanner
         var raised = 0;
         var resolved = 0;
 
-        var par = (await _par.ListAsync(ct))
+        var shortages = (await _minimumStock.ListAsync(ct))
             .Where(row => row.Shortfall > 0)
             .Select(row => new AlertCandidate(
-                AlertRule.ParShortage,
-                $"PAR:{row.ParId}",
+                AlertRule.MinimumStockShortage,
+                $"PAR:{row.MinimumStockId}", // Stored key prefix, kept so open alerts still match.
                 AlertSeverity.Warning,
-                $"Below par: {row.ProductCode}{(row.Abo is null ? "" : $" group {row.Abo}")}",
+                $"Below minimum stock: {row.ProductCode}{(row.Abo is null ? "" : $" group {row.Abo}")}",
                 $"{row.OnHand} available against a minimum of {row.MinimumAvailable} (short {row.Shortfall}).",
-                "/inventory/par"))
+                "/inventory/minimum-stock"))
             .ToList();
-        Add(await _alerts.SyncAsync(AlertRule.ParShortage, par, ct));
+        Add(await _alerts.SyncAsync(AlertRule.MinimumStockShortage, shortages, ct));
 
         var nearExpiry = (await _inventory.ListNearExpiryAsync(ct))
             .Select(unit => new AlertCandidate(

@@ -184,7 +184,7 @@ app.MapInventoryEndpoints();
 app.MapModificationEndpoints();
 app.MapReagentEndpoints();
 app.MapStorageTemperatureEndpoints();
-app.MapStockParEndpoints();
+app.MapMinimumStockEndpoints();
 app.MapUtilizationEndpoints();
 app.MapAlertEndpoints();
 app.MapSupplierOrderEndpoints();

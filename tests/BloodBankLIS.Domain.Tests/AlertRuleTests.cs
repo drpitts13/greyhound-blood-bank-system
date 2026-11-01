@@ -9,11 +9,11 @@ public class AlertRuleTests
     private static readonly DateTime Now = new(2026, 10, 31, 12, 0, 0, DateTimeKind.Utc);
 
     private static AlertCandidate Found(string key) =>
-        new(AlertRule.ParShortage, key, AlertSeverity.Warning, key, "msg");
+        new(AlertRule.MinimumStockShortage, key, AlertSeverity.Warning, key, "msg");
 
     private static Alert Active(string key, bool acknowledged = false) => new()
     {
-        Source = AlertRule.ParShortage,
+        Source = AlertRule.MinimumStockShortage,
         Key = key,
         AcknowledgedUtc = acknowledged ? Now : null
     };

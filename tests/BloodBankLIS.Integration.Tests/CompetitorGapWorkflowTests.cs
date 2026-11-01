@@ -134,15 +134,15 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
     }
 
     [Fact]
-    public async Task StockPar_ShowsOnHandAgainstTheMinimum()
+    public async Task MinimumStock_ShowsOnHandAgainstTheMinimum()
     {
         await using var context = _factory.Create();
-        var product = new ProductType { ProductCode = "PLT-PAR", Name = "Platelets" };
+        var product = new ProductType { ProductCode = "PLT-MIN", Name = "Platelets" };
         context.ProductTypes.Add(product);
         await context.SaveChangesAsync();
         context.BloodUnits.Add(new BloodUnit
         {
-            UnitNumber = "U-PAR-1",
+            UnitNumber = "U-MIN-1",
             ProductTypeId = product.Id,
             Status = UnitStatus.Available,
             Abo = AboGroup.A,
@@ -150,12 +150,12 @@ public class CompetitorGapWorkflowTests : IClassFixture<SqliteContextFactory>
             ExpiresUtc = _factory.Clock.UtcNow.AddDays(5)
         });
         await context.SaveChangesAsync();
-        var service = new StockParService(
-            new EfRepository<StockParLevel>(context),
+        var service = new MinimumStockService(
+            new EfRepository<MinimumStockLevel>(context),
             new EfRepository<ProductType>(context),
             new InventoryRepository(context),
             context);
-        var saved = await service.SaveAsync(new SaveStockParRequest(product.Id, AboGroup.A, 3));
+        var saved = await service.SaveAsync(new SaveMinimumStockRequest(product.Id, AboGroup.A, 3));
         Assert.True(saved.Succeeded, saved.Error);
         Assert.Equal(1, saved.Value!.OnHand);
         Assert.Equal(2, saved.Value.Shortfall);

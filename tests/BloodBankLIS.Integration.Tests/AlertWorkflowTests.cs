@@ -25,8 +25,8 @@ public class AlertWorkflowTests : IDisposable
     private AlertScanner Scanner(BloodBankDbContext c)
     {
         var audit = new AuditWriter(c, _factory.Clock, _factory.CurrentUser);
-        var par = new StockParService(
-            new EfRepository<StockParLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c);
+        var minimumStock = new MinimumStockService(
+            new EfRepository<MinimumStockLevel>(c), new EfRepository<ProductType>(c), new InventoryRepository(c), c);
         var inventory = new InventoryService(
             new InventoryRepository(c),
             new EfRepository<UnitBloodAttribute>(c),
@@ -36,7 +36,7 @@ public class AlertWorkflowTests : IDisposable
         var reagents = new ReagentQcService(
             new EfRepository<Reagent>(c), new EfRepository<ReagentLot>(c), new EfRepository<ReagentDailyQc>(c),
             c, _factory.Clock, _factory.CurrentUser, audit);
-        return new AlertScanner(Alerts(c), par, inventory, reagents);
+        return new AlertScanner(Alerts(c), minimumStock, inventory, reagents);
     }
 
     private static AlertCandidate Candidate(string source, string key) =>
@@ -64,9 +64,9 @@ public class AlertWorkflowTests : IDisposable
         var alerts = Alerts(c);
         await alerts.RaiseAsync(Candidate(AlertRule.TemperatureExcursion, "TEMP:1"));
 
-        var first = await alerts.SyncAsync(AlertRule.ParShortage, [Candidate(AlertRule.ParShortage, "PAR:1"), Candidate(AlertRule.ParShortage, "PAR:2")]);
+        var first = await alerts.SyncAsync(AlertRule.MinimumStockShortage, [Candidate(AlertRule.MinimumStockShortage, "PAR:1"), Candidate(AlertRule.MinimumStockShortage, "PAR:2")]);
         Assert.Equal((2, 0), first);
-        var second = await alerts.SyncAsync(AlertRule.ParShortage, [Candidate(AlertRule.ParShortage, "PAR:2")]);
+        var second = await alerts.SyncAsync(AlertRule.MinimumStockShortage, [Candidate(AlertRule.MinimumStockShortage, "PAR:2")]);
         Assert.Equal((0, 1), second);
 
         var resolved = await c.Alerts.SingleAsync(a => a.Key == "PAR:1");
@@ -99,14 +99,14 @@ public class AlertWorkflowTests : IDisposable
     }
 
     [Fact]
-    public async Task Scanner_RaisesParNearExpiryAndQc_AndResolvesParWhenStocked()
+    public async Task Scanner_RaisesMinimumStockNearExpiryAndQc_AndResolvesMinimumStockWhenStocked()
     {
         await using var c = _factory.Create();
         var now = _factory.Clock.UtcNow;
         var product = new ProductType { ProductCode = "RBC-ALRT", Name = "Red cells" };
         c.ProductTypes.Add(product);
         await c.SaveChangesAsync();
-        c.StockParLevels.Add(new StockParLevel { ProductTypeId = product.Id, MinimumAvailable = 2 });
+        c.MinimumStockLevels.Add(new MinimumStockLevel { ProductTypeId = product.Id, MinimumAvailable = 2 });
         c.BloodUnits.Add(new BloodUnit
         {
             UnitNumber = "U-ALRT-NEAR",
@@ -135,12 +135,12 @@ public class AlertWorkflowTests : IDisposable
         Assert.Equal(0, resolved);
         Assert.True(raised >= 3);
         var sources = await c.Alerts.Select(a => a.Source).Distinct().ToListAsync();
-        Assert.Contains(AlertRule.ParShortage, sources);
+        Assert.Contains(AlertRule.MinimumStockShortage, sources);
         Assert.Contains(AlertRule.NearExpiry, sources);
         Assert.Contains(AlertRule.ReagentQc, sources);
-        var par = await c.Alerts.SingleAsync(a => a.Source == AlertRule.ParShortage);
-        Assert.Contains("short 1", par.Message);
-        Assert.Equal("/inventory/par", par.Link);
+        var shortage = await c.Alerts.SingleAsync(a => a.Source == AlertRule.MinimumStockShortage);
+        Assert.Contains("short 1", shortage.Message);
+        Assert.Equal("/inventory/minimum-stock", shortage.Link);
 
         // A second scan with nothing changed raises nothing new.
         Assert.Equal(0, (await Scanner(c).ScanAsync()).Raised);
@@ -156,7 +156,7 @@ public class AlertWorkflowTests : IDisposable
         });
         await c.SaveChangesAsync();
         await Scanner(c).ScanAsync();
-        Assert.NotNull((await c.Alerts.SingleAsync(a => a.Id == par.Id)).ResolvedUtc);
+        Assert.NotNull((await c.Alerts.SingleAsync(a => a.Id == shortage.Id)).ResolvedUtc);
     }
 
     [Fact]

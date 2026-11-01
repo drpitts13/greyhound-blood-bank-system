@@ -1,11 +1,13 @@
+@page "/inventory/minimum-stock"
+@* Old address, kept so links in alerts raised before the rename still open this page. *@
 @page "/inventory/par"
 @inject BloodBankApiClient Api
 @inject UserSession Session
 @inject IJSRuntime Js
 
-<PageTitle>Stock par &middot; Greyhound Blood Bank LIS</PageTitle>
+<PageTitle>Minimum stock &middot; Greyhound Blood Bank LIS</PageTitle>
 
-<h1>Stock par</h1>
+<h1>Minimum stock</h1>
 <p class="muted">Available units compared with a minimum for a product and, when set, one ABO group. Orders for a shortfall are built on <a href="/inventory/orders">Supplier orders</a>.</p>
 <Outcome Value="_feedback" />
 
@@ -13,7 +15,7 @@
     <div class="bb-card-title"><h3>On hand</h3></div>
     @if (_rows.Count == 0)
     {
-        <div class="muted">No par levels are configured.</div>
+        <div class="muted">No minimum stock levels are configured.</div>
     }
     else
     {
@@ -55,7 +57,7 @@
 
 @if (Session.Has(PermissionCodes.AdminConfigEdit))
 {
-    <div class="bb-card" id="stock-par-form">
+    <div class="bb-card" id="minimum-stock-form">
         <div class="bb-card-title"><h3>Set a minimum</h3></div>
         <div class="form-row">
             <div class="field">
@@ -80,15 +82,15 @@
             </div>
             <div class="field"><label>Minimum available</label><input type="number" min="0" @bind="_minimum" /></div>
         </div>
-        <button class="btn btn-primary btn-sm" @onclick="SaveAsync">Save par</button>
+        <button class="btn btn-primary btn-sm" @onclick="SaveAsync">Save minimum</button>
     </div>
 }
 
 @code {
-    private List<StockParBoardRowDto> _rows = new();
+    private List<MinimumStockRowDto> _rows = new();
 
     // The same search the board counts with (Available, product, ABO when set), so the number opens its units.
-    private static string OnHandUrl(StockParBoardRowDto row) =>
+    private static string OnHandUrl(MinimumStockRowDto row) =>
         $"/inventory?productTypeId={row.ProductTypeId}&status={UnitStatus.Available}" + (row.Abo is { } abo ? $"&abo={abo}" : "");
     private List<ProductTypeDto> _products = new();
     private Feedback? _feedback;
@@ -105,7 +107,7 @@
 
     private async Task ReloadAsync()
     {
-        var rows = await Api.GetStockParAsync();
+        var rows = await Api.GetMinimumStockAsync();
         if (rows.Succeeded) _rows = rows.Value ?? new();
     }
 
@@ -115,19 +117,19 @@
         _products.FirstOrDefault(p => p.Id == productTypeId)?.Name ?? "—";
 
     /// <summary>Prefill the form from a row, so changing a minimum does not mean re-picking product and ABO.</summary>
-    private async Task EditRow(StockParBoardRowDto row)
+    private async Task EditRow(MinimumStockRowDto row)
     {
         _productId = row.ProductTypeId;
         _abo = row.Abo?.ToString() ?? string.Empty;
         _minimum = row.MinimumAvailable;
-        await Js.ScrollIntoViewAsync("stock-par-form");
+        await Js.ScrollIntoViewAsync("minimum-stock-form");
     }
 
     private async Task SaveAsync()
     {
         AboGroup? abo = Enum.TryParse<AboGroup>(_abo, out var parsed) ? parsed : null;
-        var saved = await Api.SaveStockParAsync(new SaveStockParRequest(_productId, abo, _minimum));
-        _feedback = saved.ToFeedback("Par saved.");
+        var saved = await Api.SaveMinimumStockAsync(new SaveMinimumStockRequest(_productId, abo, _minimum));
+        _feedback = saved.ToFeedback("Minimum saved.");
         if (saved.Succeeded) await ReloadAsync();
     }
 }

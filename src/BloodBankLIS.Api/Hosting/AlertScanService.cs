@@ -3,7 +3,7 @@ using BloodBankLIS.Application.Compliance;
 namespace BloodBankLIS.Api.Hosting;
 
 /// <summary>
-/// Keeps condition alerts (par shortage, near expiry, reagent QC) in step with the
+/// Keeps condition alerts (minimum stock shortage, near expiry, reagent QC) in step with the
 /// worklists. Interval is <c>Alerts:ScanSeconds</c> (default 300; set 0 to disable).
 /// </summary>
 public sealed class AlertScanService : BackgroundService

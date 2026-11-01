@@ -1,14 +1,15 @@
 ---
-slug: stock-par
-title: Stock par
+slug: minimum-stock
+title: Minimum stock
 order: 248
 chapter: Inventory
 summary: Compare available units with a minimum count by product and optional ABO. The board does not order blood.
 routes:
+  - /inventory/minimum-stock
   - /inventory/par
 ---
 
-**Stock par** shows how many available units you have against a minimum you set. The minimum is for one product. You can limit it to one ABO group, or leave ABO as Any so the count includes every available unit of that product.
+**Minimum stock** shows how many available units you have against a minimum you set. The minimum is for one product. You can limit it to one ABO group, or leave ABO as Any so the count includes every available unit of that product.
 
 On hand is the available count. Short is how many units you are under the minimum. A shortfall of zero means the available count meets the minimum.
 
