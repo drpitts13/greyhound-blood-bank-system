@@ -56,7 +56,7 @@ else
         OnUnmerge="UnmergeAsync" />
 
     <PatientWorkflowRibbon Steps="WorkflowSteps" OnStepSelected="OpenWorkflowStepAsync" />
-    <PatientChartTabBar Current="_tab" OnSelect="SelectTab" />
+    <PatientChartTabBar Current="@_tab" OnSelect="SelectTab" />
 
     @if (_tab == "overview")
     {
@@ -290,7 +290,7 @@ else
         <PatientChartTestsTab
             Busy="_busy"
             Loading="_testsLoading"
-            StatusFilter="_testStatusFilter"
+            StatusFilter="@_testStatusFilter"
             StatusFilterChanged="OnTestStatusFilterChanged"
             @bind-Search="_testSearch"
             Items="_testWorklist"
@@ -301,6 +301,11 @@ else
             OnResultSaved="OnTestResultSaved" />
     }
 
+
+    @if (_tab == "timeline")
+    {
+        <PatientChartTimelineTab PatientId="Id" />
+    }
 
     @if (_tab == "test-history")
     {
@@ -745,7 +750,7 @@ else
 
     private static readonly HashSet<string> KnownTabs = new(StringComparer.OrdinalIgnoreCase)
     {
-        "overview", "visits", "orders", "specimens", "tests", "test-history", "dat-elution", "products", "history"
+        "overview", "timeline", "visits", "orders", "specimens", "tests", "test-history", "dat-elution", "products", "history"
     };
 
     private string? _appliedTabQuery;

@@ -7269,3 +7269,56 @@ The capability matrix had no UX rows. Adding them showed that there was no way t
 ### Next ranked residual
 
 A unified, read-only patient timeline on the chart, then a specimen timeline. SME items OCD-004 and OCD-038 stay open.
+
+## Iteration 264 — Patient timeline (2026-11-01)
+
+A patient's history was split across nine chart tabs. To see whether a correction, an emergency release, or a reaction came before the current work, a technologist had to open each tab and piece the order together.
+
+### Implemented
+
+- `PatientTimelineService` builds one newest-first list from stored records, using each record's own time:
+  - visit start and end
+  - order placed, with its current status and any cancellation reason
+  - specimen collected (with the rejection reason when rejected) and received
+  - result entered, verified, corrected (reason; the original is kept and marked replaced), and invalidated (who and why)
+  - blood type recorded, antibody recorded, and special requirement added
+  - reservation, crossmatch, issue (type, crossmatch at issue, override rule, reason, and authorizer), return, transfusion, and reaction reported and closed
+- A change with no stored time of its own, such as a cancellation or rejection, is shown on the event it changed. It is not given an inferred time.
+- Severity:
+  - Critical: antibody, incompatible crossmatch, suspected reaction, reaction report.
+  - Attention: correction, invalidation, cancellation, rejection, special requirement, emergency or overridden issue.
+- `GET /api/patients/{id}/timeline` (Patient Workspace group, authenticated user). Read-only, with no schema change.
+- New chart tab **Timeline** (`?tab=timeline`): grouped by day, with kind filters and counts, a "Warnings and critical only" filter, and each event linked to its tab or unit.
+- Help topic `patient-timeline`.
+
+### Defects fixed while checking
+
+- **No chart tab was ever highlighted.** `PatientChartTabBar Current="_tab"` and `UnitChartTabBar Current="_tab"` passed the literal text "_tab", because Razor treats a string parameter without `@` as text. The same mistake affected the Tests tab: `StatusFilter="_testStatusFilter"` could show "Pending" in the dropdown while the list held completed tests. All three now use `@`.
+  - A new source-scan test, `String_parameters_are_not_given_a_field_name_as_literal_text`, fails on that pattern. It was shown to fail with the old binding.
+- Iteration 263 cited "`UniversalLookupTests` (17 cases)" in `TEST_CATALOG.md`, which breaks `TestCatalogPackagingTests.CitedClasses_HaveSourceFiles`. The count is removed. That row was added after 263's suite run, so 263's commit did not pass this test.
+
+### Requirements / risk
+
+- URS-BB-418, FRS-BB-453, SRS-BB-415, RISK-BB-520 (prior antibody, correction, reaction, or emergency release missed because it is on another tab).
+
+### Tests
+
+- TEST-BB-308: `PatientTimelineTests` (7 cases). They cover:
+  - an empty timeline
+  - newest-first order using each record's own time
+  - Critical and Attention marking, including the override rule, reason, and authorizer
+  - a correction keeping the original and showing the reason, and an invalidation showing who and why
+  - a cancelled order and a rejected specimen keeping the original event time, with no invented events
+  - another patient's records excluded
+  - product events naming and linking the unit
+- Plus the Razor string-parameter regression test.
+- Full suite: 2,979 passed, 0 failed (previously 2,971). Application 83, Astm 19, HL7 63, Domain 1,702, Printing 21, Help 8, Integration 1,083.
+- Run check (development database, DevMode):
+  - Patient 5 Timeline showed 6 events, with the emergency issue marked Attention and its override rule, reason, and authorizer shown.
+  - "Warnings and critical only" left only that issue.
+  - The Timeline tab and the unit Overview tab now highlight.
+  - No server errors.
+
+### Next ranked residual
+
+A specimen timeline: collection, receipt, acceptance or rejection, relabel, results on that specimen, and the crossmatches and allocations that used it. It should be reachable from the Specimens tab and the find box.

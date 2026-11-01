@@ -1576,6 +1576,9 @@ public sealed class BloodBankApiClient
         }
     }
 
+    public Task<ApiResult<List<TimelineEventDto>>> GetPatientTimelineAsync(long patientId, CancellationToken ct = default) =>
+        SendAsync<List<TimelineEventDto>>(HttpMethod.Get, $"api/patients/{patientId}/timeline", ct: ct);
+
     public Task<ApiResult<LookupResultDto>> LookupAsync(LookupRequest req, CancellationToken ct = default) =>
         SendAsync<LookupResultDto>(HttpMethod.Post, "api/lookup", req, ct);
 

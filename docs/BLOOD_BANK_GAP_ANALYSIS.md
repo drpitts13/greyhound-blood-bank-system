@@ -34,11 +34,11 @@ Cycle 263 adds the UX objectives as rows, because they were not tracked.
 | Role-based home | Partial | Dashboard cards are filtered by permission (Cycle 243), not laid out per role. |
 | Action-oriented queues | Present | Worklists, supervisor queue, alert inbox, near-expiry, ready to issue. |
 | Next-step guidance | Present | Patient workflow ribbon and inventory desk ribbon. |
-| Timeline views | **Absent** for patient and specimen | Patient history is split across nine chart tabs. Units have status history and activity. Next ranked UX item. |
+| Timeline views | Patient: Present (Cycle 264). Specimen: Absent | Patient chart **Timeline** tab: one newest-first list with Critical and Attention markings and filters (RISK-BB-520). Units have status history and activity. A specimen timeline is next. |
 | Alert / warning / hard-stop separation | Present | Rule severities Pass / Warning / HardStop with override reasons where allowed. |
 | Human-readable errors | Present | Recent cycles rewrote messages in plain wording. |
 
-Next ranked improvement: a unified, read-only patient timeline (orders, specimens, results and corrections, antibodies, allocations, crossmatches, issues, returns, transfusions, reactions) in one chronological view on the chart, then a specimen timeline.
+Cycle 264 added the patient timeline. Next ranked improvement: a specimen timeline (collection, receipt, acceptance or rejection, relabel, tests and results on that specimen, crossmatches and allocations that used it, and expiry), reachable from the Specimens tab and the find box.
 
 ## Capability matrix (Cycle 251)
 

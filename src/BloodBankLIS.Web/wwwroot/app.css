@@ -440,3 +440,24 @@ tr.row-muted td { opacity: .75; }
 .bb-lookup-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bb-lookup-detail { grid-column: 2 / -1; color: var(--bb-muted); font-size: .8rem; }
 @media (max-width: 760px) { .bb-lookup-input { width: 12rem; } }
+
+/* Patient timeline */
+.bb-timeline { list-style: none; margin: 0; padding: 0; }
+.bb-timeline-day {
+    font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--bb-muted); margin: 1rem 0 .35rem; padding-bottom: .2rem; border-bottom: 1px solid var(--bb-border);
+}
+.bb-timeline-day:first-child { margin-top: 0; }
+.bb-timeline-event {
+    display: grid; grid-template-columns: 3.2rem 6.5rem 1fr; gap: .5rem; align-items: start;
+    padding: .4rem .5rem; border-left: 3px solid transparent;
+}
+.bb-timeline-event.sev-warning { border-left-color: var(--bb-warn); }
+.bb-timeline-event.sev-critical { border-left-color: var(--bb-stop); background: rgba(179, 18, 44, .04); }
+.bb-timeline-time { font-family: Consolas, "Courier New", monospace; color: var(--bb-muted); font-size: .85rem; padding-top: .1rem; }
+.bb-timeline-event .badge { justify-self: start; }
+.bb-timeline-title { font-weight: 500; }
+.bb-timeline-title .badge { margin-right: .35rem; }
+.bb-timeline-detail { color: var(--bb-muted); font-size: .84rem; }
+.bb-timeline-toggle { display: inline-flex; align-items: center; gap: .3rem; font-size: .85rem; color: var(--bb-muted); margin-left: .5rem; }
+@media (max-width: 640px) { .bb-timeline-event { grid-template-columns: 3rem 1fr; } .bb-timeline-event > .badge { display: none; } }

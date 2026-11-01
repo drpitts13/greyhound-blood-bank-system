@@ -86,6 +86,48 @@ public partial class RazorFormBindingTests
             + string.Join(Environment.NewLine, problems));
     }
 
+    /// <summary>
+    /// Razor passes a string component parameter as literal text unless it starts with @, so
+    /// Current="_tab" hands the child the word "_tab" and no chart tab is ever highlighted.
+    /// A string parameter given a bare field name (_x) or member path (a.b) must use @.
+    /// </summary>
+    [Fact]
+    public void String_parameters_are_not_given_a_field_name_as_literal_text()
+    {
+        var root = RepoRoot();
+        var files = Directory.EnumerateFiles(Path.Combine(root, "src", "BloodBankLIS.Web", "Components"), "*.razor", SearchOption.AllDirectories).ToList();
+        var stringParameters = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+        foreach (var file in files)
+        {
+            var names = StringParameter().Matches(File.ReadAllText(file)).Select(m => m.Groups[1].Value);
+            stringParameters[Path.GetFileNameWithoutExtension(file)] = new HashSet<string>(names, StringComparer.Ordinal);
+        }
+
+        var problems = new List<string>();
+        foreach (var file in files)
+        {
+            var text = File.ReadAllText(file);
+            foreach (Match tag in ComponentTag().Matches(text))
+            {
+                if (!stringParameters.TryGetValue(tag.Groups[1].Value, out var parameters))
+                    continue;
+                foreach (Match attribute in BareIdentifierAttribute().Matches(tag.Groups[2].Value))
+                {
+                    var value = attribute.Groups[2].Value;
+                    if (parameters.Contains(attribute.Groups[1].Value) && (value.StartsWith('_') || value.Contains('.')))
+                    {
+                        var line = text[..tag.Index].Count(c => c == '\n') + 1;
+                        problems.Add($"{Path.GetRelativePath(root, file)}:{line} {attribute.Value}");
+                    }
+                }
+            }
+        }
+
+        Assert.True(problems.Count == 0,
+            "These string parameters receive a field name as literal text; prefix the value with @:" + Environment.NewLine
+            + string.Join(Environment.NewLine, problems));
+    }
+
     private static string RepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -113,6 +155,16 @@ public partial class RazorFormBindingTests
 
     [GeneratedRegex("type=\"(?:checkbox|date|datetime-local|time|file|hidden)\"")]
     private static partial Regex NonTextType();
+
+    [GeneratedRegex(@"\[Parameter[^\]]*\]\s*public\s+string\??\s+(\w+)")]
+    private static partial Regex StringParameter();
+
+    [GeneratedRegex(@"<([A-Z]\w+)\b([^>]*)>", RegexOptions.Singleline)]
+    private static partial Regex ComponentTag();
+
+    // Name="value" preceded by whitespace, so @bind-Name="..." is not matched.
+    [GeneratedRegex(@"(?<=\s)(\w+)=""([A-Za-z_]\w*(?:\.\w+)*)""")]
+    private static partial Regex BareIdentifierAttribute();
 
     // _editing, or any _draft / _xxxDraft editor, optionally with extra && conditions (e.g. CanEdit).
     [GeneratedRegex(@"^@if \((?:_editing|_editing is not null|_\w*[dD]raft is not null)(?: && .*)?\)\s*$")]

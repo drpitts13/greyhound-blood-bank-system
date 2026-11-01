@@ -22,7 +22,7 @@ else if (_unit is null)
 else
 {
     <UnitChartHeader Unit="_unit" ProductCode="@ProductCode(_unit)" ProductName="@ProductName(_unit.ProductTypeId)" LocationName="@LocationName(_unit.CurrentLocationId)" />
-    <UnitChartTabBar Current="_tab" OnSelect="SelectTab" />
+    <UnitChartTabBar Current="@_tab" OnSelect="SelectTab" />
     <Outcome Value="_actionFb" />
 
     @if (_autoThawAllocationId is long thawAllocationId)

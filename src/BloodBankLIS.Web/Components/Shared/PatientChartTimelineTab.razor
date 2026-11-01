@@ -1,0 +1,148 @@
+@using BloodBankLIS.Application.PatientWorkspace
+@inject BloodBankApiClient Api
+
+@* Read-only chronological view of the patient's record, newest first, filterable by kind of event. *@
+<div class="bb-card">
+    <div class="bb-card-title flex-between">
+        <h3>Timeline</h3>
+        <button type="button" class="btn btn-secondary btn-sm" disabled="@_loading" @onclick="LoadAsync">Refresh</button>
+    </div>
+
+    <div class="flex gap" style="flex-wrap:wrap;margin-bottom:.75rem;">
+        @foreach (var filter in Filters)
+        {
+            var key = filter.Key;
+            <button type="button" class="btn btn-sm @(_filter == key ? "btn-primary" : "btn-secondary")" @onclick="() => _filter = key">
+                @filter.Label (@Count(key))
+            </button>
+        }
+        <label class="bb-timeline-toggle">
+            <input type="checkbox" @bind="_attentionOnly" /> Warnings and critical only
+        </label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading timeline...</div>
+    }
+    else if (_error is not null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    else if (Visible.Count == 0)
+    {
+        <div class="empty">@(_events.Count == 0 ? "Nothing recorded for this patient yet." : "No events match this filter.")</div>
+    }
+    else
+    {
+        <ol class="bb-timeline">
+            @foreach (var day in Visible.GroupBy(e => e.AtUtc.ToLocalTime().Date))
+            {
+                <li class="bb-timeline-day">@day.Key.ToString("dddd d MMM yyyy")</li>
+                @foreach (var e in day)
+                {
+                    <li class="bb-timeline-event sev-@e.Severity.ToString().ToLowerInvariant()">
+                        <span class="bb-timeline-time">@e.AtUtc.ToLocalTime().ToString("HH:mm")</span>
+                        <span class="badge @CategoryBadge(e.Category)">@CategoryLabel(e.Category)</span>
+                        <div class="bb-timeline-body">
+                            <div class="bb-timeline-title">
+                                @if (e.Severity == TimelineSeverity.Critical) { <span class="badge badge-red">Critical</span> }
+                                else if (e.Severity == TimelineSeverity.Warning) { <span class="badge badge-amber">Attention</span> }
+                                @if (string.IsNullOrWhiteSpace(e.Href)) { @e.Title } else { <a href="@e.Href">@e.Title</a> }
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(e.Detail) || !string.IsNullOrWhiteSpace(e.By))
+                            {
+                                <div class="bb-timeline-detail">
+                                    @e.Detail
+                                    @if (!string.IsNullOrWhiteSpace(e.By)) { <span class="bb-timeline-by">@(string.IsNullOrWhiteSpace(e.Detail) ? "" : " · ")by @e.By</span> }
+                                </div>
+                            }
+                        </div>
+                    </li>
+                }
+            }
+        </ol>
+    }
+</div>
+
+@code {
+    private static readonly (string Key, string Label)[] Filters =
+    [
+        ("all", "All"),
+        ("orders", "Orders & specimens"),
+        ("testing", "Testing"),
+        ("alerts", "Antibodies & requirements"),
+        ("products", "Products & transfusion"),
+        ("visits", "Visits")
+    ];
+
+    [Parameter, EditorRequired] public long PatientId { get; set; }
+
+    private List<TimelineEventDto> _events = [];
+    private long _loadedFor;
+    private bool _loading;
+    private string? _error;
+    private string _filter = "all";
+    private bool _attentionOnly;
+
+    private List<TimelineEventDto> Visible => _events
+        .Where(e => Matches(e, _filter))
+        .Where(e => !_attentionOnly || e.Severity != TimelineSeverity.Info)
+        .ToList();
+
+    private int Count(string filter) => _events.Count(e => Matches(e, filter));
+
+    private static bool Matches(TimelineEventDto e, string filter) => filter switch
+    {
+        "orders" => e.Category is TimelineCategory.Order or TimelineCategory.Specimen,
+        "testing" => e.Category == TimelineCategory.Testing,
+        "alerts" => e.Category == TimelineCategory.Alert,
+        "products" => e.Category is TimelineCategory.Product or TimelineCategory.Transfusion,
+        "visits" => e.Category == TimelineCategory.Visit,
+        _ => true
+    };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor != PatientId)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        var result = await Api.GetPatientTimelineAsync(PatientId);
+        _loading = false;
+        _loadedFor = PatientId;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _events = [];
+            _error = result.Error ?? "The timeline could not be loaded. Try Refresh.";
+            return;
+        }
+
+        _events = result.Value;
+    }
+
+    private static string CategoryLabel(TimelineCategory c) => c switch
+    {
+        TimelineCategory.Alert => "Alert",
+        TimelineCategory.Product => "Product",
+        TimelineCategory.Transfusion => "Transfusion",
+        TimelineCategory.Testing => "Test",
+        TimelineCategory.Specimen => "Specimen",
+        TimelineCategory.Order => "Order",
+        _ => "Visit"
+    };
+
+    private static string CategoryBadge(TimelineCategory c) => c switch
+    {
+        TimelineCategory.Alert => "badge-red",
+        TimelineCategory.Product or TimelineCategory.Transfusion => "badge-blue",
+        TimelineCategory.Testing => "badge-green",
+        _ => "badge-gray"
+    };
+}

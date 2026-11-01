@@ -42,6 +42,10 @@ public static class PatientWorkspaceEndpoints
                 : Results.BadRequest(new { error = result.Error });
         }).RequirePermission(PermissionCodes.PatientWrite);
 
+        // Read-only chronological view; opening the chart already records the patient access.
+        group.MapGet("/timeline", async (long patientId, PatientTimelineService service, CancellationToken ct) =>
+            Results.Ok(await service.GetAsync(patientId, ct)));
+
         group.MapGet("/orders", async (
             long patientId,
             long? encounterId,
