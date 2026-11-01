@@ -13,4 +13,10 @@ public sealed class AuditQuery : IAuditQuery
 
     public async Task<IReadOnlyList<AuditEvent>> ListAsync(CancellationToken cancellationToken = default) =>
         await _context.AuditEvents.AsNoTracking().ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<AuditEvent>> ListForEntityAsync(string entityType, long entityId, CancellationToken cancellationToken = default) =>
+        await _context.AuditEvents.AsNoTracking()
+            .Where(e => e.EntityType == entityType && e.EntityId == entityId)
+            .OrderBy(e => e.Id)
+            .ToListAsync(cancellationToken);
 }

@@ -282,7 +282,8 @@ else
             OnReceive="ReceiveSpecimenAsync"
             OnAccept="AcceptSpecimenAsync"
             OnOpenOrders="OpenAddOrderWithAccessionAsync"
-            ExceptionMinLevel="_specimenExpMinLevel" />
+            ExceptionMinLevel="_specimenExpMinLevel"
+            OpenHistoryId="SpecimenQuery" />
     }
 
     @if (_tab == "tests")
@@ -479,6 +480,7 @@ else
     [Parameter] public long Id { get; set; }
     [SupplyParameterFromQuery(Name = "tab")] public string? TabQuery { get; set; }
     [SupplyParameterFromQuery(Name = "panel")] public string? PanelQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "specimen")] public long? SpecimenQuery { get; set; }
 
     private bool _loading = true;
     private string? _error;

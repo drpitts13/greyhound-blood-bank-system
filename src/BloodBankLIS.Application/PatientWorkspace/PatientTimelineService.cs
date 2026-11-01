@@ -147,29 +147,7 @@ public sealed class PatientTimelineService
         foreach (var r in await _results.ListAsync(x => x.PatientId == patientId, ct))
         {
             var accession = accessionById.GetValueOrDefault(r.SpecimenId) ?? $"specimen {r.SpecimenId}";
-            var value = string.IsNullOrWhiteSpace(r.Interpretation) ? r.Value : r.Interpretation;
-            if (r.EnteredUtc is DateTime entered)
-            {
-                var corrected = !string.IsNullOrWhiteSpace(r.CorrectionReason);
-                events.Add(new(entered, TimelineCategory.Testing, corrected ? TimelineSeverity.Warning : TimelineSeverity.Info,
-                    corrected ? $"{r.TestCode} corrected: {value}" : $"{r.TestCode} resulted: {value}",
-                    Join($"Specimen {accession}", corrected ? $"Reason: {r.CorrectionReason}" : null,
-                        r.Status == ResultStatus.Corrected ? "Later replaced by a correction" : null),
-                    r.EnteredBy, $"{chart}?tab=test-history", $"res-{r.Id}-enter"));
-            }
-
-            if (r.VerifiedUtc is DateTime verified)
-            {
-                events.Add(new(verified, TimelineCategory.Testing, TimelineSeverity.Info,
-                    $"{r.TestCode} verified", $"Specimen {accession}", r.VerifiedBy, $"{chart}?tab=test-history", $"res-{r.Id}-verify"));
-            }
-
-            if (r.InvalidatedUtc is DateTime invalidated)
-            {
-                events.Add(new(invalidated, TimelineCategory.Testing, TimelineSeverity.Warning,
-                    $"{r.TestCode} invalidated", Join($"Specimen {accession}", $"Reason: {r.InvalidationReason}"),
-                    r.InvalidatedBy, $"{chart}?tab=test-history", $"res-{r.Id}-invalidate"));
-            }
+            events.AddRange(ResultEvents(r, accession, $"{chart}?tab=test-history"));
         }
 
         foreach (var b in await _bloodTypes.ListAsync(x => x.PatientId == patientId, ct))
@@ -289,12 +267,43 @@ public sealed class PatientTimelineService
             }
         }
 
-        return events
-            .OrderByDescending(e => e.AtUtc)
-            .ThenBy(e => e.Category)
-            .ThenBy(e => e.SourceKey, StringComparer.Ordinal)
-            .ToList();
+        return Order(events);
     }
+
+    /// <summary>Entered, verified, corrected, and invalidated events for one result. Shared with the specimen timeline.</summary>
+    internal static IEnumerable<TimelineEventDto> ResultEvents(TestResult r, string accession, string href)
+    {
+        var value = string.IsNullOrWhiteSpace(r.Interpretation) ? r.Value : r.Interpretation;
+        if (r.EnteredUtc is DateTime entered)
+        {
+            var corrected = !string.IsNullOrWhiteSpace(r.CorrectionReason);
+            yield return new(entered, TimelineCategory.Testing, corrected ? TimelineSeverity.Warning : TimelineSeverity.Info,
+                corrected ? $"{r.TestCode} corrected: {value}" : $"{r.TestCode} resulted: {value}",
+                Join($"Specimen {accession}", corrected ? $"Reason: {r.CorrectionReason}" : null,
+                    r.Status == ResultStatus.Corrected ? "Later replaced by a correction" : null),
+                r.EnteredBy, href, $"res-{r.Id}-enter");
+        }
+
+        if (r.VerifiedUtc is DateTime verified)
+        {
+            yield return new(verified, TimelineCategory.Testing, TimelineSeverity.Info,
+                $"{r.TestCode} verified", $"Specimen {accession}", r.VerifiedBy, href, $"res-{r.Id}-verify");
+        }
+
+        if (r.InvalidatedUtc is DateTime invalidated)
+        {
+            yield return new(invalidated, TimelineCategory.Testing, TimelineSeverity.Warning,
+                $"{r.TestCode} invalidated", Join($"Specimen {accession}", $"Reason: {r.InvalidationReason}"),
+                r.InvalidatedBy, href, $"res-{r.Id}-invalidate");
+        }
+    }
+
+    /// <summary>Newest first; ties keep a stable order by category and source.</summary>
+    internal static IReadOnlyList<TimelineEventDto> Order(IEnumerable<TimelineEventDto> events) => events
+        .OrderByDescending(e => e.AtUtc)
+        .ThenBy(e => e.Category)
+        .ThenBy(e => e.SourceKey, StringComparer.Ordinal)
+        .ToList();
 
     private static string? OverrideText(long? overrideId, IReadOnlyDictionary<long, Override> overrides)
     {
@@ -314,7 +323,7 @@ public sealed class PatientTimelineService
     private static string Name(string? name, string? code) =>
         !string.IsNullOrWhiteSpace(name) ? name : !string.IsNullOrWhiteSpace(code) ? code : "unnamed";
 
-    private static string? Join(params string?[] parts)
+    internal static string? Join(params string?[] parts)
     {
         var kept = parts.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
         return kept.Count == 0 ? null : string.Join(" · ", kept);

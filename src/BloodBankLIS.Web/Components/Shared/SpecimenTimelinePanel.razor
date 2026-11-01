@@ -1,0 +1,71 @@
+@using BloodBankLIS.Application.PatientWorkspace
+@inject BloodBankApiClient Api
+
+@* History of one tube, opened from the Specimens tab or from a scanned accession in the find box. *@
+<div class="bb-specimen-history" data-scroll-on-show>
+    <div class="flex-between" style="margin-bottom:.5rem;">
+        <strong>History of specimen <span class="mono">@(_timeline?.AccessionNumber ?? Accession)</span></strong>
+        <span class="flex gap">
+            <label class="bb-timeline-toggle"><input type="checkbox" @bind="_attentionOnly" /> Warnings and critical only</label>
+            <button type="button" class="btn btn-secondary btn-sm" disabled="@_loading" @onclick="LoadAsync">Refresh</button>
+            <button type="button" class="btn btn-ghost btn-sm" @onclick="OnClose">Close</button>
+        </span>
+    </div>
+    @if (_loading)
+    {
+        <div class="loading">Loading history...</div>
+    }
+    else if (_error is not null)
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    else if (_timeline is not null)
+    {
+        var events = _timeline.Events.Where(e => !_attentionOnly || e.Severity != TimelineSeverity.Info).ToList();
+        @if (events.Count == 0)
+        {
+            <div class="empty">No warnings or critical events on this specimen.</div>
+        }
+        else
+        {
+            <TimelineEventList Events="events" />
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public long SpecimenId { get; set; }
+    [Parameter] public string? Accession { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private SpecimenTimelineDto? _timeline;
+    private long _loadedFor;
+    private bool _loading;
+    private bool _attentionOnly;
+    private string? _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor != SpecimenId)
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        var result = await Api.GetSpecimenTimelineAsync(SpecimenId);
+        _loading = false;
+        _loadedFor = SpecimenId;
+        if (!result.Succeeded || result.Value is null)
+        {
+            _timeline = null;
+            _error = result.Error ?? "The specimen history could not be loaded. Try Refresh.";
+            return;
+        }
+
+        _timeline = result.Value;
+    }
+}

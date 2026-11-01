@@ -34,11 +34,11 @@ Cycle 263 adds the UX objectives as rows, because they were not tracked.
 | Role-based home | Partial | Dashboard cards are filtered by permission (Cycle 243), not laid out per role. |
 | Action-oriented queues | Present | Worklists, supervisor queue, alert inbox, near-expiry, ready to issue. |
 | Next-step guidance | Present | Patient workflow ribbon and inventory desk ribbon. |
-| Timeline views | Patient: Present (Cycle 264). Specimen: Absent | Patient chart **Timeline** tab: one newest-first list with Critical and Attention markings and filters (RISK-BB-520). Units have status history and activity. A specimen timeline is next. |
+| Timeline views | Present (patient Cycle 264, specimen Cycle 265) | Patient chart **Timeline** tab (RISK-BB-520). Specimen **History** panel from audit rows with user, workstation, and field changes; a scanned accession opens it (RISK-BB-521). Units have status history and activity. |
 | Alert / warning / hard-stop separation | Present | Rule severities Pass / Warning / HardStop with override reasons where allowed. |
 | Human-readable errors | Present | Recent cycles rewrote messages in plain wording. |
 
-Cycle 264 added the patient timeline. Next ranked improvement: a specimen timeline (collection, receipt, acceptance or rejection, relabel, tests and results on that specimen, crossmatches and allocations that used it, and expiry), reachable from the Specimens tab and the find box.
+Cycle 264 added the patient timeline and Cycle 265 the specimen history. Next ranked improvement: role-based home (Partial). The dashboard filters cards by permission but does not lead with the work for the signed-in role (bench tech, issue desk, supervisor). See the iteration log for the ranking.
 
 ## Capability matrix (Cycle 251)
 

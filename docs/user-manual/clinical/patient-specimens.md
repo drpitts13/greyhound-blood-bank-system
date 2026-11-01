@@ -31,3 +31,17 @@ Relabeling changes the barcode. It requires a reason. Use it when the printed la
 ## Identity at the bench
 
 The accession number is what you will select when you record a crossmatch. At issue, the system checks that a current specimen exists for this patient and that it has not expired. A missing or expired specimen is not offered for routine issue.
+
+## Specimen history
+
+Click **History** on a specimen row to see everything that happened to that tube, newest first:
+
+- When it was collected, by whom, and where.
+- Each recorded change from the audit trail: accession, receipt, acceptance, rejection, relabel, and edits. Each one shows who made it, at which workstation, and what changed (for example `Barcode: OLD → NEW`).
+- When it expires. Until then it shows as scheduled at the top. After that time it is marked **Attention**.
+- Any override on the specimen, such as an expiry extension, with the rule, reason, and who authorized it.
+- The orders it serves, the results on it (corrections and invalidations included), and the crossmatches and reservations that used it. An incompatible crossmatch is marked **Critical**.
+
+Scanning a tube's accession in the top-bar find box opens this history directly.
+
+Relabels and rejections are marked **Attention**. **Warnings and critical only** hides the rest. The panel only reads, and nothing in it can be edited.

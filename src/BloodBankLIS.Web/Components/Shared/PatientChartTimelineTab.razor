@@ -35,33 +35,7 @@
     }
     else
     {
-        <ol class="bb-timeline">
-            @foreach (var day in Visible.GroupBy(e => e.AtUtc.ToLocalTime().Date))
-            {
-                <li class="bb-timeline-day">@day.Key.ToString("dddd d MMM yyyy")</li>
-                @foreach (var e in day)
-                {
-                    <li class="bb-timeline-event sev-@e.Severity.ToString().ToLowerInvariant()">
-                        <span class="bb-timeline-time">@e.AtUtc.ToLocalTime().ToString("HH:mm")</span>
-                        <span class="badge @CategoryBadge(e.Category)">@CategoryLabel(e.Category)</span>
-                        <div class="bb-timeline-body">
-                            <div class="bb-timeline-title">
-                                @if (e.Severity == TimelineSeverity.Critical) { <span class="badge badge-red">Critical</span> }
-                                else if (e.Severity == TimelineSeverity.Warning) { <span class="badge badge-amber">Attention</span> }
-                                @if (string.IsNullOrWhiteSpace(e.Href)) { @e.Title } else { <a href="@e.Href">@e.Title</a> }
-                            </div>
-                            @if (!string.IsNullOrWhiteSpace(e.Detail) || !string.IsNullOrWhiteSpace(e.By))
-                            {
-                                <div class="bb-timeline-detail">
-                                    @e.Detail
-                                    @if (!string.IsNullOrWhiteSpace(e.By)) { <span class="bb-timeline-by">@(string.IsNullOrWhiteSpace(e.Detail) ? "" : " · ")by @e.By</span> }
-                                </div>
-                            }
-                        </div>
-                    </li>
-                }
-            }
-        </ol>
+        <TimelineEventList Events="Visible" />
     }
 </div>
 
@@ -126,23 +100,4 @@
 
         _events = result.Value;
     }
-
-    private static string CategoryLabel(TimelineCategory c) => c switch
-    {
-        TimelineCategory.Alert => "Alert",
-        TimelineCategory.Product => "Product",
-        TimelineCategory.Transfusion => "Transfusion",
-        TimelineCategory.Testing => "Test",
-        TimelineCategory.Specimen => "Specimen",
-        TimelineCategory.Order => "Order",
-        _ => "Visit"
-    };
-
-    private static string CategoryBadge(TimelineCategory c) => c switch
-    {
-        TimelineCategory.Alert => "badge-red",
-        TimelineCategory.Product or TimelineCategory.Transfusion => "badge-blue",
-        TimelineCategory.Testing => "badge-green",
-        _ => "badge-gray"
-    };
 }

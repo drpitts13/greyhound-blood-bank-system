@@ -12,7 +12,7 @@ The **find box** in the top bar is on every page. Click it, or press **/** or **
 It takes:
 
 - **A unit number (DIN)**: scanned from the bag (`=` barcode) or typed, with or without spaces. Opens the unit.
-- **A specimen accession or tube barcode**: opens the patient chart on **Specimens**.
+- **A specimen accession or tube barcode**: opens the patient chart on **Specimens** with that specimen's history open.
 - **An order number**: opens the patient chart on **Orders**.
 - **An MRN**: opens the chart. A prior MRN opens the current chart and says it matched a prior MRN.
 - **Part of a name or number**: lists the matches.

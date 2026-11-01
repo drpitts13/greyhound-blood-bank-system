@@ -84,6 +84,7 @@
                         <td>@(string.IsNullOrWhiteSpace(s.Comment) ? "—" : s.Comment)</td>
                         <td class="right nowrap">
                             <button class="btn btn-ghost btn-sm" @onclick="() => OnSelect.InvokeAsync(s)">@(SelectedId == s.Id ? "Hide" : "Results")</button>
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ToggleHistory(s.Id)">@(_historyId == s.Id ? "Hide history" : "History")</button>
                             @if (Session.Has(PermissionCodes.PrintLabel))
                             {
                                 <a class="btn btn-ghost btn-sm" href="@($"/printing?specimenId={s.Id}")">Print label</a>
@@ -194,6 +195,12 @@
                             </div>
                         </td></tr>
                     }
+                    @if (_historyId == s.Id)
+                    {
+                        <tr><td colspan="7">
+                            <SpecimenTimelinePanel SpecimenId="s.Id" Accession="@s.AccessionNumber" OnClose="() => _historyId = null" />
+                        </td></tr>
+                    }
                     @if (SelectedId == s.Id)
                     {
                         <tr><td colspan="7">
@@ -236,6 +243,26 @@
 </div>
 
 @code {
+    /// <summary>A specimen whose history opens when the tab opens (a scanned accession in the find box).</summary>
+    [Parameter] public long? OpenHistoryId { get; set; }
+
+    private long? _historyId;
+    private long? _appliedOpenHistoryId;
+
+    protected override void OnParametersSet()
+    {
+        if (OpenHistoryId != _appliedOpenHistoryId)
+        {
+            _appliedOpenHistoryId = OpenHistoryId;
+            if (OpenHistoryId is long id)
+            {
+                _historyId = id;
+            }
+        }
+    }
+
+    private void ToggleHistory(long specimenId) => _historyId = _historyId == specimenId ? null : specimenId;
+
     [Parameter] public bool ShowAccession { get; set; }
     [Parameter] public Feedback? Feedback { get; set; }
     [Parameter] public Feedback? EditFeedback { get; set; }

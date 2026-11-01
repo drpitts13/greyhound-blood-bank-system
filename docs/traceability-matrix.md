@@ -455,6 +455,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-416 / FRS-BB-451 | PBM ordering criteria and review | `TransfusionIndicationRule`; `TransfusionIndicationService`; `OrderService`; `PbmEndpoints`; `AdminTransfusionCriteria.razor` | TEST-BB-306 | D / I | OCD-038 open: no criteria shipped |
 | URS-BB-417 / FRS-BB-452 | Top-bar scan-anything lookup | `UniversalLookupService`; `LookupEndpoints`; `GlobalLookupBar.razor`; `MainLayout.razor` | TEST-BB-307 | D / I | Read-only. Endpoint uses the shared authenticated-user filter |
 | URS-BB-418 / FRS-BB-453 | Patient timeline | `PatientTimelineService`; `PatientWorkspaceEndpoints`; `PatientChartTimelineTab.razor` | TEST-BB-308 | D / I | Read-only |
+| URS-BB-419 / FRS-BB-454 | Specimen history | `SpecimenTimelineService`; `SpecimenEndpoints`; `SpecimenTimelinePanel.razor`; `PatientChartSpecimensTab.razor` | TEST-BB-309 | D / I | Read-only; audit-row driven |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

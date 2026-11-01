@@ -317,5 +317,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-306 | D / I | `TransfusionIndicationRuleTests`; `TransfusionIndicationTests` | URS-BB-416 / FRS-BB-451 / RISK-BB-518 |
 | TEST-BB-307 | D / I | `UniversalLookupTests` | URS-BB-417 / FRS-BB-452 / RISK-BB-519 |
 | TEST-BB-308 | D / I | `PatientTimelineTests` | URS-BB-418 / FRS-BB-453 / RISK-BB-520 |
+| TEST-BB-309 | D / I | `SpecimenTimelineTests` | URS-BB-419 / FRS-BB-454 / RISK-BB-521 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

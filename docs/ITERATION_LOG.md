@@ -7322,3 +7322,52 @@ A patient's history was split across nine chart tabs. To see whether a correctio
 ### Next ranked residual
 
 A specimen timeline: collection, receipt, acceptance or rejection, relabel, results on that specimen, and the crossmatches and allocations that used it. It should be reachable from the Specimens tab and the find box.
+
+## Iteration 265 — Specimen history (2026-11-01)
+
+The facts about one tube were spread across the specimen row, the audit trail, the overrides list, results, and crossmatches. No single place answered "was this tube relabeled, rejected, or extended before we crossmatched on it, and by whom?"
+
+### Implemented
+
+- `SpecimenTimelineService` builds the newest-first history of one specimen:
+  - Collection: collector, draw location, and label identifiers.
+  - Each audit row the specimen workflow wrote (accession, receipt, acceptance, rejection, relabel, edits), with user, workstation, and up to four field changes as "field: old → new".
+  - The recorded receipt time, only when no audit row recorded receipt.
+  - Expiry: scheduled, then marked Attention once reached.
+  - Specimen overrides: rule, reason, and authorizer.
+  - The orders the specimen serves, the results on it, and the crossmatches and reservations that used it.
+- Rejection and relabel rows are Attention, and an incompatible crossmatch is Critical.
+- The generic Create/Update/Delete rows that the database layer writes on every save are left out. They repeat the whole record and would bury the meaningful changes.
+- `IAuditQuery.ListForEntityAsync` reads one record's rows through the existing `IX_AuditEvents_EntityType_EntityId` index. Before this, the only read loaded the whole audit table.
+- `GET /api/specimens/{id}/timeline` returns 404 for an unknown specimen.
+- Specimens tab: a **History** button per row opens a `SpecimenTimelinePanel`. `?specimen={id}` opens it directly.
+- The find box now links a scanned accession to `?tab=specimens&specimen={id}`, so one scan opens that tube's history.
+- The day-grouped event list moved into a shared `TimelineEventList`, and the result-event wording into `PatientTimelineService.ResultEvents`. The patient and specimen timelines now render and word results identically.
+- Help: a "Specimen history" section in `patient-specimens`, and the find-box topic updated.
+
+### Requirements / risk
+
+- URS-BB-419, FRS-BB-454, SRS-BB-416, RISK-BB-521 (a relabel, rejection, or expiry override not noticed before the tube is used).
+
+### Tests
+
+- TEST-BB-309: `SpecimenTimelineTests` (14 cases, 7 of them `Changes` theory rows). They drive the real `SpecimenService` receive, relabel, and reject so the audit rows are genuine. They cover:
+  - user and workstation on each row; `Barcode: BC-OLD-1 → BC-NEW-2`
+  - no generic row dumps
+  - rejection marked Attention
+  - the recorded receipt time used when no audit row exists
+  - expiry scheduled, then expired
+  - orders, results, crossmatch, and reservation on this tube only
+  - an override showing rule, reason, and authorizer
+  - an unknown specimen returning null
+  - change formatting: blank values, unchanged values, unreadable JSON, and the cap
+- `UniversalLookupTests` was updated for the new accession link.
+- Full suite: 2,993 passed, 0 failed (previously 2,979). Application 83, Astm 19, HL7 63, Domain 1,702, Printing 21, Help 8, Integration 1,097.
+- Run check (development database, DevMode):
+  - Scanning `ACC0013` in the find box opened `/patients/5?tab=specimens&specimen=5` with the history expanded: collection, receipt (from the recorded time, because seed data has no audit rows), reservation of W0001230001004, and scheduled expiry.
+  - No server or app console errors.
+- Not exercised in the UI: relabel and reject. Doing so would change the development data. Both are covered by the service-level tests above.
+
+### Next ranked residual
+
+The UX matrix now has two Partial rows: role-based home and keyboard. Role-based home ranks first. The dashboard filters cards by permission but does not lead with the signed-in role's own work, such as the issue desk's ready-to-issue and in-transit queues, the bench's pending specimens and tests, or the supervisor's review queue.

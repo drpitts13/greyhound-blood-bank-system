@@ -461,3 +461,4 @@ tr.row-muted td { opacity: .75; }
 .bb-timeline-detail { color: var(--bb-muted); font-size: .84rem; }
 .bb-timeline-toggle { display: inline-flex; align-items: center; gap: .3rem; font-size: .85rem; color: var(--bb-muted); margin-left: .5rem; }
 @media (max-width: 640px) { .bb-timeline-event { grid-template-columns: 3rem 1fr; } .bb-timeline-event > .badge { display: none; } }
+.bb-specimen-history { padding: .5rem .25rem; }

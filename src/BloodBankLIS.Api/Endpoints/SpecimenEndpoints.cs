@@ -1,6 +1,7 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Specimens;
+using BloodBankLIS.Application.PatientWorkspace;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Api.Endpoints;
@@ -55,6 +56,13 @@ public static class SpecimenEndpoints
                     OperationResult<SpecimenDto>.Ok(dto, result.Warnings),
                     payload => payload!);
         }).RequirePermission(PermissionCodes.SpecimenEdit);
+
+        // Read-only history of one tube, same access as reading the specimen.
+        group.MapGet("/{id:long}/timeline", async (long id, SpecimenTimelineService service, CancellationToken ct) =>
+        {
+            var timeline = await service.GetAsync(id, ct);
+            return timeline is null ? Results.NotFound(new { error = $"No specimen {id}." }) : Results.Ok(timeline);
+        });
 
         group.MapGet("/pending", async (SpecimenService service, CancellationToken ct) =>
             Results.Ok(await service.ListPendingReceiptAsync(ct)))

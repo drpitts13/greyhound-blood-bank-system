@@ -116,6 +116,7 @@ public static class DependencyInjection
         services.AddScoped<OrderService>();
         services.AddScoped<PatientProductHistoryService>();
         services.AddScoped<PatientTimelineService>();
+        services.AddScoped<SpecimenTimelineService>();
         services.AddScoped<PatientTestHistoryService>();
         services.AddScoped<AutoThawService>();
         services.AddScoped<PatientAllocationService>();

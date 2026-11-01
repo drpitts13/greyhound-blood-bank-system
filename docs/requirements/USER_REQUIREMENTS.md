@@ -424,3 +424,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-416 | The transfusion service can compare product orders with facility-approved transfusion criteria and review orders outside them. | P7 | FRS-BB-451 |
 | URS-BB-417 | Staff can scan or type any patient, unit, specimen, or order identifier from one place on every screen and reach that record without first choosing the right page. | P9 | FRS-BB-452 |
 | URS-BB-418 | Staff can see a patient's visits, orders, specimens, results and corrections, antibodies, requirements, and product and transfusion events in one chronological view, with safety-relevant events marked. | P9 | FRS-BB-453 |
+| URS-BB-419 | Staff can see the full history of one specimen (collection, receipt, acceptance or rejection, relabel, overrides, results, and the crossmatches and reservations that used it) with who did each step and where. | P4 | FRS-BB-454 |

@@ -88,7 +88,7 @@ public class UniversalLookupTests : IDisposable
         Assert.True(result.OpenDirectly);
         var hit = Assert.Single(result.Hits);
         Assert.Equal(LookupHitKind.Specimen, hit.Kind);
-        Assert.Equal($"/patients/{f.Patient.Id}?tab=specimens", hit.Href);
+        Assert.Equal($"/patients/{f.Patient.Id}?tab=specimens&specimen={hit.Id}", hit.Href);
         Assert.Contains("MRN-LOOK1", hit.Title);
     }
 
