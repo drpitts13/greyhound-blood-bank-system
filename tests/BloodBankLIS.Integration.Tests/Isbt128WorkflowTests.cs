@@ -133,7 +133,7 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ProductTypeId: productTypeId,
             ReleaseToAvailable: true,
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
 
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal("G123417654321|E0206000", result.Unit!.ComponentIdentity);
@@ -151,7 +151,7 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ExpirationHasExplicitTime: false,
             ProductTypeId: productTypeId,
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
 
         Assert.False(dup.Succeeded);
         Assert.Contains(IsbtErrorCodes.ComponentDuplicate, dup.Error);
@@ -178,7 +178,7 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ProductTypeId: productTypeId,
             ReleaseToAvailable: true,
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m);
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable);
 
         var denied = await CreateManual(context, new FixedPermissionEvaluator(1, PermissionCodes.InventoryModify))
             .CreateAsync(request);
@@ -232,7 +232,7 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
 
         var complete = await sessions.CompleteAsync(new CompleteScanSessionRequest(
             key, productTypeId, ReleaseToAvailable: true, SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(complete.Succeeded, complete.Error);
         Assert.Equal(UnitStatus.Available, complete.Unit!.Status);
         Assert.Equal(4, complete.Unit.RawScans.Count);
@@ -251,6 +251,7 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ProductTypeId: productTypeId,
             ReleaseToAvailable: true,
             SecondVerifier: "tech2",
+            Appearance: UnitAppearance.Acceptable,
             ReceiveTemperatureCelsius: 4.0m);
 
     private ComponentIdentityCorrectionService CreateCorrection(BloodBankDbContext context)
@@ -290,7 +291,7 @@ public class Isbt128WorkflowTests : IClassFixture<SqliteContextFactory>
             ExpirationHasExplicitTime: false,
             ProductTypeId: productTypeId,
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(created.Succeeded, created.Error);
 
         var correction = CreateCorrection(context);

@@ -38,6 +38,24 @@ public partial class AttestationDefaultTests
             + string.Join(Environment.NewLine, problems));
     }
 
+    [Fact]
+    public void Appearance_does_not_start_as_acceptable()
+    {
+        var problems = Scan(AppearanceStartsAcceptable(), skip: "AppearanceSelect.razor");
+
+        Assert.True(problems.Count == 0,
+            "Appearance must start unrecorded (AppearanceSelect applies the facility default):" + Environment.NewLine
+            + string.Join(Environment.NewLine, problems));
+    }
+
+    [Fact]
+    public void Appearance_inputs_use_the_shared_select()
+    {
+        var problems = Scan(PlainAppearanceSelect(), skip: "AppearanceSelect.razor");
+
+        Assert.True(problems.Count == 0, "Use <AppearanceSelect> for appearance:" + Environment.NewLine + string.Join(Environment.NewLine, problems));
+    }
+
     private static List<string> Scan(Regex pattern, string? skip)
     {
         var problems = new List<string>();
@@ -79,4 +97,11 @@ public partial class AttestationDefaultTests
 
     [GeneratedRegex(@"_(?:return|change)(?:Temp|Seal|Visual)Ok\s*=\s*true\b")]
     private static partial Regex InspectionStartsTrue();
+
+    // A field, property, or reset that sets an appearance to Acceptable without a person choosing it.
+    [GeneratedRegex(@"(?:_\w*[Aa]ppearance|\bAppearance)\s*(?:\{\s*get;\s*set;\s*\}\s*)?=\s*UnitAppearance\.Acceptable\s*;")]
+    private static partial Regex AppearanceStartsAcceptable();
+
+    [GeneratedRegex(@"<select\b[^>]*@bind[^>]*[Aa]ppearance")]
+    private static partial Regex PlainAppearanceSelect();
 }

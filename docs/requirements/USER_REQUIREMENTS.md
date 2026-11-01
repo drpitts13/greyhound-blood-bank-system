@@ -430,3 +430,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-422 | A unit or patient chosen for staff on a form is shown by its real identifier (unit number, name and MRN), never by an internal record number, and is never swapped for a different record without the user choosing it. | P1 | FRS-BB-457 |
 | URS-BB-423 | At issue, ward receipt, and the bedside, staff can scan or type each identifier and unit-label field in turn without the mouse, and a scanner's Enter never performs the issue, receipt, or documentation. | P9 | FRS-BB-458 |
 | URS-BB-424 | A returned unit goes back to available stock only after a person records its temperature, seal, and visual inspection, and every override names who authorized it rather than defaulting to the user. | P0 | FRS-BB-459 |
+| URS-BB-425 | A unit's appearance at issue, ward receipt, and receipt into inventory is what a person saw on the bag, not a default. | P0 | FRS-BB-460 |

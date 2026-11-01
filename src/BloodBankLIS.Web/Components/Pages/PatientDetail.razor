@@ -735,7 +735,7 @@ else
     private string _issueId1 = string.Empty;
     private string _issueId2 = string.Empty;
     private string? _issueSecondVerifier;
-    private UnitAppearance _issueAppearance = UnitAppearance.Acceptable;
+    private UnitAppearance? _issueAppearance;
     private readonly UnitScanModel _issueScan = new();
     private List<DirectoryUserDto> _directoryUsers = new();
 
@@ -1125,7 +1125,7 @@ else
         _issueId1 = id1 ?? string.Empty;
         _issueId2 = id2 ?? string.Empty;
         _issueSecondVerifier = string.Empty;
-        _issueAppearance = UnitAppearance.Acceptable;
+        _issueAppearance = null;
         _issueScan.Clear();
         _issueAcks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }

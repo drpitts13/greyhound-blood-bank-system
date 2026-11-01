@@ -232,7 +232,25 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             expires ?? _factory.Clock.UtcNow.AddDays(30),
             Isbt128ProductCode: productCode,
             SecondVerifier: "tech2",
+            Appearance: UnitAppearance.Acceptable,
             ReceiveTemperatureCelsius: 4.0m);
+
+    // TEST-BB-315 (OCD-040): a received unit's appearance is recorded by a person.
+    [Fact]
+    public async Task ReceiveUnit_WithoutAppearance_IsRefused_AndNothingIsCreated()
+    {
+        var productTypeId = await EnsureProductTypeAsync();
+
+        await using (var context = _factory.Create())
+        {
+            var r = await CreateService(context).ReceiveUnitAsync(NewUnitRequest("W0000APP00001", productTypeId) with { Appearance = null });
+            Assert.False(r.Succeeded);
+            Assert.Contains(r.Evaluation!.HardStops, h => h.Code == AppearanceAttestationRule.Code);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.False(await verify.BloodUnits.AnyAsync(u => u.UnitNumber == "W0000APP00001"));
+    }
 
     [Fact]
     public async Task ReceiveUnit_CreatesQuarantineUnit_WithInitialHistory()
@@ -2331,7 +2349,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         var result = await service.ReceiveExpectedUnitAsync(
             unitId,
-            new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m));
+            new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.False(result.Succeeded);
         Assert.Contains("outdated", result.Error, StringComparison.OrdinalIgnoreCase);
 
@@ -2358,7 +2376,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
                 unitId,
                 new ReceiveExpectedUnitRequest(
                     SecondVerifier: "tech2",
-                    ReceiveTemperatureCelsius: 4.0m));
+                    ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
             Assert.True(result.Succeeded, result.Error);
             Assert.NotEqual(UnitStatus.Expected, result.Unit!.Status);
 
@@ -2398,7 +2416,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         await using (var context = _factory.Create())
         {
             var result = await CreateService(context).ReceiveExpectedUnitAsync(
-                unitId, new ReceiveExpectedUnitRequest(VisualInspectionAcceptable: false));
+                unitId, new ReceiveExpectedUnitRequest(VisualInspectionAcceptable: false, Appearance: UnitAppearance.Acceptable));
             Assert.False(result.Succeeded);
             Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ReceiveVisualInspectionRule.Code);
         }
@@ -2423,7 +2441,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
             unitId, new ReceiveExpectedUnitRequest(
                 VisualInspectionNotes: "Bag intact",
                 SecondVerifier: "tech2",
-                ReceiveTemperatureCelsius: 4.0m));
+                ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(result.Succeeded);
         Assert.Equal(UnitStatus.Quarantine, result.Unit!.Status);
         Assert.True(result.Unit.ReceiveVisualAcceptable);
@@ -2443,7 +2461,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var act = _factory.Create();
         var result = await CreateService(act).ReceiveExpectedUnitAsync(
-            unitId, new ReceiveExpectedUnitRequest(SecondVerifier: "tech2"));
+            unitId, new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", Appearance: UnitAppearance.Acceptable));
         Assert.False(result.Succeeded);
         Assert.Contains(result.Evaluation!.HardStops, r => r.Code == ReceiveTemperatureRule.Code);
 
@@ -2483,7 +2501,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         await using var receive = _factory.Create();
         var result = await CreateService(receive).ReceiveExpectedUnitAsync(
-            unitId, new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m));
+            unitId, new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(UnitStatus.Received, result.Unit!.Status);
         var pending = Assert.Single(await receive.ProductRetypeResults.Where(r => r.BloodProductId == result.Unit.Id).ToListAsync());
@@ -2559,7 +2577,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
         }
 
         await using var act = _factory.Create();
-        var result = await CreateService(act).ReceiveExpectedUnitAsync(unitId, new ReceiveExpectedUnitRequest());
+        var result = await CreateService(act).ReceiveExpectedUnitAsync(unitId, new ReceiveExpectedUnitRequest(Appearance: UnitAppearance.Acceptable));
         Assert.False(result.Succeeded);
         Assert.Contains("expected", result.Error, StringComparison.OrdinalIgnoreCase);
     }
@@ -3998,7 +4016,7 @@ public class InventoryServiceTests : IClassFixture<SqliteContextFactory>
 
         var arrived = await svc.ReceiveExpectedUnitAsync(
             expected.Unit!.Id,
-            new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m));
+            new ReceiveExpectedUnitRequest(SecondVerifier: "tech2", ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(arrived.Succeeded, arrived.Error);
 
         var cancelled = await svc.CancelExpectedUnitAsync(pendingCancel.Unit!.Id, "Supplier cancelled ASN");

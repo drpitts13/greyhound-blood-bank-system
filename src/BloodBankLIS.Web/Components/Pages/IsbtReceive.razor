@@ -103,11 +103,7 @@
                 <div class="field"><label>Collection type</label><input @bind="_collection" maxlength="1" /></div>
                 <div class="field"><label>Division</label><input @bind="_division" maxlength="2" /></div>
                 <div class="field"><label>Expiration (local)</label><input type="datetime-local" @bind="_expirationLocal" /></div>
-                <div class="field"><label>Appearance</label>
-                    <select @bind="_appearance">
-                        @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
-                    </select>
-                </div>
+                <AppearanceSelect @bind-Value="_appearance" />
                 <div class="field"><label>Receipt temperature (°C)</label>
                     <input type="number" step="0.1" @bind="_receiveTemperature" placeholder="e.g. 4.0" />
                     <span class="muted">Shipping cooler 1–10 °C. Out-of-range units are not received.</span>
@@ -196,7 +192,7 @@ Valid: @_session.Validation?.Valid</pre>
     private string _division = "00";
     private DateTime _expirationLocal = DateTime.Now.AddDays(30);
     private bool _explicitTime;
-    private UnitAppearance _appearance = UnitAppearance.Acceptable;
+    private UnitAppearance? _appearance;
     private decimal? _receiveTemperature = 4.0m;
     private int _quantity = 1;
     private DonationRestriction _donationRestriction = DonationRestriction.Allogeneic;
@@ -358,6 +354,7 @@ Valid: @_session.Validation?.Valid</pre>
 
             _lastUnit = last;
             _quantity = 1;
+            _appearance = null; // the next unit gets its own look (OCD-040)
             _manualFeedback = Feedback.Succeed(count == 1
                 ? $"Received {created[0]} (status {last!.Status}). Next DIN is {_donationNumber}."
                 : $"Received {count} units ({created[0]} through {created[^1]}, status {last!.Status}). Next DIN is {_donationNumber}.");
@@ -425,6 +422,7 @@ Valid: @_session.Validation?.Valid</pre>
             if (result.Succeeded)
             {
                 _lastUnit = result.Value;
+                _appearance = null;
                 _scanFeedback = Feedback.Succeed($"Received {result.Value!.ComponentIdentity}. Start a new session for the next unit.");
                 _sessionKey = null;
                 _session = null;

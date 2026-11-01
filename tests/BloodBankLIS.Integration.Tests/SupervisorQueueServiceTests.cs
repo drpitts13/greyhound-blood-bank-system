@@ -122,6 +122,7 @@ public class SupervisorQueueServiceTests : IClassFixture<SqliteContextFactory>
             _factory.Clock.UtcNow.AddDays(30),
             Isbt128ProductCode: "E0206",
             SecondVerifier: "tech2",
+            Appearance: UnitAppearance.Acceptable,
             ReceiveTemperatureCelsius: 4.0m);
 
     [Fact]

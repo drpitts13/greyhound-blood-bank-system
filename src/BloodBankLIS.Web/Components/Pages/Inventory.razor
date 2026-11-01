@@ -121,11 +121,7 @@
                                         @if (!row.IsOutdated)
                                         {
                                         <div class="form-row">
-                                            <div class="field"><label>Appearance</label>
-                                                <select @bind="_arrivalAppearance">
-                                                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
-                                                </select>
-                                            </div>
+                                            <AppearanceSelect @bind-Value="_arrivalAppearance" />
                                             <div class="field"><label>Arrival notes</label>
                                                 <input @bind="_arrivalVisualNotes" placeholder="Appearance, defects" />
                                             </div>
@@ -147,7 +143,7 @@
                                                 </div>
                                             }
                                         </div>
-                                        @if (_arrivalAppearance != UnitAppearance.Acceptable)
+                                        @if (_arrivalAppearance is not null and not UnitAppearance.Acceptable)
                                         {
                                             <p class="muted" style="margin:.35rem 0 0;">This appearance is not received. Return the unit to the supplier.</p>
                                         }
@@ -711,7 +707,7 @@
     private RhType? _searchRh;
 
     private List<OpenDeliveryDto> _openDeliveries = new();
-    private UnitAppearance _arrivalAppearance = UnitAppearance.Acceptable;
+    private UnitAppearance? _arrivalAppearance;
     private string? _arrivalVisualNotes;
     private string? _supplierReturnReason;
     private string? _arrivalSecondVerifier;
@@ -1112,7 +1108,7 @@
             : "Arrival confirmed into quarantine.");
         if (r.Succeeded)
         {
-            _arrivalAppearance = UnitAppearance.Acceptable;
+            _arrivalAppearance = null;
             _arrivalVisualNotes = null;
             _arrivalSecondVerifier = null;
             _arrivalTemperatureCelsius = null;
@@ -1124,8 +1120,9 @@
     }
 
     private string? SupplierReturnReasonForExpected() =>
+        // An unrecorded appearance suggests no reason (as Acceptable does); a typed reason is still used.
         ReceiveAppearanceRule.SuggestedSupplierReturnReason(
-            _arrivalAppearance, _arrivalVisualNotes, _supplierReturnReason);
+            _arrivalAppearance ?? UnitAppearance.Acceptable, _arrivalVisualNotes, _supplierReturnReason);
 
     private async Task ReturnExpectedToSupplierAsync(long id)
     {
@@ -1142,7 +1139,7 @@
         _actionFb = r.ToFeedback("Unit returned to the supplier.");
         if (r.Succeeded)
         {
-            _arrivalAppearance = UnitAppearance.Acceptable;
+            _arrivalAppearance = null;
             _arrivalVisualNotes = null;
             _arrivalSecondVerifier = null;
             _arrivalTemperatureCelsius = null;

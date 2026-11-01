@@ -68,6 +68,10 @@ The gate will not issue the losing chart of a merged patient, a unit allocated t
 
 When you return a unit, answer **Temperature**, **Seal**, and **Visual inspection**. Each starts as **Not answered**. Until all three are answered, **Return unit** stays unavailable when the unit would go back to available stock. A unit you send to **Quarantine** or **Disposed** can be returned without them, and the record says they were not answered. Your facility can choose to start them as acceptable (Facility Policies › *Start unit inspections as acceptable*, OCD-040). Time out of storage is always worked out by the system.
 
+## Appearance
+
+**Appearance at issue** and **Appearance at receipt** start at **Choose appearance...** with *Not recorded. Look at the bag.* underneath. Look at the unit and pick what you see. The issue or receipt is refused until it is recorded. After each issue or receipt the field clears, so the next unit gets its own look. The same applies when units are received into inventory. If your facility chooses to start appearance as acceptable (OCD-040), the field starts at **Acceptable** and the record notes that the facility default supplied it.
+
 ## Who authorized an override
 
 **Authorized by** starts empty. Type the name of the physician or supervisor who approved the override. If you approved it yourself, press **Me**. A blank field is never filled in for you. If you give a reason but no name, the message says so. Your electronic signature separately records who signed.

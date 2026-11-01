@@ -218,13 +218,13 @@ public class IssuingReturnAuthorizationTests : IClassFixture<SqliteContextFactor
         await context.SaveChangesAsync();
 
         var denied = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.IssueCreate))
-            .RecordWardReceiptAsync(issue.Id, new WardReceiptRequest("ward-nurse"));
+            .RecordWardReceiptAsync(issue.Id, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
         Assert.False(denied.Succeeded);
         Assert.Contains(denied.Evaluation!.HardStops, r => r.Code == IssueAuthorizationRule.WardReceiptCode);
         Assert.Null((await context.Issues.FindAsync(issue.Id))!.WardReceivedUtc);
 
         var allowed = await CreateService(context, new FixedPermissionEvaluator(1, PermissionCodes.TransfusionDocument))
-            .RecordWardReceiptAsync(issue.Id, new WardReceiptRequest("ward-nurse"));
+            .RecordWardReceiptAsync(issue.Id, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
         Assert.True(allowed.Succeeded, allowed.Error);
         Assert.NotNull(allowed.Value!.WardReceivedUtc);
         Assert.Equal("ward-nurse", allowed.Value.WardReceivedBy);

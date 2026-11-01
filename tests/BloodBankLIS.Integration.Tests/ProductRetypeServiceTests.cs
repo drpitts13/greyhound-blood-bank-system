@@ -111,7 +111,7 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             unitNumber, type.Id, abo, rh, _factory.Clock.UtcNow.AddDays(30),
             Isbt128ProductCode: "E0206",
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
         Assert.True(receive.Succeeded, receive.Error);
         return (type.Id, receive.Unit!.Id);
     }
@@ -342,7 +342,7 @@ public class ProductRetypeServiceTests : IClassFixture<SqliteContextFactory>
             ProductTypeId: type.Id,
             ReleaseToAvailable: true,
             SecondVerifier: "tech2",
-            ReceiveTemperatureCelsius: 4.0m));
+            ReceiveTemperatureCelsius: 4.0m, Appearance: UnitAppearance.Acceptable));
 
         Assert.True(result.Succeeded, result.Error);
         Assert.Equal(UnitStatus.Received, result.Unit!.Status);

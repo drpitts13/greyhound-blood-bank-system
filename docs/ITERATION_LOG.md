@@ -7637,3 +7637,60 @@ After OCD-039, I audited the web app for other verification fields filled with t
 ### Next ranked residual
 
 OCD-040, second part: appearance at issue, ward receipt, delivery receipt, and unit receive. This covers five request types plus server enforcement, with the same policy.
+
+## Iteration 271 — Appearance recorded by a person at issue, ward receipt, and receipt (2026-11-01)
+
+This completes OCD-040. Iteration 270 fixed return inspection; this one fixes unit appearance. Every appearance field and request defaulted to **Acceptable**, so a clotted, hemolyzed, or leaking unit could be received, issued, or acknowledged on the ward without anyone recording what the bag looked like.
+
+### Implemented
+
+- `Appearance` is now `UnitAppearance?` (default null) on six requests: issue, ward receipt, receive, receive-expected, ISBT scan session, and ISBT manual entry.
+- `AppearanceAttestationRule` resolves it:
+  - a recorded value is kept
+  - an unrecorded value is a hard stop, `APPEAR-REQUIRED` ("Look at the bag and record its appearance before issuing the unit / acknowledging receipt / receiving the unit")
+  - with `Inspection.DefaultAcceptable` on, unrecorded resolves to Acceptable and is reported as defaulted
+  - where receipt inspection is already optional (`RequireReceiveVisualInspection` off), unrecorded receipt keeps the earlier behavior
+- Issue and ward receipt check this before saving. Their audit rows now include the appearance and `AppearanceFromFacilityDefault`.
+- All three receive paths share `EvaluateReceiveAppearanceAsync`, which now returns the resolved appearance. They store that value, not the request's.
+- `AppearanceSelect` replaces the seven appearance dropdowns: issue, ward receipt, chart issue, inventory arrival, unit chart arrival, ISBT receive, and delivery receive.
+  - It starts at "Choose appearance..." with "Not recorded. Look at the bag."
+  - It reads the facility policy itself and fills Acceptable only when the policy is on.
+  - A failed policy read leaves it unrecorded.
+- Issue, ward receipt, and ISBT receive clear appearance after each successful save, so the next unit does not inherit the previous answer. The other forms already reset.
+- An unrecorded appearance gives no suggested supplier-return reason (as Acceptable does), and a typed reason is still used.
+- Help: an "Appearance" section in `issuing`.
+
+### Requirements / risk
+
+- URS-BB-425, FRS-BB-460, SRS-BB-422, RISK-BB-527. OCD-040 is now fully implemented.
+
+### Tests
+
+- TEST-BB-315:
+  - `AppearanceAttestationRuleTests` (5 cases)
+  - Four integration tests:
+    - issue without appearance is refused and nothing is issued
+    - the facility default issues as Acceptable and audits `AppearanceFromFacilityDefault: true`
+    - ward receipt without appearance is refused
+    - receive without appearance is refused and no unit is created
+  - Two source scans in `AttestationDefaultTests`. Against the previous commit's pages they flag 11 appearance defaults and 7 plain appearance dropdowns.
+- Existing tests that issue or receive units now state `Appearance: UnitAppearance.Acceptable`: 37 constructions plus 5 request helpers. They test other behavior.
+- Full suite: 3,057 passed, 0 failed (previously 3,046). Domain 1,729, Integration 1,105, Help 29, Application 91, HL7 63, Printing 21, Astm 19.
+- Run check (development database, DevMode):
+  - Issue on a Ready row showed "Choose appearance..." with "Not recorded. Look at the bag."
+  - Choosing Acceptable removed the prompt and the note.
+  - Nothing was issued, and there were no server errors.
+
+### Working-tree note
+
+While this iteration was in progress, someone stashed the working tree. The stash mixed this work with an unrelated "Stock par → Minimum stock" rename by another writer. After the stash was restored, the product owner said to finish this iteration.
+
+This commit contains only the appearance work:
+- `Inventory.razor` was staged without the rename's one-comment change.
+- For the requirement, risk, traceability, and test-catalog documents, the staged version is the previous commit plus only this iteration's rows.
+
+The rename stays uncommitted in the working tree, with its staged files restored to their earlier index state. The suite above ran on the combined tree, so it covers the rename too. This commit alone has not been built separately.
+
+### Next ranked residual
+
+Return to the clinical matrix. Its remaining Partial rows are SME- or license-blocked (OCD-004, OCD-038, eluate history, FHIR). The next unblocked candidate is the order-edit override path, which refuses a blank authorizer without saying so (iteration 270).

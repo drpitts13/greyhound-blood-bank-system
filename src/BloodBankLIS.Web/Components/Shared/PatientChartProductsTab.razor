@@ -175,11 +175,7 @@
                     <textarea rows="2" @bind="IssueComment" @bind:after="() => IssueCommentChanged.InvokeAsync(IssueComment)"></textarea>
                 </div>
             </div>
-            <div class="field" style="min-width:14rem;"><label>Appearance at issue</label>
-                <select @bind="IssueAppearance" @bind:after="() => IssueAppearanceChanged.InvokeAsync(IssueAppearance)">
-                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
-                </select>
-            </div>
+            <AppearanceSelect Label="Appearance at issue" Style="min-width:14rem;" Value="IssueAppearance" ValueChanged="v => { IssueAppearance = v; return IssueAppearanceChanged.InvokeAsync(v); }" />
             <UnitScanVerificationPanel Scan="IssueScan" />
             @if (PtagRequired)
             {
@@ -433,8 +429,8 @@
     [Parameter] public EventCallback<string?> IssueSecondVerifierChanged { get; set; }
     [Parameter] public string IssueComment { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> IssueCommentChanged { get; set; }
-    [Parameter] public UnitAppearance IssueAppearance { get; set; } = UnitAppearance.Acceptable;
-    [Parameter] public EventCallback<UnitAppearance> IssueAppearanceChanged { get; set; }
+    [Parameter] public UnitAppearance? IssueAppearance { get; set; }
+    [Parameter] public EventCallback<UnitAppearance?> IssueAppearanceChanged { get; set; }
     [Parameter] public UnitScanModel IssueScan { get; set; } = new();
     [Parameter] public IReadOnlyCollection<string> IssueAcks { get; set; } = new HashSet<string>();
     [Parameter] public bool ShowIssueOverride { get; set; }

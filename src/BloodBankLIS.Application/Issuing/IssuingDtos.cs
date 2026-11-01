@@ -29,7 +29,7 @@ public sealed record IssueUnitRequest(
     ComponentScanVerificationRequest? VerifiedScan = null,
     string? ReceivedBy = null,
     string? CoolerId = null,
-    UnitAppearance Appearance = UnitAppearance.Acceptable,
+    UnitAppearance? Appearance = null,
     IReadOnlyList<string>? AcknowledgedSpecialRequirementCodes = null,
     /// <summary>Scanned P-tag ID. Required when the active P-tag layout places that field.</summary>
     string? PtagId = null);
@@ -54,7 +54,7 @@ public sealed record WardReceiptRequest(
     string ReceivedBy,
     bool VisualInspectionAcceptable = true,
     ComponentScanVerificationRequest? VerifiedScan = null,
-    UnitAppearance Appearance = UnitAppearance.Acceptable);
+    UnitAppearance? Appearance = null);
 
 public sealed record DocumentTransfusionRequest(
     TransfusionDisposition FinalDisposition,

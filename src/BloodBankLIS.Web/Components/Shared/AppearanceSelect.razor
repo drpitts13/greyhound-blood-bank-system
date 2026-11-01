@@ -1,0 +1,53 @@
+@using BloodBankLIS.Domain.Rules
+@inject BloodBankApiClient Api
+
+@* OCD-040: the appearance a person saw on the bag. Starts unset ("Choose appearance...") unless the facility
+   treats unrecorded appearance as acceptable; then it starts, and stays, at Acceptable when cleared. *@
+<div class="field" style="@Style">
+    <label>@Label</label>
+    <select value="@(Value?.ToString() ?? string.Empty)" @onchange="OnChangeAsync" data-appearance>
+        @if (Value is null)
+        {
+            <option value="">Choose appearance...</option>
+        }
+        @foreach (var a in Enum.GetValues<UnitAppearance>())
+        {
+            <option value="@a">@a</option>
+        }
+    </select>
+    @if (Value is null)
+    {
+        <span class="bb-inspection-pending">Not recorded. Look at the bag.</span>
+    }
+</div>
+
+@code {
+    [Parameter] public UnitAppearance? Value { get; set; }
+    [Parameter] public EventCallback<UnitAppearance?> ValueChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "Appearance";
+    [Parameter] public string? Style { get; set; }
+
+    private bool? _facilityDefault;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_facilityDefault is null)
+        {
+            var policy = await Api.GetFacilityPolicyFlagAsync(FacilityPolicyKeys.InspectionDefaultAcceptable);
+            // A failed read keeps the field unset: the server asks for it rather than assuming.
+            _facilityDefault = policy.Succeeded && policy.Value?.Enabled == true;
+        }
+
+        if (_facilityDefault == true && Value is null)
+        {
+            Value = UnitAppearance.Acceptable;
+            await ValueChanged.InvokeAsync(Value);
+        }
+    }
+
+    private async Task OnChangeAsync(ChangeEventArgs e)
+    {
+        Value = Enum.TryParse<UnitAppearance>(e.Value?.ToString(), out var chosen) ? chosen : null;
+        await ValueChanged.InvokeAsync(Value);
+    }
+}

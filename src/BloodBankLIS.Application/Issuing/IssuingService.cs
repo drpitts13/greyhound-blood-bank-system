@@ -199,6 +199,14 @@ public sealed class IssuingService
             return issueScan;
         }
 
+        // OCD-040: appearance is what the issuer saw on the bag, never assumed.
+        var issueAppearance = AppearanceAttestationRule.Resolve(
+            request.Appearance, await _policy.GetInspectionDefaultAcceptableAsync(ct), "issuing the unit");
+        if (issueAppearance.Result.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Issue>.Blocked(new RuleEvaluation([issueAppearance.Result]));
+        }
+
         var now = _clock.UtcNow;
         var productType = await _productTypes.GetByIdAsync(unit.ProductTypeId, ct);
         var bloodType = await _bloodTypes.FirstOrDefaultAsync(h => h.PatientId == request.PatientId && h.IsCurrent, ct);
@@ -278,8 +286,8 @@ public sealed class IssuingService
             SpecialRequirementsMet = specialMet,
             UnresolvedAboRhDiscrepancy = unresolvedDelta,
             VisualInspectionAcceptable = request.VisualInspectionAcceptable
-                && IssueAppearanceRule.IsAcceptable(request.Appearance),
-            Appearance = request.Appearance,
+                && IssueAppearanceRule.IsAcceptable(issueAppearance.Appearance),
+            Appearance = issueAppearance.Appearance,
             LocationKnown = location is not null,
             LocationActive = location?.IsActive ?? true,
             LocationAllowsIssue = location?.AllowsIssue ?? true,
@@ -453,8 +461,8 @@ public sealed class IssuingService
             InTransitDueUtc = issuedUtc.AddHours(
                 location?.DefaultInTransitHours ?? await _policy.GetInTransitDueHoursAsync(ct)),
             VisualInspectionAcceptable = request.VisualInspectionAcceptable
-                && IssueAppearanceRule.IsAcceptable(request.Appearance),
-            IssueAppearance = request.Appearance,
+                && IssueAppearanceRule.IsAcceptable(issueAppearance.Appearance),
+            IssueAppearance = issueAppearance.Appearance,
             SecondVerifier = request.SecondVerifier,
             PatientIdentifier1 = request.PatientIdentifier1Value,
             PatientIdentifier2 = request.PatientIdentifier2Value,
@@ -506,7 +514,9 @@ public sealed class IssuingService
                 request.PatientId,
                 unit.UnitNumber,
                 unit.Din,
-                BloodProductId = unit.Id
+                BloodProductId = unit.Id,
+                IssueAppearance = issueAppearance.Appearance,
+                AppearanceFromFacilityDefault = issueAppearance.UsedDefault
             },
             reason: authorizedOverride?.Reason);
 
@@ -983,7 +993,14 @@ public sealed class IssuingService
             return EvaluationResult<Issue>.Fail("The person who received the unit is required.");
         }
 
-        var appearance = WardAppearanceRule.Evaluate(request.Appearance);
+        var wardAppearance = AppearanceAttestationRule.Resolve(
+            request.Appearance, await _policy.GetInspectionDefaultAcceptableAsync(ct), "acknowledging receipt");
+        if (wardAppearance.Result.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Issue>.Blocked(new RuleEvaluation([wardAppearance.Result]));
+        }
+
+        var appearance = WardAppearanceRule.Evaluate(wardAppearance.Appearance);
         if (appearance.Severity == RuleSeverity.HardStop)
         {
             return EvaluationResult<Issue>.Blocked(new RuleEvaluation([appearance]));
@@ -1028,7 +1045,7 @@ public sealed class IssuingService
         issue.WardReceivedUtc = now;
         issue.WardReceivedBy = request.ReceivedBy.Trim();
         issue.WardVisualAcceptable = true;
-        issue.WardAppearance = request.Appearance;
+        issue.WardAppearance = wardAppearance.Appearance;
         issue.WardScanJson = request.VerifiedScan is null ? null : JsonSerializer.Serialize(request.VerifiedScan);
         _issues.Update(issue);
 
@@ -1041,6 +1058,8 @@ public sealed class IssuingService
             {
                 issue.WardReceivedBy,
                 issue.WardReceivedUtc,
+                issue.WardAppearance,
+                AppearanceFromFacilityDefault = wardAppearance.UsedDefault,
                 Late = overdue.Severity == RuleSeverity.Warning,
                 unit.UnitNumber,
                 unit.Din,

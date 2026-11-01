@@ -552,12 +552,7 @@
             </div>
         </div>
         <div class="flex gap" style="flex-wrap:wrap;margin:.5rem 0 1rem;">
-            <div class="field" style="min-width:14rem;">
-                <label>Appearance at issue</label>
-                <select @bind="_issue.Appearance">
-                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
-                </select>
-            </div>
+            <AppearanceSelect Label="Appearance at issue" Style="min-width:14rem;" @bind-Value="_issue.Appearance" />
         </div>
         <UnitScanVerificationPanel Scan="_issueScan" />
         @if (_ptagRequired)
@@ -664,11 +659,7 @@
         <div class="form-row">
             <div class="field"><label>Unit number</label><input class="mono" @bind="_wardUnitLookup" @bind:after="LookUpWardUnitAsync" placeholder="Type or scan, or Receive from a list" data-enter-step autocomplete="off" /></div>
             <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" data-enter-step /></div>
-            <div class="field"><label>Appearance at receipt</label>
-                <select @bind="_wardAppearance">
-                    @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
-                </select>
-            </div>
+            <AppearanceSelect Label="Appearance at receipt" @bind-Value="_wardAppearance" />
         </div>
         <UnitScanVerificationPanel Scan="_wardScan"
             Title="Ward receipt scan"
@@ -939,7 +930,7 @@
     private string? _wardPtagNotice;
     private string? _wardCrossmatchStatusNotice;
     private string _wardReceivedBy = string.Empty;
-    private UnitAppearance _wardAppearance = UnitAppearance.Acceptable;
+    private UnitAppearance? _wardAppearance;
     private Feedback? _wardFb;
     private IssueDto? _wardIssue;
 
@@ -1454,6 +1445,7 @@
             await LoadWorklistsAsync();
             _ptagFb = null;
             _ptagScan = string.Empty; // a P-tag belongs to one issue
+            _issue.Appearance = null; // the next unit gets its own look (OCD-040)
             _ptagJobId = null;
         }
         _busy = false;
@@ -1532,6 +1524,7 @@
             await LoadWorklistsAsync();
             _ptagFb = null;
             _ptagScan = string.Empty; // a P-tag belongs to one issue
+            _issue.Appearance = null; // the next unit gets its own look (OCD-040)
             _ptagJobId = null;
         }
         _busy = false;
@@ -1560,6 +1553,7 @@
         {
             _wardIssue = r.Value;
             _wardScan.Clear();
+            _wardAppearance = null;
             await LoadWorklistsAsync();
         }
     }
@@ -1653,7 +1647,7 @@
         public string? IssuedTo { get; set; }
         public string? IssuedToLocation { get; set; }
         public IssueType IssueType { get; set; } = IssueType.Standard;
-        public UnitAppearance Appearance { get; set; } = UnitAppearance.Acceptable;
+        public UnitAppearance? Appearance { get; set; }
         public string? SecondVerifier { get; set; }
         public string? CoolerId { get; set; }
     }

@@ -427,11 +427,11 @@ public sealed class InventoryService
             return denied;
         }
 
-        var appearance = await EvaluateReceiveAppearanceAsync(
+        var (appearanceBlocked, receivedAppearance) = await EvaluateReceiveAppearanceAsync(
             request.VisualInspectionAcceptable, request.Appearance, ct);
-        if (appearance is not null)
+        if (appearanceBlocked is not null)
         {
-            return appearance;
+            return appearanceBlocked;
         }
 
         var temperature = await EvaluateReceiveTemperatureAsync(request.ReceiveTemperatureCelsius, ct);
@@ -521,11 +521,11 @@ public sealed class InventoryService
                 ? deliveryGate.Context.PackingListNumber
                 : string.IsNullOrWhiteSpace(request.ShipmentId) ? null : request.ShipmentId.Trim(),
             ReceiveVisualAcceptable = request.VisualInspectionAcceptable
-                && ReceiveAppearanceRule.IsAcceptable(request.Appearance),
+                && ReceiveAppearanceRule.IsAcceptable(receivedAppearance),
             ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
                 ? null
                 : request.VisualInspectionNotes.Trim(),
-            ReceiveAppearance = request.Appearance,
+            ReceiveAppearance = receivedAppearance,
             ReceiveTemperatureCelsius = request.ReceiveTemperatureCelsius,
             DonationRestriction = request.DonationRestriction,
             ReservedPatientId = AutologousDirectedRule.RequiresRecipient(request.DonationRestriction)
@@ -700,11 +700,11 @@ public sealed class InventoryService
                 "This unit is outdated and cannot be received. Return it to the supplier.");
         }
 
-        var appearance = await EvaluateReceiveAppearanceAsync(
+        var (appearanceBlocked, receivedAppearance) = await EvaluateReceiveAppearanceAsync(
             request.VisualInspectionAcceptable, request.Appearance, ct);
-        if (appearance is not null)
+        if (appearanceBlocked is not null)
         {
-            return appearance;
+            return appearanceBlocked;
         }
 
         var temperature = await EvaluateReceiveTemperatureAsync(request.ReceiveTemperatureCelsius, ct);
@@ -728,11 +728,11 @@ public sealed class InventoryService
 
         var destination = productType?.RequiresRetype == true ? UnitStatus.Received : UnitStatus.Quarantine;
         unit.ReceiveVisualAcceptable = request.VisualInspectionAcceptable
-            && ReceiveAppearanceRule.IsAcceptable(request.Appearance);
+            && ReceiveAppearanceRule.IsAcceptable(receivedAppearance);
         unit.ReceiveVisualNotes = string.IsNullOrWhiteSpace(request.VisualInspectionNotes)
             ? null
             : request.VisualInspectionNotes.Trim();
-        unit.ReceiveAppearance = request.Appearance;
+        unit.ReceiveAppearance = receivedAppearance;
         unit.ReceiveTemperatureCelsius = request.ReceiveTemperatureCelsius;
         if (request.LocationId is long loc)
         {
@@ -853,7 +853,7 @@ public sealed class InventoryService
         bool releaseToAvailable,
         bool visualInspectionAcceptable = true,
         string? visualInspectionNotes = null,
-        UnitAppearance appearance = UnitAppearance.Acceptable,
+        UnitAppearance? recordedAppearance = null,
         string? secondVerifier = null,
         decimal? receiveTemperatureCelsius = null,
         DonationRestriction donationRestriction = DonationRestriction.Allogeneic,
@@ -877,7 +877,7 @@ public sealed class InventoryService
 
         draft.RebuildIdentity();
 
-        var appear = await EvaluateReceiveAppearanceAsync(visualInspectionAcceptable, appearance, ct);
+        var (appear, appearance) = await EvaluateReceiveAppearanceAsync(visualInspectionAcceptable, recordedAppearance, ct);
         if (appear is not null)
         {
             return appear;
@@ -1185,21 +1185,33 @@ public sealed class InventoryService
         return SecondVerifierDirectoryRule.Evaluate(secondVerifier, match is not null);
     }
 
-    private async Task<InventoryActionResult?> EvaluateReceiveAppearanceAsync(
-        bool visualAcceptable, UnitAppearance appearance, CancellationToken ct)
+    /// <summary>
+    /// Resolves the recorded appearance (OCD-040) and applies the receipt inspection rules. When receipt inspection
+    /// is required, an unrecorded appearance is refused unless the facility default treats it as acceptable.
+    /// </summary>
+    private async Task<(InventoryActionResult? Blocked, UnitAppearance Appearance)> EvaluateReceiveAppearanceAsync(
+        bool visualAcceptable, UnitAppearance? recorded, CancellationToken ct)
     {
         var required = _policy is null || await _policy.GetRequireReceiveVisualInspectionAsync(ct);
+        var facilityDefault = _policy is not null && await _policy.GetInspectionDefaultAcceptableAsync(ct);
+        var attested = AppearanceAttestationRule.Resolve(recorded, facilityDefault, "receiving the unit", inspectionRequired: required);
+        if (attested.Result.Severity == RuleSeverity.HardStop)
+        {
+            return (InventoryActionResult.Blocked(new RuleEvaluation([attested.Result])), attested.Appearance);
+        }
+
+        var appearance = attested.Appearance;
         var coded = ReceiveAppearanceRule.Evaluate(required, appearance);
         if (coded.Severity == RuleSeverity.HardStop)
         {
-            return InventoryActionResult.Blocked(new RuleEvaluation([coded]));
+            return (InventoryActionResult.Blocked(new RuleEvaluation([coded])), appearance);
         }
 
         var acceptable = visualAcceptable && ReceiveAppearanceRule.IsAcceptable(appearance);
         var visual = ReceiveVisualInspectionRule.Evaluate(required, acceptable);
         return visual.Severity == RuleSeverity.HardStop
-            ? InventoryActionResult.Blocked(new RuleEvaluation([visual]))
-            : null;
+            ? (InventoryActionResult.Blocked(new RuleEvaluation([visual])), appearance)
+            : (null, appearance);
     }
 
     private async Task<InventoryActionResult?> EvaluateReceiveTemperatureAsync(decimal? celsius, CancellationToken ct)

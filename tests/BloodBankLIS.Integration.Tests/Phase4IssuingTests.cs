@@ -136,7 +136,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             PatientIdentifier2Value: s.DateOfBirth,
             IssueType: issueType,
             OverrideReason: overrideReason,
-            AuthorizedBy: authorizedBy);
+            AuthorizedBy: authorizedBy,
+            Appearance: UnitAppearance.Acceptable);
 
     private static DocumentTransfusionRequest TxReq(
         Scenario s,
@@ -430,7 +431,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.True(issued.Succeeded, issued.Error);
 
         var receipt = await Issuing(c).RecordWardReceiptAsync(
-            issued.Value!.Id, new WardReceiptRequest("ward-nurse"));
+            issued.Value!.Id, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
         Assert.True(receipt.Succeeded, receipt.Error);
 
         var events = c.AuditEvents.ToList();
@@ -554,7 +555,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            var receipt = await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"));
+            var receipt = await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
             Assert.True(receipt.Succeeded);
             Assert.Equal("ward-nurse", receipt.Value!.WardReceivedBy);
 
@@ -1135,6 +1136,68 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains("\"InspectionFromFacilityDefault\":false", json);
     }
 
+    // TEST-BB-315 (OCD-040): appearance at issue and ward receipt is what a person saw on the bag.
+    [Fact]
+    public async Task Issue_WithoutAppearance_IsRefused_AndTheUnitIsNotIssued()
+    {
+        var s = await SeedAsync("APP-ISS1");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using (var c = _factory.Create())
+        {
+            var r = await Issuing(c).IssueUnitAsync(IssueReq(s) with { Appearance = null });
+            Assert.False(r.Succeeded);
+            Assert.Contains(r.Evaluation!.HardStops, h => h.Code == AppearanceAttestationRule.Code);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.NotEqual(UnitStatus.Issued, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.Empty(await verify.Issues.Where(i => i.BloodProductId == s.UnitId).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Issue_WithFacilityDefault_RecordsAcceptable_AndAuditsThatItWasDefaulted()
+    {
+        var s = await SeedAsync("APP-ISS2");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await SetInspectionDefaultAsync(true);
+        try
+        {
+            long issueId;
+            await using (var c = _factory.Create())
+            {
+                var r = await Issuing(c).IssueUnitAsync(IssueReq(s) with { Appearance = null });
+                Assert.True(r.Succeeded, r.Error);
+                issueId = r.Value!.Id;
+            }
+
+            await using var verify = _factory.Create();
+            Assert.Equal(UnitAppearance.Acceptable, (await verify.Issues.FindAsync(issueId))!.IssueAppearance);
+            var audit = await verify.AuditEvents
+                .Where(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId && a.NewValueJson!.Contains("AppearanceFromFacilityDefault"))
+                .ToListAsync();
+            Assert.Contains(audit, a => a.NewValueJson!.Contains("\"AppearanceFromFacilityDefault\":true"));
+        }
+        finally
+        {
+            await SetInspectionDefaultAsync(false);
+        }
+    }
+
+    [Fact]
+    public async Task WardReceipt_WithoutAppearance_IsRefused()
+    {
+        var (_, issueId) = await IssuedForReturnAsync("APP-WARD1");
+
+        await using var c = _factory.Create();
+        var r = await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"));
+        Assert.False(r.Succeeded);
+        var stop = Assert.Single(r.Evaluation!.HardStops, h => h.Code == AppearanceAttestationRule.Code);
+        Assert.Contains("acknowledging receipt", stop.Message);
+    }
+
     [Fact]
     public async Task Return_ExplicitAvailable_WithoutInspection_IsRefused()
     {
@@ -1653,7 +1716,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             var tx = await Issuing(c).DocumentTransfusionAsync(
                 issueId, TxReq(s, reactionSuspected: true));
             Assert.True(tx.Succeeded);
@@ -1680,7 +1743,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             var tx = await Issuing(c).DocumentTransfusionAsync(
                 issueId, TxReq(s, TransfusionDisposition.Stopped, reactionSuspected: true));
             Assert.True(tx.Succeeded);
@@ -1710,7 +1773,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             var tx = await Issuing(c).DocumentTransfusionAsync(
                 issueId, TxReq(s, TransfusionDisposition.Completed, reactionSuspected: true));
             Assert.True(tx.Succeeded, tx.Error);
@@ -1739,7 +1802,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             await Issuing(c).DocumentTransfusionAsync(
                 issueId, TxReq(s, reactionSuspected: true));
         }
@@ -2256,15 +2319,15 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using var ctx = _factory.Create();
         var issuing = Issuing(ctx);
-        var visual = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", VisualInspectionAcceptable: false));
+        var visual = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", VisualInspectionAcceptable: false, Appearance: UnitAppearance.Acceptable));
         Assert.False(visual.Succeeded);
         Assert.Contains("visual inspection", visual.Error, StringComparison.OrdinalIgnoreCase);
 
-        var first = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"));
+        var first = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
         Assert.True(first.Succeeded);
         Assert.Equal(UnitAppearance.Acceptable, first.Value!.WardAppearance);
 
-        var dup = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("another-nurse"));
+        var dup = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("another-nurse", Appearance: UnitAppearance.Acceptable));
         Assert.False(dup.Succeeded);
         Assert.Contains("already acknowledged", dup.Error, StringComparison.OrdinalIgnoreCase);
     }
@@ -2377,7 +2440,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             var transit = await Issuing(c).ListInTransitAsync();
             Assert.DoesNotContain(transit, t => t.IssueId == issueId);
         }
@@ -2814,7 +2877,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using (var c = _factory.Create())
         {
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
             Assert.DoesNotContain(await Issuing(c).ListInTransitAsync(), t => t.IssueId == issueId);
             var row = Assert.Single(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
             Assert.Equal(s.UnitNumber, row.UnitNumber);
@@ -2874,7 +2937,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using (var c = _factory.Create())
         {
             issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
         }
 
         await using var ctx = _factory.Create();
@@ -2896,7 +2959,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using (var c = _factory.Create())
         {
             issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
         }
 
         await using var ctx = _factory.Create();
@@ -2923,7 +2986,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             Assert.True(issued.Succeeded, issued.Error);
             issueId = issued.Value!.Id;
             Assert.True((await Issuing(c).RecordWardReceiptAsync(
-                issueId, new WardReceiptRequest("ward-nurse", VerifiedScan: scan))).Succeeded);
+                issueId, new WardReceiptRequest("ward-nurse", VerifiedScan: scan, Appearance: UnitAppearance.Acceptable))).Succeeded);
         }
 
         await using var ctx = _factory.Create();
@@ -2951,7 +3014,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
             Assert.True(issued.Succeeded, issued.Error);
             issueId = issued.Value!.Id;
-            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"))).Succeeded);
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
         }
 
         await using var ctx = _factory.Create();
@@ -3007,18 +3070,18 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using var ctx = _factory.Create();
         var issuing = Issuing(ctx);
 
-        var missing = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse"));
+        var missing = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable));
         Assert.False(missing.Succeeded);
         Assert.Contains(IsbtErrorCodes.UnitScanMismatch, missing.Error);
 
         var mismatch = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest(
             "ward-nurse",
-            VerifiedScan: scan with { Din = "W9999999999999" }));
+            VerifiedScan: scan with { Din = "W9999999999999" }, Appearance: UnitAppearance.Acceptable));
         Assert.False(mismatch.Succeeded);
         Assert.True(mismatch.Evaluation!.IsHardStopped);
         Assert.Contains(mismatch.Evaluation.HardStops, r => r.Code == IsbtErrorCodes.UnitScanMismatch);
 
-        var ok = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", VerifiedScan: scan));
+        var ok = await issuing.RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", VerifiedScan: scan, Appearance: UnitAppearance.Acceptable));
         Assert.True(ok.Succeeded, ok.Error);
         Assert.Equal("ward-nurse", ok.Value!.WardReceivedBy);
         var stored = await ctx.Issues.FindAsync(issueId);
