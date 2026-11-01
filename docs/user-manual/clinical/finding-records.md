@@ -7,7 +7,7 @@ summary: Scan or type a unit number, accession, order number, MRN, or name in th
 routes: []
 ---
 
-The **find box** in the top bar is on every page. Click it, or press **/** or **Ctrl+K**, then scan a barcode or type and press **Enter**.
+The **find box** in the top bar is on every page. Click it, or press **/** or **Ctrl+K**, then scan a barcode or type and press **Enter**. Press **?** outside a text field to see every keyboard shortcut.
 
 It takes:
 

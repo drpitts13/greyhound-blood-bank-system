@@ -500,7 +500,7 @@
 
 @if (_desk == "issue")
 {
-<div class="bb-card" @ref="_issueForm" tabindex="-1">
+<div class="bb-card" @ref="_issueForm" tabindex="-1" data-enter-flow>
     <div class="bb-card-title"><h3>Issue a unit</h3></div>
     @if (!Session.Has(PermissionCodes.IssueCreate))
     {
@@ -533,12 +533,11 @@
         </div>
         <div class="form-row">
             <div class="field"><label>Patient ID 1 (MRN)</label>
-                <input @bind="_issue.PatientIdentifier1Value" @bind:event="oninput" autocomplete="off" placeholder="Scan wristband or type"
-                       @onkeydown="e => FocusOnEnterAsync(e, _issueId2Input)" />
+                <input @bind="_issue.PatientIdentifier1Value" @bind:event="oninput" autocomplete="off" placeholder="Scan wristband or type" data-enter-step />
                 <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@_issue.PatientIdentifier1Value" Patient="IssuePatient" />
             </div>
             <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label>
-                <input @ref="_issueId2Input" @bind="_issue.PatientIdentifier2Value" @bind:event="oninput" autocomplete="off" placeholder="From wristband or requisition" />
+                <input @bind="_issue.PatientIdentifier2Value" @bind:event="oninput" autocomplete="off" placeholder="From wristband or requisition" data-enter-step />
                 <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@_issue.PatientIdentifier2Value" Patient="IssuePatient" />
             </div>
             <div class="field"><label>Second verifier</label>
@@ -652,7 +651,7 @@
 
 @if (_desk == "receipt")
 {
-<div class="bb-card">
+<div class="bb-card" tabindex="-1" data-enter-flow>
     <div class="bb-card-title"><h3>Ward receipt</h3></div>
     <p class="muted">The receiving location must acknowledge custody before transfusion can be documented (SoftBank remote-issue receipt).</p>
     @if (!Session.Has(PermissionCodes.TransfusionDocument))
@@ -663,8 +662,8 @@
     {
         <Outcome Value="_wardFb" />
         <div class="form-row">
-            <div class="field"><label>Unit number</label><input class="mono" @bind="_wardUnitLookup" @bind:after="LookUpWardUnitAsync" placeholder="Type or scan, or Receive from a list" /></div>
-            <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" /></div>
+            <div class="field"><label>Unit number</label><input class="mono" @bind="_wardUnitLookup" @bind:after="LookUpWardUnitAsync" placeholder="Type or scan, or Receive from a list" data-enter-step autocomplete="off" /></div>
+            <div class="field"><label>Received by</label><input @bind="_wardReceivedBy" placeholder="Nurse / ward staff" data-enter-step /></div>
             <div class="field"><label>Appearance at receipt</label>
                 <select @bind="_wardAppearance">
                     @foreach (var a in Enum.GetValues<UnitAppearance>()) { <option value="@a">@a</option> }
@@ -804,7 +803,7 @@
 
 @if (_desk == "transfuse")
 {
-    <div class="bb-card">
+    <div class="bb-card" tabindex="-1" data-enter-flow>
         <div class="bb-card-title"><h3>Document transfusion</h3></div>
         @if (!Session.Has(PermissionCodes.TransfusionDocument))
         {
@@ -814,7 +813,7 @@
         {
             <Outcome Value="_txFb" />
             <div class="form-row">
-                <div class="field"><label>Unit number</label><input class="mono" @bind="_txUnitLookup" @bind:after="LookUpTransfusionUnitAsync" placeholder="Type or scan, or Document from Issued units" /></div>
+                <div class="field"><label>Unit number</label><input class="mono" @bind="_txUnitLookup" @bind:after="LookUpTransfusionUnitAsync" placeholder="Type or scan, or Document from Issued units" data-enter-step autocomplete="off" /></div>
                 <div class="field"><label>Disposition</label>
                     <select @bind="_txDisposition">@foreach (var d in Enum.GetValues<TransfusionDisposition>()) { <option value="@d">@d</option> }</select>
                 </div>
@@ -862,12 +861,11 @@
             }
             <div class="form-row">
                 <div class="field"><label>Patient ID 1 (MRN)</label>
-                    <input @bind="_txPatientIdentifier1" @bind:event="oninput" autocomplete="off" placeholder="Scan wristband or type"
-                           @onkeydown="e => FocusOnEnterAsync(e, _txId2Input)" />
+                    <input @bind="_txPatientIdentifier1" @bind:event="oninput" autocomplete="off" placeholder="Scan wristband or type" data-enter-step />
                     <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@_txPatientIdentifier1" Patient="_txPatient" />
                 </div>
                 <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label>
-                    <input @ref="_txId2Input" @bind="_txPatientIdentifier2" @bind:event="oninput" autocomplete="off" placeholder="From wristband" />
+                    <input @bind="_txPatientIdentifier2" @bind:event="oninput" autocomplete="off" placeholder="From wristband" data-enter-step />
                     <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@_txPatientIdentifier2" Patient="_txPatient" />
                 </div>
             </div>
@@ -979,8 +977,7 @@
 
     // OCD-039: identifier fields start empty unless the facility allows pre-fill. A failed read keeps them empty.
     private bool _prefillIdentifiers;
-    private ElementReference _issueId2Input;
-    private ElementReference _txId2Input;
+
     private Feedback? _txFb;
     private TransfusionEventDto? _lastTransfusion;
     private long? _openedReactionId;
@@ -1119,15 +1116,6 @@
     }
 
     private PatientDto? IssuePatient => _patients.FirstOrDefault(p => p.Id == _issue.PatientId);
-
-    /// <summary>A wristband scanner ends with Enter: move to the next identifier instead of submitting.</summary>
-    private static async Task FocusOnEnterAsync(KeyboardEventArgs e, ElementReference next)
-    {
-        if (e.Key == "Enter")
-        {
-            await next.FocusAsync();
-        }
-    }
 
     private async Task OnIssuePatientChangedAsync()
     {

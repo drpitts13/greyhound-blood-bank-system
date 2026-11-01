@@ -126,7 +126,7 @@
     @if (IssuingAllocation is not null)
     {
         <div class="bb-dialog-backdrop">
-        <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="issue-unit-title" style="width:min(960px,100%);">
+        <div class="bb-dialog" role="dialog" aria-modal="true" aria-labelledby="issue-unit-title" style="width:min(960px,100%);" tabindex="-1" data-enter-flow>
             <div class="bb-card-title"><h3 id="issue-unit-title">Issue unit <span class="mono">@IssuingAllocation.UnitNumber</span></h3></div>
             @if (OpenAbidWorkups.Count > 0)
             {
@@ -149,12 +149,12 @@
                 </div>
                 <div class="field"><label>Patient ID 1 (MRN)</label>
                     <input @bind="IssueId1" @bind:event="oninput" @bind:after="() => IssueId1Changed.InvokeAsync(IssueId1)"
-                           autocomplete="off" placeholder="Scan wristband or type" @onkeydown="OnId1KeyDownAsync" />
+                           autocomplete="off" placeholder="Scan wristband or type" data-enter-step />
                     <IdentifierMatchHint Type="IdentityTokenType.MedicalRecordNumber" Value="@IssueId1" Patient="Patient" />
                 </div>
                 <div class="field"><label>Patient ID 2 (DOB yyyy-MM-dd)</label>
-                    <input @ref="_id2Input" @bind="IssueId2" @bind:event="oninput" @bind:after="() => IssueId2Changed.InvokeAsync(IssueId2)"
-                           autocomplete="off" placeholder="From wristband or requisition" />
+                    <input @bind="IssueId2" @bind:event="oninput" @bind:after="() => IssueId2Changed.InvokeAsync(IssueId2)"
+                           autocomplete="off" placeholder="From wristband or requisition" data-enter-step />
                     <IdentifierMatchHint Type="IdentityTokenType.DateOfBirth" Value="@IssueId2" Patient="Patient" />
                 </div>
                 <div class="field"><label>Second verifier</label>
@@ -424,17 +424,6 @@
     [Parameter] public string IssueIssuedTo { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> IssueIssuedToChanged { get; set; }
     [Parameter] public PatientDto? Patient { get; set; }
-
-    private ElementReference _id2Input;
-
-    /// <summary>A wristband scanner ends with Enter: move to the second identifier instead of submitting.</summary>
-    private async Task OnId1KeyDownAsync(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            await _id2Input.FocusAsync();
-        }
-    }
 
     [Parameter] public string IssueId1 { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> IssueId1Changed { get; set; }

@@ -489,3 +489,12 @@ tr.row-muted td { opacity: .75; }
 .bb-id-hint { font-size: .8rem; margin-top: .2rem; }
 .bb-id-hint.ok { color: var(--bb-ok); }
 .bb-id-hint.stop { color: var(--bb-stop); font-weight: 600; }
+
+/* Enter-to-next-step completion cue and shortcut panel */
+[data-enter-flow].bb-enter-done { outline: 2px solid var(--bb-ok); outline-offset: 2px; }
+[data-enter-flow]:focus { outline: none; }
+[data-enter-flow].bb-enter-done:focus { outline: 2px solid var(--bb-ok); }
+.bb-shortcuts kbd {
+    font-family: Consolas, "Courier New", monospace; font-size: .8rem; padding: .05rem .35rem;
+    border: 1px solid var(--bb-border); border-radius: 4px; background: var(--bb-bg); white-space: nowrap;
+}

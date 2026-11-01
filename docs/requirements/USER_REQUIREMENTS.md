@@ -428,3 +428,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-420 | The home screen leads with the signed-in user's desk and puts overdue and safety work first, without hiding any permitted queue. | P9 | FRS-BB-455 |
 | URS-BB-421 | At issue and at the bedside, the two patient identifiers are read from the patient wristband or requisition rather than copied from the record, unless the facility chooses otherwise. | P1 | FRS-BB-456 |
 | URS-BB-422 | A unit or patient chosen for staff on a form is shown by its real identifier (unit number, name and MRN), never by an internal record number, and is never swapped for a different record without the user choosing it. | P1 | FRS-BB-457 |
+| URS-BB-423 | At issue, ward receipt, and the bedside, staff can scan or type each identifier and unit-label field in turn without the mouse, and a scanner's Enter never performs the issue, receipt, or documentation. | P9 | FRS-BB-458 |

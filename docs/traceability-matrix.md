@@ -459,6 +459,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-420 / FRS-BB-455 | Role-focused home | `DashboardHome`; `DashboardQueueCatalog`; `Home.razor` | TEST-BB-310 | D / I | No permission change; order and grouping only |
 | URS-BB-421 / FRS-BB-456 | Patient identifiers read, not copied, at issue and bedside | `PatientIdentifierEntryRule`; `FacilityPolicyCatalog`; `ReferenceEndpoints`; `IdentifierMatchHint.razor`; `Issuing.razor`; `PatientChartProductsTab.razor` | TEST-BB-311 | D / I | OCD-039 decided: policy, default off |
 | URS-BB-422 / FRS-BB-457 | Choices show real identifiers and never swap silently | `ComboBoxDisplay`; `FilterableComboBox.razor`; `UnitPickerComboBox.razor` | TEST-BB-312 | D / I | Affects all 15 pages using searchable choices |
+| URS-BB-423 / FRS-BB-458 | Enter flow through issue, ward receipt, and bedside fields; shortcut list | `ui.js`; `Issuing.razor`; `PatientChartProductsTab.razor`; `UnitScanVerificationPanel.razor` | TEST-BB-313 | D / I | Never presses an action button |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
 

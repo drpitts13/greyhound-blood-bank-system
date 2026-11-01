@@ -28,7 +28,9 @@ Ready to issue opens first. Reserved units are listed so you do not retype the p
 
 **Patient identifiers.** Scan the MRN from the wristband, or type it from the requisition, then the date of birth. The scanner's Enter moves you to the date of birth. Under each field a line says **Matches the patient record** or **Does not match this patient**. It never shows the value it expected. By default both fields start empty, so the check compares what you read with the record. A facility can choose to start them filled in (Facility Policies › *Pre-fill patient identifiers at issue and bedside*, OCD-039), and staff then confirm them visually. The server still refuses an issue whose two identifiers do not match.
 
-Then complete appearance, location, and who is taking the unit. Print the compatibility tag when the issue requires a P-tag, then scan the P-tag id before you issue. Facility policy decides whether the tag is required.
+Then complete appearance, location, and who is taking the unit.
+
+**Scanning without the mouse.** On Issue, Ward receipt, and Document transfusion, Enter moves to the next field: patient ID 1, patient ID 2, then the unit label fields (DIN, product code, ABO/RhD, expiration, extended division). A scanner sends Enter after each scan, so you can scan wristband, requisition, and bag in a row. After the last field the form gets a green outline and keeps the focus. **Issue unit**, **Acknowledge receipt**, and **Document** are never pressed by Enter, so a stray scan cannot issue a unit. Click the button, or press Tab to reach it and then Enter. Press **?** (outside a text field) for the list of shortcuts. Print the compatibility tag when the issue requires a P-tag, then scan the P-tag id before you issue. Facility policy decides whether the tag is required.
 
 > Hard stop. Two independent identity tokens are required. Confirming a single checkbox does not satisfy the check. A hard stop cannot be signed away.
 

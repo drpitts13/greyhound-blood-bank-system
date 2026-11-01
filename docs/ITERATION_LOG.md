@@ -7521,3 +7521,52 @@ Worse, when focus left the field, the leftover text was committed as a typed sea
 ### Next ranked residual
 
 Keyboard: a shortcut map, and Enter-driven flow from the second identifier through unit scan verification to Issue.
+
+## Iteration 269 — Keyboard and scanner flow at issue, ward receipt, and bedside (2026-11-01)
+
+The keyboard row was the last Partial UX row. On the issue desk, a scan into patient ID 1 or a unit-label field ended with the scanner's Enter and went nowhere, so staff had to reach for the mouse between every scan.
+
+### Implemented
+
+- An attribute-driven Enter flow in `wwwroot/ui.js`. Inside a `data-enter-flow` container, Enter on a `data-enter-step` input moves to the next visible, enabled step and selects its text.
+  - After the last step, focus goes to the **form container**, which shows a short green outline, and **never to a button**. The next scan's Enter therefore cannot issue, receive, or document.
+  - The action stays a deliberate click, or Tab then Enter.
+  - Moving focus blurs the field, which fires its change event, so change-bound unit lookups still run.
+- Flows are applied to:
+  - the issue desk: patient ID 1 and 2, then the five unit-label fields
+  - ward receipt: unit number and received-by, then the label fields
+  - bedside documentation: unit number and patient IDs, then the label fields
+  - the chart's issue dialog: patient IDs, then the label fields
+- The per-field C# Enter handlers added in Cycle 267 are removed in favor of the shared behavior.
+- `?` outside a text field opens a keyboard shortcut list; Esc or `?` closes it.
+- Help: "Scanning without the mouse" in `issuing`, and the `?` key in `finding-records`.
+
+### Requirements / risk
+
+- URS-BB-423, FRS-BB-458, SRS-BB-420, RISK-BB-525 (a scanner's trailing Enter presses Issue, Receive, or Document).
+
+### Tests
+
+- TEST-BB-313: `EnterFlowTests` (5 cases, source scans). They check that:
+  - only text inputs are steps
+  - the issue page has three flows and the chart dialog one, both with identifier steps, and the old C# handlers are gone
+  - every unit-label scan field is a step
+  - the flow script focuses the container and never clicks, submits, or targets a button
+- The behavior itself is JavaScript with no JS test harness, so it was checked in the browser (below).
+- Full suite: 3,028 passed, 0 failed (previously 3,023). Help 24, Integration 1,097, Domain 1,713, Application 91, HL7 63, Printing 21, Astm 19.
+- Run check (development database, DevMode):
+  - Issue on a Ready row, then MRN0001, Enter, a date of birth, Enter, and Enter through each label field.
+  - Focus visited ID 2, DIN, product code, ABO/RhD, expiration, and extended division, then the form, which showed the outline.
+  - A further Enter on the form did nothing. No issue was written: the API log shows no `INSERT INTO "Issues"`, and there were no errors.
+  - A `?` key event opened the shortcut list (6 entries, focus on Close), and Esc closed it.
+  - The browser tool cannot send a shifted `?`, so the panel was opened with a dispatched key event. A physical keyboard sends `?`.
+
+### Next ranked residual
+
+The UX matrix rows are now Present. Return to the clinical matrix. Its remaining Partial rows are SME- or license-blocked:
+- the ICCBBA tables (OCD-004)
+- PBM criteria content (OCD-038)
+- eluate findings into antibody history
+- FHIR
+
+The next unblocked candidate is an end-to-end workflow check of the bedside form under `Issue.PrefillPatientIdentifiers`, both on and off, followed by an inventory of other screens that copy identifiers from the record.

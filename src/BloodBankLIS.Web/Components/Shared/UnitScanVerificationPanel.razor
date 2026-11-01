@@ -2,11 +2,11 @@
     <div class="bb-card-title"><h3>@Title</h3></div>
     <p class="muted">@Help</p>
     <div class="form-row">
-        <div class="field"><label>DIN</label><input class="mono" @bind="Scan.Din" placeholder="W0000X1234567" /></div>
-        <div class="field"><label>Product code data</label><input class="mono" @bind="Scan.ProductCodeData" placeholder="E0206V00" /></div>
-        <div class="field"><label>ABO/RhD code</label><input class="mono" @bind="Scan.AboRhdCode" placeholder="Label ABO/RhD" /></div>
-        <div class="field"><label>Expiration encoded</label><input class="mono" @bind="Scan.ExpirationEncoded" placeholder="Label expiration" /></div>
-        <div class="field"><label>Extended division (if present)</label><input class="mono" @bind="Scan.ExtendedDivisionCode" /></div>
+        <div class="field"><label>DIN</label><input class="mono" data-enter-step autocomplete="off" @bind="Scan.Din" placeholder="W0000X1234567" /></div>
+        <div class="field"><label>Product code data</label><input class="mono" data-enter-step autocomplete="off" @bind="Scan.ProductCodeData" placeholder="E0206V00" /></div>
+        <div class="field"><label>ABO/RhD code</label><input class="mono" data-enter-step autocomplete="off" @bind="Scan.AboRhdCode" placeholder="Label ABO/RhD" /></div>
+        <div class="field"><label>Expiration encoded</label><input class="mono" data-enter-step autocomplete="off" @bind="Scan.ExpirationEncoded" placeholder="Label expiration" /></div>
+        <div class="field"><label>Extended division (if present)</label><input class="mono" data-enter-step autocomplete="off" @bind="Scan.ExtendedDivisionCode" /></div>
     </div>
 </div>
 
