@@ -7476,3 +7476,48 @@ This had been in place since September. The product owner decided it in conversa
 
 1. The Unit number picker display on the issue form, observed above.
 2. Keyboard: a shortcut map, and Enter-driven flow through unit scan verification to Issue.
+
+## Iteration 268 — Choices show real identifiers and never swap silently (2026-11-01)
+
+Iteration 267 noticed that the issue form showed "1" in the Unit number field after Issue on a Ready-to-issue row.
+
+### Cause
+
+The shared searchable choice, `FilterableComboBox`, used on 15 pages, resolved its text only when its value **changed**. The issue form sets the unit before the unit picker's list has loaded, so the text fell back to the internal record id and was never updated when the list arrived.
+
+Worse, when focus left the field, the leftover text was committed as a typed search. Unit search includes the record id, so "1" could select a different unit whose number contained that digit, with a single match.
+
+### Implemented
+
+- `ComboBoxDisplay` (Web, no I/O) resolves a value's text and says whether it is resolved.
+  - `FilterableComboBox` resolves again on every render until the item appears.
+  - A new `UnresolvedText` parameter supplies the text for a value whose item is not in the list.
+  - Unresolved text is never committed as a search when focus leaves.
+  - Typing, picking, or clearing marks the text as the user's own again.
+- `UnitPickerComboBox` shows "Loading unit..." until its list arrives. Once loaded, a unit that is not in the list shows "Unit record N is not in this list. Clear it and scan the unit." A bare id is never shown.
+- `BloodBankLIS.Help.Tests` now references the Web project, so Web helpers can be unit-tested.
+- No API or schema change.
+
+### Requirements / risk
+
+- URS-BB-422, FRS-BB-457, SRS-BB-419, RISK-BB-524.
+
+### Tests
+
+- TEST-BB-312: `ComboBoxDisplayTests` (10 cases). They cover:
+  - an item in the list
+  - a value before the list loads, with and without unresolved text
+  - a null value
+  - a custom string value
+  - `ShouldResolve` truth table
+  - a load sequence that resolves once the item arrives
+- Full suite: 3,023 passed, 0 failed (previously 3,013). Application 91, Astm 19, HL7 63, Domain 1,713, Printing 21, Help 19, Integration 1,097.
+- Run check (development database, DevMode):
+  - Issue on a Ready row now shows `W0001230000001 · O+ · Available · Unit expires 2026-12-01 16:46` in the Unit number field, where it showed "1" before.
+  - Focusing the field and tabbing out kept the same unit.
+  - Nothing was issued, and there were no server errors.
+- Not covered: a rendered-component test of `FilterableComboBox` itself, because there is no bUnit harness. The decision logic is in the tested helper.
+
+### Next ranked residual
+
+Keyboard: a shortcut map, and Enter-driven flow from the second identifier through unit scan verification to Issue.

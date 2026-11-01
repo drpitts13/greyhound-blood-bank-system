@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\BloodBankLIS.Help\BloodBankLIS.Help.csproj" />
+    <ProjectReference Include="..\..\src\BloodBankLIS.Web\BloodBankLIS.Web.csproj" />
   </ItemGroup>
 
 </Project>

@@ -37,6 +37,9 @@
     [Parameter] public Func<TItem, string>? SearchText { get; set; }
     /// <summary>When true, the bound value follows typed text (for free-text fields such as provider location).</summary>
     [Parameter] public bool AllowCustom { get; set; }
+
+    /// <summary>Text for a value whose item is not (yet) in <see cref="Items"/>. Defaults to the value itself.</summary>
+    [Parameter] public Func<TValue, string>? UnresolvedText { get; set; }
     [Parameter] public bool Clearable { get; set; }
     [Parameter] public string ClearLabel { get; set; } = "—";
     [Parameter] public string? Placeholder { get; set; }
@@ -46,6 +49,7 @@
     private bool _open;
     private bool _suppressSync;
     private TValue? _lastSyncedValue;
+    private bool _resolved = true;
 
     private bool _showClearOption => Clearable;
 
@@ -66,7 +70,8 @@
 
     protected override void OnParametersSet()
     {
-        if (EqualityComparer<TValue?>.Default.Equals(Value, _lastSyncedValue))
+        var changed = !EqualityComparer<TValue?>.Default.Equals(Value, _lastSyncedValue);
+        if (!ComboBoxDisplay.ShouldResolve(changed, _resolved))
         {
             return;
         }
@@ -77,30 +82,10 @@
             return;
         }
 
-        _inputText = ResolveInputFromValue(Value);
-    }
-
-    private string ResolveInputFromValue(TValue? value)
-    {
-        if (value is null)
-        {
-            return string.Empty;
-        }
-
-        if (AllowCustom && IsStringValue && value is string s)
-        {
-            return s;
-        }
-
-        foreach (var item in Items)
-        {
-            if (ValuesEqual(ItemValue(item), value))
-            {
-                return DisplayText(item);
-            }
-        }
-
-        return value.ToString() ?? string.Empty;
+        // A value set before its list loaded is resolved again on every render until its item appears.
+        var display = ComboBoxDisplay.Resolve(Value, Items, ItemValue, DisplayText, UnresolvedText, AllowCustom && IsStringValue);
+        _inputText = display.Text;
+        _resolved = display.Resolved;
     }
 
     private bool Matches(TItem item, string term) =>
@@ -112,6 +97,7 @@
     private void OnInput(ChangeEventArgs e)
     {
         _inputText = e.Value?.ToString() ?? string.Empty;
+        _resolved = true;
         _open = true;
 
         if (AllowCustom)
@@ -124,6 +110,7 @@
     {
         _suppressSync = true;
         _inputText = DisplayText(item);
+        _resolved = true;
         var value = ItemValue(item);
         _lastSyncedValue = value;
         await ValueChanged.InvokeAsync(value);
@@ -135,6 +122,7 @@
     {
         _suppressSync = true;
         _inputText = string.Empty;
+        _resolved = true;
         _lastSyncedValue = default;
         await ValueChanged.InvokeAsync(default);
         _suppressSync = false;
@@ -151,6 +139,12 @@
 
     private async Task TryCommitTypedSelectionAsync()
     {
+        // Unresolved text came from code, not the user: never search with it, or it could pick a different item.
+        if (!_resolved)
+        {
+            return;
+        }
+
         if (AllowCustom)
         {
             // Text that is an item's display text means that item was picked: keep its value, not the label.

@@ -8,6 +8,7 @@
     ItemValue="@(u => u.Id)"
     SearchText="FormatSearch"
     Clearable="Clearable"
+    UnresolvedText="UnresolvedUnit"
     Placeholder="@(Placeholder ?? "Type unit number")" />
 
 @code {
@@ -22,6 +23,7 @@
 
     private List<BloodUnitDto> _loaded = new();
     private bool _loadStarted;
+    private bool _loadFinished;
 
     private IEnumerable<BloodUnitDto> VisibleItems
     {
@@ -55,6 +57,7 @@
         };
         var result = await Api.SearchUnitsAsync(new InventorySearchCriteria(Statuses: statuses));
         _loaded = result.Value ?? new();
+        _loadFinished = true;
     }
 
     private async Task OnValueChangedAsync(long? id)
@@ -66,6 +69,11 @@
 
     private static string FormatDisplay(BloodUnitDto u) =>
         $"{u.UnitNumber} · {Ui.BloodType(u.Abo, u.RhD)} · {u.Status} · {ReadyToIssueFormCue.ExpirationNotice(u.ExpiresUtc)}";
+
+    // Never show a bare internal id where a unit number belongs.
+    private string UnresolvedUnit(long? id) => Items is not null || _loadFinished
+        ? $"Unit record {id} is not in this list. Clear it and scan the unit."
+        : "Loading unit...";
 
     private static string FormatSearch(BloodUnitDto u) =>
         $"{u.UnitNumber} {u.Din} {u.ComponentIdentity} {u.Id}";

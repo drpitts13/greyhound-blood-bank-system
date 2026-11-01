@@ -427,3 +427,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-419 | Staff can see the full history of one specimen (collection, receipt, acceptance or rejection, relabel, overrides, results, and the crossmatches and reservations that used it) with who did each step and where. | P4 | FRS-BB-454 |
 | URS-BB-420 | The home screen leads with the signed-in user's desk and puts overdue and safety work first, without hiding any permitted queue. | P9 | FRS-BB-455 |
 | URS-BB-421 | At issue and at the bedside, the two patient identifiers are read from the patient wristband or requisition rather than copied from the record, unless the facility chooses otherwise. | P1 | FRS-BB-456 |
+| URS-BB-422 | A unit or patient chosen for staff on a form is shown by its real identifier (unit number, name and MRN), never by an internal record number, and is never swapped for a different record without the user choosing it. | P1 | FRS-BB-457 |
