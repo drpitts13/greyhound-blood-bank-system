@@ -1,15 +1,25 @@
 @page "/storage-temps"
 @inject BloodBankApiClient Api
 @inject UserSession Session
+@inject IJSRuntime Js
 
 <PageTitle>Storage temperatures &middot; Greyhound Blood Bank LIS</PageTitle>
 
-<h1>Storage temperatures</h1>
+<div class="flex-between">
+    <h1>Storage temperatures</h1>
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/storage-temps/report">Temperature history report</a>
+        @if (Session.Has(PermissionCodes.AdminConfigView))
+        {
+            <a class="btn btn-ghost" href="/admin/storage-devices">Manage refrigerators &amp; freezers</a>
+        }
+    </div>
+</div>
 <p class="muted">Record refrigerator, freezer, and platelet-storage readings against each location's range.</p>
 <details class="bb-help">
     <summary>How it works</summary>
     <ul>
-        <li>The range comes from the location's minimum and maximum in Admin &rsaquo; Inventory locations. A location with no range records readings but cannot raise an excursion.</li>
+        <li>The range comes from the device's minimum and maximum in Admin &rsaquo; Refrigerators &amp; Freezers. A location with no range records readings but cannot raise an excursion.</li>
         <li>A reading outside the range opens a Major deviation that names the location and the number of units stored there.</li>
         <li>Units are not quarantined automatically. Review them from Inventory and quarantine any that need it.</li>
         <li>Readings are never edited. Record a new reading to correct one.</li>
@@ -32,7 +42,7 @@
                         <td>@RangeText(row.RangeMinC, row.RangeMaxC)</td>
                         <td>@row.ReadingUtc.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@row.RecordedBy</td>
-                        <td>@if (row.DeviationId is long id) { <a href="/deviations">DEV-@id</a> }</td>
+                        <td>@if (row.DeviationId is long id) { <a href="@($"/deviations?id={id}")">DEV-@id</a> }</td>
                     </tr>
                 }
             </tbody>
@@ -61,7 +71,14 @@
                         </td>
                         <td>@loc.LastReadingUtc?.ToString("yyyy-MM-dd HH:mm")</td>
                         <td>@loc.UnitsStored</td>
-                        <td><button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(loc.LocationId)">History</button></td>
+                        <td class="right nowrap">
+                            @if (Session.Has(PermissionCodes.InventoryReceive))
+                            {
+                                <button class="btn btn-secondary btn-sm" @onclick="() => StartReadingAsync(loc.LocationId)">Record</button>
+                            }
+                            <button class="btn btn-ghost btn-sm" @onclick="() => ShowHistoryAsync(loc.LocationId)">History</button>
+                            <a class="btn btn-ghost btn-sm" href="@($"/storage-temps/report?device={loc.LocationId}")">Report</a>
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -73,6 +90,7 @@
 {
     <div class="bb-card">
         <div class="bb-card-title"><h3>Record a reading</h3></div>
+        <Outcome Value="_recordFb" />
         <div class="form-row">
             <div class="field">
                 <label>Location</label>
@@ -84,7 +102,7 @@
                     }
                 </select>
             </div>
-            <div class="field"><label>Reading (°C)</label><input type="number" step="0.1" @bind="_reading" /></div>
+            <div class="field"><label>Reading (°C)</label><input id="temp-reading" type="number" step="0.1" @bind="_reading" @bind:event="oninput" @onkeydown="OnReadingKey" /></div>
             <div class="field"><label>Comment</label><input @bind="_comment" /></div>
         </div>
         <button class="btn btn-primary btn-sm" disabled="@(_busy || _locationId == 0 || _reading is null)" @onclick="RecordAsync">Record reading</button>
@@ -93,7 +111,8 @@
 
 @if (_historyLocationId is long historyId)
 {
-    <div class="bb-card">
+    @* Scrolled to only when History is clicked; recording a reading also opens it and must not pull the page away from the form. *@
+    <div id="temp-history" class="bb-card">
         <div class="bb-card-title"><h3>Last 7 days &middot; @_locations.FirstOrDefault(l => l.LocationId == historyId)?.Code</h3></div>
         @if (_history.Count == 0)
         {
@@ -129,6 +148,24 @@
     private Feedback? _feedback;
     private long _locationId;
     private decimal? _reading;
+    private Feedback? _recordFb;
+
+    // Rounds go fridge by fridge: Record on a row picks the location and puts the cursor in the reading.
+    private async Task StartReadingAsync(long locationId)
+    {
+        _locationId = locationId;
+        _recordFb = null;
+        StateHasChanged();
+        await Js.FocusSelectAsync("temp-reading");
+    }
+
+    private async Task OnReadingKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && _locationId != 0 && _reading is not null)
+        {
+            await RecordAsync();
+        }
+    }
     private string _comment = string.Empty;
     private bool _busy;
 
@@ -147,6 +184,8 @@
     {
         _historyLocationId = locationId;
         await LoadHistoryAsync(locationId);
+        StateHasChanged();
+        await Js.ScrollIntoViewAsync("temp-history");
     }
 
     private async Task LoadHistoryAsync(long locationId)
@@ -165,7 +204,7 @@
             var saved = await Api.RecordStorageTemperatureAsync(
                 new RecordStorageTemperatureRequest(_locationId, reading, null, _comment));
             var excursion = saved.Succeeded && saved.Value is not null && StorageTemperatureRule.IsExcursion(saved.Value.Status);
-            _feedback = saved.ToFeedback(excursion
+            _recordFb = saved.ToFeedback(excursion
                 ? $"Excursion recorded. Deviation DEV-{saved.Value!.DeviationId} is open. Review the units at this location."
                 : "Reading recorded.");
             if (saved.Succeeded)

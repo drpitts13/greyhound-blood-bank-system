@@ -1,0 +1,291 @@
+@page "/admin/storage-devices"
+@using BloodBankLIS.Application.Admin
+@using BloodBankLIS.Domain.Enums
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>Refrigerators &amp; Freezers &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>Refrigerators &amp; Freezers</h1>
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/storage-temps">Storage temperatures</a>
+        <a class="btn btn-ghost" href="/storage-temps/report">Temperature report</a>
+        @if (CanEdit)
+        {
+            <button class="btn btn-primary" @onclick="NewDraft">Add device</button>
+        }
+    </div>
+</div>
+<p class="muted">Temperature-controlled storage: refrigerators, freezers, platelet incubators, and satellite refrigerators.</p>
+<details class="bb-help">
+    <summary>How it works</summary>
+    <ul>
+        <li>Each active device appears on Storage temperatures for readings. Its range decides when a reading is an excursion.</li>
+        <li>Leave the range blank to use the AABB storage default for the type. New devices also get that type's storage-class and issue settings; adjust them in Admin &rsaquo; <a href="/admin/inventory-locations">Inventory locations</a>.</li>
+        <li>A device that still holds units cannot be deactivated. Move the units first.</li>
+        <li>Deactivating removes the device from temperature rounds. Its readings stay on the temperature report.</li>
+    </ul>
+</details>
+
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    <div class="flex gap" style="margin-bottom:.6rem;">
+        <input style="flex:1;" placeholder="Filter by code, name, or department" @bind="_filter" @bind:event="oninput" />
+        <label class="flex" style="gap:.35rem;"><input type="checkbox" @bind="_includeInactive" /> Include inactive</label>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="loading">Loading...</div>
+    }
+    else if (!Filtered.Any())
+    {
+        <div class="empty">No refrigerators or freezers.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead>
+                <tr><th>Code</th><th>Name</th><th>Type</th><th>Department</th><th>Range °C</th><th>Last reading</th><th>Units stored</th><th>Status</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var d in Filtered)
+                {
+                    _temps.TryGetValue(d.Id, out var t);
+                    <tr>
+                        <td class="mono">@d.Code</td>
+                        <td>@d.NameLabel</td>
+                        <td>@TypeText(d.LocationType)</td>
+                        <td>@d.Department</td>
+                        <td class="mono">@RangeText(d.StorageTempMinC, d.StorageTempMaxC)</td>
+                        <td>@(t?.LastReadingC is decimal c ? $"{c} °C · {t.LastReadingUtc:yyyy-MM-dd HH:mm}" : "—")</td>
+                        <td>@(t?.UnitsStored ?? 0)</td>
+                        <td>@if (d.IsActive) { <span>Active</span> } else { <span class="badge badge-gray">Inactive</span> }</td>
+                        <td class="right nowrap">
+                            <a class="btn btn-ghost btn-sm" href="@($"/storage-temps/report?device={d.Id}")">History</a>
+                            @if (CanEdit)
+                            {
+                                <button class="btn btn-ghost btn-sm" @onclick="() => Edit(d)">Edit</button>
+                            }
+                            @if (CanActivate)
+                            {
+                                @if (d.IsActive && (t?.UnitsStored ?? 0) > 0)
+                                {
+                                    @* The server refuses while units are stored; say so here instead of after a confirm. *@
+                                    <span title="@($"Holds {t!.UnitsStored} unit{(t.UnitsStored == 1 ? "" : "s")}. Move them before deactivating.")">
+                                        <button class="btn btn-ghost btn-sm" disabled>Deactivate</button>
+                                    </span>
+                                }
+                                else if (d.IsActive)
+                                {
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => _confirm = d">Deactivate</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => SetActiveAsync(d, true)">Activate</button>
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_confirm is not null)
+{
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
+        <h2>Deactivate @_confirm.Code?</h2>
+        <p>@_confirm.NameLabel will no longer appear on Storage temperatures or accept readings. Its temperature history stays on the report.</p>
+        <div class="flex gap">
+            <button class="btn btn-danger" disabled="@_busy" @onclick="() => SetActiveAsync(_confirm, false)">Deactivate</button>
+            <button class="btn btn-ghost" @onclick="() => _confirm = null">Cancel</button>
+        </div>
+    </div>
+}
+
+@if (_draft is not null && CanEdit)
+{
+    <div class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
+        <h2>@(_editing is null ? "Add device" : $"Edit: {_editing.Code}")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_draft.Code" disabled="@(_editing is not null)" placeholder="e.g. FRIDGE-3" /></div>
+            <div class="field"><label>Name</label><input @bind="_draft.Name" placeholder="e.g. Main lab refrigerator 3" /></div>
+            <div class="field">
+                <label>Type</label>
+                <select @bind="_draft.LocationType" disabled="@(_editing is not null)">
+                    @foreach (var type in DeviceTypes)
+                    {
+                        <option value="@type">@TypeText(type)</option>
+                    }
+                </select>
+            </div>
+            <div class="field"><label>Department</label><input @bind="_draft.Department" /></div>
+        </div>
+        <div class="form-row">
+            <div class="field"><label>Min °C</label><input type="number" step="0.1" @bind="_draft.MinC" placeholder="@(_editing is null ? "Type default" : null)" /></div>
+            <div class="field"><label>Max °C</label><input type="number" step="0.1" @bind="_draft.MaxC" placeholder="@(_editing is null ? "Type default" : null)" /></div>
+            <div class="field" style="flex:2;"><label>Notes</label><input @bind="_draft.Notes" placeholder="Make, model, serial, asset tag" /></div>
+        </div>
+        <div class="flex gap">
+            <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button class="btn btn-ghost" @onclick="() => { _draft = null; _editing = null; }">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private static readonly LocationType[] DeviceTypes =
+        [LocationType.Refrigerator, LocationType.Freezer, LocationType.PlateletIncubator, LocationType.SatelliteRefrigerator];
+
+    private bool _loading = true;
+    private bool _busy;
+    private string _filter = string.Empty;
+    private bool _includeInactive;
+    private List<InventoryLocationAdminDto> _devices = new();
+    private Dictionary<long, StorageLocationTemperatureDto> _temps = new();
+    private Feedback? _feedback;
+    private InventoryLocationAdminDto? _editing;
+    private InventoryLocationAdminDto? _confirm;
+    private DeviceDraft? _draft;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    private IEnumerable<InventoryLocationAdminDto> Filtered => _devices
+        .Where(d => _includeInactive || d.IsActive)
+        .Where(d => string.IsNullOrWhiteSpace(_filter)
+            || d.Code.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || d.NameLabel.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+            || (d.Department?.Contains(_filter, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        var r = await Api.GetAdminInventoryLocationsAsync(includeInactive: true);
+        _devices = r.Succeeded
+            ? (r.Value ?? new()).Where(l => DeviceTypes.Contains(l.LocationType)).OrderByDescending(l => l.IsActive).ThenBy(l => l.Code).ToList()
+            : new();
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+        var temps = await Api.GetStorageTemperatureLocationsAsync();
+        _temps = temps.Succeeded ? (temps.Value ?? new()).ToDictionary(t => t.LocationId) : new();
+        _loading = false;
+    }
+
+    private void NewDraft()
+    {
+        _editing = null;
+        _confirm = null;
+        _draft = new DeviceDraft();
+    }
+
+    private void Edit(InventoryLocationAdminDto d)
+    {
+        _editing = d;
+        _confirm = null;
+        _draft = new DeviceDraft
+        {
+            Code = d.Code,
+            Name = d.Name,
+            LocationType = d.LocationType,
+            Department = d.Department,
+            MinC = d.StorageTempMinC,
+            MaxC = d.StorageTempMaxC,
+            Notes = d.Notes
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null || _busy) return;
+        if (string.IsNullOrWhiteSpace(_draft.Code) || string.IsNullOrWhiteSpace(_draft.Name))
+        {
+            _feedback = Feedback.Fail("Code and name are required.");
+            return;
+        }
+
+        if (_draft.MinC is decimal lo && _draft.MaxC is decimal hi && lo >= hi)
+        {
+            _feedback = Feedback.Fail("Min °C must be below Max °C.");
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            ApiResult<InventoryLocationAdminDto> r;
+            if (_editing is { } e)
+            {
+                // Only the fields on this form change; storage class, issue, and time-out settings are kept as they are.
+                r = await Api.UpdateAdminInventoryLocationAsync(e.Id, new SaveInventoryLocationRequest(
+                    e.Code, _draft.Name, e.LocationType, _draft.Department,
+                    e.AllowsIssue, e.AllowsRemoteIssue, e.AllowsElectronicIssue, e.RequiresSecondVerifier, e.IsSatellite,
+                    e.AllowsRbc, e.AllowsPlasma, e.AllowsPlatelets, e.AllowsCryo, e.AllowsWholeBlood,
+                    _draft.MinC, _draft.MaxC, e.DefaultInTransitHours, _draft.Notes,
+                    ApplyTypeDefaults: false, TimeOutGoverned: e.TimeOutGoverned));
+            }
+            else
+            {
+                r = await Api.CreateAdminInventoryLocationAsync(new SaveInventoryLocationRequest(
+                    _draft.Code, _draft.Name, _draft.LocationType, _draft.Department,
+                    StorageTempMinC: _draft.MinC, StorageTempMaxC: _draft.MaxC, Notes: _draft.Notes,
+                    ApplyTypeDefaults: true));
+            }
+
+            _feedback = r.ToFeedback(_editing is null ? $"{_draft.Code.Trim().ToUpperInvariant()} added." : "Device saved.");
+            if (r.Succeeded)
+            {
+                _draft = null;
+                _editing = null;
+                await LoadAsync();
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SetActiveAsync(InventoryLocationAdminDto d, bool active)
+    {
+        if (_busy) return;
+        _busy = true;
+        try
+        {
+            var r = await Api.SetAdminInventoryLocationActiveAsync(d.Id, active);
+            _feedback = r.ToFeedback(active ? $"{d.Code} activated." : $"{d.Code} deactivated.");
+            _confirm = null;
+            if (r.Succeeded) await LoadAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string TypeText(LocationType type) => type switch
+    {
+        LocationType.PlateletIncubator => "Platelet incubator",
+        LocationType.SatelliteRefrigerator => "Satellite refrigerator",
+        _ => type.ToString()
+    };
+
+    private static string RangeText(decimal? min, decimal? max) =>
+        min is null && max is null ? "Not set" : $"{min?.ToString("0.#") ?? "?"} to {max?.ToString("0.#") ?? "?"}";
+
+    private sealed class DeviceDraft
+    {
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public LocationType LocationType { get; set; } = LocationType.Refrigerator;
+        public string? Department { get; set; }
+        public decimal? MinC { get; set; }
+        public decimal? MaxC { get; set; }
+        public string? Notes { get; set; }
+    }
+}

@@ -17,8 +17,8 @@ else
         <div class="bb-card">
             <div class="bb-card-title"><h3>Record deviation</h3></div>
             <Outcome Value="_createFb" />
-            <div class="field"><label>Title</label><input @bind="_title" /></div>
-            <div class="field"><label>Description</label><textarea rows="3" @bind="_description"></textarea></div>
+            <div class="field"><label>Title</label><input @bind="_title" @bind:event="oninput" /></div>
+            <div class="field"><label>Description</label><textarea rows="3" @bind="_description" @bind:event="oninput"></textarea></div>
             <div class="form-row">
                 <div class="field"><label>Severity</label>
                     <select @bind="_severity">@foreach (var s in Enum.GetValues<DeviationSeverity>()) { <option value="@s">@s</option> }</select>
@@ -35,24 +35,34 @@ else
                 </div>
                 <div class="field"><label>Record id</label><input type="number" @bind="_contextId" placeholder="Id shown on that record" /></div>
             </div>
-            <button class="btn btn-primary" disabled="@_busy" @onclick="CreateAsync">Create</button>
+            <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_description))" @onclick="CreateAsync">Create</button>
         </div>
 
         <div class="bb-card">
             <div class="bb-card-title"><h3>Open items</h3>
-                <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+                <div class="flex gap">
+                    @if (ClosedCount > 0)
+                    {
+                        <label class="muted" style="font-size:.85rem;"><input type="checkbox" @bind="_showClosed" /> Show closed (@ClosedCount)</label>
+                    }
+                    <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="LoadAsync">Refresh</button>
+                </div>
             </div>
             <Outcome Value="_fb" />
             @if (_rows.Count == 0)
             {
                 <div class="empty">No deviations recorded.</div>
             }
+            else if (!VisibleRows.Any())
+            {
+                <div class="empty">No open deviations.</div>
+            }
             else
             {
                 <table class="bb">
                     <thead><tr><th>Id</th><th>Title</th><th>Severity</th><th>Status</th><th>Context</th><th></th></tr></thead>
                     <tbody>
-                        @foreach (var d in _rows)
+                        @foreach (var d in VisibleRows)
                         {
                             <tr>
                                 <td>@d.Id</td>
@@ -120,7 +130,27 @@ else
     private DeviationStatus _newStatus = DeviationStatus.UnderReview;
     private string? _capa;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    // Closed deviations stay on record but are hidden by default so the working list stays short.
+    private bool _showClosed;
+    private int ClosedCount => _rows.Count(r => r.Status == DeviationStatus.Closed);
+    private IEnumerable<DeviationDto> VisibleRows => _showClosed ? _rows : _rows.Where(r => r.Status != DeviationStatus.Closed);
+
+    // A DEV-n link elsewhere (storage temperatures, the temperature report) opens that deviation's update panel.
+    [SupplyParameterFromQuery(Name = "id")] public long? DeviationId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        if (DeviationId is long id && Session.Has(PermissionCodes.DeviationManage))
+        {
+            if (_rows.FirstOrDefault(r => r.Id == id) is { } row)
+            {
+                _showClosed |= row.Status == DeviationStatus.Closed;
+                BeginStatus(row);
+            }
+            else if (_fb is null) _fb = Feedback.Fail($"Deviation #{id} was not found.");
+        }
+    }
 
     private async Task LoadAsync()
     {
@@ -139,7 +169,11 @@ else
         _createFb = r.ToFeedback("Deviation recorded.");
         if (r.Succeeded)
         {
+            // Clear the whole form so the next deviation does not inherit this one's severity or linked record.
             _title = _description = string.Empty;
+            _severity = DeviationSeverity.Minor;
+            _contextType = null;
+            _contextId = null;
             await LoadAsync();
         }
     }

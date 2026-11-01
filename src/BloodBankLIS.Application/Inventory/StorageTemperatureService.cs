@@ -31,6 +31,29 @@ public sealed record StorageLocationTemperatureDto(
     StorageTemperatureStatus? LastStatus,
     int UnitsStored);
 
+public sealed record StorageDeviceDto(
+    long LocationId,
+    string Code,
+    string Name,
+    LocationType LocationType,
+    bool IsActive);
+
+public sealed record StorageTemperatureDeviceSummaryDto(
+    long LocationId,
+    string Code,
+    string Name,
+    LocationType LocationType,
+    bool IsActive,
+    decimal? RangeMinC,
+    decimal? RangeMaxC,
+    StorageTemperatureSummary Summary);
+
+public sealed record StorageTemperatureReportDto(
+    DateTime FromUtc,
+    DateTime ToUtc,
+    IReadOnlyList<StorageTemperatureDeviceSummaryDto> Devices,
+    IReadOnlyList<StorageTemperatureReadingDto> Readings);
+
 public sealed record RecordStorageTemperatureRequest(
     long LocationId,
     decimal ReadingC,
@@ -321,6 +344,79 @@ public sealed class StorageTemperatureService
             .ThenByDescending(r => r.Id)
             .Select(r => ToDto(r, codes.GetValueOrDefault(r.InventoryLocationId, string.Empty)))
             .ToList();
+    }
+
+    /// <summary>Every temperature-controlled device, active or not, so retired devices stay reportable.</summary>
+    public async Task<IReadOnlyList<StorageDeviceDto>> ListDevicesAsync(CancellationToken ct = default)
+    {
+        var types = StorageTemperatureRule.DeviceTypes.ToList();
+        var ids = (await _readings.ListAsync(ct)).Select(r => r.InventoryLocationId).ToHashSet();
+        return (await _locations.ListAsync(ct))
+            .Where(l => types.Contains(l.LocationType) || ids.Contains(l.Id))
+            .OrderByDescending(l => l.IsActive)
+            .ThenBy(l => l.Code)
+            .Select(l => new StorageDeviceDto(l.Id, l.Code, l.Name, l.LocationType, l.IsActive))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Temperature history for one device or all devices over [from, to). Summaries cover every
+    /// device in scope, including those with no readings in the period; readings may be limited
+    /// to excursions.
+    /// </summary>
+    public async Task<OperationResult<StorageTemperatureReportDto>> ReportAsync(
+        long? locationId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        bool excursionsOnly,
+        CancellationToken ct = default)
+    {
+        if (toUtc <= fromUtc)
+        {
+            return OperationResult<StorageTemperatureReportDto>.Fail("The end of the period must be after the start.");
+        }
+
+        if ((toUtc - fromUtc).TotalDays > 366)
+        {
+            return OperationResult<StorageTemperatureReportDto>.Fail("A report covers at most 366 days.");
+        }
+
+        var devices = await ListDevicesAsync(ct);
+        if (locationId is long id)
+        {
+            devices = devices.Where(d => d.LocationId == id).ToList();
+            if (devices.Count == 0)
+            {
+                return OperationResult<StorageTemperatureReportDto>.Fail("Storage device not found.");
+            }
+        }
+
+        var rows = await _readings.ListAsync(
+            r => r.ReadingUtc >= fromUtc && r.ReadingUtc < toUtc && (locationId == null || r.InventoryLocationId == locationId),
+            ct);
+        var locations = (await _locations.ListAsync(ct)).ToDictionary(l => l.Id);
+        var byDevice = rows.ToLookup(r => r.InventoryLocationId);
+        var summaries = devices
+            .Select(d =>
+            {
+                var loc = locations[d.LocationId];
+                var summary = StorageTemperatureSummaryRule.Summarize(
+                    byDevice[d.LocationId].Select(r => (r.ReadingUtc, r.ReadingC, r.Status)),
+                    fromUtc,
+                    toUtc < _clock.UtcNow ? toUtc : _clock.UtcNow);
+                return new StorageTemperatureDeviceSummaryDto(
+                    d.LocationId, d.Code, d.Name, d.LocationType, d.IsActive,
+                    loc.StorageTempMinC, loc.StorageTempMaxC, summary);
+            })
+            .ToList();
+        var readings = rows
+            .Where(r => !excursionsOnly || StorageTemperatureRule.IsExcursion(r.Status))
+            .OrderBy(r => locations.TryGetValue(r.InventoryLocationId, out var l) ? l.Code : string.Empty)
+            .ThenBy(r => r.ReadingUtc)
+            .ThenBy(r => r.Id)
+            .Select(r => ToDto(r, locations.TryGetValue(r.InventoryLocationId, out var l) ? l.Code : string.Empty))
+            .ToList();
+        return OperationResult<StorageTemperatureReportDto>.Ok(new StorageTemperatureReportDto(fromUtc, toUtc, summaries, readings));
     }
 
     /// <summary>Excursions whose deviation is not yet closed.</summary>

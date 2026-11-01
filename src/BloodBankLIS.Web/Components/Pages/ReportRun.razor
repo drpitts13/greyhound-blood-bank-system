@@ -38,9 +38,18 @@ else
                         @if (prompt.Operator == ReportFilterOperator.Between)
                         {
                             <div class="form-row">
-                                <input type="@(prompt.ValueKind == ReportValueKind.Date ? "date" : "text")" @bind="prompt.From" />
-                                <input type="@(prompt.ValueKind == ReportValueKind.Date ? "date" : "text")" @bind="prompt.To" />
+                                <div class="field"><label class="muted">From</label><input type="@(prompt.ValueKind == ReportValueKind.Date ? "date" : "text")" @bind="prompt.From" /></div>
+                                <div class="field"><label class="muted">To</label><input type="@(prompt.ValueKind == ReportValueKind.Date ? "date" : "text")" @bind="prompt.To" /></div>
                             </div>
+                            @if (prompt.ValueKind == ReportValueKind.Date)
+                            {
+                                <div class="flex gap" style="flex-wrap:wrap;">
+                                    @foreach (var (label, from, to) in DatePresets())
+                                    {
+                                        <button class="btn btn-ghost btn-sm" type="button" @onclick="() => { prompt.From = from; prompt.To = to; }">@label</button>
+                                    }
+                                </div>
+                            }
                         }
                         else
                         {
@@ -181,6 +190,18 @@ else
         }
 
         return values;
+    }
+
+    // Fills a date range without running, since a report may have other filters to set first.
+    private static IEnumerable<(string Label, string From, string To)> DatePresets()
+    {
+        var today = DateTime.UtcNow.Date;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+        static string D(DateTime d) => d.ToString("yyyy-MM-dd");
+        yield return ("Today", D(today), D(today));
+        yield return ("Last 7 days", D(today.AddDays(-6)), D(today));
+        yield return ("Last 30 days", D(today.AddDays(-29)), D(today));
+        yield return ("Last month", D(monthStart.AddMonths(-1)), D(monthStart.AddDays(-1)));
     }
 
     private sealed class PromptEntry

@@ -12,6 +12,7 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
 
     private readonly IRepository<InventoryLocation> _locations;
     private readonly IPermissionEvaluator? _permissionEvaluator;
+    private readonly IRepository<BloodUnit>? _units;
 
     public InventoryLocationAdminService(
         IRepository<InventoryLocation> locations,
@@ -20,11 +21,13 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         ICurrentUser currentUser,
         IAuditWriter audit,
         IConfigurationHistoryWriter history,
-        IPermissionEvaluator? permissionEvaluator = null)
+        IPermissionEvaluator? permissionEvaluator = null,
+        IRepository<BloodUnit>? units = null)
         : base(unitOfWork, clock, currentUser, audit, history)
     {
         _locations = locations;
         _permissionEvaluator = permissionEvaluator;
+        _units = units;
     }
 
     public async Task<IReadOnlyList<InventoryLocationAdminDto>> ListAsync(bool includeInactive, CancellationToken ct = default)
@@ -128,6 +131,18 @@ public sealed class InventoryLocationAdminService : ConfigAdminServiceBase
         if (entity is null)
         {
             return EvaluationResult<InventoryLocationAdminDto>.Fail("Inventory location not found.");
+        }
+
+        // An inactive location drops off temperature rounds, so units left there would go unmonitored.
+        if (!active && entity.IsActive && _units is not null)
+        {
+            var stored = StorageTemperatureRule.StoredStatuses.ToList();
+            var held = (await _units.ListAsync(u => u.CurrentLocationId == id && stored.Contains(u.Status), ct)).Count;
+            if (held > 0)
+            {
+                return EvaluationResult<InventoryLocationAdminDto>.Fail(
+                    $"{entity.Code} still holds {held} unit(s). Move them to another location before deactivating it.");
+            }
         }
 
         var old = InventoryLocationAdminDto.From(entity);

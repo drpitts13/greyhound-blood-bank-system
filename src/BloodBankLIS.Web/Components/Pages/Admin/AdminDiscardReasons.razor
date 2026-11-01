@@ -58,7 +58,8 @@
 
 @if (_editing)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    @* Keyed by the item, so New and each Edit bring the editor into view. *@
+    <div @key="_editId" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editId is null ? "New discard reason" : "Edit discard reason")</h2>
         <div class="form-row">
             <div class="field"><label>Code</label><input class="mono" @bind="_code" maxlength="20" /></div>

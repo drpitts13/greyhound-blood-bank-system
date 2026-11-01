@@ -46,6 +46,15 @@
     <div class="form-row">
         <div class="field"><label>From date (UTC)</label><input type="date" @bind="_fromDate" /></div>
         <div class="field"><label>To date (UTC, inclusive)</label><input type="date" @bind="_toDate" /></div>
+        <div class="field">
+            <label>Quick range</label>
+            <div class="flex gap" style="flex-wrap:wrap;">
+                @foreach (var (label, days) in DatePresets)
+                {
+                    <button class="btn btn-ghost btn-sm" type="button" disabled="@_busy" @onclick="() => SearchRangeAsync(days)">@label</button>
+                }
+            </div>
+        </div>
     </div>
     <button class="btn btn-secondary" disabled="@_busy" @onclick="() => LoadAsync(0)">Search</button>
     <button class="btn btn-ghost" disabled="@_busy" @onclick="ExportCsvAsync" title="Up to 50,000 rows with the current filters, newest first">Export CSV</button>
@@ -129,6 +138,18 @@
     private long? _entityId;
     private DateTime? _fromDate;
     private DateTime? _toDate;
+
+    // Most audit questions are about recent activity; one click sets both dates and searches. Null days = any date.
+    private static readonly (string Label, int? Days)[] DatePresets =
+        [("Today", 0), ("Last 7 days", 6), ("Last 30 days", 29), ("Any date", null)];
+
+    private async Task SearchRangeAsync(int? days)
+    {
+        var today = DateTime.UtcNow.Date;
+        _fromDate = days is int d ? today.AddDays(-d) : null;
+        _toDate = days is null ? null : today;
+        await LoadAsync(0);
+    }
     private int _skip;
     private int _take = 200;
     private int _total;

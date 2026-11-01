@@ -237,6 +237,49 @@ public class StorageTemperatureServiceTests : IClassFixture<SqliteContextFactory
         _factory.Clock.UtcNow = start;
     }
 
+    [Fact]
+    public async Task Report_SummarizesDevice_FiltersExcursions_AndKeepsInactiveDevices()
+    {
+        await using var c = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+        var location = await AddLocationAsync(c, "TMP-RPT", 1m, 6m);
+        var service = Service(c);
+        await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 4m, now.AddHours(-5)));
+        await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 7.5m, now.AddHours(-4)));
+        await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 5m, now.AddHours(-3)));
+        await service.RecordAsync(new RecordStorageTemperatureRequest(location.Id, 3m, now.AddDays(-10)));
+        location.IsActive = false;
+        await c.SaveChangesAsync();
+
+        Assert.Contains(await service.ListDevicesAsync(), d => d.LocationId == location.Id && !d.IsActive);
+
+        var all = await service.ReportAsync(location.Id, now.AddDays(-1), now.AddHours(1), excursionsOnly: false);
+        Assert.True(all.Succeeded, all.Error);
+        var device = Assert.Single(all.Value!.Devices);
+        Assert.Equal("TMP-RPT", device.Code);
+        Assert.False(device.IsActive);
+        Assert.Equal(3, device.Summary.Readings);
+        Assert.Equal(1, device.Summary.ExcursionEvents);
+        Assert.Equal(7.5m, device.Summary.MaxC);
+        Assert.Equal(3, all.Value.Readings.Count);
+        Assert.True(all.Value.Readings.SequenceEqual(all.Value.Readings.OrderBy(r => r.ReadingUtc)));
+
+        var excursions = await service.ReportAsync(location.Id, now.AddDays(-1), now.AddHours(1), excursionsOnly: true);
+        Assert.Equal(7.5m, Assert.Single(excursions.Value!.Readings).ReadingC);
+        Assert.Equal(3, Assert.Single(excursions.Value.Devices).Summary.Readings);
+    }
+
+    [Fact]
+    public async Task Report_RejectsBackwardsOrOverlongPeriod()
+    {
+        await using var c = _factory.Create();
+        var now = _factory.Clock.UtcNow;
+
+        Assert.False((await Service(c).ReportAsync(null, now, now.AddDays(-1), false)).Succeeded);
+        Assert.False((await Service(c).ReportAsync(null, now.AddDays(-400), now, false)).Succeeded);
+        Assert.False((await Service(c).ReportAsync(-1, now.AddDays(-1), now, false)).Succeeded);
+    }
+
     private static BloodUnit Unit(string number, long productTypeId, long locationId, UnitStatus status) => new()
     {
         UnitNumber = number,

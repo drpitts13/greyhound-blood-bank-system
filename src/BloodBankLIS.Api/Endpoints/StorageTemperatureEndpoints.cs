@@ -23,6 +23,20 @@ public static class StorageTemperatureEndpoints
             })
             .RequirePermission(PermissionCodes.InventoryReceive);
 
+        group.MapGet("/devices", async (StorageTemperatureService service, CancellationToken ct) =>
+            Results.Ok(await service.ListDevicesAsync(ct)));
+
+        group.MapGet("/report", async (long? locationId, DateTime fromUtc, DateTime toUtc, bool? excursionsOnly, StorageTemperatureService service, CancellationToken ct) =>
+            {
+                var result = await service.ReportAsync(
+                    locationId,
+                    DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc),
+                    DateTime.SpecifyKind(toUtc, DateTimeKind.Utc),
+                    excursionsOnly ?? false,
+                    ct);
+                return result.Succeeded ? Results.Ok(result.Value) : Results.BadRequest(new { error = result.Error });
+            });
+
         group.MapGet("/excursions", async (StorageTemperatureService service, CancellationToken ct) =>
             Results.Ok(await service.ListOpenExcursionsAsync(ct)));
     }

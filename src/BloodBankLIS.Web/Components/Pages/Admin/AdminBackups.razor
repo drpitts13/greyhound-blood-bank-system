@@ -8,7 +8,7 @@
     <h1>Database backups</h1>
     @if (Session.Has(PermissionCodes.AdminConfigEdit))
     {
-        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="BackUpNowAsync">Back up now</button>
+        <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="BackUpNowAsync">@(_busy ? "Backing up…" : "Back up now")</button>
     }
 </div>
 <p class="muted">Verified copies of the database, written on a schedule and on demand.</p>
@@ -54,7 +54,7 @@
                                 @if (b.FileDeletedUtc is not null) { <span class="muted"> (removed by retention)</span> }
                                 @if (b.Sha256 is not null) { <div class="muted mono" style="font-size:.8em;">SHA-256 @b.Sha256[..16]…</div> }
                             </td>
-                            <td class="right">@(b.SizeBytes is long size ? $"{size / 1024.0:0.#} KB" : "—")</td>
+                            <td class="right nowrap">@(b.SizeBytes is long size ? FileSize(size) : "—")</td>
                             <td>
                                 @if (b.Succeeded && b.Verified) { <span class="badge badge-green">Verified</span> }
                                 else { <span class="badge badge-red">Failed</span> }
@@ -81,6 +81,14 @@
     private bool _busy;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    // A production database runs to gigabytes; "3145728 KB" is hard to read at a glance.
+    private static string FileSize(long bytes) => bytes switch
+    {
+        >= 1L << 30 => $"{bytes / (double)(1L << 30):0.##} GB",
+        >= 1L << 20 => $"{bytes / (double)(1L << 20):0.#} MB",
+        _ => $"{bytes / 1024.0:0.#} KB"
+    };
 
     private async Task LoadAsync()
     {

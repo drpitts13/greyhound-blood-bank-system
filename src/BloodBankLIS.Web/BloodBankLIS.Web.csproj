@@ -15,4 +15,9 @@
     <ProjectReference Include="..\BloodBankLIS.Help\BloodBankLIS.Help.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Same version as BloodBankLIS.Printing; draws the authenticator setup QR code. -->
+    <PackageReference Include="ZXing.Net" Version="0.16.11" />
+  </ItemGroup>
+
 </Project>

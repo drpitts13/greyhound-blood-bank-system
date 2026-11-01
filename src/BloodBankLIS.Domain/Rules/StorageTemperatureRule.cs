@@ -46,6 +46,15 @@ public static class StorageTemperatureRule
         return StorageTemperatureStatus.InRange;
     }
 
+    /// <summary>Location types that are temperature-controlled storage devices (Admin &rsaquo; Refrigerators &amp; freezers).</summary>
+    public static readonly IReadOnlySet<Enums.LocationType> DeviceTypes = new HashSet<Enums.LocationType>
+    {
+        Enums.LocationType.Refrigerator,
+        Enums.LocationType.Freezer,
+        Enums.LocationType.PlateletIncubator,
+        Enums.LocationType.SatelliteRefrigerator
+    };
+
     /// <summary>Statuses of a unit still physically held at its current location.</summary>
     public static readonly IReadOnlySet<Enums.UnitStatus> StoredStatuses = new HashSet<Enums.UnitStatus>
     {

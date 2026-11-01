@@ -1,0 +1,284 @@
+@page "/storage-temps/report"
+@using System.Globalization
+@using BloodBankLIS.Domain.Enums
+@using BloodBankLIS.Domain.Reporting
+@inject BloodBankApiClient Api
+@inject ReportDownloadCache Downloads
+@inject IJSRuntime Js
+
+<PageTitle>Temperature history &middot; Greyhound Blood Bank LIS</PageTitle>
+
+<div class="flex-between">
+    <h1>Temperature history</h1>
+    <div class="flex gap">
+        <a class="btn btn-ghost" href="/storage-temps">Storage temperatures</a>
+    </div>
+</div>
+<p class="muted">Readings, excursions, and coverage for refrigerators and freezers over a period, including retired devices.</p>
+<details class="bb-help">
+    <summary>How it works</summary>
+    <ul>
+        <li>Dates are UTC. The period runs from the start of the From date to the end of the To date, up to 366 days.</li>
+        <li>% in range counts only readings taken while the device had a range. An excursion is an unbroken run of out-of-range readings.</li>
+        <li>Longest gap is the longest stretch with no reading, including from the period start and up to the period end (or now). Use it to spot missed rounds.</li>
+        <li>Each reading shows the range in force when it was taken, so a later range change does not rewrite history.</li>
+    </ul>
+</details>
+<Outcome Value="_feedback" />
+
+<div class="bb-card no-print">
+    <div class="form-row">
+        <div class="field">
+            <label>Device</label>
+            <select @bind="_deviceId">
+                <option value="0">All devices</option>
+                @foreach (var d in _devices)
+                {
+                    <option value="@d.LocationId">@d.Code — @d.Name@(d.IsActive ? "" : " (inactive)")</option>
+                }
+            </select>
+        </div>
+        <div class="field"><label>From (UTC date)</label><input type="date" @bind="_from" /></div>
+        <div class="field"><label>To (UTC date)</label><input type="date" @bind="_to" /></div>
+        <div class="field">
+            <label>Readings</label>
+            <select @bind="_excursionsOnly">
+                <option value="false">All readings</option>
+                <option value="true">Excursions only</option>
+            </select>
+        </div>
+    </div>
+    <div class="flex gap" style="flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="RunAsync">Run</button>
+        <span class="muted">or</span>
+        @foreach (var (label, range) in Presets())
+        {
+            <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => RunPresetAsync(range)">@label</button>
+        }
+        @if (_report is not null)
+        {
+            <span style="flex:1;"></span>
+            <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="ExportCsvAsync">Export CSV</button>
+            <button class="btn btn-ghost btn-sm" @onclick="PrintAsync">Print</button>
+        }
+    </div>
+</div>
+
+@if (_report is not null)
+{
+    <div class="bb-card">
+        <div class="bb-card-title">
+            <h3>Summary &middot; @_report.FromUtc.ToString("yyyy-MM-dd") to @_report.ToUtc.AddTicks(-1).ToString("yyyy-MM-dd")</h3>
+        </div>
+        @if (_report.Devices.Count == 0)
+        {
+            <div class="muted">No refrigerators or freezers are set up.</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead>
+                    <tr><th>Device</th><th>Range °C</th><th class="right">Readings</th><th class="right">Min</th><th class="right">Max</th><th class="right">Mean</th><th class="right">% in range</th><th class="right">Excursions</th><th class="right">Out-of-range readings</th><th class="right">Longest gap</th><th>Last reading (UTC)</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in _report.Devices)
+                    {
+                        var s = d.Summary;
+                        <tr>
+                            <td>
+                                <span class="mono">@d.Code</span> @d.Name
+                                @if (!d.IsActive) { <span class="badge badge-gray">Inactive</span> }
+                            </td>
+                            <td class="mono">@RangeText(d.RangeMinC, d.RangeMaxC)</td>
+                            <td class="right">@s.Readings</td>
+                            <td class="right">@C(s.MinC)</td>
+                            <td class="right">@C(s.MaxC)</td>
+                            <td class="right">@C(s.MeanC)</td>
+                            <td class="right">@(s.PercentInRange is decimal p ? $"{p:0.#}%" : "—")</td>
+                            <td class="right @(s.ExcursionEvents > 0 ? "text-error" : null)">@s.ExcursionEvents</td>
+                            <td class="right @(s.ExcursionReadings > 0 ? "text-error" : null)">@s.ExcursionReadings</td>
+                            <td class="right">@GapText(s.LongestGapHours)</td>
+                            <td>@s.LastReadingUtc?.ToString("yyyy-MM-dd HH:mm")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+
+    @if (_report.Devices.Count == 1 && _chartReadings.Count > 0)
+    {
+        var device = _report.Devices[0];
+        <div class="bb-card">
+            <div class="bb-card-title"><h3>Trend &middot; @device.Code</h3></div>
+            <TemperatureTrendChart Readings="_chartReadings" FromUtc="_report.FromUtc" ToUtc="ChartEnd" RangeMinC="device.RangeMinC" RangeMaxC="device.RangeMaxC" />
+        </div>
+    }
+
+    <div class="bb-card">
+        <div class="bb-card-title"><h3>@(_reportExcursionsOnly ? "Out-of-range readings" : "Readings") (@_report.Readings.Count)</h3></div>
+        @if (_report.Readings.Count == 0)
+        {
+            <div class="muted">@(_reportExcursionsOnly ? "No out-of-range readings in this period." : "No readings in this period.")</div>
+        }
+        else
+        {
+            <table class="bb">
+                <thead><tr><th>Device</th><th>Time (UTC)</th><th class="right">Reading</th><th>Status</th><th>Range then</th><th>Recorded by</th><th>Deviation</th><th>Comment</th></tr></thead>
+                <tbody>
+                    @foreach (var r in _report.Readings)
+                    {
+                        <tr>
+                            <td class="mono">@r.LocationCode</td>
+                            <td class="nowrap">@r.ReadingUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td class="right">@r.ReadingC °C</td>
+                            <td class="@(StorageTemperatureRule.IsExcursion(r.Status) ? "text-error" : null)">@StatusText(r.Status)</td>
+                            <td>@RangeText(r.RangeMinC, r.RangeMaxC)</td>
+                            <td>@r.RecordedBy</td>
+                            <td>@if (r.DeviationId is long id) { <a href="@($"/deviations?id={id}")">DEV-@id</a> }</td>
+                            <td>@r.Comment</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "device")]
+    public long? Device { get; set; }
+
+    private List<StorageDeviceDto> _devices = new();
+    private StorageTemperatureReportDto? _report;
+    private List<StorageTemperatureReadingDto> _chartReadings = new();
+    private Feedback? _feedback;
+    private bool _busy;
+    private long _deviceId;
+    private bool _excursionsOnly;
+    private bool _reportExcursionsOnly;
+    private DateTime _to = DateTime.UtcNow.Date;
+    private DateTime _from = DateTime.UtcNow.Date.AddDays(-30);
+
+    // A period that ends today stops the trend at now rather than at midnight.
+    private DateTime ChartEnd => _report is not null && _report.ToUtc < DateTime.UtcNow ? _report.ToUtc : DateTime.UtcNow;
+
+    private static IEnumerable<(string Label, (DateTime From, DateTime To) Range)> Presets()
+    {
+        var today = DateTime.UtcNow.Date;
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+        yield return ("Last 7 days", (today.AddDays(-7), today));
+        yield return ("Last 30 days", (today.AddDays(-30), today));
+        yield return ("This month", (monthStart, today));
+        yield return ("Last month", (monthStart.AddMonths(-1), monthStart.AddDays(-1)));
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var devices = await Api.GetStorageDevicesAsync();
+        _devices = devices.Succeeded ? devices.Value ?? new() : new();
+        if (!devices.Succeeded) _feedback = devices.ToFeedback();
+        if (Device is long id && _devices.Any(d => d.LocationId == id))
+        {
+            _deviceId = id;
+            await RunAsync();
+        }
+    }
+
+    private async Task RunPresetAsync((DateTime From, DateTime To) range)
+    {
+        (_from, _to) = range;
+        await RunAsync();
+    }
+
+    private async Task RunAsync()
+    {
+        if (_busy) return;
+        if (_to.Date < _from.Date)
+        {
+            _feedback = Feedback.Fail("The To date is before the From date.");
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var from = DateTime.SpecifyKind(_from.Date, DateTimeKind.Utc);
+            var to = DateTime.SpecifyKind(_to.Date.AddDays(1), DateTimeKind.Utc);
+            long? device = _deviceId == 0 ? null : _deviceId;
+            var result = await Api.GetStorageTemperatureReportAsync(device, from, to, _excursionsOnly);
+            _report = result.Succeeded ? result.Value : null;
+            _reportExcursionsOnly = _excursionsOnly;
+            _feedback = result.Succeeded ? null : result.ToFeedback();
+            _chartReadings = new();
+            if (_report is not null && device is not null)
+            {
+                // The trend always plots every reading, even when the table shows excursions only.
+                if (_excursionsOnly)
+                {
+                    var all = await Api.GetStorageTemperatureReportAsync(device, from, to, false);
+                    _chartReadings = all.Succeeded ? all.Value?.Readings.ToList() ?? new() : new();
+                }
+                else
+                {
+                    _chartReadings = _report.Readings.ToList();
+                }
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ExportCsvAsync()
+    {
+        if (_report is null) return;
+        var columns = new[] { "Device", "Name", "Reading time (UTC)", "Reading (C)", "Status", "Range min (C)", "Range max (C)", "Recorded by", "Deviation", "Comment" };
+        var names = _report.Devices.ToDictionary(d => d.LocationId, d => d.Name);
+        var rows = _report.Readings.Select(r => (IReadOnlyList<string?>)new[]
+        {
+            r.LocationCode,
+            names.GetValueOrDefault(r.LocationId),
+            r.ReadingUtc.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture),
+            r.ReadingC.ToString(CultureInfo.InvariantCulture),
+            StatusText(r.Status),
+            r.RangeMinC?.ToString(CultureInfo.InvariantCulture),
+            r.RangeMaxC?.ToString(CultureInfo.InvariantCulture),
+            r.RecordedBy,
+            r.DeviationId is long id ? $"DEV-{id}" : null,
+            r.Comment
+        });
+        var scope = _report.Devices.Count == 1 ? _report.Devices[0].Code : "all-devices";
+        var name = $"temperature-history-{scope}-{_report.FromUtc:yyyyMMdd}-{_report.ToUtc.AddTicks(-1):yyyyMMdd}.csv";
+        var token = Downloads.Put(name, CsvFormat.ContentType, CsvFormat.Write(columns, rows));
+        await Js.InvokeVoidAsync("open", $"/downloads/reports/{token}", "_blank");
+    }
+
+    private async Task PrintAsync() => await Js.InvokeVoidAsync("print");
+
+    private static string C(decimal? value) => value is decimal v ? $"{v:0.0} °C" : "—";
+
+    private static string GapText(double? hours) => hours switch
+    {
+        null => "—",
+        >= 48 => $"{hours.Value / 24:0.#} d",
+        _ => $"{hours.Value:0.#} h"
+    };
+
+    private static string StatusText(StorageTemperatureStatus status) => status switch
+    {
+        StorageTemperatureStatus.InRange => "In range",
+        StorageTemperatureStatus.BelowRange => "Below range",
+        StorageTemperatureStatus.AboveRange => "Above range",
+        _ => "No range set"
+    };
+
+    private static string RangeText(decimal? min, decimal? max) => (min, max) switch
+    {
+        (decimal lo, decimal hi) => $"{lo} to {hi} °C",
+        (decimal lo, null) => $"≥ {lo} °C",
+        (null, decimal hi) => $"≤ {hi} °C",
+        _ => "Not set"
+    };
+}

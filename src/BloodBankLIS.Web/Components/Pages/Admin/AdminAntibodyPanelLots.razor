@@ -92,7 +92,8 @@
 
 @if (_mfgDetail is not null && _deactivatingManufacturer is null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    @* These cards open below long tables; keyed so each one re-adds and scrolls into view. *@
+    <div @key="_mfgDetail.Manufacturer.Id" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <div class="bb-card-title">
             <h3>@_mfgDetail.Manufacturer.Name (@_mfgDetail.Manufacturer.Code)</h3>
             <button class="btn btn-ghost btn-sm" type="button" @onclick="CloseManufacturerDetail">Close</button>
@@ -170,7 +171,7 @@
 
 @if (_deactivatingManufacturer is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div @key="_deactivatingManufacturer.Id" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>Deactivate @_deactivatingManufacturer.Code</h2>
         <p class="muted">
             Existing lots stay on file. New lots cannot use this manufacturer until it is restored. This does not identify antibodies or void a workup.
@@ -329,7 +330,7 @@
 
 @if (_detail is not null && _deactivating is null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div @key="_detail.Lot.Id" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <div class="bb-card-title">
             <h3>@_detail.Lot.PanelName — lot @_detail.Lot.LotNumber</h3>
             <button class="btn btn-ghost btn-sm" type="button" @onclick="CloseDetail">Close</button>
@@ -524,7 +525,7 @@
 
 @if (_deactivating is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div @key="_deactivating.Id" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>Deactivate @_deactivating.LotNumber</h2>
         <p class="muted">
             Open workups that use this lot cannot be accepted or completed until it is restored or the workup is voided.

@@ -45,12 +45,15 @@ else if (_status is { } status)
             else
             {
                 <ol>
-                    <li>In your authenticator app, add an account by entering this key: <div class="mono" style="font-size:1.1em;letter-spacing:.08em;margin:.4rem 0;">@Grouped(_enrollment.SecretBase32)</div>
+                    <li>In your authenticator app, add an account and scan this code:
+                        <div style="width:180px;margin:.5rem 0;">@((MarkupString)QrSvg.Render(_enrollment.ProvisioningUri))</div>
+                        <span class="muted">Can't scan? Enter this key instead:</span>
+                        <div class="mono" style="font-size:1.1em;letter-spacing:.08em;margin:.4rem 0;">@Grouped(_enrollment.SecretBase32)</div>
                         <details><summary class="muted">Setup link</summary><div class="mono" style="word-break:break-all;">@_enrollment.ProvisioningUri</div></details></li>
                     <li>Enter the 6-digit code the app shows.</li>
                 </ol>
                 <div class="form-row">
-                    <div class="field"><label>Code</label><input inputmode="numeric" maxlength="6" @bind="_code" autocomplete="one-time-code" /></div>
+                    <div class="field"><label>Code</label><input inputmode="numeric" maxlength="6" @bind="_code" @bind:event="oninput" @onkeydown="OnCodeKey" autocomplete="one-time-code" /></div>
                 </div>
                 <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="ConfirmAsync">Confirm</button>
                 <p class="muted" style="margin-top:.75rem;">The key is shown only now. It is stored protected and cannot be displayed again.</p>
@@ -65,6 +68,14 @@ else if (_status is { } status)
     private Feedback? _feedback;
     private string _code = string.Empty;
     private bool _busy;
+
+    private async Task OnCodeKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && _code.Trim().Length == 6 && !_busy)
+        {
+            await ConfirmAsync();
+        }
+    }
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

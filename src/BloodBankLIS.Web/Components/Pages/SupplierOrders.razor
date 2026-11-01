@@ -68,7 +68,8 @@
 
 @if (_selected is { } current)
 {
-    <div class="bb-card">
+    @* Keyed so opening another order scrolls its detail into view again. *@
+    <div @key="current.Id" class="bb-card" data-scroll-on-show>
         <div class="bb-card-title"><h3>@current.OrderNumber &middot; @current.SupplierName &middot; @current.Status</h3></div>
         <table class="bb">
             <thead><tr><th>Product</th><th>ABO</th><th class="right">Quantity</th></tr></thead>
@@ -111,7 +112,7 @@
         }
         @if (current.ReceivedUtc is DateTime received)
         {
-            <p class="muted">Received against delivery @current.DeliveryId at @received.ToString("yyyy-MM-dd HH:mm") UTC.</p>
+            <p class="muted">Received against <a href="@($"/inventory/deliveries/{current.DeliveryId}")">delivery @current.DeliveryId</a> at @received.ToString("yyyy-MM-dd HH:mm") UTC.</p>
         }
         @if (current.CancelReason is not null)
         {
@@ -130,7 +131,7 @@
         @if (IsDraft && CanEdit)
         {
             <div class="form-row" style="margin-top:1rem;">
-                <div class="field"><label>Password or PIN to sign</label><input type="password" @bind="_secret" autocomplete="off" /></div>
+                <div class="field"><label>Password or PIN to sign</label><input type="password" @bind="_secret" @bind:event="oninput" autocomplete="off" /></div>
             </div>
             <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_secret))" @onclick="SubmitAsync">Sign and submit</button>
         }
@@ -155,7 +156,7 @@
         @if (current.Status is SupplierOrderStatus.Draft or SupplierOrderStatus.Submitted && CanEdit)
         {
             <div class="form-row" style="margin-top:1rem;">
-                <div class="field" style="flex:2;"><label>Cancel reason</label><input @bind="_cancelReason" /></div>
+                <div class="field" style="flex:2;"><label>Cancel reason</label><input @bind="_cancelReason" @bind:event="oninput" /></div>
             </div>
             <button class="btn btn-ghost btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_cancelReason))" @onclick="CancelAsync">Cancel order</button>
         }
@@ -195,7 +196,15 @@
         if (suppliers.Succeeded) _suppliers = suppliers.Value ?? new();
         if (_suppliers.Count == 1) _supplierId = _suppliers[0].Id;
         await ReloadAsync();
+        if (OrderId is long id && _orders.FirstOrDefault(o => o.Id == id) is { } linked)
+        {
+            Select(linked);
+        }
     }
+
+    // Opens one order from a link, such as the delivery that filled it.
+    [SupplyParameterFromQuery(Name = "id")]
+    public long? OrderId { get; set; }
 
     private async Task ReloadAsync()
     {

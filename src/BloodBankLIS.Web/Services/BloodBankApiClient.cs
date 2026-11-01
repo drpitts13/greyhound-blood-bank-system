@@ -1643,6 +1643,17 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<StorageTemperatureReadingDto>> RecordStorageTemperatureAsync(RecordStorageTemperatureRequest req, CancellationToken ct = default) =>
         SendAsync<StorageTemperatureReadingDto>(HttpMethod.Post, "api/storage-temps/readings", req, ct);
 
+    public Task<ApiResult<List<StorageDeviceDto>>> GetStorageDevicesAsync(CancellationToken ct = default) =>
+        SendAsync<List<StorageDeviceDto>>(HttpMethod.Get, "api/storage-temps/devices", ct: ct);
+
+    public Task<ApiResult<StorageTemperatureReportDto>> GetStorageTemperatureReportAsync(
+        long? locationId, DateTime fromUtc, DateTime toUtc, bool excursionsOnly, CancellationToken ct = default) =>
+        SendAsync<StorageTemperatureReportDto>(
+            HttpMethod.Get,
+            $"api/storage-temps/report?fromUtc={fromUtc:s}&toUtc={toUtc:s}&excursionsOnly={(excursionsOnly ? "true" : "false")}"
+                + (locationId is long id ? $"&locationId={id}" : string.Empty),
+            ct: ct);
+
     public Task<ApiResult<List<StorageTemperatureReadingDto>>> GetOpenTemperatureExcursionsAsync(CancellationToken ct = default) =>
         SendAsync<List<StorageTemperatureReadingDto>>(HttpMethod.Get, "api/storage-temps/excursions", ct: ct);
 

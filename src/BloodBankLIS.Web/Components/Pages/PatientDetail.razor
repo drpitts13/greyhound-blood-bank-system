@@ -155,11 +155,11 @@ else
                         </div>
                         <div class="field"><label>Authorized by</label><input @bind="_deltaAuthorizedBy" placeholder="@Session.UserName" /></div>
                     </div>
-                    <div class="field"><label>Override reason</label><input @bind="_deltaOverrideReason" /></div>
-                    <div class="field"><label>Meaning of signature</label><input @bind="_deltaSignatureMeaning" /></div>
+                    <div class="field"><label>Override reason</label><input @bind="_deltaOverrideReason" @bind:event="oninput" /></div>
+                    <div class="field"><label>Meaning of signature</label><input @bind="_deltaSignatureMeaning" @bind:event="oninput" /></div>
                     <div class="field"><label>Password / PIN</label><input type="password" @bind="_deltaSignatureSecret" /></div>
                     <div class="flex gap" style="margin-top:.5rem;">
-                        <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="VerifyWithDeltaOverrideAsync">Sign &amp; verify with override</button>
+                        <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_deltaOverrideReason) || string.IsNullOrWhiteSpace(_deltaSignatureMeaning))" @onclick="VerifyWithDeltaOverrideAsync">Sign &amp; verify with override</button>
                         <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Cancel</button>
                     </div>
                 }
@@ -2912,11 +2912,11 @@ else
                             </div>
                             <div class="field"><label>Authorized by</label><input @bind="_deltaAuthorizedBy" placeholder="@Session.UserName" /></div>
                         </div>
-                        <div class="field"><label>Override reason</label><input @bind="_deltaOverrideReason" /></div>
-                        <div class="field"><label>Meaning of signature</label><input @bind="_deltaSignatureMeaning" /></div>
+                        <div class="field"><label>Override reason</label><input @bind="_deltaOverrideReason" @bind:event="oninput" /></div>
+                        <div class="field"><label>Meaning of signature</label><input @bind="_deltaSignatureMeaning" @bind:event="oninput" /></div>
                         <div class="field"><label>Password / PIN</label><input type="password" @bind="_deltaSignatureSecret" /></div>
                         <div class="flex gap" style="margin-top:.5rem;">
-                            <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="VerifyWithDeltaOverrideAsync">Sign &amp; verify with override</button>
+                            <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_deltaOverrideReason) || string.IsNullOrWhiteSpace(_deltaSignatureMeaning))" @onclick="VerifyWithDeltaOverrideAsync">Sign &amp; verify with override</button>
                             <button class="btn btn-ghost btn-sm" @onclick="CancelDeltaOverride">Cancel</button>
                         </div>
                     }
@@ -2974,9 +2974,9 @@ else
                                     }
                                     <div class="form-row">
                                         <div class="field"><label>New value</label><input @bind="_correctValue" /></div>
-                                        <div class="field"><label>Reason</label><input @bind="_correctReason" /></div>
+                                        <div class="field"><label>Reason</label><input @bind="_correctReason" @bind:event="oninput" /></div>
                                     </div>
-                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => CorrectAsync(s.Id)">Save correction</button>
+                                    <button class="btn btn-primary btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_correctReason))" @onclick="() => CorrectAsync(s.Id)">Save correction</button>
                                     <button class="btn btn-secondary btn-sm" @onclick="() => _correctId = null">Cancel</button>
                                 </td></tr>
                             }
@@ -2989,8 +2989,8 @@ else
                                             Open antibody-identification workup(s). Invalidating this ABO/Rh or antigen result withdraws interpretation and review. Stored type is not auto-reverted. Invalidate still succeeds.
                                         </div>
                                     }
-                                    <div class="field"><label>Invalidation reason</label><input @bind="_invalidateReason" /></div>
-                                    <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => InvalidateAsync(s.Id)">Invalidate result</button>
+                                    <div class="field"><label>Invalidation reason</label><input @bind="_invalidateReason" @bind:event="oninput" /></div>
+                                    <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_invalidateReason))" @onclick="() => InvalidateAsync(s.Id)">Invalidate result</button>
                                     <button class="btn btn-secondary btn-sm" @onclick="() => _invalidateId = null">Cancel</button>
                                 </td></tr>
                             }

@@ -76,7 +76,8 @@
 
 @if (_versionDraft is not null && CanEdit)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    @* Editors and confirmations open below the tables; keyed so each opening scrolls into view. *@
+    <div @key="_editVersionId" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editVersionId is null ? "New compatibility table version" : $"Edit: {_versionDraft.Version}")</h2>
         <div class="form-row">
             <div class="field"><label>Version</label><input class="mono" @bind="_versionDraft.Version" /></div>
@@ -97,12 +98,12 @@
 
 @if (_activateId is not null || _retireId is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div @key="(_activateId, _retireId)" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_activateId is not null ? "Activate compatibility table" : "Retire compatibility table")</h2>
-        <p class="muted">Activating retires the current active table. Reason is required (AABB 5.1.5 / 21 CFR 11.10).</p>
-        <div class="field"><label>Reason</label><input @bind="_actionReason" placeholder="Medical director approval / policy change" /></div>
+        <p class="muted">@(_activateId is not null ? "Activating retires the current active table. " : "")Reason is required (AABB 5.1.5 / 21 CFR 11.10).</p>
+        <div class="field"><label>Reason</label><input @bind="_actionReason" @bind:event="oninput" placeholder="Medical director approval / policy change" /></div>
         <div class="flex gap" style="margin-top:.6rem;">
-            <button class="btn btn-primary" disabled="@_busy" @onclick="ConfirmVersionActionAsync">Confirm</button>
+            <button class="btn btn-primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_actionReason))" @onclick="ConfirmVersionActionAsync">@(_activateId is not null ? "Activate table" : "Retire table")</button>
             <button class="btn btn-ghost" @onclick="CancelVersionAction">Cancel</button>
         </div>
     </div>
@@ -163,7 +164,7 @@
 
 @if (_ruleDraft is not null && CanEdit && _selectedVersionId is not null)
 {
-    <div class="bb-card" style="margin-top:1rem;">
+    <div @key="_editRuleId" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
         <h2>@(_editRuleId is null ? "New rule" : $"Edit: {_ruleDraft.RuleCode}")</h2>
         <div class="form-row">
             <div class="field">

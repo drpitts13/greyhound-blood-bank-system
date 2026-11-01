@@ -377,3 +377,21 @@ tr.row-muted td { opacity: .75; }
 .bb-help-callout.warn { border-left-color: #9c6516; background: #fff7e8; }
 .bb-help-callout.policy { border-left-color: #1d4e89; background: #eef4fb; }
 .bb-help-missing-figure { font-style: italic; }
+
+/* Printed reports: page content only. */
+@media print {
+    .bb-sidebar, .no-print, details.bb-help { display: none !important; }
+    .bb-main { margin: 0 !important; padding: 0 !important; }
+    .bb-card { box-shadow: none; break-inside: avoid; }
+}
+
+/* Temperature trend: acceptable range band, one reading line, excursions marked. */
+.temp-trend { width: 100%; height: auto; display: block; }
+.temp-trend .band { fill: var(--bb-ok); opacity: .1; }
+.temp-trend .limit { stroke: var(--bb-ok); stroke-width: 1; stroke-dasharray: 4 3; }
+.temp-trend .grid { stroke: var(--bb-border); stroke-width: 1; }
+.temp-trend .line { fill: none; stroke: var(--bb-accent); stroke-width: 2; stroke-linejoin: round; }
+.temp-trend .pt { fill: var(--bb-accent); }
+.temp-trend .pt-out { fill: var(--bb-stop); stroke: var(--bb-surface); stroke-width: 2; }
+.temp-trend .hit { fill: transparent; }
+.temp-trend text { fill: var(--bb-muted); font-size: 11px; }

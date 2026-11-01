@@ -24,7 +24,12 @@
         {
             <div class="alert alert-danger" style="margin-bottom:.75rem;">
                 Facility policy requires an authenticator app for your account before you can sign in.
-                In the app, add an account with this key, then enter the code it shows.
+                In the app, add an account by scanning this code, then enter the code it shows.
+                @if (!string.IsNullOrEmpty(setup.ProvisioningUri))
+                {
+                    <div style="width:180px;margin:.5rem 0;">@((MarkupString)QrSvg.Render(setup.ProvisioningUri))</div>
+                }
+                <div>Can't scan? Enter this key instead:</div>
                 <div class="mono" style="font-size:1.05em;letter-spacing:.08em;margin:.4rem 0;">@Grouped(setup.SecretBase32 ?? "")</div>
                 <details><summary>Setup link</summary><div class="mono" style="word-break:break-all;">@setup.ProvisioningUri</div></details>
             </div>

@@ -36,7 +36,8 @@
                             <div class="muted">@alert.Message</div>
                         </td>
                         <td class="nowrap">@alert.RaisedUtc.ToString("yyyy-MM-dd HH:mm")</td>
-                        <td><input placeholder="Optional" value="@NoteFor(alert.Id)" @onchange="e => _notes[alert.Id] = e.Value?.ToString() ?? string.Empty" /></td>
+                        @* Kept as typed, so Enter acknowledges with the note without leaving the field first. *@
+                        <td><input placeholder="Optional; Enter acknowledges" value="@NoteFor(alert.Id)" @oninput="e => _notes[alert.Id] = e.Value?.ToString() ?? string.Empty" @onkeydown="e => OnNoteKey(e, alert.Id)" /></td>
                         <td><button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => AcknowledgeAsync(alert.Id)">Acknowledge</button></td>
                     </tr>
                 }
@@ -99,6 +100,11 @@
     }
 
     private string NoteFor(long id) => _notes.TryGetValue(id, out var note) ? note : string.Empty;
+
+    private async Task OnNoteKey(KeyboardEventArgs e, long id)
+    {
+        if (e.Key == "Enter") await AcknowledgeAsync(id);
+    }
 
     private async Task AcknowledgeAsync(long id)
     {

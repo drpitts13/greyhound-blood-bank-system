@@ -94,23 +94,21 @@
                                 }
                             </td>
                             <td>@c.TriggerType</td>
-                            <td class="mono">@(c.DftControlId ?? "—")</td>
+                            <td class="mono">
+                                @if (c.Hl7MessageId is > 0)
+                                {
+                                    <a href="@($"/hl7?messageId={c.Hl7MessageId}")" title="Open the HL7 message">@(c.DftControlId ?? "HL7 message")</a>
+                                }
+                                else
+                                {
+                                    @(c.DftControlId ?? "—")
+                                }
+                            </td>
                             <td class="nowrap">@c.ServiceDateUtc.ToString("yyyy-MM-dd")</td>
                             <td class="right">@(c.Amount?.ToString("C") ?? "—")</td>
                             <td><span class="@Ui.Badge(c.Status)">@c.Status</span></td>
+                            @* Patient, test / unit, and DFT cells link to their records, so this column holds only the charge actions. *@
                             <td class="right nowrap">
-                                @if (c.PatientId is long billingChartId)
-                                {
-                                    <a class="btn btn-ghost btn-sm" href="@($"/patients/{billingChartId}")">Open chart</a>
-                                }
-                                @if (ClinicalHref(c) is string clinicalHop)
-                                {
-                                    <a class="btn btn-ghost btn-sm" href="@clinicalHop">@ClinicalHopLabel(c)</a>
-                                }
-                                @if (c.Hl7MessageId is > 0)
-                                {
-                                    <a class="btn btn-ghost btn-sm" href="@($"/hl7?messageId={c.Hl7MessageId}")">Open HL7</a>
-                                }
                                 @if (c.Status == BillingEventStatus.Pending)
                                 {
                                     <button class="btn btn-ghost btn-sm" disabled="@_busy" @onclick="() => ReviewAsync(c.Id)">Review</button>
@@ -136,8 +134,8 @@
                         {
                             <tr><td colspan="10">
                                 <div class="flex gap">
-                                    <input @bind="_cancelReason" placeholder="Cancellation reason" style="flex:1;" />
-                                    <button class="btn btn-danger btn-sm" disabled="@_busy" @onclick="() => CancelAsync(c.Id)">Confirm cancel</button>
+                                    <input @bind="_cancelReason" @bind:event="oninput" placeholder="Cancellation reason" style="flex:1;" />
+                                    <button class="btn btn-danger btn-sm" disabled="@(_busy || string.IsNullOrWhiteSpace(_cancelReason))" @onclick="() => CancelAsync(c.Id)">Confirm cancel</button>
                                     <button class="btn btn-secondary btn-sm" @onclick="() => _cancelId = null">Dismiss</button>
                                 </div>
                             </td></tr>
