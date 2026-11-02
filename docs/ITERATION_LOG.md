@@ -8886,3 +8886,56 @@ The product owner decided that Supervisors hold `override.approve` (OCD-047). Un
 ### Next ranked residual
 
 Re-audit return and reissue against the seven workflow questions. Pending product decisions: downtime back-entry, OCD-046, and whether an authorizer outside the directory should be refused.
+
+## Iteration 296 — A return never disposes of a unit (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 295 other than the return/discard row. This cycle audits return and reissue against the seven workflow questions.
+
+### Audit (return and reissue)
+
+- **Controls already in place:**
+  - `issue.return` permission and a required reason
+  - no return after transfusion started
+  - three inspections, never assumed (OCD-040)
+  - the return-to-available window, governed by the storage device
+  - expiry
+  - an unretyped emergency unit goes back to Received for retype
+  - each step recorded in status history
+- **Finding (question 7: override control):** a return could choose Disposed, and a failed seal or appearance was discarded automatically. That skipped what the discard step enforces:
+  - `inventory.discard`
+  - the coded discard reason (the wastage report showed no code)
+  - the facility's second verifier for discards
+  - A user holding only `issue.return` could dispose of a unit.
+
+### Design
+
+- `ReturnUnitAsync` never sets Discarded:
+  - a disposal request is quarantined with reason `ReturnedForDisposal`
+  - a failed seal or visual inspection is quarantined with `FailedReturnInspection`
+- `ReturnDisposalRule.Notice` returns warning `RET-DISPOSE-VIA-DISCARD`, telling the user to discard on the unit page with a reason.
+- The requested destination is kept in the return evaluation JSON and the audit.
+- The return forms on the issue desk and the unit page no longer offer Disposed; the help line explains the path.
+- **Trade-off:** disposing of a returned unit now takes one more step (discard from quarantine), and that step carries the controls. The unit is not selectable while it is quarantined.
+
+### Requirements / risk
+
+- URS-BB-447, FRS-BB-483, RISK-BB-549. No schema change; quarantine reason value 12 added. Help: issuing page.
+
+### Tests
+
+- TEST-BB-340:
+  - rule tests: quarantine reason, notice wording, and that a quarantined unit can still be discarded
+  - integration (updated):
+    - a disposal request quarantines with `ReturnedForDisposal`, with no discard code and no Discarded status row
+    - a failed seal or appearance quarantines with `FailedReturnInspection`, with the warning
+- Full suite: 3,358 passed, 0 failed (previously 3,351).
+- Run check (development API and web):
+  - the return desk offers Available and Quarantine only, with the new guidance
+  - no server errors
+  - nothing was submitted
+
+### Next ranked residual
+
+Reissue after return: whether a returned unit keeps its reservation to the same patient. Check how allocation status changes at issue and return. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.

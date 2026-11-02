@@ -84,7 +84,7 @@ The gate will not issue a unit whose verified retype does not match its label (e
 
 ## Return inspection
 
-When you return a unit, answer **Temperature**, **Seal**, and **Visual inspection**. Each starts as **Not answered**. Until all three are answered, **Return unit** stays unavailable when the unit would go back to available stock. A unit you send to **Quarantine** or **Disposed** can be returned without them, and the record says they were not answered. Your facility can choose to start them as acceptable (Facility Policies › *Start unit inspections as acceptable*, OCD-040). Time out of storage is always worked out by the system.
+When you return a unit, answer **Temperature**, **Seal**, and **Visual inspection**. Each starts as **Not answered**. Until all three are answered, **Return unit** stays unavailable when the unit would go back to available stock. A unit you send to **Quarantine** can be returned without them, and the record says they were not answered. A return never throws a unit away. A unit that failed its seal or visual check, or that you want disposed of, goes to Quarantine. Discard it on the unit page with a discard reason, and a second verifier if your facility requires one. Your facility can choose to start them as acceptable (Facility Policies › *Start unit inspections as acceptable*, OCD-040). Time out of storage is always worked out by the system.
 
 ## Appearance
 

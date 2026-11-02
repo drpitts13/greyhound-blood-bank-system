@@ -348,5 +348,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-337 | D / I | `AuthorizerDirectoryRuleTests`; `OverrideAuthorizerMatchTests.Provider_User_AndUnknown_AreStamped`, `InactiveProvider_IsNotInDirectory`, `ExistingMatch_IsNotRecomputed_AndLaterEditsDoNotRestamp` | URS-BB-445 / FRS-BB-481 / RISK-BB-547 |
 | TEST-BB-338 | D / I | `OverrideActionRuleTests`; `Phase4IssuingTests.MassiveTransfusionIssue_RecordsAMassiveTransfusionOverride_AndQueueNamesIt` | URS-BB-446 / FRS-BB-482 / RISK-BB-548 |
 | TEST-BB-339 | I | `OverrideApproveGrantSeederTests.FreshInstall_GrantsSupervisor_AndRecordsTheMarker`, `OlderDatabaseWithoutTheMarker_IsGrantedOnce`, `AdministratorRemoval_AfterTheGrant_IsNotUndone` | OCD-047 |
+| TEST-BB-340 | D / I | `ReturnDisposalRuleTests`; `Phase4IssuingTests.Return_AfterThirtyMinutes_DisposalRequested_QuarantinesInstead`, `Return_FailedVisual_QuarantinesAndLeavesOutstanding` | URS-BB-447 / FRS-BB-483 / RISK-BB-549 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

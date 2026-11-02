@@ -1197,35 +1197,29 @@ public sealed class IssuingService
         }
 
         var reissueOk = reissueEval.Severity == RuleSeverity.Pass;
+        // A return never disposes of a unit: disposal is the discard step (permission, coded reason, second verifier).
+        var inspectionFailed = !inspection.VisualInspectionAcceptable || !inspection.SealIntegrityAcceptable;
+        var disposalRequested = request.Destination == UnitStatus.Discarded;
         UnitStatus destination;
         if (request.Destination is UnitStatus requested)
         {
             if (requested is not (UnitStatus.Available or UnitStatus.Quarantine or UnitStatus.Discarded))
             {
                 return EvaluationResult<Return>.Fail(
-                    "Issued units can only be changed to Available, Quarantine, or Disposed.");
+                    "Issued units can only be returned to Available or Quarantine.");
             }
 
             if (requested == UnitStatus.Available && !reissueOk)
             {
                 return EvaluationResult<Return>.Fail(
-                    "Return inspection does not allow Available. Choose Quarantine or Disposed.");
+                    "Return inspection does not allow Available. Choose Quarantine.");
             }
 
-            destination = requested;
-            if ((!inspection.VisualInspectionAcceptable || !inspection.SealIntegrityAcceptable)
-                && destination == UnitStatus.Quarantine)
-            {
-                destination = UnitStatus.Discarded;
-            }
+            destination = requested == UnitStatus.Available ? UnitStatus.Available : UnitStatus.Quarantine;
         }
         else
         {
             destination = reissueOk ? UnitStatus.Available : UnitStatus.Quarantine;
-            if (!inspection.VisualInspectionAcceptable || !inspection.SealIntegrityAcceptable)
-            {
-                destination = UnitStatus.Discarded;
-            }
         }
 
         // An emergency release can issue a unit before its retype. Back in stock it goes to Received, not Available,
@@ -1258,6 +1252,7 @@ public sealed class IssuingService
                 TimeOutGoverned = governed,
                 CallerTimeOutOfStorageAcceptable = request.TimeOutOfStorageAcceptable,
                 RetypePending = retypePending,
+                RequestedDestination = request.Destination,
                 destination
             })
         };
@@ -1270,7 +1265,7 @@ public sealed class IssuingService
         if (destination == UnitStatus.Quarantine)
         {
             unit.QuarantineReason = request.Reason;
-            unit.QuarantineReasonCode = UnitQuarantineReason.FailedReturnInspection;
+            unit.QuarantineReasonCode = ReturnDisposalRule.QuarantineReason(disposalRequested, inspectionFailed);
         }
 
         AppendStatus(unit, destination, retypePending ? $"{request.Reason} ({RetypeStockStatus.PendingReason})" : request.Reason,
@@ -1281,11 +1276,15 @@ public sealed class IssuingService
             nameof(BloodUnit),
             unit.Id,
             oldValue: new { Status = UnitStatus.Issued },
-            newValue: new { Status = destination, ReissueEligible = reissueOk, RetypePending = retypePending },
+            newValue: new { Status = destination, ReissueEligible = reissueOk, RetypePending = retypePending, RequestedDestination = request.Destination },
             reason: request.Reason);
 
         await _unitOfWork.SaveChangesAsync(ct);
-        return EvaluationResult<Return>.Ok(returnRecord);
+        return EvaluationResult<Return>.Ok(
+            returnRecord,
+            disposalRequested || inspectionFailed
+                ? new RuleEvaluation([ReturnDisposalRule.Notice(unit.UnitNumber, disposalRequested, inspectionFailed)])
+                : null);
     }
 
     public async Task<EvaluationResult<Return>> ReturnUnitForBloodUnitAsync(

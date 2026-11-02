@@ -900,7 +900,6 @@
                             <option value="@UnitStatus.Available">Available</option>
                         }
                         <option value="@UnitStatus.Quarantine">Quarantine</option>
-                        <option value="@UnitStatus.Discarded">Disposed</option>
                     </select>
                 </div>
                 @if (_returnUnitNumber is not null)
@@ -936,13 +935,13 @@
                     }
                 }
             </div>
-            <p class="muted">Record temperature, seal, and visual inspection. A failed seal or appearance cannot return to available stock. The storage device decides the return-to-available window. A governed device cannot be declared acceptable after that window. An exempt device does not fail the window.</p>
+            <p class="muted">Record temperature, seal, and visual inspection. A failed seal or appearance cannot return to available stock. A unit to be thrown away goes to Quarantine; discard it on the unit page with a discard reason. The storage device decides the return-to-available window. A governed device cannot be declared acceptable after that window. An exempt device does not fail the window.</p>
             <InspectionAnswer Label="Temperature" @bind-Value="_returnTempOk" @bind-Value:after="SyncReturnDestination" />
             <InspectionAnswer Label="Seal" YesText="Intact" NoText="Broken" @bind-Value="_returnSealOk" @bind-Value:after="SyncReturnDestination" />
             <InspectionAnswer Label="Visual inspection" @bind-Value="_returnVisualOk" @bind-Value:after="SyncReturnDestination" />
             @if (ReturnInspectionMissing)
             {
-                <p class="muted">Answer all three inspections before the unit can go back to available stock. Choose Quarantine or Disposed to return it without them.</p>
+                <p class="muted">Answer all three inspections before the unit can go back to available stock. Choose Quarantine to return it without them.</p>
             }
             <button class="btn btn-secondary" disabled="@(_busy || string.IsNullOrWhiteSpace(_returnReason) || ReturnInspectionMissing)" @onclick="ReturnAsync">Return unit</button>
             @if (_lastReturn is not null)
@@ -1567,9 +1566,7 @@
             return;
         }
 
-        _returnDestination = _returnSealOk != false && _returnVisualOk != false
-            ? UnitStatus.Quarantine
-            : UnitStatus.Discarded;
+        _returnDestination = UnitStatus.Quarantine;
     }
 
     private void SelectTransfusionIssue(OutstandingIssueWorkItemDto row)

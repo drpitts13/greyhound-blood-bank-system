@@ -2003,8 +2003,9 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
+    // TEST-BB-340: a return asking for disposal quarantines the unit and points to the coded discard.
     [Fact]
-    public async Task Return_AfterThirtyMinutes_DiscardedAllowed()
+    public async Task Return_AfterThirtyMinutes_DisposalRequested_QuarantinesInstead()
     {
         var s = await SeedAsync("RETURN-DISP");
         await RecordCompatibleCrossmatchAsync(s);
@@ -2021,16 +2022,22 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         {
             var disposed = await Issuing(c).ReturnUnitAsync(
                 issueId,
-                new ReturnUnitRequest("Broken seal after issue", Destination: UnitStatus.Discarded));
+                new ReturnUnitRequest("Not needed, held too long", Destination: UnitStatus.Discarded));
             Assert.True(disposed.Succeeded, disposed.Error);
+            Assert.Contains(disposed.Evaluation!.Warnings, w => w.Code == ReturnDisposalRule.Code);
         }
 
         await using var verify = _factory.Create();
-        Assert.Equal(UnitStatus.Discarded, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        var unit = (await verify.BloodUnits.FindAsync(s.UnitId))!;
+        Assert.Equal(UnitStatus.Quarantine, unit.Status);
+        Assert.Equal(UnitQuarantineReason.ReturnedForDisposal, unit.QuarantineReasonCode);
+        Assert.Null(unit.DiscardReasonCode);
+        Assert.DoesNotContain(await verify.InventoryStatusHistory.Where(h => h.BloodProductId == s.UnitId).ToListAsync(),
+            h => h.ToStatus == UnitStatus.Discarded);
     }
 
     [Fact]
-    public async Task Return_FailedVisual_DisposesAndLeavesOutstanding()
+    public async Task Return_FailedVisual_QuarantinesAndLeavesOutstanding()
     {
         var s = await SeedAsync("RETURN-VIS");
         await RecordCompatibleCrossmatchAsync(s);
@@ -2054,11 +2061,14 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
                     Destination: UnitStatus.Discarded));
             Assert.True(disposed.Succeeded, disposed.Error);
             Assert.False(disposed.Value!.ReissueEligible);
+            Assert.Contains(disposed.Evaluation!.Warnings, w => w.Code == ReturnDisposalRule.Code && w.Message.Contains("failed return inspection"));
             Assert.DoesNotContain(await Issuing(c).ListOutstandingIssuedAsync(), i => i.IssueId == issueId);
         }
 
         await using var verify = _factory.Create();
-        Assert.Equal(UnitStatus.Discarded, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        var unit = (await verify.BloodUnits.FindAsync(s.UnitId))!;
+        Assert.Equal(UnitStatus.Quarantine, unit.Status);
+        Assert.Equal(UnitQuarantineReason.FailedReturnInspection, unit.QuarantineReasonCode);
         Assert.Equal(IssueStatus.Returned, (await verify.Issues.FindAsync(issueId))!.Status);
     }
 

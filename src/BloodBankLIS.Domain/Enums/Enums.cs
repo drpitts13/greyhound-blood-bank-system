@@ -327,7 +327,10 @@ public enum UnitQuarantineReason
     Other = 10,
 
     /// <summary>Placed by the system when a storage excursion lasted past the facility limit (OCD-036).</summary>
-    StorageTemperatureExcursion = 11
+    StorageTemperatureExcursion = 11,
+
+    /// <summary>Returned with disposal requested; it is discarded from quarantine with a coded reason.</summary>
+    ReturnedForDisposal = 12
 }
 
 /// <summary>
