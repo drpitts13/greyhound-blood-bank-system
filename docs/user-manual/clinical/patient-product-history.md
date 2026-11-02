@@ -14,4 +14,6 @@ routes:
 
 The active reservation list stays on the Products tab so the bench is not scrolling through old transfusions to find the unit in hand. Show issued and transfused on Products only when you turn that option on. History remains the place for the completed record.
 
+An issued row has **Document transfusion**. It opens the bedside documentation form on Issue and Transfuse with that unit already selected. Every bedside check still applies there: the two patient identifiers, the unit scan, the second verifier when your policy requires one, ward receipt, and the unit's expiration. There is no shortcut that marks a unit transfused without them.
+
 Each line keeps the unit number, product, patient identifiers used at issue, and the disposition. This is also the record you will compare during a lookback or a reaction investigation. Do not delete a historical line. If something was documented in error, correct it with the appropriate return, reaction, or deviation workflow so the original entry stays visible.

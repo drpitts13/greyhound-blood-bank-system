@@ -121,17 +121,10 @@
                                 @if (h.IssueId is long historyIssueId && h.UnitId is long issueUnitId)
                                 {
                                     <a class="btn btn-ghost btn-sm" href="@($"/issuing?bloodUnitId={issueUnitId}")">Open Issuing</a>
-                                    @if (h.EventType == PatientProductHistoryEventType.Issued && OnMarkTransfused.HasDelegate && Session.Has(PermissionCodes.TransfusionDocument))
+                                    @if (h.EventType == PatientProductHistoryEventType.Issued && Session.Has(PermissionCodes.TransfusionDocument))
                                     {
-                                        @if (_confirmIssueId == historyIssueId)
-                                        {
-                                            <button type="button" class="btn btn-primary btn-sm" disabled="@Busy" @onclick="() => ConfirmTransfusedAsync(historyIssueId)">Confirm transfused</button>
-                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => _confirmIssueId = null">Cancel</button>
-                                        }
-                                        else
-                                        {
-                                            <button type="button" class="btn btn-secondary btn-sm" disabled="@Busy" @onclick="() => _confirmIssueId = historyIssueId">Transfuse</button>
-                                        }
+                                        @* The full bedside form: identifiers, unit scan, verifier, and expiration are all checked there. *@
+                                        <a class="btn btn-secondary btn-sm" href="@($"/issuing?desk=transfuse&issueId={historyIssueId}")">Document transfusion</a>
                                     }
                                 }
                             </div>
@@ -147,20 +140,11 @@
     [Parameter] public long PatientId { get; set; }
     [Parameter] public bool Loading { get; set; }
     [Parameter] public IReadOnlyList<PatientProductHistoryRowDto> Rows { get; set; } = [];
-    [Parameter] public EventCallback<long> OnMarkTransfused { get; set; }
     [Parameter] public bool Busy { get; set; }
     [Parameter] public Feedback? Feedback { get; set; }
 
-    private long? _confirmIssueId;
-
     // Most reviews need only the key columns; the other 19 are one click away.
     private bool _showAllColumns;
-
-    private async Task ConfirmTransfusedAsync(long issueId)
-    {
-        _confirmIssueId = null;
-        await OnMarkTransfused.InvokeAsync(issueId);
-    }
 
     private static string HistoryRowClass(PatientProductHistoryRowDto h)
     {

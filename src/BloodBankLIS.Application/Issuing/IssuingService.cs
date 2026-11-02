@@ -1370,6 +1370,13 @@ public sealed class IssuingService
             return EvaluationResult<TransfusionEvent>.Fail($"{IsbtErrorCodes.ComponentExpired}: Unit has expired.");
         }
 
+        var documentation = TransfusionDocumentationRule.Evaluate(
+            request.StartUtc, request.StopUtc, request.VolumeTransfused, unit.Volume, _clock.UtcNow);
+        if (documentation.IsHardStopped)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(documentation);
+        }
+
         var requireReceipt = await _policy.GetRequireWardReceiptAsync(ct);
         var receipt = WardReceiptRule.Evaluate(requireReceipt, issue.WardReceivedUtc is not null);
         if (receipt.Severity == RuleSeverity.HardStop)
@@ -1442,93 +1449,6 @@ public sealed class IssuingService
             await _unitOfWork.SaveChangesAsync(ct);
         }
 
-        return EvaluationResult<TransfusionEvent>.Ok(transfusion);
-    }
-
-    /// <summary>
-    /// One-click denotation that an issued unit was transfused. Uses known patient
-    /// identifiers and records ward receipt when the facility requires it.
-    /// </summary>
-    public async Task<EvaluationResult<TransfusionEvent>> MarkTransfusedAsync(long issueId, CancellationToken ct = default)
-    {
-        var documentAuth = IssueAuthorizationRule.EvaluateDocumentTransfusion(
-            await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.TransfusionDocument, ct));
-        if (documentAuth.Severity == RuleSeverity.HardStop)
-        {
-            return EvaluationResult<TransfusionEvent>.Blocked(new RuleEvaluation([documentAuth]));
-        }
-
-        var issue = await _issues.GetByIdAsync(issueId, ct);
-        if (issue is null)
-        {
-            return EvaluationResult<TransfusionEvent>.Fail("Issue not found.");
-        }
-
-        if (issue.Status != IssueStatus.Issued)
-        {
-            return EvaluationResult<TransfusionEvent>.Fail($"An issue with status {issue.Status} cannot be marked transfused.");
-        }
-
-        var unit = await _inventory.GetUnitAsync(issue.BloodProductId, ct);
-        if (unit is null)
-        {
-            return EvaluationResult<TransfusionEvent>.Fail("Unit not found.");
-        }
-
-        if (unit.Status != UnitStatus.Issued && unit.Status != UnitStatus.TransfusionStarted)
-        {
-            return EvaluationResult<TransfusionEvent>.Fail(
-                $"{IsbtErrorCodes.InvalidStatusTransition}: Unit status {unit.Status} cannot be marked transfused.");
-        }
-
-        var patient = await _patients.GetByIdAsync(issue.PatientId, ct);
-        if (patient is null)
-        {
-            return EvaluationResult<TransfusionEvent>.Fail("Patient not found.");
-        }
-
-        var now = _clock.UtcNow;
-        if (issue.WardReceivedUtc is null)
-        {
-            issue.WardReceivedUtc = now;
-            issue.WardReceivedBy = _currentUser.UserName;
-        }
-
-        var transfusion = new TransfusionEvent
-        {
-            IssueId = issue.Id,
-            BloodProductId = unit.Id,
-            PatientId = issue.PatientId,
-            StartUtc = now,
-            StopUtc = now,
-            Transfusionist = _currentUser.UserName,
-            ReactionSuspected = false,
-            FinalDisposition = TransfusionDisposition.Completed,
-            DocumentedBy = _currentUser.UserName,
-            Location = issue.IssuedToLocation,
-            PatientIdentificationMethod = "KnownRecord",
-            UnitIdentificationMethod = "IssuedUnit",
-            WorkstationId = _currentUser.Workstation
-        };
-        await _transfusions.AddAsync(transfusion, ct);
-
-        if (unit.Status == UnitStatus.Issued)
-        {
-            AppendStatus(unit, UnitStatus.TransfusionStarted, "Transfusion started", now, nameof(TransfusionEvent), issue.Id);
-        }
-
-        issue.Status = IssueStatus.Transfused;
-        AppendStatus(unit, UnitStatus.Transfused, "Marked transfused", now, nameof(TransfusionEvent), issue.Id);
-
-        _audit.Record(
-            AuditEventType.Transfusion,
-            nameof(BloodUnit),
-            unit.Id,
-            oldValue: new { Status = UnitStatus.Issued },
-            newValue: new { Status = UnitStatus.Transfused, FinalDisposition = TransfusionDisposition.Completed },
-            reason: "Unit marked transfused from the product workflow.");
-
-        await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<TransfusionEvent>.Ok(transfusion);
     }
 

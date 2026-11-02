@@ -734,29 +734,49 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(IssueStatus.Issued, issued.Value!.Status);
     }
 
+    // TEST-BB-329: inconsistent times or volume are refused and leave the unit issued; consistent ones document.
     [Fact]
-    public async Task MarkTransfused_CompletesIssuedUnit()
+    public async Task DocumentTransfusion_InconsistentTimesOrVolume_AreRefused()
     {
-        var s = await SeedAsync("MARKTX");
+        var s = await SeedAsync("TX-DOC");
         await RecordCompatibleCrossmatchAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            (await c.BloodUnits.FindAsync(s.UnitId))!.Volume = 300m;
+            await c.SaveChangesAsync();
+            Assert.True((await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId))).Succeeded);
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.True(issued.Succeeded, issued.Error);
+            issueId = issued.Value!.Id;
+            Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
+        }
 
-        await using var c = _factory.Create();
-        var reserved = await Compatibility(c).AllocateUnitAsync(
-            new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId));
-        Assert.True(reserved.Succeeded, reserved.Error);
+        var now = _factory.Clock.UtcNow;
+        await using (var c = _factory.Create())
+        {
+            var backwards = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with { StartUtc = now.AddHours(-1), StopUtc = now.AddHours(-2) });
+            Assert.Contains(backwards.Evaluation!.HardStops, r => r.Code == TransfusionDocumentationRule.Code);
 
-        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
-        Assert.True(issued.Succeeded, issued.Error);
+            var tooMuch = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with { VolumeTransfused = 450m });
+            Assert.Contains(tooMuch.Evaluation!.HardStops, r => r.Message.Contains("more than the unit held"));
 
-        var marked = await Issuing(c).MarkTransfusedAsync(issued.Value!.Id);
-        Assert.True(marked.Succeeded, marked.Error);
-        Assert.Equal(TransfusionDisposition.Completed, marked.Value!.FinalDisposition);
+            var future = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with { StartUtc = now.AddHours(2) });
+            Assert.True(future.Evaluation!.IsHardStopped);
+        }
 
-        var unit = await c.BloodUnits.FindAsync(s.UnitId);
-        Assert.Equal(UnitStatus.Transfused, unit!.Status);
-        var issue = await c.Issues.FindAsync(issued.Value.Id);
-        Assert.Equal(IssueStatus.Transfused, issue!.Status);
-        Assert.NotNull(issue.WardReceivedUtc);
+        await using (var c = _factory.Create())
+        {
+            Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+            Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
+
+            var ok = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with
+            {
+                StartUtc = now.AddHours(-2), StopUtc = now.AddHours(-1), VolumeTransfused = 280m
+            });
+            Assert.True(ok.Succeeded, ok.Error);
+            Assert.Equal(280m, ok.Value!.VolumeTransfused);
+        }
     }
 
     [Fact]

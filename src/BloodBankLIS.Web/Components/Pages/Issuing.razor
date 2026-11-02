@@ -1167,6 +1167,7 @@
     [SupplyParameterFromQuery(Name = "patientId")] public long? QueryPatientId { get; set; }
     [SupplyParameterFromQuery(Name = "bloodUnitId")] public long? QueryBloodUnitId { get; set; }
     [SupplyParameterFromQuery(Name = "desk")] public string? DeskQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "issueId")] public long? QueryIssueId { get; set; }
     private string? _returnUnitNumber;
     private string? _returnProductName;
     private string? _returnExpirationNotice;
@@ -1370,6 +1371,19 @@
         {
             _issue.PatientId = patientId;
             await OnIssuePatientChangedAsync();
+        }
+
+        // From the chart: open bedside documentation for that issue, with every check the form applies.
+        if (QueryIssueId is long issueId && _desk == "transfuse")
+        {
+            if (_outstandingItems.FirstOrDefault(i => i.IssueId == issueId) is { } row)
+            {
+                SelectTransfusionIssue(row);
+            }
+            else
+            {
+                _txFb = Feedback.Fail($"Issue #{issueId} is not waiting for transfusion documentation. It may already be documented or returned.");
+            }
         }
     }
 

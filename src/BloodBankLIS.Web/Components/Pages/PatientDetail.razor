@@ -367,7 +367,6 @@ else
             OnAllocOrderPicked="OnAllocOrderPicked"
             ShowIssuedTransfused="_showIssuedTransfused"
             OnToggleIssuedTransfused="ToggleShowIssuedTransfusedAsync"
-            OnMarkTransfused="MarkTransfusedAsync"
             CompatUnitsLoading="_compatUnitsLoading"
             CompatUnitsError="@_compatUnitsError"
             CompatibleUnits="_compatibleUnits"
@@ -402,7 +401,7 @@ else
 
     @if (_tab == "history")
     {
-        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" OnMarkTransfused="MarkTransfusedAsync" Busy="_busy" Feedback="_allocFb" />
+        <PatientChartProductHistoryTab PatientId="Id" Loading="_historyLoading" Rows="_productHistory" Busy="_busy" Feedback="_allocFb" />
     }
 
     @if (_autoThawRow is not null)
@@ -879,7 +878,7 @@ else
             }
 
             steps.Add(new("issue", 0, "Issue / Transfuse", issued, false,
-                issued ? "Issued — mark transfused when given" : "Issue compatible units"));
+                issued ? "Issued — document the transfusion at the bedside" : "Issue compatible units"));
             var current = steps.FindIndex(s => !s.Complete);
             if (current < 0)
             {
@@ -1530,19 +1529,6 @@ else
     {
         _showIssuedTransfused = !_showIssuedTransfused;
         await LoadAllocationsAsync();
-    }
-
-    private async Task MarkTransfusedAsync(long issueId)
-    {
-        _busy = true;
-        var r = await Api.MarkIssueTransfusedAsync(issueId);
-        _busy = false;
-        _allocFb = r.ToFeedback("Unit marked transfused.");
-        if (r.Succeeded)
-        {
-            await LoadAllocationsAsync();
-            if (_historyLoaded) await LoadProductHistoryAsync();
-        }
     }
 
     private void ToggleTestEntry(long orderLineId) =>

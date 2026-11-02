@@ -238,7 +238,7 @@ else
                     }
                     @if (_unit.Status == UnitStatus.Issued && _selectedIssueId is long issuedId && Session.Has(PermissionCodes.TransfusionDocument))
                     {
-                        <button type="button" class="btn btn-link btn-sm" disabled="@_busy" @onclick="() => MarkInventoryTransfusedAsync(issuedId)">Transfuse</button>
+                        <a class="btn btn-link btn-sm" href="@($"/issuing?desk=transfuse&issueId={issuedId}")" title="Opens the bedside documentation form with this unit">Document transfusion</a>
                     }
                     @if (_unit.Status == UnitStatus.Issued && Session.Has(PermissionCodes.IssueReturn))
                     {
@@ -889,14 +889,6 @@ else
         _busy = false;
         if (r.Succeeded) _changeStatusReason = string.Empty;
         await AfterActionAsync(r, $"Unit status changed to {_changeStatusDestination}.");
-    }
-
-    private async Task MarkInventoryTransfusedAsync(long issueId)
-    {
-        _busy = true;
-        var r = await Api.MarkIssueTransfusedAsync(issueId);
-        _busy = false;
-        await AfterActionAsync(r, "Unit marked transfused.");
     }
 
     private async Task OnRetypeSaved()

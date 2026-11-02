@@ -213,21 +213,6 @@ public static class IssuingEndpoints
 
             return EndpointResults.FromEvaluation(result, t => TransfusionEventDto.From(t));
         }).RequirePermission(PermissionCodes.TransfusionDocument);
-
-        issues.MapPost("/{id:long}/mark-transfused", async (
-            long id,
-            IssuingService service,
-            BillingService billing,
-            CancellationToken ct) =>
-        {
-            var result = await service.MarkTransfusedAsync(id, ct);
-            if (result.Succeeded)
-            {
-                await billing.CaptureForTransfusionAsync(id, result.Value!.FinalDisposition, ct);
-            }
-
-            return EndpointResults.FromEvaluation(result, t => TransfusionEventDto.From(t));
-        }).RequirePermission(PermissionCodes.TransfusionDocument);
     }
 
     internal static async Task<EvaluationResult<Return>> WithReturnChargesAsync(

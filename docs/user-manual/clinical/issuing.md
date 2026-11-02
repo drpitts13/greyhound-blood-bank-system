@@ -56,6 +56,10 @@ When the protocol ends, choose **Close…** and give the reason. The units stay 
 
 You still need a current specimen for the patient, an in-date unit, acceptable appearance, and two identity tokens. You record the reason and sign. The issue is flagged for retrospective crossmatch. It stays on the retrospective queue until someone records the crossmatch, by default within the hours set in facility policy (the shipped default is 24). **Record crossmatch** opens Compatibility with the issue filled in.
 
+## Document transfusion
+
+Document transfusion records the bedside checks and the transfusion itself. The chart, product history, and unit pages open it with the unit already selected. Times and volume must make sense: a start or stop time more than a few minutes in the future, a stop before the start, a volume of zero, or more volume than the bag held is refused so it can be corrected.
+
 ## In transit and ward receipt
 
 **In transit** lists units that left in a cooler or with a courier until the receiving location acknowledges custody. **Receive** on the row opens Ward receipt. Receipt repeats the product, expiration, type, specimen, crossmatch, who it was issued to, the cooler, and the destination so the person receiving can compare them with the unit in hand. Transfusion documentation waits until receipt is recorded when that is the path the unit took.

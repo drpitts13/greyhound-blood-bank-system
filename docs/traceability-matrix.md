@@ -473,6 +473,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-434 / FRS-BB-469 | Facility MTP packs and round guidance | `MtpPackDefinition`; `MtpPackRule`; `MtpPackAdminService`; `MtpActivationService`; `IssuingEndpoints`; `AdminMtpPacks.razor`; `Issuing.razor` | TEST-BB-325 | D / I | None shipped (OCD-012) |
 | URS-BB-435 / FRS-BB-470 | MTP pack records, transport containers, printable pack report | `TransportContainer`; `MtpPackRecord`; `TransportContainerRule`; `MtpPackReportText`; `MtpPackingService`; `TransportContainerAdminService`; `IssuingEndpoints`; `MtpPackReport.razor`; `AdminTransportContainers.razor`; `Issuing.razor` | TEST-BB-326 | D / I | OCD-045 wording review |
 | URS-BB-436 / FRS-BB-471 | Signed reaction investigations locked; reasoned reopen | `ReactionInvestigationLockRule`; `ReactionInvestigationService`; `ComplianceEndpoints`; `Reactions.razor` | TEST-BB-327 | D / I | |
+| URS-BB-437 / FRS-BB-473 | Transfusion recorded only through bedside documentation; consistent times and volume | `TransfusionDocumentationRule`; `IssuingService`; `IssuingEndpoints`; `Issuing.razor`; chart and unit pages | TEST-BB-329 | D / I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

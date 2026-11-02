@@ -8358,3 +8358,55 @@ Decision (product owner, 2026-11-01): "Yes, local time". The pack report travels
 ### Next ranked residual
 
 Transfusion administration documentation audit (bedside start, stop, vitals, volume), then shift handoff. Whether the rest of the screens should also show local time is a separate product decision.
+
+## Iteration 285 — No transfusion without bedside checks; consistent times and volume (2026-11-01)
+
+### Capability matrix rescan
+
+No change since Cycle 284. This cycle audits transfusion documentation (bedside start, stop, vitals, volume).
+
+### Findings
+
+1. **Critical: "mark transfused" skipped the bedside.** A one-click `MarkTransfusedAsync`, behind the "Transfuse" button on the chart Products tab, the Product History tab, and the unit page, recorded a completed transfusion:
+   - with no patient identifiers checked
+   - with no bedside unit scan, even for ISBT 128 units
+   - with **no expiration check**
+   - with no second-verifier policy
+   - with **ward receipt filled in as received by the clicking user**
+   - with the clicking user as transfusionist, and the start time equal to the stop time
+   It recorded bedside verification that never happened.
+2. The full form accepted inconsistent data: a stop before the start, times in the future, zero or negative volume, or more volume than the bag held.
+
+### Design
+
+- The shortcut is removed: service method, `POST /api/issues/{id}/mark-transfused` (now 404), client call, and the three buttons.
+- The buttons became **Document transfusion** links to `/issuing?desk=transfuse&issueId={id}`. The Issuing page opens bedside documentation prefilled with that issue (unit number and issue cues), so it is still one click to reach and every check applies.
+- An issue that is no longer waiting gets "Issue #n is not waiting for transfusion documentation. It may already be documented or returned."
+- `TransfusionDocumentationRule` (`TXN-DOCUMENTATION`, hard stops; data checks, not clinical limits):
+  - a start or stop time more than 5 minutes ahead of the server clock (the allowance covers clock drift)
+  - a stop before the start
+  - a volume of 0 or less
+  - a volume above the unit's recorded volume, when that is known
+- The chart workflow ribbon now reads "Issued — document the transfusion at the bedside".
+
+### Requirements / risk
+
+- URS-BB-437, FRS-BB-473, SRS-BB-435, RISK-BB-539. Help: issuing and patient product history pages.
+
+### Tests
+
+- TEST-BB-329:
+  - `TransfusionDocumentationRuleTests` (10 cases)
+  - `Phase4IssuingTests.DocumentTransfusion_InconsistentTimesOrVolume_AreRefused`: a stop before the start, more than the bag held, and a future start are each refused; the unit stays Issued with no transfusion event; consistent times and volume then document
+- `MarkTransfused_CompletesIssuedUnit` was removed with the shortcut.
+- Full suite: 3,268 passed, 0 failed (previously 3,258). Domain 1,850, Integration 1,182, Application 104, Help 29, HL7 63, Printing 21, Astm 19.
+- Run check (development API and Web, DevMode):
+  - `POST /api/issues/1/mark-transfused` returns 404
+  - `/issuing?desk=transfuse&issueId=5` opens Document transfusion with unit W0001230009101 filled in
+  - an unknown issue id shows the "not waiting" message
+  - the MRN0001 Product History tab shows **Document transfusion** linking to issue 1
+  - no server errors
+
+### Next ranked residual
+
+Shift handoff audit. Bedside vitals are stored as JSON with no structure on the documentation form; what vitals to require is a facility decision (do not invent).

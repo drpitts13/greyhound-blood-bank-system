@@ -442,3 +442,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-434 | The facility can define its massive transfusion packs, and during a protocol the issue desk sees which round it is on and what each component still needs, without the system ever choosing or blocking a unit. | P7 | FRS-BB-469 |
 | URS-BB-435 | Each container sent during a massive transfusion protocol is recorded (container, temperature, who packed it, when, which units) and a printed sheet travels with it that the receiving clinicians and ordering provider complete by hand. | P1 | FRS-BB-470 |
 | URS-BB-436 | Once a reaction investigation is signed and closed, what was signed cannot change unless someone reopens it with a recorded reason and signs it again. | P4 | FRS-BB-471 |
+| URS-BB-437 | A transfusion can only be recorded with the bedside checks performed at the time, never by a shortcut that assumes them, and its recorded times and volume make sense. | P1 | FRS-BB-473 |

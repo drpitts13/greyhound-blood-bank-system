@@ -94,7 +94,7 @@
                                 }
                                 @if (a.IssueId is long issueId && a.IssueStatus == IssueStatus.Issued && Session.Has(PermissionCodes.TransfusionDocument))
                                 {
-                                    <button type="button" class="btn btn-link btn-sm" disabled="@Busy" @onclick="() => OnMarkTransfused.InvokeAsync(issueId)">Transfuse</button>
+                                    <a class="btn btn-link btn-sm" href="@($"/issuing?desk=transfuse&issueId={issueId}")" title="Opens the bedside documentation form with this unit">Document transfusion</a>
                                 }
                                 @if (Session.Has(PermissionCodes.CompatibilityAllocate) && a.IssueId is null && a.AllocationStatus == AllocationStatus.Reserved)
                                 {
@@ -456,7 +456,6 @@
     [Parameter] public EventCallback<long?> OnAllocOrderPicked { get; set; }
     [Parameter] public bool ShowIssuedTransfused { get; set; }
     [Parameter] public EventCallback OnToggleIssuedTransfused { get; set; }
-    [Parameter] public EventCallback<long> OnMarkTransfused { get; set; }
     [Parameter] public bool CompatUnitsLoading { get; set; }
     [Parameter] public string? CompatUnitsError { get; set; }
     [Parameter] public IReadOnlyList<CompatibleUnitDto> CompatibleUnits { get; set; } = [];
