@@ -480,3 +480,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-472 | A result waiting for verification whose specimen expires soon says by when it must be verified and is listed ahead of other routine work, so it is not lost when the specimen expires. A pending correction can be worked from the worklist after the specimen expires. | P1 | FRS-BB-508 |
 | URS-BB-473 | The dashboard says how many pending results must be verified before their specimen expires. | P2 | FRS-BB-509 |
 | URS-BB-474 | The shift handoff records how many pending results must be verified before their specimen expires, so the next shift verifies them in time. | P2 | FRS-BB-510 |
+| URS-BB-475 | The patient chart's Tests tab shows the same verify-before deadline as the worklist. | P3 | FRS-BB-511 |

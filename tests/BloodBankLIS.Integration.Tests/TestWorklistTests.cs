@@ -662,6 +662,27 @@ public class TestWorklistTests : IClassFixture<SqliteContextFactory>
         Assert.Null(rows[1].VerificationDeadlineNotice);
     }
 
+    // TEST-BB-371: the patient chart's Tests tab gets the same verify-before deadline as the worklist.
+    [Fact]
+    public async Task PatientTestsTab_CarriesTheVerificationDeadline()
+    {
+        await using var c = _factory.Create();
+        var seed = await SeedOrderWithTestAsync(c);
+        Assert.True((await Results(c).SaveTestResultAsync(new SaveTestResultRequest(
+            seed.specimen!.Id, seed.order.Id, seed.line.Id, seed.line.TestCode!, "Negative", null, null, null, null, null,
+            MarkComplete: false, CorrectionReason: null, UnitNumber: null, CrossmatchMethod: null,
+            CrossmatchResult: null, AntibodyScreenNegative: null))).Succeeded);
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddHours(5);
+        await c.SaveChangesAsync();
+
+        var row = Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending));
+        Assert.StartsWith("Verify before", row.VerificationDeadlineNotice);
+
+        seed.specimen.ExpiresUtc = _factory.Clock.UtcNow.AddDays(3);
+        await c.SaveChangesAsync();
+        Assert.Null(Assert.Single(await Worklist(c).ListForPatientAsync(seed.patient.Id, TestWorklistFilter.Pending)).VerificationDeadlineNotice);
+    }
+
     // TEST-BB-370: the shift handoff counts results that must be verified before their specimen expires.
     [Fact]
     public async Task ShiftHandoff_CountsResultsToVerifyBeforeSpecimenExpiry()

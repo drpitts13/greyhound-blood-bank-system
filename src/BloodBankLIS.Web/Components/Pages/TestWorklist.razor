@@ -87,10 +87,7 @@
                             @if (item.SpecimenExpiresUtc is DateTime expires)
                             {
                                 <span class="@(item.SpecimenExpired ? "badge badge-red" : "sub") nowrap">@expires.ToString("yyyy-MM-dd HH:mm")</span>
-                                @if (!string.IsNullOrWhiteSpace(item.VerificationDeadlineNotice))
-                                {
-                                    <span class="badge badge-amber nowrap" title="@item.VerificationDeadlineNotice">Verify before @expires.ToString("HH:mm")</span>
-                                }
+                                <VerificationDeadlineBadge Item="item" />
                             }
                             else
                             {

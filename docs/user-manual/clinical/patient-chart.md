@@ -21,7 +21,7 @@ The header shows the current name, MRN, date of birth, and sex. Below that, the 
 - Special requirements that are still active.
 - Whether electronic crossmatch can be considered. Eligibility is calculated. It is not a checkbox you tick.
 
-Use the tabs for the detail: Visits, Orders, Specimens, Tests, Test History, DAT / Elution, Products, and Product History. Each tab has its own topic in this guide.
+Use the tabs for the detail: Visits, Orders, Specimens, Tests, Test History, DAT / Elution, Products, and Product History. Each tab has its own topic in this guide. On Tests, a result waiting for verification whose specimen expires soon shows **Verify before** and the time, as on the test worklist.
 
 ## Changing identity
 

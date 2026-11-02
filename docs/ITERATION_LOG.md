@@ -10240,3 +10240,33 @@ The handoff packet counts pending tests but not those whose specimen expires soo
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: on the patient chart's Tests tab, show the same verify-before deadline on pending results.
+
+## Iteration 329 — Verify-before deadline on the chart Tests tab (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 328.
+
+### Finding (question 5)
+
+The chart Tests tab uses the same worklist rows as the test worklist, so the deadline was already in its data, but the tab did not show it. A tech working from the chart did not see it.
+
+### Design
+
+- The badge from Cycle 326 is now a shared component, `VerificationDeadlineBadge`, used on both the test worklist and the chart Tests tab, so the two cannot drift.
+- Display only; no API or schema change.
+
+### Requirements / risk
+
+- URS-BB-475, FRS-BB-511 (under RISK-BB-571). Help: patient chart page.
+
+### Tests
+
+- TEST-BB-371: the patient Tests list carries the deadline when the specimen expires in five hours, and none at three days.
+- No component test project exists, so the badge markup itself is covered by the run check.
+- Full suite: 3,498 passed, 0 failed (previously 3,497).
+- Run check (development API and web): the demo patient's Tests tab (2 rows) and the test worklist (7 rows) render with no server errors. No demo result is near its specimen deadline, so no badge shows.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. The specimen-expiration thread (Cycles 317–329) is complete. Next: rescan the capability matrix for the next highest-impact gap outside specimen and reservation expiry.
