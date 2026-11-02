@@ -492,6 +492,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-453 / FRS-BB-489 | Running transfusions never reported with an outcome | `TransfusionRecordState`; report readers and views; lookback; unit activity; utilization | TEST-BB-348 | D / I | |
 | URS-BB-454 / FRS-BB-490 | Tube-label identifiers and collector at accession | `SpecimenLabelIdentityRule`; `SpecimenService`; chart accession forms | TEST-BB-349 | D / I | |
 | URS-BB-455 / FRS-BB-491 | Receive a specimen by scanning the tube | `SpecimenReceiptScanRule`; `SpecimenService`; test worklist | TEST-BB-350 | D / I | |
+| URS-BB-456 / FRS-BB-492 | Accept by scan; draw-to-receipt time | `SpecimenTransitRule`; `SpecimenService`; test worklist | TEST-BB-351 | D / I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

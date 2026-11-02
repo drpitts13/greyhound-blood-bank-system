@@ -9431,3 +9431,42 @@ Receipt was a click on a row of the pending list. The scan field above the list 
 ### Next ranked residual
 
 Accept the received tube with a scan as well, and show the specimen's draw-to-receipt time on the pending list. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 309 — Accept by scan; draw-to-receipt time (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 308 other than the specimen row.
+
+### Change
+
+- **Accept by scan:**
+  - `AcceptByScanAsync` and `POST /api/specimens/accept-scan` use the scan matching from Cycle 308 (now shared in `FindByScanAsync`) and the existing accept gate
+  - refusals name the accession, and the audit records `AcceptMethod`
+- **Explicit mode:** a Receive/Accept choice next to the scan field, default Receive. Accepting declares the tube fit for testing, so it is never the side effect of scanning the same tube twice.
+- **Draw-to-receipt time:** each pending row shows "received … after draw" or "waiting … since draw" (`SpecimenTransitRule`). This is display only and sets no limit; the specimen's expiry remains the limit that applies.
+- An already-accepted specimen is now refused with "This specimen is already accepted for testing", instead of "Receive it first".
+- **Fix found by the tests:** the scan lookup returned an untracked copy of a specimen that the same unit of work already tracked. It now loads the matched specimen by id. Each API request has its own context, so the running app was not affected.
+
+### Requirements
+
+- URS-BB-456, FRS-BB-492. Help: test worklist page.
+
+### Tests
+
+- TEST-BB-351:
+  - transit wording
+  - accept by scan after receipt, with the method recorded
+  - accept by scan before receipt is refused, naming the tube
+  - the pending list shows "waiting 20 min since draw" and then "received 20 min after draw"
+- Full suite: 3,415 passed, 0 failed (previously 3,407).
+- Run check (development API and web):
+  - accept-scan of ACC0001 was refused, naming the tube
+  - the worklist shows Receive/Accept, and the label follows the choice
+  - rows show "received 1 h 40 min after draw" and "waiting 11 h 00 min since draw"
+  - no server errors
+  - nothing was received or accepted
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether every receipt must be by scan (facility policy). Next engineering candidate: audit result entry and verification (manual entry, instrument results, delta checks) against the seven workflow questions.

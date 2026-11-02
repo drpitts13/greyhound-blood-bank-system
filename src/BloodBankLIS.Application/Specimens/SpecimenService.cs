@@ -603,26 +603,52 @@ public sealed class SpecimenService
             return denied;
         }
 
+        var (found, error) = await FindByScanAsync(scan, ct);
+        return found is null
+            ? OperationResult<Specimen>.Fail(error!)
+            : await ReceiveCoreAsync(found, "Scanned tube", nameTheTube: true, ct);
+    }
+
+    /// <summary>Accepts the received tube in hand by its scanned accession number or label barcode.</summary>
+    public async Task<OperationResult<Specimen>> AcceptByScanAsync(string? scan, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenAccession, SpecimenAuthorizationRule.EvaluateAccession, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var (found, error) = await FindByScanAsync(scan, ct);
+        return found is null
+            ? OperationResult<Specimen>.Fail(error!)
+            : await AcceptCoreAsync(found, "Scanned tube", nameTheTube: true, ct);
+    }
+
+    /// <summary>The one specimen whose accession or label barcode is the scan, or a plain refusal.</summary>
+    private async Task<(Specimen? Specimen, string? Error)> FindByScanAsync(string? scan, CancellationToken ct)
+    {
         var normalized = SpecimenReceiptScanRule.Normalize(scan);
         if (normalized.Length == 0)
         {
             var empty = SpecimenReceiptScanRule.NotFound(normalized);
-            return OperationResult<Specimen>.Fail($"{empty.Code}: {empty.Message}");
+            return (null, $"{empty.Code}: {empty.Message}");
         }
 
         var candidates = (await _specimens.ListAsync(
                 s => s.AccessionNumber.ToUpper() == normalized || (s.Barcode != null && s.Barcode.ToUpper() == normalized), ct))
             .Where(s => SpecimenReceiptScanRule.Matches(normalized, s.AccessionNumber, s.Barcode))
             .ToList();
-        if (candidates.Count != 1)
+        if (candidates.Count == 1)
         {
-            var miss = candidates.Count == 0
-                ? SpecimenReceiptScanRule.NotFound(normalized)
-                : SpecimenReceiptScanRule.Ambiguous(normalized);
-            return OperationResult<Specimen>.Fail($"{miss.Code}: {miss.Message}");
+            // Load by id so an instance this unit of work already tracks is the one changed.
+            return (await _specimens.GetByIdAsync(candidates[0].Id, ct) ?? candidates[0], null);
         }
 
-        return await ReceiveCoreAsync(candidates[0], "Scanned tube", nameTheTube: true, ct);
+        var miss = candidates.Count == 0
+            ? SpecimenReceiptScanRule.NotFound(normalized)
+            : SpecimenReceiptScanRule.Ambiguous(normalized);
+        return (null, $"{miss.Code}: {miss.Message}");
     }
 
     // A scan does not show which row it matched, so its refusal names the tube.
@@ -664,10 +690,15 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail("Specimen not found.");
         }
 
+        return await AcceptCoreAsync(specimen, "Selected from the worklist", nameTheTube: false, ct);
+    }
+
+    private async Task<OperationResult<Specimen>> AcceptCoreAsync(Specimen specimen, string method, bool nameTheTube, CancellationToken ct)
+    {
         var gate = SpecimenReceiptRule.EvaluateAccept(specimen.Status, specimen.ExpiresUtc, _clock.UtcNow);
         if (gate.Severity == RuleSeverity.HardStop)
         {
-            return OperationResult<Specimen>.Fail(gate.Message);
+            return OperationResult<Specimen>.Fail(nameTheTube ? $"{specimen.AccessionNumber}: {gate.Message}" : gate.Message);
         }
 
         var previous = new { specimen.Status };
@@ -679,7 +710,7 @@ public sealed class SpecimenService
             nameof(Specimen),
             specimen.Id,
             oldValue: previous,
-            newValue: new { specimen.Status, specimen.ReceivedUtc },
+            newValue: new { specimen.Status, specimen.ReceivedUtc, AcceptMethod = method },
             reason: "Specimen accepted for testing.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);

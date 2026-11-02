@@ -77,4 +77,42 @@ public class SpecimenReceiptScanTests : IDisposable
         Assert.False(again.Succeeded);
         Assert.StartsWith("ACC-SCAN-TWICE:", again.Error);
     }
+
+    // TEST-BB-351: accept by scan once received; the pending list shows time since draw.
+    [Fact]
+    public async Task AcceptByScan_AfterReceipt_AcceptsThatTube_AndRecordsTheMethod()
+    {
+        var id = await CollectedAsync("ACC-SCAN-ACC");
+        await using var c = _factory.Create();
+        Assert.True((await Specimens(c).ReceiveByScanAsync("ACC-SCAN-ACC")).Succeeded);
+        var accepted = await Specimens(c).AcceptByScanAsync("acc-scan-acc");
+        Assert.True(accepted.Succeeded, accepted.Error);
+        Assert.Equal(SpecimenStatus.Accepted, (await c.Specimens.AsNoTracking().SingleAsync(s => s.Id == id)).Status);
+        Assert.True(await c.AuditEvents.AnyAsync(a => a.EntityType == nameof(Specimen) && a.EntityId == id && a.NewValueJson!.Contains("AcceptMethod")));
+    }
+
+    [Fact]
+    public async Task AcceptByScan_BeforeReceipt_IsRefused_NamingTheTube()
+    {
+        var id = await CollectedAsync("ACC-SCAN-EARLY");
+        await using var c = _factory.Create();
+        var r = await Specimens(c).AcceptByScanAsync("ACC-SCAN-EARLY");
+        Assert.False(r.Succeeded);
+        Assert.StartsWith("ACC-SCAN-EARLY:", r.Error);
+        Assert.Equal(SpecimenStatus.Collected, (await c.Specimens.AsNoTracking().SingleAsync(s => s.Id == id)).Status);
+    }
+
+    [Fact]
+    public async Task PendingList_ShowsTimeSinceDraw_ThenTimeToReceipt()
+    {
+        await CollectedAsync("ACC-SCAN-TIME");
+        await using var c = _factory.Create();
+        var waiting = Assert.Single(await Specimens(c).ListPendingReceiptAsync(), r => r.AccessionNumber == "ACC-SCAN-TIME");
+        Assert.Equal("waiting 20 min since draw", waiting.TransitNote);
+
+        Assert.True((await Specimens(c).ReceiveByScanAsync("ACC-SCAN-TIME")).Succeeded);
+        var received = Assert.Single(await Specimens(c).ListPendingReceiptAsync(), r => r.AccessionNumber == "ACC-SCAN-TIME");
+        Assert.Equal("received 20 min after draw", received.TransitNote);
+    }
+
 }

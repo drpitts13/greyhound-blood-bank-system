@@ -94,6 +94,18 @@ public static class SpecimenEndpoints
             return dto is null ? Results.NotFound() : Results.Ok(dto);
         }).RequirePermission(PermissionCodes.SpecimenAccession);
 
+        group.MapPost("/accept-scan", async (ReceiveSpecimenScanRequest request, SpecimenService service, CancellationToken ct) =>
+        {
+            var result = await service.AcceptByScanAsync(request.Scan, ct);
+            if (!result.Succeeded)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            var dto = await service.GetAsync(result.Value!.Id, ct);
+            return dto is null ? Results.NotFound() : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.SpecimenAccession);
+
         group.MapPost("/{id:long}/receive", async (long id, SpecimenService service, CancellationToken ct) =>
         {
             var result = await service.ReceiveAsync(id, ct);

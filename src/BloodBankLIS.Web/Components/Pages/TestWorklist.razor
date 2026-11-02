@@ -170,9 +170,15 @@
         <button class="btn btn-secondary btn-sm" @onclick="LoadPendingSpecimensAsync">Refresh</button>
     </div>
     <p class="muted">Collected tubes waiting for receipt, and received tubes waiting for acceptance. Result entry and order linking still require Accepted. An expired tube cannot be received or accepted — reject it. Scan a tube to receive it: the scan picks the specimen, so the tube in hand is the one received. Typing filters the list.</p>
-    <div class="field" style="max-width:20rem;margin-bottom:.75rem;">
-        <label>Scan tube to receive</label>
-        <input @bind="_specimenScan" @bind:event="oninput" @onkeydown="OnSpecimenScanKeyAsync" placeholder="Scan accession or label barcode" autocomplete="off" />
+    <div class="flex gap" style="align-items:flex-end;flex-wrap:wrap;margin-bottom:.75rem;">
+        <div class="field" style="max-width:20rem;margin:0;">
+            <label>Scan tube to @(_scanAccepts ? "accept" : "receive")</label>
+            <input @bind="_specimenScan" @bind:event="oninput" @onkeydown="OnSpecimenScanKeyAsync" placeholder="Scan accession or label barcode" autocomplete="off" />
+        </div>
+        <div role="radiogroup" aria-label="What a scan does" class="flex gap" style="align-items:center;">
+            <label class="flex" style="gap:.25rem;"><input type="radio" name="scan-mode" checked="@(!_scanAccepts)" @onchange="() => _scanAccepts = false" /> Receive</label>
+            <label class="flex" style="gap:.25rem;"><input type="radio" name="scan-mode" checked="@_scanAccepts" @onchange="() => _scanAccepts = true" /> Accept</label>
+        </div>
     </div>
 
     @if (_specimensLoading)
@@ -206,7 +212,7 @@
                         <td class="mono">@row.Mrn</td>
                         <td class="mono">@row.AccessionNumber</td>
                         <td>@row.SpecimenType</td>
-                        <td class="nowrap">@row.CollectedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                        <td class="nowrap">@row.CollectedUtc.ToString("yyyy-MM-dd HH:mm")@if (!string.IsNullOrWhiteSpace(row.TransitNote)) { <span class="sub">@row.TransitNote</span> }</td>
                         <td class="nowrap">
                             @(row.ExpiresUtc?.ToString("yyyy-MM-dd HH:mm") ?? "—")
                             @if (row.IsExpired)
@@ -338,6 +344,8 @@
     private bool _specimensLoaded;
     private bool _busy;
     private string _specimenScan = string.Empty;
+    // What a scan does on the pending list: receive (default) or accept. Accepting is a deliberate mode.
+    private bool _scanAccepts;
     private long? _rejectingSpecimenId;
     private string _rejectReason = string.Empty;
     private string _rejectComment = string.Empty;
@@ -450,9 +458,12 @@
         }
 
         _busy = true;
-        var r = await Api.ReceiveSpecimenByScanAsync(_specimenScan);
+        var r = _scanAccepts
+            ? await Api.AcceptSpecimenByScanAsync(_specimenScan)
+            : await Api.ReceiveSpecimenByScanAsync(_specimenScan);
         _busy = false;
-        _fb = r.ToFeedback(r.Value is null ? "Specimen received." : $"Received {r.Value.AccessionNumber}. Scan the next tube.");
+        var verb = _scanAccepts ? "Accepted" : "Received";
+        _fb = r.ToFeedback(r.Value is null ? $"{verb}." : $"{verb} {r.Value.AccessionNumber}. Scan the next tube.");
         if (r.Succeeded)
         {
             _specimenScan = string.Empty;

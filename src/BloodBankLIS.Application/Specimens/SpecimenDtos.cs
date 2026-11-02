@@ -1,3 +1,4 @@
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 
@@ -69,7 +70,9 @@ public sealed record PendingSpecimenWorkItemDto(
     DateTime? ReceivedUtc,
     DateTime? ExpiresUtc,
     SpecimenStatus Status,
-    bool IsExpired)
+    bool IsExpired,
+    // "received 42 min after draw" or "waiting 1 h 05 min since draw".
+    string? TransitNote = null)
 {
     public static PendingSpecimenWorkItemDto From(Specimen s, Patient? patient, DateTime now) => new(
         s.Id,
@@ -82,5 +85,6 @@ public sealed record PendingSpecimenWorkItemDto(
         s.ReceivedUtc,
         s.ExpiresUtc,
         s.Status,
-        s.ExpiresUtc is DateTime expires && expires <= now);
+        s.ExpiresUtc is DateTime expires && expires <= now,
+        SpecimenTransitRule.Describe(s.CollectedUtc, s.ReceivedUtc, now));
 }
