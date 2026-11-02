@@ -9138,3 +9138,39 @@ One violation: demo unit W0001230001027 (`SeedExtendedInventoryAsync`) was Disca
 ### Next ranked residual
 
 Update those packages to patched versions and verify with the full suite and a run check. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 302 — Vulnerable packages updated (2026-11-02)
+
+### Request
+
+The product owner approved updating the packages flagged in iteration 301.
+
+### Change
+
+| Package | Before | After | How |
+|---|---|---|---|
+| `Microsoft.OpenApi` (GHSA-v5pm-xwqc-g5wc) | 2.0.0 | patched | `Microsoft.AspNetCore.OpenApi` 10.0.4 to 10.0.14 (Api) |
+| `SQLitePCLRaw.lib.e_sqlite3` (GHSA-2m69-gcr7-jv3q) | 2.1.11 | patched | `Microsoft.EntityFrameworkCore.Sqlite`, `.SqlServer`, and `.Design` 10.0.8 to 10.0.14 (Api, Infrastructure, Integration.Tests) |
+| `System.Security.Cryptography.Pkcs` (GHSA-846f-f764-76mx, GHSA-2fmv-rv2c-59x7) | 9.0.4 (9.0.11 after the EF bump) | 10.0.14 | direct reference in Infrastructure, above the version `Microsoft.Data.SqlClient` brings in |
+
+- Patch releases only. Other outdated packages, including major versions of the test SDK, xunit runner, coverlet, and Markdig, were not touched.
+
+### Also fixed
+
+- The TEST-BB-345 catalog row from iteration 301 had prose with semicolons, which the catalog parser reads as class citations. `TestCatalogPackagingTests.CitedClasses_HaveSourceFiles` failed after that commit, because the suite ran before the docs were written. The row now cites only the test method.
+
+### Verification
+
+- `dotnet list package --vulnerable --include-transitive`: no project has vulnerable packages.
+- Build clean. Full suite: 3,373 passed, 0 failed.
+- Run check (development API and web):
+  - the API started on the upgraded EF Core and SQLite, ran its bootstrap and seeder, and rebuilt the report views
+  - `/openapi/v1.json`, the issue, supervisor-queue, and reference endpoints returned 200
+  - a SQL preview against `rpt_specimen_rejections` ran
+  - the web issuing page returned 200
+  - no server errors
+- SQL Server was not exercised locally.
+
+### Next ranked residual
+
+Add the vulnerable-package check to CI so new advisories are caught when they are published. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
