@@ -47,7 +47,7 @@ public static class DashboardQueueCatalog
             || has(PermissionCodes.InventoryRelease), Supervisor, "Supervisor queue", "/supervisor");
         Add(cards, has(PermissionCodes.InventoryReceive)
             || has(PermissionCodes.DeviationManage), TemperatureExcursions, "Temperature excursions", "/storage-temps");
-        Add(cards, has(PermissionCodes.AuditRead), Handoff, "Shift handoff", "/handoff");
+        Add(cards, has(PermissionCodes.ShiftHandoff), Handoff, "Shift handoff", "/handoff");
         return cards;
     }
 

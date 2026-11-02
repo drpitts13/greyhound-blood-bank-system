@@ -108,7 +108,7 @@ public static class ComplianceEndpoints
     {
         var group = app.MapGroup("/api/shift-handoffs").WithTags("ShiftHandoff")
             .RequireAuthenticatedUser()
-            .RequirePermission(PermissionCodes.AuditRead);
+            .RequirePermission(PermissionCodes.ShiftHandoff);
 
         group.MapGet("/", async (ShiftHandoffService service, CancellationToken ct) =>
             Results.Ok(await service.ListRecentAsync(ct: ct)));

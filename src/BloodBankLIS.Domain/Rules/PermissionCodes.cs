@@ -61,6 +61,9 @@ public static class PermissionCodes
 
     public const string AuditRead = "audit.read";
 
+    /// <summary>Record and acknowledge shift handoffs (accepting responsibility for open bench work).</summary>
+    public const string ShiftHandoff = "shift.handoff";
+
     /// <summary>Run a saved report and export PDF or Excel.</summary>
     public const string ReportRun = "report.run";
 
@@ -108,7 +111,7 @@ public static class PermissionCodes
         PrintLabel, PrintReprint,
         BillingReview, BillingCancel, BillingExport,
         Hl7Manage, InstrumentManage,
-        AuditRead, ReportRun, ReportDesign, LookbackManage, ReactionInvestigate, DeviationManage,
+        AuditRead, ShiftHandoff, ReportRun, ReportDesign, LookbackManage, ReactionInvestigate, DeviationManage,
         AdminConfigView, AdminConfigEdit, AdminConfigActivate,
         AdminTestsManage, AdminProductsManage, AdminModificationRulesManage, AdminHl7Manage,
         AdminInstrumentsManage,

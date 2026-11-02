@@ -4,6 +4,7 @@ using BloodBankLIS.Application.Issuing;
 using BloodBankLIS.Application.Results;
 using BloodBankLIS.Application.Specimens;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Identity;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
@@ -27,7 +28,8 @@ public sealed record ShiftHandoffDto(
     int OpenReactions,
     int FatalityFollowUpDue,
     string? AcknowledgedBy,
-    DateTime? AcknowledgedUtc)
+    DateTime? AcknowledgedUtc,
+    int ActiveMtp = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -35,7 +37,7 @@ public sealed record ShiftHandoffDto(
         h.Id, h.RecordedUtc, h.FromUser, h.ToUser, h.Notes,
         h.RetrospectiveDue, h.RetrospectiveOverdue, h.OutstandingIssued,
         h.InTransit, h.InTransitOverdue, h.PendingTests, h.PendingSpecimens,
-        h.OpenReactions, h.FatalityFollowUpDue, h.AcknowledgedBy, h.AcknowledgedUtc);
+        h.OpenReactions, h.FatalityFollowUpDue, h.AcknowledgedBy, h.AcknowledgedUtc, h.ActiveMtp);
 }
 
 /// <summary>
@@ -54,6 +56,8 @@ public sealed class ShiftHandoffService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter? _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<User>? _users;
+    private readonly IRepository<MtpActivation>? _mtpActivations;
 
     public ShiftHandoffService(
         IRepository<ShiftHandoff> handoffs,
@@ -65,8 +69,12 @@ public sealed class ShiftHandoffService
         SpecimenService? specimens = null,
         ReactionInvestigationService? reactions = null,
         IAuditWriter? audit = null,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<User>? users = null,
+        IRepository<MtpActivation>? mtpActivations = null)
     {
+        _users = users;
+        _mtpActivations = mtpActivations;
         _handoffs = handoffs;
         _issuing = issuing;
         _tests = tests;
@@ -115,6 +123,26 @@ public sealed class ShiftHandoffService
             return OperationResult<ShiftHandoff>.Fail(notesRule.Message);
         }
 
+        if (!string.IsNullOrWhiteSpace(request.ToUser) && _users is not null)
+        {
+            var upper = request.ToUser.Trim().ToUpperInvariant();
+            var active = await _users.AnyAsync(
+                u => u.IsActive && !u.IsLocked && !u.IsServiceAccount && u.UserName.ToUpper() == upper, ct);
+            var recipient = ShiftHandoffRule.EvaluateRecipient(request.ToUser, _currentUser.UserName, active);
+            if (recipient.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<ShiftHandoff>.Fail(recipient.Message);
+            }
+        }
+        else
+        {
+            var self = ShiftHandoffRule.EvaluateRecipient(request.ToUser, _currentUser.UserName, isActiveUser: true);
+            if (self.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<ShiftHandoff>.Fail(self.Message);
+            }
+        }
+
         var retro = _issuing is null
             ? Array.Empty<RetrospectiveCrossmatchWorkItemDto>()
             : await _issuing.ListPendingRetrospectiveCrossmatchesAsync(ct);
@@ -148,7 +176,10 @@ public sealed class ShiftHandoffService
             PendingTests = pendingTests.Count,
             PendingSpecimens = pendingSpecimens.Count,
             OpenReactions = OpenReactionInvestigationRule.Count(reactions.Select(r => r.Status)),
-            FatalityFollowUpDue = OpenReactionInvestigationRule.CountFatalityFollowUpDue(reactions)
+            FatalityFollowUpDue = OpenReactionInvestigationRule.CountFatalityFollowUpDue(reactions),
+            ActiveMtp = _mtpActivations is null
+                ? 0
+                : (await _mtpActivations.ListAsync(a => a.Status == MtpActivationStatus.Active, ct)).Count
         };
 
         await _handoffs.AddAsync(row, ct);
@@ -211,7 +242,8 @@ public sealed class ShiftHandoffService
         row.PendingTests,
         row.PendingSpecimens,
         row.OpenReactions,
-        row.FatalityFollowUpDue
+        row.FatalityFollowUpDue,
+        row.ActiveMtp
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)
@@ -222,7 +254,7 @@ public sealed class ShiftHandoffService
         }
 
         var allowed = await _permissions.HasPermissionAsync(
-            _currentUser.UserName, PermissionCodes.AuditRead, ct);
+            _currentUser.UserName, PermissionCodes.ShiftHandoff, ct);
         var auth = ShiftHandoffRule.EvaluatePermission(allowed);
         return auth.Severity == RuleSeverity.HardStop
             ? OperationResult<ShiftHandoff>.Fail(auth.Message)

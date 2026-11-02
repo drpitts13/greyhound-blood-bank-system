@@ -35,6 +35,9 @@ public class ShiftHandoff : BaseEntity
 
     public int FatalityFollowUpDue { get; set; }
 
+    /// <summary>Massive transfusion protocols still active at handoff.</summary>
+    public int ActiveMtp { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }

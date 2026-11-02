@@ -57,13 +57,18 @@ public class DashboardQueueCatalogTests
     }
 
     [Fact]
-    public void Select_ReactionAndAudit_IncludeThoseCards()
+    public void Select_ReactionAndHandoff_IncludeThoseCards()
     {
-        var cards = DashboardQueueCatalog.Select(Has(PermissionCodes.ReactionInvestigate, PermissionCodes.AuditRead));
+        var cards = DashboardQueueCatalog.Select(Has(PermissionCodes.ReactionInvestigate, PermissionCodes.ShiftHandoff));
 
         Assert.Contains(cards, card => card.Key == DashboardQueueCatalog.Reactions && card.Href == "/reactions");
         Assert.Contains(cards, card => card.Key == DashboardQueueCatalog.Handoff && card.Href == "/handoff");
     }
+
+    // TEST-BB-330: audit read alone (auditor, read-only) does not get the handoff card.
+    [Fact]
+    public void Select_AuditReadOnly_OmitsHandoff() =>
+        Assert.DoesNotContain(DashboardQueueCatalog.Select(Has(PermissionCodes.AuditRead)), card => card.Key == DashboardQueueCatalog.Handoff);
 
     [Fact]
     public void Select_NoPermissions_OmitsEveryWorkCard()

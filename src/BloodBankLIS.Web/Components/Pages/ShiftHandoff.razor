@@ -13,9 +13,9 @@
 
 <Outcome Value="_fb" />
 
-@if (!Session.Has(PermissionCodes.AuditRead))
+@if (!Session.Has(PermissionCodes.ShiftHandoff))
 {
-    <div class="alert alert-warning">Shift handoff requires the audit.read permission.</div>
+    <div class="alert alert-warning">Shift handoff requires the shift.handoff permission.</div>
 }
 else
 {
@@ -39,7 +39,7 @@ else
             }
             else
             {
-                <p class="muted">You recorded this handoff. Another signed-in user with audit.read must acknowledge it.</p>
+                <p class="muted">You recorded this handoff. Another signed-in user with the shift.handoff permission must acknowledge it.</p>
             }
         </div>
     }
@@ -145,7 +145,7 @@ else
     protected override async Task OnInitializedAsync()
     {
         await LoadAsync();
-        if (Session.Has(PermissionCodes.AuditRead))
+        if (Session.Has(PermissionCodes.ShiftHandoff))
         {
             var users = await Api.GetDirectoryUsersAsync();
             if (users.Succeeded) _users = users.Value ?? new();
@@ -154,7 +154,7 @@ else
 
     private async Task LoadAsync()
     {
-        if (!Session.Has(PermissionCodes.AuditRead))
+        if (!Session.Has(PermissionCodes.ShiftHandoff))
         {
             _loading = false;
             return;
@@ -199,6 +199,7 @@ else
     }
 
     private static string QueueSummary(ShiftHandoffDto row) =>
+        (row.ActiveMtp > 0 ? $"MASSIVE TRANSFUSION ACTIVE: {row.ActiveMtp}; " : "") +
         $"Retro {row.RetrospectiveDue}" +
         (row.RetrospectiveOverdue > 0 ? $", {row.RetrospectiveOverdue} overdue" : "") +
         $"; issued {row.OutstandingIssued}; transit {row.InTransit}" +

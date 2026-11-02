@@ -83,9 +83,12 @@
     {
         <NavLink href="supervisor" ActiveClass="active">Supervisor Queue</NavLink>
     }
-    @if (Session.Has(PermissionCodes.AuditRead))
+    @if (Session.Has(PermissionCodes.ShiftHandoff))
     {
         <NavLink href="handoff" ActiveClass="active">Shift Handoff</NavLink>
+    }
+    @if (Session.Has(PermissionCodes.AuditRead))
+    {
         <NavLink href="audit" ActiveClass="active">Audit Trail</NavLink>
         <NavLink href="downtime" ActiveClass="active">Downtime Snapshot</NavLink>
     }

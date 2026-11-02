@@ -107,7 +107,8 @@ These run in `IssueUnitCommand` before a unit leaves inventory. Reference: `work
 | `SPEC-RCV-EXPIRED` | An expired specimen cannot be received | HardStop (reject instead) |
 | `SPEC-ACCEPT-STATUS` | Only a Received specimen can be accepted for testing | HardStop |
 | `SPEC-ACCEPT-EXPIRED` | An expired specimen cannot be accepted | HardStop (reject instead) |
-| `SHIFT-HANDOFF-PERM` | Caller has `audit.read` when recording or acknowledging a shift handoff | HardStop when a permission evaluator is present and the privilege is missing |
+| `SHIFT-HANDOFF-PERM` | Caller has `shift.handoff` when recording or acknowledging a shift handoff (Cycle 286; was `audit.read`) | HardStop when a permission evaluator is present and the privilege is missing |
+| `SHIFT-HANDOFF-TO` | A named recipient is an active user other than the sender | HardStop |
 | `SHIFT-HANDOFF-NOTES` | Shift handoff note is required | HardStop |
 | `SHIFT-HANDOFF-SELF` | The user who recorded a handoff cannot acknowledge it | HardStop |
 | `SHIFT-HANDOFF-ACKED` | An already acknowledged handoff cannot be acknowledged again | HardStop |

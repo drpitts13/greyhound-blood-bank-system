@@ -8410,3 +8410,51 @@ No change since Cycle 284. This cycle audits transfusion documentation (bedside 
 ### Next ranked residual
 
 Shift handoff audit. Bedside vitals are stored as JSON with no structure on the documentation form; what vitals to require is a facility decision (do not invent).
+
+## Iteration 286 — Shift handoff accountability (2026-11-01)
+
+### Capability matrix rescan
+
+No change since Cycle 285. This cycle audits shift handoff.
+
+### Findings
+
+1. **Wrong permission.**
+   - Recording and acknowledging a handoff were gated by `audit.read`, a read permission. The seeded **ReadOnly**, **Auditor**, and **Interface Analyst** roles could therefore accept responsibility for the bench's open work.
+   - A facility that removed audit access from bench staff would have blocked handoffs altogether.
+2. **The recipient was not checked on the server.** The page offers a directory picker, but the API took any text, so a typo addressed the handoff to nobody.
+3. **The packet did not count active massive transfusion protocols** (added in Cycle 280), the most time-critical open work at shift change.
+
+### Design
+
+- New permission `shift.handoff`:
+  - in `PermissionCodes.All` and seeded to Technologist, so Supervisor inherits it; Administrator has all
+  - upgraded databases grant it to Administrator, Dev Admin, and Supervisor through the existing permission sync, and to Technologist through the bench-permission step that already handled `specimen.edit`
+  - the API group, menu entry, dashboard card, and page use it; the Audit Trail and Downtime Snapshot links still use `audit.read`
+- `ShiftHandoffRule.EvaluateRecipient` (`SHIFT-HANDOFF-TO`): a named recipient must be an active, unlocked, non-service user other than the sender; blank still means anyone on the next shift.
+- `ShiftHandoffs.ActiveMtp` counts active protocols at handoff; it is in the audit snapshot and leads the summary as "MASSIVE TRANSFUSION ACTIVE: n".
+
+### Requirements / risk
+
+- URS-BB-438, FRS-BB-474, SRS-BB-436, RISK-BB-540. Safety rules table updated. Help: shift handoff page.
+
+### Tests
+
+- TEST-BB-330:
+  - `ShiftHandoffRuleTests`: recipient cases
+  - `ShiftHandoffServiceTests`:
+    - an audit-read-only account cannot record or acknowledge
+    - a misspelled recipient and a self-addressed handoff are refused and nothing is written; an active user is accepted case-insensitively
+    - active MTP protocols are counted and closed ones are not
+  - `DashboardQueueCatalogTests`: audit read alone no longer shows the handoff card
+  - Existing handoff tests now use `shift.handoff`.
+- Full suite: 3,277 passed, 0 failed (previously 3,268). Domain 1,855, Integration 1,185, Application 105, Help 29, HL7 63, Printing 21, Astm 19.
+- Run check (upgraded development database, DevMode):
+  - roles holding `shift.handoff`: Administrator, Dev Admin, Supervisor, and Technologist; not Auditor, ReadOnly, Interface Analyst, Inventory Manager, Billing Analyst, or Service Account
+  - a handoff to "no-such-tech" returns 400 "no-such-tech is not an active user …"
+  - `/handoff` renders
+  - no server errors
+
+### Next ranked residual
+
+Downtime workflow audit (snapshot, recovery, back-entry of paper records). That is also where a deliberate, clearly labelled path for transfusions documented on paper during downtime would belong (Cycle 285 removed the unverified shortcut).

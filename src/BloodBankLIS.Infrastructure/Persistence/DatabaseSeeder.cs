@@ -134,16 +134,21 @@ public static partial class DatabaseSeeder
 
         await context.SaveChangesAsync(ct);
 
-        // Technologist is not in the admin grant list above; give them specimen.edit
-        // when the permission is introduced on an upgraded database.
-        if (missing.Contains(PermissionCodes.SpecimenEdit))
+        // Technologist is not in the admin grant list above; give them bench permissions
+        // (specimen.edit, shift.handoff) when they are introduced on an upgraded database.
+        foreach (var benchCode in new[] { PermissionCodes.SpecimenEdit, PermissionCodes.ShiftHandoff })
         {
-            var techRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Technologist", ct);
-            var editPerm = await context.Permissions.FirstOrDefaultAsync(p => p.Code == PermissionCodes.SpecimenEdit, ct);
-            if (techRole is not null && editPerm is not null
-                && !await context.RolePermissions.AnyAsync(rp => rp.RoleId == techRole.Id && rp.PermissionId == editPerm.Id, ct))
+            if (!missing.Contains(benchCode))
             {
-                context.RolePermissions.Add(new RolePermission { RoleId = techRole.Id, PermissionId = editPerm.Id });
+                continue;
+            }
+
+            var techRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Technologist", ct);
+            var benchPerm = await context.Permissions.FirstOrDefaultAsync(p => p.Code == benchCode, ct);
+            if (techRole is not null && benchPerm is not null
+                && !await context.RolePermissions.AnyAsync(rp => rp.RoleId == techRole.Id && rp.PermissionId == benchPerm.Id, ct))
+            {
+                context.RolePermissions.Add(new RolePermission { RoleId = techRole.Id, PermissionId = benchPerm.Id });
                 await context.SaveChangesAsync(ct);
             }
         }
@@ -952,7 +957,7 @@ public static partial class DatabaseSeeder
             PermissionCodes.PrintLabel,
             PermissionCodes.BillingReview,
             PermissionCodes.Hl7Manage, PermissionCodes.InstrumentManage,
-            PermissionCodes.AuditRead
+            PermissionCodes.AuditRead, PermissionCodes.ShiftHandoff
         };
 
         // Supervisor: technologist plus the dangerous/override actions.
