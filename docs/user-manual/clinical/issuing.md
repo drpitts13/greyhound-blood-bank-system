@@ -40,6 +40,8 @@ Then complete appearance, location, and who is taking the unit.
 
 Emergency and MTP are a different issue type. They are not an instruction to ignore every rule. The missing crossmatch becomes a warning only inside this issue type, and only for someone who has the emergency-release permission. Technologists who can issue routine units cannot release uncrossmatched blood unless that permission was granted.
 
+> Hard stop. When the patient's blood group is established, red cells or whole blood whose group conflicts with it cannot be issued, even as an emergency release. For example, group A red cells for a group O patient are refused whatever reason is entered. Choose group O or another ABO-compatible unit. Rh mismatch and missing crossmatch stay warnings that an authorized person can override.
+
 You still need a current specimen for the patient, an in-date unit, acceptable appearance, and two identity tokens. You record the reason and sign. The issue is flagged for retrospective crossmatch. It stays on the retrospective queue until someone records the crossmatch, by default within the hours set in facility policy (the shipped default is 24). **Record crossmatch** opens Compatibility with the issue filled in.
 
 ## In transit and ward receipt

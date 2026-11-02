@@ -430,3 +430,4 @@
 | SRS-BB-424 | `GET /api/admin/isbt-product-codes/readiness` (`admin.config.view`) returns `IsbtReadinessDto`. No schema change. | FRS-BB-462 |
 | SRS-BB-425 | `POST /api/admin/transfusion-criteria/load-drafts` (`admin.config.edit`) returns added and skipped codes. No schema change. | FRS-BB-463 |
 | SRS-BB-426 | `GET /fhir/metadata`, `/fhir/{Patient,Observation,Flag,ServiceRequest,BiologicallyDerivedProduct}` read and search, content type `application/fhir+json`, authenticated users only, no write routes. JSON built with System.Text.Json; no new package. No schema change. | FRS-BB-464 |
+| SRS-BB-427 | Red-cell direction only: whole blood is judged on its red cells so low-titer group O whole blood stays overridable. No schema, API, or configuration change. | FRS-BB-465 |

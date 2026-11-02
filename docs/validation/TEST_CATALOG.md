@@ -329,5 +329,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-318 | D / I | `IsbtReadinessRuleTests`; `IsbtReadinessTests` | URS-BB-427 / FRS-BB-462 / RISK-BB-529 |
 | TEST-BB-319 | D / I | `PbmDraftCriteriaTests`; `TransfusionIndicationTests.LoadDrafts_*`, `Draft_CannotBeActivated_UntilRenamed` | URS-BB-428 / FRS-BB-463 / RISK-BB-530 |
 | TEST-BB-320 | I | `FhirReadServiceTests` | URS-BB-429 / FRS-BB-464 / RISK-BB-531 |
+| TEST-BB-321 | D / I | `IssueGateTests.Emergency_*`, `NonEmergency_AboConflict_UsesTheOrdinaryHardStop`; `Phase4IssuingTests.EmergencyRelease_RedCellsConflictingWithEstablishedType_AreRefused_EvenWithOverride`, `EmergencyRelease_GroupORedCells_ForEstablishedGroupA_StillIssueWithOverride`; `IssueGateSafetyRegressionTests.Emergency_GroupARedCells_ForEstablishedGroupO_IsHardStopped` | URS-BB-430 / FRS-BB-465 / RISK-BB-532 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

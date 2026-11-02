@@ -7933,3 +7933,61 @@ OCD-043 decision (product owner, 2026-11-01): a read-only FHIR R4 API.
 ### Next ranked residual
 
 All four decided Partial items (OCD-042, OCD-004 readiness, OCD-038 drafts, OCD-043) are now addressed. Next: rescan the capability matrix for unblocked work. The leading candidate is the RhIG workflow (gap 11), which still needs SME indications, so the scan should first look for UX rows still rated Partial.
+
+## Iteration 277 — Emergency release cannot override an established ABO conflict (2026-11-01)
+
+### Capability matrix rescan
+
+All rows are Present except three Partial rows that wait on a license or SME sign-off: licensed ICCBBA tables (OCD-004), PBM content (OCD-038), and FHIR terminology mapping (OCD-043). With no unblocked Partial row, this cycle audited a safety-critical workflow instead: emergency and MTP issue.
+
+### Finding
+
+`IssueGate` converted **every** ABO compatibility hard stop to an overridable warning when the issue type was emergency or MTP. A user with `issue.emergency-release`, a reason, and a signature could therefore release group A red cells to a patient whose group O type was established. OCD-003 covered only the missing crossmatch and the choice of group O; it never decided this. No test covered it.
+
+### Decision
+
+OCD-044 (product owner, 2026-11-01): red cells conflicting with an established ABO group are a hard stop even at emergency issue.
+
+### Design
+
+- New result `ISS-EMERG-ABO-CONFLICT` from `EmergencyUncrossmatchedAboRule.EvaluateEstablishedConflict`. The gate adds it next to the existing emergency rules. The existing conversion is left alone, so every other converted result behaves as before.
+- Red-cell direction only: the unit carries an A or B antigen the patient lacks. Whole blood is judged on its red cells, so low-titer group O whole blood for a group A patient (plasma direction) stays an overridable warning.
+- Only an established type counts. With no type, the group O warning still applies.
+- Group O red cells never conflict, so this can never block an emergency transfusion. It only stops the wrong group.
+- Audit: a refused issue already writes an EmergencyRelease audit row with "Issue blocked by safety gate." and the hard-stop codes. No override row is created.
+
+### Questions asked (seven UX questions, emergency issue)
+
+- Safety risk: yes, an acute hemolytic reaction from a deliberate but mistaken override. Now closed.
+- Override control: the override stays for crossmatch, Rh, and plasma direction, with permission, reason, authorizer, and signature. It no longer reaches an ABO red-cell conflict.
+- Next action: the message names the patient's group and says to choose group O or another compatible unit.
+
+### Requirements / risk
+
+- URS-BB-430, FRS-BB-465 (narrows FRS-BB-040), SRS-BB-427, RISK-BB-532. RISK-BB-001 updated. OCD-003 and the new OCD-044 updated.
+- Help: issuing and safety pages.
+
+### Tests
+
+- TEST-BB-321:
+  - `IssueGateTests`, replacing `Emergency_AboMismatch_IsWarning`, which asserted the old behavior:
+    - four conflicting pairs are a single hard stop with a readable message
+    - four compatible pairs, including AB recipients, are not stopped
+    - group O whole blood for group A stays overridable; group A whole blood for group O is stopped
+    - plasma ABO mismatch and Rh-only mismatch stay overridable
+    - an unknown patient type with a group A unit is still only the group O warning
+    - non-emergency issue still uses the ordinary ABO hard stop
+  - `Phase4IssuingTests`:
+    - a conflicting emergency release with reason and authorizer is refused; the unit stays Received; no issue or override row is written; the blocked attempt is audited with the code
+    - group O red cells for an established group A patient still issue with an override
+  - `IssueGateSafetyRegressionTests.Emergency_GroupARedCells_ForEstablishedGroupO_IsHardStopped`
+- Full suite: 3,139 passed, 0 failed (previously 3,123). Domain 1,768, Integration 1,148, Help 29, Application 91, HL7 63, Printing 21, Astm 19. The safety-regression case was added afterwards; the safety suite then ran 44 passed.
+- Run check (development API, DevMode): patient 1 is established O Pos and unit 13 is group A red cells.
+  - With an override reason, `POST /api/issues` asks for an electronic signature first.
+  - Signing needs password re-entry, which was not done in this check, so the hard stop itself was not reached live. It is proven by the integration test above, which runs the same service path with an override and an authorizer.
+  - No server errors.
+- Seen in passing: a request body with an enum written as text (`"issueType":"EmergencyRelease"`) returns 500 instead of 400. It is not a safety issue but is worth fixing.
+
+### Next ranked residual
+
+Malformed request bodies return 500 instead of a readable 400 across the API: an error-handling and human-readable-errors gap. Then continue auditing safety-critical workflows: MTP packs, then return and reissue.

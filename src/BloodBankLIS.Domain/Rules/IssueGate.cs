@@ -243,6 +243,14 @@ public static class IssueGate
             c.UncrossmatchedONegForChildbearing,
             c.ChildbearingAgeYears));
 
+        // Not covered by the emergency warning conversion below: an established ABO conflict stays a hard stop.
+        results.Add(EmergencyUncrossmatchedAboRule.EvaluateEstablishedConflict(
+            c.IsEmergencyRelease,
+            c.ComponentClass,
+            c.UnitAboRh,
+            c.PatientAboRh,
+            c.PatientBloodTypeKnown));
+
         results.AddRange(InventoryLocationPolicyRule.EvaluateIssue(
             c.LocationKnown,
             c.LocationActive,

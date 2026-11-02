@@ -799,6 +799,48 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Contains(allocated.Evaluation.HardStops, r => r.Code == AboCompatibilityRule.AboCode);
     }
 
+    // TEST-BB-321: emergency override cannot release red cells that conflict with an established ABO group.
+    [Fact]
+    public async Task EmergencyRelease_RedCellsConflictingWithEstablishedType_AreRefused_EvenWithOverride()
+    {
+        var s = await SeedAsync("EMERG-ABO", patientAbo: AboGroup.O, unitAbo: AboGroup.A,
+            requiresRetype: true, unitStatus: UnitStatus.Received);
+
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+                s, IssueType.EmergencyRelease,
+                overrideReason: "Massive hemorrhage", authorizedBy: "dr-authorizer"));
+
+            Assert.False(issued.Succeeded);
+            Assert.True(issued.Evaluation!.IsHardStopped);
+            Assert.Contains(issued.Evaluation.HardStops, r => r.Code == EmergencyUncrossmatchedAboRule.EstablishedConflictCode);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(UnitStatus.Received, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+        Assert.False(await verify.Issues.AnyAsync(i => i.BloodProductId == s.UnitId));
+        Assert.False(await verify.Overrides.AnyAsync(o => o.ContextType == nameof(Issue) && o.ContextId == s.UnitId));
+        var blocked = await verify.AuditEvents.SingleAsync(a =>
+            a.EventType == AuditEventType.EmergencyRelease && a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId);
+        Assert.Equal("Issue blocked by safety gate.", blocked.Reason);
+        Assert.Contains(EmergencyUncrossmatchedAboRule.EstablishedConflictCode, blocked.NewValueJson);
+    }
+
+    [Fact]
+    public async Task EmergencyRelease_GroupORedCells_ForEstablishedGroupA_StillIssueWithOverride()
+    {
+        var s = await SeedAsync("EMERG-ABO-O", patientAbo: AboGroup.A, unitAbo: AboGroup.O,
+            requiresRetype: true, unitStatus: UnitStatus.Received);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(
+            s, IssueType.EmergencyRelease,
+            overrideReason: "Massive hemorrhage, uncrossmatched O units", authorizedBy: "dr-authorizer"));
+
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+    }
+
     [Fact]
     public async Task EmergencyRelease_WithoutOverride_RequiresOverride()
     {

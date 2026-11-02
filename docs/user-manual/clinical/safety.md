@@ -33,7 +33,7 @@ Before a unit leaves the bank, the gate checks:
 | Autologous and directed | The unit is issued only to the intended patient. |
 | Merged chart | The MRN is the surviving chart, not the one that was merged away. |
 
-Emergency and MTP do not skip identity, specimen, expiration, or appearance. They change the missing crossmatch from a hard stop into a warning, and only for a user with emergency-release permission. The issue is then due for a retrospective crossmatch.
+Emergency and MTP do not skip identity, specimen, expiration, or appearance. They change the missing crossmatch from a hard stop into a warning, and only for a user with emergency-release permission. Red cells that are ABO-incompatible with an established patient group stay a hard stop. The issue is then due for a retrospective crossmatch.
 
 ## Electronic crossmatch
 
