@@ -3,6 +3,9 @@ using BloodBankLIS.Domain.Enums;
 
 namespace BloodBankLIS.Application.Specimens;
 
+/// <summary>The tube's scanned accession number or label barcode.</summary>
+public sealed record ReceiveSpecimenScanRequest(string? Scan);
+
 public sealed record AccessionSpecimenRequest(
     string AccessionNumber,
     long PatientId,

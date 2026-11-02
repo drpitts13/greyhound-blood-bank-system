@@ -169,10 +169,10 @@
         <h3>Pending specimens</h3>
         <button class="btn btn-secondary btn-sm" @onclick="LoadPendingSpecimensAsync">Refresh</button>
     </div>
-    <p class="muted">Collected tubes waiting for receipt, and received tubes waiting for acceptance. Result entry and order linking still require Accepted. An expired tube cannot be received or accepted — reject it. Scan or type an accession to filter.</p>
+    <p class="muted">Collected tubes waiting for receipt, and received tubes waiting for acceptance. Result entry and order linking still require Accepted. An expired tube cannot be received or accepted — reject it. Scan a tube to receive it: the scan picks the specimen, so the tube in hand is the one received. Typing filters the list.</p>
     <div class="field" style="max-width:20rem;margin-bottom:.75rem;">
-        <label>Accession / barcode</label>
-        <input @bind="_specimenScan" @bind:event="oninput" placeholder="Scan accession" />
+        <label>Scan tube to receive</label>
+        <input @bind="_specimenScan" @bind:event="oninput" @onkeydown="OnSpecimenScanKeyAsync" placeholder="Scan accession or label barcode" autocomplete="off" />
     </div>
 
     @if (_specimensLoading)
@@ -439,6 +439,25 @@
         }
 
         _pendingSpecimens = r.Value ?? new();
+    }
+
+    // A scanner ends with Enter: receive the tube the scan names, then clear the field for the next tube.
+    private async Task OnSpecimenScanKeyAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter" || string.IsNullOrWhiteSpace(_specimenScan) || _busy)
+        {
+            return;
+        }
+
+        _busy = true;
+        var r = await Api.ReceiveSpecimenByScanAsync(_specimenScan);
+        _busy = false;
+        _fb = r.ToFeedback(r.Value is null ? "Specimen received." : $"Received {r.Value.AccessionNumber}. Scan the next tube.");
+        if (r.Succeeded)
+        {
+            _specimenScan = string.Empty;
+            await LoadPendingSpecimensAsync();
+        }
     }
 
     private async Task ReceivePendingAsync(long specimenId)

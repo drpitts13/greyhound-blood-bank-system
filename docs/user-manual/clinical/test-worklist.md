@@ -14,7 +14,7 @@ The **Test Worklist** is the bench queue for specimens and results. It opens whe
 
 ## Specimens on the worklist
 
-The specimen side lists collected specimens waiting to be received and received specimens waiting to be accepted. Receive, then accept, before you result. Reject from here when the specimen cannot be tested. The patient's chart updates with the same status.
+The specimen side lists collected specimens waiting to be received and received specimens waiting to be accepted. Receive, then accept, before you result. To receive, scan the tube into **Scan tube to receive**: the scan picks the specimen by its accession or label barcode, so the tube in hand is the one received, and the field clears for the next tube. A tube that is not on the list, or is already received, is refused with its accession named. Typing in the field filters the list; Receive on a row still works. Reject from here when the specimen cannot be tested. The patient's chart updates with the same status.
 
 ## Enter a result
 

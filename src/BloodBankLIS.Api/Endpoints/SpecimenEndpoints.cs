@@ -81,6 +81,19 @@ public static class SpecimenEndpoints
             return dto is null ? Results.NotFound() : Results.Ok(dto);
         }).RequirePermission(PermissionCodes.SpecimenEdit);
 
+        // Barcode-first receipt: the scanned accession or label barcode picks the specimen.
+        group.MapPost("/receive-scan", async (ReceiveSpecimenScanRequest request, SpecimenService service, CancellationToken ct) =>
+        {
+            var result = await service.ReceiveByScanAsync(request.Scan, ct);
+            if (!result.Succeeded)
+            {
+                return Results.BadRequest(new { error = result.Error });
+            }
+
+            var dto = await service.GetAsync(result.Value!.Id, ct);
+            return dto is null ? Results.NotFound() : Results.Ok(dto);
+        }).RequirePermission(PermissionCodes.SpecimenAccession);
+
         group.MapPost("/{id:long}/receive", async (long id, SpecimenService service, CancellationToken ct) =>
         {
             var result = await service.ReceiveAsync(id, ct);

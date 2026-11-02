@@ -9384,3 +9384,50 @@ No change since Cycle 306 other than the specimen row. This cycle audits specime
 ### Next ranked residual
 
 Receipt: check the tube in hand against the accession at receive, by scanning the label. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 308 — Receive a specimen by scanning the tube (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 307 other than the specimen row.
+
+### Finding (questions 1, 4, and 6)
+
+Receipt was a click on a row of the pending list. The scan field above the list only filtered it. Nothing tied the tube in hand to the row received, and a busy bench could receive the wrong row.
+
+### Design
+
+- `SpecimenReceiptScanRule`:
+  - normalizes the scan (scanner sanitizer, trim, upper case)
+  - matches the accession number or label barcode
+  - gives plain refusals for no match, more than one match, or an empty scan (`SPEC-RECEIPT-SCAN`)
+- `SpecimenService.ReceiveByScanAsync` receives the one matching specimen through the same receipt gate as the row button (Collected and not expired). A scan refusal names the accession; the row button keeps its message.
+- The audit records the receipt method: "Scanned tube" or "Selected from the worklist".
+- `POST /api/specimens/receive-scan` (`specimen.accession`).
+- **Test worklist, Specimens tab:** the field is now "Scan tube to receive". Enter (a scanner's suffix) receives the tube and clears the field for the next one. Typing still filters, and the row Receive button still works.
+- Requiring a scan for every receipt would be a facility policy decision. Not made here.
+
+### Requirements / risk
+
+- URS-BB-455, FRS-BB-491, RISK-BB-557. Help: test worklist page.
+
+### Tests
+
+- TEST-BB-350:
+  - rule: accession or barcode match in any case, no match, empty scan, normalization, wording
+  - integration:
+    - a lower-case scan with scanner whitespace receives the tube and records the method
+    - a barcode scan receives
+    - an unknown tube is refused and nothing changes
+    - a second scan of the same tube is refused, naming the accession
+- Full suite: 3,407 passed, 0 failed (previously 3,396).
+- Run check (development API and web):
+  - scanning ACC-NOT-A-TUBE returned "SPEC-RECEIPT-SCAN: No specimen has accession or label ACC-NOT-A-TUBE…"
+  - scanning ACC0001 (already Accepted) returned "ACC0001: A specimen with status Accepted cannot be received…"
+  - the worklist Specimens tab shows "Scan tube to receive"
+  - no server errors
+  - nothing was received
+
+### Next ranked residual
+
+Accept the received tube with a scan as well, and show the specimen's draw-to-receipt time on the pending list. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.

@@ -587,10 +587,51 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail("Specimen not found.");
         }
 
+        return await ReceiveCoreAsync(specimen, "Selected from the worklist", nameTheTube: false, ct);
+    }
+
+    /// <summary>
+    /// Receives the tube in hand by its scanned accession number or label barcode, so the specimen received is the
+    /// one scanned, not a row picked from a list. Recorded as received by scan.
+    /// </summary>
+    public async Task<OperationResult<Specimen>> ReceiveByScanAsync(string? scan, CancellationToken ct = default)
+    {
+        var denied = await RejectUnauthorizedAsync(
+            PermissionCodes.SpecimenAccession, SpecimenAuthorizationRule.EvaluateAccession, ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var normalized = SpecimenReceiptScanRule.Normalize(scan);
+        if (normalized.Length == 0)
+        {
+            var empty = SpecimenReceiptScanRule.NotFound(normalized);
+            return OperationResult<Specimen>.Fail($"{empty.Code}: {empty.Message}");
+        }
+
+        var candidates = (await _specimens.ListAsync(
+                s => s.AccessionNumber.ToUpper() == normalized || (s.Barcode != null && s.Barcode.ToUpper() == normalized), ct))
+            .Where(s => SpecimenReceiptScanRule.Matches(normalized, s.AccessionNumber, s.Barcode))
+            .ToList();
+        if (candidates.Count != 1)
+        {
+            var miss = candidates.Count == 0
+                ? SpecimenReceiptScanRule.NotFound(normalized)
+                : SpecimenReceiptScanRule.Ambiguous(normalized);
+            return OperationResult<Specimen>.Fail($"{miss.Code}: {miss.Message}");
+        }
+
+        return await ReceiveCoreAsync(candidates[0], "Scanned tube", nameTheTube: true, ct);
+    }
+
+    // A scan does not show which row it matched, so its refusal names the tube.
+    private async Task<OperationResult<Specimen>> ReceiveCoreAsync(Specimen specimen, string method, bool nameTheTube, CancellationToken ct)
+    {
         var gate = SpecimenReceiptRule.EvaluateReceive(specimen.Status, specimen.ExpiresUtc, _clock.UtcNow);
         if (gate.Severity == RuleSeverity.HardStop)
         {
-            return OperationResult<Specimen>.Fail(gate.Message);
+            return OperationResult<Specimen>.Fail(nameTheTube ? $"{specimen.AccessionNumber}: {gate.Message}" : gate.Message);
         }
 
         var previous = new { specimen.Status, specimen.ReceivedUtc };
@@ -602,7 +643,7 @@ public sealed class SpecimenService
             nameof(Specimen),
             specimen.Id,
             oldValue: previous,
-            newValue: new { specimen.Status, specimen.ReceivedUtc },
+            newValue: new { specimen.Status, specimen.ReceivedUtc, ReceiptMethod = method },
             reason: "Specimen received in the blood bank.");
         await _unitOfWork.SaveChangesAsync(ct);
         return OperationResult<Specimen>.Ok(specimen);

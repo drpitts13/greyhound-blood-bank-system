@@ -460,3 +460,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-452 | The patient chart and timeline show a transfusion that is running as running, never as transfused, and offer to complete it. | P1 | FRS-BB-488 |
 | URS-BB-453 | Reports, lookback, unit activity, and utilization never report a running transfusion with an outcome it has not had. | P2 | FRS-BB-489 |
 | URS-BB-454 | At accession the two patient identifiers are the ones read from the tube label and are checked against the record; who drew the specimen and where are recorded. | P1 | FRS-BB-490 |
+| URS-BB-455 | A tube arriving in the blood bank can be received by scanning its accession or label barcode, so the tube in hand is the one received, without picking a row. | P2 | FRS-BB-491 |
