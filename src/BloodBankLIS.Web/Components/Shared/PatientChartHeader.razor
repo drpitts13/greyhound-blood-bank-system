@@ -238,7 +238,7 @@
             DateTime.UtcNow);
 
     private IReadOnlyList<SecondAboDeterminationRule.Determination> AboHistory =>
-        TypeHistory.Where(h => !h.Invalidated).Select(h => new SecondAboDeterminationRule.Determination(new AboRh(h.Abo, h.RhD), h.IsCurrent)).ToList();
+        BloodTypeDto.Determinations(TypeHistory);
 
     private bool SecondAboOnFile => SecondAboDeterminationRule.HasSecondConcordant(AboHistory);
 

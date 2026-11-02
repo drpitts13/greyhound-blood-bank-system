@@ -380,5 +380,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-369 | D | `DashboardDueCountTests.PendingTests_CountsOnlyRowsWithAVerificationDeadline` | URS-BB-473 / FRS-BB-509 / RISK-BB-572 |
 | TEST-BB-370 | I | `TestWorklistTests.ShiftHandoff_CountsResultsToVerifyBeforeSpecimenExpiry` | URS-BB-474 / FRS-BB-510 / RISK-BB-573 |
 | TEST-BB-371 | I | `TestWorklistTests.PatientTestsTab_CarriesTheVerificationDeadline` | URS-BB-475 / FRS-BB-511 / RISK-BB-571 |
+| TEST-BB-372 | D | `BloodTypeDtoDeterminationTests.ChartDeterminations_MatchTheServer`, `TheDto_CarriesTheSpecimen` | URS-BB-476 / FRS-BB-512 / RISK-BB-574 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

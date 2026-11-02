@@ -10270,3 +10270,47 @@ The chart Tests tab uses the same worklist rows as the test worklist, so the dea
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. The specimen-expiration thread (Cycles 317–329) is complete. Next: rescan the capability matrix for the next highest-impact gap outside specimen and reservation expiry.
+
+## Iteration 330 — The chart's "Second ABO on file" matches issue (2026-11-02)
+
+### Capability matrix rescan
+
+- Every row is Present except three Partial rows, each blocked on a decision or a license:
+  - ISBT identifiers (OCD-004)
+  - product modifications (eluate history)
+  - HL7 (downtime back-entry)
+- Rather than add a feature, this cycle checked that the rule changes of Cycles 311–314 reached every place that applies them.
+
+### Finding (question 6)
+
+- Every server path builds determinations with `SecondAboDeterminationRule.FromHistory`: issue, ready to issue, the Second ABO/Rh desk, electronic crossmatch eligibility, and allocation.
+- The patient chart header built its own list from the blood type DTOs and dropped two things:
+  - the specimen (two types from one specimen are one determination, Cycle 311)
+  - whether the row counts (an undocumented manual entry does not, Cycle 313)
+- So the chart said "Second ABO on file", and hid the missing-second-ABO notice, in exactly the cases issue refuses red cells. The tech could conclude no second specimen was needed.
+
+### Design
+
+- `BloodTypeDto` carries `SpecimenId`.
+- `BloodTypeDto.Determinations` gives one mapping from DTO rows, which mirrors `FromHistory`.
+- The chart header uses it for both the cue and the notice.
+- The server is unchanged and stays authoritative.
+
+### Requirements / risk
+
+- URS-BB-476, FRS-BB-512, RISK-BB-574.
+
+### Tests
+
+- TEST-BB-372 is a parity test. For each case the server answer is asserted, and the chart mapping must give the same answer.
+  - Cases: two specimens, same specimen twice, undocumented manual, documented outside source, second type invalidated, discordant, only one type.
+  - The previous header mapping gave "on file" for the same-specimen and undocumented-manual cases.
+- The DTO carries the specimen.
+- Full suite: 3,506 passed, 0 failed (previously 3,498).
+- Run check (development API and web):
+  - `GET /api/patients/1/blood-type/history` returns `specimenId`
+  - the demo patient (historical import plus test result, both counting) still shows "Second ABO on file", matching issue; no server errors
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the same parity check for the chart's ABO/Rh discrepancy banner (it maps types itself rather than through the server's rule input).

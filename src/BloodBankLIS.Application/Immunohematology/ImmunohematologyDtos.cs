@@ -1,6 +1,7 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
+using BloodBankLIS.Domain.ValueObjects;
 
 namespace BloodBankLIS.Application.Immunohematology;
 
@@ -40,13 +41,26 @@ public sealed record BloodTypeDto(
     // Plain source wording, including a manual entry's documented source (OCD-048).
     string? SourceLabel = null,
     // Whether this row can be one of the two ABO/Rh determinations (not retired, not an undocumented manual entry).
-    bool CountsAsDetermination = true)
+    bool CountsAsDetermination = true,
+    // The specimen the type was tested on: two types from one specimen are one determination.
+    long? SpecimenId = null)
 {
     public static BloodTypeDto From(PatientBloodTypeHistory h) => new(
         h.Id, h.PatientId, h.Abo, h.RhD, h.BloodType.ToString(), h.Source, h.SourceResultId,
         h.IsCurrent, h.Reason, h.CreatedUtc, h.CreatedBy, h.AboSubgroup, h.InvalidatedUtc is not null,
         BloodTypeHistoryLabel.Source(h.Source, h.ManualDocumentation, h.ManualDocumentationReference),
-        BloodTypeHistoryLabel.CountsAsDetermination(h.Source, h.ManualDocumentation, h.InvalidatedUtc is not null));
+        BloodTypeHistoryLabel.CountsAsDetermination(h.Source, h.ManualDocumentation, h.InvalidatedUtc is not null),
+        h.SpecimenId);
+
+    /// <summary>
+    /// The same determinations the server uses (<see cref="SecondAboDeterminationRule.FromHistory"/>), from the rows a
+    /// screen already has, so the chart cannot say a second ABO/Rh is on file when issue would refuse it.
+    /// </summary>
+    public static IReadOnlyList<SecondAboDeterminationRule.Determination> Determinations(IEnumerable<BloodTypeDto> rows) =>
+        rows.Where(r => !r.Invalidated)
+            .Select(r => new SecondAboDeterminationRule.Determination(
+                new AboRh(r.Abo, r.RhD), r.IsCurrent, r.SpecimenId, r.CountsAsDetermination))
+            .ToList();
 }
 
 public sealed record AntibodyDto(

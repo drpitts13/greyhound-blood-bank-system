@@ -513,6 +513,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-473 / FRS-BB-509 | Dashboard count of results to verify before specimen expiry | `PendingTestAttentionRule`; `Home.razor` | TEST-BB-369 | D | |
 | URS-BB-474 / FRS-BB-510 / SRS-BB-447 | Shift handoff counts results to verify before specimen expiry | `ShiftHandoffService`; `ShiftHandoff.razor`; migration `20261105000000_ShiftHandoffVerifyBeforeExpiry` | TEST-BB-370 | I | |
 | URS-BB-475 / FRS-BB-511 | Verify-before deadline on the chart Tests tab | `VerificationDeadlineBadge.razor`; `PatientChartTestsTab.razor` | TEST-BB-371 | I | |
+| URS-BB-476 / FRS-BB-512 | Chart second-ABO cue matches issue | `BloodTypeDto.Determinations`; `PatientChartHeader.razor` | TEST-BB-372 | D | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

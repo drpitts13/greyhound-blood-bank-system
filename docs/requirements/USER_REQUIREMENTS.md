@@ -481,3 +481,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-473 | The dashboard says how many pending results must be verified before their specimen expires. | P2 | FRS-BB-509 |
 | URS-BB-474 | The shift handoff records how many pending results must be verified before their specimen expires, so the next shift verifies them in time. | P2 | FRS-BB-510 |
 | URS-BB-475 | The patient chart's Tests tab shows the same verify-before deadline as the worklist. | P3 | FRS-BB-511 |
+| URS-BB-476 | The patient chart says a second ABO/Rh is on file only when issue would accept it, so staff are not told a second specimen is unnecessary when it is needed. | P1 | FRS-BB-512 |
