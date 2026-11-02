@@ -8979,3 +8979,54 @@ At issue the patient's reservation becomes Consumed. A unit returned to Availabl
 ### Next ranked residual
 
 Re-audit transfusion documentation and reaction reporting at the bedside against the seven workflow questions. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 298 — Transfusion judged against the unit at its start (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 297 other than the transfusion row. This cycle audits bedside transfusion documentation and reaction reporting against the seven workflow questions.
+
+### Audit
+
+- **Controls already in place:**
+  - `transfusion.document` permission
+  - two patient identifiers matched to the chart
+  - a fresh bedside unit scan for ISBT units
+  - ward receipt, when the facility requires it
+  - second verifier or electronic identification, with a directory check
+  - consistent times and volume (Cycle 285)
+  - a suspected reaction opens an investigation
+  - status history and audit
+- **Finding 1 (question 6):** unit expiry was compared with the time the record was entered. Bedside documentation is often charted after the fact, so a transfusion that started while the unit was in date could not be documented once the unit had expired. The record could not be completed.
+- **Finding 2:** a start time before the unit was issued was accepted.
+- **Separate start step (not changed):** the transfusion is recorded once, start and stop together, so a unit is never shown as "transfusion started" in real time. The incompatible retrospective crossmatch alert (Cycle 292) therefore says "issued" for a unit being transfused. Recorded as a residual.
+
+### Design
+
+- `TransfusionDocumentationRule.EvaluateAgainstUnit` checks the start time against the unit's life:
+  - a start more than the 5-minute clock allowance before the issue is refused (`TXN-DOCUMENTATION`)
+  - a start at or after the expiry is refused (`COMPONENT_EXPIRED`, naming the expiry)
+  - documentation no longer compares the expiry with the time of entry
+- This is a data-consistency check, not a new clinical limit. It keeps the existing "expired unit" stop and judges it at the moment the unit was started.
+
+### Requirements / risk
+
+- URS-BB-449, FRS-BB-485, RISK-BB-551. No schema change. Help: issuing page.
+
+### Tests
+
+- TEST-BB-342:
+  - rule tests: started in date and charted after expiry; started after expiry; start before issue, both beyond and within the allowance
+  - integration:
+    - a transfusion started in date and charted after expiry is documented
+    - a start after expiry is refused and the unit stays Issued
+    - a start before issue is refused and no transfusion is recorded
+  - an existing consistency test documented a start two hours before its own issue; it now issues earlier
+- Full suite: 3,366 passed, 0 failed (previously 3,360).
+- Run check (development API):
+  - documenting issue 5 with a start in 2020 returned a hard stop naming the issue time (2026-11-02 03:05 UTC)
+  - nothing was written
+
+### Next ranked residual
+
+A real-time "transfusion started" step at the bedside (start recorded when spiked, stop and outcome later), so in-progress transfusions show on boards and alerts. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.

@@ -58,7 +58,7 @@ You still need a current specimen for the patient, an in-date unit, acceptable a
 
 ## Document transfusion
 
-Document transfusion records the bedside checks and the transfusion itself. The chart, product history, and unit pages open it with the unit already selected. Times and volume must make sense: a start or stop time more than a few minutes in the future, a stop before the start, a volume of zero, or more volume than the bag held is refused so it can be corrected.
+Document transfusion records the bedside checks and the transfusion itself. The chart, product history, and unit pages open it with the unit already selected. Times and volume must make sense: a start or stop time more than a few minutes in the future, a stop before the start, a volume of zero, or more volume than the bag held is refused so it can be corrected. A start time before the unit was issued is refused too. The unit is judged at the moment the transfusion started: if it was in date then, you can document it even after it has expired; if it had already expired when it was started, documentation is refused and names the expiry.
 
 ## In transit and ward receipt
 

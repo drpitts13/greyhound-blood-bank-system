@@ -757,7 +757,11 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             (await c.BloodUnits.FindAsync(s.UnitId))!.Volume = 300m;
             await c.SaveChangesAsync();
             Assert.True((await Compatibility(c).AllocateUnitAsync(new AllocateUnitRequest(s.UnitId, s.PatientId, s.SpecimenId))).Succeeded);
-            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            // Issued three hours ago, so a start two hours ago is consistent with the unit's life (TEST-BB-342).
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with
+            {
+                IssuedUtc = _factory.Clock.UtcNow.AddHours(-3), LateEntryReason = "Charted after the shift"
+            });
             Assert.True(issued.Succeeded, issued.Error);
             issueId = issued.Value!.Id;
             Assert.True((await Issuing(c).RecordWardReceiptAsync(issueId, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
@@ -967,6 +971,74 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
 
         await using var verify = _factory.Create();
         Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    // TEST-BB-342: a transfusion is judged against the unit's life at its start time, not when it is charted.
+    private async Task<long> IssuedThreeHoursAgoAsync(Scenario s)
+    {
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s) with
+        {
+            IssuedUtc = _factory.Clock.UtcNow.AddHours(-3),
+            LateEntryReason = "Charted after the shift"
+        });
+        Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        Assert.True((await Issuing(c).RecordWardReceiptAsync(issued.Value!.Id, new WardReceiptRequest("ward-nurse", Appearance: UnitAppearance.Acceptable))).Succeeded);
+        return issued.Value!.Id;
+    }
+
+    private async Task ExpireUnitAsync(long unitId, DateTime expiresUtc)
+    {
+        await using var c = _factory.Create();
+        await c.BloodUnits.Where(u => u.Id == unitId).ExecuteUpdateAsync(u => u.SetProperty(x => x.ExpiresUtc, expiresUtc));
+    }
+
+    [Fact]
+    public async Task DocumentTransfusion_UnitExpiredAfterItStarted_CanBeDocumented()
+    {
+        var s = await SeedAsync("TX-LATECHART");
+        var issueId = await IssuedThreeHoursAgoAsync(s);
+        var now = _factory.Clock.UtcNow;
+        await ExpireUnitAsync(s.UnitId, now.AddMinutes(-30));
+
+        await using var c = _factory.Create();
+        var documented = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with
+        {
+            StartUtc = now.AddHours(-2),
+            StopUtc = now.AddHours(-1)
+        });
+        Assert.True(documented.Succeeded, documented.Error ?? string.Join("; ", documented.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        Assert.Equal(UnitStatus.Transfused, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
+    public async Task DocumentTransfusion_StartedAfterExpiry_IsRefused()
+    {
+        var s = await SeedAsync("TX-STARTEXP");
+        var issueId = await IssuedThreeHoursAgoAsync(s);
+        var now = _factory.Clock.UtcNow;
+        await ExpireUnitAsync(s.UnitId, now.AddMinutes(-30));
+
+        await using var c = _factory.Create();
+        var documented = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with { StartUtc = now.AddMinutes(-10) });
+        Assert.False(documented.Succeeded);
+        Assert.Contains(documented.Evaluation!.HardStops, r => r.Message.Contains("had expired") && r.Message.Contains("before the transfusion started"));
+        Assert.Equal(UnitStatus.Issued, (await c.BloodUnits.FindAsync(s.UnitId))!.Status);
+    }
+
+    [Fact]
+    public async Task DocumentTransfusion_StartBeforeIssue_IsRefused()
+    {
+        var s = await SeedAsync("TX-BEFOREISS");
+        var issueId = await IssuedThreeHoursAgoAsync(s);
+
+        await using var c = _factory.Create();
+        var documented = await Issuing(c).DocumentTransfusionAsync(issueId, TxReq(s) with { StartUtc = _factory.Clock.UtcNow.AddHours(-4) });
+        Assert.False(documented.Succeeded);
+        Assert.Contains(documented.Evaluation!.HardStops, r => r.Code == TransfusionDocumentationRule.Code && r.Message.Contains("before the unit was issued"));
+        Assert.False(await c.TransfusionEvents.AnyAsync(t => t.IssueId == issueId));
     }
 
     // TEST-BB-341: a unit returned to stock offers one step to reserve it again for the same patient,

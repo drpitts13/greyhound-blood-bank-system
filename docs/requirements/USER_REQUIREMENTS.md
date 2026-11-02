@@ -454,3 +454,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-446 | An override made while issuing under a massive transfusion protocol is recorded and reviewed as a massive-transfusion release, distinct from an emergency release and from an ordinary warning override. | P2 | FRS-BB-482 |
 | URS-BB-447 | Returning a unit never disposes of it; disposal always goes through the discard step with its permission, coded reason, and second verifier. | P1 | FRS-BB-483 |
 | URS-BB-448 | After a unit is returned to stock, the user is told it is no longer reserved for the patient and can reserve it again for that patient in one step, with every reservation check still applied. | P3 | FRS-BB-484 |
+| URS-BB-449 | A transfusion is judged against the unit at the time it started: one that started while the unit was in date can be documented after the unit expires, and a start time before the unit was issued is refused. | P1 | FRS-BB-485 |

@@ -1390,16 +1390,19 @@ public sealed class IssuingService
             bedsideScanVerified = true;
         }
 
-        if (unit.ExpiresUtc <= _clock.UtcNow)
-        {
-            return EvaluationResult<TransfusionEvent>.Fail($"{IsbtErrorCodes.ComponentExpired}: Unit has expired.");
-        }
-
         var documentation = TransfusionDocumentationRule.Evaluate(
             request.StartUtc, request.StopUtc, request.VolumeTransfused, unit.Volume, _clock.UtcNow);
         if (documentation.IsHardStopped)
         {
             return EvaluationResult<TransfusionEvent>.Blocked(documentation);
+        }
+
+        // Judge the unit at the moment it was started, not when the record is entered (documentation is often later).
+        var unitLife = TransfusionDocumentationRule.EvaluateAgainstUnit(
+            request.StartUtc ?? _clock.UtcNow, issue.IssuedUtc, unit.ExpiresUtc);
+        if (unitLife.IsHardStopped)
+        {
+            return EvaluationResult<TransfusionEvent>.Blocked(unitLife);
         }
 
         var requireReceipt = await _policy.GetRequireWardReceiptAsync(ct);

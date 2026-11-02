@@ -1,3 +1,5 @@
+using BloodBankLIS.Domain.Isbt128;
+
 namespace BloodBankLIS.Domain.Rules;
 
 /// <summary>
@@ -36,6 +38,34 @@ public static class TransfusionDocumentationRule
         else if (volume is decimal given && unitVolume is decimal bag && bag > 0 && given > bag)
         {
             results.Add(RuleResult.HardStop(Code, $"Volume transfused ({given:0.#} mL) is more than the unit held ({bag:0.#} mL)."));
+        }
+
+        if (results.Count == 0)
+        {
+            results.Add(RuleResult.Pass(Code));
+        }
+
+        return new RuleEvaluation(results);
+    }
+
+    /// <summary>
+    /// The start time against the unit's own life: a transfusion cannot start before the unit was issued, and a unit
+    /// is judged in date at the moment it was started, not when the record is entered. A unit that expired during or
+    /// after its transfusion can still be documented; one that had expired before it was started cannot.
+    /// </summary>
+    public static RuleEvaluation EvaluateAgainstUnit(DateTime startUtc, DateTime issuedUtc, DateTime unitExpiresUtc)
+    {
+        var results = new List<RuleResult>();
+        if (startUtc < issuedUtc - ClockAllowance)
+        {
+            results.Add(RuleResult.HardStop(Code,
+                $"The start time ({startUtc:yyyy-MM-dd HH:mm} UTC) is before the unit was issued ({issuedUtc:yyyy-MM-dd HH:mm} UTC). Enter when the transfusion actually started."));
+        }
+
+        if (startUtc >= unitExpiresUtc)
+        {
+            results.Add(RuleResult.HardStop(IsbtErrorCodes.ComponentExpired,
+                $"{IsbtErrorCodes.ComponentExpired}: The unit had expired ({unitExpiresUtc:yyyy-MM-dd HH:mm} UTC) before the transfusion started."));
         }
 
         if (results.Count == 0)

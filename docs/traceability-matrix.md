@@ -485,6 +485,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-446 / FRS-BB-482 | MTP overrides recorded as massive-transfusion releases | `OverrideActionRule`; `IssuingService`; `SupervisorQueueService` | TEST-BB-338 | D / I | |
 | URS-BB-447 / FRS-BB-483 | Returns never dispose directly | `ReturnDisposalRule`; `IssuingService`; issue desk and unit page return forms | TEST-BB-340 | D / I | |
 | URS-BB-448 / FRS-BB-484 | Reserve a returned unit again in one step | `ReturnDto`; issue desk; unit page | TEST-BB-341 | I | |
+| URS-BB-449 / FRS-BB-485 | Transfusion judged against the unit at its start | `TransfusionDocumentationRule`; `IssuingService` | TEST-BB-342 | D / I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
