@@ -32,7 +32,9 @@ public sealed record IssueUnitRequest(
     UnitAppearance? Appearance = null,
     IReadOnlyList<string>? AcknowledgedSpecialRequirementCodes = null,
     /// <summary>Scanned P-tag ID. Required when the active P-tag layout places that field.</summary>
-    string? PtagId = null);
+    string? PtagId = null,
+    /// <summary>Required when IssuedUtc is earlier than now (late entry, for example after downtime).</summary>
+    string? LateEntryReason = null);
 
 public sealed record ComponentScanVerificationRequest(
     string Din,
@@ -95,7 +97,9 @@ public sealed record IssueDto(
     DateTime? InTransitDueUtc = null,
     UnitAppearance IssueAppearance = UnitAppearance.Acceptable,
     UnitAppearance WardAppearance = UnitAppearance.Acceptable,
-    string? AcknowledgedSpecialRequirementCodes = null)
+    string? AcknowledgedSpecialRequirementCodes = null,
+    string? LateEntryReason = null,
+    DateTime? EnteredUtc = null)
 {
     public static IssueDto From(Issue i) => new(
         i.Id, i.AllocationId, i.BloodProductId, i.PatientId, i.IssuedTo, i.IssuedToLocation,
@@ -103,7 +107,8 @@ public sealed record IssueDto(
         i.WardReceivedUtc, i.WardReceivedBy,
         i.RetrospectiveCrossmatchDueUtc, i.RetrospectiveCrossmatchCompletedUtc,
         i.CoolerId, i.InTransitDueUtc, i.IssueAppearance, i.WardAppearance,
-        i.AcknowledgedSpecialRequirementCodes);
+        i.AcknowledgedSpecialRequirementCodes,
+        i.LateEntryReason, i.LateEntryReason is null ? null : i.CreatedUtc);
 }
 
 public sealed record InTransitWorkItemDto(

@@ -8458,3 +8458,55 @@ No change since Cycle 285. This cycle audits shift handoff.
 ### Next ranked residual
 
 Downtime workflow audit (snapshot, recovery, back-entry of paper records). That is also where a deliberate, clearly labelled path for transfusions documented on paper during downtime would belong (Cycle 285 removed the unverified shortcut).
+
+## Iteration 287 — Late-entry issue time (2026-11-01)
+
+### Capability matrix rescan
+
+No change since Cycle 286. This cycle audits downtime recovery and back-entry.
+
+### Findings
+
+1. **The issue time was unrestricted.**
+   - The chart issue form has an editable "Date/time of issue", and the API stored any `IssuedUtc`.
+   - An issue could be dated hours or days earlier, or in the future, with no reason. The gate still ran at entry time, so the record said checks happened at a time they did not.
+   - Retrospective-crossmatch and in-transit due times were computed from the stated time, so a backdated issue was born overdue and a future-dated one hid its due time.
+2. **Back-entry of downtime transfusions is blocked in places** (recorded, not changed this cycle):
+   - a unit or specimen that has expired since downtime fails the gate, which runs at entry time
+   - bedside documentation requires a fresh unit scan, which is impossible once the bag is gone
+   - how to allow this safely is a product and SME decision (who may do it, whether a second person reviews it, and what happens to compatibility findings as of the event time); the question is put to the product owner
+
+### Design
+
+- `IssueTimeRule` (`ISS-TIME`):
+  - a stated time more than 5 minutes ahead of the server is refused
+  - more than 5 minutes earlier is a late entry that needs a reason
+- `Issues.LateEntryReason`:
+  - the stated time stays `IssuedUtc` and the entry time is `CreatedUtc`; the DTO adds `LateEntryReason` and `EnteredUtc`
+  - the issue audit records `IssuedUtc`, `EnteredUtc`, and `LateEntryReason`
+  - the gate still runs at entry time
+- **Chart issue form:**
+  - the time is sent only if the user edits it, so a form left open for a while does not become a "late entry"
+  - **Late entry reason** appears only for an edited, earlier time
+- **Schema:** migration `20261103140000_IssueLateEntry` and the dev bootstrap.
+
+### Requirements / risk
+
+- URS-BB-439, FRS-BB-475, SRS-BB-437, RISK-BB-541. Help: downtime page, step 3.
+
+### Tests
+
+- TEST-BB-331:
+  - `IssueTimeRuleTests` (10 cases)
+  - `Phase4IssuingTests.Issue_LateEntry_NeedsReason_AndKeepsBothTimes`: a future time and a reasonless backdated time are refused with nothing written; with a reason the issue keeps the stated time, the reason, and `EnteredUtc`, and the audit carries them
+  - `Phase4IssuingTests.Issue_WithoutStatedTime_IsNotALateEntry`
+  - Five existing return and in-transit tests that simulate elapsed time with a backdated issue now pass a late-entry reason.
+- Full suite: 3,289 passed, 0 failed (previously 3,277). Domain 1,865, Integration 1,187, Application 105, Help 29, HL7 63, Printing 21, Astm 19.
+- Run check (development API and Web, DevMode):
+  - on a ready-to-issue unit, a 3-hour-earlier issue with no reason returns 422 `ISS-TIME` "…late entry. Give the reason…", and a 3-hour-later issue returns 422 "…in the future…"; nothing was issued
+  - the chart issue form opens without the reason field and shows **Late entry reason** after the time is edited 3 hours earlier; the form was not submitted
+  - no server errors
+
+### Next ranked residual
+
+Downtime back-entry of transfusions (awaiting product decision), then the supervisor queue audit.

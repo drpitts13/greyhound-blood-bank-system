@@ -444,3 +444,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-436 | Once a reaction investigation is signed and closed, what was signed cannot change unless someone reopens it with a recorded reason and signs it again. | P4 | FRS-BB-471 |
 | URS-BB-437 | A transfusion can only be recorded with the bedside checks performed at the time, never by a shortcut that assumes them, and its recorded times and volume make sense. | P1 | FRS-BB-473 |
 | URS-BB-438 | Only bench staff can hand off or accept the open work of a shift, a handoff can only be addressed to a real active colleague, and an active massive transfusion is never missed at change of shift. | P5 | FRS-BB-474 |
+| URS-BB-439 | An issue recorded after the fact (for example after downtime) says so, with a reason and both the stated and the actual entry time; an issue cannot be dated in the future. | P5 | FRS-BB-475 |

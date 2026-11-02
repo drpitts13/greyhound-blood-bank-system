@@ -21,6 +21,7 @@ public static class DevelopmentSqliteBootstrap
         ("Issues", "MtpActivationId", """ALTER TABLE "Issues" ADD COLUMN "MtpActivationId" INTEGER NULL"""),
         ("MtpActivations", "PackDefinitionId", """ALTER TABLE "MtpActivations" ADD COLUMN "PackDefinitionId" INTEGER NULL"""),
         ("Issues", "MtpPackRecordId", """ALTER TABLE "Issues" ADD COLUMN "MtpPackRecordId" INTEGER NULL"""),
+        ("Issues", "LateEntryReason", """ALTER TABLE "Issues" ADD COLUMN "LateEntryReason" TEXT NULL"""),
         ("ShiftHandoffs", "ActiveMtp", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ActiveMtp" INTEGER NOT NULL DEFAULT 0"""),
         ("ReactionInvestigations", "ReopenedUtc", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedUtc" TEXT NULL"""),
         ("ReactionInvestigations", "ReopenedBy", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedBy" TEXT NULL"""),

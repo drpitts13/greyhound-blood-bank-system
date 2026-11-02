@@ -105,4 +105,10 @@ public class Issue : BaseEntity
 
     /// <summary>The MTP pack (container) this unit was packed into, once packed.</summary>
     public long? MtpPackRecordId { get; set; }
+
+    /// <summary>
+    /// Why the issue was entered after the stated issue time (IssuedUtc). Null for a contemporaneous issue; the
+    /// entry time is CreatedUtc.
+    /// </summary>
+    public string? LateEntryReason { get; set; }
 }

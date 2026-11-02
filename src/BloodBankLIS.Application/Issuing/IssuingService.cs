@@ -160,6 +160,25 @@ public sealed class IssuingService
             return EvaluationResult<Issue>.Blocked(new RuleEvaluation([createAuth]));
         }
 
+        // The stated issue time: never in the future; earlier than now is a late entry that needs a reason.
+        var requestedIssuedUtc = request.IssuedUtc is DateTime requested
+            ? requested.Kind switch
+            {
+                DateTimeKind.Unspecified => DateTime.SpecifyKind(requested, DateTimeKind.Utc),
+                DateTimeKind.Local => requested.ToUniversalTime(),
+                _ => requested
+            }
+            : _clock.UtcNow;
+        var issueTime = IssueTimeRule.Evaluate(requestedIssuedUtc, _clock.UtcNow, request.LateEntryReason);
+        if (issueTime.Severity == RuleSeverity.HardStop)
+        {
+            return EvaluationResult<Issue>.Blocked(new RuleEvaluation([issueTime]));
+        }
+
+        var lateEntryReason = IssueTimeRule.IsLateEntry(requestedIssuedUtc, _clock.UtcNow)
+            ? request.LateEntryReason!.Trim()
+            : null;
+
         var emergencyAuth = IssueAuthorizationRule.EvaluateEmergency(
             request.IssueType,
             await _permissions.HasPermissionAsync(_currentUser.UserName, PermissionCodes.IssueEmergencyRelease, ct));
@@ -488,6 +507,7 @@ public sealed class IssuingService
             PatientIdentifier1 = request.PatientIdentifier1Value,
             PatientIdentifier2 = request.PatientIdentifier2Value,
             MtpActivationId = mtpActivationId,
+            LateEntryReason = lateEntryReason,
             AcknowledgedSpecialRequirementCodes = JoinAcknowledgedCodes(request.AcknowledgedSpecialRequirementCodes),
             PtagCode = matchedPtag.Identifier?.Code
         };
@@ -539,7 +559,10 @@ public sealed class IssuingService
                 BloodProductId = unit.Id,
                 IssueAppearance = issueAppearance.Appearance,
                 AppearanceFromFacilityDefault = issueAppearance.UsedDefault,
-                MtpActivationId = mtpActivationId
+                MtpActivationId = mtpActivationId,
+                IssuedUtc = issuedUtc,
+                EnteredUtc = now,
+                LateEntryReason = lateEntryReason
             },
             reason: authorizedOverride?.Reason);
 

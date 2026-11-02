@@ -339,5 +339,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-328 | I | `FacilityTimeZoneTests`; `Phase4IssuingTests.MtpPackReport_PrintsLocalTime_AndNamesTheZone` | URS-BB-435 / FRS-BB-472 / RISK-BB-537 |
 | TEST-BB-329 | D / I | `TransfusionDocumentationRuleTests`; `Phase4IssuingTests.DocumentTransfusion_InconsistentTimesOrVolume_AreRefused` | URS-BB-437 / FRS-BB-473 / RISK-BB-539 |
 | TEST-BB-330 | D / I | `ShiftHandoffRuleTests`; `ShiftHandoffServiceTests`; `DashboardQueueCatalogTests.Select_AuditReadOnly_OmitsHandoff` | URS-BB-438 / FRS-BB-474 / RISK-BB-540 |
+| TEST-BB-331 | D / I | `IssueTimeRuleTests`; `Phase4IssuingTests.Issue_LateEntry_NeedsReason_AndKeepsBothTimes`, `Issue_WithoutStatedTime_IsNotALateEntry` | URS-BB-439 / FRS-BB-475 / RISK-BB-541 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

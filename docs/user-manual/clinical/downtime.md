@@ -20,7 +20,7 @@ Downtime documentation is your facility's paper procedure. Capture the identifie
 
 1. Confirm you are on the recovered database, not a partial copy.
 2. Replay interface messages that failed, and watch for duplicates. A message that already filed must not be entered by hand as well.
-3. Enter the paper record into the chart, the specimen, the result, and the issue screens. Use the same identity checks you use for any issue. The first electronic issue after downtime is not a shortcut.
+3. Enter the paper record into the chart, the specimen, the result, and the issue screens. Use the same identity checks you use for any issue. The first electronic issue after downtime is not a shortcut. On the chart's issue form, set **Date/time of issue** to the time on the paper form; the form then asks for a **Late entry reason** (for example "Issued on paper during downtime"). The record keeps the paper time, the time you entered it, and your reason. The safety checks still run when you enter it.
 4. Complete retrospective crossmatches for emergency issues that were documented on paper.
 5. Review overrides and interface errors before you call the recovery finished.
 

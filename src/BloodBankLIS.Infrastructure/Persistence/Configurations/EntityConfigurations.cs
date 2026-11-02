@@ -698,6 +698,7 @@ public sealed class IssueConfiguration : IEntityTypeConfiguration<Issue>
         b.HasOne(i => i.Override).WithMany().HasForeignKey(i => i.OverrideId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<MtpActivation>().WithMany().HasForeignKey(i => i.MtpActivationId).OnDelete(DeleteBehavior.Restrict);
         b.HasOne<MtpPackRecord>().WithMany().HasForeignKey(i => i.MtpPackRecordId).OnDelete(DeleteBehavior.Restrict);
+        b.Property(i => i.LateEntryReason).HasMaxLength(500);
         b.HasIndex(i => i.BloodProductId);
         b.HasIndex(i => i.BloodProductId)
             .IsUnique()

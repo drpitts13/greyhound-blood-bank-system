@@ -339,6 +339,9 @@ else
             IssuingAllocation="_issuingAllocation"
             IssueFeedback="_issueFb"
             @bind-IssueLocalDateTime="_issueLocalDateTime"
+            @bind-IssueLocalDateTime:after="() => _issueTimeEdited = true"
+            IssueTimeEdited="_issueTimeEdited"
+            @bind-LateEntryReason="_issueLateEntryReason"
             @bind-IssueLocation="_issueLocation"
             @bind-IssueIssuedTo="_issueIssuedTo"
             @bind-IssueId1="_issueId1"
@@ -729,6 +732,9 @@ else
     private Feedback? _ptagFb;
     private Feedback? _issueFb;
     private DateTime _issueLocalDateTime = DateTime.Now;
+    private string? _issueLateEntryReason;
+    // Only a time the user typed is sent; an untouched form uses the server's time when Issue is pressed.
+    private bool _issueTimeEdited;
     private string _issueLocation = string.Empty;
     private string _issueIssuedTo = string.Empty;
     private string _issueComment = string.Empty;
@@ -1119,6 +1125,8 @@ else
         _issueFb = null;
         _showIssueOverride = false;
         _issueLocalDateTime = DateTime.Now;
+        _issueLateEntryReason = null;
+        _issueTimeEdited = false;
         _issueLocation = string.Empty;
         _issueIssuedTo = string.Empty;
         _issueComment = string.Empty;
@@ -1166,7 +1174,9 @@ else
 
     private IssueUnitRequest BuildPatientIssueRequest(string? overrideReason, string? authorizedBy)
     {
-        var issuedUtc = DateTime.SpecifyKind(_issueLocalDateTime, DateTimeKind.Local).ToUniversalTime();
+        DateTime? issuedUtc = _issueTimeEdited
+            ? DateTime.SpecifyKind(_issueLocalDateTime, DateTimeKind.Local).ToUniversalTime()
+            : null;
         return new IssueUnitRequest(
             _issuingAllocation!.BloodUnitId,
             Id,
@@ -1186,7 +1196,8 @@ else
             VerifiedScan: _issueScan.ToRequest(),
             Appearance: _issueAppearance,
             AcknowledgedSpecialRequirementCodes: _issueAcks.ToList(),
-            PtagId: string.IsNullOrWhiteSpace(_ptagScan) ? null : _ptagScan.Trim());
+            PtagId: string.IsNullOrWhiteSpace(_ptagScan) ? null : _ptagScan.Trim(),
+            LateEntryReason: string.IsNullOrWhiteSpace(_issueLateEntryReason) ? null : _issueLateEntryReason.Trim());
     }
 
     private bool ValidateIssueForm()

@@ -141,6 +141,13 @@
                 <div class="field"><label>Date/time of issue</label>
                     <input type="datetime-local" @bind="IssueLocalDateTime" @bind:after="() => IssueLocalDateTimeChanged.InvokeAsync(IssueLocalDateTime)" />
                 </div>
+                @if (IssueTimeEdited && IssueLocalDateTime < DateTime.Now - IssueTimeRule.ClockAllowance)
+                {
+                    @* An earlier time is a late entry: say why, so the record shows both times honestly. *@
+                    <div class="field"><label>Late entry reason</label>
+                        <input @bind="LateEntryReason" @bind:after="() => LateEntryReasonChanged.InvokeAsync(LateEntryReason)" placeholder="e.g. Issued on paper during downtime" />
+                    </div>
+                }
                 <div class="field"><label>Location to issue</label>
                     <input @bind="IssueLocation" @bind:after="() => IssueLocationChanged.InvokeAsync(IssueLocation)" placeholder="Ward / OR / location" />
                 </div>
@@ -415,6 +422,9 @@
     [Parameter] public Feedback? IssueFeedback { get; set; }
     [Parameter] public DateTime IssueLocalDateTime { get; set; }
     [Parameter] public EventCallback<DateTime> IssueLocalDateTimeChanged { get; set; }
+    [Parameter] public string? LateEntryReason { get; set; }
+    [Parameter] public bool IssueTimeEdited { get; set; }
+    [Parameter] public EventCallback<string?> LateEntryReasonChanged { get; set; }
     [Parameter] public string IssueLocation { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> IssueLocationChanged { get; set; }
     [Parameter] public string IssueIssuedTo { get; set; } = string.Empty;

@@ -440,3 +440,4 @@
 | SRS-BB-434 | `IFacilityTimeZone` (Application) resolved as a singleton from `Facility:TimeZone` in `appsettings.json` (empty by default). The API converts; the report DTO carries `TimeZoneLabel`, `ActivatedLocal`, `PackedLocal`, and `ExpiresLocal` alongside the UTC values. | FRS-BB-472 |
 | SRS-BB-435 | `POST /api/issues/{id}/mark-transfused` removed (404). Issuing page reads `issueId` with `desk=transfuse`. No schema change. | FRS-BB-473 |
 | SRS-BB-436 | `ShiftHandoffs.ActiveMtp` int, default 0 (migration `20261103130000_ShiftHandoffActiveMtp`, dev bootstrap). `/api/shift-handoffs` requires `shift.handoff`. | FRS-BB-474 |
+| SRS-BB-437 | Nullable `Issues.LateEntryReason` nvarchar(500) (migration `20261103140000_IssueLateEntry`, dev bootstrap). `IssueUnitRequest.LateEntryReason`. | FRS-BB-475 |

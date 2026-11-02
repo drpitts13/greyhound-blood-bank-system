@@ -779,6 +779,62 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         }
     }
 
+    // TEST-BB-331: a backdated issue needs a reason and keeps both times; a future issue time is refused.
+    [Fact]
+    public async Task Issue_LateEntry_NeedsReason_AndKeepsBothTimes()
+    {
+        var s = await SeedAsync("LATE-ISS");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        var now = _factory.Clock.UtcNow;
+
+        await using (var c = _factory.Create())
+        {
+            var future = await Issuing(c).IssueUnitAsync(IssueReq(s) with { IssuedUtc = now.AddHours(2) });
+            Assert.Contains(future.Evaluation!.HardStops, r => r.Code == IssueTimeRule.Code);
+
+            var noReason = await Issuing(c).IssueUnitAsync(IssueReq(s) with { IssuedUtc = now.AddHours(-3) });
+            Assert.Contains(noReason.Evaluation!.HardStops, r => r.Code == IssueTimeRule.Code);
+            Assert.False(await c.Issues.AnyAsync(i => i.BloodProductId == s.UnitId));
+        }
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var late = await Issuing(c).IssueUnitAsync(IssueReq(s) with
+            {
+                IssuedUtc = now.AddHours(-3), LateEntryReason = "Issued on paper during downtime"
+            });
+            Assert.True(late.Succeeded, late.Error ?? string.Join("; ", late.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            issueId = late.Value!.Id;
+            Assert.Equal(now.AddHours(-3), late.Value.IssuedUtc);
+            Assert.Equal("Issued on paper during downtime", late.Value.LateEntryReason);
+            var dto = IssueDto.From(late.Value);
+            Assert.Equal("Issued on paper during downtime", dto.LateEntryReason);
+            Assert.NotNull(dto.EnteredUtc);
+        }
+
+        await using var verify = _factory.Create();
+        var audit = await verify.AuditEvents.Where(a => a.EntityType == nameof(BloodUnit) && a.EntityId == s.UnitId
+            && a.NewValueJson!.Contains("LateEntryReason")).OrderByDescending(a => a.Id).FirstAsync();
+        Assert.Contains("Issued on paper during downtime", audit.NewValueJson);
+        Assert.Contains("EnteredUtc", audit.NewValueJson);
+    }
+
+    [Fact]
+    public async Task Issue_WithoutStatedTime_IsNotALateEntry()
+    {
+        var s = await SeedAsync("NOW-ISS");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+
+        await using var c = _factory.Create();
+        var issued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+
+        Assert.True(issued.Succeeded, issued.Error);
+        Assert.Null(issued.Value!.LateEntryReason);
+    }
+
     [Fact]
     public async Task Issue_WhenNotAllocated_IsHardStopped()
     {
@@ -1752,7 +1808,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using (var c = _factory.Create())
         {
             issueId = (await Issuing(c).IssueUnitAsync(
-                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-31) })).Value!.Id;
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-31) , LateEntryReason = "Simulated earlier issue for the test" })).Value!.Id;
         }
 
         await using (var c = _factory.Create())
@@ -1791,7 +1847,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             stored!.CurrentLocationId = location.Id;
             await c.SaveChangesAsync();
             issueId = (await Issuing(c).IssueUnitAsync(
-                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) })).Value!.Id;
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) , LateEntryReason = "Simulated earlier issue for the test" })).Value!.Id;
         }
 
         await using (var c = _factory.Create())
@@ -1826,7 +1882,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
             stored!.CurrentLocationId = location.Id;
             await c.SaveChangesAsync();
             issueId = (await Issuing(c).IssueUnitAsync(
-                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) })).Value!.Id;
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-40) , LateEntryReason = "Simulated earlier issue for the test" })).Value!.Id;
         }
 
         await using (var c = _factory.Create())
@@ -1861,7 +1917,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using (var c = _factory.Create())
         {
             issueId = (await Issuing(c).IssueUnitAsync(
-                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-45) })).Value!.Id;
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddMinutes(-45) , LateEntryReason = "Simulated earlier issue for the test" })).Value!.Id;
         }
 
         await using (var c = _factory.Create())
@@ -3621,7 +3677,7 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         await using (var c = _factory.Create())
         {
             var issued = await Issuing(c).IssueUnitAsync(
-                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddHours(-5), CoolerId = "CLR-LATE" });
+                IssueReq(s) with { IssuedUtc = _factory.Clock.UtcNow.AddHours(-5), CoolerId = "CLR-LATE" , LateEntryReason = "Simulated earlier issue for the test" });
             Assert.True(issued.Succeeded);
             issueId = issued.Value!.Id;
             var transit = await Issuing(c).ListInTransitAsync();
