@@ -61,6 +61,10 @@ public sealed record BloodTypeDto(
             .Select(r => new SecondAboDeterminationRule.Determination(
                 new AboRh(r.Abo, r.RhD), r.IsCurrent, r.SpecimenId, r.CountsAsDetermination))
             .ToList();
+
+    /// <summary>The same input the server gives the ABO/Rh discrepancy check (<see cref="IssueGate.DiscrepancyInput"/>).</summary>
+    public static IReadOnlyList<(AboRh Type, bool IsCurrent)> DiscrepancyInput(IEnumerable<BloodTypeDto> rows) =>
+        rows.Where(r => !r.Invalidated).Select(r => (new AboRh(r.Abo, r.RhD), r.IsCurrent)).ToList();
 }
 
 public sealed record AntibodyDto(

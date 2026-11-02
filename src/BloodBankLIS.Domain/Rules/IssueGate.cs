@@ -367,6 +367,13 @@ public static class IssueGate
     }
 
     /// <summary>
+    /// The discrepancy input from stored history: types whose source result was invalidated are left out.
+    /// The chart builds the same input from its rows (<c>BloodTypeDto.DiscrepancyInput</c>).
+    /// </summary>
+    public static IReadOnlyList<(AboRh Type, bool IsCurrent)> DiscrepancyInput(IEnumerable<Entities.PatientBloodTypeHistory> rows) =>
+        rows.Where(h => h.InvalidatedUtc is null).Select(h => (h.BloodType, h.IsCurrent)).ToList();
+
+    /// <summary>
     /// True when the first current known type disagrees with any other known,
     /// non-current type. This is the issue-gate predicate.
     /// </summary>

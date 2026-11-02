@@ -48,6 +48,28 @@ public class BloodTypeDtoDeterminationTests
         Assert.Equal(server, chart);
     }
 
+    // TEST-BB-373: the chart's ABO/Rh discrepancy banner sees the same history as the issue gate.
+    public static TheoryData<string, PatientBloodTypeHistory[], bool> DiscrepancyCases => new()
+    {
+        { "agreeing history", [Row(true, 10), Row(false, 11)], false },
+        { "disagreeing history", [Row(true, 10), Row(false, 11, abo: AboGroup.O)], true },
+        { "disagreeing type invalidated", [Row(true, 10), Row(false, 11, invalidated: true, abo: AboGroup.O)], false },
+        { "undocumented manual entry disagrees", [Row(true, 10), Row(false, null, BloodTypeSource.ManualEntry, ManualTypeDocumentation.NotDocumented, abo: AboGroup.B)], true },
+        { "no current type", [Row(false, 11, abo: AboGroup.O)], false },
+    };
+
+    [Theory]
+    [MemberData(nameof(DiscrepancyCases))]
+    public void ChartDiscrepancy_MatchesTheIssueGate(string _, PatientBloodTypeHistory[] rows, bool expected)
+    {
+        var server = IssueGate.HasUnresolvedAboRhDiscrepancy(IssueGate.DiscrepancyInput(rows));
+        var chart = IssueGate.HasUnresolvedAboRhDiscrepancy(BloodTypeDto.DiscrepancyInput(rows.Select(BloodTypeDto.From)));
+
+        Assert.Equal(expected, server);
+        Assert.Equal(server, chart);
+        Assert.Equal(expected, IssueGate.PatientBannerNotice(BloodTypeDto.DiscrepancyInput(rows.Select(BloodTypeDto.From))) is not null);
+    }
+
     [Fact]
     public void TheDto_CarriesTheSpecimen()
     {

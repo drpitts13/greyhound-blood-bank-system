@@ -10314,3 +10314,33 @@ Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the same parity check for the chart's ABO/Rh discrepancy banner (it maps types itself rather than through the server's rule input).
+
+## Iteration 331 — The chart's discrepancy banner pinned to the issue gate (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 330.
+
+### Finding
+
+The residual from Cycle 330 asked whether the chart's ABO/Rh discrepancy banner also builds its own input.
+
+- It does, but today the inputs agree. The chart and both issue paths leave out invalidated types and compare the current type with the others.
+- No live defect, but the second-ABO cue drifted exactly this way, so the duplication is a risk.
+- An undocumented manual entry that disagrees with the current type does raise the discrepancy on both sides. That is the cautious reading: a disagreeing type on record is held for resolution even when it cannot count as a determination. It is unchanged.
+
+### Design
+
+- `IssueGate.DiscrepancyInput` (from stored history) replaces the two inline mappings in `IssuingService`.
+- `BloodTypeDto.DiscrepancyInput` replaces the chart header's inline mapping.
+- No behavior change.
+
+### Tests
+
+- TEST-BB-373 is a parity test over five cases: agreeing, disagreeing, disagreeing type invalidated, undocumented manual entry disagreeing, no current type. The server, the chart, and the banner text agree.
+- Full suite: 3,511 passed, 0 failed (previously 3,506).
+- Run check: not run, because behavior is unchanged; the chart header was checked live in Cycle 330.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: look for other Web components that re-derive a server rule from DTOs (for example ready-to-issue form cues and electronic crossmatch display), and give each a parity test or a server-computed field.

@@ -873,7 +873,7 @@ public sealed class IssuingService
             var crossmatchCue = CrossmatchValidityRule.DescribeReadyToIssue(
                 requiresXm, hasValidCrossmatch, hasIncompatibleCrossmatch);
             var discrepancyCue = IssueGate.DescribeAboRhDiscrepancy(
-                IssueGate.HasUnresolvedAboRhDiscrepancy(typeRows.Where(h => h.InvalidatedUtc is null).Select(h => (h.BloodType, h.IsCurrent))),
+                IssueGate.HasUnresolvedAboRhDiscrepancy(IssueGate.DiscrepancyInput(typeRows)),
                 requiresXm);
             var recordedXm = latestXm is { Result: CrossmatchResult.Compatible or CrossmatchResult.Incompatible }
                 ? latestXm.Result
@@ -1957,7 +1957,7 @@ public sealed class IssuingService
     private async Task<bool> HasUnresolvedAboRhDiscrepancyAsync(long patientId, CancellationToken ct)
     {
         var history = await _bloodTypes.ListAsync(h => h.PatientId == patientId, ct);
-        return IssueGate.HasUnresolvedAboRhDiscrepancy(history.Where(h => h.InvalidatedUtc is null).Select(h => (h.BloodType, h.IsCurrent)));
+        return IssueGate.HasUnresolvedAboRhDiscrepancy(IssueGate.DiscrepancyInput(history));
     }
 
     /// <summary>
