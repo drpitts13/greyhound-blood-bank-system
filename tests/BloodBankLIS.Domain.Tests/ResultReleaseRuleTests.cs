@@ -19,4 +19,13 @@ public class ResultReleaseRuleTests
     [InlineData(ResultStatus.PendingVerification, 1, false)]
     public void UnverifiedOrNeverReleasedResults_AreNotSent(ResultStatus status, int version, bool wasVerified) =>
         Assert.Null(ResultReleaseRule.ObxStatus(status, version, wasVerified));
+
+    // TEST-BB-358 (OCD-049)
+    [Theory]
+    [InlineData("C", true)]
+    [InlineData("W", true)]
+    [InlineData("F", false)]
+    [InlineData(null, false)]
+    public void OnlyCorrectionsAndWithdrawals_AreSentAutomatically(string? status, bool expected) =>
+        Assert.Equal(expected, ResultReleaseRule.SentAutomatically(status));
 }

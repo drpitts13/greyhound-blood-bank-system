@@ -64,6 +64,7 @@ public sealed class ResultService
     private readonly CrossmatchAttachmentService? _crossmatchAttachment;
     private readonly IRepository<OrderSpecimen>? _orderSpecimens;
     private readonly ReagentQcService? _reagentQc;
+    private readonly IResultReleasePublisher? _releases;
 
     public ResultService(
         IRepository<TestResult> results,
@@ -97,7 +98,8 @@ public sealed class ResultService
         IRepository<AntibodyIdentificationFinding>? antibodyFindings = null,
         CrossmatchAttachmentService? crossmatchAttachment = null,
         IRepository<OrderSpecimen>? orderSpecimens = null,
-        ReagentQcService? reagentQc = null)
+        ReagentQcService? reagentQc = null,
+        IResultReleasePublisher? releases = null)
     {
         _ruleEngine = ruleEngine;
         _allocations = allocations;
@@ -130,6 +132,7 @@ public sealed class ResultService
         _antibodyFindings = antibodyFindings;
         _crossmatchAttachment = crossmatchAttachment;
         _reagentQc = reagentQc;
+        _releases = releases;
         _orderSpecimens = orderSpecimens;
     }
 
@@ -945,7 +948,37 @@ public sealed class ResultService
             reason: "Result verified.");
 
         await _unitOfWork.SaveChangesAsync(ct);
+
+        // A verified correction replaces a value the EHR may already show (OCD-049).
+        if (await TellEhrOfChangeAsync(result, ct) is RuleResult notSent)
+        {
+            warnings.Add(notSent);
+        }
+
         return EvaluationResult<TestResult>.Ok(result, warnings.Count > 0 ? new RuleEvaluation(warnings) : null);
+    }
+
+    /// <summary>
+    /// Queues the EHR update for a verified correction or an invalidated verified result. A failure never undoes the
+    /// clinical change already saved; it comes back as a warning to send the result by hand.
+    /// </summary>
+    private async Task<RuleResult?> TellEhrOfChangeAsync(TestResult result, CancellationToken ct)
+    {
+        if (_releases is null
+            || !ResultReleaseRule.SentAutomatically(ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null)))
+        {
+            return null;
+        }
+
+        try
+        {
+            await _releases.PublishResultChangeAsync(result.Id, ct);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return ResultReleaseRule.NotSent(result.TestCode);
+        }
     }
 
     private async Task ApplyReflexRulesAsync(TestResult result, CancellationToken ct)
@@ -1462,6 +1495,13 @@ public sealed class ResultService
         warnings.AddRange(await RetireDerivedTypesAsync(
             original.Id, $"Source result invalidated: {original.InvalidationReason ?? value.InvalidationReason}",
             AuditEventType.Invalidate, DerivedFromSourceRule.TypeRetired, ct));
+
+        // A verified result withdrawn as wrong is withdrawn from the EHR too (OCD-049).
+        if (await TellEhrOfChangeAsync(value, ct) is RuleResult notSent)
+        {
+            warnings.Add(notSent);
+        }
+
         return OperationResult<TestResult>.Ok(value, warnings);
     }
 

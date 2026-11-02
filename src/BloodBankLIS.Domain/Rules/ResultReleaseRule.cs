@@ -20,4 +20,13 @@ public static class ResultReleaseRule
         ResultStatus.Invalidated when wasVerified => Wrong,
         _ => null
     };
+
+    /// <summary>A correction or a withdrawal is sent automatically (OCD-049); a first final result is sent on request.</summary>
+    public static bool SentAutomatically(string? obxStatus) => obxStatus is Corrected or Wrong;
+
+    public const string NotSentCode = "RES-EHR-NOT-SENT";
+
+    public static RuleResult NotSent(string testCode) =>
+        RuleResult.Warning(NotSentCode,
+            $"The EHR could not be updated automatically for {testCode}. Send the result from the HL7 interface page.");
 }

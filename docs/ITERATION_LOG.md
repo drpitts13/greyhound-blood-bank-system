@@ -9748,3 +9748,43 @@ Outbound ORU results were always sent with OBX-11 = F, and only results with sta
 ### Next ranked residual
 
 When a result is corrected or invalidated after being sent, queue the C or W message automatically, so the EHR is updated without anyone remembering to. This needs a record of which results were sent; it may need a product decision on automatic sending. Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan.
+
+## Iteration 316 — Corrections and withdrawals reach the EHR automatically (OCD-049) (2026-11-02)
+
+### Decision
+
+The product owner decided OCD-049: send result corrections and invalidations to the EHR automatically.
+
+### Design
+
+- `IResultReleasePublisher` in Application, implemented by `Hl7OutboundService`, following the billing publisher pattern. `ResultService` stays free of HL7 types.
+- **When:**
+  - after a correction is verified, an ORU with OBX-11 C is queued
+  - after a verified result is invalidated, one with OBX-11 W is queued
+- **Only with somewhere to go:** a message is queued only when an enabled outbound Results interface endpoint exists, so none is left with no destination.
+- First final results stay on request. The decision covered corrections and invalidations, and some facilities release results to the EHR another way.
+- **Failure never undoes the clinical change:** if queueing throws, the verification or invalidation already saved stands, and the user gets `RES-EHR-NOT-SENT` asking them to send by hand.
+- The send itself still goes through the existing outbound sender (MLLP) and its retry and error handling.
+
+### Requirements / risk
+
+- URS-BB-463, FRS-BB-499, RISK-BB-562, OCD-049. `hl7-design.md` 2.3 updated.
+
+### Tests
+
+- TEST-BB-358:
+  - rule: only C and W are sent automatically
+  - integration, in their own database:
+    - invalidating a verified ABO/Rh with an enabled results interface queues exactly one ORU with W
+    - correcting does not queue; verifying the correction queues one with C
+    - without an enabled interface nothing is queued
+    - a failing publisher leaves the invalidation saved and returns the warning
+- Full suite: 3,459 passed, 0 failed (previously 3,451).
+- Run check (development API):
+  - the API resolves `ResultService` with the publisher (specimen results 200)
+  - development data has no interface endpoints, so nothing is sent there until one is configured
+  - no server errors
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan.

@@ -12,7 +12,7 @@ namespace BloodBankLIS.HL7.Messaging;
 /// to <c>HL7Messages</c> (direction Outbound). The transport (MLLP sender hosted
 /// service) picks them up; this service performs no network I/O.
 /// </summary>
-public sealed class Hl7OutboundService : IBillingInterfacePublisher
+public sealed class Hl7OutboundService : IBillingInterfacePublisher, IResultReleasePublisher
 {
     private readonly IRepository<TestResult> _results;
     private readonly IRepository<Patient> _patients;
@@ -85,6 +85,29 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher
         await _unitOfWork.SaveChangesAsync(ct);
 
         return OperationResult<Hl7MessageLog>.Ok(log);
+    }
+
+    /// <summary>
+    /// OCD-049: a correction (C) or a withdrawal (W) is queued without anyone asking, but only when an outbound
+    /// results interface is enabled, so no message is left with nowhere to go.
+    /// </summary>
+    public async Task<long?> PublishResultChangeAsync(long resultId, CancellationToken ct = default)
+    {
+        var result = await _results.GetByIdAsync(resultId, ct);
+        if (result is null
+            || !ResultReleaseRule.SentAutomatically(ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null)))
+        {
+            return null;
+        }
+
+        if (_endpoints is null
+            || !await _endpoints.AnyAsync(e => e.IsEnabled && e.Direction == Hl7Direction.Outbound && e.InterfaceType == InterfaceType.Results, ct))
+        {
+            return null;
+        }
+
+        var queued = await QueueResultMessageAsync(resultId, ct);
+        return queued.Succeeded ? queued.Value!.Id : null;
     }
 
     public async Task<long?> PublishChargeAsync(BillingEvent billingEvent, CancellationToken ct = default)
