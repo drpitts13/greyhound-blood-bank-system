@@ -386,11 +386,46 @@ public sealed record ReturnDto(
     string Reason,
     bool ReissueEligible,
     // The unit went back to Received because its required retype is not confirmed (RetypeStockStatus).
-    bool RetypePending = false)
+    bool RetypePending = false,
+    // The unit is back in available stock, so it can be reserved again (for the same patient or anyone).
+    bool BackInStock = false,
+    // The patient the unit had been issued to, when the issue was loaded with the return.
+    long? PatientId = null)
 {
     public static ReturnDto From(Return r) => new(
         r.Id, r.IssueId, r.BloodProductId, r.ReturnedUtc, r.ReturnedBy, r.Reason, r.ReissueEligible,
-        r.ReissueEvaluationJson?.Contains("\"RetypePending\":true", StringComparison.Ordinal) == true);
+        r.ReissueEvaluationJson?.Contains("\"RetypePending\":true", StringComparison.Ordinal) == true,
+        DestinationOf(r.ReissueEvaluationJson) == UnitStatus.Available,
+        r.Issue?.PatientId);
+
+    /// <summary>
+    /// Opens Compatibility with the patient and unit filled in, so reserving the returned unit again for the
+    /// same patient is one step and still runs every reservation check. Nothing is reserved automatically.
+    /// </summary>
+    public string? ReserveAgainHref =>
+        BackInStock && PatientId is long patientId
+            ? $"/compatibility?patientId={patientId}&bloodUnitId={BloodUnitId}&from=return"
+            : null;
+
+    private static UnitStatus? DestinationOf(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("destination", out var value) && value.TryGetInt32(out var number)
+                ? (UnitStatus)number
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
+    }
 }
 
 public sealed record TransfusionEventDto(

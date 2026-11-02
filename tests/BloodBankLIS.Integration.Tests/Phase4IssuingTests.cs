@@ -969,6 +969,65 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(UnitStatus.Available, (await verify.BloodUnits.FindAsync(s.UnitId))!.Status);
     }
 
+    // TEST-BB-341: a unit returned to stock offers one step to reserve it again for the same patient,
+    // through the normal reservation (nothing reserved automatically), and can then be reissued.
+    [Fact]
+    public async Task Return_ToStock_OffersReserveAgain_ThenReissues()
+    {
+        var s = await SeedAsync("RET-AGAIN");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Not needed yet", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+            Assert.True(returned.Succeeded, returned.Error);
+            var dto = ReturnDto.From(returned.Value!);
+            Assert.True(dto.BackInStock);
+            Assert.Equal(s.PatientId, dto.PatientId);
+            Assert.Equal($"/compatibility?patientId={s.PatientId}&bloodUnitId={s.UnitId}&from=return", dto.ReserveAgainHref);
+            Assert.False(await c.Allocations.AnyAsync(a => a.BloodProductId == s.UnitId && a.Status == AllocationStatus.Reserved));
+        }
+
+        await AllocateAsync(s);
+        await using (var c = _factory.Create())
+        {
+            var reissued = await Issuing(c).IssueUnitAsync(IssueReq(s));
+            Assert.True(reissued.Succeeded, reissued.Error ?? string.Join("; ", reissued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+        }
+
+        await using var verify = _factory.Create();
+        Assert.Equal(2, await verify.Allocations.CountAsync(a => a.BloodProductId == s.UnitId && a.Status == AllocationStatus.Consumed));
+    }
+
+    [Fact]
+    public async Task Return_ToQuarantine_OffersNoReserveAgain()
+    {
+        var s = await SeedAsync("RET-NOAGAIN");
+        await RecordCompatibleCrossmatchAsync(s);
+        await AllocateAsync(s);
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            issueId = (await Issuing(c).IssueUnitAsync(IssueReq(s))).Value!.Id;
+        }
+
+        await using var c2 = _factory.Create();
+        var returned = await Issuing(c2).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+            "Seal damaged", TemperatureAcceptable: true, SealIntegrityAcceptable: false, VisualInspectionAcceptable: true,
+            Destination: UnitStatus.Quarantine));
+        Assert.True(returned.Succeeded, returned.Error);
+        var dto = ReturnDto.From(returned.Value!);
+        Assert.False(dto.BackInStock);
+        Assert.Null(dto.ReserveAgainHref);
+    }
+
     // TEST-BB-323: a unit whose verified retype disagrees with its label cannot leave on any issue type.
     [Fact]
     public async Task EmergencyRelease_OfUnitWithVerifiedRetypeMismatch_IsHardStopped()

@@ -24,6 +24,10 @@ else
     <UnitChartHeader Unit="_unit" ProductCode="@ProductCode(_unit)" ProductName="@ProductName(_unit.ProductTypeId)" LocationName="@LocationName(_unit.CurrentLocationId)" />
     <UnitChartTabBar Current="@_tab" OnSelect="SelectTab" />
     <Outcome Value="_actionFb" />
+    @if (_reserveAgainHref is not null && Session.Has(PermissionCodes.CompatibilityAllocate))
+    {
+        <p class="muted">The unit is back in stock and no longer reserved for this patient. <a class="btn btn-secondary btn-sm" href="@_reserveAgainHref">Reserve again for this patient</a></p>
+    }
 
     @if (_autoThawAllocationId is long thawAllocationId)
     {
@@ -887,8 +891,12 @@ else
             Destination: _changeStatusDestination));
         _busy = false;
         if (r.Succeeded) _changeStatusReason = string.Empty;
+        _reserveAgainHref = r.Succeeded ? r.Value?.ReserveAgainHref : null;
         await AfterActionAsync(r, $"Unit status changed to {_changeStatusDestination}.");
     }
+
+    // Set after a return to stock: one click back to Compatibility to reserve it again for the same patient.
+    private string? _reserveAgainHref;
 
     private async Task OnRetypeSaved()
     {

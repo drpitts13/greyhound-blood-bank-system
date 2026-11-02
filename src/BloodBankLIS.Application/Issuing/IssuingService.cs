@@ -1236,6 +1236,7 @@ public sealed class IssuingService
         var returnRecord = new Return
         {
             IssueId = issue.Id,
+            Issue = issue,
             BloodProductId = unit.Id,
             ReturnedUtc = now,
             ReturnedBy = _currentUser.UserName,

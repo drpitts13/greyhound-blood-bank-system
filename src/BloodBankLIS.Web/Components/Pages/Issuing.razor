@@ -955,6 +955,13 @@
                         <a href="@($"/patients/{returnedPatientId}?tab=products")">Open chart · Products</a>
                     }
                 </p>
+                @if (_lastReturn.ReserveAgainHref is string reserveAgain && Session.Has(PermissionCodes.CompatibilityAllocate))
+                {
+                    <p class="muted" style="margin:0;">
+                        The unit is back in stock and no longer reserved for this patient.
+                        <a class="btn btn-secondary btn-sm" href="@reserveAgain">Reserve again for this patient</a>
+                    </p>
+                }
             }
         }
     </div>
