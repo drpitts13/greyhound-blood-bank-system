@@ -1,5 +1,6 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Immunohematology;
 
@@ -35,11 +36,17 @@ public sealed record BloodTypeDto(
     DateTime RecordedUtc,
     string RecordedBy,
     AboSubgroup AboSubgroup = AboSubgroup.Unknown,
-    bool Invalidated = false)
+    bool Invalidated = false,
+    // Plain source wording, including a manual entry's documented source (OCD-048).
+    string? SourceLabel = null,
+    // Whether this row can be one of the two ABO/Rh determinations (not retired, not an undocumented manual entry).
+    bool CountsAsDetermination = true)
 {
     public static BloodTypeDto From(PatientBloodTypeHistory h) => new(
         h.Id, h.PatientId, h.Abo, h.RhD, h.BloodType.ToString(), h.Source, h.SourceResultId,
-        h.IsCurrent, h.Reason, h.CreatedUtc, h.CreatedBy, h.AboSubgroup, h.InvalidatedUtc is not null);
+        h.IsCurrent, h.Reason, h.CreatedUtc, h.CreatedBy, h.AboSubgroup, h.InvalidatedUtc is not null,
+        BloodTypeHistoryLabel.Source(h.Source, h.ManualDocumentation, h.ManualDocumentationReference),
+        BloodTypeHistoryLabel.CountsAsDetermination(h.Source, h.ManualDocumentation, h.InvalidatedUtc is not null));
 }
 
 public sealed record AntibodyDto(

@@ -9659,3 +9659,49 @@ The product owner decided OCD-048: a hand-recorded ABO/Rh counts as a determinat
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan.
+
+## Iteration 314 — Blood type history shows source, retirement, and what counts (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 313 other than the results row.
+
+### Finding (question 2: what the user must remember)
+
+The chart's blood type history showed type, subgroup, the raw source enum, and the date. Several recent rules decide which rows matter, and none of it was visible:
+- retired types (Cycles 289 and 310) looked like valid ones
+- the retirement reason was hidden
+- an undocumented manual entry looked like any other
+- the user could not tell which rows the two-determination rule could use
+
+### Design
+
+- `BloodTypeHistoryLabel`:
+  - plain source wording: Tested result, Interface result, Imported from a previous blood bank system, or Manual with its documented source and record (or "not documented")
+  - `CountsAsDetermination`: not retired, and not an undocumented manual entry; the same test the rule uses
+- `BloodTypeDto` carries `SourceLabel` and `CountsAsDetermination`.
+- **Chart history table:**
+  - a retired type is struck through, with a Retired badge and the reason
+  - an undocumented manual entry reads "Does not count as an ABO/Rh determination"
+  - who recorded each row is shown
+- Display only. No rule changed.
+
+### Requirements
+
+- URS-BB-461, FRS-BB-497. Help: patient chart page.
+
+### Tests
+
+- TEST-BB-356:
+  - wording for each source
+  - counting for retired, undocumented, documented, and tested types
+  - DTO mapping for a retired tested type and a documented manual type
+- Full suite: 3,441 passed, 0 failed (previously 3,433).
+- Run check (development web):
+  - MRN0001's history shows "Imported from a previous blood bank system" and "Tested result (Current)", each with who recorded it
+  - development data has no retired or manual types
+  - no server errors
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan.

@@ -63,11 +63,19 @@
                 <tbody>
                     @foreach (var t in TypeHistory)
                     {
-                        <tr>
-                            <td><strong>@Ui.BloodType(t.Abo, t.RhD)</strong>@if (t.IsCurrent) { <span class="sub">Current</span> }</td>
+                        <tr class="@(t.Invalidated ? "row-muted" : "")">
+                            <td>
+                                <strong style="@(t.Invalidated ? "text-decoration:line-through;" : "")">@Ui.BloodType(t.Abo, t.RhD)</strong>
+                                @if (t.IsCurrent) { <span class="sub">Current</span> }
+                                @if (t.Invalidated) { <span class="badge badge-red">Retired</span> }
+                            </td>
                             <td>@t.AboSubgroup</td>
-                            <td>@t.Source</td>
-                            <td>@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                            <td>
+                                @(t.SourceLabel ?? t.Source.ToString())
+                                @if (t.Invalidated && !string.IsNullOrWhiteSpace(t.Reason)) { <span class="sub">@t.Reason</span> }
+                                @if (!t.CountsAsDetermination && !t.Invalidated) { <span class="sub">Does not count as an ABO/Rh determination</span> }
+                            </td>
+                            <td>@t.RecordedUtc.ToString("yyyy-MM-dd HH:mm")<span class="sub">@t.RecordedBy</span></td>
                         </tr>
                     }
                 </tbody>
