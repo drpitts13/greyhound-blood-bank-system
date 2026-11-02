@@ -8939,3 +8939,43 @@ No change since Cycle 295 other than the return/discard row. This cycle audits r
 ### Next ranked residual
 
 Reissue after return: whether a returned unit keeps its reservation to the same patient. Check how allocation status changes at issue and return. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 297 — Reserve a returned unit again in one step (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 296 other than the return row.
+
+### Finding (questions 2 and 5)
+
+At issue the patient's reservation becomes Consumed. A unit returned to Available is in general stock. Nothing told the user that, and re-reserving it for the same patient meant going to Compatibility and typing the unit and patient again. Reissue itself was safe: the issue gate reruns every check.
+
+### Design
+
+- **No automatic re-reservation.** Reservation runs compatibility, antigen-negative override, and other checks that a return must not bypass.
+- `ReturnDto` gains:
+  - `BackInStock`, read from the destination already recorded in the return evaluation
+  - `PatientId`, from the issue
+  - `ReserveAgainHref`
+- After a return to stock, the issue desk and the unit page say the unit is no longer reserved and offer **Reserve again for this patient** (for users with `compatibility.allocate`).
+  - The link opens Compatibility with the unit, patient, and current specimen filled in: one click to reserve.
+- History keeps both reservations: the consumed one stays, and a new row is added.
+
+### Requirements / risk
+
+- URS-BB-448, FRS-BB-484, RISK-BB-550. No schema change. Help: issuing page.
+
+### Tests
+
+- TEST-BB-341:
+  - return to stock: the DTO is back in stock with patient and link, no reservation is left; then the normal reservation and a reissue succeed, and two consumed reservations are recorded
+  - return to quarantine offers no link
+- Full suite: 3,360 passed, 0 failed (previously 3,358).
+- Run check (development API and web):
+  - the link target opens Compatibility with the unit (W0001230000001), the patient (MRN0001), and accession ACC0001 filled in, and Reserve unit enabled
+  - nothing was reserved
+  - no server errors
+
+### Next ranked residual
+
+Re-audit transfusion documentation and reaction reporting at the bedside against the seven workflow questions. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
