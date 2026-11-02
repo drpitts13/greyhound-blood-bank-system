@@ -9174,3 +9174,30 @@ The product owner approved updating the packages flagged in iteration 301.
 ### Next ranked residual
 
 Add the vulnerable-package check to CI so new advisories are caught when they are published. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 303 — Vulnerable-package check in CI (2026-11-02)
+
+### Request
+
+The product owner approved adding the vulnerable-package check to CI.
+
+### Change
+
+- The repository had no CI workflow. Added `.github/workflows/vulnerable-packages.yml` (GitHub Actions, Ubuntu; every project targets `net10.0`). It runs:
+  - on every push to `main`
+  - on every pull request
+  - weekly on Monday at 06:00 UTC, to catch advisories published when nothing changed
+  - on demand
+- It installs the SDK from `global.json` and runs `scripts/check-vulnerable-packages.sh`.
+- The script restores the solution and runs `dotnet list package --vulnerable --include-transitive`. It fails if any project reports a vulnerable package. It also fails if the package source cannot be reached, so it never passes without having checked. It runs the same way locally (README, Build and test).
+- The workflow has read-only permissions and does not build or run tests; that can be added as a separate job.
+
+### Verification
+
+- The current tree passes ("No vulnerable NuGet packages.").
+- With the `System.Security.Cryptography.Pkcs` pin temporarily removed, the script reported Pkcs 9.0.11 (GHSA-846f-f764-76mx) and exited 1. The project file was then restored from git.
+- The workflow has not run on GitHub yet; it runs on the next push to `main` or the next pull request.
+
+### Next ranked residual
+
+A CI job that builds and runs the test suite on pull requests. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.

@@ -57,6 +57,14 @@ dotnet build
 dotnet test
 ```
 
+### Vulnerable packages
+
+`scripts/check-vulnerable-packages.sh` fails when any project uses a NuGet package with a known security advisory, directly or through another package. CI runs it on every push to `main`, every pull request, and weekly, so advisories published later are caught too (`.github/workflows/vulnerable-packages.yml`). Run it locally:
+
+```bash
+bash scripts/check-vulnerable-packages.sh
+```
+
 ## Run the API
 
 The API reads the connection string `ConnectionStrings:BloodBankLIS` (defaults to SQL Server Express on `localhost\SQLEXPRESS02`). In Development it will apply migrations and seed demo data when a database is reachable (controlled by `Database:AutoMigrate`). Integration tests continue to use in-memory SQLite independently.

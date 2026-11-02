@@ -1,0 +1,27 @@
+name: Vulnerable packages
+
+# Fails when any project uses a NuGet package with a known security advisory (direct or transitive).
+# The weekly run catches advisories published after the last change, when no code has changed.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Check for vulnerable packages
+        run: bash scripts/check-vulnerable-packages.sh
