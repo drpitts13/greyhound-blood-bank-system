@@ -9470,3 +9470,49 @@ No change since Cycle 308 other than the specimen row.
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether every receipt must be by scan (facility policy). Next engineering candidate: audit result entry and verification (manual entry, instrument results, delta checks) against the seven workflow questions.
+
+## Iteration 310 — ABO/Rh correction retires the derived type at once (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 309 other than the results row. This cycle audits result entry and verification against the seven workflow questions.
+
+### Audit
+
+- **Controls already in place:**
+  - permissions for enter, verify, correct, and invalidate
+  - verify by a second person (ABO self-verify only by facility policy)
+  - corrected and invalidated results keep their history (versioned, superseded links)
+  - invalidation retires the derived type (Cycle 289)
+  - the second-determination rule and discrepancy checks
+  - instrument values verified without re-keying
+- **Finding (question 6, critical):** the known limit recorded in Cycle 289.
+  - Correcting a verified ABO/Rh left the type from the corrected result current until the correction was verified.
+  - The person correcting had declared that type wrong, yet it kept driving compatibility at issue, allocation, and electronic crossmatch until someone verified.
+
+### Design
+
+- `CorrectResultAsync` retires every current type recorded from the corrected result:
+  - not current, and `InvalidatedUtc` set, so it is never evidence again
+  - reason "Source result corrected: …"
+  - audited as Correct
+- It returns `RES-TYPE-RETIRED` with wording saying the patient has no current ABO/Rh until the correction is verified.
+- Verifying the correction records the corrected type, as before.
+- Withdrawing the correction reinstates nothing. This follows the Cycle 289 conservative choice: the type is repeated or the correction verified.
+- The retirement is now one helper shared with invalidation (`RetireDerivedTypesAsync`).
+
+### Requirements / risk
+
+- URS-BB-457, FRS-BB-493, RISK-BB-558. Help: patient tests page.
+
+### Tests
+
+- TEST-BB-352:
+  - rule wording
+  - integration: correcting a verified A Positive leaves no current type, marks the row invalidated with the correction reason, writes a Correct audit row, warns, and the retired type is not a second determination
+- Full suite: 3,417 passed, 0 failed (previously 3,415). No existing test relied on the corrected type staying current.
+- Run check: not done in the running app, because it would mean correcting a verified ABO/Rh in development data. The change is server logic covered by the tests above.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: delta checks between the new ABO/Rh and the historical type at entry (before verification), shown to the verifier.

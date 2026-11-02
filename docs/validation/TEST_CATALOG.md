@@ -360,5 +360,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-349 | D / I | `SpecimenLabelIdentityRuleTests`; `SpecimenLabelIdentityTests.WithoutLabelIdentifiers_IsRefused_AndNothingIsAccessioned`, `LabelIdentifiersThatDoNotMatch_AreRefused`, `MatchingLabelIdentifiers_AreRecorded_WithCollectorAndDrawLocation`, `WhenTheFacilityPrefills_TheRecordIsUsed` | URS-BB-454 / FRS-BB-490 / RISK-BB-556 |
 | TEST-BB-350 | D / I | `SpecimenReceiptScanRuleTests`; `SpecimenReceiptScanTests.ScanOfTheAccession_ReceivesThatTube_AndRecordsTheMethod`, `ScanOfTheLabelBarcode_ReceivesThatTube`, `UnknownTube_IsRefused_AndNothingChanges`, `ScanningAReceivedTubeAgain_IsRefused_NamingTheAccession` | URS-BB-455 / FRS-BB-491 / RISK-BB-557 |
 | TEST-BB-351 | D / I | `SpecimenTransitRuleTests`; `SpecimenReceiptScanTests.AcceptByScan_AfterReceipt_AcceptsThatTube_AndRecordsTheMethod`, `AcceptByScan_BeforeReceipt_IsRefused_NamingTheTube`, `PendingList_ShowsTimeSinceDraw_ThenTimeToReceipt` | URS-BB-456 / FRS-BB-492 |
+| TEST-BB-352 | D / I | `DerivedFromSourceRuleTests.TypeRetiredByCorrection_IsAWarningSayingWhenTheTypeReturns`; `ResultLifecycleTests.CorrectVerifiedAboRh_RetiresTheDerivedTypeImmediately_AndWarns` | URS-BB-457 / FRS-BB-493 / RISK-BB-558 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

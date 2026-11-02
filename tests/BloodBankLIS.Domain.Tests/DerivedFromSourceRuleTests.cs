@@ -20,4 +20,14 @@ public class DerivedFromSourceRuleTests
     [Fact]
     public void TypeRetired_IsAWarningNamingTheType() =>
         Assert.Contains("A Positive", DerivedFromSourceRule.TypeRetired("A Positive").Message);
+
+    // TEST-BB-352
+    [Fact]
+    public void TypeRetiredByCorrection_IsAWarningSayingWhenTheTypeReturns()
+    {
+        var r = DerivedFromSourceRule.TypeRetiredByCorrection("A Positive");
+        Assert.Equal(RuleSeverity.Warning, r.Severity);
+        Assert.Equal(DerivedFromSourceRule.TypeRetiredCode, r.Code);
+        Assert.Contains("until the correction is verified", r.Message);
+    }
 }

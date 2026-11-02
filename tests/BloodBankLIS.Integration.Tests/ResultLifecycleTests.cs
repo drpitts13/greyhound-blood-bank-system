@@ -195,6 +195,34 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
             && a.EntityType == nameof(PatientBloodTypeHistory) && a.EntityId == retired.Id));
     }
 
+    // TEST-BB-352: correcting a verified ABO/Rh retires the type recorded from it at once, not at verification.
+    [Fact]
+    public async Task CorrectVerifiedAboRh_RetiresTheDerivedTypeImmediately_AndWarns()
+    {
+        var patientId = await EnsurePatientAsync("MRN-ABO-CORR");
+        var specimenId = await AccessionAsync("ACC-ABO-CORR", patientId);
+        var resultId = await VerifiedAboRhAsync(specimenId, AboGroup.A, RhType.Positive);
+
+        await using (var context = _factory.Create())
+        {
+            var corrected = await Results(context).CorrectResultAsync(resultId, "O Positive", "Transcription error: tube read as O.");
+            Assert.True(corrected.Succeeded, corrected.Error);
+            var warning = Assert.Single(corrected.Warnings, w => w.Code == DerivedFromSourceRule.TypeRetiredCode);
+            Assert.Contains("A Positive", warning.Message);
+            Assert.Contains("until the correction is verified", warning.Message);
+        }
+
+        await using var verify = _factory.Create();
+        Assert.False(await verify.PatientBloodTypeHistory.AnyAsync(h => h.PatientId == patientId && h.IsCurrent));
+        var retired = await verify.PatientBloodTypeHistory.SingleAsync(h => h.SourceResultId == resultId);
+        Assert.NotNull(retired.InvalidatedUtc);
+        Assert.Contains("Source result corrected", retired.Reason);
+        Assert.True(await verify.AuditEvents.AnyAsync(a => a.EventType == AuditEventType.Correct
+            && a.EntityType == nameof(PatientBloodTypeHistory) && a.EntityId == retired.Id));
+        Assert.False(SecondAboDeterminationRule.HasSecondConcordant(SecondAboDeterminationRule.FromHistory(
+            await verify.PatientBloodTypeHistory.Where(h => h.PatientId == patientId).ToListAsync())));
+    }
+
     [Fact]
     public async Task InvalidatedType_IsNotASecondConcordantDetermination()
     {

@@ -1273,7 +1273,13 @@ public sealed class ResultService
             reason: reason);
 
         await _unitOfWork.SaveChangesAsync(ct);
-        var warnings = await EvaluateTypeCorrectionOpenWorkupWarningsAsync(original, ct);
+        var warnings = (await EvaluateTypeCorrectionOpenWorkupWarningsAsync(original, ct)).ToList();
+
+        // The corrected value is declared wrong now, so the type recorded from it stops driving compatibility now,
+        // not when the correction is verified. Verifying the correction records the corrected type.
+        warnings.AddRange(await RetireDerivedTypesAsync(
+            original.Id, $"Source result corrected: {reason.Trim()}", AuditEventType.Correct,
+            DerivedFromSourceRule.TypeRetiredByCorrection, ct));
         return OperationResult<TestResult>.Ok(correction, warnings);
     }
 
@@ -1452,7 +1458,21 @@ public sealed class ResultService
 
         // A blood type recorded from the invalidated result is no longer the patient's type. Nothing earlier is
         // reinstated: the type is repeated, so a wrong-blood-in-tube result can never stay behind the issue gate.
-        var derived = await _bloodTypes.ListAsync(h => h.SourceResultId == original.Id && h.IsCurrent, ct);
+        warnings.AddRange(await RetireDerivedTypesAsync(
+            original.Id, $"Source result invalidated: {original.InvalidationReason ?? value.InvalidationReason}",
+            AuditEventType.Invalidate, DerivedFromSourceRule.TypeRetired, ct));
+        return OperationResult<TestResult>.Ok(value, warnings);
+    }
+
+    /// <summary>
+    /// Takes every current blood type recorded from <paramref name="sourceResultId"/> out of use: not current, marked
+    /// invalidated (so it is never evidence again), reason recorded, audited. Returns one warning per retired type.
+    /// </summary>
+    private async Task<IReadOnlyList<RuleResult>> RetireDerivedTypesAsync(
+        long sourceResultId, string reason, AuditEventType eventType, Func<string, RuleResult> warning, CancellationToken ct)
+    {
+        var warnings = new List<RuleResult>();
+        var derived = await _bloodTypes.ListAsync(h => h.SourceResultId == sourceResultId && h.IsCurrent, ct);
         foreach (var row in derived)
         {
             var tracked = await _bloodTypes.GetByIdAsync(row.Id, ct);
@@ -1463,16 +1483,16 @@ public sealed class ResultService
 
             tracked.IsCurrent = false;
             tracked.InvalidatedUtc = _clock.UtcNow;
-            tracked.Reason = $"Source result invalidated: {original.InvalidationReason ?? value.InvalidationReason}";
+            tracked.Reason = reason;
             _bloodTypes.Update(tracked);
             _audit.Record(
-                AuditEventType.Invalidate,
+                eventType,
                 nameof(PatientBloodTypeHistory),
                 tracked.Id,
                 oldValue: new { IsCurrent = true, tracked.Abo, tracked.RhD, tracked.SourceResultId },
                 newValue: new { IsCurrent = false, tracked.Reason },
                 reason: tracked.Reason);
-            warnings.Add(DerivedFromSourceRule.TypeRetired($"{tracked.Abo} {tracked.RhD}"));
+            warnings.Add(warning($"{tracked.Abo} {tracked.RhD}"));
         }
 
         if (derived.Count > 0)
@@ -1480,7 +1500,7 @@ public sealed class ResultService
             await _unitOfWork.SaveChangesAsync(ct);
         }
 
-        return OperationResult<TestResult>.Ok(value, warnings);
+        return warnings;
     }
 
     private async Task<IReadOnlyList<RuleResult>> EvaluateTypeCorrectionOpenWorkupWarningsAsync(
