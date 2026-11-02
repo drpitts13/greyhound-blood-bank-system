@@ -365,5 +365,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-354 | I | `Phase4IssuingTests.ShiftHandoff_CountsRunningTransfusions_AndIncompatibleRetrospectiveCrossmatches` | URS-BB-459 / FRS-BB-495 |
 | TEST-BB-355 | D / I | `ManualBloodTypeDocumentationRuleTests`; `Phase3ServicesTests.ManualBloodType_Documented_NeedsAReference_AndIsStored`, `ManualBloodType_Undocumented_StoresNoDocumentation` | URS-BB-460 / FRS-BB-496 / RISK-BB-560 |
 | TEST-BB-356 | D / A | `BloodTypeHistoryLabelTests`; `BloodTypeDtoTests.RetiredTestedType_IsMarked_AndDoesNotCount`, `DocumentedManualType_NamesItsRecord_AndCounts` | URS-BB-461 / FRS-BB-497 |
+| TEST-BB-357 | D / I | `ResultReleaseRuleTests`; `Hl7OruBuilderTests.FirstVerifiedResult_IsFinal`, `VerifiedCorrection_IsCorrected`, `InvalidatedAfterVerification_IsPostedAsWrong`; `ResultLifecycleTests.Outbound_InvalidatedVerifiedResult_IsSentAsWrong_UnverifiedIsRefused` | URS-BB-462 / FRS-BB-498 / RISK-BB-561 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

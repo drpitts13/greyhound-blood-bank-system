@@ -467,3 +467,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-459 | The shift handoff tells the incoming shift how many transfusions are running, how many are overdue for completion, and how many emergency releases came back incompatible on the retrospective crossmatch. | P2 | FRS-BB-495 |
 | URS-BB-460 | A hand-recorded ABO/Rh counts as an ABO/Rh determination only when it is documented from a previous blood bank system or a documented outside source, and the record it came from is named. | P1 | FRS-BB-496 |
 | URS-BB-461 | The chart's blood type history says where each type came from, marks retired types with the reason, and says which types do not count as an ABO/Rh determination. | P2 | FRS-BB-497 |
+| URS-BB-462 | A result sent to the EHR says whether it is final, a correction, or withdrawn as wrong, so the EHR does not keep showing a corrected or invalidated value as final. | P1 | FRS-BB-498 |

@@ -9705,3 +9705,46 @@ The chart's blood type history showed type, subgroup, the raw source enum, and t
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan.
+
+## Iteration 315 — Outbound results say final, corrected, or wrong (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 314 other than the HL7 row.
+
+### Finding (interoperability, question 6)
+
+Outbound ORU results were always sent with OBX-11 = F, and only results with status Verified could be sent.
+- After a verified ABO/Rh was corrected (Cycle 310) or invalidated (Cycle 289), the EHR could not be told. A corrected value went as another "final", and an invalidated value could not be sent at all, so the EHR kept the wrong type as final.
+- The builder's documentation and `hl7-design.md` said results were sent when verified. In fact they are queued only on request through `POST /api/hl7/outbound/results/{id}`, with no UI and, until now, no tests.
+
+### Design
+
+- `ResultReleaseRule.ObxStatus`, using HL7 v2 table 0085 (an interface standard, not a clinical rule):
+  - F for a verified first version
+  - C for a verified later version (a correction)
+  - W for a result that had been verified and was then invalidated
+  - nothing else is sent
+- `Hl7OruBuilder` writes that status.
+- `Hl7OutboundService` accepts an invalidated, previously verified result (sent as W) and still refuses unverified results.
+- The builder comment and `hl7-design.md` 2.3 now describe sending on request and the F/C/W statuses.
+
+### Requirements / risk
+
+- URS-BB-462, FRS-BB-498, RISK-BB-561. The residual risk stays Medium because nothing sends results automatically yet.
+
+### Tests
+
+- TEST-BB-357:
+  - rule: F, C, W, and not sent
+  - builder: OBX-11 for a first verified result, a verified correction, and an invalidated verified result
+  - integration (the first service test for this path): an invalidated verified ABO/Rh is queued with W, and an unverified result is refused
+- Full suite: 3,451 passed, 0 failed (previously 3,441).
+- Run check (development API):
+  - queueing a missing result returned "Result 999999 not found."
+  - no server errors
+  - nothing was queued, so no outbound message was written to development data
+
+### Next ranked residual
+
+When a result is corrected or invalidated after being sent, queue the C or W message automatically, so the EHR is updated without anyone remembering to. This needs a record of which results were sent; it may need a product decision on automatic sending. Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan.

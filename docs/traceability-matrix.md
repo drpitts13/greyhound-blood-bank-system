@@ -498,6 +498,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-459 / FRS-BB-495 | Handoff counts running transfusions and incompatible retrospective crossmatches | `ShiftHandoffService`; shift handoff page | TEST-BB-354 | I | |
 | URS-BB-460 / FRS-BB-496 | Manual ABO/Rh counts only when documented (OCD-048) | `ManualBloodTypeDocumentationRule`; `SecondAboDeterminationRule`; `ImmunohematologyService`; chart overview | TEST-BB-355 | D / I | |
 | URS-BB-461 / FRS-BB-497 | Blood type history shows source, retirement, and what counts | `BloodTypeHistoryLabel`; `BloodTypeDto`; chart overview | TEST-BB-356 | D / A | |
+| URS-BB-462 / FRS-BB-498 | Outbound results carry final, corrected, or wrong status | `ResultReleaseRule`; `Hl7OruBuilder`; `Hl7OutboundService` | TEST-BB-357 | D / I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

@@ -54,7 +54,7 @@ Action: upsert patient demographics and visit. Demographics updates never overwr
 Action: create or cancel the order through `OrderService` (same safety checks as the UI).
 
 ### 2.3 Outbound ORU (results)
-Builds `MSH + PID + OBR + OBX` from a verified `TestResult` using the enabled Results outbound endpoint's MSH identity and field map. Stored in `HL7Messages` with direction Outbound.
+Builds `MSH + PID + OBR + OBX` from a released `TestResult` using the enabled Results outbound endpoint's MSH identity and field map. Stored in `HL7Messages` with direction Outbound. Queued on request (`POST /api/hl7/outbound/results/{id}`); nothing queues it automatically at verification. OBX-11 (table 0085) is F for a verified first version, C for a verified correction (later version), and W for a result that had been verified and was then invalidated, so the EHR replaces or withdraws the earlier value (Cycle 315). Unverified results are never sent.
 
 ### 2.3a Inbound ORU (unverified results)
 Default catalog (customizable per endpoint):

@@ -3,6 +3,7 @@ using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
+using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.HL7.Messaging;
 
@@ -50,9 +51,11 @@ public sealed class Hl7OutboundService : IBillingInterfacePublisher
             return OperationResult<Hl7MessageLog>.Fail($"Result {resultId} not found.");
         }
 
-        if (result.Status != ResultStatus.Verified)
+        // A verified result goes as final or corrected; a verified result later invalidated goes as wrong, so the EHR
+        // stops showing it. Unverified results are never sent.
+        if (ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null) is null)
         {
-            return OperationResult<Hl7MessageLog>.Fail("Only verified results are released over HL7.");
+            return OperationResult<Hl7MessageLog>.Fail("Only verified results, or verified results since invalidated, are sent over HL7.");
         }
 
         var patient = await _patients.GetByIdAsync(result.PatientId, ct);

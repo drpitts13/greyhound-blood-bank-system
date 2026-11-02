@@ -1,6 +1,7 @@
 using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Interfaces;
+using BloodBankLIS.Domain.Rules;
 using BloodBankLIS.HL7.Parsing;
 
 namespace BloodBankLIS.HL7.Messaging;
@@ -28,8 +29,9 @@ public sealed record Hl7OutboundIdentity(
 }
 
 /// <summary>
-/// Builds an outbound ORU^R01 result message (MSH + PID + OBR + OBX) from a verified
-/// test result, triggered when a result is verified (docs/hl7-design.md section 2.3).
+/// Builds an outbound ORU^R01 result message (MSH + PID + OBR + OBX) for a result released to the EHR.
+/// Queued on request through <c>POST /api/hl7/outbound/results/{id}</c>. OBX-11 says whether it is a final
+/// result (F), a correction (C), or a result withdrawn as wrong (W); see <see cref="ResultReleaseRule"/>.
 /// </summary>
 public static class Hl7OruBuilder
 {
@@ -68,7 +70,8 @@ public static class Hl7OruBuilder
             .Set(map.Path(InterfaceDataItemKeys.ResultValue), translator.ToExternal(InterfaceDataItemKeys.ResultValue, result.Value))
             .Set(map.Path(InterfaceDataItemKeys.ResultUnits), translator.ToExternal(InterfaceDataItemKeys.ResultUnits, result.Units))
             .Set(map.Path(InterfaceDataItemKeys.ResultInterpretation), translator.ToExternal(InterfaceDataItemKeys.ResultInterpretation, result.Interpretation))
-            .Set(map.Path(InterfaceDataItemKeys.ResultObxStatus), translator.ToExternal(InterfaceDataItemKeys.ResultObxStatus, "F"));
+            .Set(map.Path(InterfaceDataItemKeys.ResultObxStatus), translator.ToExternal(InterfaceDataItemKeys.ResultObxStatus,
+                ResultReleaseRule.ObxStatus(result.Status, result.Version, result.VerifiedUtc is not null) ?? ResultReleaseRule.Final));
 
         return builder.Build();
     }

@@ -261,6 +261,40 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(specimenId, (await c.PatientBloodTypeHistory.AsNoTracking().SingleAsync(h => h.SourceResultId == resultId)).SpecimenId);
     }
 
+    // TEST-BB-357: a verified result later invalidated can be sent to the EHR as wrong; unverified results cannot be sent.
+    [Fact]
+    public async Task Outbound_InvalidatedVerifiedResult_IsSentAsWrong_UnverifiedIsRefused()
+    {
+        var patientId = await EnsurePatientAsync("MRN-ORU-W");
+        var specimenId = await AccessionAsync("ACC-ORU-W", patientId);
+        var resultId = await VerifiedAboRhAsync(specimenId, AboGroup.A, RhType.Positive);
+
+        long retractionId;
+        await using (var context = _factory.Create())
+        {
+            Assert.True((await Results(context).InvalidateResultAsync(resultId, "Wrong blood in tube")).Succeeded);
+            retractionId = (await context.TestResults.AsNoTracking().SingleAsync(r => r.Id == resultId)).SupersededByResultId!.Value;
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var queued = await Outbound(context).QueueResultMessageAsync(retractionId);
+            Assert.True(queued.Succeeded, queued.Error);
+            var obx = queued.Value!.RawMessage.Split('\r', StringSplitOptions.RemoveEmptyEntries).Single(x => x.StartsWith("OBX|", StringComparison.Ordinal));
+            Assert.Equal("W", obx.Split('|')[11]);
+        }
+
+        var otherSpecimen = await AccessionAsync("ACC-ORU-UNV", patientId);
+        await using var c2 = _factory.Create();
+        var entered = await Results(c2).EnterAboRhAsync(new EnterAboRhRequest(otherSpecimen, AboGroup.A, RhType.Positive));
+        Assert.True(entered.Succeeded, entered.Error);
+        var refused = await Outbound(c2).QueueResultMessageAsync(entered.Value!.Id);
+        Assert.False(refused.Succeeded);
+    }
+
+    private BloodBankLIS.HL7.Messaging.Hl7OutboundService Outbound(BloodBankDbContext c) =>
+        new(new EfRepository<TestResult>(c), new EfRepository<Patient>(c), new EfRepository<Hl7MessageLog>(c), c, _factory.Clock);
+
     [Fact]
     public async Task InvalidatedType_IsNotASecondConcordantDetermination()
     {
