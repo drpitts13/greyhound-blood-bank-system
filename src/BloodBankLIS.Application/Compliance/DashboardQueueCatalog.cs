@@ -44,7 +44,7 @@ public static class DashboardQueueCatalog
         Add(cards, has(PermissionCodes.ReactionInvestigate), Reactions, "Reaction investigations", "/reactions");
         Add(cards, has(PermissionCodes.ImmunoOverride)
             || has(PermissionCodes.ResultVerify)
-            || has(PermissionCodes.InventoryRelease), Supervisor, "Supervisor queue", "/supervisor");
+            || has(PermissionCodes.InventoryRelease) || has(PermissionCodes.OverrideApprove), Supervisor, "Supervisor queue", "/supervisor");
         Add(cards, has(PermissionCodes.InventoryReceive)
             || has(PermissionCodes.DeviationManage), TemperatureExcursions, "Temperature excursions", "/storage-temps");
         Add(cards, has(PermissionCodes.ShiftHandoff), Handoff, "Shift handoff", "/handoff");

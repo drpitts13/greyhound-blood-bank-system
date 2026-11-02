@@ -585,6 +585,9 @@ public sealed class BloodBankApiClient
         SendAsync<AllocationDto>(HttpMethod.Post, $"api/allocations/{id}/release", new ReasonRequestVm(reason), ct);
 
     // ---- Issuing ----
+    public Task<ApiResult<OverrideReviewItemDto>> ReviewOverrideAsync(long overrideId, ReviewOverrideRequest req, CancellationToken ct = default) =>
+        SendAsync<OverrideReviewItemDto>(HttpMethod.Post, $"api/overrides/{overrideId}/review", req, ct);
+
     public Task<ApiResult<List<MtpActivationDto>>> GetActiveMtpAsync(CancellationToken ct = default) =>
         SendAsync<List<MtpActivationDto>>(HttpMethod.Get, "api/mtp/active", ct: ct);
 

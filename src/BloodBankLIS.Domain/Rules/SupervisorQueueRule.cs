@@ -11,16 +11,20 @@ public static class SupervisorQueueRule
     public const string KindAntibodyReview = "AntibodyIdReview";
     public const string KindResultVerify = "ResultPendingVerification";
     public const string KindQuarantineRelease = "QuarantineRelease";
+    public const string KindOverrideReview = "OverrideReview";
 
     public static RuleResult EvaluateAccess(
         bool hasImmunoOverride,
         bool hasResultVerify,
-        bool hasInventoryRelease) =>
-        hasImmunoOverride || hasResultVerify || hasInventoryRelease
+        bool hasInventoryRelease,
+        bool hasOverrideApprove = false) =>
+        hasImmunoOverride || hasResultVerify || hasInventoryRelease || hasOverrideApprove
             ? RuleResult.Pass(PermissionCode)
             : RuleResult.HardStop(
                 PermissionCode,
-                "The supervisor queue requires immuno.override, result.verify, or inventory.release.");
+                "The supervisor queue requires immuno.override, result.verify, inventory.release, or override.approve.");
+
+    public static bool IncludeOverrideReview(bool hasOverrideApprove) => hasOverrideApprove;
 
     public static bool IncludeAntibodyReview(bool hasImmunoOverride) => hasImmunoOverride;
 
@@ -33,6 +37,7 @@ public static class SupervisorQueueRule
         KindAntibodyReview => 0,
         KindResultVerify => 1,
         KindQuarantineRelease => 2,
+        KindOverrideReview => 3,
         _ => 99
     };
 }

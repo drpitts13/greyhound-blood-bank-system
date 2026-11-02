@@ -129,6 +129,17 @@ public static class ComplianceEndpoints
 
     private static void MapSupervisorQueue(WebApplication app)
     {
+        app.MapPost("/api/overrides/{id:long}/review", async (long id, ReviewOverrideRequest request, OverrideReviewService service, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await service.ReviewAsync(id, request, ct), d => d))
+            .WithTags("Supervisor")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.OverrideApprove);
+        app.MapGet("/api/overrides/pending-review", async (OverrideReviewService service, CancellationToken ct) =>
+                Results.Ok(await service.ListPendingAsync(ct)))
+            .WithTags("Supervisor")
+            .RequireAuthenticatedUser()
+            .RequirePermission(PermissionCodes.OverrideApprove);
+
         app.MapGet("/api/supervisor-queue", async (SupervisorQueueService service, CancellationToken ct) =>
                 EndpointResults.From(await service.ListAsync(ct), items => items))
             .WithTags("SupervisorQueue")

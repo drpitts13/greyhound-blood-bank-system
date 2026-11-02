@@ -32,4 +32,13 @@ public class Override : BaseEntity
     /// for RES-ABORH-DELTA). Null for issue-path overrides.
     /// </summary>
     public string? Resolution { get; set; }
+
+    /// <summary>Second-person review after the fact (override.approve). Null until reviewed.</summary>
+    public OverrideReviewOutcome? ReviewOutcome { get; set; }
+
+    public string? ReviewedBy { get; set; }
+
+    public DateTime? ReviewedUtc { get; set; }
+
+    public string? ReviewNote { get; set; }
 }

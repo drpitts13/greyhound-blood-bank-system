@@ -68,7 +68,32 @@ else
                         <td>@row.Title</td>
                         <td class="muted">@row.Detail</td>
                         <td class="right nowrap">
-                            <a class="btn btn-primary btn-sm" href="@row.Href">@row.NextAction</a>
+                            @if (row.Kind == SupervisorQueueRule.KindOverrideReview && row.ContextId is long overrideId)
+                            {
+                                @* Review in place: the row already shows what was overridden, why, and by whom. *@
+                                @if (row.Href != "/supervisor")
+                                {
+                                    <a class="btn btn-ghost btn-sm" href="@row.Href">Open</a>
+                                }
+                                @if (_reviewingId == overrideId)
+                                {
+                                    <div class="field" style="min-width:16rem;margin:.25rem 0;text-align:left;">
+                                        <label>Note (required for follow-up)</label>
+                                        <input @bind="_reviewNote" />
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" disabled="@_busy" @onclick="() => ReviewAsync(overrideId, OverrideReviewOutcome.Acceptable)">Acceptable</button>
+                                    <button class="btn btn-secondary btn-sm" disabled="@_busy" @onclick="() => ReviewAsync(overrideId, OverrideReviewOutcome.FollowUpRequired)">Needs follow-up</button>
+                                    <button class="btn btn-ghost btn-sm" @onclick="() => _reviewingId = null">Cancel</button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-primary btn-sm" @onclick="() => { _reviewingId = overrideId; _reviewNote = null; }">Review</button>
+                                }
+                            }
+                            else
+                            {
+                                <a class="btn btn-primary btn-sm" href="@row.Href">@row.NextAction</a>
+                            }
                         </td>
                     </tr>
                 }
@@ -92,7 +117,26 @@ else
     private bool CanSeeQueue =>
         Session.Has(PermissionCodes.ImmunoOverride)
         || Session.Has(PermissionCodes.ResultVerify)
-        || Session.Has(PermissionCodes.InventoryRelease);
+        || Session.Has(PermissionCodes.InventoryRelease)
+        || Session.Has(PermissionCodes.OverrideApprove);
+
+    private long? _reviewingId;
+    private string? _reviewNote;
+    private bool _busy;
+
+    private async Task ReviewAsync(long overrideId, OverrideReviewOutcome outcome)
+    {
+        _busy = true;
+        var r = await Api.ReviewOverrideAsync(overrideId, new ReviewOverrideRequest(outcome, _reviewNote));
+        _busy = false;
+        _fb = r.ToFeedback(outcome == OverrideReviewOutcome.Acceptable ? "Override reviewed: acceptable." : "Override reviewed: follow-up needed.");
+        if (r.Succeeded)
+        {
+            _reviewingId = null;
+            _reviewNote = null;
+            _items.RemoveAll(i => i.Kind == SupervisorQueueRule.KindOverrideReview && i.ContextId == overrideId);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -118,6 +162,7 @@ else
         SupervisorQueueRule.KindAntibodyReview => "ABID review",
         SupervisorQueueRule.KindResultVerify => "Result verify",
         SupervisorQueueRule.KindQuarantineRelease => "Quarantine",
+        SupervisorQueueRule.KindOverrideReview => "Override review",
         _ => kind
     };
 }

@@ -177,7 +177,7 @@ public class SeederTests : IClassFixture<SqliteContextFactory>
         Assert.Equal(CrossmatchClinicalStatus.NotCrossmatchedEmergency, emergency.CrossmatchStatus);
         Assert.NotNull(emergency.OverrideId);
         Assert.True(await verify.Overrides.AnyAsync(o =>
-            o.Action == OverrideAction.EmergencyRelease && o.ContextId == emergency.Id));
+            o.Action == OverrideAction.EmergencyRelease && o.ContextId == emergency.BloodProductId));
 
         var reaction = await verify.TransfusionEvents.SingleAsync(t => t.ReactionSuspected);
         Assert.Equal(TransfusionDisposition.Stopped, reaction.FinalDisposition);

@@ -79,7 +79,8 @@
     }
     @if (Session.Has(PermissionCodes.ImmunoOverride)
         || Session.Has(PermissionCodes.ResultVerify)
-        || Session.Has(PermissionCodes.InventoryRelease))
+        || Session.Has(PermissionCodes.InventoryRelease)
+        || Session.Has(PermissionCodes.OverrideApprove))
     {
         <NavLink href="supervisor" ActiveClass="active">Supervisor Queue</NavLink>
     }

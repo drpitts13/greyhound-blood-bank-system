@@ -674,6 +674,9 @@ public sealed class OverrideConfiguration : IEntityTypeConfiguration<Override>
         b.Property(o => o.Reason).HasMaxLength(1000).IsRequired();
         b.Property(o => o.AuthorizedBy).HasMaxLength(100).IsRequired();
         b.Property(o => o.Resolution).HasMaxLength(50);
+        b.Property(o => o.ReviewedBy).HasMaxLength(100);
+        b.Property(o => o.ReviewNote).HasMaxLength(1000);
+        b.HasIndex(o => o.ReviewedUtc);
         b.Property(o => o.CreatedBy).HasMaxLength(100).IsRequired();
         b.Property(o => o.ModifiedBy).HasMaxLength(100);
 

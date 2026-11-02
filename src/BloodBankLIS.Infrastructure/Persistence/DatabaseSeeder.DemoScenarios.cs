@@ -1142,7 +1142,8 @@ public static partial class DatabaseSeeder
         context.Issues.Add(issue);
         await context.SaveChangesAsync(ct);
 
-        release.ContextId = issue.Id;
+        // Same convention as IssuingService: an issue override's context id is the unit.
+        release.ContextId = unit.Id;
         await context.SaveChangesAsync(ct);
     }
 

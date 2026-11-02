@@ -480,6 +480,13 @@ public enum OverrideAction
     EmergencyRelease = 1
 }
 
+/// <summary>Second-person review of an override after the fact.</summary>
+public enum OverrideReviewOutcome
+{
+    Acceptable = 1,
+    FollowUpRequired = 2
+}
+
 /// <summary>
 /// How to resolve an ABO/Rh delta between a verified result and historical type.
 /// </summary>

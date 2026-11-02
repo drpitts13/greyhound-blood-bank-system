@@ -29,14 +29,17 @@ public sealed class SupervisorQueueService
     private readonly InventoryService? _inventory;
     private readonly ICurrentUser _currentUser;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly OverrideReviewService? _overrides;
 
     public SupervisorQueueService(
         ICurrentUser currentUser,
         AntibodyIdentificationService? abid = null,
         TestWorklistService? tests = null,
         InventoryService? inventory = null,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        OverrideReviewService? overrides = null)
     {
+        _overrides = overrides;
         _currentUser = currentUser;
         _abid = abid;
         _tests = tests;
@@ -50,7 +53,8 @@ public sealed class SupervisorQueueService
         var immuno = await HasAsync(PermissionCodes.ImmunoOverride, ct);
         var verify = await HasAsync(PermissionCodes.ResultVerify, ct);
         var release = await HasAsync(PermissionCodes.InventoryRelease, ct);
-        var access = SupervisorQueueRule.EvaluateAccess(immuno, verify, release);
+        var approve = await HasAsync(PermissionCodes.OverrideApprove, ct);
+        var access = SupervisorQueueRule.EvaluateAccess(immuno, verify, release, approve);
         if (access.Severity == RuleSeverity.HardStop)
         {
             return OperationResult<IReadOnlyList<SupervisorQueueItemDto>>.Fail(access.Message);
@@ -114,6 +118,21 @@ public sealed class SupervisorQueueService
                     $"/inventory/units/{u.UnitId}",
                     "Release",
                     ContextId: u.UnitId));
+            }
+        }
+
+        if (SupervisorQueueRule.IncludeOverrideReview(approve) && _overrides is not null)
+        {
+            foreach (var o in await _overrides.ListPendingAsync(ct))
+            {
+                var what = o.Action == OverrideAction.EmergencyRelease ? "Emergency release" : "Warning override";
+                items.Add(new SupervisorQueueItemDto(
+                    SupervisorQueueRule.KindOverrideReview,
+                    $"{what} — {o.ContextType} {o.ContextId}",
+                    $"{o.OverriddenUtc:yyyy-MM-dd HH:mm} UTC. Rule {o.RuleCode}. Reason: {o.Reason}. Authorized by {o.AuthorizedBy}, performed by {o.PerformedBy}.",
+                    o.ContextHref ?? "/supervisor",
+                    "Review",
+                    ContextId: o.Id));
             }
         }
 

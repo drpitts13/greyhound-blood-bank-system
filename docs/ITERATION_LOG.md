@@ -8510,3 +8510,61 @@ No change since Cycle 286. This cycle audits downtime recovery and back-entry.
 ### Next ranked residual
 
 Downtime back-entry of transfusions (awaiting product decision), then the supervisor queue audit.
+
+## Iteration 288 — Second-person override review (2026-11-01)
+
+### Capability matrix rescan
+
+No change since Cycle 287. This cycle audits the supervisor queue.
+
+### Findings
+
+- **No override review existed.** The queue held antibody reviews, result verifications, and quarantine releases only.
+  - `Override` rows (emergency release, issue warnings, results, specimens, orders, allocations) had no reviewer fields.
+  - The catalog permission `override.approve` was defined, and counted as privileged for MFA, but **no code used it**.
+  - Nobody ever looked at an override again.
+- **Inconsistent demo data:** the trauma demo stored its emergency-release override with the issue id as context, while `IssuingService` uses the unit id.
+
+### Design
+
+- **Override review fields:** `ReviewOutcome` (Acceptable, Needs follow-up), `ReviewedBy`, `ReviewedUtc`, `ReviewNote`.
+- `OverrideReviewRule` (`OVR-REVIEW`):
+  - one review only
+  - the reviewer must not be the performer (`CreatedBy`) or the authorizer
+  - Needs follow-up requires a note
+  - review is a record, not a gate; it never undoes the override
+- `OverrideReviewService` (`override.approve`) lists unreviewed overrides oldest first and records each review, audited.
+- **Supervisor queue:**
+  - a new kind, **Override review**, for holders of `override.approve`
+  - each row shows the action, context, rule, reason, authorizer, performer, and time, with **Open** (the unit, for issue overrides) and inline **Review** → **Acceptable** or **Needs follow-up**
+  - the menu, dashboard card, and access rule include `override.approve`
+- **Not decided here:**
+  - who holds `override.approve`; it stays Administrator-only by default, and facilities grant it to their medical director or supervisor role (it makes holders MFA-privileged)
+  - how soon overrides must be reviewed
+- **Demo data:** the trauma override's context is now the unit, matching real issues. Existing development databases keep their row.
+- **Schema:** migration `20261103150000_OverrideReview`, the dev bootstrap, and an index on `ReviewedUtc`.
+
+### Requirements / risk
+
+- URS-BB-440, FRS-BB-476, SRS-BB-438, RISK-BB-542. Help: supervisor queue page.
+
+### Tests
+
+- TEST-BB-332:
+  - `OverrideReviewRuleTests` (7 cases)
+  - `OverrideReviewTests`:
+    - a second-person review is recorded, audited, and leaves the pending list, and cannot be repeated
+    - review by the performer, by the authorizer (case-insensitive), without the permission, or with follow-up and no note is refused, and nothing is written
+    - the supervisor queue lists unreviewed overrides only for `override.approve`
+- `SeederTests` updated for the unit-context convention.
+- Full suite: 3,299 passed, 0 failed (previously 3,289). Domain 1,872, Integration 1,190, Application 105, Help 29, HL7 63, Printing 21, Astm 19. Integration was rerun after the seeder fix: 1,190 passed.
+- Run check (development API and Web, DevMode):
+  - `/api/overrides/pending-review` lists the trauma demo's emergency release (authorized by Dr. Amy Lee, performed by DEV_ADMIN)
+  - the supervisor queue shows **Override review (1)**
+  - reviewing it as DEV_ADMIN, the performer, is refused on screen: "Someone other than the person who performed or authorized the override must review it."
+  - a follow-up review with a blank note returns 422
+  - no review was recorded and there were no server errors
+
+### Next ranked residual
+
+Downtime back-entry of transfusions (awaiting product decision). Otherwise continue workflow audits: specimen receipt and rejection.

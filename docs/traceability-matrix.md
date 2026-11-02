@@ -476,6 +476,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-437 / FRS-BB-473 | Transfusion recorded only through bedside documentation; consistent times and volume | `TransfusionDocumentationRule`; `IssuingService`; `IssuingEndpoints`; `Issuing.razor`; chart and unit pages | TEST-BB-329 | D / I | |
 | URS-BB-438 / FRS-BB-474 | Shift handoff accountability | `ShiftHandoffRule`; `ShiftHandoffService`; `ComplianceEndpoints`; `DatabaseSeeder`; `ShiftHandoff.razor` | TEST-BB-330 | D / I | |
 | URS-BB-439 / FRS-BB-475 | Late-entry issue time with reason | `IssueTimeRule`; `IssuingService`; `PatientChartProductsTab.razor` | TEST-BB-331 | D / I | Fuller downtime back-entry awaits product decision |
+| URS-BB-440 / FRS-BB-476 | Second-person override review | `OverrideReviewRule`; `OverrideReviewService`; `SupervisorQueueService`; `ComplianceEndpoints`; `SupervisorQueue.razor` | TEST-BB-332 | D / I | Reviewer role and timeframe are facility policy |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.
