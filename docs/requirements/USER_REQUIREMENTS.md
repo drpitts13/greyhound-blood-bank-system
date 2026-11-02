@@ -479,3 +479,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-471 | A verified result can be corrected, and the correction verified, after its specimen has expired, so a wrong value on the record can always be fixed. | P1 | FRS-BB-507 |
 | URS-BB-472 | A result waiting for verification whose specimen expires soon says by when it must be verified and is listed ahead of other routine work, so it is not lost when the specimen expires. A pending correction can be worked from the worklist after the specimen expires. | P1 | FRS-BB-508 |
 | URS-BB-473 | The dashboard says how many pending results must be verified before their specimen expires. | P2 | FRS-BB-509 |
+| URS-BB-474 | The shift handoff records how many pending results must be verified before their specimen expires, so the next shift verifies them in time. | P2 | FRS-BB-510 |

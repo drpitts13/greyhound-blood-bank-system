@@ -10,7 +10,7 @@ routes:
 
 ![Shift handoff](figures/handoff.png)
 
-**Shift Handoff** shows the counts that matter at change of shift: work still open on the benches you can see, including pending results, open issues, and retrospective crossmatches that are due. You need the shift handoff permission (`shift.handoff`) to open it. Technologists and supervisors have it; read-only and auditor roles do not, because acknowledging a handoff accepts responsibility for the open work.
+**Shift Handoff** shows the counts that matter at change of shift: work still open on the benches you can see, including pending results (and how many of them must be verified before their specimen expires), open issues, and retrospective crossmatches that are due. You need the shift handoff permission (`shift.handoff`) to open it. Technologists and supervisors have it; read-only and auditor roles do not, because acknowledging a handoff accepts responsibility for the open work.
 
 The counts are a snapshot, not a sign-out of each patient. Write the handoff note for anything the count cannot say: a unit in a cooler that has not been received, a patient whose specimen is unacceptable, an interface that has been down, a retrospective crossmatch that is overdue. The note is required. An empty handoff is not a completed handoff.
 

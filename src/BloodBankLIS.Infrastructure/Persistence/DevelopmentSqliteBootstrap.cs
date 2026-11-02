@@ -38,6 +38,7 @@ public static class DevelopmentSqliteBootstrap
         ("ShiftHandoffs", "ActiveMtp", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "ActiveMtp" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "TransfusionsRunning", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TransfusionsRunning" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "TransfusionsCompletionOverdue", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "TransfusionsCompletionOverdue" INTEGER NOT NULL DEFAULT 0"""),
+        ("ShiftHandoffs", "PendingTestsVerifyBeforeExpiry", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "PendingTestsVerifyBeforeExpiry" INTEGER NOT NULL DEFAULT 0"""),
         ("ShiftHandoffs", "RetrospectiveIncompatible", """ALTER TABLE "ShiftHandoffs" ADD COLUMN "RetrospectiveIncompatible" INTEGER NOT NULL DEFAULT 0"""),
         ("ReactionInvestigations", "ReopenedUtc", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedUtc" TEXT NULL"""),
         ("ReactionInvestigations", "ReopenedBy", """ALTER TABLE "ReactionInvestigations" ADD COLUMN "ReopenedBy" TEXT NULL"""),

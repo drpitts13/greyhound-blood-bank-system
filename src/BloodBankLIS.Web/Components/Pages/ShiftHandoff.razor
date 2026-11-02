@@ -208,6 +208,8 @@ else
         (row.RetrospectiveOverdue > 0 ? $", {row.RetrospectiveOverdue} overdue" : "") +
         $"; issued {row.OutstandingIssued}; transit {row.InTransit}" +
         (row.InTransitOverdue > 0 ? $", {row.InTransitOverdue} overdue" : "") +
-        $"; tests {row.PendingTests}; specimens {row.PendingSpecimens}; reactions {row.OpenReactions}" +
+        $"; tests {row.PendingTests}" +
+        (row.PendingTestsVerifyBeforeExpiry > 0 ? $", {row.PendingTestsVerifyBeforeExpiry} to verify before specimen expiry" : "") +
+        $"; specimens {row.PendingSpecimens}; reactions {row.OpenReactions}" +
         (row.FatalityFollowUpDue > 0 ? $", {row.FatalityFollowUpDue} fatality follow-up" : "");
 }

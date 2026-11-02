@@ -378,5 +378,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-367 | I | `TestWorklistTests.WorklistCorrection_AfterTheSpecimenExpires_CreatesTheCorrectedVersion`, `CorrectionReason_DoesNotLetAFirstResultPost_OnAnExpiredSpecimen`; `ResultCorrectionAfterExpiryTests.VerifiedResult_CanBeInvalidated_AfterTheSpecimenExpires` | URS-BB-471 / FRS-BB-507 / RISK-BB-570 / OCD-051 |
 | TEST-BB-368 | D / I | `VerificationDeadlineRuleTests.PendingResult_WithSpecimenExpiringInsideTheWindow_GetsTheDeadline`, `NoDeadline_OutsideTheWindow_AfterExpiry_OrWithoutAnExpiration`, `NoDeadline_ForCorrectionsOrFinishedResults`, `OnlyAPendingCorrection_IsAllowedAnExpiredSpecimen`; `TestWorklistTests.PendingResult_WhoseSpecimenExpiresSoon_NamesTheDeadline_AndComesFirst`, `PendingCorrection_OnAnExpiredSpecimen_CanStillBeWorkedFromTheWorklist` | URS-BB-472 / FRS-BB-508 / RISK-BB-571 |
 | TEST-BB-369 | D | `DashboardDueCountTests.PendingTests_CountsOnlyRowsWithAVerificationDeadline` | URS-BB-473 / FRS-BB-509 / RISK-BB-572 |
+| TEST-BB-370 | I | `TestWorklistTests.ShiftHandoff_CountsResultsToVerifyBeforeSpecimenExpiry` | URS-BB-474 / FRS-BB-510 / RISK-BB-573 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

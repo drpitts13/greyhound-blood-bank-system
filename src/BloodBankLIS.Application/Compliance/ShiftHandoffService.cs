@@ -32,7 +32,8 @@ public sealed record ShiftHandoffDto(
     int ActiveMtp = 0,
     int TransfusionsRunning = 0,
     int TransfusionsCompletionOverdue = 0,
-    int RetrospectiveIncompatible = 0)
+    int RetrospectiveIncompatible = 0,
+    int PendingTestsVerifyBeforeExpiry = 0)
 {
     public bool IsAcknowledged => AcknowledgedUtc is not null;
 
@@ -41,7 +42,8 @@ public sealed record ShiftHandoffDto(
         h.RetrospectiveDue, h.RetrospectiveOverdue, h.OutstandingIssued,
         h.InTransit, h.InTransitOverdue, h.PendingTests, h.PendingSpecimens,
         h.OpenReactions, h.FatalityFollowUpDue, h.AcknowledgedBy, h.AcknowledgedUtc, h.ActiveMtp,
-        h.TransfusionsRunning, h.TransfusionsCompletionOverdue, h.RetrospectiveIncompatible);
+        h.TransfusionsRunning, h.TransfusionsCompletionOverdue, h.RetrospectiveIncompatible,
+        h.PendingTestsVerifyBeforeExpiry);
 }
 
 /// <summary>
@@ -186,7 +188,8 @@ public sealed class ShiftHandoffService
                 : (await _mtpActivations.ListAsync(a => a.Status == MtpActivationStatus.Active, ct)).Count,
             TransfusionsRunning = outstanding.Count(o => o.TransfusionStartedUtc is not null),
             TransfusionsCompletionOverdue = outstanding.Count(o => o.TransfusionCompletionOverdue),
-            RetrospectiveIncompatible = retro.Count(r => r.CrossmatchStatus == CrossmatchClinicalStatus.Incompatible)
+            RetrospectiveIncompatible = retro.Count(r => r.CrossmatchStatus == CrossmatchClinicalStatus.Incompatible),
+            PendingTestsVerifyBeforeExpiry = PendingTestAttentionRule.CountVerifyBeforeExpiry(pendingTests)
         };
 
         await _handoffs.AddAsync(row, ct);
@@ -253,7 +256,8 @@ public sealed class ShiftHandoffService
         row.ActiveMtp,
         row.TransfusionsRunning,
         row.TransfusionsCompletionOverdue,
-        row.RetrospectiveIncompatible
+        row.RetrospectiveIncompatible,
+        row.PendingTestsVerifyBeforeExpiry
     };
 
     private async Task<OperationResult<ShiftHandoff>?> RejectUnauthorizedAsync(CancellationToken ct)

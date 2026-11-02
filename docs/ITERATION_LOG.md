@@ -10202,3 +10202,41 @@ Cycle 326 put the verification deadline on the worklist and supervisor queue, bu
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: the shift handoff packet could carry the same count of results to verify before specimen expiry, so the next shift sees them.
+
+## Iteration 328 — Shift handoff counts results to verify before specimen expiry (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 327 other than the operations row (shift handoff).
+
+### Finding (question 5)
+
+The handoff packet counts pending tests but not those whose specimen expires soon. A result left for the next shift could expire unverified, and the outgoing tech had to remember to write it in the note.
+
+### Design
+
+- The new `ShiftHandoff.PendingTestsVerifyBeforeExpiry` column is filled at record time with `PendingTestAttentionRule.CountVerifyBeforeExpiry`, over the same pending worklist the packet already loads.
+- It is a snapshot like the other counts: in the audit snapshot, the DTO, and the handoff list ("tests N, M to verify before specimen expiry").
+- Schema:
+  - migration `20261105000000_ShiftHandoffVerifyBeforeExpiry`
+  - development SQLite bootstrap column
+  - older packets read 0
+
+### Requirements / risk
+
+- URS-BB-474, FRS-BB-510, SRS-BB-447, RISK-BB-573. Help: shift handoff page.
+
+### Tests
+
+- TEST-BB-370: a handoff recorded while a pending result's specimen expires in two hours stores a count of at least one, no more than the pending tests, and carries it on the DTO.
+- Full suite: 3,497 passed, 0 failed (previously 3,496).
+- Run check (development API and web):
+  - the API started, and the bootstrap added the column
+  - `GET /api/shift-handoffs/` returns 200 (no packets in development data)
+  - the Shift handoff page loads; no server errors
+  - no handoff was recorded against development data
+- SQL Server migration not exercised locally.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: on the patient chart's Tests tab, show the same verify-before deadline on pending results.

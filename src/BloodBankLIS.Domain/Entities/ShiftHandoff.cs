@@ -47,6 +47,9 @@ public class ShiftHandoff : BaseEntity
     /// <summary>Emergency or MTP issues whose retrospective crossmatch came back incompatible and are still open.</summary>
     public int RetrospectiveIncompatible { get; set; }
 
+    /// <summary>Pending results whose specimen expires within the near-expiry window, so they must be verified first.</summary>
+    public int PendingTestsVerifyBeforeExpiry { get; set; }
+
     public string? AcknowledgedBy { get; set; }
 
     public DateTime? AcknowledgedUtc { get; set; }
