@@ -77,6 +77,9 @@ public static class ComplianceEndpoints
         group.MapPut("/{id:long}", async (long id, UpdateReactionInvestigationRequest request, ReactionInvestigationService service, CancellationToken ct) =>
             EndpointResults.From(await service.UpdateAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
 
+        group.MapPost("/{id:long}/reopen", async (long id, ReopenReactionInvestigationRequest request, ReactionInvestigationService service, CancellationToken ct) =>
+            EndpointResults.From(await service.ReopenAsync(id, request, ct), r => ReactionInvestigationDto.From(r)));
+
         group.MapPost("/{id:long}/cber-notified", async (long id, ReactionInvestigationService service, CancellationToken ct) =>
             EndpointResults.From(await service.RecordCberNotificationAsync(id, ct), r => ReactionInvestigationDto.From(r)));
 

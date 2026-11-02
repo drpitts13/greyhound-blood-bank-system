@@ -335,5 +335,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-324 | D / I | `MtpActivationRuleTests`; `Phase4IssuingTests.MassiveTransfusionIssue_*`, `MtpActivation_*`, `EmergencyRelease_DoesNotNeedOrLinkAnActivation` | URS-BB-433 / FRS-BB-468 / RISK-BB-535 |
 | TEST-BB-325 | D / I | `MtpPackRuleTests`; `Phase4IssuingTests.MtpPack_ChosenAtActivation_ShowsRoundProgress_AndIgnoresReturnedUnits`, `MtpActivation_WithInactiveOrUnknownPack_IsRefused`, `MtpPack_InvalidContents_AreRefused_AndNoneAreShipped` | URS-BB-434 / FRS-BB-469 / RISK-BB-536 |
 | TEST-BB-326 | D / I | `TransportContainerRuleTests`; `MtpPackReportTextTests`; `MtpPackCrossmatchTextTests`; `Phase4IssuingTests.MtpPack_IsRecorded_Audited_AndReported`, `MtpPack_OutOfRangeTemperature_IsRecordedAndFlagged`, `MtpPack_Refusals_WriteNothing`; `SeederTests.Seed_PopulatesReferenceAndDemoData_AndIsIdempotent` | URS-BB-435 / FRS-BB-470 / RISK-BB-537 |
+| TEST-BB-327 | D / I | `ReactionInvestigationLockRuleTests`; `ReactionInvestigationServiceTests.ClosedInvestigation_RefusesChanges_ButAcceptsAnUnchangedResave`, `Reopen_NeedsReason_KeepsTheCloseInTheAudit_AndNeedsANewSignatureToClose`, `ClosedFatality_StillTakesItsFollowUpReporting` | URS-BB-436 / FRS-BB-471 / RISK-BB-538 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

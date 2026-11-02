@@ -8272,3 +8272,59 @@ Requested by the product owner (2026-11-01):
 ### Next ranked residual
 
 Reaction investigation workflow audit. OCD-045 wording and local-time printing await SME and product-owner review.
+
+## Iteration 283 — Signed reaction investigations are locked; reopen needs a reason (2026-11-01)
+
+### Capability matrix rescan
+
+No change since Cycle 282. This cycle is the ranked audit of the reaction investigation workflow.
+
+### Findings
+
+1. **A closed, signed investigation could still be edited.**
+   - `UpdateAsync` never checked the status.
+   - The screen deliberately resent edits to a closed case "keeping its original close signature", so conclusions could change after signing while the record still showed the old signature.
+   - Setting the status back to Open needed no reason.
+2. **Written conclusions were not in the audit before-and-after.** The update snapshot listed status, type, severity, repeat types, DAT, elution, and flags, but not Findings, Conclusions, Follow-up, Disposition, clerical notes, or visual acceptability.
+3. **Considered and found already covered:** the repeat ABO/Rh comparison against the type of record and the unit label (`RepeatPatientAboRhDiscrepancy`).
+
+### Design
+
+- `ReactionInvestigationLockRule`:
+  - a closed case refuses any change to a workup or conclusion field, and any status away from Closed (`RXN-CLOSED`)
+  - resending identical values is accepted, so an unchanged save from the screen does not fail
+  - blank and null text count as the same value
+- **Reopen** (`ReopenAsync`, `POST /api/reaction-investigations/{id}/reopen`):
+  - needs the investigate permission and a reason (`RXN-REOPEN`), and works only on a closed case
+  - moves the case to Under review, clears the close fields, and records `ReopenedBy`, `ReopenedUtc`, and `ReopenReason` (the latest; earlier ones are in the audit)
+  - the audit carries the previous close signature, closer, and time, with the reason
+  - closing again needs a new signature
+- CBER notification and the written report stay available on a closed fatality, because they are reporting, not findings.
+- The audit snapshot now includes the written fields.
+- **Screen:**
+  - a closed case shows "Closed and signed by … on … UTC", the fields are read-only, Save is hidden, and **Reopen…** asks for a reason
+  - a reopened case shows who reopened it and why
+- **Schema:** three nullable columns, through migration `20261103120000_ReactionReopen` and the dev bootstrap.
+
+### Requirements / risk
+
+- URS-BB-436, FRS-BB-471, SRS-BB-433, RISK-BB-538. Help: reactions page.
+
+### Tests
+
+- TEST-BB-327:
+  - `ReactionInvestigationLockRuleTests` (11 cases)
+  - `ReactionInvestigationServiceTests`:
+    - a closed case refuses a conclusion change and a move back to Open, but accepts an unchanged resave; the stored conclusion and signature are unchanged
+    - reopen: no reason is refused; with a reason the case moves to Under review with the reopen recorded and the old signature in the audit; a second reopen is refused; an edit's audit shows the old and new conclusion; closing without a signature is refused, and with a new one succeeds
+    - a closed fatality still records CBER notification
+- Full suite: 3,251 passed, 0 failed (previously 3,237). Domain 1,840, Integration 1,175, Application 104, Help 29, HL7 63, Printing 21, Astm 19.
+- Run check (development API and Web, DevMode):
+  - the only dev investigation is under review, and reopening it returns 400 "Only a closed investigation can be reopened."
+  - `/reactions?id=1` renders it editable with Save
+  - no server errors
+  - closing needs a password-backed signature, so the locked view was not produced live; the integration tests cover it
+
+### Next ranked residual
+
+Continue the workflow audits: transfusion administration documentation (bedside start, stop, vitals, and volume), then shift handoff.

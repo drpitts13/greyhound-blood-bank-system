@@ -156,6 +156,25 @@ else
                 <a class="btn btn-ghost btn-sm" href="@($"/patients/{_selected.PatientId}")">Open chart</a>
                 <a class="btn btn-ghost btn-sm" href="@InventoryUrls.Unit(_selected.BloodProductId)">Open Inventory</a>
             </div>
+            @if (AlreadyClosed)
+            {
+                @* A signed investigation is read-only; changing it is an explicit, reasoned reopen. *@
+                <div class="alert alert-info">
+                    <strong>Closed and signed</strong>@(_selected.ClosedBy is null ? "" : $" by {_selected.ClosedBy}")@(_selected.ClosedUtc is DateTime closedAt ? $" on {closedAt:yyyy-MM-dd HH:mm} UTC" : "").
+                    The workup and conclusions are locked. To change them, reopen the investigation with a reason; it must then be closed again with a new signature.
+                    <div class="form-row" style="margin-top:.5rem;align-items:end;">
+                        <div class="field" style="flex:2;"><label>Reason for reopening</label><input @bind="_reopenReason" placeholder="e.g. Late culture result changes the conclusion" /></div>
+                        <button type="button" class="btn btn-secondary" disabled="@_busy" @onclick="ReopenAsync">Reopen…</button>
+                    </div>
+                </div>
+            }
+            else if (_selected.ReopenedBy is not null)
+            {
+                <div class="alert alert-warning">
+                    Reopened by @_selected.ReopenedBy@(_selected.ReopenedUtc is DateTime reopenedAt ? $" on {reopenedAt:yyyy-MM-dd HH:mm} UTC" : ""): @_selected.ReopenReason. Close it again with a new signature when the changes are done.
+                </div>
+            }
+            <fieldset disabled="@AlreadyClosed" style="border:0;padding:0;margin:0;min-width:0;">
             <div class="form-row">
                 <div class="field"><label>Type</label><input @bind="_type" /></div>
                 <div class="field"><label>Severity</label>
@@ -204,12 +223,16 @@ else
             </div>
             <label class="flex"><input type="checkbox" @bind="_productAtFault" /> &nbsp;Product at fault</label>
             <label class="flex"><input type="checkbox" @bind="_isFatality" disabled="@(_selected.IsFatality)" title="@(_selected.IsFatality ? "Already recorded; this cannot be undone." : null)" /> &nbsp;Fatality (sets 7-day written-report due date)</label>
+            </fieldset>
             @if (ClosingNow)
             {
                 <div class="field"><label>Password / PIN to close</label><input type="password" @bind="_closeSecret" /></div>
             }
             <div class="flex gap" style="margin-top:.75rem;">
-                <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+                @if (!AlreadyClosed)
+                {
+                    <button class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+                }
                 @if (_selected.IsFatality)
                 {
                     @if (_selected.FatalityFollowUpDue)
@@ -399,6 +422,24 @@ else
     }
 
     private bool AlreadyClosed => _selected?.Status == ReactionInvestigationStatus.Closed;
+
+    private string? _reopenReason;
+
+    private async Task ReopenAsync()
+    {
+        if (_selected is null) return;
+        _busy = true;
+        var r = await Api.ReopenReactionInvestigationAsync(_selected.Id, _reopenReason);
+        _busy = false;
+        _fb = r.ToFeedback("Investigation reopened. Make the changes, then close it again with your signature.");
+        if (r.Succeeded)
+        {
+            _reopenReason = null;
+            await LoadAsync();
+            _selected = _rows.FirstOrDefault(x => x.Id == _selected.Id) ?? r.Value;
+            if (_selected is not null) _status = _selected.Status;
+        }
+    }
 
     /// <summary>Only a change to Closed needs the close signature.</summary>
     private bool ClosingNow => _status == ReactionInvestigationStatus.Closed && !AlreadyClosed;

@@ -77,4 +77,11 @@ public class ReactionInvestigation : BaseEntity
     public string? ClosedBy { get; set; }
 
     public DateTime? ClosedUtc { get; set; }
+
+    /// <summary>Last reopen of a signed investigation: who, when, and why. Earlier ones are in the audit trail.</summary>
+    public DateTime? ReopenedUtc { get; set; }
+
+    public string? ReopenedBy { get; set; }
+
+    public string? ReopenReason { get; set; }
 }

@@ -1715,6 +1715,8 @@ public sealed class ReactionInvestigationConfiguration : IEntityTypeConfiguratio
     public void Configure(EntityTypeBuilder<ReactionInvestigation> b)
     {
         b.ToTable("ReactionInvestigations");
+        b.Property(x => x.ReopenedBy).HasMaxLength(100);
+        b.Property(x => x.ReopenReason).HasMaxLength(500);
         b.HasKey(x => x.Id);
         b.Property(x => x.ReportedBy).HasMaxLength(100).IsRequired();
         b.Property(x => x.ReactionType).HasMaxLength(100);

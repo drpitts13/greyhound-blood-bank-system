@@ -25,3 +25,9 @@ A reaction that your procedure treats as a fatality or as a product-safety signa
 If the investigation implicates a donor unit, start or continue the [Lookback](lookback) from the donation identification number. The reaction and the lookback are separate records that reference the same unit.
 
 > Hard stop. Closing is refused while required clerical, visual, or DAT items are unfinished. Do not close an investigation to clear the board.
+
+## After closing
+
+A closed investigation is signed, so it is read-only. The screen shows who closed it and when. To change it, enter the **Reason for reopening** and choose **Reopen…**. The case goes back to Under review, the reason and your name are recorded, and the earlier close stays in the audit trail. Make the changes, then close it again with your signature.
+
+Recording CBER notification and the written report for a fatality does not need a reopen.

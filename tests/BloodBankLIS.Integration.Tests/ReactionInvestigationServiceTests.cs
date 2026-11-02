@@ -173,6 +173,113 @@ public class ReactionInvestigationServiceTests : IClassFixture<SqliteContextFact
         Assert.Equal(IssueType.Standard, row.IssueType);
     }
 
+    private async Task<long> ClosedInvestigationAsync(BloodBankDbContext context, string conclusions)
+    {
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        var closed = await CreateService(context).UpdateAsync(
+            opened.Id,
+            new UpdateReactionInvestigationRequest(
+                "Febrile non-hemolytic", ReactionSeverity.Mild, "Fever 38.6 C", conclusions, null, null, false, null,
+                ReactionInvestigationStatus.Closed,
+                ClosedSignatureId: 7,
+                ClericalCheckCompleted: true,
+                VisualInspectionCompleted: true,
+                DatResult: DatWorkupResult.Negative));
+        Assert.True(closed.Succeeded, closed.Error);
+        return opened.Id;
+    }
+
+    // TEST-BB-327: a closed, signed investigation is locked; resending the same values is not a change.
+    [Fact]
+    public async Task ClosedInvestigation_RefusesChanges_ButAcceptsAnUnchangedResave()
+    {
+        await using var context = _factory.Create();
+        var id = await ClosedInvestigationAsync(context, "Febrile reaction; no further action");
+
+        var changed = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            null, null, null, "Rewritten after signing", null, null, null, null, null));
+        Assert.False(changed.Succeeded);
+        Assert.Contains(ReactionInvestigationLockRule.LockedCode, changed.Error);
+
+        var backToOpen = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Open));
+        Assert.False(backToOpen.Succeeded);
+
+        var resave = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            "Febrile non-hemolytic", ReactionSeverity.Mild, "Fever 38.6 C", "Febrile reaction; no further action", "", null, false, false, null,
+            ClericalCheckCompleted: true, VisualInspectionCompleted: true, DatResult: DatWorkupResult.Negative));
+        Assert.True(resave.Succeeded, resave.Error);
+
+        await using var verify = _factory.Create();
+        var row = await verify.ReactionInvestigations.FindAsync(id);
+        Assert.Equal(ReactionInvestigationStatus.Closed, row!.Status);
+        Assert.Equal("Febrile reaction; no further action", row.Conclusions);
+        Assert.Equal(7, row.ClosedSignatureId);
+    }
+
+    [Fact]
+    public async Task Reopen_NeedsReason_KeepsTheCloseInTheAudit_AndNeedsANewSignatureToClose()
+    {
+        await using var context = _factory.Create();
+        var id = await ClosedInvestigationAsync(context, "Allergic; premedicate");
+
+        var noReason = await CreateService(context).ReopenAsync(id, new ReopenReactionInvestigationRequest(" "));
+        Assert.False(noReason.Succeeded);
+        Assert.Contains(ReactionInvestigationLockRule.ReopenCode, noReason.Error);
+
+        var reopened = await CreateService(context).ReopenAsync(id, new ReopenReactionInvestigationRequest("Culture came back positive"));
+        Assert.True(reopened.Succeeded, reopened.Error);
+        Assert.Equal(ReactionInvestigationStatus.UnderReview, reopened.Value!.Status);
+        Assert.Null(reopened.Value.ClosedSignatureId);
+        Assert.Equal("Culture came back positive", reopened.Value.ReopenReason);
+        Assert.Equal(_factory.CurrentUser.UserName, reopened.Value.ReopenedBy);
+
+        var reopenAudit = await context.AuditEvents.Where(a => a.EventType == AuditEventType.ReactionInvestigation && a.EntityId == id)
+            .OrderByDescending(a => a.Id).FirstAsync();
+        Assert.Equal("Culture came back positive", reopenAudit.Reason);
+        Assert.Contains("\"ClosedSignatureId\":7", reopenAudit.OldValueJson);
+
+        var twice = await CreateService(context).ReopenAsync(id, new ReopenReactionInvestigationRequest("Again"));
+        Assert.False(twice.Succeeded);
+
+        var edited = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            null, null, null, "Bacterial contamination suspected", null, null, true, null, null));
+        Assert.True(edited.Succeeded, edited.Error);
+        var editAudit = await context.AuditEvents.Where(a => a.EventType == AuditEventType.ReactionInvestigation && a.EntityId == id)
+            .OrderByDescending(a => a.Id).FirstAsync();
+        Assert.Contains("Allergic; premedicate", editAudit.OldValueJson);
+        Assert.Contains("Bacterial contamination suspected", editAudit.NewValueJson);
+
+        var unsigned = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed));
+        Assert.False(unsigned.Succeeded);
+
+        var signed = await CreateService(context).UpdateAsync(id, new UpdateReactionInvestigationRequest(
+            null, null, null, null, null, null, null, null, ReactionInvestigationStatus.Closed, ClosedSignatureId: 8));
+        Assert.True(signed.Succeeded, signed.Error);
+        Assert.Equal(8, signed.Value!.ClosedSignatureId);
+    }
+
+    [Fact]
+    public async Task ClosedFatality_StillTakesItsFollowUpReporting()
+    {
+        await using var context = _factory.Create();
+        var key = Guid.NewGuid().ToString("N")[..12];
+        var transfusion = await SeedTransfusionAsync(context, key);
+        var opened = await CreateService(context).OpenForTransfusionAsync(transfusion);
+        Assert.True((await CreateService(context).UpdateAsync(opened.Id, new UpdateReactionInvestigationRequest(
+            "Hemolytic", ReactionSeverity.Fatal, null, "Fatal acute hemolytic reaction", null, null, null, true,
+            ReactionInvestigationStatus.Closed, ClosedSignatureId: 9,
+            ClericalCheckCompleted: true, VisualInspectionCompleted: true, DatResult: DatWorkupResult.Negative))).Succeeded);
+
+        var cber = await CreateService(context).RecordCberNotificationAsync(opened.Id);
+
+        Assert.True(cber.Succeeded, cber.Error);
+        Assert.Equal(ReactionInvestigationStatus.Closed, cber.Value!.Status);
+    }
+
     [Fact]
     public async Task Update_IncompleteWorkup_DoesNotClose()
     {

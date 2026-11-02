@@ -78,7 +78,12 @@ public sealed record ReactionInvestigationDto(
     UnitStatus? RemainderUnitStatus = null,
     string? RemainderHoldNote = null,
     bool FatalityFollowUpDue = false,
-    string? FatalityFollowUpDetail = null)
+    string? FatalityFollowUpDetail = null,
+    string? ClosedBy = null,
+    DateTime? ClosedUtc = null,
+    string? ReopenedBy = null,
+    DateTime? ReopenedUtc = null,
+    string? ReopenReason = null)
 {
     public static ReactionInvestigationDto From(
         ReactionInvestigation r,
@@ -104,7 +109,7 @@ public sealed record ReactionInvestigationDto(
             r.ClericalCheckCompleted, r.VisualInspectionCompleted, r.DatResult, r.ElutionResult);
         var followUp = ReactionFatalityFollowUpRule.Evaluate(
             r.IsFatality, r.CberNotifiedUtc, r.WrittenReportSubmittedUtc);
-        return new(
+        return new ReactionInvestigationDto(
             r.Id, r.TransfusionEventId, r.PatientId, r.BloodProductId, r.ReportedUtc, r.ReportedBy,
             r.ReactionType, r.Severity, r.Findings, r.Conclusions, r.FollowUp, r.Status, r.Disposition,
             r.ProductAtFault, r.IsFatality, r.FatalityNotificationStatus, r.WrittenReportDueUtc,
@@ -127,9 +132,12 @@ public sealed record ReactionInvestigationDto(
             remainderUnitStatus,
             remainderHoldNote,
             followUp.Severity == RuleSeverity.Warning,
-            followUp.Severity == RuleSeverity.Warning ? followUp.Message : null);
+            followUp.Severity == RuleSeverity.Warning ? followUp.Message : null,
+            r.ClosedBy, r.ClosedUtc, r.ReopenedBy, r.ReopenedUtc, r.ReopenReason);
     }
 }
+
+public sealed record ReopenReactionInvestigationRequest(string? Reason);
 
 public sealed class ReactionInvestigationService
 {
@@ -267,6 +275,12 @@ public sealed class ReactionInvestigationService
             return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
         }
 
+        var locked = ReactionInvestigationLockRule.EvaluateUpdate(row.Status, ChangesFindings(row, request), request.Status);
+        if (locked.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReactionInvestigation>.Fail($"{locked.Code}: {locked.Message}");
+        }
+
         var oldValue = Snapshot(row);
 
         if (request.ReactionType is not null) row.ReactionType = request.ReactionType;
@@ -342,6 +356,78 @@ public sealed class ReactionInvestigationService
             row,
             remainderWarning is null ? null : [remainderWarning]);
     }
+
+    /// <summary>
+    /// Reopens a signed investigation so it can be changed. Needs a reason. The audit keeps the closing signature,
+    /// who closed it, and when; the case must be closed again with a new signature.
+    /// </summary>
+    public async Task<OperationResult<ReactionInvestigation>> ReopenAsync(
+        long id, ReopenReactionInvestigationRequest request, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var denied = await RejectUnauthorizedAsync(ct);
+        if (denied is not null)
+        {
+            return denied;
+        }
+
+        var row = await _investigations.GetByIdAsync(id, ct);
+        if (row is null)
+        {
+            return OperationResult<ReactionInvestigation>.Fail("Investigation not found.");
+        }
+
+        var check = ReactionInvestigationLockRule.EvaluateReopen(row.Status, request.Reason);
+        if (check.Severity == RuleSeverity.HardStop)
+        {
+            return OperationResult<ReactionInvestigation>.Fail($"{check.Code}: {check.Message}");
+        }
+
+        var oldValue = new { row.Status, row.ClosedBy, row.ClosedUtc, row.ClosedSignatureId };
+        row.Status = ReactionInvestigationStatus.UnderReview;
+        row.ClosedBy = null;
+        row.ClosedUtc = null;
+        row.ClosedSignatureId = null;
+        row.ReopenedUtc = _clock.UtcNow;
+        row.ReopenedBy = _currentUser.UserName;
+        row.ReopenReason = request.Reason!.Trim();
+        _investigations.Update(row);
+        _audit.Record(
+            AuditEventType.ReactionInvestigation,
+            nameof(ReactionInvestigation),
+            row.Id,
+            oldValue: oldValue,
+            newValue: new { row.Status, Action = "Reopened", row.ReopenedBy, row.ReopenedUtc },
+            reason: row.ReopenReason);
+        await _unitOfWork.SaveChangesAsync(ct);
+        return OperationResult<ReactionInvestigation>.Ok(row);
+    }
+
+    /// <summary>True when the request would change any workup or conclusion field (not the status).</summary>
+    private static bool ChangesFindings(ReactionInvestigation row, UpdateReactionInvestigationRequest r) =>
+        Differs(r.ReactionType, row.ReactionType)
+        || (r.Severity is not null && r.Severity != row.Severity)
+        || Differs(r.Findings, row.Findings)
+        || Differs(r.Conclusions, row.Conclusions)
+        || Differs(r.FollowUp, row.FollowUp)
+        || Differs(r.Disposition, row.Disposition)
+        || (r.ProductAtFault is not null && r.ProductAtFault != row.ProductAtFault)
+        || (r.IsFatality == true && !row.IsFatality)
+        || (r.ClericalCheckCompleted is not null && r.ClericalCheckCompleted != row.ClericalCheckCompleted)
+        || Differs(r.ClericalCheckNotes, row.ClericalCheckNotes)
+        || (r.VisualInspectionCompleted is not null && r.VisualInspectionCompleted != row.VisualInspectionCompleted)
+        || (r.VisualInspectionAcceptable is not null && r.VisualInspectionAcceptable != row.VisualInspectionAcceptable)
+        || Differs(r.RepeatPatientAboRh, row.RepeatPatientAboRh)
+        || Differs(r.RepeatUnitAboRh, row.RepeatUnitAboRh)
+        || (r.DatResult is not null && r.DatResult != row.DatResult)
+        || Differs(r.ElutionResult, row.ElutionResult)
+        || (r.RemainderQuarantined == true && !row.RemainderQuarantined);
+
+    // A null request field means "not sent"; blank and null stored values are the same.
+    private static bool Differs(string? requested, string? stored) =>
+        requested is not null && !string.Equals(Normalize(requested), Normalize(stored), StringComparison.Ordinal);
+
+    private static string Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? string.Empty : value;
 
     public const string RemainderHoldCode = "RXN-REMAINDER-HOLD";
 
@@ -453,6 +539,12 @@ public sealed class ReactionInvestigationService
         row.Status,
         row.ReactionType,
         row.Severity,
+        row.Findings,
+        row.Conclusions,
+        row.FollowUp,
+        row.Disposition,
+        row.ClericalCheckNotes,
+        row.VisualInspectionAcceptable,
         row.RepeatPatientAboRh,
         row.RepeatUnitAboRh,
         row.DatResult,
