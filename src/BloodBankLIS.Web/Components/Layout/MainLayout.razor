@@ -16,6 +16,7 @@
             <div class="bb-user">
                 <div class="name">@Session.DisplayName</div>
                 <div class="role">@Session.UserName &middot; @Session.Workstation</div>
+                <TextSizeSelect />
                 <a class="btn btn-ghost btn-sm" style="padding-left:0;" href="/account/mfa">Authenticator</a>
                 @if (!Dev.Enabled)
                 {

@@ -9,6 +9,29 @@ window.bbUi = {
         if (!el) return;
         el.focus({ preventScroll: !!preventScroll });
         if (el.select) el.select();
+    },
+    // Text and control size, stored per user in this browser. The last size applied is kept too, so the
+    // sign-in screen opens at the size the bench last used instead of flashing back to the default.
+    textSize: {
+        apply: function (size) {
+            if (size && size !== 'default') document.documentElement.setAttribute('data-text-size', size);
+            else document.documentElement.removeAttribute('data-text-size');
+        },
+        load: function (user) {
+            var size = null;
+            try { size = localStorage.getItem('bb.textSize.' + (user || '').toLowerCase()); } catch (e) { }
+            size = size || 'default';
+            this.apply(size);
+            try { localStorage.setItem('bb.textSize.last', size); } catch (e) { }
+            return size;
+        },
+        save: function (user, size) {
+            this.apply(size);
+            try {
+                localStorage.setItem('bb.textSize.' + (user || '').toLowerCase(), size);
+                localStorage.setItem('bb.textSize.last', size);
+            } catch (e) { }
+        }
     }
 };
 

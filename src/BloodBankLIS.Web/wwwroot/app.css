@@ -15,6 +15,12 @@
     --bb-shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 1px 3px rgba(16, 24, 40, .1);
 }
 
+/* Text and control size (TextSizeSelect). Sizes in this file and in Bootstrap are rem, so these scale both. */
+html[data-text-size="small"] { font-size: 87.5%; }
+html[data-text-size="large"] { font-size: 112.5%; }
+html[data-text-size="larger"] { font-size: 125%; }
+html[data-text-size="largest"] { font-size: 150%; }
+
 html, body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background-color: var(--bb-bg);
@@ -30,7 +36,8 @@ a:hover { text-decoration: underline; }
 /* Layout shell */
 .bb-shell { display: flex; min-height: 100vh; }
 .bb-sidebar {
-    width: 248px;
+    width: 15.5rem;
+    flex-shrink: 0;
     background: var(--bb-sidebar);
     color: var(--bb-sidebar-ink);
     display: flex;
@@ -147,6 +154,9 @@ a:hover { text-decoration: underline; }
 .bb-user { padding: .85rem 1rem; border-top: 1px solid rgba(255,255,255,.08); font-size: .82rem; }
 .bb-user .name { color: #fff; font-weight: 600; }
 .bb-user .role { color: #8b95a3; }
+.bb-text-size { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin: .5rem 0 .15rem; color: #8b95a3; }
+.bb-text-size select { background: rgba(255,255,255,.06); color: var(--bb-sidebar-ink); border: 1px solid rgba(255,255,255,.15); border-radius: 6px; padding: .2rem .35rem; font-size: .8rem; }
+.bb-text-size select option { color: var(--bb-ink); background: #fff; }
 
 .bb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .bb-topbar {
@@ -172,7 +182,7 @@ a:hover { text-decoration: underline; }
 .bb-breadcrumb a:hover { color: var(--bb-ink); text-decoration: none; }
 .bb-breadcrumb .current { color: var(--bb-ink); font-weight: 600; }
 .bb-breadcrumb .sep { color: #9aa3af; }
-.bb-content { padding: 1.5rem; max-width: 1280px; width: 100%; }
+.bb-content { padding: 1.5rem; max-width: 80rem; width: 100%; }
 
 /* Cards */
 .bb-card {

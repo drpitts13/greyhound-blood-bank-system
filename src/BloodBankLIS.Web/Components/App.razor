@@ -5,6 +5,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
+    @* Apply the last text size before the first paint; the signed-in layout then applies the user's own (ui.js). *@
+    <script>try { var s = localStorage.getItem('bb.textSize.last'); if (s && s !== 'default') document.documentElement.setAttribute('data-text-size', s); } catch (e) { }</script>
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
