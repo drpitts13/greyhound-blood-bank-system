@@ -19,6 +19,7 @@ public static class DevelopmentSqliteBootstrap
     [
         ("Issues", "Comment", """ALTER TABLE "Issues" ADD COLUMN "Comment" TEXT NULL"""),
         ("Issues", "MtpActivationId", """ALTER TABLE "Issues" ADD COLUMN "MtpActivationId" INTEGER NULL"""),
+        ("MtpActivations", "PackDefinitionId", """ALTER TABLE "MtpActivations" ADD COLUMN "PackDefinitionId" INTEGER NULL"""),
         ("DatElutionWorkups", "VerifiedBy", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedBy" TEXT NULL"""),
         ("DatElutionWorkups", "VerifiedUtc", """ALTER TABLE "DatElutionWorkups" ADD COLUMN "VerifiedUtc" TEXT NULL"""),
         ("Issues", "VerifiedScanJson", """ALTER TABLE "Issues" ADD COLUMN "VerifiedScanJson" TEXT NULL"""),
@@ -188,6 +189,7 @@ public static class DevelopmentSqliteBootstrap
         await EnsureShiftHandoffsTableAsync(context, cancellationToken);
         await EnsureDatElutionWorkupsTableAsync(context, cancellationToken);
         await EnsureEluateFindingsTableAsync(context, cancellationToken);
+        await EnsureMtpPackDefinitionsTableAsync(context, cancellationToken);
         await EnsureMtpActivationsTableAsync(context, cancellationToken);
         await EnsurePatientMergeTablesAsync(context, cancellationToken);
         var missing = await FindMissingTableAsync(context, cancellationToken)
@@ -301,6 +303,39 @@ public static class DevelopmentSqliteBootstrap
     /// <summary>
     /// Creates the DAT/elution workup table when an existing dev database predates it.
     /// </summary>
+    private static async Task EnsureMtpPackDefinitionsTableAsync(BloodBankDbContext context, CancellationToken ct)
+    {
+        if (!await context.Database.CanConnectAsync(ct)
+            || !await TableExistsAsync(context, "Patients", ct)
+            || await TableExistsAsync(context, "MtpPackDefinitions", ct))
+        {
+            return;
+        }
+
+        await context.Database.ExecuteSqlRawAsync(
+            """
+            CREATE TABLE "MtpPackDefinitions" (
+                "Id" INTEGER NOT NULL CONSTRAINT "PK_MtpPackDefinitions" PRIMARY KEY AUTOINCREMENT,
+                "Code" TEXT NOT NULL,
+                "Name" TEXT NOT NULL,
+                "RedCellUnits" INTEGER NOT NULL,
+                "PlasmaUnits" INTEGER NOT NULL,
+                "PlateletUnits" INTEGER NOT NULL,
+                "CryoUnits" INTEGER NOT NULL,
+                "WholeBloodUnits" INTEGER NOT NULL,
+                "SortOrder" INTEGER NOT NULL,
+                "IsActive" INTEGER NOT NULL,
+                "CreatedUtc" TEXT NOT NULL,
+                "CreatedBy" TEXT NOT NULL,
+                "ModifiedUtc" TEXT NULL,
+                "ModifiedBy" TEXT NULL,
+                "RowVersion" BLOB NULL
+            )
+            """, ct);
+        await context.Database.ExecuteSqlRawAsync(
+            """CREATE UNIQUE INDEX "IX_MtpPackDefinitions_Code" ON "MtpPackDefinitions" ("Code")""", ct);
+    }
+
     private static async Task EnsureMtpActivationsTableAsync(BloodBankDbContext context, CancellationToken ct)
     {
         if (!await context.Database.CanConnectAsync(ct)
@@ -324,6 +359,7 @@ public static class DevelopmentSqliteBootstrap
                 "ClosedUtc" TEXT NULL,
                 "ClosedBy" TEXT NULL,
                 "CloseReason" TEXT NULL,
+                "PackDefinitionId" INTEGER NULL,
                 "CreatedUtc" TEXT NOT NULL,
                 "CreatedBy" TEXT NOT NULL,
                 "ModifiedUtc" TEXT NULL,

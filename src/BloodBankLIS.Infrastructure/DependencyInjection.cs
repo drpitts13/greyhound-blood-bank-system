@@ -87,6 +87,7 @@ public static class DependencyInjection
         services.AddScoped<DatabaseBackupService>();
         services.AddScoped<TransfusionIndicationService>();
         services.AddScoped<TransfusionIndicationAdminService>();
+        services.AddScoped<MtpPackAdminService>();
         services.AddSingleton<IDinCheckCharacterValidator, Iso7064Mod37_2DinCheckCharacterValidator>();
         services.AddScoped<FacilityPolicyService>();
         services.AddScoped<SpecialRequirementService>();

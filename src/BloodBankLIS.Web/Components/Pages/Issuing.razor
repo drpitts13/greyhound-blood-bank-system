@@ -69,6 +69,15 @@
                         @string.Join(" · ", mtp.Counts.Select(c => $"{ComponentLabel(c.ComponentClass)} {c.Issued} issued" + (c.Returned > 0 ? $", {c.Returned} returned" : "") + (c.Transfused > 0 ? $", {c.Transfused} transfused" : "")))
                     }
                 </div>
+                @if (mtp.Pack is { } pack)
+                {
+                    @* Guidance only: the pack never blocks or adds a unit. *@
+                    <div>
+                        Pack <span class="mono">@pack.Code</span>: round @pack.CurrentRound
+                        @(pack.CompletedRounds > 0 ? $"({pack.CompletedRounds} complete)" : "")
+                        &middot; @string.Join(" · ", pack.Components.Select(c => $"{ComponentLabel(c.ComponentClass)} {c.InCurrentRound}/{c.PerRound}"))
+                    </div>
+                }
                 <div class="flex gap" style="flex-wrap:wrap;align-items:end;margin-top:.35rem;">
                     @if (Session.Has(PermissionCodes.IssueCreate))
                     {
@@ -619,6 +628,18 @@
                             <div class="field"><label>Called by (clinician)</label><input @bind="_mtpRequestedBy" placeholder="e.g. Dr. Rivera, trauma" /></div>
                             <div class="field"><label>Reason</label><input @bind="_mtpReason" placeholder="e.g. Hemorrhagic shock" /></div>
                             <div class="field"><label>Location</label><input @bind="_mtpLocation" placeholder="Optional, e.g. ED trauma 1" /></div>
+                            @if (_mtpPacks.Count > 0)
+                            {
+                                <div class="field"><label>Pack (optional)</label>
+                                    <select @bind="_mtpPackId">
+                                        <option value="">No pack</option>
+                                        @foreach (var pk in _mtpPacks)
+                                        {
+                                            <option value="@pk.Id">@pk.Name (@pk.Summary)</option>
+                                        }
+                                    </select>
+                                </div>
+                            }
                         </div>
                         <button type="button" class="btn btn-sm btn-danger" disabled="@_busy" @onclick="ActivateMtpAsync">Activate MTP</button>
                     }
@@ -1135,6 +1156,8 @@
     private string? _mtpRequestedBy;
     private string? _mtpReason;
     private string? _mtpLocation;
+    private long? _mtpPackId;
+    private List<MtpPackDefinitionDto> _mtpPacks = new();
     private long? _closingMtpId;
     private string? _mtpCloseReason;
 
@@ -1152,6 +1175,8 @@
     {
         var active = await Api.GetActiveMtpAsync();
         if (active.Succeeded) _activeMtp = active.Value ?? new();
+        var packs = await Api.GetActiveMtpPacksAsync();
+        if (packs.Succeeded) _mtpPacks = packs.Value ?? new();
     }
 
     private async Task IssueUnderMtpAsync(MtpActivationDto mtp)
@@ -1173,7 +1198,7 @@
     private async Task ActivateMtpAsync()
     {
         _busy = true;
-        var r = await Api.ActivateMtpAsync(_issue.PatientId, new ActivateMtpRequest(_mtpRequestedBy, _mtpReason, _mtpLocation));
+        var r = await Api.ActivateMtpAsync(_issue.PatientId, new ActivateMtpRequest(_mtpRequestedBy, _mtpReason, _mtpLocation, _mtpPackId));
         _busy = false;
         _mtpFb = r.ToFeedback("Massive transfusion protocol activated.");
         if (r.Succeeded)
@@ -1181,6 +1206,7 @@
             _mtpRequestedBy = null;
             _mtpReason = null;
             _mtpLocation = null;
+            _mtpPackId = null;
             _overrideOn = true;
             await LoadActiveMtpAsync();
         }

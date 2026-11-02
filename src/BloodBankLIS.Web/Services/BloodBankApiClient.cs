@@ -1623,6 +1623,20 @@ public sealed class BloodBankApiClient
     public Task<ApiResult<LoadDraftCriteriaResultDto>> LoadDraftTransfusionCriteriaAsync(CancellationToken ct = default) =>
         SendAsync<LoadDraftCriteriaResultDto>(HttpMethod.Post, "api/admin/transfusion-criteria/load-drafts", ct: ct);
 
+    public Task<ApiResult<List<MtpPackDefinitionDto>>> GetMtpPacksAsync(CancellationToken ct = default) =>
+        SendAsync<List<MtpPackDefinitionDto>>(HttpMethod.Get, "api/admin/mtp-packs", ct: ct);
+
+    public Task<ApiResult<List<MtpPackDefinitionDto>>> GetActiveMtpPacksAsync(CancellationToken ct = default) =>
+        SendAsync<List<MtpPackDefinitionDto>>(HttpMethod.Get, "api/mtp/packs", ct: ct);
+
+    public Task<ApiResult<MtpPackDefinitionDto>> SaveMtpPackAsync(long? id, SaveMtpPackRequest req, CancellationToken ct = default) =>
+        id is long existing
+            ? SendAsync<MtpPackDefinitionDto>(HttpMethod.Put, $"api/admin/mtp-packs/{existing}", req, ct)
+            : SendAsync<MtpPackDefinitionDto>(HttpMethod.Post, "api/admin/mtp-packs", req, ct);
+
+    public Task<ApiResult<MtpPackDefinitionDto>> SetMtpPackActiveAsync(long id, bool active, CancellationToken ct = default) =>
+        SendAsync<MtpPackDefinitionDto>(HttpMethod.Post, $"api/admin/mtp-packs/{id}/{(active ? "activate" : "deactivate")}", ct: ct);
+
     public Task<ApiResult<MfaStatusDto>> GetMfaStatusAsync(CancellationToken ct = default) =>
         SendAsync<MfaStatusDto>(HttpMethod.Get, "api/account/mfa", ct: ct);
 

@@ -8158,3 +8158,48 @@ No change since Cycle 279 apart from this row. The cycle continues the ranked sa
 ### Next ranked residual
 
 Reaction investigation workflow audit. Pack composition for MTP waits on SME input (OCD-012).
+
+## Iteration 281 — Facility MTP packs, shipped empty (2026-11-01)
+
+Decision (product owner, 2026-11-01): "Yes, empty packs". MTP packs are configurable and none are shipped. Recorded under OCD-012.
+
+### Design
+
+- **Catalog:** Admin › MTP Packs (`MtpPackDefinition`).
+  - Each pack has a code, a name, and units per round for red cells, plasma, platelets, cryo, and whole blood. Each is 0 to 50, with at least one above 0.
+  - Each pack also has a sort order and an active flag.
+  - Changes go to configuration history. The new-pack form starts every component at 0, so the form never suggests contents.
+- **Activation:** may name an active pack. An inactive or unknown pack is refused (`MTP-PACK`). The audit records the pack id.
+- **Round guidance (`MtpPackRule.Progress`):**
+  - completed rounds come from the slowest pack component
+  - each component shows units sent in the current round against its per-round amount, and can run ahead
+  - "Sent" means issued and not returned
+  - the banner shows the round, the completed rounds, and for example "Red cells 2/4 · Plasma 0/4"
+- **Guidance only:** a pack never blocks, adds, or chooses a unit, and every unit still passes the full issue gate.
+- **Known limit:** an activation follows its pack as currently defined. Edits are traceable in configuration history, but the activation does not keep a snapshot of the pack.
+- **Schema:** table `MtpPackDefinitions` and nullable `MtpActivations.PackDefinitionId`, through migration `20261103100000_MtpPacks`, the dev SQLite bootstrap, and the SQL Server copy order.
+- **Screens:** an admin page, a nav entry and Admin home card, a help topic, a pack choice at activation, and round progress on the banner.
+
+### Requirements / risk
+
+- URS-BB-434, FRS-BB-469, SRS-BB-431, RISK-BB-536. OCD-012 updated.
+
+### Tests
+
+- TEST-BB-325:
+  - `MtpPackRuleTests` (14 cases): a valid pack; all components at zero; out of range; missing or long code or name; duplicate code; progress with nothing sent; completed rounds set by the slowest component; components outside the pack ignored
+  - `Phase4IssuingTests`:
+    - a pack is created (code upper-cased, summary text, configuration history), chosen at activation, and the board shows red cells 1 and plasma 0 in round 1 after one issue; after the unit is returned it no longer counts
+    - an inactive or unknown pack is refused at activation and nothing is written
+    - an all-zero pack is refused
+- Full suite: 3,204 passed, 0 failed (previously 3,190). Domain 1,804, Integration 1,164, Application 104, Help 29, HL7 63, Printing 21, Astm 19.
+- Run check (development API and Web, DevMode):
+  - `/api/admin/mtp-packs`, `/api/mtp/packs`, and `/api/mtp/active` return `[]`, so none are shipped
+  - `/admin/mtp-packs` renders
+  - **New pack** then **Save** with nothing entered shows "Enter a code for the pack." and "A pack needs at least one unit of some component." and writes nothing
+  - no server errors
+  - no pack was created, to keep the development data empty as decided
+
+### Next ranked residual
+
+Reaction investigation workflow audit.

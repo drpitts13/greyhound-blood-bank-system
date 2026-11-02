@@ -1838,6 +1838,21 @@ public sealed class MtpActivationConfiguration : IEntityTypeConfiguration<MtpAct
         b.Property(x => x.ModifiedBy).HasMaxLength(100);
         b.HasIndex(x => new { x.PatientId, x.Status });
         b.HasOne<Patient>().WithMany().HasForeignKey(x => x.PatientId).OnDelete(DeleteBehavior.Restrict);
+        b.HasOne<MtpPackDefinition>().WithMany().HasForeignKey(x => x.PackDefinitionId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public sealed class MtpPackDefinitionConfiguration : IEntityTypeConfiguration<MtpPackDefinition>
+{
+    public void Configure(EntityTypeBuilder<MtpPackDefinition> b)
+    {
+        b.ToTable("MtpPackDefinitions");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Code).HasMaxLength(20).IsRequired();
+        b.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        b.Property(x => x.CreatedBy).HasMaxLength(100).IsRequired();
+        b.Property(x => x.ModifiedBy).HasMaxLength(100);
+        b.HasIndex(x => x.Code).IsUnique();
     }
 }
 

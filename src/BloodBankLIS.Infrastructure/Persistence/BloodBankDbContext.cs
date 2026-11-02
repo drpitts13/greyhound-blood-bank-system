@@ -86,6 +86,7 @@ public class BloodBankDbContext : DbContext, IUnitOfWork
     public DbSet<DatElutionWorkup> DatElutionWorkups => Set<DatElutionWorkup>();
     public DbSet<DatElutionEluateFinding> DatElutionEluateFindings => Set<DatElutionEluateFinding>();
     public DbSet<MtpActivation> MtpActivations => Set<MtpActivation>();
+    public DbSet<MtpPackDefinition> MtpPackDefinitions => Set<MtpPackDefinition>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
     public DbSet<Override> Overrides => Set<Override>();
     public DbSet<InterfaceEndpoint> InterfaceEndpoints => Set<InterfaceEndpoint>();

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Compatibility;
 using BloodBankLIS.Application.Printing;
 using BloodBankLIS.Application.Compliance;
@@ -900,7 +901,8 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
     private MtpActivationService Mtp(BloodBankDbContext c, IPermissionEvaluator? permissions = null) =>
         new(new EfRepository<MtpActivation>(c), new EfRepository<Patient>(c), new EfRepository<Issue>(c),
             new EfRepository<BloodUnit>(c), new EfRepository<ProductType>(c), c, _factory.Clock, _factory.CurrentUser,
-            new AuditWriter(c, _factory.Clock, _factory.CurrentUser), permissions ?? new FixedPermissionEvaluator(3));
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser), permissions ?? new FixedPermissionEvaluator(3),
+            new EfRepository<MtpPackDefinition>(c));
 
     private async Task<long> ActivateMtpAsync(long patientId)
     {
@@ -908,6 +910,85 @@ public class Phase4IssuingTests : IClassFixture<SqliteContextFactory>
         var activated = await Mtp(c).ActivateAsync(patientId, new ActivateMtpRequest("Dr. Rivera, trauma", "Hemorrhagic shock", "ED trauma 1"));
         Assert.True(activated.Succeeded, activated.Error ?? string.Join("; ", activated.Evaluation?.HardStops.Select(r => r.Message) ?? []));
         return activated.Value!.Id;
+    }
+
+    private MtpPackAdminService Packs(BloodBankDbContext c)
+    {
+        var env = new BloodBankLIS.Infrastructure.Common.StaticEnvironmentInfo("Development", isDevMode: false);
+        return new(new EfRepository<MtpPackDefinition>(c), c, _factory.Clock, _factory.CurrentUser,
+            new AuditWriter(c, _factory.Clock, _factory.CurrentUser, env),
+            new ConfigurationHistoryWriter(c, _factory.Clock, _factory.CurrentUser, env));
+    }
+
+    // TEST-BB-325: a facility pack chosen at activation gives round guidance on the board; it never blocks an issue.
+    [Fact]
+    public async Task MtpPack_ChosenAtActivation_ShowsRoundProgress_AndIgnoresReturnedUnits()
+    {
+        var s = await SeedAsync("MTP-PACK");
+        await AllocateAsync(s);
+        long packId;
+        await using (var c = _factory.Create())
+        {
+            var pack = await Packs(c).CreateAsync(new SaveMtpPackRequest("pk-a", "Adult pack", 2, 2, 0, 0, 0, 10));
+            Assert.True(pack.Succeeded, pack.Error);
+            Assert.Equal("PK-A", pack.Value!.Code);
+            Assert.Equal("2 red cells, 2 plasma", pack.Value.Summary);
+            Assert.True(await c.ConfigurationChangeHistory.AnyAsync(h => h.EntityType == nameof(MtpPackDefinition) && h.EntityId == pack.Value.Id));
+            packId = pack.Value.Id;
+
+            var activated = await Mtp(c).ActivateAsync(s.PatientId, new ActivateMtpRequest("Dr. Rivera", "Shock", null, packId));
+            Assert.True(activated.Succeeded, activated.Error);
+            Assert.Equal(1, activated.Value!.Pack!.CurrentRound);
+        }
+
+        long issueId;
+        await using (var c = _factory.Create())
+        {
+            var issued = await Issuing(c).IssueUnitAsync(IssueReq(s, IssueType.MassiveTransfusion, overrideReason: "MTP", authorizedBy: "dr-authorizer"));
+            Assert.True(issued.Succeeded, issued.Error ?? string.Join("; ", issued.Evaluation?.HardStops.Select(r => r.Message) ?? []));
+            issueId = issued.Value!.Id;
+            var board = Assert.Single(await Mtp(c).ListActiveAsync(), a => a.PatientId == s.PatientId);
+            Assert.Equal("PK-A", board.Pack!.Code);
+            Assert.Equal(1, Assert.Single(board.Pack.Components, x => x.ComponentClass == ComponentClass.RedBloodCells).InCurrentRound);
+            Assert.Equal(0, Assert.Single(board.Pack.Components, x => x.ComponentClass == ComponentClass.Plasma).InCurrentRound);
+        }
+
+        await using (var c = _factory.Create())
+        {
+            var returned = await Issuing(c).ReturnUnitAsync(issueId, new ReturnUnitRequest(
+                "Not needed", TemperatureAcceptable: true, SealIntegrityAcceptable: true, VisualInspectionAcceptable: true));
+            Assert.True(returned.Succeeded, returned.Error);
+            var board = Assert.Single(await Mtp(c).ListActiveAsync(), a => a.PatientId == s.PatientId);
+            Assert.Equal(0, Assert.Single(board.Pack!.Components, x => x.ComponentClass == ComponentClass.RedBloodCells).InCurrentRound);
+            Assert.Equal(1, Assert.Single(board.Counts).Returned);
+        }
+    }
+
+    [Fact]
+    public async Task MtpActivation_WithInactiveOrUnknownPack_IsRefused()
+    {
+        var s = await SeedAsync("MTP-PACK-OFF");
+        await using var c = _factory.Create();
+        var pack = await Packs(c).CreateAsync(new SaveMtpPackRequest("PK-OFF", "Retired pack", 4, 4, 1, 0, 0, 10));
+        Assert.True((await Packs(c).SetActiveAsync(pack.Value!.Id, false)).Succeeded);
+
+        foreach (var id in new long[] { pack.Value.Id, 999_999 })
+        {
+            var refused = await Mtp(c).ActivateAsync(s.PatientId, new ActivateMtpRequest("Dr. Rivera", "Shock", null, id));
+            Assert.Contains(refused.Evaluation!.HardStops, r => r.Code == MtpPackRule.Code);
+        }
+
+        Assert.False(await c.MtpActivations.AnyAsync(a => a.PatientId == s.PatientId));
+        Assert.DoesNotContain(await Packs(c).ListActiveAsync(), p => p.Id == pack.Value.Id);
+    }
+
+    [Fact]
+    public async Task MtpPack_InvalidContents_AreRefused_AndNoneAreShipped()
+    {
+        await using var c = _factory.Create();
+        var empty = await Packs(c).CreateAsync(new SaveMtpPackRequest("PK-ZERO", "Nothing", 0, 0, 0, 0, 0, 10));
+        Assert.Contains(empty.Evaluation!.HardStops, r => r.Code == MtpPackRule.Code);
+        Assert.False(await c.MtpPackDefinitions.AnyAsync(p => p.Code == "PK-ZERO"));
     }
 
     // TEST-BB-324: a massive-transfusion issue needs an active protocol activation for the patient.

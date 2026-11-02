@@ -333,5 +333,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-322 | D | `RequestReadErrorTests` | URS-BB-431 / FRS-BB-466 / RISK-BB-533 |
 | TEST-BB-323 | D / I | `RetypeStockStatusTests`; `IssueGateTests.VerifiedRetypeMismatch_IsHardStopped_OnAnyIssueType`, `NoRetypeMismatch_Passes`; `Phase4IssuingTests.Return_OfUnretypedEmergencyUnit_GoesBackToReceived_ForRetype`, `Return_OfRetypedUnit_StillGoesToAvailable`, `EmergencyRelease_OfUnitWithVerifiedRetypeMismatch_IsHardStopped`; `InventoryServiceTests.QuarantineRelease_RespectsPendingRetype`, `HoldRelease_RespectsPendingRetype` | URS-BB-432 / FRS-BB-467 / RISK-BB-534 |
 | TEST-BB-324 | D / I | `MtpActivationRuleTests`; `Phase4IssuingTests.MassiveTransfusionIssue_*`, `MtpActivation_*`, `EmergencyRelease_DoesNotNeedOrLinkAnActivation` | URS-BB-433 / FRS-BB-468 / RISK-BB-535 |
+| TEST-BB-325 | D / I | `MtpPackRuleTests`; `Phase4IssuingTests.MtpPack_ChosenAtActivation_ShowsRoundProgress_AndIgnoresReturnedUnits`, `MtpActivation_WithInactiveOrUnknownPack_IsRefused`, `MtpPack_InvalidContents_AreRefused_AndNoneAreShipped` | URS-BB-434 / FRS-BB-469 / RISK-BB-536 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

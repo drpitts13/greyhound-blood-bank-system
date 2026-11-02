@@ -1,0 +1,143 @@
+@page "/admin/mtp-packs"
+@inject UserSession Session
+@inject BloodBankApiClient Api
+
+<PageTitle>MTP Packs &middot; Admin</PageTitle>
+
+<div class="flex-between">
+    <h1>MTP packs</h1>
+    @if (CanEdit)
+    {
+        <button type="button" class="btn btn-primary" @onclick="NewPack">New pack</button>
+    }
+</div>
+<p class="muted">How many units of each component make up one round of your massive transfusion protocol. The software ships none: enter only packs your medical director has approved.</p>
+<div class="alert alert-danger">Pack contents are clinical decisions. <strong>REQUIRES SME VERIFICATION</strong> (OCD-012). A pack is guidance on the issue desk only: it never blocks or adds a unit, and every unit still goes through every safety check.</div>
+<Outcome Value="_feedback" />
+
+<div class="bb-card" style="margin-top:1rem;">
+    @if (_items.Count == 0)
+    {
+        <div class="empty">No packs. Without one, the issue desk shows units issued per component during a protocol, with no round guidance.</div>
+    }
+    else
+    {
+        <table class="bb">
+            <thead><tr><th>Code</th><th>Name</th><th>Per round</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+                @foreach (var p in _items)
+                {
+                    <tr>
+                        <td class="mono">@p.Code</td>
+                        <td>@p.Name</td>
+                        <td>@p.Summary</td>
+                        <td>@if (p.IsActive) { <span class="badge badge-green">Active</span> } else { <span class="badge badge-gray">Inactive</span> }</td>
+                        <td class="right nowrap">
+                            @if (CanEdit) { <button type="button" class="btn btn-ghost btn-sm" @onclick="() => Edit(p)">Edit</button> }
+                            @if (CanActivate) { <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SetActiveAsync(p)">@(p.IsActive ? "Deactivate" : "Activate")</button> }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@if (_editing)
+{
+    @* Keyed by the item, so New and each Edit bring the editor into view. *@
+    <div @key="_editId" class="bb-card" style="margin-top:1rem;" data-scroll-on-show>
+        <h2>@(_editId is null ? "New pack" : "Edit pack")</h2>
+        <div class="form-row">
+            <div class="field"><label>Code</label><input class="mono" @bind="_code" maxlength="20" /></div>
+            <div class="field" style="flex:2;"><label>Name</label><input @bind="_name" maxlength="200" /></div>
+            <div class="field"><label>Sort</label><input type="number" @bind="_sort" /></div>
+        </div>
+        <p class="muted">Units per round. Leave a component at 0 if the pack does not include it.</p>
+        <div class="form-row">
+            <div class="field"><label>Red cells</label><input type="number" min="0" max="50" @bind="_rbc" /></div>
+            <div class="field"><label>Plasma</label><input type="number" min="0" max="50" @bind="_plasma" /></div>
+            <div class="field"><label>Platelets</label><input type="number" min="0" max="50" @bind="_plt" /></div>
+            <div class="field"><label>Cryo</label><input type="number" min="0" max="50" @bind="_cryo" /></div>
+            <div class="field"><label>Whole blood</label><input type="number" min="0" max="50" @bind="_wb" /></div>
+        </div>
+        <div class="flex gap">
+            <button type="button" class="btn btn-primary" disabled="@_busy" @onclick="SaveAsync">Save</button>
+            <button type="button" class="btn btn-ghost" disabled="@_busy" @onclick="() => _editing = false">Cancel</button>
+        </div>
+    </div>
+}
+
+@code {
+    private List<MtpPackDefinitionDto> _items = [];
+    private Feedback? _feedback;
+    private bool _busy;
+    private bool _editing;
+    private long? _editId;
+    private string _code = string.Empty;
+    private string _name = string.Empty;
+    private int _sort;
+    private int _rbc;
+    private int _plasma;
+    private int _plt;
+    private int _cryo;
+    private int _wb;
+
+    private bool CanEdit => Session.Has(PermissionCodes.AdminConfigEdit);
+    private bool CanActivate => Session.Has(PermissionCodes.AdminConfigActivate);
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var r = await Api.GetMtpPacksAsync();
+        _items = r.Value ?? [];
+        if (!r.Succeeded) _feedback = r.ToFeedback();
+    }
+
+    // Every quantity starts at 0: the form never suggests a pack.
+    private void NewPack()
+    {
+        _editId = null;
+        _code = _name = string.Empty;
+        _rbc = _plasma = _plt = _cryo = _wb = 0;
+        _sort = (_items.Count + 1) * 10;
+        _editing = true;
+    }
+
+    private void Edit(MtpPackDefinitionDto p)
+    {
+        _editId = p.Id;
+        _code = p.Code;
+        _name = p.Name;
+        _rbc = p.RedCellUnits;
+        _plasma = p.PlasmaUnits;
+        _plt = p.PlateletUnits;
+        _cryo = p.CryoUnits;
+        _wb = p.WholeBloodUnits;
+        _sort = p.SortOrder;
+        _editing = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        var r = await Api.SaveMtpPackAsync(_editId, new SaveMtpPackRequest(_code, _name, _rbc, _plasma, _plt, _cryo, _wb, _sort));
+        _busy = false;
+        _feedback = r.ToFeedback(_editId is null ? "Pack added." : "Pack updated.");
+        if (r.Succeeded)
+        {
+            _editing = false;
+            await LoadAsync();
+        }
+    }
+
+    private async Task SetActiveAsync(MtpPackDefinitionDto p)
+    {
+        _busy = true;
+        var r = await Api.SetMtpPackActiveAsync(p.Id, !p.IsActive);
+        _busy = false;
+        _feedback = r.ToFeedback(p.IsActive ? "Pack deactivated." : "Pack activated.");
+        if (r.Succeeded) await LoadAsync();
+    }
+}

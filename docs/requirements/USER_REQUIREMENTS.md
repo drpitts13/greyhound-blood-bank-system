@@ -439,3 +439,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-431 | When a screen or interface sends a request the system cannot read, the user or interface team is told in plain words which value was wrong, and nothing internal is revealed. | P6 | FRS-BB-466 |
 | URS-BB-432 | A unit that still needs its ABO/Rh retype never reappears as available stock without that retype, and a unit whose retype proved its label wrong cannot be issued at all. | P1 | FRS-BB-467 |
 | URS-BB-433 | When a massive transfusion protocol is called, the blood bank records who called it and why, sees every unit issued under it as it happens, and records when and why it ended. | P1 | FRS-BB-468 |
+| URS-BB-434 | The facility can define its massive transfusion packs, and during a protocol the issue desk sees which round it is on and what each component still needs, without the system ever choosing or blocking a unit. | P7 | FRS-BB-469 |

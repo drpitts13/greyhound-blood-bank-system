@@ -21,6 +21,9 @@ public class MtpActivation : BaseEntity
 
     public string? Location { get; set; }
 
+    /// <summary>Optional facility pack (MtpPackDefinition) the desk follows; guidance only.</summary>
+    public long? PackDefinitionId { get; set; }
+
     public DateTime ActivatedUtc { get; set; }
 
     /// <summary>The signed-in blood bank user who recorded the activation.</summary>

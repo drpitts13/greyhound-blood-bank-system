@@ -1,5 +1,6 @@
 using BloodBankLIS.Api.Auth;
 using BloodBankLIS.Application.Abstractions;
+using BloodBankLIS.Application.Admin;
 using BloodBankLIS.Application.Billing;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Application.Issuing;
@@ -75,6 +76,27 @@ public static class IssuingEndpoints
                 Results.Ok(await svc.ListActiveAsync(ct)))
             .WithTags("Issuing")
             .RequireAuthenticatedUser();
+        // Facility packs (OCD-012): active ones for the desk; the admin catalog below.
+        app.MapGet("/api/mtp/packs", async (MtpPackAdminService svc, CancellationToken ct) =>
+                Results.Ok(await svc.ListActiveAsync(ct)))
+            .WithTags("Issuing")
+            .RequireAuthenticatedUser();
+        var packs = app.MapGroup("/api/admin/mtp-packs").WithTags("Admin: MTP Packs").RequireAuthenticatedUser();
+        packs.MapGet("", async (MtpPackAdminService svc, CancellationToken ct) => Results.Ok(await svc.ListAsync(ct)))
+            .RequirePermission(PermissionCodes.AdminConfigView);
+        packs.MapPost("", async (SaveMtpPackRequest req, MtpPackAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.CreateAsync(req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        packs.MapPut("/{id:long}", async (long id, SaveMtpPackRequest req, MtpPackAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.UpdateAsync(id, req, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigEdit);
+        packs.MapPost("/{id:long}/activate", async (long id, MtpPackAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, true, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+        packs.MapPost("/{id:long}/deactivate", async (long id, MtpPackAdminService svc, CancellationToken ct) =>
+                EndpointResults.FromEvaluation(await svc.SetActiveAsync(id, false, ct), d => d))
+            .RequirePermission(PermissionCodes.AdminConfigActivate);
+
         app.MapPost("/api/mtp/{id:long}/close", async (long id, CloseMtpRequest request, MtpActivationService svc, CancellationToken ct) =>
                 EndpointResults.FromEvaluation(await svc.CloseAsync(id, request, ct), d => d))
             .WithTags("Issuing")

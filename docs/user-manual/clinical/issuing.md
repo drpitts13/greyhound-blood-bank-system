@@ -48,6 +48,8 @@ Before the first unit, **activate** the protocol: choose **MassiveTransfusion** 
 
 While it is active, a red banner on every Issue & Transfuse desk shows the patient, how long it has run, and how many units of each component have been issued, returned, and transfused. **Issue under this MTP** opens the issue form for that patient. **Use as override reason** fills the reason from the activation. Every unit still goes through every safety check and its own signature.
 
+If your facility has defined packs (Admin › [MTP packs](mtp-packs)), you can choose one when you activate. The banner then shows the round and, for each component, how many units have gone in this round against the pack, for example "Red cells 2/4". Returned units do not count. The pack is guidance only: it never blocks a unit.
+
 When the protocol ends, choose **Close…** and give the reason. The units stay linked to it on the record. Emergency release of a single unit does not need an activation.
 
 You still need a current specimen for the patient, an in-date unit, acceptable appearance, and two identity tokens. You record the reason and sign. The issue is flagged for retrospective crossmatch. It stays on the retrospective queue until someone records the crossmatch, by default within the hours set in facility policy (the shipped default is 24). **Record crossmatch** opens Compatibility with the issue filled in.

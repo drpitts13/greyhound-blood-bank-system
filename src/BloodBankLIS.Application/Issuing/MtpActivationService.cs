@@ -1,12 +1,13 @@
 using BloodBankLIS.Application.Abstractions;
 using BloodBankLIS.Application.Common;
 using BloodBankLIS.Domain.Entities;
+using BloodBankLIS.Domain.Entities.Configuration;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.Rules;
 
 namespace BloodBankLIS.Application.Issuing;
 
-public sealed record ActivateMtpRequest(string? RequestedBy, string? Reason, string? Location = null);
+public sealed record ActivateMtpRequest(string? RequestedBy, string? Reason, string? Location = null, long? PackDefinitionId = null);
 
 public sealed record CloseMtpRequest(string? Reason);
 
@@ -22,6 +23,18 @@ public sealed record MtpIssuedUnitDto(
     string BloodType,
     DateTime IssuedUtc,
     IssueStatus IssueStatus);
+
+/// <summary>One pack component: units per round, sent (issued and not returned), and sent in the current round.</summary>
+public sealed record MtpPackComponentDto(ComponentClass ComponentClass, int PerRound, int Sent, int InCurrentRound);
+
+/// <summary>Round guidance for a facility pack. Never blocks an issue.</summary>
+public sealed record MtpPackProgressDto(
+    long PackDefinitionId,
+    string Code,
+    string Name,
+    int CompletedRounds,
+    int CurrentRound,
+    IReadOnlyList<MtpPackComponentDto> Components);
 
 public sealed record MtpActivationDto(
     long Id,
@@ -39,7 +52,8 @@ public sealed record MtpActivationDto(
     string? CloseReason,
     int MinutesActive,
     IReadOnlyList<MtpComponentCountDto> Counts,
-    IReadOnlyList<MtpIssuedUnitDto> Units);
+    IReadOnlyList<MtpIssuedUnitDto> Units,
+    MtpPackProgressDto? Pack = null);
 
 /// <summary>
 /// Massive transfusion protocol activation: record who called it and why, track every unit issued under it, and
@@ -58,6 +72,7 @@ public sealed class MtpActivationService
     private readonly ICurrentUser _currentUser;
     private readonly IAuditWriter _audit;
     private readonly IPermissionEvaluator? _permissions;
+    private readonly IRepository<MtpPackDefinition>? _packs;
 
     public MtpActivationService(
         IRepository<MtpActivation> activations,
@@ -69,7 +84,8 @@ public sealed class MtpActivationService
         IClock clock,
         ICurrentUser currentUser,
         IAuditWriter audit,
-        IPermissionEvaluator? permissions = null)
+        IPermissionEvaluator? permissions = null,
+        IRepository<MtpPackDefinition>? packs = null)
     {
         _activations = activations;
         _patients = patients;
@@ -81,6 +97,7 @@ public sealed class MtpActivationService
         _currentUser = currentUser;
         _audit = audit;
         _permissions = permissions;
+        _packs = packs;
     }
 
     public async Task<EvaluationResult<MtpActivationDto>> ActivateAsync(long patientId, ActivateMtpRequest request, CancellationToken ct = default)
@@ -105,6 +122,13 @@ public sealed class MtpActivationService
             return EvaluationResult<MtpActivationDto>.Blocked(evaluation);
         }
 
+        if (request.PackDefinitionId is long packId
+            && (_packs is null || !await _packs.AnyAsync(p => p.Id == packId && p.IsActive, ct)))
+        {
+            return EvaluationResult<MtpActivationDto>.Blocked(new RuleEvaluation([
+                RuleResult.HardStop(MtpPackRule.Code, "Choose an active pack, or activate without one.")]));
+        }
+
         var now = _clock.UtcNow;
         var activation = new MtpActivation
         {
@@ -113,6 +137,7 @@ public sealed class MtpActivationService
             RequestedBy = request.RequestedBy!.Trim(),
             Reason = request.Reason!.Trim(),
             Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim(),
+            PackDefinitionId = request.PackDefinitionId,
             ActivatedUtc = now,
             ActivatedBy = _currentUser.UserName
         };
@@ -123,7 +148,7 @@ public sealed class MtpActivationService
             AuditEventType.MassiveTransfusionProtocol,
             nameof(MtpActivation),
             activation.Id,
-            newValue: new { Action = "Activated", activation.PatientId, activation.RequestedBy, activation.Reason, activation.Location },
+            newValue: new { Action = "Activated", activation.PatientId, activation.RequestedBy, activation.Reason, activation.Location, activation.PackDefinitionId },
             reason: activation.Reason);
         await _unitOfWork.SaveChangesAsync(ct);
         return EvaluationResult<MtpActivationDto>.Ok(await ToDtoAsync(activation, patient, ct));
@@ -248,6 +273,21 @@ public sealed class MtpActivationService
                 g.Count(u => u.IssueStatus == IssueStatus.Transfused)))
             .ToList();
 
+        MtpPackProgressDto? pack = null;
+        if (a.PackDefinitionId is long packDefinitionId && _packs is not null
+            && (await _packs.ListAsync(p => p.Id == packDefinitionId, ct)).FirstOrDefault() is { } definition)
+        {
+            // Sent = issued and not returned: a returned unit did not reach the patient.
+            var sent = issued
+                .Where(u => u.IssueStatus != IssueStatus.Returned)
+                .GroupBy(u => u.ComponentClass)
+                .ToDictionary(g => g.Key, g => g.Count());
+            var progress = MtpPackRule.Progress(definition, sent);
+            pack = new MtpPackProgressDto(
+                definition.Id, definition.Code, definition.Name, progress.CompletedRounds, progress.CurrentRound,
+                progress.Components.Select(c => new MtpPackComponentDto(c.ComponentClass, c.PerRound, c.Sent, c.InCurrentRound)).ToList());
+        }
+
         var end = a.ClosedUtc ?? _clock.UtcNow;
         var name = patient is null
             ? $"Patient {a.PatientId}"
@@ -257,7 +297,7 @@ public sealed class MtpActivationService
             a.Id, a.PatientId, patient?.MedicalRecordNumber, name, a.Status, a.RequestedBy, a.Reason, a.Location,
             a.ActivatedUtc, a.ActivatedBy, a.ClosedUtc, a.ClosedBy, a.CloseReason,
             (int)Math.Max(0, (end - a.ActivatedUtc).TotalMinutes),
-            counts, issued);
+            counts, issued, pack);
     }
 
     private static string RhText(RhType rh) => rh switch
