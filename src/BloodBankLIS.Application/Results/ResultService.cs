@@ -1448,7 +1448,38 @@ public sealed class ResultService
     private async Task<OperationResult<TestResult>> FinishInvalidateAsync(
         TestResult original, TestResult value, CancellationToken ct)
     {
-        var warnings = await EvaluateInvalidateOpenWorkupWarningsAsync(original, ct);
+        var warnings = (await EvaluateInvalidateOpenWorkupWarningsAsync(original, ct)).ToList();
+
+        // A blood type recorded from the invalidated result is no longer the patient's type. Nothing earlier is
+        // reinstated: the type is repeated, so a wrong-blood-in-tube result can never stay behind the issue gate.
+        var derived = await _bloodTypes.ListAsync(h => h.SourceResultId == original.Id && h.IsCurrent, ct);
+        foreach (var row in derived)
+        {
+            var tracked = await _bloodTypes.GetByIdAsync(row.Id, ct);
+            if (tracked is null)
+            {
+                continue;
+            }
+
+            tracked.IsCurrent = false;
+            tracked.InvalidatedUtc = _clock.UtcNow;
+            tracked.Reason = $"Source result invalidated: {original.InvalidationReason ?? value.InvalidationReason}";
+            _bloodTypes.Update(tracked);
+            _audit.Record(
+                AuditEventType.Invalidate,
+                nameof(PatientBloodTypeHistory),
+                tracked.Id,
+                oldValue: new { IsCurrent = true, tracked.Abo, tracked.RhD, tracked.SourceResultId },
+                newValue: new { IsCurrent = false, tracked.Reason },
+                reason: tracked.Reason);
+            warnings.Add(DerivedFromSourceRule.TypeRetired($"{tracked.Abo} {tracked.RhD}"));
+        }
+
+        if (derived.Count > 0)
+        {
+            await _unitOfWork.SaveChangesAsync(ct);
+        }
+
         return OperationResult<TestResult>.Ok(value, warnings);
     }
 

@@ -30,5 +30,11 @@ public class PatientBloodTypeHistory : BaseEntity
     /// <summary>Required for manual edits (a dangerous action; see docs/safety-rules.md).</summary>
     public string? Reason { get; set; }
 
+    /// <summary>
+    /// Set when the result this type came from was invalidated. Such a row is never current again and is not
+    /// evidence for the two-determination rule or for a discrepancy.
+    /// </summary>
+    public DateTime? InvalidatedUtc { get; set; }
+
     public AboRh BloodType => new(Abo, RhD);
 }

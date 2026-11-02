@@ -28,11 +28,12 @@ public sealed record BloodTypeDto(
     string? Reason,
     DateTime RecordedUtc,
     string RecordedBy,
-    AboSubgroup AboSubgroup = AboSubgroup.Unknown)
+    AboSubgroup AboSubgroup = AboSubgroup.Unknown,
+    bool Invalidated = false)
 {
     public static BloodTypeDto From(PatientBloodTypeHistory h) => new(
         h.Id, h.PatientId, h.Abo, h.RhD, h.BloodType.ToString(), h.Source, h.SourceResultId,
-        h.IsCurrent, h.Reason, h.CreatedUtc, h.CreatedBy, h.AboSubgroup);
+        h.IsCurrent, h.Reason, h.CreatedUtc, h.CreatedBy, h.AboSubgroup, h.InvalidatedUtc is not null);
 }
 
 public sealed record AntibodyDto(

@@ -8568,3 +8568,56 @@ No change since Cycle 287. This cycle audits the supervisor queue.
 ### Next ranked residual
 
 Downtime back-entry of transfusions (awaiting product decision). Otherwise continue workflow audits: specimen receipt and rejection.
+
+## Iteration 289 — Invalid results never stay behind the type of record (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 288. This cycle audits specimen receipt and rejection.
+
+### Findings (critical)
+
+1. **Invalidating a verified ABO/Rh result left its blood type current.**
+   - A current type was only ever retired when a newer one was verified.
+   - The issue gate, allocation, and electronic crossmatch read the current history row, so a wrong-blood-in-tube type kept driving compatibility after its result was invalidated.
+2. **Retired types counted as evidence.** The two-determination rule and the ABO/Rh discrepancy checks read every history row, so an invalid type could satisfy "second concordant determination", or raise a discrepancy that never cleared.
+3. **Rejecting a specimen changed only its status.** Its results, any type recorded from them, and reservations made against it stayed in use.
+
+### Design
+
+- **On invalidation** (`ResultService.FinishInvalidateAsync`):
+  - every current history row recorded from the invalidated result (`SourceResultId`) gets `IsCurrent` false, `InvalidatedUtc`, and a reason, and is audited
+  - the warning `RES-TYPE-RETIRED` says to repeat the ABO/Rh before red cells are issued
+  - no earlier type is reinstated; that is the conservative choice, and the patient's type must be re-established
+- **Retired rows are never evidence:**
+  - `SecondAboDeterminationRule.FromHistory` skips rows with `InvalidatedUtc`; it replaces six hand-built determination lists (issue, ready-to-issue and worklists, allocation, electronic crossmatch)
+  - both discrepancy checks at issue skip them too
+  - the chart header skips them through `BloodTypeDto.Invalidated`
+- **Specimen rejection** (`SPEC-REJECT-RESULTS`):
+  - refused while the specimen has active results (not invalidated, not superseded), naming the tests
+  - invalidate them first, so their consequences go through the path above
+  - afterwards, units still reserved against the specimen are listed (`SPEC-REJECT-RESERVED`); reservations are not released automatically
+- **Schema:** `PatientBloodTypeHistory.InvalidatedUtc` (migration `20261103160000_BloodTypeInvalidated`, dev bootstrap).
+- **Known limit:** a correction that is not yet verified leaves the previous type current until the correction is verified (existing behavior; not changed).
+
+### Requirements / risk
+
+- URS-BB-441, FRS-BB-477, SRS-BB-439, RISK-BB-543. Help: patient specimens and patient tests pages.
+
+### Tests
+
+- TEST-BB-333:
+  - `DerivedFromSourceRuleTests`
+  - `ResultLifecycleTests`:
+    - invalidating a verified ABO/Rh retires its type, leaves no current type, marks and audits the row, and warns
+    - an invalidated type followed by a new matching type is not a second concordant determination and not a discrepancy
+    - rejecting a specimen with a verified ABO/Rh is refused and names ABORH; after invalidation the rejection succeeds
+- Full suite: 3,305 passed, 0 failed (previously 3,299). Domain 1,875, Integration 1,193, Application 105, Help 29, HL7 63, Printing 21, Astm 19.
+- Run check (development API, DevMode):
+  - rejecting ACC0001 returns 400 "SPEC-REJECT-RESULTS: This specimen still has results (ABORH, ABSC). Invalidate them first, then reject the specimen…"
+  - the specimen stays Accepted
+  - no server errors
+
+### Next ranked residual
+
+Coded specimen rejection reasons (rejection reasons are free text, so rejection rates cannot be reported by cause). Pending product decisions: downtime back-entry, and who holds `override.approve`.

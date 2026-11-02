@@ -37,6 +37,9 @@ public sealed class SpecimenService
     private readonly IRepository<AntibodyIdentificationFinding>? _antibodyFindings;
     private readonly IRepository<ExceptionDefinition>? _exceptionDefinitions;
     private readonly IRepository<Override>? _overrides;
+    private readonly IRepository<TestResult>? _results;
+    private readonly IRepository<Allocation>? _allocations;
+    private readonly IRepository<BloodUnit>? _units;
     private readonly AntibodyScreenCompatLoader? _antibodyScreen;
 
     public SpecimenService(
@@ -54,7 +57,10 @@ public sealed class SpecimenService
         IRepository<AntibodyIdentificationFinding>? antibodyFindings = null,
         IRepository<ExceptionDefinition>? exceptionDefinitions = null,
         IRepository<Override>? overrides = null,
-        AntibodyScreenCompatLoader? antibodyScreen = null)
+        AntibodyScreenCompatLoader? antibodyScreen = null,
+        IRepository<TestResult>? results = null,
+        IRepository<Allocation>? allocations = null,
+        IRepository<BloodUnit>? units = null)
     {
         _specimens = specimens;
         _patients = patients;
@@ -69,6 +75,9 @@ public sealed class SpecimenService
         _antibodyWorkups = antibodyWorkups;
         _antibodyFindings = antibodyFindings;
         _exceptionDefinitions = exceptionDefinitions;
+        _results = results;
+        _allocations = allocations;
+        _units = units;
         _overrides = overrides;
         _antibodyScreen = antibodyScreen;
     }
@@ -442,6 +451,21 @@ public sealed class SpecimenService
             return OperationResult<Specimen>.Fail($"A specimen with status {specimen.Status} cannot be rejected.");
         }
 
+        if (_results is not null)
+        {
+            var active = (await _results.ListAsync(
+                    r => r.SpecimenId == specimen.Id && r.SupersededByResultId == null && r.Status != ResultStatus.Invalidated, ct))
+                .Select(r => r.TestCode)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            var withResults = DerivedFromSourceRule.EvaluateReject(active);
+            if (withResults.Severity == RuleSeverity.HardStop)
+            {
+                return OperationResult<Specimen>.Fail($"{withResults.Code}: {withResults.Message}");
+            }
+        }
+
         var previousStatus = specimen.Status;
         specimen.Status = SpecimenStatus.Rejected;
         specimen.RejectionReason = reason;
@@ -455,11 +479,27 @@ public sealed class SpecimenService
             reason: reason.Trim());
         await _unitOfWork.SaveChangesAsync(ct);
 
-        var warnings = await WarnAndWithdrawOpenWorkupAsync(
+        var warnings = (await WarnAndWithdrawOpenWorkupAsync(
             specimen.Id,
             AntibodyIdentificationHistoryPostRule.EvaluateSpecimenRejectedOpenWorkup,
             "Linked specimen was rejected while an antibody-identification workup was open. Interpretation and supervisor review must be repeated, or the workup voided, before completing. This does not identify antibodies.",
-            ct);
+            ct)).ToList();
+
+        // Reservations made on this specimen are not released automatically; the bench decides, but is told.
+        if (_allocations is not null)
+        {
+            var reserved = await _allocations.ListAsync(
+                a => a.SpecimenId == specimen.Id && a.Status == AllocationStatus.Reserved, ct);
+            if (reserved.Count > 0)
+            {
+                var unitIds = reserved.Select(a => a.BloodProductId).ToList();
+                var numbers = _units is null
+                    ? unitIds.Select(id => $"unit {id}").ToList()
+                    : (await _units.ListAsync(u => unitIds.Contains(u.Id), ct)).Select(u => u.UnitNumber).OrderBy(n => n).ToList();
+                warnings.Add(DerivedFromSourceRule.ReservedUnits(numbers));
+            }
+        }
+
         return OperationResult<Specimen>.Ok(specimen, warnings);
     }
 

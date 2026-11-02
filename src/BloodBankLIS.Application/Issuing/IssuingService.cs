@@ -287,7 +287,7 @@ public sealed class IssuingService
         var childbearingAge = await _policy.GetChildbearingAgeYearsAsync(ct);
         var typeHistory = await _bloodTypes.ListAsync(h => h.PatientId == request.PatientId, ct);
         var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
-            typeHistory.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
+            SecondAboDeterminationRule.FromHistory(typeHistory));
         var exmEligible = facilityAllowsExm && await IsElectronicCrossmatchEligibleAsync(request.PatientId, ct);
         var issueType = ResolveIssueType(request.IssueType, location, exmEligible, hasValidCrossmatch);
         var retypeConfirmed = await ProductRetypeConfirmation.IsConfirmedAsync(_retypes, productType, unit.Id, ct);
@@ -730,7 +730,7 @@ public sealed class IssuingService
             var rows = historyByPatient.GetValueOrDefault(patient.Id) ?? [];
             var current = rows.FirstOrDefault(h => h.IsCurrent);
             var second = SecondAboDeterminationRule.HasSecondConcordant(
-                rows.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
+                SecondAboDeterminationRule.FromHistory(rows));
             if (second || current is null || !current.BloodType.IsKnown)
             {
                 continue;
@@ -841,7 +841,7 @@ public sealed class IssuingService
             var needsSecondAbo = requireSecondAbo
                 && cellular
                 && !SecondAboDeterminationRule.HasSecondConcordant(
-                    typeRows.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
+                    SecondAboDeterminationRule.FromHistory(typeRows));
             var unitCrossmatches = xms
                 .Where(x => x.PatientId == allocation.PatientId && x.BloodProductId == allocation.BloodProductId)
                 .ToList();
@@ -859,7 +859,7 @@ public sealed class IssuingService
             var crossmatchCue = CrossmatchValidityRule.DescribeReadyToIssue(
                 requiresXm, hasValidCrossmatch, hasIncompatibleCrossmatch);
             var discrepancyCue = IssueGate.DescribeAboRhDiscrepancy(
-                IssueGate.HasUnresolvedAboRhDiscrepancy(typeRows.Select(h => (h.BloodType, h.IsCurrent))),
+                IssueGate.HasUnresolvedAboRhDiscrepancy(typeRows.Where(h => h.InvalidatedUtc is null).Select(h => (h.BloodType, h.IsCurrent))),
                 requiresXm);
             var recordedXm = latestXm is { Result: CrossmatchResult.Compatible or CrossmatchResult.Incompatible }
                 ? latestXm.Result
@@ -1662,7 +1662,7 @@ public sealed class IssuingService
         var history = await _bloodTypes.ListAsync(h => h.PatientId == patientId, ct);
         var currentConfirmed = history.Any(h => h.IsCurrent && h.BloodType.IsKnown);
         var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
-            history.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
+            SecondAboDeterminationRule.FromHistory(history));
         var hasAntibodyHistory = await _antibodyScreenCompat.HasAntibodyHistoryAsync(patientId, ct);
         var screenNegative = !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(patientId, ct);
         var hasOpenWorkup = _workups is not null && await _workups.AnyAsync(
@@ -1739,7 +1739,7 @@ public sealed class IssuingService
     private async Task<bool> HasUnresolvedAboRhDiscrepancyAsync(long patientId, CancellationToken ct)
     {
         var history = await _bloodTypes.ListAsync(h => h.PatientId == patientId, ct);
-        return IssueGate.HasUnresolvedAboRhDiscrepancy(history.Select(h => (h.BloodType, h.IsCurrent)));
+        return IssueGate.HasUnresolvedAboRhDiscrepancy(history.Where(h => h.InvalidatedUtc is null).Select(h => (h.BloodType, h.IsCurrent)));
     }
 
     /// <summary>

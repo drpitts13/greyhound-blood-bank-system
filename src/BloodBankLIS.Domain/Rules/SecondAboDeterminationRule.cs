@@ -1,3 +1,4 @@
+using BloodBankLIS.Domain.Entities;
 using BloodBankLIS.Domain.Enums;
 using BloodBankLIS.Domain.ValueObjects;
 
@@ -13,6 +14,10 @@ public static class SecondAboDeterminationRule
     public const string IssueCode = "ISS-SECOND-ABO";
 
     public sealed record Determination(AboRh BloodType, bool IsCurrent);
+
+    /// <summary>Determinations from stored history, leaving out types whose source result was invalidated.</summary>
+    public static IReadOnlyList<Determination> FromHistory(IEnumerable<PatientBloodTypeHistory> rows) =>
+        rows.Where(r => r.InvalidatedUtc is null).Select(r => new Determination(r.BloodType, r.IsCurrent)).ToList();
 
     public static bool HasSecondConcordant(IReadOnlyList<Determination> history)
     {

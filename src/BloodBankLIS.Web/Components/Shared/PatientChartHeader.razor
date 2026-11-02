@@ -238,14 +238,14 @@
             DateTime.UtcNow);
 
     private IReadOnlyList<SecondAboDeterminationRule.Determination> AboHistory =>
-        TypeHistory.Select(h => new SecondAboDeterminationRule.Determination(new AboRh(h.Abo, h.RhD), h.IsCurrent)).ToList();
+        TypeHistory.Where(h => !h.Invalidated).Select(h => new SecondAboDeterminationRule.Determination(new AboRh(h.Abo, h.RhD), h.IsCurrent)).ToList();
 
     private bool SecondAboOnFile => SecondAboDeterminationRule.HasSecondConcordant(AboHistory);
 
     private string? SecondAboNotice => SecondAboDeterminationRule.MissingCellularIssueNotice(RequireSecondAbo, AboHistory);
 
     private string? AboDiscrepancyNotice =>
-        IssueGate.PatientBannerNotice(TypeHistory.Select(h => (new AboRh(h.Abo, h.RhD), h.IsCurrent)));
+        IssueGate.PatientBannerNotice(TypeHistory.Where(h => !h.Invalidated).Select(h => (new AboRh(h.Abo, h.RhD), h.IsCurrent)));
 
     private string? ReactionNotice => ReactionHistoryBanner.Notice(HasRecordedReaction);
 

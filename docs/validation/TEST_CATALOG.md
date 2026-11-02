@@ -341,5 +341,6 @@ Numbering: `TEST-BB-NNN` is assigned once and is not reused. Next free ID:
 | TEST-BB-330 | D / I | `ShiftHandoffRuleTests`; `ShiftHandoffServiceTests`; `DashboardQueueCatalogTests.Select_AuditReadOnly_OmitsHandoff` | URS-BB-438 / FRS-BB-474 / RISK-BB-540 |
 | TEST-BB-331 | D / I | `IssueTimeRuleTests`; `Phase4IssuingTests.Issue_LateEntry_NeedsReason_AndKeepsBothTimes`, `Issue_WithoutStatedTime_IsNotALateEntry` | URS-BB-439 / FRS-BB-475 / RISK-BB-541 |
 | TEST-BB-332 | D / I | `OverrideReviewRuleTests`; `OverrideReviewTests` | URS-BB-440 / FRS-BB-476 / RISK-BB-542 |
+| TEST-BB-333 | D / I | `DerivedFromSourceRuleTests`; `ResultLifecycleTests.InvalidateVerifiedAboRh_RetiresTheDerivedType_AndWarns`, `InvalidatedType_IsNotASecondConcordantDetermination`, `RejectSpecimen_WithActiveResults_IsRefused_ThenAllowedAfterInvalidation` | URS-BB-441 / FRS-BB-477 / RISK-BB-543 |
 
 Layers: D = Domain.Tests, A = Application.Tests, I = Integration.Tests (including `tests/safety_regression`).

@@ -581,7 +581,7 @@ public sealed class CompatibilityService
             h => h.PatientId == patientId && h.IsCurrent && h.Abo != AboGroup.Unknown && h.RhD != RhType.Unknown, ct);
         var history = await _bloodTypes.ListAsync(h => h.PatientId == patientId, ct);
         var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
-            history.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
+            SecondAboDeterminationRule.FromHistory(history));
         var hasAntibodyHistory = await _antibodyScreenCompat.HasAntibodyHistoryAsync(patientId, ct);
         var screenNegative = requestAntibodyScreenNegative
             && !await _antibodyScreenCompat.HasPositiveAntibodyScreenAsync(patientId, ct);

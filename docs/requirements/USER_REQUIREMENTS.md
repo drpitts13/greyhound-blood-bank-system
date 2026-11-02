@@ -446,3 +446,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-438 | Only bench staff can hand off or accept the open work of a shift, a handoff can only be addressed to a real active colleague, and an active massive transfusion is never missed at change of shift. | P5 | FRS-BB-474 |
 | URS-BB-439 | An issue recorded after the fact (for example after downtime) says so, with a reason and both the stated and the actual entry time; an issue cannot be dated in the future. | P5 | FRS-BB-475 |
 | URS-BB-440 | Every override (emergency release, warning override) is reviewed after the fact by a second person, and the review is recorded. | P4 | FRS-BB-476 |
+| URS-BB-441 | A blood type that came from a result later found invalid (for example wrong blood in tube) never stays the patient's type or counts as evidence, and a specimen cannot be rejected while results from it are still in use. | P1 | FRS-BB-477 |

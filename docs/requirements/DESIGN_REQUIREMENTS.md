@@ -442,3 +442,4 @@
 | SRS-BB-436 | `ShiftHandoffs.ActiveMtp` int, default 0 (migration `20261103130000_ShiftHandoffActiveMtp`, dev bootstrap). `/api/shift-handoffs` requires `shift.handoff`. | FRS-BB-474 |
 | SRS-BB-437 | Nullable `Issues.LateEntryReason` nvarchar(500) (migration `20261103140000_IssueLateEntry`, dev bootstrap). `IssueUnitRequest.LateEntryReason`. | FRS-BB-475 |
 | SRS-BB-438 | `Overrides.ReviewOutcome`, `ReviewedBy`, `ReviewedUtc`, `ReviewNote` (migration `20261103150000_OverrideReview`, dev bootstrap; index on ReviewedUtc). `GET /api/overrides/pending-review`, `POST /api/overrides/{id}/review` (`override.approve`). | FRS-BB-476 |
+| SRS-BB-439 | Nullable `PatientBloodTypeHistory.InvalidatedUtc` (migration `20261103160000_BloodTypeInvalidated`, dev bootstrap); `BloodTypeDto.Invalidated`. | FRS-BB-477 |

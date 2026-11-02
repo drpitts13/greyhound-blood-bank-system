@@ -76,7 +76,7 @@ public sealed class ElectronicCrossmatchEligibilityService
         var history = await _bloodTypes.ListAsync(h => h.PatientId == patientId, ct);
         var currentConfirmed = history.Any(h => h.IsCurrent && h.BloodType.IsKnown);
         var secondAbo = SecondAboDeterminationRule.HasSecondConcordant(
-            history.Select(h => new SecondAboDeterminationRule.Determination(h.BloodType, h.IsCurrent)).ToList());
+            SecondAboDeterminationRule.FromHistory(history));
         // Deactivated ("currently undetectable") antibodies still block computer XM.
         var hasAntibodyHistory = await _antibodies.AnyAsync(a => a.PatientId == patientId, ct);
         var screenNegative = !await _antibodyScreen.HasPositiveAntibodyScreenAsync(patientId, ct);

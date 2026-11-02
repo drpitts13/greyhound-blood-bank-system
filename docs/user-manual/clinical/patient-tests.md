@@ -16,6 +16,7 @@ Enter and verify from the row when your permissions allow it. The rules are the 
 
 - The person who entered a patient ABO or Rh result cannot verify that result.
 - Verification is blocked on a rejected specimen, an expired specimen, or an order on hold.
+- Invalidating an ABO/Rh result takes the blood type it produced out of use. The patient then has no current type until a new ABO/Rh is done, and the screen warns you. An earlier type is not brought back automatically, and the invalidated type no longer counts toward the second ABO/Rh determination.
 - A delta between the new ABO or Rh and history stops verification until a supervisor records Retain or Replace and signs.
 
 Correcting or invalidating a verified result is a separate action. Correction requires an electronic signature. Invalidation leaves the old result in history and marks it so later decisions do not treat it as current. Do not edit a verified value in place.
