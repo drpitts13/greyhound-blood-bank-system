@@ -367,6 +367,14 @@ public sealed class ResultService
             return OperationResult<TestResult>.Fail("Interface result value is required.");
         }
 
+        // Same specimen gate as manual entry, before every branch: a re-sent or replacement
+        // result must not post to an expired, rejected, or merged-away specimen either.
+        var gate = await ValidateSpecimenForEntryAsync(specimenId, testCode, ct);
+        if (!gate.Succeeded)
+        {
+            return OperationResult<TestResult>.Fail(gate.Error!);
+        }
+
         var normalized = testCode.Trim().ToUpperInvariant();
         var current = await GetCurrentResultAsync(orderId, normalized, specimenId, ct);
         OperationResult<TestResult> saved;
@@ -375,7 +383,7 @@ public sealed class ResultService
         {
             saved = await EnterInternalAsync(
                 specimenId, orderId, normalized, value.Trim(), units, interpretation, ct,
-                source: source, sourceReference: sourceReference, skipEnterAuthorization: true);
+                skipSpecimenCheck: true, source: source, sourceReference: sourceReference, skipEnterAuthorization: true);
         }
         else if (current.Status == ResultStatus.Verified)
         {
@@ -398,7 +406,7 @@ public sealed class ResultService
         {
             saved = await EnterInternalAsync(
                 specimenId, orderId, normalized, value.Trim(), units, interpretation, ct,
-                source: source, sourceReference: sourceReference, skipEnterAuthorization: true);
+                skipSpecimenCheck: true, source: source, sourceReference: sourceReference, skipEnterAuthorization: true);
         }
 
         if (!saved.Succeeded || saved.Value is null)

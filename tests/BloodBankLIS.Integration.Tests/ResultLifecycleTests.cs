@@ -543,6 +543,56 @@ public class ResultLifecycleTests : IClassFixture<SqliteContextFactory>
         Assert.Equal("ANALYZER-ABO", entered.Value.SourceReference);
     }
 
+    // TEST-BB-365: an instrument re-sending a pending result is refused once the specimen has expired, as manual entry is.
+    [Fact]
+    public async Task InterfaceResend_OnAnExpiredSpecimen_IsRefused_AndThePendingValueStands()
+    {
+        var key = Guid.NewGuid().ToString("N")[..8];
+        var patientId = await EnsurePatientAsync($"MRN-LIFECYCLE-EXP-{key}");
+        var specimenId = await AccessionAsync($"ACC-LIFECYCLE-EXP-{key}", patientId);
+        long orderId;
+        await using (var context = _factory.Create())
+        {
+            var location = new OrderingLocation { Code = $"LOC-EXP-{key}", Name = "Lab", IsActive = true };
+            context.OrderingLocations.Add(location);
+            var encounter = new Encounter
+            {
+                PatientId = patientId, VisitNumber = $"VIS-EXP-{key}", EncounterType = EncounterType.Inpatient,
+                Status = EncounterStatus.Active, AdmitUtc = _factory.Clock.UtcNow.AddDays(-1)
+            };
+            context.Encounters.Add(encounter);
+            await context.SaveChangesAsync();
+            var order = new Order
+            {
+                OrderNumber = $"ORD-EXP-{key}", PatientId = patientId, EncounterId = encounter.Id, OrderingLocationId = location.Id,
+                OrderCategory = OrderCategory.Test, Priority = OrderPriority.Routine,
+                OrderedUtc = _factory.Clock.UtcNow, Status = OrderStatus.InProcess
+            };
+            context.Orders.Add(order);
+            await context.SaveChangesAsync();
+            orderId = order.Id;
+
+            var first = await Results(context).EnterFromInstrumentAsync(specimenId, orderId, "HGB", "9.0", "g/dL", null, "ANALYZER-1");
+            Assert.True(first.Succeeded, first.Error);
+            Assert.Equal(ResultStatus.PendingVerification, first.Value!.Status);
+
+            var specimen = await context.Specimens.SingleAsync(s => s.Id == specimenId);
+            specimen.ExpiresUtc = _factory.Clock.UtcNow.AddMinutes(-1);
+            await context.SaveChangesAsync();
+        }
+
+        await using (var context = _factory.Create())
+        {
+            var resent = await Results(context).EnterFromInstrumentAsync(specimenId, orderId, "HGB", "12.5", "g/dL", null, "ANALYZER-1");
+            Assert.False(resent.Succeeded);
+            Assert.Contains("has expired", resent.Error);
+        }
+
+        await using var verify = _factory.Create();
+        var stored = await verify.TestResults.SingleAsync(r => r.SpecimenId == specimenId && r.TestCode == "HGB");
+        Assert.Equal("9.0", stored.Value);
+    }
+
     [Fact]
     public async Task ReenterAfterInvalidate_WritesSourceOnOldAndNew()
     {

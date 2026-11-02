@@ -10014,3 +10014,40 @@ The product owner decided OCD-050: a retrospective crossmatch after emergency re
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: check whether ABO/Rh and antibody screen results arriving from instruments are refused on an expired specimen, as manual entry is.
+
+## Iteration 323 — Instrument and interface results check the specimen on every branch (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 322 other than the interoperability row (instrument interfaces).
+
+### Finding (question 6)
+
+The residual from Cycle 322 asked whether instrument results are refused on an expired specimen as manual entry is.
+
+- Manual entry (`SaveTestResultAsync`) checks the specimen before every branch.
+- `EnterFromExternalAsync`, used by the ASTM instrument processor and the HL7 inbound processor, checked it only when creating a new result.
+- Two branches skipped the check:
+  - an instrument re-sending a result that is still pending (update in place)
+  - a result arriving after the earlier one was invalidated (replacement)
+- Either could post a value to an expired, rejected, or cancelled specimen, or one belonging to a merged-away patient, which manual entry refuses.
+
+### Design
+
+- `EnterFromExternalAsync` runs `ValidateSpecimenForEntryAsync` before choosing a branch, exactly as manual entry does; the new-result branch no longer repeats it.
+- A refusal returns the same message as manual entry. The inbound processors already record a failed filing on the message log, and the stored result is unchanged.
+- No schema, API, or screen change.
+
+### Requirements / risk
+
+- URS-BB-470, FRS-BB-506, RISK-BB-569. Help: instruments page.
+
+### Tests
+
+- TEST-BB-365: an instrument result files as pending; the specimen then expires; the instrument re-sends a different value. It is refused ("has expired") and the stored value is still the first one. The test fails against the previous code.
+- Full suite: 3,480 passed, 0 failed (previously 3,479).
+- Run check: not run. Result service only; development data has no live instrument feed.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: check that a verified result can still be corrected after its specimen expires (corrections should remain possible, as they fix the record rather than test the sample).
