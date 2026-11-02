@@ -507,6 +507,7 @@ Layers: D = Domain.Tests, A = Application.Tests, H = HL7.Tests, I = Integration.
 | URS-BB-468 / FRS-BB-504 | No crossmatch on an expired specimen; repeat offered when a crossmatch expires | `CrossmatchSpecimenRule`; `CompatibilityService`; `CrossmatchEntryNeed`; `PatientChartProductsTab.razor` | TEST-BB-363 | D / I | |
 | URS-BB-469 / FRS-BB-505 | Retrospective crossmatch on an expired pre-transfusion specimen as an exception | `CrossmatchSpecimenRule`; `CompatibilityService`; `Compatibility.razor` | TEST-BB-364 | D / I | |
 | URS-BB-470 / FRS-BB-506 | Interface results apply the manual specimen gate on every branch | `ResultService.EnterFromExternalAsync` | TEST-BB-365 | I | |
+| URS-BB-471 / FRS-BB-507 | Corrections can be completed after the specimen expires | `ResultService` | TEST-BB-366 | I | |
 | URS-BB-435 / FRS-BB-472 | MTP pack report in facility local time | `IFacilityTimeZone`; `FacilityTimeZone`; `MtpPackingService`; `MtpPackReport.razor` | TEST-BB-328 | I | OCD-045 time decision |
 
 Citations support validation evidence. They are **not** a claim that this software is AABB-accredited or FDA-cleared.

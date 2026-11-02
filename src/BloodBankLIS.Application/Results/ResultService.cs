@@ -166,6 +166,18 @@ public sealed class ResultService
         }
 
         var gate = await ValidateSpecimenForEntryAsync(request.SpecimenId, request.TestCode, ct);
+        string? expiredError = null;
+        if (!gate.Succeeded && !string.IsNullOrWhiteSpace(request.CorrectionReason))
+        {
+            // Only a correction may go ahead on an expired specimen; decided below once the current result is known.
+            var correctionGate = await ValidateSpecimenForEntryAsync(request.SpecimenId, request.TestCode, ct, allowExpired: true);
+            if (correctionGate.Succeeded)
+            {
+                expiredError = gate.Error;
+                gate = correctionGate;
+            }
+        }
+
         if (!gate.Succeeded)
         {
             return EvaluationResult<TestResult>.Fail(gate.Error!);
@@ -202,6 +214,11 @@ public sealed class ResultService
 
         var current = await GetCurrentResultAsync(request.OrderId, normalizedCode, request.SpecimenId, ct);
         OperationResult<TestResult> saveResult;
+
+        if (expiredError is not null && current?.Status is not (ResultStatus.Verified or ResultStatus.Corrected))
+        {
+            return EvaluationResult<TestResult>.Fail(expiredError);
+        }
 
         if (current is null)
         {
@@ -730,7 +747,8 @@ public sealed class ResultService
             return denied;
         }
 
-        var specimenGate = await ValidateSpecimenForEntryAsync(result.SpecimenId, result.TestCode, ct);
+        var specimenGate = await ValidateSpecimenForEntryAsync(
+            result.SpecimenId, result.TestCode, ct, allowExpired: result.Status == ResultStatus.Corrected);
         if (!specimenGate.Succeeded)
         {
             return EvaluationResult<TestResult>.Fail(specimenGate.Error!);
@@ -1711,7 +1729,14 @@ public sealed class ResultService
             : "Link a specimen to this order before entering results.";
     }
 
-    private async Task<OperationResult<Specimen>> ValidateSpecimenForEntryAsync(long specimenId, string testCode, CancellationToken ct)
+    /// <param name="allowExpired">
+    /// For a correction of a verified result: the correction fixes the record of a test
+    /// already performed, so a specimen that has since expired (by date, or marked Expired
+    /// by the sweep) does not stop it. Rejected or cancelled specimens and merged-away
+    /// patients are still refused.
+    /// </param>
+    private async Task<OperationResult<Specimen>> ValidateSpecimenForEntryAsync(
+        long specimenId, string testCode, CancellationToken ct, bool allowExpired = false)
     {
         var specimen = await _specimens.GetByIdAsync(specimenId, ct);
         if (specimen is null)
@@ -1719,7 +1744,8 @@ public sealed class ResultService
             return OperationResult<Specimen>.Fail("Specimen not found.");
         }
 
-        if (specimen.Status != SpecimenStatus.Accepted)
+        if (specimen.Status != SpecimenStatus.Accepted
+            && !(allowExpired && specimen.Status == SpecimenStatus.Expired))
         {
             return OperationResult<Specimen>.Fail($"Specimen {specimen.AccessionNumber} is {specimen.Status}; only Accepted specimens allow result entry.");
         }
@@ -1737,7 +1763,7 @@ public sealed class ResultService
             }
         }
 
-        if (specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
+        if (!allowExpired && specimen.ExpiresUtc.HasValue && specimen.ExpiresUtc.Value <= _clock.UtcNow)
         {
             return OperationResult<Specimen>.Fail($"Specimen {specimen.AccessionNumber} has expired.");
         }

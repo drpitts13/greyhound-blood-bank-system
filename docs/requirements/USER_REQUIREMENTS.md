@@ -476,3 +476,4 @@ that this software is AABB-accredited or FDA-cleared.
 | URS-BB-468 | A crossmatch cannot be recorded on an expired specimen, and when a reserved unit's crossmatch has expired the chart tells the user to repeat it on a current specimen and offers the crossmatch. | P1 | FRS-BB-504 |
 | URS-BB-469 | After emergency release, the retrospective crossmatch can be recorded on the pre-transfusion specimen after it expires, as an exception with a reason and an authorizer that goes to supervisor review. | P1 | FRS-BB-505 |
 | URS-BB-470 | A result arriving from an instrument or the HL7 interface is refused on a specimen that manual entry would refuse, including when it re-sends or replaces an earlier result. | P1 | FRS-BB-506 |
+| URS-BB-471 | A verified result can be corrected, and the correction verified, after its specimen has expired, so a wrong value on the record can always be fixed. | P1 | FRS-BB-507 |

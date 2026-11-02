@@ -10051,3 +10051,47 @@ The residual from Cycle 322 asked whether instrument results are refused on an e
 ### Next ranked residual
 
 Pending decisions: downtime back-entry, OCD-046, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: check that a verified result can still be corrected after its specimen expires (corrections should remain possible, as they fix the record rather than test the sample).
+
+## Iteration 324 — Corrections can be completed after the specimen expires (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 323 other than the testing row (corrected and invalidated results).
+
+### Finding (question 6)
+
+The residual from Cycle 323 asked whether a verified result can still be corrected after its specimen expires.
+
+- `CorrectResultAsync` did not check the specimen, so the correction was saved.
+- Verifying it ran the full specimen gate and was refused ("Specimen … has expired", or "is Expired; only Accepted specimens allow result entry" once the sweep marked it), so the correction stayed pending for good.
+- Correcting an ABO/Rh retires the type derived from the original at once (Cycle 312), so the patient was also left without that type until a verification that could never happen.
+- The worklist save path refused the correction outright, because it gates the specimen before knowing the request is a correction.
+
+### Design
+
+- `ValidateSpecimenForEntryAsync(allowExpired)` skips only the expiration date and accepts status Expired. Rejected and cancelled specimens and merged-away patients are still refused.
+- **Verify:** `allowExpired` only for a result with status Corrected.
+- **Worklist save:**
+  - with a correction reason, the save may pass the gate with `allowExpired`
+  - it then proceeds only when the current result is Verified (new correction) or Corrected (editing a pending correction)
+  - otherwise it returns the original expiration message
+- Nothing else changes. First results, re-entry after invalidation, and interface results keep the full check. Corrections keep their reason, signature, second-person verification, and audit.
+- Recorded as OCD-051 for SME confirmation, including whether a correction that changes interpretation should need a retest.
+
+### Requirements / risk
+
+- URS-BB-471, FRS-BB-507, RISK-BB-570, OCD-051. Help: test worklist page.
+
+### Tests
+
+- TEST-BB-366 (own database):
+  - a verified ABO/Rh is corrected after the specimen expires and is marked Expired, and the correction is verified; this fails against the previous code
+  - a pending first result is still not verified on an expired specimen
+  - a correction on a specimen later rejected is still refused at verification
+- The worklist save branch is covered by the code path shared with verification, not by its own test.
+- Full suite: 3,483 passed, 0 failed (previously 3,480).
+- Run check: not run. Result service only, and development data has no verified result on an expired specimen to correct.
+
+### Next ranked residual
+
+Pending decisions: downtime back-entry, OCD-046, OCD-051, the authorizer directory policy, and whether receipt must be by scan. Next engineering candidate: an integration test for the worklist correction path on an expired specimen, then review invalidation on an expired specimen the same way.

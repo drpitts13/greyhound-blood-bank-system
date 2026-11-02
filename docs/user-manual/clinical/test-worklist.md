@@ -38,4 +38,4 @@ The product retype tab of the worklist lists units that still need a front type.
 
 ## Correct or invalidate
 
-After verification, a wrong result is corrected or invalidated. Correction requires a signature. Invalidation keeps the prior result visible and removes it from current history. Both are audited. The supervisor queue shows verifications that are waiting when your role is the one who verifies.
+After verification, a wrong result is corrected or invalidated. Correction requires a signature. You can correct a verified result, and verify the correction, after its specimen has expired: the correction fixes the record of a test already done. A new result on an expired specimen is still refused. Invalidation keeps the prior result visible and removes it from current history. Both are audited. The supervisor queue shows verifications that are waiting when your role is the one who verifies.
