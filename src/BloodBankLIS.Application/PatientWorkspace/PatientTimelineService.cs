@@ -244,9 +244,19 @@ public sealed class PatientTimelineService
                 r.ReturnedBy, UnitHref(r.BloodProductId), $"ret-{r.Id}"));
         }
 
+        var openIssueIds = issues.Where(i => i.Status == IssueStatus.Issued).Select(i => i.Id).ToHashSet();
         foreach (var t in transfusions)
         {
             var at = t.StartUtc ?? t.StopUtc ?? t.CreatedUtc;
+            if (t.StopUtc is null && openIssueIds.Contains(t.IssueId))
+            {
+                events.Add(new(at, TimelineCategory.Transfusion, TimelineSeverity.Warning,
+                    $"Unit {Unit(t.BloodProductId)} transfusion started",
+                    "In progress, not yet completed",
+                    t.Transfusionist ?? t.DocumentedBy, UnitHref(t.BloodProductId), $"trf-{t.Id}"));
+                continue;
+            }
+
             events.Add(new(at, TimelineCategory.Transfusion, t.ReactionSuspected ? TimelineSeverity.Critical : TimelineSeverity.Info,
                 $"Unit {Unit(t.BloodProductId)} transfused",
                 Join(t.StopUtc is DateTime stop && t.StartUtc is not null ? $"stopped {stop:yyyy-MM-dd HH:mm} UTC" : null,

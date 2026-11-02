@@ -126,6 +126,11 @@
                                         @* The full bedside form: identifiers, unit scan, verifier, and expiration are all checked there. *@
                                         <a class="btn btn-secondary btn-sm" href="@($"/issuing?desk=transfuse&issueId={historyIssueId}")">Document transfusion</a>
                                     }
+                                    @if (h.EventType == PatientProductHistoryEventType.TransfusionStarted
+                                         && (Session.Has(PermissionCodes.TransfusionComplete) || Session.Has(PermissionCodes.TransfusionDocument)))
+                                    {
+                                        <a class="btn btn-primary btn-sm" href="@($"/issuing?desk=transfuse&issueId={historyIssueId}")">Complete transfusion</a>
+                                    }
                                 }
                             </div>
                         </td>

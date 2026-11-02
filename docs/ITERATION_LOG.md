@@ -9243,3 +9243,38 @@ With start and complete as separate steps (Cycle 299), a transfusion started and
 ### Next ranked residual
 
 Show the in-progress transfusion on the patient chart's Products tab and timeline, so the clinical team sees it without the issue desk. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.
+
+## Iteration 305 — Chart and timeline show a running transfusion as running (2026-11-02)
+
+### Capability matrix rescan
+
+No change since Cycle 304 other than the transfusion row.
+
+### Finding (question 6)
+
+The patient chart's product history showed a running transfusion as **Transfused** with disposition **Completed**, because a started record keeps the field's default value until it is completed. The patient timeline said "Unit … transfused". A clinician reading the chart during a transfusion would believe it had finished.
+
+### Design
+
+- **Product history:** a transfusion record with no stop on an issue still Issued is reported as `TransfusionStarted` (new event type 10), with disposition "In progress", highlighted as open. A **Complete transfusion** action opens the transfusion desk (for `transfusion.complete` or `transfusion.document`).
+- **Timeline:** "Unit … transfusion started", "In progress, not yet completed", at Warning severity.
+- Completed and one-step records are unchanged. A record with a stop time is always a finished transfusion.
+
+### Requirements / risk
+
+- URS-BB-452, FRS-BB-488, RISK-BB-554. No schema change; event type value 10 added. Help: product history and timeline pages.
+
+### Tests
+
+- TEST-BB-347, on seeded data (the running demo transfusion from Cycle 300):
+  - product history shows it as TransfusionStarted, "In progress", open, and never as Transfused
+  - the timeline shows "transfusion started", "In progress, not yet completed", at Warning
+- Full suite: 3,382 passed, 0 failed (previously 3,381).
+- Run check (development API):
+  - MRN0001 product history and timeline both returned 200
+  - the older development row, which has a stop time, still reads as Transfused
+  - no server errors
+
+### Next ranked residual
+
+PR #13 holds Cycles 263 to 303; Cycles 304 and 305 are local commits. Pending decisions: downtime back-entry, OCD-046, and the authorizer directory policy.

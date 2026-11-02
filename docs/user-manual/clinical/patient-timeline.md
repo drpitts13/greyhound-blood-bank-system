@@ -17,7 +17,7 @@ It shows:
 - **Specimens**: collection and receipt. A rejected specimen shows the rejection reason.
 - **Testing**: results entered and verified. A correction shows its reason, and the original result is kept and marked as replaced. An invalidated result shows who invalidated it and why. Blood type records are listed too.
 - **Antibodies and requirements**: each recorded antibody and each special transfusion requirement.
-- **Products and transfusion**: reservations, crossmatches, issues, returns, transfusions, and reaction reports. An emergency or overridden issue shows the override rule, reason, and who authorized it.
+- **Products and transfusion**: reservations, crossmatches, issues, returns, transfusions, and reaction reports. A transfusion still running shows as "transfusion started, in progress", not as transfused. An emergency or overridden issue shows the override rule, reason, and who authorized it.
 
 **Markings**
 

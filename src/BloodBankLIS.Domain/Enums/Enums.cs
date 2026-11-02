@@ -192,7 +192,10 @@ public enum PatientProductHistoryEventType
     PartiallyTransfused = 6,
     Wasted = 7,
     Discarded = 8,
-    Cancelled = 9
+    Cancelled = 9,
+
+    /// <summary>Started at the bedside and not yet completed (no stop time, issue still Issued).</summary>
+    TransfusionStarted = 10
 }
 
 public enum OrderSource
